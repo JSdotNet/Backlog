@@ -95,7 +95,7 @@ public sealed record C4InspectorRelationship(string Other, bool Outgoing, string
 /// <param name="Label">What the reader sees — "ADR 0008".</param>
 public sealed record C4InspectorLink(string Path, string Label);
 
-/// <summary>Which records the zoom tab's overlay draws on the cards.</summary>
+/// <summary>Which records the zoom navigation's overlay draws on the cards.</summary>
 public enum C4RecordOverlay
 {
     /// <summary>No records on the cards: the picture as it is drawn without one.</summary>

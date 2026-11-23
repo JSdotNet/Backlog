@@ -25,18 +25,16 @@ public sealed class EnsureRepositoryTests : IDisposable
 
     private static readonly DateTimeOffset Morning = new(2026, 10, 7, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "ensure-repository-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("ensure-repository-tests");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    private string WorkspaceRoot => Path.Combine(_root, "workspace");
+    private string WorkspaceRoot => _temp.Combine("workspace");
 
     private GitHubSettingsStore Store(TimeProvider? clock = null) =>
-        new(Path.Combine(_root, "local", "github.json"), () => WorkspaceRoot, clock);
+        new(_temp.Combine("local", "github.json"), () => WorkspaceRoot, clock);
 
-    private string Clone(string name = "clone") => Path.Combine(_root, name);
+    private string Clone(string name = "clone") => _temp.Combine(name);
 
     /// <summary>The seed exactly as the harness builds it.</summary>
     private GitHubRepositoryRef Seed(string? cloneDirectory = null) =>
@@ -46,11 +44,7 @@ public sealed class EnsureRepositoryTests : IDisposable
             DevbookFolders = DevbookFolderSetting.Defaults()
         };
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>
     /// The defect itself: a start that seeds the checkout must leave every other

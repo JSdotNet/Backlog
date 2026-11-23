@@ -1093,6 +1093,256 @@ public sealed class SettingsDevicesTests
         Assert.Null(context.SyncSettings.Current.ServiceUrl);
     }
 
+    /// <summary>A device whose key is kept in software rather than a TPM (local ADR 0058
+    /// §2) is told what that costs: a copy of the profile signs in as this device. The
+    /// heading says where the key is, not why - a TPM may be missing, or merely
+    /// unavailable, and the harness keeps its key in software on purpose.</summary>
+    [Fact]
+    public void A_device_whose_key_is_in_software_is_warned_that_a_copy_of_the_profile_could_sign_in()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var warning = context.Component.Find("[data-testid='devices-key-in-software']");
+            Assert.Contains("This device's key is kept in software", warning.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("no TPM", warning.TextContent, StringComparison.Ordinal);
+            Assert.Contains("copy of your Windows profile", warning.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>The note under the card says what protects the key, and does not claim
+    /// a software key cannot be copied out.</summary>
+    [Fact]
+    public void A_key_in_software_is_not_described_as_impossible_to_copy()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var note = context.Component.Find("[data-testid='devices-credential-note']").TextContent;
+            Assert.Contains("kept in software", note, StringComparison.Ordinal);
+            Assert.DoesNotContain("cannot be copied", note, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_key_in_the_TPM_is_described_as_one_that_cannot_be_copied_out()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "cannot be copied out",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>Before pairing there is no key to describe, so the note says nothing
+    /// about one.</summary>
+    [Fact]
+    public void An_unpaired_device_with_a_key_store_is_told_nothing_about_a_key()
+    {
+        using var context = RenderSettings(syncEnabled: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.DoesNotContain(
+                "key",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A device bound to a key this machine cannot use - a TPM in lockout or
+    /// reset - cannot sync. The card says so, and offers the way
+    /// back a refused credential gets: register again, or pair.</summary>
+    [Fact]
+    public void A_device_whose_key_cannot_be_used_is_told_so_and_offered_a_way_back()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            keyBound: true,
+            withTokenPipeline: true,
+            keys: new BrokenKeyStore(),
+            respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var notice = context.Component.Find("[data-testid='devices-key-unavailable']");
+            Assert.Contains("key", notice.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("alert", notice.GetAttribute("role"));
+        });
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-pair']"));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-generate-code']"));
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>The key is gone and the service has also refused this device: one alert,
+    /// the key's, since that is what has to come back first. Two error alerts saying
+    /// different things about one device would leave nobody sure which to act on.</summary>
+    [Fact]
+    public void A_device_whose_key_cannot_be_used_and_was_refused_shows_only_the_key_alert()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            keyBound: true,
+            withTokenPipeline: true,
+            keys: new BrokenKeyStore(),
+            respond: (request, _) => IsStatusRequest(request)
+                ? Problem(HttpStatusCode.Unauthorized, SyncErrorCodes.DeviceCredentialInvalid, "That device id and credential do not match a registered device.")
+                : new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-unavailable']")));
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(context.Service.Paths, path => path.EndsWith("/devices/me", StringComparison.Ordinal)));
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-unavailable']"));
+            Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+            Assert.Contains("cannot sign in without its key", context.Component.Find("[data-testid='devices-paired']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>The token provider moves a device on a secret onto its key on a background
+    /// fetch, while the page is open: the warning about a key kept in software appears
+    /// then, without the page being opened again.</summary>
+    [Fact]
+    public async Task A_device_moved_onto_a_software_key_in_the_background_is_warned_without_a_reload()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: false, keys: new FixedKeyStore(DeviceKeyProtection.Software));
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+
+        var migrated = context.Credentials.Current! with { Credential = null };
+        await Task.Run(() => context.Credentials.SaveAsync(migrated), TestContext.Current.CancellationToken);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-key-in-software']")));
+    }
+
+    [Fact]
+    public void A_device_whose_key_is_in_the_TPM_shows_no_warning()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+    }
+
+    /// <summary>An unpaired device is not warned, and its key is not made just to
+    /// render the page.</summary>
+    [Fact]
+    public void An_unpaired_device_is_not_warned_and_its_key_is_left_alone()
+    {
+        var keys = new FixedKeyStore(DeviceKeyProtection.Software);
+        using var context = RenderSettings(syncEnabled: true, keys: keys);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-empty']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+        Assert.Equal(0, keys.Asked);
+    }
+
+    /// <summary>A device bound to its key holds no secret, so the note under the card
+    /// no longer says a credential is kept.</summary>
+    [Fact]
+    public void A_key_bound_device_is_told_it_stores_no_secret()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, keyBound: true, keys: new FixedKeyStore(DeviceKeyProtection.Hardware));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var note = context.Component.Find("[data-testid='devices-credential-note']").TextContent;
+            Assert.Contains("stores no password-like secret", note, StringComparison.Ordinal);
+            Assert.DoesNotContain("registration credential is kept", note, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_device_on_a_host_without_a_key_is_still_told_where_its_credential_is()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "registration credential is kept",
+                context.Component.Find("[data-testid='devices-credential-note']").TextContent,
+                StringComparison.Ordinal));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-key-in-software']"));
+    }
+
+    /// <summary>A key store that answers a fixed protection, and counts how often it
+    /// was asked to open its key.</summary>
+    private sealed class FixedKeyStore(DeviceKeyProtection protection) : IDeviceKeyStore, IDisposable
+    {
+        private readonly InMemoryDeviceKeyStore _inner = new();
+
+        public int Asked { get; private set; }
+
+        public DeviceKeyProtection Protection
+        {
+            get
+            {
+                Asked++;
+                return protection;
+            }
+        }
+
+        public IDeviceKey GetOrCreate()
+        {
+            Asked++;
+            return _inner.GetOrCreate();
+        }
+
+        public void Dispose() => _inner.Dispose();
+    }
+
+    /// <summary>A key store whose key cannot be opened, as with a TPM in lockout.</summary>
+    private sealed class BrokenKeyStore : IDeviceKeyStore
+    {
+        public DeviceKeyProtection Protection =>
+            throw new System.Security.Cryptography.CryptographicException("The TPM is locked out.");
+
+        public IDeviceKey GetOrCreate() =>
+            throw new System.Security.Cryptography.CryptographicException("The TPM is locked out.");
+    }
+
     private static SettingsRenderContext RenderSettings(
         bool syncEnabled,
         bool paired = false,
@@ -1102,9 +1352,12 @@ public sealed class SettingsDevicesTests
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
         bool withTokenPipeline = false,
         Dictionary<string, string>? environment = null,
-        bool registerSection = true)
+        bool registerSection = true,
+        IDeviceKeyStore? keys = null,
+        bool keyBound = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-devices-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -1119,7 +1372,7 @@ public sealed class SettingsDevicesTests
         var github = new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe());
 
         var credentials = paired
-            ? new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"))
+            ? new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", keyBound ? null : "a-registration-credential"))
             : new InMemoryDeviceCredentialStore();
 
         var service = new ScriptedSyncService(respond);
@@ -1143,7 +1396,8 @@ public sealed class SettingsDevicesTests
             tokens = new SyncTokenProvider(
                 tokenServices.GetRequiredService<IHttpClientFactory>(),
                 credentials,
-                TimeProvider.System);
+                TimeProvider.System,
+                keys);
 
             pipeline = new SyncAuthenticationHandler(tokens) { InnerHandler = service };
         }
@@ -1172,6 +1426,7 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         testContext.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
+        if (keys is not null) testContext.Services.AddSingleton(keys);
         // Transient, the way AddSyncClient registers it, and counted: the page
         // has to ask for a fresh one after the service URL changes, because the
         // one it opened with keeps the base address it was configured with.
@@ -1179,7 +1434,7 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddTransient(_ =>
         {
             pairingClientsResolved.Value++;
-            return new DevicePairingClient(http, credentials);
+            return new DevicePairingClient(http, credentials, browser: new NoBrowser());
         });
         if (tokens is not null) testContext.Services.AddSingleton(tokens);
 
@@ -1260,7 +1515,7 @@ public sealed class SettingsDevicesTests
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
-            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
+            temp, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
         {
             SessionSyncState = sessionSyncState
         };
@@ -1272,7 +1527,7 @@ public sealed class SettingsDevicesTests
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         InMemoryDeviceCredentialStore Credentials,
@@ -1292,15 +1547,16 @@ public sealed class SettingsDevicesTests
             Http.Dispose();
             Tokens?.Dispose();
             TokenServices?.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
+    }
+
+    /// <summary>A browser the Development enrolment never opens: the start answers the
+    /// loopback itself.</summary>
+    private sealed class NoBrowser : ISystemBrowser
+    {
+        public Task OpenAsync(Uri address, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException($"No browser should open, but {address} was.");
     }
 
     /// <summary>The sync service the panel talks to: registration and pairing
@@ -1322,6 +1578,16 @@ public sealed class SettingsDevicesTests
             if (request.Content is not null)
             {
                 LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            }
+
+            // The enrolment start a Development service answers (local ADR 0058 §1): no
+            // owner configured, so straight back to the device's loopback with a code.
+            if (path.EndsWith("/enrolment/start", StringComparison.Ordinal))
+            {
+                using var start = System.Text.Json.JsonDocument.Parse(LastBody);
+                var redirect = start.RootElement.GetProperty("redirectUri").GetString();
+                var state = Uri.EscapeDataString(start.RootElement.GetProperty("state").GetString()!);
+                return Json(HttpStatusCode.OK, $$"""{"signInAddress":"{{redirect}}?code=one-time-code&state={{state}}"}""");
             }
 
             if (respond is not null) return respond(request, _count++);
@@ -1376,6 +1642,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One task, stamped now, so a push has exactly one thing to
     /// send and the reported count is a number a test can name.</summary>
+    // Differs from InMemoryTaskRepository: holds one task stamped now, so a push sends exactly one.
     private sealed class OneTaskRepository : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks;
@@ -1496,6 +1763,7 @@ public sealed class SettingsDevicesTests
 
     /// <summary>One local session, active now, so a push has exactly one record
     /// to send and the reported count is a number a test can name.</summary>
+    // Differs from StubSessionSource: builds its one session at each reading, so it is always active now.
     private sealed class OneSessionSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>

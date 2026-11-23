@@ -240,8 +240,7 @@ public sealed class C4DynamicPlaybackTests : IDisposable
     public void Two_quick_play_presses_are_a_play_and_a_pause()
     {
         // 200 ms a step: at 20 ms a loaded machine walked to the last step between the
-        // two presses, so the second press played again rather than pausing. The wait
-        // below spans three steps, which a walk left playing would have taken.
+        // two presses, so the second press played again rather than pausing.
         var explorer = RenderOnDynamic(TimeSpan.FromMilliseconds(200));
 
         Press(explorer, "c4-dynamic-play");
@@ -249,7 +248,31 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         var stoppedOn = explorer.Instance.CurrentStep;
 
         Assert.False(explorer.Instance.Playing);
-        Thread.Sleep(600);
+        AssertWalkStaysOn(explorer, stoppedOn, TimeSpan.FromMilliseconds(200));
+    }
+
+    /// <summary>
+    /// Holds that <paramref name="explorer"/> makes no further move. The component
+    /// waits on <c>Task.Delay</c> rather than a clock a test can advance, so instead of
+    /// sleeping a fixed while this plays a second explorer at the same pace, started
+    /// after the first was stopped, and waits for it to walk to the last step. That
+    /// takes three intervals of the same machine's time, so a walk the first had left
+    /// running would have had as long to move: a margin that scales with the load,
+    /// rather than a fixed sleep that does not.
+    /// </summary>
+    private void AssertWalkStaysOn(IRenderedComponent<C4ZoomExplorer> explorer, int? stoppedOn, TimeSpan interval)
+    {
+        var reference = RenderOnDynamic(interval);
+        Press(reference, "c4-dynamic-play");
+
+        reference.WaitForAssertion(
+            () =>
+            {
+                Assert.False(reference.Instance.Playing);
+                Assert.Equal(4, reference.Instance.CurrentStep);
+            },
+            TimeSpan.FromSeconds(10));
+
         Assert.Equal(stoppedOn, explorer.Instance.CurrentStep);
     }
 
@@ -262,9 +285,7 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         await explorer.Instance.DisposeAsync();
 
         Assert.False(explorer.Instance.Playing);
-        var stoppedOn = explorer.Instance.CurrentStep;
-        await Task.Delay(150, TestContext.Current.CancellationToken);
-        Assert.Equal(stoppedOn, explorer.Instance.CurrentStep);
+        AssertWalkStaysOn(explorer, explorer.Instance.CurrentStep, TimeSpan.FromMilliseconds(20));
     }
 
     [Fact]
@@ -446,24 +467,22 @@ public sealed class C4DynamicPlaybackTests : IDisposable
         Assert.Contains("unwatchReducedMotion(id)", watcher, StringComparison.Ordinal);
     }
 
-    // ---- the C4 tab is untouched ---------------------------------------------------
+    // ---- with no step current ------------------------------------------------------
 
-    /// <summary>The C4 tab's explorer hands the writer no options; its dynamic arrows
-    /// keep the "1. " prefix and draw no badge and no step state (local ADR 0046).</summary>
+    /// <summary>A picture handed no current step, a chapter's embed of a dynamic view,
+    /// still badges every numbered arrow, the way the steps panel numbers them, and draws
+    /// none of them as the current one.</summary>
     [Fact]
-    public void Without_step_options_the_writer_draws_a_dynamic_view_as_before()
+    public void Without_a_current_step_every_step_is_badged_and_none_is_current()
     {
         var diagram = C4LayoutEngine.Build(Workspace, View("capture-to-issue"));
 
         var plain = C4SvgWriter.Write(diagram, "plain");
-        var none = C4SvgWriter.Write(diagram, "plain", options: C4SvgOptions.None);
 
-        Assert.Equal(plain, none);
-        Assert.Contains("<tspan class=\"c4-diagram__edge-order\">1. </tspan>", plain, StringComparison.Ordinal);
-        Assert.DoesNotContain("c4-diagram__step-badge", plain, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-c4-step", plain, StringComparison.Ordinal);
+        Assert.Equal(plain, C4SvgWriter.Write(diagram, "plain", options: C4SvgOptions.None));
+        Assert.Equal(diagram.Edges.Count(edge => edge.Order is not null), Count(plain, "class=\"c4-diagram__step-badge\""));
+        Assert.Contains("data-c4-step=\"1\"", plain, StringComparison.Ordinal);
         Assert.DoesNotContain("--current", plain, StringComparison.Ordinal);
-        Assert.Contains("<g class=\"c4-diagram__edge\">", plain, StringComparison.Ordinal);
     }
 
     private static int Count(string text, string value) =>

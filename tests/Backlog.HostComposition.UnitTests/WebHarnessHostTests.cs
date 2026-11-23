@@ -137,7 +137,7 @@ public class WebHarnessHostTests
     /// with scopes validated, now that <c>AddDevbookModule</c> registers them through the
     /// shared composition — and the two choices that were this harness's own survive the
     /// move. The domain store is one per circuit, so two visitors never share a reader's
-    /// state; and the Devbook offers and the Archify artifacts sit over a launcher that
+    /// state; and the Devbook offers sit over a launcher that
     /// says it cannot start a CLI here rather than starting one.
     /// </summary>
     [Fact]
@@ -156,8 +156,6 @@ public class WebHarnessHostTests
             first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>(),
             second.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>());
 
-        Assert.IsType<Backlog.Desktop.UI.Devbook.ArchifyDiagramArtifacts>(
-            harness.Services.GetRequiredService<Backlog.UI.Components.Diagrams.IDiagramArtifactSource>());
         Assert.IsType<Backlog.Infrastructure.Copilot.UnavailableCopilotCliLauncher>(
             harness.Services.GetRequiredService<Backlog.Infrastructure.Copilot.ICopilotCliLauncher>());
 
@@ -437,6 +435,141 @@ public class WebHarnessHostTests
 
         Assert.Equal(["mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
+    }
+
+    /// <summary>
+    /// Events is composed with its pane behind the switch (local ADR 0050 §6): the shared
+    /// composition adds the module and <c>AddSqlite</c> answers its two store ports with the
+    /// rooted SQLite adapters. The one shell surface it registers is the Events takeover, gated
+    /// on the <c>events</c> flag; with the default feature file that switch reads as off, so the
+    /// catalog offers nothing of it. No settings section or Ask AI source of it is registered.
+    /// The events read contract and the Calendar's Events layer port over it (local ADR 0055
+    /// §2) are composed too, and with the switch off the Calendar is offered no events.
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_composes_the_events_pane_behind_its_switch_which_is_off()
+    {
+        const string module = "Backlog.Modules.Events";
+
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        Assert.IsType<Backlog.Infrastructure.Sqlite.Events.RootedSqliteKnowledgeEventRepository>(
+            harness.Services.GetRequiredService<Backlog.Modules.Events.IKnowledgeEventRepository>());
+        Assert.IsType<Backlog.Infrastructure.Sqlite.Events.RootedSqliteEventSeriesRepository>(
+            harness.Services.GetRequiredService<Backlog.Modules.Events.IEventSeriesRepository>());
+
+        using var scope = harness.Services.CreateScope();
+
+        static bool OfEvents(Type type) => type.Assembly.GetName().Name!.StartsWith(module, StringComparison.Ordinal);
+
+        var surface = Assert.Single(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.ShellSurface>(),
+            surface => surface.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(surface.Component));
+        Assert.Equal("events", surface.Id);
+        Assert.Equal(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, surface.FeatureKey);
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetRequiredService<Backlog.SharedKernel.ISurfaceCatalog>().Surfaces,
+            offered => offered.Id == "events");
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>(),
+            section => section.FeatureKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(section.Component));
+        Assert.DoesNotContain(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>(),
+            source => source.AreaKey == Backlog.Modules.Events.Abstractions.EventsFeatures.Events || OfEvents(source.GetType()));
+        Assert.False(harness.Services.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>()
+            .IsEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events));
+
+        Assert.Equal(module, harness.Services
+            .GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReader>()
+            .GetType().Assembly.GetName().Name);
+        var calendarEvents = harness.Services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>();
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.EventsCalendarEvents>(calendarEvents);
+        Assert.False((await calendarEvents.ReadAsync(TestContext.Current.CancellationToken)).Available);
+    }
+
+    /// <summary>
+    /// The Events pane's port resolves in a window's scope over the two cross-context
+    /// adapters: the task target over Tasks' published port, and the Brain's own note
+    /// reader, which replaced the every-note-missing stand-in because the desktop composes
+    /// the Brain.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_events_pane_over_its_task_and_brain_adapters()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var scope = harness.Services.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>());
+        Assert.Equal(
+            "EventsTaskTarget",
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTaskTarget>().GetType().Name);
+        Assert.IsType<Backlog.Infrastructure.Brain.EventsBrainNotes>(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventBrainNotes>());
+    }
+
+    /// <summary>
+    /// The Calendar is its own module's view (local ADR 0055, local ADR 0056): one view-group
+    /// surface with id <c>calendar</c> at order 30 from Calendar.UI, no Tasks part, the
+    /// window's scope, its Tasks port answered from Tasks, its Plans and
+    /// working-week ports answered from Roadmap and its Events port answered from Events, all
+    /// under the Calendar's namespace, one Plans layer and one Events layer per window, and its
+    /// view choices over the shell's file.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_calendar_surface_and_its_layers()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+        var services = first.ServiceProvider;
+
+        var calendar = Assert.Single(services.GetServices<Backlog.SharedKernel.ShellSurface>(), surface => surface.Id == "calendar");
+        Assert.Equal(Backlog.SharedKernel.ShellSurfaceGroup.View, calendar.Group);
+        Assert.Equal(30, calendar.Order);
+        Assert.Equal("Backlog.Modules.Calendar.UI", calendar.Component.Assembly.GetName().Name);
+
+        // No part: the Calendar draws its own grid, so Tasks offers nothing to host (local
+        // ADR 0056 §1), and the window's scope the grid is narrowed and coloured by is the
+        // shell's, one per window.
+        Assert.Null(Type.GetType("Backlog.UI.Components.Calendar.CalendarTasksLayer, Backlog.UI.Components"));
+        Assert.IsType<Backlog.Desktop.UI.Shell.ShellCalendarWindowScope>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarWindowScope>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.RoadmapCalendarPlans>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>());
+        Assert.Same(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>());
+        Assert.IsType<Backlog.Desktop.UI.Shell.ShellCalendarViewPreferences>(
+            services.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.EventsCalendarEvents>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>());
+        Assert.Same(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>());
+        // The Tasks layer's port over Tasks' ITaskItems, and its layer, one of each per
+        // window, as ITaskItems is (local ADR 0056 §2).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Calendar.TasksCalendarTasks>(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>());
+        Assert.NotSame(
+            services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasks>());
+        var tasksLayer = services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasksLayer>();
+        Assert.True(tasksLayer.Offered);
+        Assert.NotSame(
+            tasksLayer,
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarTasksLayer>());
+        var eventsLayer = services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>();
+        Assert.True(eventsLayer.Offered);
+        Assert.Same(eventsLayer, services.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>());
+        Assert.NotSame(
+            eventsLayer,
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEventsLayer>());
     }
 
     /// <summary>

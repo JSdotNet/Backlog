@@ -21,12 +21,13 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-inbox-tests");
     private readonly string _root;
     private readonly SqliteInboxRepository _repository;
 
     public SqliteInboxRepositoryTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-inbox-tests", Guid.NewGuid().ToString("n"));
+        _root = _temp.Path;
         _repository = new SqliteInboxRepository(_root);
     }
 
@@ -592,7 +593,8 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
     [Fact]
     public async Task Pointing_the_rooted_repository_at_another_folder_moves_to_that_inbox()
     {
-        var second = Path.Combine(Path.GetTempPath(), "backlog-sqlite-inbox-tests", Guid.NewGuid().ToString("n"));
+        using var secondTemp = new TemporaryDirectory("backlog-sqlite-inbox-tests");
+        var second = secondTemp.Path;
         var root = _root;
         var rooted = new RootedSqliteInboxRepository(() => root);
 
@@ -615,7 +617,6 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         finally
         {
             SqliteConnection.ClearAllPools();
-            if (Directory.Exists(second)) Directory.Delete(second, recursive: true);
         }
     }
 
@@ -678,6 +679,43 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         return connection;
     }
 
+    /// <summary>An event page capture's facts and the event a route To Event made
+    /// come back as they went in (<c>.devbook/domain/inbox/domain.md#event-facts</c>).</summary>
+    [Fact]
+    public async Task An_items_event_facts_and_its_event_come_back_whole()
+    {
+        var eventId = Guid.CreateVersion7();
+        var facts = new InboxEventFacts(
+            new InboxEventDate(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), TimeSpan.FromHours(1)),
+            new InboxEventDate(new DateOnly(2026, 11, 28), null, null),
+            "Nieuwegein",
+            "https://dotnetfriday.nl",
+            "dotNET Friday");
+        var item = InboxItem.FromCapture(
+            Guid.CreateVersion7(), "dotNET Friday Q4", new InboxSource("event_page", null), "https://dotnetfriday.nl/q4",
+            ContentKind.Link, Noon, Noon, replicaBacked: false);
+        item.LoadEventFacts(facts);
+        item.RouteToEvent(eventId, Noon.AddHours(1));
+
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(item.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(facts, loaded!.EventFacts);
+        Assert.Equal(RoutingDomain.Events, loaded.Routing!.Domain);
+        Assert.Equal(eventId, loaded.Routing.EventId);
+    }
+
+    [Fact]
+    public async Task An_item_with_no_event_facts_reads_back_with_none()
+    {
+        var item = InboxItem.Capture("Plain", new InboxSource("web", null), null, ContentKind.Text, Noon, Noon, replicaBacked: false);
+
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(item.Id, TestContext.Current.CancellationToken);
+
+        Assert.Null(loaded!.EventFacts);
+    }
+
     public void Dispose()
     {
         // The connection pool can still hold the file open the instant a test
@@ -685,7 +723,6 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         // failing a green suite over.
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

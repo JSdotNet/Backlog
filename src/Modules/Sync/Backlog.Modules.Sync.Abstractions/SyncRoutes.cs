@@ -15,9 +15,59 @@ public static class SyncRoutes
     /// <summary>The group every sync endpoint hangs off.</summary>
     public const string Base = "/api/sync";
 
-    /// <summary>First device in: mints a new owner. Anonymous, because there is
-    /// nothing yet to authenticate as.</summary>
+    /// <summary>First device in, or a lost owner's recovery: trades the one-time
+    /// enrolment code an owner sign-in handed back, and its PKCE verifier, for a
+    /// registration credential. Anonymous, because there is nothing yet to
+    /// authenticate as — the code is what authorizes it (local ADR 0058 §1).</summary>
     public const string RegisterDevice = "/devices/register";
+
+    /// <summary>A device with no owner starts the owner sign-in: it sends its
+    /// loopback redirect, a PKCE challenge and its state, and is told the address
+    /// to open in the system browser. Anonymous.</summary>
+    public const string EnrolmentStart = "/enrolment/start";
+
+    /// <summary>Where GitHub sends the browser back after the owner signs in. Not
+    /// under <see cref="Base"/>: it is the callback URL the GitHub OAuth App is
+    /// registered with, so it is an absolute path of its own. Anonymous.</summary>
+    public const string GitHubCallback = "/oauth/github/callback";
+
+    /// <summary>The authorization server's RFC 8414 metadata for the remote connector
+    /// (local ADR 0058 §8). At the root, derived from the configured issuer. Anonymous.</summary>
+    public const string AuthorizationServerMetadata = "/.well-known/oauth-authorization-server";
+
+    /// <summary>The connector's authorization endpoint: claude.ai sends the owner's browser
+    /// here with an S256 challenge. At the root. Anonymous.</summary>
+    public const string ConnectorAuthorize = "/oauth/authorize";
+
+    /// <summary>The consent page the owner reaches after the GitHub sign-in: GET shows it,
+    /// POST carries the one-time consent ticket and the decision. At the root. Anonymous.</summary>
+    public const string ConnectorConsent = "/oauth/consent";
+
+    /// <summary>The connector's token endpoint, form-encoded: an authorization code or a
+    /// refresh token in, an access token and a rotated refresh token out. The client
+    /// secret authenticates it. At the root.</summary>
+    public const string ConnectorToken = "/oauth/token";
+
+    /// <summary>The remote MCP endpoint the connector's access tokens are for (local ADR 0058
+    /// §8): an OAuth 2.1 resource server serving the <c>inbox:capture</c> tools. At the root,
+    /// because its URL is the token audience (RFC 8707). Bearer, connector tokens only.</summary>
+    public const string RemoteMcp = "/mcp";
+
+    /// <summary>The protected-resource metadata of <see cref="RemoteMcp"/> (RFC 9728 §3.1): the
+    /// well-known segment inserted between the origin and the resource's path. Anonymous.</summary>
+    public const string RemoteMcpResourceMetadata = "/.well-known/oauth-protected-resource" + RemoteMcp;
+
+    /// <summary>The well-known segment RFC 9728 §3.1 inserts before a resource's path. Not
+    /// served on its own: a document there would describe the origin, not <c>/mcp</c>.</summary>
+    public const string ProtectedResourceMetadata = "/.well-known/oauth-protected-resource";
+
+    /// <summary>The remote connector as the desktop's settings card sees it: GET describes
+    /// it. Bearer, owner only.</summary>
+    public const string Connector = "/connector";
+
+    /// <summary>The connector's client secret: POST mints a new one and answers it once,
+    /// DELETE revokes it. Bearer, owner only.</summary>
+    public const string ConnectorSecret = "/connector/secret";
 
     /// <summary>A paired device asks for a short code to read out. Bearer.</summary>
     public const string PairingCodes = "/devices/codes";
@@ -79,6 +129,14 @@ public static class SyncRoutes
     /// a cursor. Bearer.</summary>
     public const string Notifications = "/notifications";
 
+    /// <summary>The knowledge event replica (local ADR 0050 §2): POST pushes a batch of the
+    /// events and event series a desktop changed, GET pulls the owner's feed from a cursor —
+    /// the desktops to converge, the phone to read. Bearer, and the shape of
+    /// <see cref="DevbookSubjects"/>, over its own container. A service older than the client
+    /// has no such route and answers 404, which a client reads as "not yet" rather than as a
+    /// failure.</summary>
+    public const string KnowledgeEvents = "/knowledge-events";
+
     /// <summary>The replies to notifications: POST stores one reply from any device of the
     /// owner, GET lists the replies addressed to the calling owner instance. Bearer.</summary>
     public const string NotificationReplies = "/notifications/replies";
@@ -100,6 +158,16 @@ public static class SyncRoutes
 
     /// <summary>The full path for one reply.</summary>
     public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
+
+    /// <summary>Route template for one capture: PUT replaces its title and body
+    /// while the desktop has not decided it. Bearer. A service older than the
+    /// phone has no such route and answers 404 or 405 with no problem code, which
+    /// the phone holds rather than counting as delivered. Use
+    /// <see cref="EditInboxItemFor"/> to build a concrete URL.</summary>
+    public const string EditInboxItem = "/inbox/{id:guid}";
+
+    /// <summary>The full path for editing one capture.</summary>
+    public static string EditInboxItemFor(Guid id) => $"{Base}/inbox/{id:D}";
 
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>

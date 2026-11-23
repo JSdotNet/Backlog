@@ -82,6 +82,17 @@ Deleting a [replica-backed item](domain.md#replica-backed-item) leaves an acknow
 
 Enforced at: `Delete()`
 
+### Invariant: Only an open replica capture takes the phone's later wording
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.A_later_edit_of_an_open_capture_replaces_its_title_and_body_and_nothing_else, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.An_edit_of_a_deferred_capture_is_taken_too, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.An_edit_stamped_at_or_before_the_copy_held_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.A_later_copy_with_the_same_words_is_not_an_edit, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.An_edit_of_a_decided_capture_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.An_edit_of_an_item_with_no_replica_behind_it_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests.A_note_is_refused]
+```
+
+A later copy of a capture replaces the item's title and body, and nothing else, only while the item is open and [replica-backed](domain.md#replica-backed-item), its stamp is after `edited_at`, and its words differ. A note is refused, because it syncs both ways as a note.
+
+Enforced at: `ApplyCaptureEdit()`, applied by `ReceiveCapture`
+
 ### Invariant: Reopening an item records when
 
 ```meta

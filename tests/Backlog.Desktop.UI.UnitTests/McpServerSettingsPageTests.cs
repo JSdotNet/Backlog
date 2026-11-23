@@ -1,3 +1,4 @@
+using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Settings;
 
@@ -10,14 +11,15 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Settings screen's MCP server page (local ADR 0012): whether this machine's
 /// MCP server holds its port, the address a client registers, the worker's own
-/// sentence when it could not bind and a Retry for it, the port, and the bearer
-/// token - hidden on screen, whole on the clipboard, and never minted by drawing.
+/// sentence when it could not bind and a Retry for it, the port, the agents and
+/// their grants (McpServerAgentsCardTests), and the audit log - and
+/// never the shared bearer token, which the Agents card replaced.
 /// The server is a stand-in at <see cref="IMcpEndpointSource"/>, the port the page
 /// reads it through; the real listener behind it is DesktopMcpEndpointSourceTests'.
 /// </summary>
 public sealed class McpServerSettingsPageTests
 {
-    private const string Collision =
+    internal const string Collision =
         "Port 5757 is already in use, so the MCP server could not start. "
         + "Close whatever is using it, or choose another port — and change it in every registration too.";
 
@@ -56,38 +58,6 @@ public sealed class McpServerSettingsPageTests
         Assert.Equal("Starting", Text(page, "mcp-server-state"));
         Assert.Empty(page.FindAll("[data-testid='mcp-server-retry']"));
         Assert.Empty(page.FindAll("[data-testid='mcp-server-error']"));
-    }
-
-    [Fact]
-    public void The_token_is_hidden_on_screen_and_whole_on_the_clipboard()
-    {
-        var server = new FakeMcpServer { IsListening = true, CurrentToken = "secret-token" };
-        using var context = Context(server);
-
-        var page = context.Render<McpServerSettingsPage>();
-
-        Assert.Equal(McpServerSettingsPage.HiddenToken, Text(page, "mcp-server-token"));
-        Assert.DoesNotContain("secret-token", page.Markup, StringComparison.Ordinal);
-        Assert.Equal("secret-token", Copy(page, "mcp-server-token-copy").Text);
-        Assert.Equal(0, server.TokensMinted);
-    }
-
-    [Fact]
-    public void Drawing_the_page_mints_no_token_and_creating_one_offers_it_to_copy()
-    {
-        var server = new FakeMcpServer { Unavailable = Collision };
-        using var context = Context(server);
-
-        var page = context.Render<McpServerSettingsPage>();
-
-        Assert.Equal(0, server.TokensMinted);
-        Assert.Null(server.CurrentToken);
-        Assert.Empty(page.FindAll("[data-testid='mcp-server-token-copy']"));
-
-        page.Find("[data-testid='mcp-server-token-create']").Click();
-
-        Assert.Equal(server.CurrentToken, Copy(page, "mcp-server-token-copy").Text);
-        Assert.Equal(McpServerSettingsPage.HiddenToken, Text(page, "mcp-server-token"));
     }
 
     [Fact]
@@ -171,6 +141,20 @@ public sealed class McpServerSettingsPageTests
     }
 
     [Fact]
+    public void The_page_neither_draws_nor_asks_for_the_escape_hatch_token()
+    {
+        var server = new FakeMcpServer { IsListening = true, CurrentToken = "secret-token" };
+        using var context = Context(server);
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.DoesNotContain("secret-token", page.Markup, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-token-card']"));
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-token-rotate']"));
+        Assert.Equal(0, server.TokensMinted);
+    }
+
+    [Fact]
     public async Task The_page_redraws_when_the_listener_changes_on_another_thread()
     {
         var server = new FakeMcpServer();
@@ -198,7 +182,7 @@ public sealed class McpServerSettingsPageTests
     }
 
     [Fact]
-    public void A_host_with_no_server_of_its_own_answers_on_its_own_origin_with_no_token_and_nothing_to_edit()
+    public void A_host_with_no_server_of_its_own_answers_on_its_own_origin_with_no_agents_and_nothing_to_edit()
     {
         using var context = Context(server: null);
 
@@ -206,10 +190,10 @@ public sealed class McpServerSettingsPageTests
 
         Assert.Equal("Listening", Text(page, "mcp-server-state"));
         Assert.Equal("http://localhost/mcp", Text(page, "mcp-server-address"));
-        Assert.Contains("no token", Text(page, "mcp-server-token-note"), StringComparison.Ordinal);
+        Assert.Contains("no token", Text(page, "mcp-server-agents-note"), StringComparison.Ordinal);
         Assert.Empty(page.FindAll("[data-testid='mcp-server-port-input']"));
         Assert.Empty(page.FindAll("[data-testid='mcp-server-retry']"));
-        Assert.Empty(page.FindAll("[data-testid='mcp-server-token-create']"));
+        Assert.Empty(page.FindAll("[data-testid='mcp-agent-add-toggle']"));
     }
 
     [Theory]
@@ -235,7 +219,7 @@ public sealed class McpServerSettingsPageTests
 
         var page = context.Render<McpServerSettingsPage>();
 
-        Assert.Equal(["MCP endpoint", "Bearer token", "In the background"], section.CardTitles!);
+        Assert.Equal(["MCP endpoint", "Agents", "Remote connector", "Activity", "In the background"], section.CardTitles!);
         Assert.Equal(section.CardTitles!, page.FindAll(".settings-card__title").Select(title => title.TextContent.Trim()));
         Assert.Equal(SettingsGroup.Workspace, section.Group);
         Assert.Equal("MCP server", section.Title);
@@ -292,12 +276,113 @@ public sealed class McpServerSettingsPageTests
         Assert.Equal(["MCP server"], SettingsMenu.Pages(settings.Component));
     }
 
-    private static BunitContext Context(FakeMcpServer? server)
+    [Fact]
+    public void The_activity_card_lists_the_latest_calls_newest_first()
+    {
+        var at = new DateTimeOffset(2026, 11, 11, 9, 30, 15, TimeSpan.Zero);
+        var audit = new FakeAuditLog(
+            new McpAuditRecord(at, McpAudit.SharedTokenCaller, "transition", "4f1c9e", McpCallOutcome.Succeeded, "trace-1"),
+            new McpAuditRecord(at.AddSeconds(5), McpAudit.SharedTokenCaller, "start_run", null, McpCallOutcome.Refused, "trace-2"));
+        using var context = Context(new FakeMcpServer { IsListening = true }, audit);
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Equal(McpAudit.Shown, audit.AskedFor);
+        Assert.Equal(["start_run", "transition"], Column(page, "mcp-server-activity-tool"));
+        Assert.Equal(["Refused", "Succeeded"], Column(page, "mcp-server-activity-outcome"));
+        Assert.Equal(["—", "4f1c9e"], Column(page, "mcp-server-activity-target"));
+        Assert.Equal(["shared token", "shared token"], Column(page, "mcp-server-activity-caller"));
+        Assert.Equal(["trace-2", "trace-1"], Column(page, "mcp-server-activity-correlation"));
+        Assert.Equal(
+            at.AddSeconds(5).ToLocalTime().ToString("d MMM HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+            Column(page, "mcp-server-activity-time")[0]);
+    }
+
+    [Fact]
+    public void An_empty_log_says_so_in_a_sentence()
+    {
+        using var context = Context(new FakeMcpServer { IsListening = true }, new FakeAuditLog());
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Contains("No tool call yet.", Text(page, "mcp-server-activity-empty"), StringComparison.Ordinal);
+        Assert.Contains("kept for 30 days", Text(page, "mcp-server-activity-empty"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_activity_card_follows_a_call_recorded_on_another_thread()
+    {
+        var audit = new FakeAuditLog();
+        using var context = Context(new FakeMcpServer { IsListening = true }, audit);
+        var page = context.Render<McpServerSettingsPage>();
+
+        await Task.Run(
+            () => audit.Add(new McpAuditRecord(DateTimeOffset.UtcNow, McpAudit.SharedTokenCaller, "read_item", "1", McpCallOutcome.Failed, "t")),
+            TestContext.Current.CancellationToken);
+
+        page.WaitForAssertion(() => Assert.Equal(["Failed"], Column(page, "mcp-server-activity-outcome")));
+    }
+
+    [Fact]
+    public async Task Leaving_the_page_lets_go_of_the_audit_log_s_event()
+    {
+        var audit = new FakeAuditLog();
+        using var context = Context(new FakeMcpServer { IsListening = true }, audit);
+        context.Render<McpServerSettingsPage>();
+        Assert.Equal(1, audit.Subscribers);
+
+        await context.DisposeComponentsAsync();
+
+        Assert.Equal(0, audit.Subscribers);
+    }
+
+    internal static BunitContext Context(FakeMcpServer? server, FakeAuditLog? audit = null, IMcpGrantStore? grants = null)
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         if (server is not null) context.Services.AddSingleton<IMcpEndpointSource>(server);
+        if (audit is not null) context.Services.AddSingleton<IMcpAuditLog>(audit);
+        if (grants is not null) context.Services.AddSingleton(grants);
         return context;
+    }
+
+    internal static string[] Column(IRenderedComponent<McpServerSettingsPage> page, string testId) =>
+        [.. page.FindAll($"[data-testid='{testId}']").Select(cell => cell.TextContent.Trim())];
+
+    /// <summary>The audit log as the page reads it: records held oldest first and
+    /// answered newest first, the count asked for remembered.</summary>
+    internal sealed class FakeAuditLog(params McpAuditRecord[] records) : IMcpAuditLog
+    {
+        private readonly List<McpAuditRecord> _records = [.. records];
+        private Action? _changed;
+
+        public int AskedFor { get; private set; }
+
+        public int Subscribers => _changed?.GetInvocationList().Length ?? 0;
+
+        public event Action? Changed
+        {
+            add => _changed += value;
+            remove => _changed -= value;
+        }
+
+        public void Add(McpAuditRecord record)
+        {
+            lock (_records) _records.Add(record);
+            _changed?.Invoke();
+        }
+
+        public Task AppendAsync(McpAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            Add(record);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<McpAuditRecord>> LatestAsync(int count, CancellationToken cancellationToken = default)
+        {
+            AskedFor = count;
+            lock (_records) return Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. _records.AsEnumerable().Reverse().Take(count)]);
+        }
     }
 
     /// <summary>Types <paramref name="value"/> into the port field and leaves it,
@@ -308,7 +393,7 @@ public sealed class McpServerSettingsPageTests
         page.Find("[data-testid='mcp-server-port-input']").Change(value);
     }
 
-    private static string Text(IRenderedComponent<McpServerSettingsPage> page, string testId) =>
+    internal static string Text(IRenderedComponent<McpServerSettingsPage> page, string testId) =>
         page.Find($"[data-testid='{testId}']").TextContent.Trim();
 
     private static CopyButton Copy(IRenderedComponent<McpServerSettingsPage> page, string testId) =>
@@ -317,7 +402,7 @@ public sealed class McpServerSettingsPageTests
     /// <summary>The desktop head's MCP server as the page sees it. Retry clears
     /// the sentence the way the worker does when it queues the bind; minting is
     /// counted, because drawing a page must never be what writes a secret.</summary>
-    private sealed class FakeMcpServer : IMcpEndpointSource
+    internal sealed class FakeMcpServer : IMcpEndpointSource
     {
         private Action? _changed;
 

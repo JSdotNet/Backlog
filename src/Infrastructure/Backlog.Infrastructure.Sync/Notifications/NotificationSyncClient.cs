@@ -46,17 +46,6 @@ public sealed class NotificationSyncClient
             () => _http.GetAsync(ReplicaRoutes.PullRoute(SyncRoutes.Notifications, since, maxItems), cancellationToken),
             cancellationToken);
 
-    /// <summary>Posts a reply to one of the owner's questions. Posting the same reply id
-    /// again stores it once.</summary>
-    public Task<Result<PostNotificationReplyResponse>> PostReplyAsync(NotificationReplyPost reply, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(reply);
-
-        return SyncHttp.SendAsync<PostNotificationReplyResponse>(
-            () => _http.PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.NotificationReplies), reply, cancellationToken),
-            cancellationToken);
-    }
-
     /// <summary>The replies addressed to <paramref name="ownerInstanceId"/> — this desktop's
     /// installation identity — oldest first.</summary>
     public Task<Result<PullNotificationRepliesResponse>> ListRepliesAsync(Guid ownerInstanceId, int maxItems = DefaultMaxReplies, CancellationToken cancellationToken = default) =>

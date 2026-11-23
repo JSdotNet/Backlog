@@ -551,6 +551,34 @@ The system SHALL show no AI card for an item whose model call failed and SHALL l
 - **When** the reader opens an item in triage
 - **Then** the item is shown with its suggestions and its decisions, and with no AI card
 
+### Requirement: A Waiting for card asks who before it routes
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.The_waiting_for_card_opens_the_dialog_filled_with_who_and_confirming_routes_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Cancelling_the_dialog_the_waiting_for_card_opened_routes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Dismissing_the_waiting_for_card_hides_it_and_routes_nothing, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_card_is_read_with_who_it_waits_on, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests.A_waiting_for_that_names_no_one_writable_is_dropped]
+```
+
+The system SHALL show a Waiting for card only when the model names who the item waits on, and SHALL take its main act by opening the Waiting for dialog filled with that name and no follow-up date, routing nothing until the reader confirms.
+
+#### Scenario: Confirming the name
+
+- **Given** triage shows the card "Waiting on Sam the roofer" for an item
+- **When** the reader presses its main act, changes the name to "Sam Jones" and confirms
+- **Then** the item is routed as **w** routes it, to a task waiting on "Sam Jones" with no follow-up date
+
+#### Scenario: Cancelling
+
+- **Given** the Waiting for card opened the dialog
+- **When** the reader cancels it
+- **Then** the item is still unprocessed and still shown
+
+#### Scenario: No one named
+
+- **Given** the model reads an item as Waiting for but names no one
+- **When** triage shows the item
+- **Then** no Waiting for card is shown
+
 ## Merge into a task
 
 ```meta
@@ -731,6 +759,21 @@ The system SHALL, when the Inbox has no item still waiting after decisions this 
 - **When** the reader opens it
 - **Then** the plain empty state is shown, with no counts
 
+### Requirement: The inbox is clear only when the Brain's inbox area is too
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxZeroTests.Notes_still_to_file_in_the_Brain_keep_the_inbox_from_reading_clear
+```
+
+The system SHALL NOT show inbox zero while the Brain's inbox area holds a note to file, even when the unfiled Inbox has none waiting.
+
+#### Scenario: The Inbox emptied, the Brain not
+
+- **Given** the reader decided the last waiting item this session and the Brain's inbox area holds two notes
+- **When** the pane redraws
+- **Then** the plain empty state is shown, not "Inbox is clear", and queue health reads "2 notes to file in the Brain"
+
 ## AI triage pass
 
 ```meta
@@ -848,6 +891,28 @@ The system SHALL stop Apply at the first decision refused, keep every decision a
 - **Given** the reader applies a route, a merge and an archive, and the backlog refuses the merge's comment
 - **When** Apply runs
 - **Then** the route stays, the archive is not tried, and the screen says it could not merge the item, naming it
+
+### Requirement: A Waiting for proposal applies with the name the reader leaves
+
+```meta
+type: requirement
+related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/domain/inbox/requirements.md#clarify-outcomes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_waiting_for_proposal_shows_who_for_the_reader_to_change_then_applies_and_undoes, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests.A_waiting_for_carries_the_name_the_reader_left_and_counts_only_while_it_can_be_written, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.Waiting_for_goes_through_the_route_w_takes_with_the_name_and_no_dates, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_waiting_for_with_no_name_stops_apply_and_names_the_item]
+```
+
+The system SHALL show each Waiting for proposal with who the item waits on in a field the reader may change, SHALL leave it out of Apply while that name is blank or holds a backtick, and SHALL apply it through the route **w** takes, with that name and no follow-up date.
+
+#### Scenario: A name changed before Apply
+
+- **Given** the pass proposes Waiting for on "Sam" for an item
+- **When** the reader changes the name to "Sam the roofer" and presses Apply
+- **Then** the item becomes a task waiting on "Sam the roofer", with no follow-up date, and **u** takes it back as it takes back Move to backlog
+
+#### Scenario: A name cleared
+
+- **Given** the pass proposes Waiting for on "Sam" and the reader clears the name
+- **When** the reader looks at the header
+- **Then** the field says to name who it waits on and Apply does not count the proposal
 
 ## Capture attachments
 
@@ -1112,10 +1177,10 @@ Deleting an item that arrived through sync SHALL leave the acknowledgement archi
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_a_deleted_capture_owes_its_tombstone_again_after_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.An_older_copy_of_a_deleted_capture_leaves_its_tombstone_as_it_was]
 ```
 
-The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
+The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, SHALL owe its acknowledgement again after a copy stamped at or after the deletion, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
 
 #### Scenario: A replayed page
 
@@ -1128,6 +1193,12 @@ The system SHALL treat a capture it deleted and has not yet acknowledged as alre
 - **Given** a capture from the phone was deleted before its acknowledgement was pushed
 - **When** the next pull carries the capture's tombstone
 - **Then** the acknowledgement is dropped unsent
+
+#### Scenario: The phone reworded it meanwhile
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries a copy the phone reworded after the deletion
+- **Then** no item is created, and the acknowledgement is owed again under a stamp after that copy
 
 ## Queue health
 
@@ -1158,6 +1229,27 @@ The system SHALL show in the side menu the number of unprocessed items in every 
 - **Given** no unprocessed items
 - **When** the pane opens
 - **Then** the side menu reads "Nothing waiting" and shows no bar
+
+### Requirement: The Brain's inbox area is counted beside the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Queue_health_counts_the_notes_waiting_in_the_Brains_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Without_a_Brain_or_with_nothing_to_file_queue_health_says_nothing_about_the_Brain, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Pressing_the_Brain_count_asks_the_host_to_open_the_Brain_at_its_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainLinkTests.An_area_folder_asked_for_opens_that_areas_tab, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.The_notes_in_the_inbox_area_are_counted, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.Without_a_brain_there_is_no_count]
+```
+
+The system SHALL show in queue health the number of notes in the Brain's inbox area as "n notes to file in the Brain" while it holds any, open the Devbook on the Brain at that area when it is pressed, and show nothing for the Brain while no Brain folder is set or present.
+
+#### Scenario: Notes waiting in the Brain
+
+- **Given** a Brain whose inbox area holds three notes
+- **When** the pane opens
+- **Then** queue health reads "3 notes to file in the Brain", and pressing it opens the Devbook on the Brain at its inbox area
+
+#### Scenario: No Brain
+
+- **Given** no Brain folder is set
+- **When** the pane opens
+- **Then** queue health says nothing about the Brain
 
 ## Classification and enrichment
 
@@ -1289,6 +1381,76 @@ The system SHALL make one task per repository for an item assigned to several, g
 - **Given** an item assigned to one repository
 - **When** it is moved to the backlog
 - **Then** one task is made, with no "Same capture in:" line and no `#from-inbox-` tag
+
+## Route to Event
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#route-to-event, .devbook/domain/events/requirements.md#to-event-route]
+```
+
+> What the To Event route promises the Inbox item. What the event is made of is in
+> [Events' requirements](../events/requirements.md#to-event-route).
+
+### Requirement: No To Event route while the area is off
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.While_the_Events_area_is_off_To_Event_is_not_offered_anywhere, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.The_shortcuts_dialog_lists_e_only_while_the_area_is_on, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.While_the_Events_area_is_off_nothing_is_made_and_the_item_stays, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_route_is_withdrawn_while_the_flag_is_off_or_nothing_is_composed]
+```
+
+The system SHALL offer no To Event route in triage, in the item's detail or on the **e** key while the `events` flag is off.
+
+#### Scenario: Route withdrawn
+
+- **Given** the `events` flag is off
+- **When** the person triages an Inbox item and presses **e**
+- **Then** To Event is not offered and the item stays in the queue
+
+### Requirement: The event joins the Series of its watched page
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.The_event_joins_the_series_whose_page_is_the_watched_page, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.A_routed_item_hands_its_title_link_and_facts_to_Events_and_leaves_the_queue, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.The_items_title_link_and_facts_reach_Events_part_for_part]
+```
+
+The system SHALL put the event made from an item in the Event Series whose page is the page the item was watched from.
+
+#### Scenario: Techorama again
+
+- **Given** an Event Series "Techorama Netherlands" whose page is techorama.nl, and an item the event page monitor read from techorama.nl
+- **When** the person routes the item To Event
+- **Then** the Spotted event is an edition of "Techorama Netherlands", and no new Series is made
+
+### Requirement: An unknown page starts a Series named after it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_unknown_page_starts_a_series_named_after_it_and_linked_to_it, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.A_page_with_no_title_names_its_series_after_the_host, unit:dotnet:Backlog.Modules.Events.UnitTests.SpotKnowledgeEventTests.An_item_from_no_watched_page_starts_no_series]
+```
+
+The system SHALL start a new Event Series, named after the watched page's title and linked to that page, when no Series has the page the item was watched from.
+
+#### Scenario: The first dotNET Friday
+
+- **Given** no Event Series has the page dotnetfriday.nl, whose title is "dotNET Friday"
+- **When** the person routes an item read from dotnetfriday.nl To Event
+- **Then** a Series "dotNET Friday" linked to dotnetfriday.nl exists, and the Spotted event is its edition
+
+### Requirement: To Event routes once, after the event exists
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_Events_store_that_fails_leaves_the_item_open_and_unrouted, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests.An_item_already_routed_makes_no_second_event, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests.A_store_that_throws_is_the_event_not_made, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests.An_event_Events_did_not_make_is_said_and_the_item_stays]
+```
+
+The system SHALL mark an item routed To Event, with the event's id, only once Events has made the event.
+
+#### Scenario: Events cannot take it
+
+- **Given** an unprocessed item and an Events store that fails to write
+- **When** the person routes it To Event
+- **Then** the item stays in the queue, unrouted, and the person is told the event was not made
 
 ## Route a batch to Tasks
 
@@ -1596,7 +1758,7 @@ The system SHALL refuse To Brain while no Brain folder is set up, say so, and le
 
 ```meta
 type: requirements
-related: [.devbook/domain/inbox/features.md#notes-on-the-phone]
+related: [.devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/domain/inbox/domain.md#content-kind]
 ```
 
 ### Requirement: A note saves itself as it is written
@@ -1609,8 +1771,8 @@ The phone SHALL save a note a second after typing stops, with no save button, an
 
 #### Scenario: A new note
 
-- **Given** the phone's Notes tab is open
-- **When** the reader presses New note, types a title and a body, and stops typing
+- **Given** the phone Inbox is open
+- **When** the reader picks Note in the + menu, types a title and a body, and stops typing
 - **Then** the line at the top reads "Saved"
 
 #### Scenario: The app goes to the background before the second is up
@@ -1633,6 +1795,445 @@ The system SHALL bring a note made on the phone into the desktop Inbox as an ite
 - **When** the desktop syncs
 - **Then** the desktop Inbox shows it as a Note with its title
 
+### Requirement: The phone Inbox lists captures, notes and meetings together
+
+```meta
+type: requirement
+```
+
+The phone SHALL show in its Inbox, as one list, the captures it made that the desktop has not taken in and every note and meeting, each row led by its content kind's mark with the kind's name as its tooltip and accessible text, and SHALL have no Notes tab.
+
+#### Scenario: Three kinds in one list
+
+- **Given** a capture the phone made that the desktop has not taken in, a note made on the desktop, and a meeting made on the phone
+- **When** the reader opens the phone Inbox
+- **Then** the list shows all three: the capture marked by its content kind, such as Text or Link, the note marked Note and the meeting marked Meeting
+- **And** the tab bar holds no Notes tab
+
+#### Scenario: A capture the desktop took in
+
+- **Given** a capture and a note the phone made, both shown in the phone Inbox
+- **When** the desktop takes the capture in, and the phone pulls
+- **Then** the capture is gone from the phone Inbox and the note stays
+
+### Requirement: Kind chips narrow the phone Inbox
+
+```meta
+type: requirement
+```
+
+The phone SHALL offer the chips All, Captures, Notes and Meetings above its Inbox list, and show only the items of the chosen kind.
+
+#### Scenario: Only the meetings
+
+- **Given** the phone Inbox holds a capture, a note and a meeting
+- **When** the reader presses Meetings
+- **Then** the list shows only the meeting
+
+#### Scenario: Back to all
+
+- **Given** the phone Inbox filtered to Notes
+- **When** the reader presses All
+- **Then** the list shows the capture, the note and the meeting
+
+### Requirement: The + menu makes a note or a meeting
+
+```meta
+type: requirement
+```
+
+The phone SHALL have one + in its Inbox, beside the quick one-line field: with the field empty it offers Note and Meeting, and with words in the field it adds them as a capture, as Enter does. Sharing from another app goes on making a capture.
+
+#### Scenario: The menu
+
+- **Given** the phone Inbox is open and its quick field is empty
+- **When** the reader presses +
+- **Then** the menu offers Note and Meeting
+
+#### Scenario: The one-line field
+
+- **Given** the phone Inbox is open
+- **When** the reader types a line in the quick field and presses + or Enter
+- **Then** the list shows one new capture with its sync state
+
+### Requirement: The old Notes address opens the Inbox on notes
+
+```meta
+type: requirement
+```
+
+The phone SHALL open `/notes` as its Inbox filtered to Notes, and go on opening `/notes/new` and `/notes/{id}` in the note editor.
+
+#### Scenario: A saved link to the Notes list
+
+- **Given** a link to `/notes`
+- **When** the reader follows it
+- **Then** the phone Inbox opens with the Notes chip chosen
+
+#### Scenario: A link to one note
+
+- **Given** a link to `/notes/{id}` of an existing note
+- **When** the reader follows it
+- **Then** the note opens in the editor
+
+## Meetings on the phone
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#meetings, .devbook/domain/inbox/domain.md#meeting]
+```
+
+### Requirement: Meeting opens a meeting already recording
+
+```meta
+type: requirement
+```
+
+The phone SHALL open a new item of kind meeting with its recording running when the reader picks Meeting in the Inbox's + menu.
+
+#### Scenario: Starting a meeting
+
+- **Given** the phone Inbox is open and the microphone is allowed
+- **When** the reader picks Meeting in the + menu
+- **Then** the editor opens with the recording bar running
+- **And** the phone Inbox lists the item marked Meeting
+
+### Requirement: A meeting reaches the desktop as a meeting
+
+```meta
+type: requirement
+```
+
+The system SHALL bring a meeting made on the phone into the desktop Inbox as an item whose kind is meeting, and sync its edits both ways as a note's.
+
+#### Scenario: After the desktop syncs
+
+- **Given** a meeting the phone saved
+- **When** the desktop syncs
+- **Then** the desktop Inbox shows it with the meeting mark, and the Meetings chip counts it
+
+### Requirement: A note given a recording stays a note
+
+```meta
+type: requirement
+```
+
+The system SHALL keep the kind of a note the reader records into as note.
+
+#### Scenario: Recording into an existing note
+
+- **Given** a note on the phone
+- **When** the reader records into it and presses Stop
+- **Then** the phone Inbox and the desktop Inbox both still show it as a Note
+
+## Recordings on a note
+
+```meta
+type: requirements
+related: [.devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#notes-on-the-phone, .devbook/arc42/06-runtime-view.md#meeting-recording, .devbook/arc42/adr/0048-meeting-audio-is-recorded-as-aac-in-an-adts-stream.md, .devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md]
+```
+
+> What a meeting recording on a phone note promises, on the phone and on the
+> desktop that transcribes it
+> ([Meeting recording](../capture/features.md#meeting-recording)).
+
+### Requirement: A note takes AAC audio files
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.Recorded_audio_is_not_refused, unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.Recorded_audio_reads_as_AAC_audio_and_is_no_picture, unit:dotnet:Backlog.Mobile.UI.UnitTests.AttachmentRulesTests.An_audio_file_with_no_declared_type_is_typed_by_its_extension, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.Stop_attaches_the_recording_to_the_note_it_was_started_on, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.Recording_shows_the_bar_pause_turns_to_resume_and_stop_attaches_the_recording, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_downloaded_recording_on_a_note_plays_in_its_row]
+```
+
+The system SHALL accept an AAC audio file on a note, as `audio/aac`, `audio/mp4` or `audio/x-m4a`, within the per-file limit every note file has.
+
+#### Scenario: A stopped recording
+
+- **Given** a note on the phone
+- **When** the reader records into it and presses Stop
+- **Then** the note lists "Recording · <duration>" as AAC audio with its size
+- **And** the desktop Inbox item shows the file with a player after the desktop syncs
+
+#### Scenario: An AAC file picked from the phone
+
+- **Given** a note on the phone
+- **When** the reader attaches an `.m4a` file
+- **Then** the file is on the note, not on the list of files not attached
+
+### Requirement: A long recording rolls over to a second part without a gap
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.AdtsPartWriterTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_recording_that_rolled_over_attaches_every_part_in_order]
+```
+
+The phone SHALL close a recording file at 24 MB and go on recording into the next part, "Recording · part 2 · <duration>", then part 3 and on by the same rule, with no audio lost between two parts.
+
+#### Scenario: A meeting longer than one file holds
+
+- **Given** a recording on a note that reaches 24 MB
+- **When** the reader goes on recording and then presses Stop
+- **Then** the note holds "Recording · <duration>" and "Recording · part 2 · <duration>"
+- **And** the second file starts where the first one ends
+
+### Requirement: A recording cut off by a killed app is kept
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.RecordingRecoveryTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.AdtsPartWriterTests.A_frame_cut_short_by_a_killed_write_stays_in_the_file_but_not_in_the_duration]
+```
+
+The phone SHALL attach a recording file left behind by an app that was ended while recording to its note as "Recording (interrupted)" the next time the app starts.
+
+#### Scenario: The phone ends the app mid-meeting
+
+- **Given** a recording running on a note
+- **When** the phone ends the app, and the reader opens it again
+- **Then** the note holds "Recording (interrupted)"
+- **And** it plays up to the moment the app was ended
+
+### Requirement: A phone call pauses the recording until the reader resumes it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_phone_call_pauses_the_recording_and_says_so, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.The_end_of_a_call_leaves_the_recording_paused_until_it_is_resumed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.Resume_after_a_call_takes_the_call_notice_away, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.A_phone_call_pauses_the_bar_and_says_why]
+```
+
+The phone SHALL pause a recording when a phone call takes the microphone, say why on the recording bar, and resume only when the reader presses Resume.
+
+#### Scenario: A call comes in
+
+- **Given** a recording running on a note
+- **When** a phone call starts
+- **Then** the recording bar reads "Paused: a phone call has the microphone"
+- **And** the bar and the notification offer Resume
+
+#### Scenario: The call ends
+
+- **Given** a recording paused by a phone call
+- **When** the call ends
+- **Then** the recording stays paused until the reader presses Resume
+
+### Requirement: A recording uploads over any connection
+
+```meta
+type: requirement
+```
+
+The phone SHALL upload a recording over whatever connection it has, Wi-Fi or mobile data, as it uploads a photo.
+
+#### Scenario: On mobile data
+
+- **Given** a stopped recording on a note, and a phone on mobile data only
+- **When** the outbox next sends
+- **Then** the recording uploads, then the note
+
+### Requirement: A recording whose note is deleted elsewhere gets a note of its own
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_note_deleted_elsewhere_while_recording_leaves_the_recording_running, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingSessionTests.A_recording_whose_note_was_deleted_elsewhere_gets_a_note_of_its_own_on_stop, unit:dotnet:Backlog.Mobile.UI.UnitTests.NoteRecordingScreenTests.A_note_deleted_elsewhere_says_where_its_recording_went]
+```
+
+The phone SHALL save a recording whose note was deleted on the desktop while it ran to a new note named "Recording · <date>".
+
+#### Scenario: The desktop deletes the note mid-meeting
+
+- **Given** a recording running on a note
+- **When** the desktop deletes the note, the phone pulls, and the reader presses Stop
+- **Then** the phone Inbox holds a new note "Recording · <date>" with the recording on it
+
+### Requirement: A downloaded recording is transcribed once per file
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_pulled_note_with_a_recording_is_handed_to_the_queue, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_audio_sent_is_the_file_as_it_lies_with_its_type, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_and_a_photo_are_not_sent, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_picked_audio_file_is_not_sent_and_stays_on_the_note, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Only_a_recorder_name_with_a_recording_type_is_a_recording, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecordingNamesAreInboxRecordingsTests.Every_name_the_recorder_gives_is_a_recording_on_the_desktop, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_archived_note_is_not_written]
+```
+
+The desktop SHALL send each downloaded recording the app made, on a note that is not archived, to transcription with no press, and never send a file whose sha256 it has already transcribed.
+
+#### Scenario: A note arrives with a recording
+
+- **Given** a desktop with Foundry configured
+- **When** it pulls a note whose recording then downloads
+- **Then** the desktop sends that file, as it lies and with its type, to transcription
+
+#### Scenario: The same file comes back
+
+- **Given** a recording whose sha256 the desktop has already transcribed
+- **When** a note names that file again, after a re-sync or a restart
+- **Then** the desktop sends nothing
+
+#### Scenario: A file that is not ready or not audio
+
+- **Given** a note holding a recording that has not finished downloading, and a photo
+- **When** the desktop takes up the note
+- **Then** it sends neither
+
+#### Scenario: A picked audio file
+
+- **Given** a note holding "standup.m4a", an audio file the reader picked onto it
+- **When** the desktop takes up the note
+- **Then** it sends nothing, and the file stays on the note
+
+#### Scenario: An archived note
+
+- **Given** an archived note with a downloaded recording
+- **When** the desktop takes up the note
+- **Then** it sends nothing and writes nothing
+
+### Requirement: A long M4A recording is transcribed in five-minute parts
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxRecordingTranscriberTests.A_long_m4a_recording_goes_out_in_five_minute_parts_with_offsets_and_running_prompts, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxRecordingTranscriberTests.An_m4a_that_cannot_be_read_fails_with_a_reason_and_sends_nothing, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4AacReaderTests.A_classic_m4a_written_from_adts_reads_back_frame_for_frame, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4AacReaderTests.A_fragmented_m4a_reads_its_frames_from_every_fragment_in_order, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4AacReaderTests.A_cut_off_fragmented_file_reads_up_to_its_last_whole_frame, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.Mp4AacReaderTests.A_fragmented_m4a_is_cut_into_parts_with_offsets_from_its_timescale]
+```
+
+The desktop SHALL transcribe an M4A recording of any length in parts of at most 5 minutes, as it does an AAC one.
+
+#### Scenario: A 40-minute recording from the browser
+
+- **Given** a note holding a 40-minute "Recording · <duration>" as one downloaded M4A file
+- **When** the transcription answers
+- **Then** `## Transcript` holds the text from start to end, headed by an offset about every five minutes
+
+### Requirement: The transcript and summary are appended to the note as it stands
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_downloaded_recording_is_appended_as_transcript_and_summary_and_removed_from_the_note, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.An_edit_made_while_the_recording_was_out_is_kept_under_the_transcript, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Appending_a_transcript_never_replaces_the_body_and_a_second_call_changes_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Sections_already_in_a_body_saved_with_crlf_are_not_appended_again]
+```
+
+The desktop SHALL append a recording's transcript under `## Transcript` and its summary, with the action items as `- [ ]` lines, under `## Summary` to the note body as it stands when the transcription answers, never replacing that body.
+
+#### Scenario: A recording is transcribed
+
+- **Given** a note whose body reads "Agenda: budget." and a downloaded recording on it
+- **When** the transcription answers
+- **Then** the body reads "Agenda: budget." followed by `## Transcript` with the timestamped text and `## Summary` with the summary and its `- [ ]` action items
+
+#### Scenario: The note was edited while the recording was out
+
+- **Given** a recording sent to transcription
+- **When** a phone edit to the note's body arrives before the transcription answers
+- **Then** the sections are appended under the edited body, and the edit is kept
+
+#### Scenario: The sections are already there
+
+- **Given** a note body that already holds a recording's sections, saved with either line ending
+- **When** the desktop writes those sections again
+- **Then** the body is unchanged
+
+### Requirement: A rolled-over recording is written in part order
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_rolled_over_recordings_second_file_appends_as_part_2, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_first_file_that_fails_holds_back_the_second_so_the_parts_keep_their_order]
+```
+
+The desktop SHALL write a note's recordings in the note's order, the second under `## Transcript (part 2)` and `## Summary (part 2)` and so on, and write no recording before an earlier one is written.
+
+#### Scenario: Two files of one meeting
+
+- **Given** a note holding "Recording" and "Recording · part 2", both downloaded
+- **When** the desktop transcribes them
+- **Then** the body holds `## Transcript` and `## Summary`, then `## Transcript (part 2)` and `## Summary (part 2)`
+- **And** neither file is left on the note
+
+#### Scenario: The first file fails
+
+- **Given** a note holding two recordings, and a transcription that fails on the first
+- **When** the desktop takes up the note
+- **Then** the second is not sent, and both files stay on the note
+
+### Requirement: The recording leaves the note once its transcript is written
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_downloaded_recording_is_appended_as_transcript_and_summary_and_removed_from_the_note, unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.A_note_edit_that_drops_a_file_releases_that_file_once_it_lands]
+```
+
+The desktop SHALL remove a recording from its note in the same save that appends its sections, and push the note without it.
+
+#### Scenario: The transcript is written
+
+- **Given** a recording whose sections the desktop has just appended
+- **When** the note is saved
+- **Then** the note no longer names the recording and waits to push
+- **And** once the push lands, the sync service releases the file from the attachment store
+
+### Requirement: A failed transcription changes nothing
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_transcription_leaves_the_body_and_the_file_and_counts_one_attempt, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failed_write_counts_an_attempt_and_marks_nothing_transcribed_so_the_next_start_tries_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_file_that_cannot_be_read_counts_an_attempt, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Nothing_is_sent_or_counted_while_foundry_is_not_configured, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_not_yet_downloaded_counts_no_attempt, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_save_refused_for_access_counts_an_attempt_too, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_failure_that_cannot_be_counted_leaves_the_outcome_as_it_was, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.FileInboxTranscriptionRecordsTests.A_failure_is_counted_per_sha256_and_kept_after_a_restart_with_its_last_reason, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.FileInboxTranscriptionRecordsTests.An_unreadable_failures_file_finds_nothing_and_is_not_overwritten]
+```
+
+When a recording cannot be transcribed or its sections cannot be saved, the desktop SHALL leave the note's body and the file as they were, count a failed attempt for its sha256, and try it again on the note's next pull or the next start until three attempts have failed.
+
+#### Scenario: The transcription fails
+
+- **Given** a note whose body reads "Agenda." and a downloaded recording on it
+- **When** the transcription fails
+- **Then** the body still reads "Agenda.", the recording stays on the note, and nothing waits to push
+- **And** one failed attempt is counted for the recording
+
+#### Scenario: The save fails
+
+- **Given** a recording the transcription answered
+- **When** saving the note fails
+- **Then** its sha256 is not marked transcribed and a failed attempt is counted, so the next start sends it again
+
+#### Scenario: Foundry is not configured
+
+- **Given** a desktop without Foundry configured
+- **When** a note with a downloaded recording arrives
+- **Then** nothing is sent, the recording stays on the note, and no attempt is counted
+
+### Requirement: A recording that failed three times waits for Retry
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.After_the_third_failure_the_recording_is_not_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_recording_waiting_for_retry_still_holds_back_the_files_after_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.The_inbox_shows_a_transcription_failure_only_once_it_waits_for_retry, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Retry_clears_the_failure_record_and_queues_the_note_so_the_recording_is_sent_again, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Retry_on_a_file_the_note_does_not_have_is_refused, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.Retry_that_cannot_clear_the_failure_record_answers_a_failure_rather_than_throwing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_success_removes_the_failure_record, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_recording_that_failed_to_transcribe_three_times_says_why_and_retry_sends_it_again, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.FileInboxTranscriptionRecordsTests.A_cleared_failure_is_gone_and_clearing_none_changes_nothing]
+```
+
+After a recording's third failed attempt, the desktop SHALL stop sending it, show on the note's recording row that transcription failed with the last reason, and send it again only after the reader presses Retry.
+
+#### Scenario: The third failure
+
+- **Given** a recording that has failed twice
+- **When** its transcription fails a third time
+- **Then** the note's recording row reads that transcription failed, with the reason, and offers Retry
+- **And** the next pull and the next start send nothing
+
+#### Scenario: Retry
+
+- **Given** a recording whose row shows that transcription failed
+- **When** the reader presses Retry
+- **Then** the desktop sends the recording again on its next take-up of the note
+- **And** a success appends the sections and removes the file as for any recording
+
+### Requirement: A note that lost its transcript is repaired
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_phone_edit_that_dropped_the_sections_and_named_the_file_again_is_repaired, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_repaired_note_that_is_already_whole_is_left_alone, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TranscribeRecordingsTests.A_sha256_already_transcribed_is_never_sent_again]
+```
+
+When a note names a recording whose sha256 the desktop has already transcribed, the desktop SHALL append the sections it kept for that sha256 where the body lacks them and remove the file again, without sending it.
+
+#### Scenario: A phone edit undoes the transcript
+
+- **Given** a recording the desktop transcribed and removed
+- **When** a phone edit made on the body before the transcript arrives, without the sections and naming the file again
+- **Then** the body is the edited text followed by the kept sections, and the file is gone from the note
+- **And** the recording is not sent again
+
+#### Scenario: The note is already whole
+
+- **Given** a note holding its sections and no longer naming the recording
+- **When** the desktop takes up the note again
+- **Then** the note is left as it is
+
 ## Notes on the desktop
 
 ```meta
@@ -1646,13 +2247,13 @@ related: [.devbook/domain/inbox/features.md#notes-on-the-desktop]
 type: requirement
 ```
 
-The system SHALL bring an edit the desktop makes to a note to the phone's Notes list on the phone's next pull.
+The system SHALL bring an edit the desktop makes to a note to the phone Inbox on the phone's next pull.
 
 #### Scenario: Editing the body
 
 - **Given** a note the phone made, shown in the desktop Inbox
 - **When** the reader presses Edit note, changes the body, presses Save, and the phone pulls after the desktop syncs
-- **Then** the phone's Notes list shows the edited text
+- **Then** the phone Inbox shows the edited text
 
 ### Requirement: An archived note leaves the phone
 
@@ -1660,13 +2261,27 @@ The system SHALL bring an edit the desktop makes to a note to the phone's Notes 
 type: requirement
 ```
 
-The system SHALL take a note the desktop archives off the phone's Notes list on the phone's next pull.
+The system SHALL take a note the desktop archives off the phone Inbox on the phone's next pull.
 
 #### Scenario: Archiving on the desktop
 
-- **Given** a note shown in the desktop Inbox and in the phone's Notes list
+- **Given** a note shown in the desktop Inbox and in the phone Inbox
 - **When** the reader archives it on the desktop, and the phone pulls after the desktop syncs
-- **Then** the note is gone from the phone's Notes list
+- **Then** the note is gone from the phone Inbox
+
+### Requirement: Meetings have a mark and a chip of their own
+
+```meta
+type: requirement
+```
+
+The desktop Inbox SHALL show a meeting with a meeting mark and offer a Meetings kind chip beside the Notes one.
+
+#### Scenario: A note and a meeting
+
+- **Given** the desktop Inbox holds a note and a meeting
+- **When** the reader presses the Meetings chip
+- **Then** the list shows only the meeting, with the meeting mark
 
 ## Triage stays on the desktop
 
@@ -1675,8 +2290,8 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 ```
 
-> Every scenario starts from captures the phone made, because the phone's
-> Inbox tab shows only those until the desktop takes them in.
+> Every scenario starts from captures the phone made. Beside notes and
+> meetings, they are the only items the phone Inbox shows.
 
 ### Requirement: The phone offers no triage
 
@@ -1684,16 +2299,275 @@ related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
 type: requirement
 ```
 
-The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox tab's list or on an item opened from it.
+The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox list or on an item opened from it.
 
 #### Scenario: The list
 
-- **Given** the phone's Inbox tab shows two captures the phone made that the desktop has not taken in
+- **Given** the phone Inbox shows two captures the phone made that the desktop has not decided
 - **When** the reader looks at the list
 - **Then** each row shows its sync state and none offers to route, defer, accept or archive
 
 #### Scenario: An opened item
 
-- **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not taken in
+- **Given** the phone Inbox shows a capture the phone made that the desktop has not decided
 - **When** the reader opens it
 - **Then** the capture is shown with no button to route, defer, accept or archive it
+
+## Edit and delete a capture on the phone
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#edit-and-delete-a-capture-on-the-phone]
+```
+
+### Requirement: A phone edit to a capture reaches the open item
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_in_the_sheet_reaches_the_service_after_a_pause_and_the_row_shows_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_made_offline_shows_on_the_row_at_once_marked_waiting, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Editing_a_capture_still_waiting_rewrites_it_where_it_waits, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Editing_a_capture_that_has_left_queues_an_edit_naming_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.The_client_puts_the_new_title_and_body_on_the_captures_route, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEditEndpointTests.An_edit_answers_the_reworded_capture_and_the_desktop_pulls_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_an_open_capture_updates_its_title_and_body, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_later_copy_of_a_decided_capture_changes_nothing]
+```
+
+The system SHALL replace the title and body of an open Inbox item with the phone's later edit of its capture, and SHALL leave a decided item as it is.
+
+#### Scenario: A sent capture
+
+- **Given** a capture the phone sent, open in the desktop Inbox
+- **When** the reader changes its title in the phone's capture sheet, and the desktop pulls
+- **Then** the desktop item shows the new title and its tags, kind and list are unchanged
+
+#### Scenario: A capture still waiting
+
+- **Given** a capture still waiting in the phone's outbox
+- **When** the reader changes its body
+- **Then** the waiting capture is rewritten in place, and the service receives only the new text
+
+#### Scenario: Decided first
+
+- **Given** a capture the desktop has archived
+- **When** a later copy the phone reworded arrives
+- **Then** the item stays archived with its old text
+
+### Requirement: An edit on the phone is kept without a save button
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Closing_the_sheet_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Going_to_the_background_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Leaving_the_page_inside_the_wait_keeps_the_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.A_blank_title_keeps_the_sheet_open_with_the_reason_until_one_is_typed, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Closing_while_a_save_is_still_writing_waits_for_it_and_stays_open_when_it_fails, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_that_cannot_be_kept_can_be_discarded_and_the_sheet_closed]
+```
+
+The phone SHALL save a capture edit a second after typing stops and at once on closing the sheet, going to the background or leaving the page, and SHALL keep the sheet open while an edit cannot be kept, offering to discard it.
+
+#### Scenario: Closing inside the wait
+
+- **Given** the reader changed a capture's title less than a second ago
+- **When** the reader closes the sheet
+- **Then** the edit is queued and the row shows it
+
+#### Scenario: A blank title
+
+- **Given** the reader cleared a capture's title
+- **When** the reader closes the sheet
+- **Then** the sheet stays open with the reason and offers Discard changes
+
+### Requirement: A phone delete archives the open item
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Delete_asks_first_and_takes_the_capture_off_the_list, unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.Deleting_a_capture_still_waiting_never_sends_it, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditsTests.Deleting_a_capture_that_has_left_queues_one_withdrawal_and_drops_its_waiting_edit, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.The_client_acknowledges_on_the_ack_route_and_reports_what_was_answered, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_for_an_unprocessed_item_archives_it_without_owing_an_acknowledgement, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.A_capture_tombstone_wins_over_a_live_capture_whatever_the_stamps]
+```
+
+The phone SHALL delete a capture only after the reader confirms, take it off its list, and send a capture still waiting in the outbox nowhere; the desktop SHALL archive the open item the capture became.
+
+#### Scenario: A sent capture
+
+- **Given** a capture the phone sent, open in the desktop Inbox
+- **When** the reader presses Delete in the phone's capture sheet, confirms, and the desktop pulls
+- **Then** the capture is gone from the phone's list and the desktop item is archived
+
+#### Scenario: A capture still waiting
+
+- **Given** a capture still waiting in the phone's outbox
+- **When** the reader deletes it and confirms
+- **Then** the capture leaves the outbox and the service never receives it
+
+### Requirement: The phone says when the desktop already dealt with a capture
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.InboxListTests.An_edit_of_a_capture_the_desktop_already_decided_says_so_calmly, unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.A_capture_the_desktop_already_decided_is_delivered_and_the_person_is_told, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEditEndpointTests.An_edit_of_an_acknowledged_capture_is_not_found_with_the_inbox_code]
+```
+
+The phone SHALL count an edit or delete of a capture the desktop already decided as delivered, and SHALL say so in one line rather than as an error.
+
+#### Scenario: Decided while the edit travelled
+
+- **Given** the desktop archived a capture the phone still lists
+- **When** the phone sends an edit of it
+- **Then** the entry leaves the outbox and the phone says the desktop already dealt with it
+
+### Requirement: A service without the edit route sets the edit aside
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.CaptureEditOutboxTests.An_edit_route_the_service_lacks_is_set_aside_not_delivered]
+```
+
+The phone SHALL set aside an edit that an older service answers with a bare 404 or 405, saying "The cloud service cannot change a capture yet.", so later entries still leave.
+
+#### Scenario: An older service
+
+- **Given** a service deployed before the edit route
+- **When** the phone sends a capture edit
+- **Then** the edit is set aside as refused and the next capture is sent
+
+## Clarify outcomes
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+```
+
+> Local ADR 0054 decides these outcomes. The destination picker, Someday,
+> Done now and Waiting for are built.
+
+### Requirement: S, n and w take Someday, Done now and Waiting for
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.S_files_it_without_a_picker_and_u_takes_it_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_decided_item_is_not_routed_again_by_s_or_n, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.W_in_triage_asks_who_and_when_then_routes_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.A_decided_item_is_not_routed_again_by_w]
+```
+
+The system SHALL take Someday on **s**, Done now on **n** and Waiting for on **w**, through the same act as the decision's button in the item's detail and in triage mode, and SHALL offer by key no act the detail withholds for that item.
+
+#### Scenario: Someday by key
+
+- **Given** an unprocessed item is chosen and the Brain has a `someday` area
+- **When** the reader presses s
+- **Then** the item is routed into the `someday` area, as the Someday button routes it
+
+#### Scenario: A routed item
+
+- **Given** an item already moved to the backlog is chosen
+- **When** the reader presses n or w
+- **Then** the item stays as it is and no task is made
+
+### Requirement: To Brain files where the destination picker points
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.B_twice_on_the_detail_keeps_today_s_route_into_the_inbox_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests.Choosing_a_project_files_the_item_into_its_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.The_destinations_are_the_areas_and_the_project_notes, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_route_with_a_destination_lands_in_it_and_names_its_area]
+```
+
+The system SHALL offer To Brain a destination picker listing the Brain's areas and the active notes in its `projects` area, starting on the inbox area, and SHALL write the note into the area chosen, or beside the project note chosen.
+
+#### Scenario: The default
+
+- **Given** a Brain under the PARA default
+- **When** the reader routes an item To Brain without changing the picker
+- **Then** the note is written into `_inbox`
+
+#### Scenario: A project
+
+- **Given** a Brain whose `projects` area holds the note `projects/sync-rewrite.md`
+- **When** the reader routes an item To Brain with *sync-rewrite* chosen
+- **Then** the note is written into `projects/`, beside `sync-rewrite.md`, and the item leaves the queue as routed
+
+### Requirement: Someday routes To Brain into the someday area
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.Someday_in_triage_files_the_item_in_the_someday_area_and_moves_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests.A_brain_with_no_someday_area_offers_someday_disabled_with_the_reason]
+```
+
+The system SHALL route an item taken as Someday To Brain into the Brain's `someday` area, and SHALL offer Someday disabled, with its reason, while the Brain has no `someday` area.
+
+#### Scenario: A maybe
+
+- **Given** a capture titled "Learn to sail" and a Brain under the PARA default
+- **When** the reader takes Someday
+- **Then** `someday/` holds a note titled "Learn to sail" and the item has left the queue as routed
+
+#### Scenario: A Brain with its own areas
+
+- **Given** a `CONVENTIONS.md` declaring the areas `work` and `home` only
+- **When** the reader looks at the Someday button
+- **Then** it is disabled and says the Brain has no `someday` area
+
+### Requirement: Done now creates the task already ticked
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_asks_for_one_entry_completed_today_and_routes_the_item_to_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Done_now_routes_once_and_a_tasks_failure_leaves_the_item_open, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Done_now_writes_a_done_entry_ticked_on_the_day]
+```
+
+The system SHALL route an item taken as Done now to a task created ticked, with today's date as its `completed:`, and mark the item routed once the task is saved.
+
+#### Scenario: Two minutes
+
+- **Given** a capture titled "Reply to Anna about Friday"
+- **When** the reader takes Done now on 2026-11-12
+- **Then** the backlog holds a task titled "Reply to Anna about Friday" ticked on 2026-11-12, and the item has left the queue as routed
+
+#### Scenario: Tasks refuses
+
+- **Given** the Tasks side fails to save the task
+- **When** the reader takes Done now
+- **Then** no task is made and the item stays in the queue, unrouted
+
+### Requirement: Waiting for creates the task with its waiting-for
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_routes_like_move_to_backlog_with_the_waiting_for_on_every_entry, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Waiting_for_with_nobody_writable_routes_nothing, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Waiting_for_writes_the_waiting_and_followup_tokens, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests.Refused_by_tasks_it_leaves_the_item_open_and_the_dialog_up]
+```
+
+The system SHALL route an item taken as Waiting for to a task carrying the waiting-for the reader names, who and an optional follow-up date, and mark the item routed once the task is saved.
+
+#### Scenario: A reply owed
+
+- **Given** a capture titled "Quote for the roof"
+- **When** the reader takes Waiting for, names "Jansen Roofing" and the follow-up date 2026-11-20
+- **Then** the backlog holds the task with `waiting:Jansen Roofing` and `followup:2026-11-20`, and the item has left the queue as routed
+
+### Requirement: Move to backlog may set a due date or My Day
+
+```meta
+type: requirement
+```
+
+The system SHALL let the reader set a due date or put the task in My Day as part of Move to backlog, and SHALL save the task with it in the same route.
+
+#### Scenario: Due on Friday
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader picks the due date 2026-11-13 and presses r
+- **Then** the task the item became is due on 2026-11-13
+
+#### Scenario: Today
+
+- **Given** an unprocessed item in triage mode
+- **When** the reader ticks My Day and presses r
+- **Then** the task the item became is in today's My Day
+
+## Capture to Inbox over MCP
+
+```meta
+type: requirements
+related: [.devbook/domain/inbox/features.md#work-the-queue-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+```
+
+> Local ADR 0054 decides the tool.
+
+### Requirement: An assistant's capture lands in the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests.An_assistants_capture_is_a_manual_unprocessed_item_in_the_queue, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests.Capture_goes_through_add_by_hand_as_a_manual_capture_and_answers_its_id]
+```
+
+The system SHALL make an assistant's `capture_to_inbox` call a new unprocessed Inbox item with the title and notes it sends, and SHALL write nothing into the Brain.
+
+#### Scenario: Remind me
+
+- **Given** an assistant connected to the app's MCP server, with the Inbox pane's switch on
+- **When** it calls `capture_to_inbox` with the title "Call Anna about the invoice"
+- **Then** the queue holds an unprocessed item titled "Call Anna about the invoice", and the Brain's inbox area is unchanged

@@ -15,11 +15,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class CaptureSourcesSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "capture-sources-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("capture-sources-settings-store-tests");
 
-    public CaptureSourcesSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "capture-sources.json");
 
@@ -87,7 +85,7 @@ public class CaptureSourcesSettingsStoreTests : IDisposable
     }
 
     /// <summary>A kind this build does not know is dropped rather than guessed
-    /// at, and the three it does know are all present whether or not the file
+    /// at, and the ones it does know are all present whether or not the file
     /// mentioned them.</summary>
     [Fact]
     public void An_unknown_kind_is_dropped_and_the_monitorable_set_is_made_whole()
@@ -107,6 +105,37 @@ public class CaptureSourcesSettingsStoreTests : IDisposable
         Assert.True(store.Current.For(CaptureSourceKind.Email).Enabled);
         Assert.Equal(["news@example.com"], store.Current.For(CaptureSourceKind.Email).Targets);
         Assert.False(store.Current.For(CaptureSourceKind.YouTube).Enabled);
+    }
+
+    /// <summary>A file written before the event page source existed gains it
+    /// switched off, and one written with it reads it back by its slug. The
+    /// store keeps it whatever the Events area's flag says — withdrawing it is
+    /// the panel's and the run's business, not the file's.</summary>
+    [Fact]
+    public void The_event_page_source_is_added_to_an_older_file_and_kept_by_its_slug()
+    {
+        File.WriteAllText(
+            SettingsFile,
+            """
+            { "sources": [
+                { "kind": "youtube", "enabled": true, "targets": [] },
+                { "kind": "website", "enabled": false, "targets": [] },
+                { "kind": "email", "enabled": false, "targets": [] }
+            ] }
+            """);
+
+        var store = Store();
+        Assert.Equal(CaptureSourceKinds.Monitorable, store.Current.Sources.Select(source => source.Kind).ToArray());
+        Assert.False(store.Current.For(CaptureSourceKind.EventPage).Enabled);
+
+        Assert.Null(store.SetEnabled(CaptureSourceKind.EventPage, true));
+        Assert.Null(store.SetTargets(CaptureSourceKind.EventPage, ["https://dotnetfriday.nl/"]));
+
+        Assert.Contains("\"event_page\"", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
+
+        var reopened = Store().Current.For(CaptureSourceKind.EventPage);
+        Assert.True(reopened.Enabled);
+        Assert.Equal(["https://dotnetfriday.nl/"], reopened.Targets);
     }
 
     /// <summary>Nothing changed is nothing to write and nothing to announce.</summary>
@@ -147,12 +176,6 @@ public class CaptureSourcesSettingsStoreTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

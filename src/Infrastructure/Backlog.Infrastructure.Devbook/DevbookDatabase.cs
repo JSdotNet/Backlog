@@ -346,6 +346,25 @@ public sealed partial class DevbookDatabase : IDisposable
             reader => new DevbookTaskLinkRow(reader.GetString(0), reader.GetString(1), Text(reader, 2)));
 
     /// <summary>
+    /// Every Brain note's <c>review</c> value (local ADR 0054 §6), as written, with
+    /// the file's path and title. Only a file's top block carries the field. In
+    /// note path order. Empty for a repository's database, which stores no such
+    /// field.
+    /// </summary>
+    public IReadOnlyList<DevbookReviewDateRow> ReviewDates() =>
+        Query(
+            """
+            SELECT node.path, node_attribute.value,
+                   (SELECT chapter.title FROM chapter WHERE chapter.path = node.path AND chapter.level = 1 ORDER BY chapter.line LIMIT 1)
+            FROM node_attribute
+            JOIN node ON node.id = node_attribute.node_id
+            WHERE node_attribute.name = 'review' AND node.type = 'file' AND node.path IS NOT NULL
+            ORDER BY node.path, node_attribute.rowid
+            """,
+            _ => { },
+            reader => new DevbookReviewDateRow(reader.GetString(0), reader.GetString(1), Text(reader, 2)));
+
+    /// <summary>
     /// Every value of one list-valued <c>meta</c> field, by node — <c>roadmap</c>,
     /// <c>feature-flag</c>, <c>aliases</c>, <c>alternatives</c>, <c>tests</c>.
     /// Asked one name at a time because a caller wants one: the roadmap rollup
@@ -394,54 +413,6 @@ public sealed partial class DevbookDatabase : IDisposable
         return [.. byName, .. byField];
     }
 
-    /// <summary>
-    /// The diagram artifacts filed against the chapters in one directory — the
-    /// rows that used to be that directory's <c>_archify/index.json</c>.
-    /// <para>
-    /// A directory rather than a single chapter, because the lookup needs its
-    /// neighbours: an artifact filed under a different hash for the same chapter
-    /// and ordinal is a picture of a fence somebody has since edited, and saying so
-    /// means seeing the whole folder.
-    /// </para>
-    /// </summary>
-    /// <param name="directory">Repository-relative, <c>/</c>-separated — the
-    /// directory the chapters are in, not the <c>_archify</c> folder beside
-    /// them.</param>
-    public IReadOnlyList<DevbookArchifyArtifactRow> ArchifyArtifacts(string directory)
-    {
-        if (directory is null) return [];
-
-        var trimmed = directory.Replace('\\', '/').Trim('/');
-        var prefix = trimmed.Length == 0 ? string.Empty : trimmed + "/";
-
-        var rows = Query(
-            """
-            SELECT chapter_path, fence_hash, ordinal, type, quality, kind, spec_path, artifact_path, checks_passed, check_count
-            FROM archify_artifact
-            WHERE chapter_path LIKE $prefix ESCAPE '\'
-            ORDER BY rowid
-            """,
-            command => command.Parameters.AddWithValue("$prefix", Escape(prefix) + "%"),
-            reader => new DevbookArchifyArtifactRow(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetInt32(2),
-                Text(reader, 3),
-                Text(reader, 4),
-                Text(reader, 5),
-                Text(reader, 6),
-                Text(reader, 7),
-                reader.IsDBNull(8) ? null : reader.GetInt32(8),
-                reader.IsDBNull(9) ? null : reader.GetInt32(9)));
-
-        // A LIKE prefix matches every descendant, and `.devbook/arc42/adr/` has an
-        // `_archify` folder of its own. The index sits beside the chapters, so only
-        // chapters in this directory itself belong to it.
-        return rows
-            .Where(row => string.Equals(DirectoryOf(row.ChapterPath), trimmed, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
-
     /// <summary>What the generator could not resolve, for one scope or for all of
     /// them. Recorded rather than thrown, so a panel can report a broken reference
     /// without the build having refused to produce anything.</summary>
@@ -457,14 +428,6 @@ public sealed partial class DevbookDatabase : IDisposable
             reader => new DevbookProblemRow(reader.GetString(0), reader.GetString(1), Text(reader, 2), reader.GetString(3)));
 
     public void Dispose() => _connection.Dispose();
-
-    /// <summary>The directory part of a repository-relative path, or the empty
-    /// string when it is at the root.</summary>
-    private static string DirectoryOf(string path)
-    {
-        var separator = path.LastIndexOf('/');
-        return separator < 0 ? string.Empty : path[..separator];
-    }
 
     /// <summary>A scope becomes a path filter, the same way the generator's own
     /// <c>projectScope</c> decides membership: the folder itself, or anything

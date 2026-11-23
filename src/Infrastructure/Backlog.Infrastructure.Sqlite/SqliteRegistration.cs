@@ -1,8 +1,10 @@
+using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Notifications;
 using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
+using Backlog.Modules.Events;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
@@ -24,8 +26,8 @@ namespace Backlog.Infrastructure.Sqlite;
 public static class SqliteRegistration
 {
     /// <summary>
-    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications and the
-    /// Claude Code api_request table, the model prices and the session request queue, each a
+    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications, the
+    /// knowledge events and event series, the Claude Code api_request table, the model prices and the session request queue, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
     /// The root is asked per call rather than fixed here, because somebody can move
@@ -91,6 +93,19 @@ public static class SqliteRegistration
         services.AddSingleton<INotificationRepository>(sp =>
             new RootedSqliteNotificationRepository(() => rootDirectory(sp)));
 
+        // Events' own documents (local ADR 0050 §2): one row per knowledge event in
+        // events_knowledge_events and one per series in events_series, each its own table
+        // under its own stamp. The same instance answers the replication port beside each
+        // repository, so the knowledge event exchange reads and writes the rows the module does.
+        services.AddSingleton(sp =>
+            new RootedSqliteKnowledgeEventRepository(() => rootDirectory(sp)));
+        services.AddSingleton<IKnowledgeEventRepository>(sp => sp.GetRequiredService<RootedSqliteKnowledgeEventRepository>());
+        services.AddSingleton<IKnowledgeEventReplicaStore>(sp => sp.GetRequiredService<RootedSqliteKnowledgeEventRepository>());
+        services.AddSingleton(sp =>
+            new RootedSqliteEventSeriesRepository(() => rootDirectory(sp)));
+        services.AddSingleton<IEventSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteEventSeriesRepository>());
+        services.AddSingleton<IEventSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteEventSeriesRepository>());
+
         // The Claude Code api_request events the /v1/logs endpoint keeps (local ADR
         // 0024): the Sessions context's table, in the same file and following the
         // same root.
@@ -111,6 +126,21 @@ public static class SqliteRegistration
         // same context's table, in the same file.
         services.AddSingleton<IWaitingQuestionStore>(sp =>
             new RootedSqliteWaitingQuestionStore(() => rootDirectory(sp)));
+
+        // The schedules and runs their reports describe (local ADR 0051 §1): this
+        // machine's, the same context's tables, in the same file.
+        services.AddSingleton<IScheduleRegister>(sp =>
+            new RootedSqliteScheduleRegister(() => rootDirectory(sp)));
+
+        // The loop sessions' latest check-ins and the command the person set on each
+        // (local ADR 0051 §3): this machine's, the same context's table, in the same file.
+        services.AddSingleton<ILoopRegister>(sp =>
+            new RootedSqliteLoopRegister(() => rootDirectory(sp)));
+
+        // And what a screen reads the loops through and sets the person's pause, resume or
+        // stop with: the register read against the session list, where the host composed one.
+        services.AddSingleton(sp =>
+            new LoopSessionMonitor(sp.GetRequiredService<ILoopRegister>(), sp.GetService<IAgentSessionSource>()));
 
         return services;
     }

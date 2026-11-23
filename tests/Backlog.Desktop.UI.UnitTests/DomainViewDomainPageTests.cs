@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewDomainPageTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-domain-page", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-domain-view-domain-page");
 
     private const string Domain = """
         # Ordering
@@ -54,16 +54,114 @@ public sealed class DomainViewDomainPageTests : IDisposable
         Assert.Equal(name, DomainViewDomainRead.DomainNameOf(title));
     }
 
+    private const string Service = """
+        # Boekingsservice
+
+        ## BoekingsService
+
+        ```meta
+        type: domain-service
+        related: [requirements.md#boeken, model.domain-services.md, domain.md#order]
+        ```
+
+        Books a payment.
+        """;
+
+    [Fact]
+    public void When_no_name_matches_the_chapters_related_decides_before_model_md()
+    {
+        var read = ReadWith("ordering/domain.boekingsservice.md",
+            ("domain.md", Domain),
+            ("domain.boekingsservice.md", Service),
+            ("model.md", Domain),
+            ("model.domain-services.md", Domain));
+
+        Assert.Equal(".domain/ordering/model.domain-services.md", read.ModelPath);
+        Assert.Equal(
+            [".domain/ordering/model.md", ".domain/ordering/model.domain-services.md"],
+            read.ModelPaths);
+    }
+
+    private const string NestedService = """
+        # Boeken
+
+        ## Diensten
+
+        ```meta
+        type: domain-services
+        ```
+
+        ### BoekingsService
+
+        ```meta
+        type: domain-service
+        related: [model.domain-services.md]
+        ```
+
+        Books a payment.
+        """;
+
+    [Fact]
+    public void A_related_entry_on_a_chapter_at_any_level_decides()
+    {
+        var read = ReadWith("ordering/domain.boeken.md",
+            ("domain.boeken.md", NestedService),
+            ("model.md", Domain),
+            ("model.domain-services.md", Domain));
+
+        Assert.Equal(".domain/ordering/model.domain-services.md", read.ModelPath);
+    }
+
+    [Fact]
+    public void The_splits_own_related_is_read_before_its_chapters()
+    {
+        var titled = Service.ReplaceLineEndings("\n").Replace(
+            "# Boekingsservice\n",
+            "# Boekingsservice\n\n```meta\ntype: domain\nrelated: [.devbook/domain/ordering/model.boeken.md]\n```\n",
+            StringComparison.Ordinal);
+        Assert.NotEqual(Service, titled);
+
+        var read = ReadWith("ordering/domain.boekingsservice.md",
+            ("domain.boekingsservice.md", titled),
+            ("model.md", Domain),
+            ("model.boeken.md", Domain),
+            ("model.domain-services.md", Domain));
+
+        Assert.Equal(".domain/ordering/model.boeken.md", read.ModelPath);
+    }
+
+    [Fact]
+    public void A_name_match_wins_over_related_and_related_naming_no_model_file_falls_back()
+    {
+        Assert.Equal(".domain/ordering/model.boekingsservice.md", ReadWith("ordering/domain.boekingsservice.md",
+            ("domain.boekingsservice.md", Service),
+            ("model.boekingsservice.md", Domain),
+            ("model.domain-services.md", Domain)).ModelPath);
+
+        // Related names a requirements file and a domain chapter, but no Model file
+        // the context has: the old fallback, model.md.
+        Assert.Equal(".domain/ordering/model.md", ReadWith("ordering/domain.boekingsservice.md",
+            ("domain.boekingsservice.md", Service),
+            ("model.md", Domain),
+            ("model.other.md", Domain)).ModelPath);
+    }
+
     private DomainViewDomainRead Read(string selected, params string[] files) => ReadUnder("Backlog", selected, files);
 
-    private DomainViewDomainRead ReadUnder(string mapTitle, string selected, params string[] files)
+    private DomainViewDomainRead ReadUnder(string mapTitle, string selected, params string[] files) =>
+        ReadWith(mapTitle, selected, [.. files.Select(file => (file, Domain))]);
+
+    private DomainViewDomainRead ReadWith(string selected, params (string Name, string Text)[] files) => ReadWith("Backlog", selected, files);
+
+    private DomainViewDomainRead ReadWith(string mapTitle, string selected, (string Name, string Text)[] contents)
     {
-        var folder = Path.Combine(_root, ".domain", "ordering");
+        var folder = _temp.Combine(".domain", "ordering");
         Directory.CreateDirectory(folder);
-        foreach (var file in files) File.WriteAllText(Path.Combine(folder, file), Domain);
+        foreach (var (name, text) in contents) File.WriteAllText(Path.Combine(folder, name), text);
+        var files = contents.Select(content => content.Name).ToArray();
 
         var documents = files.Select(file => Document($".domain/ordering/{file}", DomainDevbookStore.KindFromFile(file))).ToList();
-        var view = new DomainDevbookView("JSdotNet/Backlog", _root, Path.Combine(_root, ".domain"), null,
+        var view = new DomainDevbookView("JSdotNet/Backlog", _temp.Path, _temp.Combine(".domain"), null,
             Document(".domain/context-map.md", DomainDevbookDocumentKind.ContextMap) with { Title = mapTitle },
             [new DomainDevbookContext("ordering", "Ordering", "none", documents)]);
 
@@ -73,10 +171,5 @@ public sealed class DomainViewDomainPageTests : IDisposable
     private static DomainDevbookDocument Document(string path, DomainDevbookDocumentKind kind) =>
         new(path, Path.GetFileName(path), kind, "none", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), string.Empty, [], [], []);
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

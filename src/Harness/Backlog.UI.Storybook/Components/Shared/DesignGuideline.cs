@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.UI.Storybook.Components.Shared;
 
 /// <summary>
@@ -94,7 +96,7 @@ public sealed record DesignGuideline(string Path, string Governs)
 
             if (start < 0)
             {
-                if (!string.Equals(Slug(heading.Value.Text), anchor, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(HeadingAnchor.Of(heading.Value.Text), anchor, StringComparison.OrdinalIgnoreCase)) continue;
 
                 start = index;
                 level = heading.Value.Level;
@@ -132,37 +134,5 @@ public sealed record DesignGuideline(string Path, string Governs)
         if (hashes >= line.Length || line[hashes] != ' ') return null;
 
         return (hashes, line[(hashes + 1)..].Trim());
-    }
-
-    /// <summary>GitHub's heading slug: lower-cased, punctuation dropped, spaces
-    /// to hyphens. It has to be GitHub's rather than a tidier one of our own,
-    /// because these anchors are also written into `.design`'s own cross-links
-    /// and into pull-request comments, where GitHub is the thing resolving them.
-    /// <para>
-    /// Inline code and emphasis markers are punctuation as far as the slug is
-    /// concerned — <c>## `meta` blocks</c> slugs to <c>meta-blocks</c> — so they
-    /// are dropped rather than turned into hyphens.
-    /// </para></summary>
-    private static string Slug(string heading)
-    {
-        var slug = new StringBuilder(heading.Length);
-
-        foreach (var character in heading.ToLowerInvariant())
-        {
-            if (char.IsLetterOrDigit(character))
-            {
-                slug.Append(character);
-            }
-            else if (character is ' ' or '-')
-            {
-                slug.Append('-');
-            }
-
-            // Everything else — backticks, brackets, slashes, em dashes, colons
-            // — contributes nothing, which is what turns "Screen Reader /
-            // Announcements" into "screen-reader--announcements".
-        }
-
-        return slug.ToString();
     }
 }

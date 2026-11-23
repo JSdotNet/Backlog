@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
@@ -61,7 +63,7 @@ internal static partial class DevbookGraphBuilder
                 // A cloud-only file is a node by its name alone until it is
                 // hydrated (DevbookBuildFiles.IsCloudOnly).
                 var markdown = DevbookBuildFiles.ReadHydratedText(repositoryRoot, relativePath);
-                var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown);
+                var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown, layout.Profile.BlockListFields);
 
                 if (markdown is not null) documents.Add(new DevbookC4Graph.Document(relativePath, markdown, document.Chapters));
 
@@ -333,7 +335,7 @@ internal static partial class DevbookGraphBuilder
     {
         if (type is null) return title;
         var text = Scalar(type);
-        return type is string && DevbookMarkdown.Slugify(title) == text ? title : $"{title} ({text})";
+        return type is string && HeadingAnchor.Of(title) == text ? title : $"{title} ({text})";
     }
 
     /// <summary>A value as JavaScript's <c>String(value)</c> writes it: a list
@@ -345,6 +347,8 @@ internal static partial class DevbookGraphBuilder
     /// fields through.</summary>
     private sealed class NodeFields(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta) : IDevbookNodeFields
     {
+        public bool IsFile => node.Type == "file";
+
         public bool Has(string field) => meta?.GetValueOrDefault(field) is not null;
 
         public string? Scalar(string field) =>

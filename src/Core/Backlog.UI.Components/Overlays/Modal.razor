@@ -37,15 +37,19 @@
     Escape is refused in `components.js`, so the Escape handler here stays the
     one that decides. It is rendered `open` because a closed `dialog` is
     `display: none`: without the script the dialog still shows, in place, and
-    the script upgrades it to the top layer. It is named as the dialog inside it
-    is, because assistive technology meets it as a dialog too.
+    the script upgrades it to the top layer. It is the one dialog assistive
+    technology meets: named by the title, or the label, and modal even where no
+    script opened it; the panel inside it, which holds the keys and the focus,
+    carries no role of its own, so the two never nest as two dialogs.
 *@
 
 @if (Open)
 {
     <dialog class="modal-layer" id="@LayerId" open
-            aria-labelledby="@(HasTitle ? TitleId : null)"
-            aria-label="@(HasTitle ? null : AriaLabel)">
+            aria-modal="true"
+            aria-labelledby="@LayerLabelledBy"
+            aria-label="@LayerLabel"
+            aria-describedby="@Supplied("aria-describedby")">
         <div class="@BackdropClassValue" data-testid="@BackdropTestId" role="@BackdropRole" @onclick="BackdropClickedAsync">
             @DialogFragment
         </div>
@@ -162,6 +166,27 @@
     /// follow it there: `components.js` reaches an element only by the name it
     /// rendered with, so arming on the generated id would find nothing, contain
     /// nothing, and say so to no one.</summary>
+    /// <summary>The naming attributes a host may splat to name its dialog. They name the one
+    /// dialog, the layer, so they are lifted onto it and kept off the panel inside.</summary>
+    private static readonly string[] NamingAttributes = ["aria-labelledby", "aria-label", "aria-describedby"];
+
+    private string? Supplied(string name) =>
+        AdditionalAttributes is not null
+        && AdditionalAttributes.TryGetValue(name, out var value)
+        && value?.ToString() is { Length: > 0 } text
+            ? text
+            : null;
+
+    /// <summary>The title names the dialog; without one, a host's own <c>aria-labelledby</c>.</summary>
+    private string? LayerLabelledBy => HasTitle ? TitleId : Supplied("aria-labelledby");
+
+    /// <summary>The label, for a dialog named by neither a title nor a reference.</summary>
+    private string? LayerLabel => LayerLabelledBy is not null ? null : AriaLabel ?? Supplied("aria-label");
+
+    /// <summary>What the panel is splatted with: the host's attributes less the naming ones.</summary>
+    private IEnumerable<KeyValuePair<string, object>>? PanelAttributes =>
+        AdditionalAttributes?.Where(pair => !NamingAttributes.Contains(pair.Key, StringComparer.OrdinalIgnoreCase));
+
     private string DialogId =>
         AdditionalAttributes is not null
         && AdditionalAttributes.TryGetValue("id", out var supplied)
@@ -192,10 +217,8 @@
         // that name back, so the containment is armed on the id the dialog
         // actually renders with rather than on one nothing answers to.
         builder.AddAttribute(2, "id", DialogId);
-        builder.AddAttribute(3, "role", "dialog");
-        builder.AddAttribute(4, "aria-modal", "true");
-        builder.AddAttribute(5, "aria-labelledby", HasTitle ? TitleId : null);
-        builder.AddAttribute(6, "aria-label", HasTitle ? null : AriaLabel);
+        // No role of its own: the native dialog layer around it is the one dialog, named
+        // and modal there, so assistive technology meets one dialog rather than two nested.
         builder.AddAttribute(7, "data-testid", TestId);
         builder.AddAttribute(8, "tabindex", "-1");
         builder.AddAttribute(9, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnKeyDownAsync));
@@ -208,7 +231,7 @@
         // ancestors' handlers, so a document listener still hears the key; the
         // shell's takeover script already stands down while a modal is open.
         builder.AddEventStopPropagationAttribute(11, "onkeydown", true);
-        builder.AddMultipleAttributes(12, AdditionalAttributes);
+        builder.AddMultipleAttributes(12, PanelAttributes);
         builder.AddElementReferenceCapture(13, reference => _dialog = reference);
         builder.AddContent(14, DialogContent);
         builder.CloseElement();

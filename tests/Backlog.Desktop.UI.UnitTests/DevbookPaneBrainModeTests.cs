@@ -48,7 +48,7 @@ public sealed class DevbookPaneBrainModeTests
     }
 
     [Fact]
-    public async Task With_no_areas_declared_the_seven_para_areas_are_the_tabs()
+    public async Task With_no_areas_declared_the_eight_para_areas_are_the_tabs()
     {
         await using var harness = DevbookPaneBrainHarness.Create();
         harness.WriteNote("projects/plan.md", "# Plan\n");
@@ -56,7 +56,7 @@ public sealed class DevbookPaneBrainModeTests
         var component = harness.RenderBrain();
 
         component.WaitForAssertion(() => Assert.Equal(
-            ["Inbox", "Projects", "Areas", "Resources", "People", "Journal", "Archive"],
+            ["Inbox", "Projects", "Someday", "Areas", "Resources", "People", "Journal", "Archive"],
             DevbookPaneBrainHarness.Tabs(component)));
     }
 

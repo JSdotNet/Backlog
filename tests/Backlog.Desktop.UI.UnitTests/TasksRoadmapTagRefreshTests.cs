@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class TasksRoadmapTagRefreshTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     /// <summary>A plan whose tags the test moves, and whose change it announces.</summary>
@@ -62,8 +62,9 @@ public sealed class TasksRoadmapTagRefreshTests : IDisposable
 
     private TasksDesktopState State(IRoadmapTagSource roadmapTags)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-roadmap-tag-refresh", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-roadmap-tag-refresh");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -82,10 +83,10 @@ public sealed class TasksRoadmapTagRefreshTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 }

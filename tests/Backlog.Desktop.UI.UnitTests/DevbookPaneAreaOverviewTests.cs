@@ -68,7 +68,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         When a change is written.
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Selecting_the_design_overview_row_opens_the_whole_folder()
@@ -170,16 +170,13 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-document']")));
 
-        // The menu is the list. The panel used to carry a second one beside the
-        // chapter — title, status and diagram count per row — and it was the
-        // standalone page's left column, reachable from no page this product has.
-        // Nothing behind it was unique: the status is in the file view's own
-        // header and the diagrams are in the chapter.
-        Assert.Empty(component.FindAll("nav[aria-label='arc42 chapters']"));
+        // The architecture surface's left navigation is the list, and the pane's own
+        // menu stands down for this section (local ADR 0046). The panel used to carry
+        // a second list beside the chapter — the standalone page's left column — and
+        // nothing behind it was unique.
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-option']"));
-        // The menu loads on its own, beside the panel, so the chapter can be on
-        // screen a beat before the rows are.
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-nav']"));
+        Assert.Empty(component.FindAll(".devbook-menu__item"));
     }
 
     /// <summary>Puts the pane on Design. Two sections are enabled so the section
@@ -221,10 +218,11 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-area-overview", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-area-overview");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".design"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".design", "colors.md"), Colors);
         File.WriteAllText(Path.Combine(root, ".design", "interaction-guidelines.md"), Interaction);
@@ -234,7 +232,6 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         // The overview is read for the status each subject states, which is
         // behind its own switch and off by default.
         _ = features.SetEnabled(DevbookFeatures.Status, true);
@@ -279,11 +276,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

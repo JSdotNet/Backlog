@@ -31,7 +31,7 @@ An inherited decision marked `proposed` rather than `active` is one no shipped c
 | **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, thin lambdas over handlers, and two endpoint filters. |
 | **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults. Sync alone among the modules adds its own `ActivitySource` and counter. |
 | **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
-| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
+| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Applied to the MCP surface and to owner and device identity by local ADR 0058, not yet built. |
 | **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
 | **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
 | **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file. |
@@ -112,13 +112,13 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0024 — Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener](adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md)
 - [ADR 0025 — Notes ride the task feed as a second Inbox document kind, synced both ways](adr/0025-notes-ride-the-task-feed.md)
 - [ADR 0026 — The Brain is a personal devbook, one folder per user outside any repository](adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
-- [ADR 0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](adr/0027-the-brain-is-a-scope-beside-the-repositories.md)
+- [ADR 0027 — The Brain is a scope beside the repositories, the scope of everything filed against no repository](adr/0027-the-brain-is-a-scope-beside-the-repositories.md) (§6 amended by ADR 0053)
 - [ADR 0028 — Progress is its own boundary, and Tasks knows no sprints](adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md) (sprint parts superseded by ADR 0035)
 - [ADR 0030 — Every stored credential goes through the OS-protected envelope](adr/0030-stored-credentials-go-through-the-os-protected-envelope.md)
 - [ADR 0031 — GitHub calls resolve their account per repository, and a token taken from the GitHub CLI is never stored](adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md)
 - [ADR 0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](adr/0032-my-day-preferences-ride-the-task-feed.md)
 - [ADR 0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)
-- [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md)
+- [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md) (superseded by ADR 0057)
 - [ADR 0035 — Goals and impediments replace sprints](adr/0035-goals-and-impediments-replace-sprints.md) (§2, §8 and §9 amended by ADR 0037; §7's GitHub edge amended by ADR 0042)
 - [ADR 0037 — A session attaches to a goal as its own item](adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)
 - [ADR 0038 — Backlog queues session requests and a Manager session dispatches them](adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
@@ -126,5 +126,14 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0042 — Repository Management owns pull-request state, and every reader goes through its one contract](adr/0042-repository-management-owns-pull-request-state.md)
 - [ADR 0043 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0043-a-surface-can-open-in-its-own-window.md)
 - [ADR 0044 — A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container](adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md) (proposed)
-- [ADR 0046 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
+- [ADR 0046 — C4 zoom navigation is the architecture surface, its links are read from devbook metadata, and its code from syntax trees](adr/0046-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md) (proposed)
 - [ADR 0047 — The Domain view reads by unit](adr/0047-the-domain-view-reads-by-unit.md)
+- [ADR 0050 — Events is its own bounded context](adr/0050-events-is-its-own-bounded-context.md) (proposed)
+- [ADR 0051 — Scheduled runs and loop sessions report to Backlog over MCP](adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md)
+- [ADR 0052 — The app may write links into a Brain note and move a finished project note to the archive](adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md) (proposed; amends ADR 0026 §3 and ADR 0040 §3 and §4)
+- [ADR 0053 — A plan or a task may reference a Brain note](adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md) (proposed; amends ADR 0027 §6)
+- [ADR 0054 — Clarify outcomes follow GTD, and each item has one home](adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md) (proposed; amends ADR 0026 §2 and §3)
+- [ADR 0055 — Calendar is a surface of its own that reads layers](adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md) (proposed, Tasks, Plans and Events layers built; superseded in part by ADR 0056)
+- [ADR 0056 — The Calendar owns its grid, and Tasks is one layer](adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted, built; supersedes ADR 0055 §2, §3 and §6 in part, amends ADR 0022 §2)
+- [ADR 0057 — Archify is retired, and Mermaid draws every chapter diagram](adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md) (proposed; supersedes ADR 0034)
+- [ADR 0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md) (proposed)

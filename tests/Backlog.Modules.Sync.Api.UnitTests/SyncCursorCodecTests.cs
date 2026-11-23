@@ -19,10 +19,10 @@ public class SyncCursorCodecTests
     private static readonly OwnerId Theirs = new(Guid.Parse("22222222-2222-2222-2222-222222222222"));
 
     private static HmacSyncCursorCodec Codec(string? signingKey = null) =>
-        new(Microsoft.Extensions.Options.Options.Create(new SyncTokenOptions
+        new(SigningKeyRing.Fixed(new SyncTokenOptions
         {
             SigningKey = signingKey ?? SyncServiceFactory.SigningKey,
-        }));
+        }.DecodeSigningKey()));
 
     [Fact]
     public void A_minted_cursor_comes_back_as_it_went_in()

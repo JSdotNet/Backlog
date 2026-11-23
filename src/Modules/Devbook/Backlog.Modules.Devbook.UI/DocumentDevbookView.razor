@@ -486,7 +486,7 @@
             .SelectMany(section => section.Blocks.OfType<DocumentDevbookSubheading>().Select(subheading => subheading.Text).Prepend(section.Heading))
             .FirstOrDefault(heading =>
                 string.Equals(Slug(heading), anchor, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(AiModel.GitHubSlug(heading), anchor, StringComparison.OrdinalIgnoreCase));
+                || string.Equals(HeadingAnchor.Of(heading), anchor, StringComparison.OrdinalIgnoreCase));
 
         return heading?.Replace("`", string.Empty, StringComparison.Ordinal).Replace("*", string.Empty, StringComparison.Ordinal).Trim();
     }

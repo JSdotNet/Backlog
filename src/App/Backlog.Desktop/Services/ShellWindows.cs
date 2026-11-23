@@ -27,6 +27,10 @@ namespace Backlog.Desktop.Services;
 /// window — forgets it.</item>
 /// <item>A popped-out window can be kept on top of other windows. That is remembered per
 /// surface beside its bounds, so the next window of that surface opens kept on top.</item>
+/// <item>A popped-out window's native title bar carries Keep on top and Remember this
+/// window beside the system caption buttons (<see cref="SurfaceWindowTitleBar"/>), drawn
+/// from <see cref="SurfaceWindowCaption"/> and redrawn whenever either changes, whoever
+/// changed it. The main window keeps MAUI's default title bar.</item>
 /// </list>
 /// A singleton, because the windows outlive every window's scope.
 /// </summary>
@@ -43,6 +47,13 @@ public sealed class ShellWindows(
     private readonly Dictionary<string, Window> _popped = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _surfaceOf = new(StringComparer.Ordinal);
     private readonly HashSet<string> _onTop = new(StringComparer.Ordinal);
+
+    /// <summary>Each popped-out window's title bar, which draws its caption toggles.</summary>
+    private readonly Dictionary<string, SurfaceWindowTitleBar> _captions = new(StringComparer.Ordinal);
+
+    /// <summary>The popped-out windows that show a surface the catalog offers, rather
+    /// than "not available": only those can be remembered.</summary>
+    private readonly HashSet<string> _available = new(StringComparer.Ordinal);
 
     /// <summary>What each popped-out window shows now, which a remembered one reopens on.</summary>
     private readonly Dictionary<string, (string SurfaceId, IReadOnlyDictionary<string, string> Query)> _showing = new(StringComparer.Ordinal);
@@ -65,6 +76,10 @@ public sealed class ShellWindows(
     /// <summary>A start at sign-in skipped reopening the remembered windows; they open
     /// the first time the main window is shown.</summary>
     private bool _reopenWhenShown;
+
+    /// <summary>Whether anything asked to see the main window, so a start to the tray
+    /// never hides a window a launch has already asked for.</summary>
+    private readonly MainWindowShowLatch _showAsked = new();
 #if WINDOWS
     private TrayIcon? _tray;
 #endif
@@ -93,12 +108,22 @@ public sealed class ShellWindows(
             if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is not { } appWindow) return;
 
             appWindow.Closing += OnMainWindowClosing;
-            if (!hidden) return;
+            if (!_showAsked.KeepHidden(hidden))
+            {
+                // A start to the tray that a launch asked for before the window existed:
+                // brought forward as that launch would have, since this process started
+                // at sign-in owns no foreground of its own.
+                if (hidden) MainThread.BeginInvokeOnMainThread(ActivateMainWindow);
+                return;
+            }
 
             // Hidden now, and once more after the launch has activated the window,
-            // whichever comes last.
+            // whichever comes last — unless a launch asked for the window in between.
             appWindow.Hide();
-            MainThread.BeginInvokeOnMainThread(() => appWindow.Hide());
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (_showAsked.KeepHidden(hidden)) appWindow.Hide();
+            });
         };
 
         _tray = TrayIcon.TryCreate(title, ActivateMainWindow, RequestQuit, OnSessionEnding);
@@ -158,14 +183,15 @@ public sealed class ShellWindows(
     /// </summary>
     public void ReopenRememberedWhenShown(bool hidden)
     {
-        if (hidden)
+        lock (_gate)
         {
-            lock (_gate)
+            // Under the gate, as ActivateMainWindow reads it: an ask that came before
+            // reopens now, one that comes after finds the flag set.
+            if (_showAsked.KeepHidden(hidden))
             {
                 _reopenWhenShown = true;
+                return;
             }
-
-            return;
         }
 
         ReopenRemembered();
@@ -213,6 +239,45 @@ public sealed class ShellWindows(
 
         return Open(surfaceId, query, Guid.NewGuid().ToString("N"), reopening: null);
     }
+
+    /// <inheritdoc />
+    /// <remarks>The window found is the one whose surface and query, as it last reported them,
+    /// are these; it is activated on the main thread. A window that has gone is opened afresh.</remarks>
+    public Task<bool> FocusOrOpenAsync(string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
+        ArgumentNullException.ThrowIfNull(query);
+
+        Window? open;
+        lock (_gate)
+        {
+            open = _showing
+                .Where(pair => string.Equals(pair.Value.SurfaceId, surfaceId, StringComparison.Ordinal) && SameQuery(pair.Value.Query, query))
+                .Select(pair => _popped.GetValueOrDefault(pair.Key))
+                .FirstOrDefault(window => window is not null);
+        }
+
+        if (open is null) return OpenAsync(surfaceId, query);
+
+        var shown = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        OnMainThread(() =>
+        {
+            if (Application.Current is not { } application)
+            {
+                shown.TrySetResult(false);
+                return;
+            }
+
+            application.ActivateWindow(open);
+            shown.TrySetResult(true);
+        });
+
+        return shown.Task;
+    }
+
+    private static bool SameQuery(IReadOnlyDictionary<string, string> left, IReadOnlyDictionary<string, string> right) =>
+        left.Count == right.Count
+        && left.All(pair => right.TryGetValue(pair.Key, out var value) && string.Equals(value, pair.Value, StringComparison.Ordinal));
 
     /// <summary>
     /// Reopens every remembered window whose surface the catalog still offers, beside
@@ -296,6 +361,13 @@ public sealed class ShellWindows(
         RememberedShellWindow? reopening)
     {
         var window = new Window(new MainPage(path, key)) { Title = WindowTitle(title) };
+        var caption = new SurfaceWindowTitleBar(WindowTitle(title), kind => SurfaceWindowCaption.Press(this, key, kind));
+#if WINDOWS
+        // Set before the window opens, so it never shows MAUI's default title bar
+        // first. Window.Title stays what the taskbar and Alt+Tab read.
+        window.TitleBar = caption.View;
+        window.Created += (_, _) => DressCaptionButtons(window);
+#endif
 
         RememberBounds(window, key, surfaceId, reopening);
 
@@ -324,11 +396,33 @@ public sealed class ShellWindows(
             _popped[key] = window;
             _showing[key] = (surfaceId, new Dictionary<string, string>(query ?? new Dictionary<string, string>(), StringComparer.Ordinal));
             _surfaceOf[key] = surfaceId;
+            _captions[key] = caption;
+            if (catalog.TryGet(surfaceId, out _)) _available.Add(key);
             if (windowBounds.IsOnTop(surfaceId)) _onTop.Add(key);
         }
 
+        ShowCaption(key);
+
         return window;
     }
+
+    /// <summary>Draws the window <paramref name="key"/> names' caption toggles as they
+    /// stand now. A window that has gone draws nothing.</summary>
+    private void ShowCaption(string key) => OnMainThread(() =>
+    {
+        // Read where it is drawn: two changes from different threads then draw in
+        // the order the main thread runs them, each reading the state as it is then,
+        // never an older snapshot posted after a newer one.
+        SurfaceWindowTitleBar? caption;
+        bool available;
+        lock (_gate)
+        {
+            caption = _captions.GetValueOrDefault(key);
+            available = _available.Contains(key);
+        }
+
+        caption?.Show(SurfaceWindowCaption.For(this, key, available));
+    });
 
     /// <summary>Drops every trace of the window <paramref name="key"/> names. Called
     /// under the gate.</summary>
@@ -339,6 +433,8 @@ public sealed class ShellWindows(
         _placed.Remove(key);
         _surfaceOf.Remove(key);
         _onTop.Remove(key);
+        _captions.Remove(key);
+        _available.Remove(key);
     }
 
     /// <inheritdoc />
@@ -358,18 +454,26 @@ public sealed class ShellWindows(
         if (!remembered)
         {
             windowBounds.Forget(windowKey);
-            return;
+        }
+        else if (Showing(windowKey) is { } showing)
+        {
+            windowBounds.Remember(new RememberedShellWindow(windowKey, showing.SurfaceId, showing.Query, showing.Placed));
         }
 
-        (string SurfaceId, IReadOnlyDictionary<string, string> Query) showing;
-        ShellWindowBounds? placed;
+        // Whoever asked, the bookmark says what the store now holds.
+        ShowCaption(windowKey);
+    }
+
+    /// <summary>What the window <paramref name="windowKey"/> names shows and where it
+    /// stands, or null for a window that has gone.</summary>
+    private (string SurfaceId, IReadOnlyDictionary<string, string> Query, ShellWindowBounds? Placed)? Showing(string windowKey)
+    {
         lock (_gate)
         {
-            if (!_showing.TryGetValue(windowKey, out showing)) return;
-            placed = _placed.GetValueOrDefault(windowKey);
+            return _showing.TryGetValue(windowKey, out var showing)
+                ? (showing.SurfaceId, showing.Query, _placed.GetValueOrDefault(windowKey))
+                : null;
         }
-
-        windowBounds.Remember(new RememberedShellWindow(windowKey, showing.SurfaceId, showing.Query, placed));
     }
 
     /// <inheritdoc />
@@ -380,14 +484,21 @@ public sealed class ShellWindows(
         ArgumentNullException.ThrowIfNull(query);
 
         var showing = (surfaceId, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(query, StringComparer.Ordinal));
+        bool becameAvailable;
         lock (_gate)
         {
             if (!_popped.ContainsKey(windowKey)) return;
             _showing[windowKey] = showing;
+
+            // Only a surface the window shows is reported, so the window can be
+            // remembered from here on.
+            becameAvailable = _available.Add(windowKey);
         }
 
         if (windowBounds.GetRemembered(windowKey) is { } remembered)
             windowBounds.Remember(remembered with { SurfaceId = surfaceId, Query = showing.Item2 });
+
+        if (becameAvailable) ShowCaption(windowKey);
     }
 
     /// <inheritdoc />
@@ -402,7 +513,21 @@ public sealed class ShellWindows(
     /// <inheritdoc />
     public void SetTitle(string windowKey, string title)
     {
-        if (Popped(windowKey) is { } window) OnMainThread(() => window.Title = WindowTitle(title));
+        SurfaceWindowTitleBar? caption;
+        lock (_gate)
+        {
+            caption = _captions.GetValueOrDefault(windowKey);
+        }
+
+        // Both: the caption draws its own title, and the taskbar and Alt+Tab read the window's.
+        if (Popped(windowKey) is { } window)
+        {
+            OnMainThread(() =>
+            {
+                window.Title = WindowTitle(title);
+                caption?.SetTitle(WindowTitle(title));
+            });
+        }
     }
 
     /// <inheritdoc />
@@ -412,6 +537,9 @@ public sealed class ShellWindows(
         bool reopen;
         lock (_gate)
         {
+            // Asked even before the main window exists: a start to the tray then
+            // opens it shown instead of hiding it.
+            _showAsked.Ask();
             main = _main;
             reopen = _reopenWhenShown && main is not null;
             if (reopen) _reopenWhenShown = false;
@@ -423,9 +551,21 @@ public sealed class ShellWindows(
         if (main is not null) OnMainThread(() =>
         {
 #if WINDOWS
-            (main.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow?.Show();
+            var platformWindow = main.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+            if (platformWindow?.AppWindow is { } appWindow)
+            {
+                appWindow.Show();
+                if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter { State: Microsoft.UI.Windowing.OverlappedPresenterState.Minimized } presenter)
+                    presenter.Restore();
+            }
 #endif
             Application.Current?.ActivateWindow(main);
+#if WINDOWS
+            // Activating alone leaves a window shown behind the foreground one, or only
+            // flashing in the taskbar; the launch that asked granted this process the
+            // foreground (AllowSetForegroundWindow), and the tray's own click owns it.
+            if (platformWindow is not null) _ = SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(platformWindow));
+#endif
 
             if (!reopen) return;
 
@@ -478,6 +618,7 @@ public sealed class ShellWindows(
 
         windowBounds.SetOnTop(surfaceId, onTop);
         OnMainThread(() => ApplyOnTop(window, onTop));
+        ShowCaption(windowKey);
     }
 
     /// <summary>
@@ -522,6 +663,8 @@ public sealed class ShellWindows(
             _popped.Clear();
             _surfaceOf.Clear();
             _onTop.Clear();
+            _captions.Clear();
+            _available.Clear();
         }
 
         var application = Application.Current;
@@ -605,6 +748,30 @@ public sealed class ShellWindows(
     }
 
 #if WINDOWS
+    /// <summary>
+    /// The system's minimise, maximise and close, which it keeps drawing over the
+    /// custom title bar, in the same dark tokens as the bar
+    /// (<c>.devbook/design/color-scheme.md</c>) whatever the system theme: glyphs in
+    /// <c>color-text-primary</c>, <c>color-text-secondary</c> while the window is
+    /// inactive, over <c>color-background-alt</c> under the pointer and
+    /// <c>color-background-raised</c> pressed. The system keeps close's own red hover.
+    /// </summary>
+    private static void DressCaptionButtons(Window window)
+    {
+        if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow?.TitleBar is not { } bar) return;
+
+        var transparent = Microsoft.UI.Colors.Transparent;
+        var primary = CaptionColors.ToWinUI(CaptionColors.TextPrimary);
+        bar.ButtonBackgroundColor = transparent;
+        bar.ButtonInactiveBackgroundColor = transparent;
+        bar.ButtonForegroundColor = primary;
+        bar.ButtonInactiveForegroundColor = CaptionColors.ToWinUI(CaptionColors.TextSecondary);
+        bar.ButtonHoverBackgroundColor = CaptionColors.ToWinUI(CaptionColors.BackgroundAlt);
+        bar.ButtonHoverForegroundColor = primary;
+        bar.ButtonPressedBackgroundColor = CaptionColors.ToWinUI(CaptionColors.BackgroundRaised);
+        bar.ButtonPressedForegroundColor = primary;
+    }
+
     private static void Place(Microsoft.UI.Windowing.AppWindow appWindow, ShellWindowBounds? bounds)
     {
         if (bounds is null) return;
@@ -697,6 +864,10 @@ public sealed class ShellWindows(
 
     private static ScreenArea ToScreenArea(Microsoft.UI.Windowing.DisplayArea display) =>
         new(display.WorkArea.X, display.WorkArea.Y, display.WorkArea.Width, display.WorkArea.Height);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(nint window);
 #endif
 
     /// <summary>A popped-out window's title: its surface, then the app.</summary>

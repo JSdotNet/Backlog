@@ -545,7 +545,8 @@ public sealed class InstructionsDevbookPanelTests
     /// reach, which is the asymmetry the comparison is for.</summary>
     private static Harness CreateComparisonHarness(bool withDocuments = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-reach-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-instructions-reach-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         Directory.CreateDirectory(Path.Combine(clone, ".github", "instructions"));
 
@@ -593,12 +594,13 @@ public sealed class InstructionsDevbookPanelTests
         context.Services.AddSingleton(new InstructionSourceDiscovery());
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     private static Harness CreateCloneHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-clone-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-instructions-clone-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         Directory.CreateDirectory(Path.Combine(clone, ".github"));
         File.WriteAllText(Path.Combine(clone, ".github", "copilot-instructions.md"), "# Copilot\n\nRepository-wide guidance.\n");
@@ -627,12 +629,13 @@ public sealed class InstructionsDevbookPanelTests
         context.Services.AddSingleton(new InstructionSourceDiscovery());
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     private static Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-instructions-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -655,13 +658,15 @@ public sealed class InstructionsDevbookPanelTests
         // The panel renders the shared editing surface, which writes.
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context);
+        return new Harness(temp, context);
     }
 
     private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
-    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context) : IAsyncDisposable
     {
+        public string Root => Temp.Path;
+
         /// <summary>
         /// Awaited disposal, because the editing surface this harness renders
         /// writes its last pending save on the way out. A synchronous
@@ -673,14 +678,7 @@ public sealed class InstructionsDevbookPanelTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

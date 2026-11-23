@@ -62,6 +62,14 @@ internal sealed class FakeDevbookReferenceResolver : IDevbookReferenceResolver
         return this;
     }
 
+    /// <summary>A note in the owner's Brain, <c>#brain:…</c>, answered in
+    /// <paramref name="state"/> as the Brain's own adapter answers one.</summary>
+    public FakeDevbookReferenceResolver BrainNote(string reference, DevbookReferenceState state, string? title = null)
+    {
+        _known[reference] = ResolvedDevbookReference.BrainNote(reference, state, title);
+        return this;
+    }
+
     public FakeDevbookReferenceResolver Broken(string reference, DevbookReferenceState state)
     {
         var hash = reference.IndexOf('#');

@@ -26,10 +26,8 @@ public sealed class AgentSessionSourceTests : IDisposable
     /// spelled two ways is the failure this stamp exists to prevent.</summary>
     private const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-agent-session-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-agent-session-tests");
+    private string _root => _temp.Path;
 
     private string ClaudeHome => Path.Combine(_root, ".claude");
 
@@ -1251,6 +1249,26 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Null(copilot.DesktopTitle);
     }
 
+    /// <summary>A session another started carries the sidebar name of the one that
+    /// started it, from the record the desktop app names as <c>spawnedFrom</c>; a parent
+    /// the store holds no record of names nothing.</summary>
+    [Fact]
+    public async Task A_started_session_carries_its_parents_sidebar_title()
+    {
+        GivenClaudeTranscript("D--Repos-Backlog", "run", @"D:\Repos\Backlog", "main", Noon.AddHours(-3));
+        GivenClaudeTranscript("D--Repos-Backlog", "entry", @"D:\Repos\Backlog", "main", Noon.AddHours(-2));
+        GivenClaudeTranscript("D--Repos-Backlog", "orphan", @"D:\Repos\Backlog", "main", Noon.AddHours(-2));
+        GivenDesktopRecord("local_run", "run", archived: false, title: "+knowledge-events:execute-plan");
+        GivenDesktopRecord("local_entry", "entry", archived: false, title: "13 - Move the Events layer", spawnedFrom: "local_run");
+        GivenDesktopRecord("local_orphan", "orphan", archived: false, title: "2 - Gone", spawnedFrom: "local_gone");
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        Assert.Equal("+knowledge-events:execute-plan", Assert.Single(catalog.Sessions, session => session.Id == "entry").ParentDesktopTitle);
+        Assert.Null(Assert.Single(catalog.Sessions, session => session.Id == "orphan").ParentDesktopTitle);
+        Assert.Null(Assert.Single(catalog.Sessions, session => session.Id == "run").ParentDesktopTitle);
+    }
+
     /// <summary>
     /// Open is not live. An open session whose process the desktop app ended has no
     /// live marker and reads Finished; one with a marker keeps the state its marker
@@ -1324,15 +1342,22 @@ public sealed class AgentSessionSourceTests : IDisposable
 
     /// <summary>A record in the desktop app's store, in the store's own layout and with
     /// the keys it writes — a blob among them, because a real record is mostly blob.</summary>
-    private void GivenDesktopRecord(string desktopId, string cliSessionId, bool? archived, string? scheduledTask = null)
+    private void GivenDesktopRecord(
+        string desktopId,
+        string cliSessionId,
+        bool? archived,
+        string? scheduledTask = null,
+        string title = "a title",
+        string? spawnedFrom = null)
     {
         var folder = Directory.CreateDirectory(Path.Combine(DesktopHome, "account", "org"));
         var path = Path.Combine(folder.FullName, $"{desktopId}.json");
         var flag = archived is { } value ? $""","isArchived":{(value ? "true" : "false")}""" : string.Empty;
         var task = scheduledTask is null ? string.Empty : $""","scheduledTaskId":"{scheduledTask}" """.TrimEnd();
+        var parent = spawnedFrom is null ? string.Empty : $$""","spawnedFrom":{"sessionId":"{{spawnedFrom}}","taskId":"task_1"}""";
 
         File.WriteAllText(path, $$"""
-            {"sessionId":"{{desktopId}}","cliSessionId":"{{cliSessionId}}","cwd":"D:\\Repos\\Backlog","toolSurfaceSnapshot":{"tools":[{"name":"a","isArchived":true}]},"lastActivityAt":{{Noon.AddHours(-1).ToUnixTimeMilliseconds()}}{{flag}}{{task}},"title":"a title"}
+            {"sessionId":"{{desktopId}}","cliSessionId":"{{cliSessionId}}","cwd":"D:\\Repos\\Backlog","toolSurfaceSnapshot":{"tools":[{"name":"a","isArchived":true}]},"lastActivityAt":{{Noon.AddHours(-1).ToUnixTimeMilliseconds()}}{{flag}}{{task}}{{parent}},"title":"{{title}}"}
             """);
         File.SetLastWriteTimeUtc(path, Noon.UtcDateTime.AddHours(-1));
     }
@@ -1602,14 +1627,5 @@ public sealed class AgentSessionSourceTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

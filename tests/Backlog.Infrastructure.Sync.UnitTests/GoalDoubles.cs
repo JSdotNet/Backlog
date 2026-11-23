@@ -1,5 +1,6 @@
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -13,14 +14,14 @@ internal sealed class RecordingGoalReplication : IGoalReplication
 
     public List<GoalReplicaCopyDto> Offered { get; } = [];
 
-    public GoalReplicaOutcome Answer { get; set; } = GoalReplicaOutcome.Taken;
+    public ReplicaOutcome Answer { get; set; } = ReplicaOutcome.Taken;
 
     public void RaiseChanged() => Changed?.Invoke();
 
     public Task<IReadOnlyList<GoalReplicaCopyDto>> ReadAllAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GoalReplicaCopyDto>>([.. Held]);
 
-    public Task<GoalReplicaOutcome> ApplyAsync(GoalReplicaCopyDto inbound, CancellationToken cancellationToken = default)
+    public Task<ReplicaOutcome> ApplyAsync(GoalReplicaCopyDto inbound, CancellationToken cancellationToken = default)
     {
         Offered.Add(inbound);
         return Task.FromResult(Answer);

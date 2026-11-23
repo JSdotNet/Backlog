@@ -234,7 +234,7 @@ The plan tag files the entry under a roadmap item and is stored with its sigil (
 ## Scheduling and Dependency Tokens
 
 ```meta
-related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -255,10 +255,22 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
 | `effort:` | size in story points | `` `effort:5` `` |
+| `waiting:` | waiting-for: who the task waits on, free text | `` `waiting:Jansen Roofing` `` |
+| `followup:` | waiting-for's follow-up date | `` `followup:2026-11-20` `` — only beside `waiting:` |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
 | `view:` | a retired body-view preference, kept as written | `` `view:steps` ``, `` `view:notes` `` |
 
 The `effort:` value is a non-negative whole number and is not honoured on a `plan` entry.
+
+`waiting:` and `followup:` carry a task's
+[waiting-for](../domain/tasks/domain.md#waiting-for), decided in local ADR 0054.
+`waiting:` takes free text up to the closing backtick, spaces included, and
+`followup:` a calendar date. A `followup:` with no `waiting:` beside it is
+unreadable, as `for:` is without `at:`. A follow-up date that has passed reads
+overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a named token: it is a tag,
+`#@pc`, written in the body, on the title or as a `#` tag token on this line
+(`.devbook/domain/tasks/domain.md#context`). The canonical rewrite keeps it as
+`` `#@pc` ``, never as the bare `` `@pc` `` this line reads as an area.
 
 A full metadata line mixes both forms, sigils first:
 
@@ -526,7 +538,7 @@ The product may offer to rewrite a passage or to answer a remark. What it may
 | The tint | The tint is a mix of the one brand hue against the card surface. |
 | The product's own AI | An AI act inside the product carries **no vendor mark**; it is attributed to AI alone. |
 | Offline | An AI act offline is unavailable like any other: present, disabled, with a calm sentence. |
-| Lost anchors | A proposal whose block has gone joins the same orphan region a remark does, rather than being dropped. |
+| Lost anchors | A proposal whose block has gone is never dropped: it goes where an orphaned remark goes — the labelled group at the end when remarks are inline; in a margin column, level with the block at its remembered index (the last block when it names none), labelled and marked approximate. |
 
 - **Anchoring:** no edit survives a character range, so "Rewrite part" means
   rewrite this paragraph, and the product MUST NOT offer a finer grain than its
@@ -626,7 +638,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Document surface | `FileView`: a file's header and its body, the body scrolling under a fixed header | Storybook → *File view*; *Markdown document* → **Reading a knowledge chapter** for a chapter's records in the body |
 | What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it | Storybook → *File content* → **What the file says it is for** |
 | Comparison surface | `MarkdownCompare` and `MarkdownCompareView`, aligned by heading and never by line | Storybook → *Section comparison*, and *File view* → **Two versions, aligned by the pane** |
-| Chapter remarks | `MarkdownView` comments, anchored to a block index, drawn inline or in a margin column | Storybook → *Markdown document* → **The same comments, in the margin** |
+| Chapter remarks | `MarkdownView` comments, anchored to a block index, drawn inline or in a margin column. In the margin a block's row never grows to fit its remarks: they run on down the column, the next block's remarks start below them, a chapter insert moves below them, and only the end of the chapter grows; without the margin script, or below the narrow breakpoint, rows stack as before. An orphaned remark or proposal stands beside its remembered block, marked approximate, and a remark is counted there; hovering or focusing a remark highlights its block, and the reverse | Storybook → *Markdown document* → **The same comments, in the margin**; **A crowded margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |

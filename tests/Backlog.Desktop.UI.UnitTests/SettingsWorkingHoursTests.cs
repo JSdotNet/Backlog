@@ -233,7 +233,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_page_writes_its_headline_and_a_committed_change_moves_it()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         OpenTab(settings.Component, "Working week");
         Assert.Equal("You work Mon–Fri, 09:00–17:30.", Headline(settings.Component));
@@ -266,7 +266,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_settings_screen_offers_the_working_week_on_its_own_page()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
 
         var tabs = Tabs(settings.Component);
         Assert.Contains("Working week", tabs);
@@ -278,25 +278,10 @@ public sealed class SettingsWorkingHoursTests
         Assert.Equal(new TimeOnly(13, 0), settings.WorkingWeek.Current.On(DayOfWeek.Friday).End);
     }
 
-    /// <summary>The roadmap counts the week whether or not the dashboard is on
-    /// (ADR 0019), so switching the dashboard off marks its usage-reset page Off
-    /// and leaves the working week where it is.</summary>
-    [Fact]
-    public void With_the_dashboard_off_the_working_week_is_still_offered()
-    {
-        using var settings = RenderSettings(dashboard: false);
-
-        var tabs = Tabs(settings.Component);
-        Assert.Contains("Working week", tabs);
-        Assert.Contains("Dashboard", tabs);
-        Assert.Equal("Off", SettingsMenu.Badge(settings.Component, "dashboard"));
-        Assert.NotEqual("Off", SettingsMenu.Badge(settings.Component, "working-week"));
-    }
-
     [Fact]
     public void The_storage_tab_no_longer_carries_the_working_week()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
         OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
@@ -311,7 +296,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_storage_tab_no_longer_carries_the_pace()
     {
-        using var settings = RenderSettings(dashboard: true);
+        using var settings = RenderSettings();
         OpenTab(settings.Component, "Storage & backup");
 
         Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity-settings']"));
@@ -329,7 +314,8 @@ public sealed class SettingsWorkingHoursTests
 
     private static SectionRenderContext RenderSection()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-working-hours-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-working-hours-tests");
+        var root = temp.Path;
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
@@ -337,19 +323,19 @@ public sealed class SettingsWorkingHoursTests
         var context = new BunitContext();
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
 
-        return new SectionRenderContext(root, context, context.Render<WorkingWeekSettings>(), workingWeek, usageReset);
+        return new SectionRenderContext(temp, context, context.Render<WorkingWeekSettings>(), workingWeek, usageReset);
     }
 
-    private static SettingsRenderContext RenderSettings(bool dashboard)
+    private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-working-hours-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-working-hours-tests");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, dashboard);
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
@@ -366,67 +352,18 @@ public sealed class SettingsWorkingHoursTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddDashboardSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek);
-    }
-
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), workingWeek);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<WorkingWeekSettings> Component,
         WorkingHoursSettingsStore WorkingWeek,
@@ -435,12 +372,12 @@ public sealed class SettingsWorkingHoursTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         WorkingHoursSettingsStore WorkingWeek) : IDisposable
@@ -448,7 +385,7 @@ public sealed class SettingsWorkingHoursTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

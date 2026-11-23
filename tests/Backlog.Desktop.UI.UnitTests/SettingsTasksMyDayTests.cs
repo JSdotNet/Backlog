@@ -94,7 +94,7 @@ public sealed class SettingsTasksMyDayTests
     public void A_switch_that_cannot_be_saved_says_so()
     {
         var root = NewRoot();
-        var path = System.IO.Path.Combine(root, MyDayPreferencesStore.FileName);
+        var path = root.Combine(MyDayPreferencesStore.FileName);
 
         // A folder where the file should be: reading finds no file, writing fails.
         Directory.CreateDirectory(path);
@@ -166,13 +166,12 @@ public sealed class SettingsTasksMyDayTests
     private static string Headline(IRenderedComponent<Settings> component) =>
         component.Find("[data-testid='settings-headline']").TextContent.Trim();
 
-    private static string NewRoot() =>
-        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "backlog-settings-tasks-my-day-tests", Guid.NewGuid().ToString("n"));
+    private static TemporaryDirectory NewRoot() => new("backlog-settings-tasks-my-day-tests");
 
-    private static SectionRenderContext RenderSection(string? root = null, string? path = null)
+    private static SectionRenderContext RenderSection(TemporaryDirectory? root = null, string? path = null)
     {
         root ??= NewRoot();
-        path ??= System.IO.Path.Combine(root, MyDayPreferencesStore.FileName);
+        path ??= root.Combine(MyDayPreferencesStore.FileName);
 
         var preferences = new MyDayPreferencesStore(path);
 
@@ -184,7 +183,8 @@ public sealed class SettingsTasksMyDayTests
 
     private static SettingsRenderContext RenderSettings()
     {
-        var root = NewRoot();
+        var temp = NewRoot();
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(System.IO.Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, System.IO.Path.Combine(root, "features", "features.json"));
@@ -207,7 +207,7 @@ public sealed class SettingsTasksMyDayTests
             new CaptureSourcesSettingsStore(System.IO.Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(System.IO.Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(System.IO.Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -219,47 +219,11 @@ public sealed class SettingsTasksMyDayTests
         context.Services.AddTaskConnectorSettings();
         context.Services.AddTasksSettings();
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), preferences);
-    }
-
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
-    private static void DeleteQuietly(string root)
-    {
-        try
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), preferences);
     }
 
     private sealed record SectionRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         string Path,
         BunitContext TestContext,
         IRenderedComponent<TasksSettings> Component,
@@ -268,12 +232,12 @@ public sealed class SettingsTasksMyDayTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         MyDayPreferencesStore Preferences) : IDisposable
@@ -281,7 +245,7 @@ public sealed class SettingsTasksMyDayTests
         public void Dispose()
         {
             TestContext.Dispose();
-            DeleteQuietly(Root);
+            Temp.Dispose();
         }
     }
 }

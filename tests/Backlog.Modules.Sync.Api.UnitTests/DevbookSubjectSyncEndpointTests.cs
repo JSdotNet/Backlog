@@ -80,22 +80,6 @@ public class DevbookSubjectSyncEndpointTests : IDisposable
         Assert.Single((await mine.PullSubjects()).Subjects);
     }
 
-    [Fact]
-    public async Task A_cursor_minted_for_another_owner_is_refused()
-    {
-        var mine = await _service.CreateClient().RegisteredDevice("Mine");
-        var theirs = await _service.CreateClient().RegisteredDevice("Theirs");
-
-        await mine.PushSubjects([Debt(Guid.CreateVersion7(), DateTimeOffset.UtcNow, "planned")]);
-        var myCursor = (await mine.PullSubjects()).Since;
-
-        var replayed = await theirs.GetAsync(
-            $"{SyncRoutes.Absolute(SyncRoutes.DevbookSubjects)}?since={Uri.EscapeDataString(myCursor)}", Cancellation);
-
-        Assert.Equal(HttpStatusCode.Forbidden, replayed.StatusCode);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, (await replayed.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
-    }
-
     /// <summary>The laptop pulled <c>identified</c>, the desktop moved the record
     /// on to <c>planned</c>, and the laptop's echo of what it pulled arrives
     /// last. The replica answers the honest count and keeps <c>planned</c>.</summary>

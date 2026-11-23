@@ -3,10 +3,12 @@
     other contexts and what it listens to. Each domain-event chapter is a row of
     the "All events" index — who raises it, when, who consumes it, and whether the
     chapters say it is emitted or only documented — and the picked row's contract
-    shows beneath: raised by, the event, consumed by; its payload as rows; the
+    shows beneath: raised by — each raiser's name and its kind, "Projection
+    service" — the event, consumed by; its payload as rows; the
     published-language rules consumers conform to; and the moves of the
     context's lifecycles that raise it, under "Would fire on" until it is emitted
-    and "Fires on" once it is. "What <context> listens to"
+    and "Fires on" once it is, each a link to that lifecycle on the Domain page
+    when the host follows one. "What <context> listens to"
     reads the dependency tables' published languages another context supplies.
     The words are the chapters'; a section the chapter does not write is named as
     missing rather than left out.
@@ -82,6 +84,20 @@ else
                                 @if (selected.RaisedBy.Count == 0)
                                 {
                                     <span class="domain-event__unsaid">Not named</span>
+                                }
+                                else if (selected.Raisers.Count > 0)
+                                {
+                                    <span class="domain-event__raisers">
+                                        @for (var i = 0; i < selected.Raisers.Count; i++)
+                                        {
+                                            var raiser = selected.Raisers[i];
+                                            if (i > 0)
+                                            {
+                                                <text>@(", ")</text>
+                                            }
+                                            <span class="domain-event__raiser" data-testid="domain-event-raiser" data-kind="@raiser.Kind"><strong>@raiser.Name</strong> <span class="domain-event__raiser-kind">@raiser.Kind</span></span>
+                                        }
+                                    </span>
                                 }
                                 else
                                 {
@@ -159,7 +175,20 @@ else
                                 <ul class="domain-event__moves">
                                     @foreach (var move in moves)
                                     {
-                                        <li class="domain-event__move" data-testid="domain-event-move">@move.From → @move.To</li>
+                                        <li class="domain-event__move" data-testid="domain-event-move">
+                                            @if (move.Place is not null && OnOpenMove.HasDelegate)
+                                            {
+                                                <AppButton Variant="ButtonVariant.None"
+                                                           BaseClass="devbook-ref--action domain-event__move-link"
+                                                           TestId="domain-event-move-link"
+                                                           OnClick="@(() => OnOpenMove.InvokeAsync(move))"
+                                                           aria-label="@($"Show {move.From} → {move.To} on its lifecycle")">@($"{move.From} → {move.To}")</AppButton>
+                                            }
+                                            else
+                                            {
+                                                <text>@($"{move.From} → {move.To}")</text>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </section>
@@ -227,6 +256,13 @@ else
     [Parameter]
     public string? Root { get; set; }
 
+    /// <summary>A move under "Fires on" followed: the host opens the Domain page
+    /// on the lifecycle that draws it (<see cref="DomainEventMove.Place"/>), as
+    /// "How it moves" does. Unset, or for a move read from no domain file, the
+    /// move is text.</summary>
+    [Parameter]
+    public EventCallback<DomainEventMove> OnOpenMove { get; set; }
+
     [Parameter]
     public string? TestId { get; set; } = "domain-events";
 
@@ -241,7 +277,7 @@ else
     private async Task PickAsync(DomainEventContract contract)
     {
         _selected = contract.Anchor;
-        _openEventParameter = DomainUnits.Slug(contract.Title);
+        _openEventParameter = HeadingAnchor.Of(contract.Title);
         await OpenEventChanged.InvokeAsync(_openEventParameter);
     }
 
@@ -249,7 +285,7 @@ else
     {
         if (string.Equals(_openEventParameter, OpenEvent, StringComparison.Ordinal)) return;
         _openEventParameter = OpenEvent;
-        _selected = Events.FirstOrDefault(e => DomainUnits.Slug(e.Title) == OpenEvent)?.Anchor;
+        _selected = Events.FirstOrDefault(e => HeadingAnchor.Of(e.Title) == OpenEvent)?.Anchor;
     }
     private readonly string _listensId = $"domain-events-listens-{Guid.NewGuid():N}";
 

@@ -1,6 +1,7 @@
 using Backlog.Mobile.Services;
 using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Notifications;
+using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.Services;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.Sync;
@@ -49,6 +50,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ISecureStorage>(SecureStorage.Default);
 		builder.Services.AddSingleton<IDeviceCredentialStore, SecureStorageDeviceCredentialStore>();
 
+		// The phone's device key (local ADR 0058 §2): a non-exportable P-256 key in
+		// Android Keystore, StrongBox first. With it registered, pairing sends the key
+		// rather than keeping a secret, and a phone already paired on a secret moves onto
+		// the key on its next token fetch and deletes the secret above.
+		builder.Services.AddSingleton<IDeviceKeyStore, AndroidKeystoreDeviceKeyStore>();
+
 		// Pairing and tokens only. Task replication is AddTaskSyncClient, and it is
 		// not called here on purpose: it needs an ITaskRepository, and this head has
 		// none - the phone carries the Inbox, not a local task database. Registering
@@ -84,6 +91,14 @@ public static class MauiProgram
 		// abstractions; the selecting transcriber the screens inject picks one each turn.
 		builder.Services.AddScoped<IAudioRecorder, AndroidAudioRecorder>();
 		builder.Services.AddDictation<AndroidSpeechTranscriber>();
+
+		// A meeting recording on a note (local ADR 0048): AAC in ADTS through MediaRecorder, in a
+		// microphone foreground service. Singletons, not the shell's scoped defaults: the
+		// service's notification drives the session from outside any scope, and has to reach
+		// the recording the note page started. Before AddMobileShell, whose recorder cannot record.
+		builder.Services.AddSingleton<IMeetingRecorder, AndroidMeetingRecorder>();
+		builder.Services.AddSingleton<NoteRecordingSession>();
+		builder.Services.AddSingleton<IFreeSpace, AndroidFreeSpace>();
 
 		// The camera and the platform pickers for a talk note's attachments. The
 		// browser harness registers WebAttachmentPicker, over <InputFile>, instead.
@@ -131,7 +146,7 @@ public static class MauiProgram
 		// Before AddMobileShell, whose in-memory store is only the default.
 		builder.Services.AddSingleton<ISpeechSettingsStore, PreferencesSpeechSettingsStore>();
 
-		// The Notifications tab's From and Repository choices, kept across launches.
+		// The Notifications screen's From and Repository choices, kept across launches.
 		builder.Services.AddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore, PreferencesNotificationFilterStore>();
 
 		// The Android push (local ADR 0039 §4): Firebase's token, registered with the sync
@@ -168,6 +183,25 @@ public static class MauiProgram
 		// new pairing; a new token from Firebase reaches it through the messaging service.
 		app.Services.GetRequiredService<PushRegistration>().Start();
 
+		// What a killed app left of a recording is attached to its note as interrupted. Here,
+		// once per process and before anything can record, never on a render: an activity is
+		// recreated while RecordingService keeps recording, and a sweep then would take its live file.
+		_ = RecoverRecordingsAsync(app.Services);
+
 		return app;
+	}
+
+	private static async Task RecoverRecordingsAsync(IServiceProvider services)
+	{
+		try
+		{
+			await Task.Run(() => services.GetRequiredService<RecordingRecovery>().RecoverAsync());
+		}
+		catch (Exception ex)
+		{
+			// The files stay in the recordings folder, and the next start tries again.
+			services.GetService<ILogger<RecordingRecovery>>()
+				?.LogWarning(ex, "Recovering interrupted recordings failed.");
+		}
 	}
 }

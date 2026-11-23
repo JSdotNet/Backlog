@@ -93,6 +93,19 @@
                                        Title="@(Availability.Available ? "Ask the AI for an import plan and add it to the backlog" : Availability.Reason)"
                                        OnClick="State.CreatePlanAsync"
                                        TestId="inbox-create-plan">Create plan</AppButton>
+                            @* Off by default, and disabled with the Brain's own reason
+                               while it cannot take a note (features.md#create-plan-from-an-item).
+                               The reason sits on a wrapper: a disabled input shows no tooltip. *@
+                            <span class="inbox-pane__plan-project-note"
+                                  title="@(State.ToBrainUnavailableReason ?? InboxDesktopState.StartProjectNoteTitle)"
+                                  data-testid="inbox-create-plan-project-note-hint">
+                                <Checkbox Label="@InboxDesktopState.StartProjectNoteLabel"
+                                          Checked="@(State.StartProjectNote && State.ToBrainUnavailableReason is null)"
+                                          CheckedChanged="State.SetStartProjectNote"
+                                          Disabled="@(State.ToBrainUnavailableReason is not null || !Availability.Available || State.RouteRunning || State.BulkRunning)"
+                                          Busy="@State.PlanRunning"
+                                          TestId="inbox-create-plan-project-note" />
+                            </span>
                         }
                         <DeleteButton Size="ButtonSize.Small"
                                       Disabled="@Busy"
@@ -192,8 +205,9 @@
                         @Prose(item, "Only the title and the attachment were captured.")
                         break;
 
-                    case ContentKind.Note:
-                        @* A note is the one kind the reader may change after it is
+                    case ContentKind.Note or ContentKind.Meeting:
+                        @* A note, and a meeting which is a note started by recording,
+                           are the kinds the reader may change after they are
                            captured, and the change reaches the phone. Edited in
                            place rather than in a dialog: the note is what the
                            column is about. Not once archived, because an archived
@@ -436,6 +450,14 @@
             </div>
         </article>
 
+        @* Beside Move to backlog: the due date and My Day its tasks may get. *@
+        @if (open)
+        {
+            <InboxRouteSchedule State="State"
+                                Disabled="@Busy"
+                                TestId="inbox-detail-route-schedule" />
+        }
+
         @* The decisions, fixed at the foot of the column, each naming its
            key. A decided item keeps only Move to list, which is allowed in
            every state. *@
@@ -452,8 +474,29 @@
                 var brainUnavailable = State.ToBrainUnavailableReason;
                 <AppButton Disabled="@(Busy || brainUnavailable is not null)"
                            Title="@(brainUnavailable ?? InboxDesktopState.ToBrainTitle)"
-                           OnClick="State.RouteToBrainAsync"
+                           OnClick="OpenBrainPicker"
                            TestId="inbox-to-brain"><span class="inbox-pane__decision-label">@InboxDesktopState.ToBrainLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">B</kbd></AppButton>
+                @* Only while the Events area is on: off, the whole area is
+                   withdrawn, so the route is not shown at all. *@
+                @if (State.ToEventOffered)
+                {
+                    <AppButton Disabled="@Busy"
+                               Title="@InboxDesktopState.ToEventTitle"
+                               OnClick="State.RouteToEventAsync"
+                               TestId="inbox-to-event"><span class="inbox-pane__decision-label">@InboxDesktopState.ToEventLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">E</kbd></AppButton>
+                }
+                <AppButton Disabled="@(Busy || State.SomedayUnavailableReason is not null)"
+                           Title="@(State.SomedayUnavailableReason ?? InboxDesktopState.SomedayTitle)"
+                           OnClick="State.RouteToSomedayAsync"
+                           TestId="inbox-someday"><span class="inbox-pane__decision-label">@InboxDesktopState.SomedayLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">S</kbd></AppButton>
+                <AppButton Disabled="@Busy"
+                           Title="@InboxDesktopState.DoneNowTitle"
+                           OnClick="State.DoneNowAsync"
+                           TestId="inbox-done-now"><span class="inbox-pane__decision-label">@InboxDesktopState.DoneNowLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">N</kbd></AppButton>
+                <AppButton Disabled="@Busy"
+                           Title="@InboxDesktopState.WaitingForTitle"
+                           OnClick="OpenWaitingFor"
+                           TestId="inbox-waiting-for"><span class="inbox-pane__decision-label">@InboxDesktopState.WaitingForLabel</span> <kbd class="inbox-pane__key" aria-hidden="true">W</kbd></AppButton>
             }
             <AppButton Disabled="@Busy"
                        Title="File it in one of your lists (l)"
@@ -570,6 +613,14 @@
            reaches for, one key and Enter away. A particular date is still the
            field beside the pickers — this is the quick half, not a second
            date picker. *@
+        <InboxBrainPicker State="State"
+                          Open="@_brainOpen"
+                          OpenChanged="open => _brainOpen = open" />
+
+        <InboxWaitingForDialog State="State"
+                               Open="@_waitingForOpen"
+                               OpenChanged="open => _waitingForOpen = open" />
+
         <Modal Open="@_deferOpen"
                OpenChanged="open => _deferOpen = open"
                Title="Defer until"
@@ -722,6 +773,8 @@
         { Status: InboxStatus.Deferred } => "Deferred with no review date.",
         { Routing: { Domain: RoutingDomain.Devbook } routing } =>
             $"Kept in your Brain on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
+        { Routing: { Domain: RoutingDomain.Events } routing } =>
+            $"Spotted as an event on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         { Routing: { } routing } =>
             $"Routed to {InboxDesktopState.Counted(routing.TaskIds.Count, "task", "tasks")} on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         _ => InboxLabels.Status(item.Status) + "."
@@ -842,7 +895,10 @@
 
     /// <summary>One row per file that is not drawn as a thumbnail: its name and
     /// size, Open when it is on this machine, and Retry with the reason when its
-    /// download failed. A file still waiting for its first fetch says so.</summary>
+    /// download failed. A file still waiting for its first fetch says so. A
+    /// recording on this machine plays in its row, under its name, and one whose
+    /// transcription failed three times says so with the last reason and Retry
+    /// (local ADR 0049 §6).</summary>
     private RenderFragment FileRows(InboxItemDto item) => @<text>
         @{ var files = item.Attachments.Where(attachment => !InboxDesktopState.ShowsAsThumbnail(attachment)).ToList(); }
         @if (files.Count > 0)
@@ -858,6 +914,31 @@
                             <AppButton Size="ButtonSize.Small"
                                        OnClick="() => State.OpenAttachmentAsync(file.Id)"
                                        TestId="@($"inbox-attachment-open-{file.Id:N}")">Open</AppButton>
+                            @if (InboxDesktopState.PlaysInPlace(file))
+                            {
+                                var itemId = item.Id;
+                                var fileId = file.Id;
+                                <AudioPlayer @key="file.Id"
+                                             Source="@(new AudioSource(file.ContentType, cancellation => State.OpenAttachmentStreamAsync(itemId, fileId, cancellation)))"
+                                             AriaLabel="@($"Play {file.Name}")"
+                                             MissingText="This recording is not on this machine any more."
+                                             CssClass="inbox-pane__file-player"
+                                             TestId="@($"inbox-attachment-player-{file.Id:N}")"
+                                             MissingTestId="@($"inbox-attachment-player-missing-{file.Id:N}")" />
+                            }
+                            @if (file.TranscriptionFailure is { } failure)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Busy="@(State.RetryingAttachmentId == file.Id)"
+                                           BusyLabel="Queuing"
+                                           Disabled="@(State.RetryingAttachmentId is not null)"
+                                           OnClick="() => State.RetryTranscriptionAsync(file.Id)"
+                                           TestId="@($"inbox-attachment-transcription-retry-{file.Id:N}")">Retry</AppButton>
+                                <Alert BaseClass="inbox-pane__file-error"
+                                       Role="status"
+                                       Message="@($"Transcription failed: {failure.LastReason}")"
+                                       TestId="@($"inbox-attachment-transcription-error-{file.Id:N}")" />
+                            }
                         }
                         else if (file.LastError is { } error)
                         {
@@ -1071,6 +1152,30 @@
     }
 
     private bool _deferOpen;
+
+    /// <summary>Opens To Brain's destination picker, as <c>b</c> and the button
+    /// do. Refused while the Brain cannot take a note, as the button is.</summary>
+    public void OpenBrainPicker()
+    {
+        if (!CanDecide || State.ToBrainUnavailableReason is not null) return;
+
+        _brainOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _brainOpen;
+
+    /// <summary>Opens Waiting for's question — who, and when to follow up — as
+    /// <c>w</c> and the button do.</summary>
+    public void OpenWaitingFor()
+    {
+        if (!CanDecide) return;
+
+        _waitingForOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _waitingForOpen;
 
     private IReadOnlyList<MenuItem> DeferChoices() => InboxDecisionMenus.DeferChoices(State.Today);
 

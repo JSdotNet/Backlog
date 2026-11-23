@@ -123,7 +123,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/events/context.md", ".devbook/domain/calendar/context.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client and the one channel that serves every domain. It runs **Standalone** or **Connected** (`.devbook/arc42/12-glossary.md#terms`).
@@ -147,6 +147,8 @@ graph TB
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
       SessionsUI["Backlog.Modules.Sessions.UI"]
       SyncUI["Backlog.Modules.Sync.UI\n(Devices settings)"]
+      EventsUI["Backlog.Modules.Events.UI"]
+      CalendarUI["Backlog.Modules.Calendar.UI"]
     end
 
     subgraph "Modules"
@@ -156,17 +158,20 @@ graph TB
       Dashboard["Backlog.Modules.Dashboard"]
       Capture["Backlog.Modules.Capture"]
       RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
+      Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
+      Calendar["Backlog.Modules.Calendar\n(Tasks, Plans and Events layer policies,\nno data of its own)"]
     end
 
     subgraph "Background workers"
-      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker, NotificationSyncWorker,\nDevbookSubjectSyncWorker"]
+      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker, NotificationSyncWorker,\nDevbookSubjectSyncWorker, KnowledgeEventSyncWorker"]
       BackupWorker["BackupWorker"]
       McpWorker["McpServerWorker"]
     end
 
     subgraph "Adapters (Backlog.Infrastructure.*)"
-      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups)"]
-      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, backups)"]
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
+      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, InboxEventTarget,\nEventsTaskTarget, EventsCalendarEvents,\nRoadmapCalendarPlans, TasksCalendarTasks,\nbackups)"]
+      BrainInfra["Infrastructure.Brain\n(EventsBrainNotes)"]
       DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
       SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
       Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
@@ -185,7 +190,7 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
   TasksUI -->|Abstractions| Tasks
@@ -196,6 +201,8 @@ graph TB
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
   SyncUI -->|pairing, sync loops| SyncClient
+  EventsUI -->|Abstractions| Events
+  CalendarUI -->|Abstractions| Calendar
   Shell -->|IPullRequests| RepoMgmt
 
   TasksUI --> Copilot & GitHubInfra
@@ -212,12 +219,21 @@ graph TB
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
   FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
 
+  Events --> Sqlite
+  Events -->|IEventTaskTarget| FileSystem
+  Events -->|IEventBrainNotes| BrainInfra
+  Inbox -->|IInboxEventTarget| FileSystem
+  FileSystem -->|IKnowledgeEvents, IKnowledgeEventReader| Events
+  Calendar -->|ICalendarTasks, ICalendarEvents, ICalendarPlans| FileSystem
+  FileSystem -->|Roadmap ports| Roadmap
+
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
   CaptureInfra -->|IInboxIntake| Inbox
 
   SyncWorkers --> SyncClient
   SyncClient -->|captures via IInboxIntake| Inbox
+  SyncClient -->|IKnowledgeEventReplication, IEventAttachmentRequests| Events
   SyncClient -.->|push / pull| SyncAPI
   BackupWorker --> FileSystem
 
@@ -237,12 +253,26 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 
 **Repository Management** is `Backlog.Modules.RepositoryManagement` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
 
+**Events** is `Backlog.Modules.Events`, with its `.Abstractions` and `.UI` (local ADR 0050). Its stores are the `events_knowledge_events` and `events_series` tables in `backlog.db`. Its pane is a takeover behind the `events` feature, and its `HarvestTaskWorker` runs the harvest task filing after start-up and at each day turn. No other module sees it and it sees none, so three adapters carry its joins:
+
+- `EventsTaskTarget`, in `Backlog.Infrastructure.FileSystem/Events/`, answers `IEventTaskTarget` over Tasks' `ITaskItems`. It is the one place a prep or harvest task becomes entry text.
+- `EventsBrainNotes`, in `Backlog.Infrastructure.Brain`, answers `IEventBrainNotes`: whether a note is at the path an event links, and its title. It writes nothing to the Brain.
+- `InboxEventTarget`, in `Backlog.Infrastructure.FileSystem/Inbox/`, answers the Inbox's `IInboxEventTarget` over `IKnowledgeEvents`, so an item routed To Event becomes a Spotted event.
+
+The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKnowledgeEventReplication`. `TaskReplicaMerge` hands the phone's attachment requests to `IEventAttachmentRequests`.
+
+**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Tasks, Plans and Events layers, one per window. Its `.UI` draws the calendar grid itself, `CalendarGrid`, and Tasks.UI registers nothing for it (local ADR 0056). Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
+
+- `TasksCalendarTasks` answers `ICalendarTasks` over Tasks' `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`. In a host with no Tasks module, `NoCalendarTasks` answers it, and the Calendar draws plans and events alone.
+
+- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Roadmap's ports.
+- `EventsCalendarEvents` answers `ICalendarEvents` over Events' `IKnowledgeEventReader`. With the `events` area off it reads nothing, and the Calendar offers no events.
+
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the C# builder that indexes a repository's devbook folders and the read-only reader over the result. It indexes:
 
 - the chapters;
 - the reference graph;
 - the outline;
-- the Archify artifacts;
 - the click demos;
 - the C4 model.
 
@@ -278,7 +308,7 @@ flowchart LR
 ```
 
 - **Areas, not devbook folders.** The builder indexes the areas `BrainConventions` (Devbook Abstractions) resolves (local ADR 0026 §2): those the Brain's `CONVENTIONS.md` declares, or the PARA set. Every other top folder holding a note follows. The `Ignore` section of `CONVENTIONS.md` comes off the whole list. No devbook folder convention applies. `para`, `repos` and `tasks` become node attributes, and a `repo:` link in `related` or prose is stored as an edge whose target is no node.
-- **A port of its own.** `BrainFolderSource` resolves the Brain as one local, editable folder keyed `brain`, beside `DevbookFolderSource`. The pane reads it through `IBrainFolderSource`, beside `IDevbookFolderSource` in the Devbook Abstractions. The repository source stays the one registration every search, reference, annotation and Archify reader resolves. `AddDevbookAdapters` builds the source over `IBrainSettings.BrainFolder`.
+- **A port of its own.** `BrainFolderSource` resolves the Brain as one local, editable folder keyed `brain`, beside `DevbookFolderSource`. The pane reads it through `IBrainFolderSource`, beside `IDevbookFolderSource` in the Devbook Abstractions. The repository source stays the one registration every search, reference and annotation reader resolves. `AddDevbookAdapters` builds the source over `IBrainSettings.BrainFolder`.
 - **The watch.** Both heads resolve `BrainFolderWatch` after `Build()` and call `Start()`. It raises the source's `Changed` after a setting change or a Brain rebuild.
 - **Its own root.** `DevbookDatabaseLocation` records the folder as a Brain, with its own database in app storage. `BrainConflictCopies` (Abstractions) finds OneDrive conflict pairs from note names alone.
 - **Parity.** `tools/devbook/brain.mjs` is the Node side of the same convention, compared on a Brain fixture.
@@ -420,7 +450,7 @@ Each group of the page is a card, and its headline says whether this device is p
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/domain/capture/features.md#mobile-capture", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/features.md#answering-from-another-device", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach", ".devbook/arc42/06-runtime-view.md#meeting-recording", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
 ```
 
 The mobile app is an Android-first, offline-first capture app serving Capture, Inbox and lightweight Tasks. It owns mobile UI, push plumbing and sync transport, not domain lifecycle rules.
@@ -430,18 +460,20 @@ graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
     Version["Version control\n(update bottom sheet)"]
-    InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
+    InboxTab["Inbox tab\n(own captures, notes, meetings;\nkind chips, + menu, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
-    NoteTab["Notes tab\n(list, search, editor)"]
+    NoteTab["Note editor\n(note or meeting, /notes/{id})"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
-    NotificationsTab["Notifications tab\n(list, detail, pager, answer)"]
+    NotificationsTab["Notifications tab\n(icon-only; list, detail, pager, answer)"]
+    EventsTab["Events tab\n(upcoming list, detail)"]
   end
 
   subgraph "Device store (SQLite)"
-    Outbox["Outbox\n(capture, note, task, notification-reply, talk-note)"]
+    Outbox["Outbox\n(capture, note, task, notification-reply,\nevent-attachment-request, talk-note)"]
     InboxCache["Last pulled inbox"]
     TaskView["task_view\n(fold of the task feed)"]
     NoteView["note_view\n(fold of note documents)"]
+    EventView["event_view\n(fold of the knowledgeEvents feed)"]
   end
 
   Files["talk-notes/outbox\n(attachment upload queue)"]
@@ -463,10 +495,11 @@ graph TB
   Version -->|"on the person's tap"| Installer
   Installer -->|"download APK"| Releases
   Shell --> InboxTab
-  Shell --> NoteTab
   Shell --> TasksTab
   InboxTab --> Outbox
   InboxTab --> InboxCache
+  InboxTab --> NoteView
+  InboxTab --> NoteTab
   NoteTab --> NoteView
   NoteTab --> Outbox
   NoteTab --> Files
@@ -482,16 +515,20 @@ graph TB
   Shell --> NotificationsTab
   NotificationsTab --> Outbox
   NotificationsTab --> Speech
+  Shell --> EventsTab
+  EventsTab --> EventView
+  NoteTab --> EventView
   Files -->|"PUT /api/sync/attachments/{id}"| API
   Speech -.->|"POST /api/sync/transcriptions (Cloud engine)"| API
   Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API
   API -->|"GET /api/sync/inbox"| InboxCache
   API -->|"GET /api/sync/tasks (task feed)"| TaskView
   API -->|"GET /api/sync/tasks (note documents)"| NoteView
+  API -->|"GET /api/sync/knowledge-events"| EventView
   Creds -.->|bearer| API
 ```
 
-The shell (`MainLayout`) is a title bar with the version control and sync status, the page, and bottom tabs, withheld until the device is paired.
+The shell (`MainLayout`) is an app bar, the page, and bottom tabs. The app bar holds the version control, the sync line and the settings cog. The tabs are withheld until the device is paired.
 
 The **version control** (`AppUpdateControl`) is the app bar's title. It names the app and running version and opens the update bottom sheet, the phone's counterpart of the desktop footer's version control. The sheet offers Check, then Install update once a newer APK is found; a quiet check after launch only puts a dot on the control.
 
@@ -499,10 +536,11 @@ The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.C
 
 The tabs are:
 
-- **Inbox:** a quick-capture field and the phone's own captures the desktop has not taken in, each marked waiting in the outbox or sent. No row triages; triage stays on the desktop.
-- **Notes:** every note in `note_view`, newest first and searched on the phone, with an editor. A note has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`.
+- **Inbox:** one list of the phone's own captures the desktop has not decided, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first and searched on the phone. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. The quick one-line field makes a capture; the **+** menu makes a note, or a meeting already recording. An opened capture can be edited or deleted. No row triages; triage stays on the desktop.
+- **Notifications:** shown after Inbox once the phone holds a notification, as an icon-only tab: the bell shows, and the word is its hidden name. It shows the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
+- **Note editor** (`/notes/new`, `/notes/{id}`) is no tab; an Inbox row opens it. A note or meeting has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, its Event section attaches it to one, sent as outbox kind `event-attachment-request`. `/notes` has no list of its own: it opens the Inbox filtered to notes.
+- **Events:** shown once the phone holds a knowledge event. It lists the upcoming events in `event_view`, soonest first, and opens a detail that edits nothing. A Talk note the phone holds opens from it, and a Brain note shows its title only (local ADR 0050).
 - **Tasks:** My Day from `task_view`, and the phone's task writes: add a task for today, mark one in today's My Day done or undone, tick a step, or move it to tomorrow.
-- **Notifications:** the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
 
 The **Capture sheet** (`/capture`, opened from Today's capture button) is a sheet over the screen it was opened from, not a tab. It sends one thought to the Inbox as a capture, creates it as a note through the note view, or adds it to today through `task_view`. It offers dictation and a photo.
 
@@ -513,11 +551,12 @@ The local SQLite file holds no canonical task data. It holds:
 - the outbox;
 - `inbox_cache`, the last inbox pulled;
 - `task_view`, a fold of the owner's task feed;
-- `note_view`, a fold of the `note` documents on the same feed, with its own cursor.
+- `note_view`, a fold of the `note` documents on the same feed, notes and meetings both, with its own cursor;
+- `event_view`, a fold of the `knowledgeEvents` feed, with its cursor in `event_cursor`.
 
-Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `note` or `task`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
+Everything the phone sends leaves through the outbox, oldest first, with backoff and a park after five attempts. The entry's kind (`capture`, `capture-edit`, `capture-withdraw`, `note`, `task` or `event-attachment-request`) decides how it is sent; `talk-note` only drains an entry an earlier build left queued.
 
-A note's files, and a leftover talk note's, wait in `talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before the document that names it and checkpointed into the entry, so a retry never sends one twice. A note document then goes to `POST /api/sync/tasks`, a leftover talk note's capture to `POST /api/sync/inbox`. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`, `.devbook/arc42/06-runtime-view.md#talk-note-upload`, `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
+A note's files, and a leftover talk note's, wait in `talk-notes/outbox/`, the attachment upload queue. Each file is uploaded before the document that names it and checkpointed into the entry, so a retry never sends one twice. A note document then goes to `POST /api/sync/tasks`, a leftover talk note's capture to `POST /api/sync/inbox`. An attachment request takes the task route too, as `.devbook/arc42/06-runtime-view.md#talk-note-attach` shows. See `.devbook/arc42/06-runtime-view.md#mobile-note-sync`, `.devbook/arc42/06-runtime-view.md#talk-note-upload`, `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push` and `.devbook/arc42/adr/0025-notes-ride-the-task-feed.md`.
 
 The speech transcriber listens on-device by default. With the Cloud engine picked
 in Settings, it records the turn and sends it to the sync API for transcription.
@@ -587,7 +626,7 @@ This capture channel is distinct from the session record Sessions keeps for moni
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md"]
 ```
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`), deliberately not the backbone. It persists only sync-oriented state, much of it TTL-based, and never canonical domain data or external credentials (local ADR 0005).
@@ -624,6 +663,7 @@ Each adapter project is the only one that references its Azure SDK; the Azure re
   - `IAnnotationReplica`
   - `IDevbookSubjectReplica`
   - `INotificationReplica`
+  - `IKnowledgeEventReplica`
   - `IAttachmentStore`
   - `INotificationNudgeChannel`
   - `INotificationPushChannel`
@@ -632,8 +672,9 @@ Each adapter project is the only one that references its Azure SDK; the Azure re
 - `Backlog.Modules.Sync.Api` wires the module to HTTP, JWT-bearer authentication,
   and the owner-scoping filter.
 - `Backlog.Infrastructure.Cosmos` implements the replica ports against the
-  `tasks`, `sessions`, `annotations`, `devbookSubjects`, `notifications` and
-  `notificationReplies` containers (local ADRs 0005, 0011, 0039 and 0044). It
+  `tasks`, `sessions`, `annotations`, `devbookSubjects`, `knowledgeEvents`,
+  `notifications` and `notificationReplies` containers (local ADRs 0005, 0011,
+  0039, 0044 and 0050). It
   serves the device registry and pairing-code store from `devices` and `pairingCodes`, so a registration survives a restart. It is the only project referencing the Cosmos SDK.
 - `Backlog.Infrastructure.BlobStorage` implements `IAttachmentStore` against the
   `attachments` blob container (local ADR 0014). It is the only project that
@@ -645,18 +686,23 @@ Each adapter project is the only one that references its Azure SDK; the Azure re
   phone and sends a data-only push to the owner's tag. It sends with the hub's
   `sync-send` rule and keeps installations with `sync-manage`.
 
-The API head serves sessions, annotations and devbook subject state as one route
-each: `/api/sync/sessions`, `/api/sync/annotations` and `/api/sync/devbook-subjects`.
+The API head serves sessions, annotations, devbook subject state and knowledge
+events as one route each: `/api/sync/sessions`, `/api/sync/annotations`,
+`/api/sync/devbook-subjects` and `/api/sync/knowledge-events`.
 A device pushes a batch with `POST` and pulls the owner's feed from a cursor with
-`GET`, as it does on `/api/sync/tasks`. A desktop that meets a bare 404 on
-`/api/sync/devbook-subjects` takes it for a service not yet deployed with the route.
+`GET`, as it does on `/api/sync/tasks`. The phone only pulls knowledge events
+(local ADR 0050). A desktop that meets a bare 404 on
+`/api/sync/devbook-subjects` or `/api/sync/knowledge-events` takes it for a
+service not yet deployed with the route.
 It asks again on its next cycle (local ADR 0044 §7).
 
 Captures have no container of their own. A capture is a document kind in the
 `tasks` container, and the module writes it through `ITaskReplica` (local ADR
 0009). A device posts a capture to `/api/sync/inbox`, the desktop lists the
 owner's waiting captures from the same route, and it acknowledges one with
-`POST /api/sync/inbox/{id}/ack`. The session, annotation and inbox routes sit
+`POST /api/sync/inbox/{id}/ack`. The phone rewords a waiting capture with
+`PUT /api/sync/inbox/{id}` (the EditCapture slice), and withdraws one through
+the acknowledgement route. The session, annotation and inbox routes sit
 behind the same paired-device authorization, owner-scope and replica-fault
 filters as every other sync route.
 
@@ -669,7 +715,7 @@ addressed to it and deletes each once processed. A desktop asks
 hands its FCM token to `PUT /api/sync/notifications/push`, which answers whether
 the service registered it.
 
-The Cosmos database holds eight containers: `tasks`, `sessions`, `annotations`, `devbookSubjects`, `notifications` and `notificationReplies` partitioned on the owner, and `devices` and `pairingCodes` on their own id.
+The Cosmos database holds nine containers: `tasks`, `sessions`, `annotations`, `devbookSubjects`, `knowledgeEvents`, `notifications` and `notificationReplies` partitioned on the owner, and `devices` and `pairingCodes` on their own id.
 
 The blob store stages an upload as uncommitted blocks. It commits them only once
 the handler has checked the size and digest, so a refused upload never becomes a

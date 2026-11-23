@@ -21,8 +21,12 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <see cref="AnswerDeliveryPayload"/>. Deliveries come first, oldest answer first, because
 /// their sessions already hold a worktree. One whose session the desktop app holds no record
 /// of — a CLI session, an ended one — is never offered: nobody could send it.</item>
-/// <item><c>request</c> — the oldest Requested session request, a lapsed claim included:
-/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.</item>
+/// <item><c>request</c> — the Requested session request at the head of the queue, in the
+/// order the person set (oldest first among requests never moved), a lapsed claim included:
+/// <see cref="SessionRequestPayload"/> with its own entry-or-plan kind as <c>requestKind</c>.
+/// None while the person has paused the queue: <see cref="ISessionRequestStore.NextAsync"/>
+/// answers null then, so a paused queue holds and answers <c>204</c> as an empty one does,
+/// while deliveries keep flowing — they answer sessions already running.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -36,6 +40,14 @@ namespace Backlog.Desktop.UI.Mcp;
 /// raises no change event, and one indexed read a second against the local database
 /// costs nothing a person would notice; what the long poll saves is the dispatcher's
 /// model turn, not the server's read.
+/// </para>
+/// <para>
+/// <b>A wait is a check-in.</b> A Manager names its own session in the <c>sessionId</c>
+/// query parameter, and local ADR 0051 §3 counts the call as a loop check-in with only the
+/// session and the time: on arrival, while <c>sessions</c> is on, the Loop Register moves
+/// that session's check-in time and nothing else, so a Manager whose model only waits does
+/// not read Stalled. A session the register does not know stays unknown, and a register
+/// that cannot be written never fails the wait: its failure is kept for the head to log.
 /// </para>
 /// <para>
 /// Here rather than in either head because both map it and the handling is what is
@@ -70,7 +82,7 @@ public static class SessionRequestWaitEndpoint
     public const string RequestKind = "request";
 
     /// <summary>
-    /// Waits for a delivery or the oldest Requested request, for up to <paramref name="hold"/>
+    /// Waits for a delivery or the Requested request at the head of the queue, for up to <paramref name="hold"/>
     /// (<see cref="Hold"/> when null), asking the queue every
     /// <paramref name="pollInterval"/> (<see cref="PollInterval"/> when null).
     /// <para>
@@ -88,6 +100,10 @@ public static class SessionRequestWaitEndpoint
     /// <param name="questions">The waiting questions whose deliveries are handed out; null
     /// where the host composed no relay, and then only requests are.</param>
     /// <param name="sessions">The session list, for each delivery's desktop session id.</param>
+    /// <param name="sessionId">The calling Manager's own session id, whose check-in the wait
+    /// moves; null or blank when the call names none, and then nothing is recorded.</param>
+    /// <param name="loops">The Loop Register the wait is recorded in; null where the host
+    /// composed none.</param>
     /// <param name="contact">Where the call is recorded as dispatcher contact: held for as
     /// long as the call is, and heard again when it is answered. A call answered <c>404</c>
     /// because the flag is off is no contact — the queue is not there to be served — and
@@ -102,6 +118,8 @@ public static class SessionRequestWaitEndpoint
         TimeSpan? pollInterval = null,
         IWaitingQuestionStore? questions = null,
         IAgentSessionSource? sessions = null,
+        string? sessionId = null,
+        ILoopRegister? loops = null,
         DispatcherContact? contact = null)
     {
         ArgumentNullException.ThrowIfNull(requests);
@@ -114,7 +132,7 @@ public static class SessionRequestWaitEndpoint
 
         using (contact?.Hold())
         {
-            reply = await HoldAsync(requests, features, clock, cancellationToken, hold, pollInterval, questions, sessions).ConfigureAwait(false);
+            reply = await HoldAsync(requests, features, clock, cancellationToken, hold, pollInterval, questions, sessions, sessionId, loops).ConfigureAwait(false);
         }
 
         if (reply.StatusCode != 404) contact?.Heard();
@@ -131,12 +149,25 @@ public static class SessionRequestWaitEndpoint
         TimeSpan? hold,
         TimeSpan? pollInterval,
         IWaitingQuestionStore? questions,
-        IAgentSessionSource? sessions)
+        IAgentSessionSource? sessions,
+        string? sessionId,
+        ILoopRegister? loops)
     {
         var interval = pollInterval ?? PollInterval;
         var deadline = clock.GetUtcNow() + (hold ?? Hold);
         var desktop = new DesktopSessionIds(sessions);
-        Exception? deliveryFailure = null;
+        Exception? keptFailure = null;
+
+        try
+        {
+            await RecordWaitAsync(sessionId, loops, features, clock, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // The Loop Register could not be written: the wait is the Manager's way to its
+            // work, so the queue is still served and the failure is kept for the head to log.
+            keptFailure = failure;
+        }
 
         while (true)
         {
@@ -152,7 +183,7 @@ public static class SessionRequestWaitEndpoint
             {
                 // The deliveries could not be read: the session requests do not depend on
                 // them, so the queue is still answered rather than held up behind them.
-                deliveryFailure ??= failure;
+                keptFailure ??= failure;
                 body = null;
             }
 
@@ -167,14 +198,29 @@ public static class SessionRequestWaitEndpoint
                 return new Reply(503, [], failure, RetryAfterSeconds);
             }
 
-            if (body is not null) return new Reply(200, body, deliveryFailure);
+            if (body is not null) return new Reply(200, body, keptFailure);
 
             var left = deadline - clock.GetUtcNow();
 
-            if (left <= TimeSpan.Zero) return new Reply(204, [], deliveryFailure);
+            if (left <= TimeSpan.Zero) return new Reply(204, [], keptFailure);
 
             await Task.Delay(left < interval ? left : interval, clock, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The wait recorded as <paramref name="sessionId"/>'s check-in, when the call
+    /// names a session, the host composed a register and <c>sessions</c> is on (local ADR
+    /// 0051 §6). A session the register does not know is left unknown.</summary>
+    private static async Task RecordWaitAsync(
+        string? sessionId,
+        ILoopRegister? loops,
+        IAppFeatureSettings features,
+        TimeProvider clock,
+        CancellationToken cancellationToken)
+    {
+        if (loops is null || string.IsNullOrWhiteSpace(sessionId) || !features.IsEnabled(SessionFeatures.Sessions)) return;
+
+        await loops.RecordWaitAsync(sessionId.Trim(), clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The oldest due delivery whose session the desktop app holds open, as JSON,

@@ -7,8 +7,7 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// briefly lived on <c>DevPcFeatures</c>, because the session list was first built
 /// as a second surface on Dev PC Management. It is its own bounded context now, so
 /// the key moved to the context that owns it; keeping the string means nobody's
-/// settings file forgets that they had switched the area off. The same move
-/// <c>DashboardFeatures</c> records, for the same reason.
+/// settings file forgets that they had switched the area off.
 /// </para>
 /// <para>
 /// Only the Shell gates on this today, because the area is toggled from the app

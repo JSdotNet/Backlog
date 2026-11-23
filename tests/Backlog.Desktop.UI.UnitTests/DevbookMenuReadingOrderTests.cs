@@ -31,7 +31,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookMenuReadingOrderTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The contexts of this repository's domain folder, in the order a
     /// retired <c>_reading-order.json</c> used to declare them — which is not the
@@ -341,7 +341,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
 
         var context = Assert.Single(tree.Children, node => node.Path == "inbox");
         Assert.Equal(
-            ["inbox/domain.md", "inbox/features.md", "inbox/model.md", "inbox/flow.md", "inbox/dependencies.md", "inbox/naming.md"],
+            ["inbox/domain.md", "inbox/features.md", "inbox/model.md", "inbox/dependencies.md", "inbox/flow.md", "inbox/naming.md"],
             context.Children.Select(node => node.Path));
     }
 
@@ -445,7 +445,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         var context = Assert.Single(tree.Children, node => node.Path == "inbox");
         Assert.Equal("Inbox", context.Label);
         Assert.Equal(
-            ["Domain", "Features", "Model", "Flow", "Dependencies", "Naming"],
+            ["Domain", "Features", "Model", "Dependencies", "Flow", "Naming"],
             context.Children.Select(node => node.Label));
 
         // The property behind all three guards: whatever a level adopts, its rows
@@ -668,19 +668,15 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-menu-order-tests", Guid.NewGuid().ToString("n"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-menu-order-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

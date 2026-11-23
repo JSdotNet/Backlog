@@ -74,6 +74,15 @@ public sealed class CosmosOptions
     public string DevbookSubjectsContainerName { get; set; } = "devbookSubjects";
 
     /// <summary>
+    /// The container holding knowledge event and event series documents (local ADR 0050
+    /// §2), partitioned on <c>/ownerId</c> like the other replica containers. No TTL and no
+    /// tombstones: an event is never deleted on the feed, so the container keeps every
+    /// document for as long as its owner has one.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string KnowledgeEventsContainerName { get; set; } = "knowledgeEvents";
+
+    /// <summary>
     /// The container holding registered devices, partitioned on <c>/id</c> —
     /// the device id, not the owner. The one read on every token mint has only
     /// the device id in hand, and partitioning on the owner would put a
@@ -93,6 +102,18 @@ public sealed class CosmosOptions
     /// </summary>
     [Required(AllowEmptyStrings = false)]
     public string PairingCodesContainerName { get; set; } = "pairingCodes";
+
+    /// <summary>
+    /// The container holding the remote connector's credentials (local ADR 0058 §8) —
+    /// the one client document with its secret hash, the refresh tokens, and one marker per
+    /// revoked token family — partitioned on <c>/id</c>. Every operation is a point
+    /// operation with the id in hand: the client id, the hash of the token presented, or
+    /// the family id; nothing is queried. A refresh token carries its own <c>ttl</c> from
+    /// its expiry, and a family marker one that outlives the longest token; the client
+    /// document carries none, because a lost hash disconnects the connector.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string ConnectorCredentialsContainerName { get; set; } = "connectorCredentials";
 
     /// <summary>
     /// How long a tombstone is kept, in seconds — 180 days by default.

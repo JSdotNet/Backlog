@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Sessions.UnitTests;
 
@@ -11,10 +12,8 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
 {
     private const string Repository = "JSdotNet/Backlog";
 
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-sync-verdict-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sync-verdict-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public async Task A_later_run_replaces_the_chapters_it_names_and_leaves_the_rest()
@@ -115,7 +114,7 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
     [InlineData("What a run cost, reported by the session itself", "what-a-run-cost-reported-by-the-session-itself")]
     [InlineData("C4 / Containers", "c4--containers")]
     public void A_heading_is_addressed_by_the_anchor_the_devbook_tools_give_it(string heading, string anchor) =>
-        Assert.Equal(anchor, DevbookSyncChapters.AnchorOf(heading));
+        Assert.Equal(anchor, HeadingAnchor.Of(heading));
 
     private static DevbookSyncVerdict Verdict(string path, string anchor, string verdict, string runId) =>
         new(
@@ -132,8 +131,5 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
             RecordedAt: DateTimeOffset.UtcNow,
             RunId: runId);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

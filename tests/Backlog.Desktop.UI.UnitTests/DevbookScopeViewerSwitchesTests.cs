@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookScopeViewerSwitchesTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "devbook-scope-viewer-switches-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-scope-viewer-switches");
 
     [Theory]
     [InlineData(false)]
@@ -95,21 +95,12 @@ public sealed class DevbookScopeViewerSwitchesTests : IDisposable
 
     private (DevbookScope Scope, AppFeatureSettingsStore Features) Scope()
     {
-        var gitHub = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
-        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(_root, "features", "features.json"));
-        var folders = new DevbookFolderSource(gitHub, new WorkspaceSettingsStore(Path.Combine(_root, "store")));
+        var gitHub = new GitHubSettingsStore(_temp.Combine("github", "github.json"));
+        var features = new AppFeatureSettingsStore(AppFeatures.All, _temp.Combine("features", "features.json"));
+        var folders = new DevbookFolderSource(gitHub, new WorkspaceSettingsStore(_temp.Combine("store")));
 
         return (new DevbookScope(gitHub, folders, features), features);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

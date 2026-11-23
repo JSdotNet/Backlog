@@ -142,7 +142,7 @@ public class DesktopDomainBoundaryTests
     [Fact]
     public void The_contexts_are_read_from_the_module_folders()
     {
-        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain" })
+        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain", "Calendar" })
         {
             Assert.True(
                 ContextProjects.ContainsKey(context),
@@ -153,6 +153,7 @@ public class DesktopDomainBoundaryTests
         Assert.Equal("Backlog.Modules.Inbox.UI", ContextNamespaces["Inbox"]);
         Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
         Assert.Equal("Backlog.Modules.Brain.UI", ContextNamespaces["Brain"]);
+        Assert.Equal("Backlog.Modules.Calendar.UI", ContextNamespaces["Calendar"]);
     }
 
     /// <summary>

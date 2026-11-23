@@ -12,15 +12,15 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class RootedSqliteTaskRepositoryTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-rooted-sqlite");
     private readonly string _first;
     private readonly string _second;
     private string _root;
 
     public RootedSqliteTaskRepositoryTests()
     {
-        var scope = Path.Combine(Path.GetTempPath(), "backlog-rooted-sqlite", Guid.NewGuid().ToString("n"));
-        _first = Path.Combine(scope, "first");
-        _second = Path.Combine(scope, "second");
+        _first = _temp.Combine("first");
+        _second = _temp.Combine("second");
         _root = _first;
     }
 
@@ -147,8 +147,6 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-        var scope = Path.GetDirectoryName(_first);
-        if (scope is null || !Directory.Exists(scope)) return;
-        try { Directory.Delete(scope, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

@@ -1,4 +1,7 @@
 using System.Security.Cryptography;
+using Azure.Core;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,6 +19,7 @@ namespace Backlog.Modules.Sync.Api.Security;
 public static class SyncAuthenticationExtensions
 {
     private const string SigningKeyPath = $"{SyncTokenOptions.SectionName}:SigningKey";
+    private const string KeyVaultUriPath = $"{SyncTokenOptions.SectionName}:KeyVaultUri";
 
     /// <summary>
     /// Binds <see cref="SyncTokenOptions"/>, wires JWT bearer validation
@@ -33,14 +37,26 @@ public static class SyncAuthenticationExtensions
 
         var generatedDevelopmentKey = EnsureDevelopmentSigningKey(builder);
 
-        builder.Services
+        var tokenOptions = builder.Services
             .AddOptions<SyncTokenOptions>()
             .BindConfiguration(SyncTokenOptions.SectionName)
             .ValidateDataAnnotations()
             .Validate(
-                options => options.HasUsableSigningKey(),
-                $"{SigningKeyPath} must be base64 for at least {SyncTokenOptions.MinimumKeyBytes} bytes.")
-            .ValidateOnStart();
+                options => options.UsesKeyVault || options.HasUsableSigningKey(),
+                $"{SigningKeyPath} must be base64 for at least {SyncTokenOptions.MinimumKeyBytes} bytes.");
+
+        // Local ADR 0058: a deployed service reads its signing key from the
+        // vault, and only a Development run may take it from configuration.
+        if (!builder.Environment.IsDevelopment())
+        {
+            tokenOptions.Validate(
+                options => options.UsesKeyVault,
+                $"{KeyVaultUriPath} must name the vault the signing key is read from; only a Development run reads {SigningKeyPath}.");
+        }
+
+        tokenOptions.ValidateOnStart();
+
+        AddSigningKeys(builder);
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
@@ -49,7 +65,7 @@ public static class SyncAuthenticationExtensions
         // validator by the same route the issuer reads it.
         builder.Services
             .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<SyncTokenOptions>>(ConfigureJwtBearer);
+            .Configure<IOptions<SyncTokenOptions>, SigningKeyRing>(ConfigureJwtBearer);
 
         builder.Services.AddAuthorizationBuilder()
             .SetFallbackPolicy(PairedDevicePolicy())
@@ -69,7 +85,39 @@ public static class SyncAuthenticationExtensions
             .RequireClaim(SyncClaims.OwnerId)
             .Build();
 
-    private static void ConfigureJwtBearer(JwtBearerOptions jwt, IOptions<SyncTokenOptions> sync)
+    /// <summary>
+    /// Where the signing key comes from, and the ring and refresher that hold
+    /// it. With a vault named, the managed identity reads it — the user-assigned
+    /// one <c>AZURE_CLIENT_ID</c> names, as every other Azure client in this
+    /// service — and the vault also supplies the named secrets of
+    /// <see cref="KeyVaultSecretsConfigurationSource"/>. Without one,
+    /// configuration does, which the options allow in Development only.
+    /// </summary>
+    private static void AddSigningKeys(IHostApplicationBuilder builder)
+    {
+        builder.Services.AddSingleton<SigningKeyRing>();
+        builder.Services.AddHostedService<SigningKeyRefresher>();
+
+        var vaultUri = builder.Configuration[KeyVaultUriPath];
+        if (string.IsNullOrWhiteSpace(vaultUri))
+        {
+            builder.Services.AddSingleton<ISigningKeySource, ConfigurationSigningKeySource>();
+            return;
+        }
+
+        var clientId = builder.Configuration["AZURE_CLIENT_ID"];
+        TokenCredential credential = string.IsNullOrWhiteSpace(clientId)
+            ? new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)
+            : new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(clientId));
+
+        var client = new SecretClient(new Uri(vaultUri), credential);
+
+        builder.Configuration.Add(new KeyVaultSecretsConfigurationSource(client));
+        builder.Services.AddSingleton(client);
+        builder.Services.AddSingleton<ISigningKeySource, KeyVaultSigningKeySource>();
+    }
+
+    private static void ConfigureJwtBearer(JwtBearerOptions jwt, IOptions<SyncTokenOptions> sync, SigningKeyRing keys)
     {
         var settings = sync.Value;
 
@@ -90,7 +138,12 @@ public static class SyncAuthenticationExtensions
             ValidateLifetime = true,
             RequireExpirationTime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(settings.DecodeSigningKey()),
+
+            // Asked per token rather than fixed at startup, so a rotation the
+            // ring picked up is honoured at once, and the previous key is
+            // accepted for exactly as long as the ring says.
+            IssuerSigningKeyResolver = (_, _, _, _) =>
+                keys.Accepted().Select(key => new SymmetricSecurityKey(key)),
 
             // Half a minute covers a clock that drifted; anything longer starts
             // to extend the lifetime the token asked for.
@@ -110,6 +163,15 @@ public static class SyncAuthenticationExtensions
         {
             OnAuthenticationFailed = context =>
             {
+                // UseAuthentication runs this default scheme on every request, /mcp
+                // included, where a connector token always fails it. That endpoint's
+                // own scheme audits its refusals; a device-scheme warning there would
+                // be one false alarm per legitimate connector call.
+                if (context.Request.Path.StartsWithSegments(SyncRoutes.RemoteMcp))
+                {
+                    return Task.CompletedTask;
+                }
+
                 Logger(context.HttpContext).LogWarning(
                     "Device token rejected on {Method} {Path}: {Reason}.",
                     context.Request.Method,
@@ -143,7 +205,8 @@ public static class SyncAuthenticationExtensions
     private static bool EnsureDevelopmentSigningKey(IHostApplicationBuilder builder)
     {
         if (!builder.Environment.IsDevelopment()
-            || !string.IsNullOrWhiteSpace(builder.Configuration[SigningKeyPath]))
+            || !string.IsNullOrWhiteSpace(builder.Configuration[SigningKeyPath])
+            || !string.IsNullOrWhiteSpace(builder.Configuration[KeyVaultUriPath]))
         {
             return false;
         }

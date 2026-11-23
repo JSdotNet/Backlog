@@ -237,39 +237,6 @@ public sealed class MetadataValueTests
     }
 
     [Fact]
-    public void A_kind_is_a_classification_chip_and_never_a_per_value_class()
-    {
-        // A closed vocabulary is the fact worth drawing, and it is what lets the row
-        // lose its visible label. A Slug would put an authored word into a class
-        // name, which is how `.badge--kind-framework` becomes a rule nobody wrote.
-        using var context = new BunitContext();
-
-        var kind = context.Render<MetadataKindBadge>(parameters => parameters
-            .Add(badge => badge.Kind, "framework"));
-
-        var chip = kind.Find("span.badge");
-        Assert.Equal("badge badge--kind", chip.GetAttribute("class"));
-        Assert.Equal("framework", chip.TextContent);
-
-        // The row hides its label, so the field name has to reach a pointer user.
-        Assert.Equal("kind: framework", chip.GetAttribute("title"));
-    }
-
-    [Fact]
-    public void A_kind_prints_what_was_authored_and_a_blank_one_draws_nothing()
-    {
-        // The vocabulary is the folder's and is not checked here: a word the folder
-        // does not define is a typo worth seeing, not one worth normalising away.
-        using var context = new BunitContext();
-
-        var odd = context.Render<MetadataKindBadge>(parameters => parameters
-            .Add(badge => badge.Kind, "Framework"));
-
-        Assert.Equal("Framework", odd.Find(".badge").TextContent);
-        Assert.Equal(string.Empty, context.Render<MetadataKindBadge>().Markup.Trim());
-    }
-
-    [Fact]
     public void An_alias_is_a_badge_and_stays_a_span_until_a_host_can_place_it()
     {
         // An alias with no answer stays unfollowable rather than becoming a link to

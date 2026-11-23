@@ -31,6 +31,18 @@ public sealed class InMemoryDeviceRegistry : IDeviceRegistry
     public Task<Device?> FindById(DeviceId id, CancellationToken cancellationToken = default) =>
         Task.FromResult(_devices.TryGetValue(id, out var device) ? device : null);
 
+    public Task<bool> BindKey(DeviceId id, string publicKey, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(publicKey);
+
+        // Compare-and-swap against the record read, so of two bindings racing on one
+        // device only the first lands.
+        return Task.FromResult(
+            _devices.TryGetValue(id, out var device)
+            && !device.IsKeyBound
+            && _devices.TryUpdate(id, device with { PublicKey = publicKey, CredentialHash = null }, device));
+    }
+
     public Task<int> CountByOwner(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_devices.Values.Count(device => device.OwnerId == ownerId));
 

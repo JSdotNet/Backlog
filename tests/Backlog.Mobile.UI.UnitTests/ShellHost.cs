@@ -30,12 +30,14 @@ internal sealed class ShellHost : IDisposable
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
         IAppUpdateService? updates = null,
-        ScriptedNotificationService? notifications = null)
+        ScriptedNotificationService? notifications = null,
+        ScriptedEventService? events = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
         Notifications = notifications ?? new ScriptedNotificationService();
-        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks, Notifications);
+        Events = events ?? new ScriptedEventService();
+        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks, Notifications, Events);
         Credentials = credentials;
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -46,6 +48,8 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddSingleton<ISpeechSettingsStore>(SpeechSettings);
         _context.Services.AddSingleton<Backlog.Mobile.UI.Notifications.INotificationFilterStore>(NotificationFilters);
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
+        _context.Services.AddSingleton<IMeetingRecorder>(MeetingRecorder);
+        _context.Services.AddSingleton<IFreeSpace>(FreeSpace);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") }));
@@ -77,6 +81,13 @@ internal sealed class ShellHost : IDisposable
     /// <summary>What the Note page's and the capture sheet's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();
 
+    /// <summary>The Note page's meeting recorder, driven by hand: it records, and a stop
+    /// writes the parts it is given into the recordings folder.</summary>
+    public ScriptedMeetingRecorder MeetingRecorder { get; } = new();
+
+    /// <summary>The phone's free space as the recording sees it: plenty unless a test says not.</summary>
+    public FakeFreeSpace FreeSpace { get; } = new();
+
     public IDeviceCredentialStore Credentials { get; }
 
     /// <summary>The service's side of the inbox: what it holds, whether it
@@ -90,6 +101,9 @@ internal sealed class ShellHost : IDisposable
 
     /// <summary>The service's side of the notification feed and its replies.</summary>
     public ScriptedNotificationService Notifications { get; }
+
+    /// <summary>The service's side of the knowledge event feed.</summary>
+    public ScriptedEventService Events { get; }
 
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
@@ -124,8 +138,9 @@ internal sealed class ShellHost : IDisposable
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
         IAppUpdateService? updates = null,
-        ScriptedNotificationService? notifications = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications);
+        ScriptedNotificationService? notifications = null,
+        ScriptedEventService? events = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications, events);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most
@@ -142,7 +157,8 @@ internal sealed class ShellHost : IDisposable
         Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService inbox,
         ScriptedTaskService tasks,
-        ScriptedNotificationService notifications) : HttpMessageHandler
+        ScriptedNotificationService notifications,
+        ScriptedEventService events) : HttpMessageHandler
     {
         private int _pairAttempts;
 
@@ -168,6 +184,11 @@ internal sealed class ShellHost : IDisposable
             if (path.StartsWith("/api/sync/notifications", StringComparison.Ordinal))
             {
                 return await notifications.AnswerAsync(request, cancellationToken);
+            }
+
+            if (path.StartsWith("/api/sync/knowledge-events", StringComparison.Ordinal))
+            {
+                return await events.AnswerAsync(request, cancellationToken);
             }
 
             if (path.EndsWith("/api/sync/tasks", StringComparison.Ordinal))

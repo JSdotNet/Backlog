@@ -22,7 +22,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class DevbookChapterEditorTests : IDisposable
 {
     private readonly FiringClock _clock = new();
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_chapter_that_could_not_be_resolved_offers_no_way_in()
@@ -392,17 +392,13 @@ public sealed class DevbookChapterEditorTests : IDisposable
     /// goes. That ordering is the point: a synchronous <c>Dispose</c> hands the
     /// save to the renderer's dispatcher and returns without it, which on a slow
     /// machine put the delete inside the file replace and left the run red for a
-    /// reason none of the assertions were about. The catch stays as a courtesy
+    /// reason none of the assertions were about. The quiet delete stays as a courtesy
     /// for a lock this class does not own — a scanner or an indexer holding a
     /// file open — rather than as the thing keeping the suite green.
     /// </summary>
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private static IRenderedComponent<DevbookChapterEditor> Render(BunitContext context, DevbookChapterRef chapter, string text) =>
@@ -425,9 +421,9 @@ public sealed class DevbookChapterEditorTests : IDisposable
 
     private (string Root, DevbookChapterRef Chapter) Chapter(string relativePath, string markdown)
     {
-        var root = Path.Combine(Path.GetTempPath(), "devbook-chapter-editor-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("devbook-chapter-editor-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         File.WriteAllText(Path.Combine(root, relativePath), markdown);
 
         return (root, new DevbookChapterRef("arc42", root, relativePath));

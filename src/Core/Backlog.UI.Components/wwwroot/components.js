@@ -45,6 +45,22 @@
         attempt(focusFrames);
     };
 
+    // backlogFocus, but only for a focus that is lost: on nothing, on an element
+    // already taken out of the page, or inside one of `heldBy` — a control the
+    // render that asks is removing. A focus the reader has put somewhere else (an
+    // outside click that closed a menu) is left where it is. Checked when the call
+    // arrives, before the frames backlogFocus may wait for the element.
+    window.backlogFocusIfLost = (id, ...heldBy) => {
+        const focused = document.activeElement;
+        const lost = !focused
+            || focused === document.body
+            || focused === document.documentElement
+            || !focused.isConnected
+            || heldBy.some((selector) => focused.closest?.(selector));
+
+        if (lost) window.backlogFocus(id);
+    };
+
     // A list opened on one row — the pull requests list from a task's card — has to
     // show that row, which may sit far down a long table. The nearest scroll
     // container is scrolled until the row is inside it, and nothing above that: the
@@ -82,7 +98,7 @@
     // opened out of the atlas, a Brain note's chip or an entry — brought to the
     // top of the reading it is in. A rendered heading carries no id, so it is
     // found by its text, slugged by GitHub's rule as the devbook generator spells
-    // it (DevbookMarkdown.Slugify), the type mark a heading may lead with left
+    // it (HeadingAnchor.Of), the type mark a heading may lead with left
     // out: the anchor as written, then the anchor slugged too, so one typed as
     // the heading reads still lands — the reference resolver's order. The
     // generator slugs the source, so a heading holding a link slugs its target
@@ -1361,6 +1377,18 @@
 
             attempt(focusFrames);
         }
+    };
+
+    // The text the reader has selected inside `element`, or null when nothing is
+    // selected or the selection starts outside it — the line a Brain note's
+    // Create task takes as its title.
+    window.backlogSelectedText = (element) => {
+        const selection = window.getSelection?.();
+        if (!element || !selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+        if (!element.contains(selection.anchorNode)) return null;
+
+        const text = selection.toString();
+        return text && text.trim().length > 0 ? text : null;
     };
 
     window.backlogClipboard = {
@@ -2765,12 +2793,15 @@
     // [x, y] in viewport pixels for ContextMenu's fixed position. Enter or Space on
     // a button is a click with no pointer, clientX/clientY 0, so the click's own
     // position would put the menu in the window's corner. Null for an element
-    // that is gone, and the caller keeps the pointer's position.
-    window.backlogAnchorBelow = (element) => {
+    // that is gone, and the caller keeps the pointer's position. With `end`, under
+    // the button's right edge instead, for ContextMenu's AlignEnd. The element may
+    // be passed by its id, for a host whose button component hands out no reference.
+    window.backlogAnchorBelow = (element, end) => {
+        if (typeof element === 'string') element = document.getElementById(element);
         if (!(element instanceof Element) || !element.isConnected) return null;
 
         const box = element.getBoundingClientRect();
-        return [box.left, box.bottom];
+        return [end ? box.right : box.left, box.bottom];
     };
 
     // Space on a focused TaskCard. The card opens on Space from its keydown
@@ -2791,7 +2822,7 @@
         event.preventDefault();
     });
 
-    // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/g/t/x/u today.
+    // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/b/s/n/w/g/t/x/u today.
     // A letter is a shortcut only where it cannot be typing, and that has to be
     // decided here, at the keydown, for the reason the tag picker's keys are: a
     // server-side `@onkeydown:preventDefault` is rendered after the handler that
@@ -2813,8 +2844,8 @@
     // Escape is passed on without its default refused: it has none worth
     // stopping, and a pane handler may still want to hear it bubble.
     const shortcutPanes = new Map();
-    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
-    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
+    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'b', 's', 'n', 'w', 'e', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
+    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"], dialog';
     let lastShortcutPane = null;
 
     window.backlogPaneShortcuts = {
@@ -2924,10 +2955,10 @@
     //
     // A pressed first chip — a pressed plan, which the state puts first whether
     // "Open in Tasks" showed it or the reader pressed it — also gets its own width
-    // reserved, as `--tag-strip-lead`: the strip only takes what the other groups
-    // leave, and with every repository in scope that can be nothing, which would
-    // clip the one chip that says why the list is short. Reserved, the bar wraps a
-    // group onto its next row instead.
+    // reserved, as `--tag-strip-lead`: the strip has a row of its own on the Tasks
+    // bar, but shares it with the More toggle, and a column narrower than the pair
+    // would clip the one chip that says why the list is short. Reserved, the strip
+    // keeps that chip whole.
     //
     // The first child is not always the chip itself: a host may fuse a pressed chip
     // with a control of its own in one wrapper (the Tasks bar pairs a pressed plan
@@ -3130,6 +3161,111 @@
         },
         dispose(key) {
             backlogPaneOwners.delete(key);
+        }
+    };
+
+    // An open PopoverButton's outside click, heard on the window rather than by its
+    // backdrop. The backdrop is `position: fixed; inset: 0`, which is the whole
+    // window only while no ancestor is a containing block for it — and a query
+    // container is one, so inside the Tasks list column the backdrop covered the
+    // column and a click in the entry beside it reached whatever it landed on.
+    //
+    // Capture on the window runs before any handler in the page, Blazor's
+    // included. A pointer press that starts outside the component is taken there
+    // — its down, up and click never reach the page, and the click's default
+    // (a link's navigation) is cancelled — and the click closes the panel: the
+    // contract's "an outside click only closes". Focus still moves where the press
+    // put it, since nothing cancels the pointer's own default. A press inside the
+    // component, the backdrop among it, is left alone: the backdrop's own click
+    // closes the panel as before. A click with no press before it is a key's, which
+    // the backdrop never caught either, so it is let through.
+    //
+    // Only a primary press arms the watch, and anything that means its click is not
+    // coming disarms it — a cancelled pointer (a touch pan), a context menu (Ctrl
+    // and a press on a Mac), a drag, a key. Left armed, the next Enter on a control
+    // outside would be taken for the click and swallowed.
+    const backlogPopoverWatches = new Map();
+
+    window.backlogPopoverOutside = {
+        watch(id, root, dotnet, method) {
+            this.unwatch(id);
+            if (!root || !dotnet) return;
+
+            let armed = false;
+            const outside = (event) => event.target instanceof Node && !root.contains(event.target);
+            const onPress = (event) => {
+                armed = event.button === 0 && outside(event);
+                if (armed) event.stopPropagation();
+            };
+            const onRest = (event) => {
+                if (armed) event.stopPropagation();
+            };
+            const onDisarm = () => {
+                armed = false;
+            };
+            const onClick = (event) => {
+                if (!armed) return;
+                armed = false;
+                event.preventDefault();
+                event.stopPropagation();
+                dotnet.invokeMethodAsync(method).catch(() => undefined);
+            };
+
+            const listeners = [
+                ['pointerdown', onPress],
+                ['mousedown', onRest],
+                ['pointerup', onRest],
+                ['mouseup', onRest],
+                ['click', onClick],
+                ['pointercancel', onDisarm],
+                ['contextmenu', onDisarm],
+                ['dragstart', onDisarm],
+                ['keydown', onDisarm],
+            ];
+            for (const [name, listener] of listeners) window.addEventListener(name, listener, true);
+            backlogPopoverWatches.set(id, () => {
+                for (const [name, listener] of listeners) window.removeEventListener(name, listener, true);
+            });
+        },
+        unwatch(id) {
+            backlogPopoverWatches.get(id)?.();
+            backlogPopoverWatches.delete(id);
+        }
+    };
+
+    // Whether an element is at or under a width, told to .NET when that answer
+    // changes and never otherwise. For a layout a container query cannot do: a
+    // query restyles an element but never moves it to another parent, so a host
+    // that draws a different shape on a narrow column — the Tasks bar folding Source
+    // and Type into one Filter menu below the 48rem step its stylesheet keys on —
+    // has to hear the crossing and render it. The threshold is the host's, in rem,
+    // the same number as its query's, so the two flip together. A box of no width
+    // is not on screen (a takeover hid it) and says nothing either way.
+    const backlogWidthWatches = new Map();
+
+    window.backlogWidthWatch = {
+        watch(id, element, dotnet, method, thresholdRem) {
+            this.unwatch(id);
+            if (!element || !dotnet || typeof ResizeObserver !== 'function') return;
+
+            let reported = null;
+            const observer = new ResizeObserver((entries) => {
+                const width = entries[entries.length - 1].contentRect.width;
+                if (width <= 0) return;
+
+                const narrow = width <= thresholdRem * backlogRootFontSize();
+                if (narrow === reported) return;
+
+                reported = narrow;
+                dotnet.invokeMethodAsync(method, narrow).catch(() => undefined);
+            });
+
+            observer.observe(element);
+            backlogWidthWatches.set(id, observer);
+        },
+        unwatch(id) {
+            backlogWidthWatches.get(id)?.disconnect();
+            backlogWidthWatches.delete(id);
         }
     };
 
@@ -6252,95 +6388,6 @@
         }
     };
 
-    /*
-        Gives an artifact frame the height of the artifact inside it.
-
-        The frame cannot work this out for itself and neither can its stylesheet:
-        an Archify document is a single `width: 100%` SVG over its own viewBox, so
-        its height is a function of the frame's width, and it differs per diagram -
-        1440x700 for one runtime view, 1392x3496 for the technology graph. A fixed
-        height fits neither, and whatever did not fit used to be simply gone.
-
-        So the measurement is made where the answer is known and sent out. This is
-        the receiving half.
-    */
-    const backlogWatchArtifactHeight = (element, id) => {
-        /*
-            Whether this frame is what the reader is looking at, full screen.
-
-            Containment rather than identity, because the element that goes
-            fullscreen is the stage around the frame rather than the frame itself.
-            It has to be: the way back out has to be inside whatever is in the top
-            layer, and a frame sandboxed into an opaque origin can carry nothing of
-            this app's. So the frame is inside the screen rather than being it, and
-            an identity check here would answer no for every fullscreen diagram.
-        */
-        const isOnScreen = () => document.fullscreenElement?.contains(element) === true;
-
-        const onMessage = (event) => {
-            /*
-                The window reference is the identity check, not the origin.
-                `sandbox="allow-scripts"` without `allow-same-origin` puts the frame
-                in an opaque origin, so `event.origin` arrives as the string "null"
-                for every artifact frame on the page and can tell none of them
-                apart. `event.source` can, and it is not forgeable by anything
-                inside the frame.
-            */
-            if (event.source !== element.contentWindow) return;
-
-            const message = event.data;
-            if (!message || message.channel !== 'backlog-artifact-height' || message.id !== id) return;
-
-            const height = Number(message.height);
-            if (!Number.isFinite(height) || height <= 0) return;
-
-            // Not while the frame is on the screen. There the height is the
-            // screen's and the browser owns it; writing a measured pixel value onto
-            // a fullscreen element is how you get a diagram in a letterbox.
-            if (isOnScreen()) return;
-
-            // Bounded at both ends. The floor stops a frame that reports something
-            // absurd from collapsing to a sliver, and the ceiling sits far above the
-            // tallest artifact in this repository, so it only ever catches a
-            // runaway rather than trimming a real diagram.
-            element.style.height = `${Math.min(Math.max(Math.ceil(height), 120), 20000)}px`;
-        };
-
-        /*
-            Fullscreen is a fact about the frame that the document inside cannot
-            see, and it changes what `100dvh` means for it - the screen, rather than
-            a height this host chose. So it is told, both ways.
-
-            Listening on the document rather than the element because that is where
-            `fullscreenchange` is dispatched, and asking rather than assuming:
-            several artifact frames share this page and only one of them is ever on
-            the screen.
-        */
-        const onFullscreenChange = () => {
-            const mine = isOnScreen();
-
-            // The inline height goes while fullscreen so the browser can size the
-            // element, and comes back on exit from the frame's next measurement.
-            if (mine) element.style.removeProperty('height');
-
-            try {
-                element.contentWindow?.postMessage(
-                    { channel: 'backlog-artifact-fullscreen', on: mine },
-                    '*');
-            } catch {
-                // A frame that has already gone is not an error worth reporting.
-            }
-        };
-
-        window.addEventListener('message', onMessage);
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-
-        return () => {
-            window.removeEventListener('message', onMessage);
-            document.removeEventListener('fullscreenchange', onFullscreenChange);
-        };
-    };
-
     // Merged, not assigned. app.js attaches its own renderers to this object, and
     // an outright assignment here would drop them if the load order ever flipped.
     window.backlogDiagrams = Object.assign(window.backlogDiagrams ?? {}, {
@@ -6372,367 +6419,12 @@
         },
 
         /*
-            Shows a generated Archify artifact in place of a drawn mermaid diagram.
-
-            `srcdoc` rather than `src`, because the artifact is not one of the app's
-            own assets: it sits in whichever repository clone the reader configured,
-            and the app reads it off disk. There is no URL to point at, in either
-            host - the desktop is a WebView over local files and the harness serves
-            its own wwwroot.
-
-            `sandbox="allow-scripts"` is set in the markup, which puts the frame in
-            an opaque origin. Archify's viewer survives that: every access it makes
-            to localStorage is wrapped, naming sandboxed iframes as the reason.
-            Scripts have to stay allowed or the document renders as an unstyled
-            skeleton.
-
-            The appended script is what `?theme=dark&embed=1` does for the storybook,
-            which a srcdoc document cannot be given: the artifact resolves its theme
-            before first paint from the query string, then from localStorage, then
-            from `prefers-color-scheme` - and with the first two unavailable here, a
-            reader whose system prefers light would get a light diagram inside an app
-            `.devbook/design/design-principles.md` makes dark-only. So the theme is pinned
-            from out here, through the same `data-theme` attribute the artifact
-            publishes, and re-pinned if anything inside changes it. Nothing in the
-            generated file is touched, so a regeneration cannot undo this.
-
-            The cost is that the artifact's own theme toggle does nothing in-app,
-            so it is the one control hidden from the viewer below.
-
-            The other thing the frame has to be told is how tall to be. An artifact
-            is one `width: 100%` SVG over its own viewBox, so its height follows the
-            frame's WIDTH - a number only the frame knows. So it reports it: the
-            script below watches its own layout and posts the height out, and
-            `backlogWatchArtifactHeight` writes it onto the frame. Without that the
-            frame kept the fixed height its stylesheet gives it and everything past
-            that was cut off, which for a portrait diagram like
-            `technology-graph.1` (1392x3496) is most of the picture.
+            Takes a frame's stage to the whole screen, and back: the native
+            Fullscreen API, requested on the stage around the frame rather than on
+            the frame, because only the element in the top layer and its descendants
+            are painted, so the way back out has to be in there with the frame.
         */
-        renderArtifact(element, id, html, compact, hideNodeDetails) {
-            /*
-                `matchMedia` is lied to, and that is the part that does the work.
-
-                The artifact resolves its own theme in an inline script in its head:
-                query string, then localStorage, then
-                `matchMedia('(prefers-color-scheme: light)')`. The first two are
-                unreachable in an opaque-origin sandbox, so on a machine set to
-                light it used to resolve light, write `data-theme="light"`, and
-                commit the light background — and the observer below then corrected
-                the attribute a microtask later, which the artifact's own
-                `transition: background 0.2s` turned into a visible light-to-dark
-                fade of about 170ms.
-
-                Correcting the answer after the fact cannot win that race; the
-                resolver has to be given the right answer in the first place. So the
-                frame's `prefers-color-scheme` is answered as dark before the
-                artifact's script ever asks, and every other media query is passed
-                through to the real implementation untouched.
-
-                The observer stays, for the theme toggle inside the artifact and for
-                anything else that writes the attribute later. `color-scheme` stays
-                too, but for what it actually governs — the UA's canvas and
-                scrollbars — rather than for the flash, which was never its doing.
-            */
-            const pin = `<script>(function(){try{var h=document.documentElement;`
-                /*
-                    Presentation mode, on and staying on. It is the reading mode:
-                    the diagram takes the whole frame and the info cards step out of
-                    the way. It used to be a button, and the button did nothing worth
-                    seeing - present mode sizes the diagram to the viewport, and in a
-                    frame this host has already sized to the content, that only moves
-                    the same box around. Fullscreen is where it earns its keep, and
-                    fullscreen is now a host control rather than an artifact one.
-                */
-                + `h.setAttribute('data-present','true');`
-                /*
-                    And the one thing the artifact cannot work out for itself:
-                    whether this frame is currently the whole screen. It changes what
-                    `100dvh` means - the screen, rather than a height the host chose -
-                    so the host says so, and the stylesheet below keys off it.
-                */
-                + `addEventListener('message',function(e){try{`
-                + `if(!e.data||e.data.channel!=='backlog-artifact-fullscreen')return;`
-                + `if(e.data.on)h.setAttribute('data-host-fullscreen','true');`
-                + `else h.removeAttribute('data-host-fullscreen');`
-                + `if(typeof schedule==='function')schedule();`
-                + `}catch(_){}});`
-                + `var real=window.matchMedia&&window.matchMedia.bind(window);`
-                + `if(real){window.matchMedia=function(q){var r=real(q);`
-                + `if(typeof q==='string'&&q.indexOf('prefers-color-scheme')>=0){`
-                + `var dark=q.indexOf('light')<0;`
-                + `return{media:r.media,matches:dark,onchange:null,`
-                + `addListener:function(){},removeListener:function(){},`
-                + `addEventListener:function(){},removeEventListener:function(){},`
-                + `dispatchEvent:function(){return false;}};}`
-                + `return r;};}`
-                + `var pin=function(){if(h.getAttribute('data-theme')!=='dark')h.setAttribute('data-theme','dark');};`
-                + `pin();new MutationObserver(pin).observe(h,{attributes:true,attributeFilter:['data-theme']});`
-                /*
-                    And the height, measured off the root box rather than off
-                    `scrollHeight`, which is the whole trick. `scrollHeight` never
-                    reports less than the viewport, and here the viewport IS the
-                    frame we are about to size - so a frame that started at 28rem
-                    would report 28rem forever and could never shrink to fit a small
-                    diagram. The root element's border box is the content's real
-                    height and has no such floor.
-
-                    It can feed back on itself, which is what the guard below is
-                    for: the artifact trims its own padding on a short viewport, and
-                    the viewport is the answer this host just gave.
-                */
-                + `var last=0,prev=0,settled=false;`
-                + `var post=function(){try{if(settled)return;var b=document.body;`
-                + `var m=Math.max(b?b.getBoundingClientRect().height:0,h.getBoundingClientRect().height);`
-                + `if(!(m>0))return;m=Math.ceil(m);if(Math.abs(m-last)<2)return;`
-                /*
-                    Two-cycle guard, and it is what makes measuring a document that
-                    is no longer in embed mode safe.
-
-                    The artifact's stylesheet has `@media (max-height: ...)` rules
-                    that trim its padding on a short viewport. Inside a frame this
-                    host sizes from the content, the viewport IS the answer we just
-                    gave - so a diagram whose height lands near 920px or 1100px can
-                    ask for a taller frame, get trimmed by the media query, ask for
-                    a shorter one, and flip between the two for ever. Seeing the
-                    height from two reports ago come back is exactly that, and the
-                    larger of the pair is the one that leaves nothing cut off.
-                */
-                + `if(Math.abs(m-prev)<2){settled=true;m=Math.max(m,last);}`
-                + `prev=last;last=m;`
-                + `parent.postMessage({channel:'backlog-artifact-height',id:'${id}',height:m},'*');`
-                + `}catch(_){}};`
-                /*
-                    `setTimeout` rather than `requestAnimationFrame`, which is the
-                    difference between this working and not. A cross-origin frame
-                    the browser is not currently painting - one scrolled out of a
-                    chapter, which on a page with six diagrams is most of them - has
-                    its animation frames throttled to nothing, so a measurement
-                    posted from a rAF callback never left. Layout is still computed
-                    for such a frame, so a timer measures it perfectly well.
-                */
-                + `var schedule=function(){setTimeout(post,0);};`
-                // The artifact settles in stages - fonts, then its own chrome layout
-                // - so one measurement is not enough. The observer covers a pane
-                // resize; the two timers cover the settling of a frame too far off
-                // screen for the observer to be delivered promptly.
-                + `var watch=function(){if(window.ResizeObserver){var o=new ResizeObserver(schedule);`
-                + `o.observe(h);if(document.body)o.observe(document.body);`
-                + `var c=document.querySelector('.diagram-container');if(c)o.observe(c);}`
-                + `post();setTimeout(post,150);setTimeout(post,600);};`
-                + `if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watch);else watch();`
-                + `window.addEventListener('load',schedule);window.addEventListener('resize',schedule);`
-                + `}catch(_){}})();<\/script>`;
-
-            /*
-                `color-scheme: normal`, and it is the one line that decides whether
-                the frame is transparent at all.
-
-                A frame whose root declares a `color-scheme` gets an opaque base
-                canvas painted behind its document in that scheme - so with `dark`
-                here, clearing every background inside the artifact only ever
-                revealed the browser's dark slab instead of Archify's navy one, and
-                a colour put behind the frame never came through. `normal` leaves
-                the base transparent, and the drawing composites onto whatever the
-                chapter puts behind it.
-
-                It was set to `dark` for a flash that turned out to be something
-                else: the artifact resolving its theme from `prefers-color-scheme`
-                before the observer could correct it, which the `matchMedia` lie
-                below fixes at the source. Nothing here regressed by dropping it -
-                the artifact never reads `color-scheme`, it reads `data-theme` and
-                the media query, and both are answered.
-
-                Injected into the artifact's own <head> rather than appended after
-                the document, because the script that follows only works if it runs
-                before the artifact's theme resolver does. Appended at the end it
-                was always a frame too late.
-            */
-            const suppressFlash = `<style>:root{color-scheme:normal}</style>${pin}`;
-            const source = String(html ?? '');
-            const head = source.search(/<head[^>]*>/i);
-            const injected = head < 0
-                // No <head> to aim at. Appending is the old behaviour and still
-                // correct, just a frame late.
-                ? `${source}${suppressFlash}`
-                : source.slice(0, source.indexOf('>', head) + 1)
-                    + suppressFlash
-                    + source.slice(source.indexOf('>', head) + 1);
-
-            /*
-                What this host asks of the artifact, now that it is no longer asking
-                it to be a thumbnail.
-
-                `data-embed` used to be set here, and unsetting it is most of this
-                feature. It is not a stylesheet: the artifact enforces it in
-                twenty-four JavaScript guards, and every one of them is a plain
-                `if (html.getAttribute('data-embed') === 'true') return false;` at
-                the top of something a reader would want. The visual style menu will
-                not open under it. Neither will the node finder, the semantic lens,
-                the route probe, a guided view's journey, or presentation mode; the
-                relationship overlays never install, and focus-from-hash never
-                resolves. No amount of CSS from out here reaches any of that, which
-                is what the first attempt at this discovered by unhiding a Style
-                button that then refused to do anything.
-
-                So the artifact renders as its full self, and what stays is only what
-                genuinely cannot work inside a frame the host controls.
-
-                Appended after the document rather than spliced into its head,
-                because two of these have to beat rules in the artifact's own
-                stylesheet at identical specificity, and parse order is the only
-                thing that can separate them. Nothing in the generated file is
-                edited, so a regeneration cannot undo any of it.
-            */
-            const chrome = '<style>'
-                /*
-                    `min-height: 100vh` off the body, which is the one rule that
-                    would break the sizing outright. The frame's viewport height is
-                    the height this host just gave it from the content, so a body
-                    that insists on filling the viewport can never report less than
-                    the frame already is - it would latch at its opening 28rem and
-                    stay there for every diagram.
-                */
-                + 'body{min-height:0}'
-
-                /*
-                    The theme toggle, which is the only control here with nothing
-                    behind it. This host pins `data-theme` to dark from outside and
-                    re-pins it through a MutationObserver, so pressing it would snap
-                    straight back - a switch that visibly refuses is worse than one
-                    that is not offered. `.devbook/design/design-principles.md` makes the
-                    product dark-only; a reader who wants the light artifact opens
-                    the file.
-                */
-                + '#btn-theme{display:none!important}'
-
-                /*
-                    The Present button, gone. Presentation is not a mode to toggle
-                    here - it is always on - so a control that claims to turn it on
-                    is a control that lies about the state it is in.
-                */
-                + '#btn-present{display:none!important}'
-
-                /*
-                    Presentation mode's viewport sizing, neutralised while the frame
-                    is in the chapter - and this is the rule that keeps the whole
-                    feature standing up.
-
-                    Present mode pins the document to `100dvh`. Inside a frame this
-                    host sizes from the document's own height, `100dvh` IS the answer
-                    the host just gave, so the measurement would report back exactly
-                    what it was told and every frame would latch at its opening 28rem
-                    for ever. Letting the document be its own height again breaks that
-                    circle, and present mode's real effects - the cards away, the
-                    diagram filling its container - are untouched.
-
-                    In fullscreen the opposite is true: `100dvh` means the screen,
-                    which is a number the host did not choose and cannot feed back
-                    into. So the override lifts exactly there.
-                */
-                + 'html[data-present="true"]:not([data-host-fullscreen]) body'
-                + '{height:auto!important;min-height:0!important;overflow:visible!important}'
-                + 'html[data-present="true"]:not([data-host-fullscreen]) .container{height:auto!important}'
-
-                /*
-                    And Style only where it is a choice. A picker offering one thing
-                    is a control that cannot change anything, which is the same
-                    objection as the theme toggle above.
-
-                    Written as "unless it holds two options that are not hidden"
-                    rather than as a count, because the sibling combinator inside
-                    `:has()` is exactly that question and needs no JavaScript to ask
-                    it. Every artifact in this repository currently offers four
-                    presets, so this shows the picker today; it earns its place the
-                    moment a generated artifact offers fewer.
-                */
-                + '.preset-wrap'
-                + ':not(:has(.preset-option:not([hidden]) ~ .preset-option:not([hidden])))'
-                + '{display:none!important}'
-
-                /*
-                    And the background out. The artifact paints a near-black navy
-                    slab three ways - `--bg` on the body, `--panel` on the diagram
-                    container and a grid rect filling the SVG - which inside a
-                    chapter reads as a card the diagram is sitting on rather than as
-                    part of the page. All three go, and the frame element's own
-                    background goes with them in components.css, so what is behind
-                    the drawing is the Devbook pane.
-
-                    The grid is the one that cannot be reached through a class,
-                    because it has none: it is
-                    `<rect width="100%" height="100%" fill="url(#grid)"/>` inside the
-                    SVG, so it is addressed as exactly that.
-                */
-                + 'html,body,.container,.diagram-container'
-                + '{background:transparent!important;background-image:none!important;box-shadow:none!important}'
-                + '.diagram-container>svg>rect[fill="url(#grid)"]{display:none}'
-
-                /*
-                    Compact, for a host that asked: the artifact's own header and
-                    its two floating toolbars out - Style, Live and Export top
-                    right, the view controls bottom right - while the frame is in
-                    the page.
-
-                    For a drawing that is one line of boxes across a panel - a
-                    delivery run's stages - where the header repeats a title the
-                    host has already shown and stands taller than the drawing, and
-                    the toolbars, pinned to the frame's corners, sit on top of the
-                    last few boxes. All of it comes back in fullscreen, where there is room
-                    for them and where a reader goes to explore. CSS rather than
-                    `data-embed`, for the reason above: embed switches the features
-                    off, and this only moves their controls out of a small frame.
-                */
-                + (compact
-                    ? 'html:not([data-host-fullscreen]) .header,'
-                        + 'html:not([data-host-fullscreen]) .toolbar,'
-                        + 'html:not([data-host-fullscreen]) .diagram-nav{display:none!important}'
-                    : '')
-
-                /*
-                    And the card a focused node opens - Archify's "Semantic
-                    passport" - for a host that asked. Unlike the compact rules it
-                    stays out in fullscreen too: it is not a control crowded out of
-                    a small frame but a card with nothing to say, since for a
-                    delivery run's stages it only restates the arrows either side.
-                    Focusing a node still highlights it; only the card goes.
-                */
-                + (hideNodeDetails ? '#focus-chip{display:none!important}' : '')
-                + '</style>';
-
-            element.srcdoc = injected + chrome;
-
-            const unwatch = backlogWatchArtifactHeight(element, id);
-
-            backlogDiagramInstances.set(id, {
-                destroy() {
-                    unwatch();
-                    // Dropping the document releases the frame's own runtime, its
-                    // observer and the roughly 675 KB behind it. A closed panel that
-                    // kept all three would be the difference between a knowledge
-                    // pane that can be browsed and one that cannot.
-                    element.srcdoc = '';
-                    element.style.removeProperty('height');
-                }
-            });
-        },
-
-        /*
-            Takes an artifact frame to the whole screen, and back.
-
-            The native Fullscreen API rather than a pop-out of this app's own: the
-            artifact is already a self-contained document with its own viewer, so
-            what it needs is room, not a second frame around it. Requested on the
-            stage around the frame rather than on the frame - only the element in
-            the top layer and its descendants are painted, so the way back out has
-            to be in there with the diagram, and a frame sandboxed into an opaque
-            origin can hold nothing of ours. The frame itself asks for nothing.
-
-            Presentation mode is what makes the room count. It is always on inside
-            the artifact, and the stylesheet injected with it lets present mode's own
-            `100dvh` sizing apply exactly here, where the viewport really is a screen
-            rather than a height this host measured.
-        */
-        async toggleArtifactFullscreen(element) {
+        async toggleFullscreen(element) {
             if (!element) return false;
 
             if (document.fullscreenElement === element) {
@@ -6761,9 +6453,8 @@
         Click demos, the host half of devbook's demo address contract
         (devbook.demo.address@1).
 
-        The document goes into the frame as it is. The Archify loader above pins
-        its artifact to the dark theme and lays a stylesheet over it; a demo is a
-        picture of the product, so it keeps its own look. The frame is sandboxed
+        The document goes into the frame as it is, with no theme pinned on it: a
+        demo is a picture of the product, so it keeps its own look. The frame is sandboxed
         into an opaque origin, which makes messages the only channel and means a
         message is trusted by where it came from, not by what it says: only one
         whose source is this frame's window counts. A version newer than this
@@ -7338,371 +7029,17 @@
 
 (() => {
     /*
-        The C4 explorer's viewer.
+        The C4 zoom navigation's viewer.
 
         Everything here is about a diagram somebody else drew. C4DiagramView renders a
         C4 view through C4SvgWriter into a static SVG and hands it over; this adds the
-        exploration layer over the top — pan and zoom, a minimap, presentation mode, a
-        click target on every element, and a dimming pass for the Highlighter.
-
-        It works on the SVG's own `viewBox` rather than on a CSS transform. The viewBox
-        is what C4SvgWriter already sizes the picture with, so zoom-to-fit is a copy of
-        the original numbers, panning is arithmetic on them, and the minimap only has
-        to draw the same SVG at its full extent with a rectangle where the viewBox now
-        sits. A CSS transform would have needed all of that translated back out of a
-        matrix, and would have blurred the text on the way.
+        reading layer over the top: one press selects a card, and the zoom is a
+        double-click, the card's Zoom in chip, or Enter.
 
         The bridge back to the model is the node id. C4SvgWriter writes each element
         as `<g class="node ..." id="<svg id>-<alias>">`, and the alias is the one this
-        repository's own writer produced — so stripping the svg id off the front is
+        repository's own writer produced, so stripping the svg id off the front is
         the whole of the lookup, and no text matching is involved anywhere.
-    */
-
-    const explorers = new Map();
-
-    // Per drawn SVG element: the extent it was drawn at, and the box the reader
-    // last left it showing. Keyed on the element, because the element is what
-    // says whether the picture changed: Blazor leaves unchanged markup in place
-    // and replaces the element when the markup changes. Reading the home back
-    // off an element this viewer had already zoomed made Fit return to the last
-    // zoom and measured the zoom limits from a home that moved with every step.
-    const viewports = new WeakMap();
-
-    const MIN_SCALE = 0.2;
-    const MAX_SCALE = 8;
-
-    function nodeAlias(svg, group) {
-        const prefix = svg.id ? svg.id + '-' : '';
-        const id = group.id || '';
-        return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
-    }
-
-    function readViewBox(svg) {
-        const raw = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-        if (raw.length !== 4 || raw.some(Number.isNaN)) {
-            // C4SvgWriter always writes one; this is the honest fallback rather
-            // than NaN arithmetic that silently blanks the picture.
-            const box = svg.getBBox ? svg.getBBox() : { x: 0, y: 0, width: 100, height: 100 };
-            return { x: box.x, y: box.y, w: box.width || 100, h: box.height || 100 };
-        }
-
-        return { x: raw[0], y: raw[1], w: raw[2], h: raw[3] };
-    }
-
-    function writeViewBox(svg, box) {
-        svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
-    }
-
-    window.backlogC4Explorer = {
-        /**
-         * Takes over a rendered diagram. Safe to call again for the same id — the
-         * previous attachment is torn down first — and for the same SVG element,
-         * which keeps the home it was first attached with and the box it was left
-         * at, rather than reading its zoomed viewBox back as the whole picture.
-         */
-        attach(id, frameSelector, reference, viewKey, drillable) {
-            this.dispose(id);
-
-            const frame = document.querySelector(frameSelector);
-            const svg = frame?.querySelector('svg');
-            if (!frame || !svg) return false;
-
-            // The explorer owns the box. C4SvgWriter already sizes the svg to its
-            // frame; this is repeated so a picture whose writer capped its own
-            // width still fills a tall frame.
-            svg.removeAttribute('style');
-            svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
-            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-
-            // Only the boxes that lead somewhere are marked, and only those get the
-            // hand cursor and the hover outline. Marking all of them was a promise
-            // the click could not keep: most elements have no deeper view — a
-            // component is a leaf, and a container without a component view has
-            // nothing declared — so the pointer invited a click that did nothing and
-            // made the whole gesture read as broken.
-            const drills = new Set(Array.isArray(drillable) ? drillable : []);
-            svg.querySelectorAll('g.node').forEach(group => {
-                group.classList.toggle('c4-drillable', drills.has(nodeAlias(svg, group)));
-            });
-
-            let viewport = viewports.get(svg);
-            if (!viewport) {
-                viewport = { home: readViewBox(svg), box: null };
-                viewports.set(svg, viewport);
-            }
-
-            const home = viewport.home;
-            let box = viewport.box ? { ...viewport.box } : { ...home };
-
-            // The last percent .NET was told, so a pan, which leaves the zoom where
-            // it was, costs no interop call per pointer move.
-            let reportedPercent = null;
-
-            const minimap = frame.closest('.c4-explorer__stage')?.querySelector('[data-c4-minimap]') ?? null;
-            let lens = null;
-
-            if (minimap) {
-                // The minimap is the same SVG again, frozen at full extent, with a
-                // rectangle for where the reader is. A clone rather than a <use>,
-                // because <use> would inherit the live viewBox and show nothing but
-                // itself.
-                const copy = svg.cloneNode(true);
-                copy.removeAttribute('id');
-                copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
-                writeViewBox(copy, home);
-                copy.setAttribute('width', '100%');
-                copy.setAttribute('height', '100%');
-
-                lens = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                lens.setAttribute('class', 'c4-minimap__lens');
-                copy.appendChild(lens);
-
-                minimap.replaceChildren(copy);
-            }
-
-            function drawLens() {
-                if (!lens) return;
-                lens.setAttribute('x', box.x);
-                lens.setAttribute('y', box.y);
-                lens.setAttribute('width', Math.max(box.w, 1));
-                lens.setAttribute('height', Math.max(box.h, 1));
-            }
-
-            function apply() {
-                writeViewBox(svg, box);
-                viewport.box = box;
-                drawLens();
-
-                const percent = Math.round((home.w / box.w) * 100);
-                if (percent === reportedPercent) return;
-
-                reportedPercent = percent;
-                reference?.invokeMethodAsync('ZoomChanged', percent);
-            }
-
-            function clampScale(next) {
-                const scale = home.w / next.w;
-                if (scale < MIN_SCALE || scale > MAX_SCALE) return false;
-                return true;
-            }
-
-            // ---- zoom ----------------------------------------------------------
-
-            function zoomAt(factor, clientX, clientY) {
-                const rect = svg.getBoundingClientRect();
-                if (!rect.width || !rect.height) return;
-
-                // Zoom about the pointer: the point under the cursor is the one that
-                // must not move, which is what makes wheel-zoom feel like a map.
-                const fx = (clientX - rect.left) / rect.width;
-                const fy = (clientY - rect.top) / rect.height;
-
-                const next = {
-                    w: box.w / factor,
-                    h: box.h / factor,
-                    x: box.x + (box.w - box.w / factor) * fx,
-                    y: box.y + (box.h - box.h / factor) * fy
-                };
-
-                if (!clampScale(next)) return;
-                box = next;
-                apply();
-            }
-
-            function zoomBy(factor) {
-                const rect = svg.getBoundingClientRect();
-                zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
-            }
-
-            const onWheel = (event) => {
-                if (!event.ctrlKey && Math.abs(event.deltaY) < 1) return;
-                event.preventDefault();
-                zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
-            };
-
-            // ---- pan -----------------------------------------------------------
-
-            // `node` is the shape the gesture started on, and it is the whole reason
-            // activation happens on pointerup rather than on click.
-            //
-            // Capturing the pointer is what makes panning survive the cursor leaving
-            // the frame — and it also redirects the subsequent `click` to the capture
-            // target. So the click arrives on the frame div, `closest('g.node')` finds
-            // nothing, and clicking a card did nothing at all. Remembering what was
-            // under the pointer when it went down is immune to that, and it is more
-            // correct anyway: a press that starts on a card and ends on one is a click
-            // on the card the reader aimed at.
-            const drag = { active: false, x: 0, y: 0, moved: 0, node: null };
-
-            const onPointerDown = (event) => {
-                if (event.button !== 0) return;
-                drag.active = true;
-                drag.x = event.clientX;
-                drag.y = event.clientY;
-                drag.moved = 0;
-                drag.node = event.target.closest?.('g.node') ?? null;
-                frame.setPointerCapture?.(event.pointerId);
-                frame.classList.add('is-panning');
-            };
-
-            const onPointerMove = (event) => {
-                if (!drag.active) return;
-
-                const rect = svg.getBoundingClientRect();
-                if (!rect.width || !rect.height) return;
-
-                const dx = event.clientX - drag.x;
-                const dy = event.clientY - drag.y;
-                drag.moved += Math.abs(dx) + Math.abs(dy);
-                drag.x = event.clientX;
-                drag.y = event.clientY;
-
-                box = {
-                    ...box,
-                    x: box.x - dx * (box.w / rect.width),
-                    y: box.y - dy * (box.h / rect.height)
-                };
-
-                apply();
-            };
-
-            const endDrag = (event) => {
-                if (!drag.active) return;
-
-                drag.active = false;
-                frame.releasePointerCapture?.(event.pointerId);
-                frame.classList.remove('is-panning');
-
-                // A press that moved is a pan, not a click. Without this, dragging
-                // across the picture opens whatever happened to be under the finger
-                // when it went down.
-                if (event.type !== 'pointerup' || drag.moved > 4) { drag.node = null; return; }
-
-                const group = drag.node;
-                drag.node = null;
-                if (!group) return;
-
-                const now = performance.now();
-                if (now - activatedAt < 500) return;
-
-                const alias = nodeAlias(svg, group);
-                if (!alias) return;
-
-                activatedAt = now;
-
-                // The view is named as well as the node. What the reader pressed is a
-                // box on *this* picture, and by the time the message lands the explorer
-                // may have moved on — in which case the press meant nothing and is
-                // dropped rather than applied to whatever is showing now.
-                reference?.invokeMethodAsync('NodeActivated', alias, viewKey ?? null);
-            };
-
-            // ---- drill in ------------------------------------------------------
-
-            // The last activation, so a second one on its heels is ignored.
-            //
-            // Drilling is one press here and a double-click in c4hero, and a reader who
-            // brings that habit would otherwise descend two levels at once — the second
-            // press landing on the newly drawn diagram before they have seen the first.
-            // The same window covers the render race: while the next view is being
-            // drawn the old SVG is still on screen and still listening.
-            let activatedAt = 0;
-
-            frame.addEventListener('wheel', onWheel, { passive: false });
-            frame.addEventListener('pointerdown', onPointerDown);
-            frame.addEventListener('pointermove', onPointerMove);
-            frame.addEventListener('pointerup', endDrag);
-            frame.addEventListener('pointercancel', endDrag);
-
-            explorers.set(id, {
-                svg,
-                frame,
-                home,
-                get box() { return box; },
-                set box(value) { box = value; },
-                apply,
-                zoomBy,
-                detach() {
-                    frame.removeEventListener('wheel', onWheel);
-                    frame.removeEventListener('pointerdown', onPointerDown);
-                    frame.removeEventListener('pointermove', onPointerMove);
-                    frame.removeEventListener('pointerup', endDrag);
-                    frame.removeEventListener('pointercancel', endDrag);
-                }
-            });
-
-            apply();
-            return true;
-        },
-
-        /** Back to the whole picture. The viewBox C4SvgWriter drew is the
-         *  definition of "fits", so this is a copy rather than a measurement. */
-        fit(id) {
-            const state = explorers.get(id);
-            if (!state) return;
-            state.box = { ...state.home };
-            state.apply();
-        },
-
-        zoom(id, factor) {
-            explorers.get(id)?.zoomBy(factor);
-        },
-
-        /**
-         * Marks which nodes the Highlighter matched and which the search found.
-         * Classes rather than inline style, so the dimming is themeable and one
-         * selector turns the whole effect off.
-         */
-        highlight(id, matched, focused) {
-            const state = explorers.get(id);
-            if (!state) return;
-
-            const dim = Array.isArray(matched);
-            const wanted = new Set(dim ? matched : []);
-            const focus = new Set(Array.isArray(focused) ? focused : []);
-
-            state.svg.querySelectorAll('g.node').forEach(group => {
-                const alias = nodeAlias(state.svg, group);
-                group.classList.toggle('c4-dimmed', dim && !wanted.has(alias));
-                group.classList.toggle('c4-focused', focus.has(alias));
-            });
-        },
-
-        /** Centres one element and leaves the zoom alone — a search hit should move
-         *  the reader to the box, not decide how close they stand to it. */
-        reveal(id, alias) {
-            const state = explorers.get(id);
-            if (!state || !alias) return;
-
-            const prefix = state.svg.id ? state.svg.id + '-' : '';
-            const group = state.svg.querySelector(`g.node[id="${CSS.escape(prefix + alias)}"]`);
-            if (!group || !group.getBBox) return;
-
-            const box = group.getBBox();
-            state.box = {
-                ...state.box,
-                x: box.x + box.width / 2 - state.box.w / 2,
-                y: box.y + box.height / 2 - state.box.h / 2
-            };
-            state.apply();
-        },
-
-        dispose(id) {
-            const state = explorers.get(id);
-            state?.detach();
-            explorers.delete(id);
-        }
-    };
-
-    /*
-        The C4 zoom tab's viewer.
-
-        Separate from the C4 tab's viewer above on purpose: the two tabs stand side by
-        side until the zoom tab is validated (local ADR 0046), and nothing the zoom tab
-        needs may change how the C4 tab behaves. The C4 tab drills on one press; here
-        one press selects and the zoom is a double-click, the card's Zoom in chip, or
-        Enter.
 
         Every listener sits on the diagram's own frame, never on the document. Enter
         and Backspace are moves only while focus is inside the picture, so a reader
@@ -7710,10 +7047,15 @@
         is cancelled here rather than from Blazor because a state-bound
         preventDefault is always one key late.
 
-        The selection ring is a class this viewer puts on the card, the same way the
-        C4 tab's search ring is: the SVG is one string of markup and Blazor leaves it
-        alone while it is unchanged.
+        The selection ring is a class this viewer puts on the card: the SVG is one
+        string of markup and Blazor leaves it alone while it is unchanged.
     */
+
+    function nodeAlias(svg, group) {
+        const prefix = svg.id ? svg.id + '-' : '';
+        const id = group.id || '';
+        return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
+    }
 
     const zooms = new Map();
 
@@ -7737,8 +7079,8 @@
 
     // The relationships into and out of the selected card, lit in the primary
     // colour with their own arrowhead, and the rest dimmed while a card is
-    // selected. Only a picture written with C4SvgOptions.EdgeEnds names the ends
-    // of its lines, so any other picture is left exactly as drawn.
+    // selected. A picture whose lines name no ends, the empty view, is left
+    // exactly as drawn.
     function markRelated(svg, alias) {
         const ends = svg.querySelectorAll('[data-c4-from]');
         if (ends.length === 0) return;
@@ -7916,13 +7258,225 @@
         }
     };
 
+    // ----- The margin layout's remarks, kept from stretching their rows -----
+    //
+    // MarkdownView draws each block and its remarks as one grid row, so a block
+    // with three remarks beside it grew to their height and pushed the next block
+    // down. Here each row's stack (.md-block-row__notes-stack) is taken out of the
+    // row's height — the stylesheet positions it once the view carries
+    // data-md-margin-measured — and placed: level with its block when there is
+    // room, and otherwise just below the stack before it, so two never overlap.
+    // Whatever the last stack runs past the end of the body is added to the body
+    // as --md-notes-tail.
+    //
+    // Anything else the view holds between its rows — a chapter insert, the C4
+    // view an arc42 heading carries — runs the full width, notes column included,
+    // so a stack must not run on over it. The view's children are walked in order:
+    // where the stacks above an insert reach past its top, the insert is pushed
+    // down by the difference (--md-notes-clearance), and the stacks after it
+    // start below it, as the rows after it already do.
+    //
+    // Measured because a stylesheet cannot say it. A grid row is as tall as its
+    // tallest cell; floats stack without overlapping, but a float may not sit
+    // higher than one before it, so a pushed-down stack pushes every block after
+    // it down too — the stretching again, a row later.
+    //
+    // Reads, then writes, once a frame at most: every position is read before
+    // any is set, and a pass is worked out from where things would be with none
+    // of its own earlier writes, so reading its own result gives the same answer
+    // and writes nothing (every write is skipped when the value is unchanged). A
+    // ResizeObserver on the view and each stack, and a MutationObserver for rows
+    // and remarks coming and going, so the component attaches once and never has
+    // to report a render. Below the margin's breakpoint the stylesheet puts the
+    // stack back in flow; that is read here as "not positioned", and every
+    // offset, clearance and the tail are cleared.
+    //
+    // Without this file the attribute is never set and the rows stretch as they
+    // always did.
+    //
+    // Above the calendar's section on purpose: that section is held to running
+    // no frame loop of its own, and a test reads it from its first line to the
+    // end of the file.
+    (() => {
+        const views = new Map();
+
+        const rowStackSelector = ':scope > .md-block-row__notes > .md-block-row__notes-stack';
+        const stackSelector = ':scope > .md-block-row > .md-block-row__notes > .md-block-row__notes-stack';
+
+        const OFFSET = '--md-notes-offset';
+        const CLEARANCE = '--md-notes-clearance';
+        const TAIL = '--md-notes-tail';
+
+        const rounded = (px) => (px > 0.5 ? Math.round(px * 100) / 100 : 0);
+
+        const setLength = (element, name, px) => {
+            const value = rounded(px) ? `${rounded(px)}px` : '';
+            if (element.style.getPropertyValue(name) === value) return;
+
+            if (value) element.style.setProperty(name, value);
+            else element.style.removeProperty(name);
+        };
+
+        // The length this script last wrote, read back off the element, so a
+        // pass can take its own earlier writes out of what it measures.
+        const written = (element, name) => parseFloat(element.style.getPropertyValue(name)) || 0;
+
+        const isRow = (child) => child.classList.contains('md-block-row');
+
+        const place = (state) => {
+            state.frame = 0;
+            const { view, resizes, observed } = state;
+            if (!view.isConnected) return;
+
+            const stacks = Array.from(view.querySelectorAll(stackSelector));
+
+            // Watch the stacks that are new and let go of the ones that went.
+            // Only the new: observing an element again reports it again, and
+            // that report would schedule this again.
+            const current = new Set(stacks);
+            for (const stack of observed) {
+                if (!current.has(stack)) {
+                    resizes?.unobserve(stack);
+                    observed.delete(stack);
+                }
+            }
+            for (const stack of stacks) {
+                if (!observed.has(stack)) {
+                    resizes?.observe(stack);
+                    observed.add(stack);
+                }
+            }
+
+            const children = Array.from(view.children);
+            const offsets = new Map();
+            const clearances = new Map();
+            let tail = 0;
+
+            const positioned = stacks.length > 0 && getComputedStyle(stacks[0]).position === 'absolute';
+
+            if (positioned) {
+                const box = view.getBoundingClientRect();
+                const tailWas = written(view, TAIL);
+
+                // `before` is how far this script's own clearances above a child
+                // have already moved it; `after` is how far this pass's will.
+                let before = 0;
+                let after = 0;
+                let reached = -Infinity;
+
+                for (const child of children) {
+                    if (isRow(child)) {
+                        const stack = child.querySelector(rowStackSelector);
+                        // A row with nothing beside it draws no stack, and an
+                        // empty one takes no room: neither moves nor is moved.
+                        if (!stack || stack.childElementCount === 0) continue;
+
+                        const natural = stack.parentElement.getBoundingClientRect().top - box.top - before + after;
+                        const top = Math.max(natural, reached);
+                        offsets.set(stack, top - natural);
+                        reached = top + stack.offsetHeight;
+                    } else {
+                        const rect = child.getBoundingClientRect();
+                        const was = written(child, CLEARANCE);
+                        const top = rect.top - box.top - before + after;
+                        const clearance = Math.max(0, reached - top);
+
+                        clearances.set(child, clearance);
+                        reached = top + clearance + (rect.height - was);
+                        before += was;
+                        after += clearance;
+                    }
+                }
+
+                const body = box.height - tailWas - before + after;
+                tail = Math.max(0, reached - body);
+            }
+
+            for (const stack of stacks) setLength(stack, OFFSET, offsets.get(stack) ?? 0);
+            for (const child of children) {
+                if (!isRow(child)) setLength(child, CLEARANCE, clearances.get(child) ?? 0);
+            }
+            setLength(view, TAIL, tail);
+        };
+
+        const schedule = (state) => {
+            if (!state.frame) state.frame = requestAnimationFrame(() => place(state));
+        };
+
+        // The view is found by the id it wears (data-md-margin), and waited for
+        // a few frames, for the reason backlogFocus waits: the desktop head's
+        // WebView does not promise the render has been applied before the call
+        // arrives.
+        const findFrames = 10;
+        const pending = new Map();
+
+        const find = (id) => document.querySelector(`[data-md-margin="${CSS.escape(id)}"]`);
+
+        const observe = (id, view) => {
+            const state = { view, frame: 0, observed: new Set(), resizes: null, mutations: null };
+            const changed = () => schedule(state);
+
+            state.resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(changed) : null;
+            state.resizes?.observe(view);
+            state.mutations = typeof MutationObserver === 'function' ? new MutationObserver(changed) : null;
+            state.mutations?.observe(view, { childList: true, subtree: true });
+
+            view.setAttribute('data-md-margin-measured', '');
+            views.set(id, state);
+            schedule(state);
+        };
+
+        window.backlogMarginNotes = {
+            attach(id) {
+                this.detach(id);
+
+                const attempt = (framesLeft) => {
+                    pending.delete(id);
+                    const view = find(id);
+                    if (view) {
+                        observe(id, view);
+                    } else if (framesLeft > 0) {
+                        pending.set(id, requestAnimationFrame(() => attempt(framesLeft - 1)));
+                    }
+                };
+
+                attempt(findFrames);
+            },
+
+            detach(id) {
+                if (pending.has(id)) {
+                    cancelAnimationFrame(pending.get(id));
+                    pending.delete(id);
+                }
+
+                const state = views.get(id);
+                if (!state) return;
+
+                views.delete(id);
+                if (state.frame) cancelAnimationFrame(state.frame);
+                state.resizes?.disconnect();
+                state.mutations?.disconnect();
+
+                const { view } = state;
+                view.removeAttribute('data-md-margin-measured');
+                view.style.removeProperty(TAIL);
+                for (const stack of view.querySelectorAll(stackSelector)) {
+                    stack.style.removeProperty(OFFSET);
+                }
+                for (const child of view.children) {
+                    if (!isRow(child)) child.style.removeProperty(CLEARANCE);
+                }
+            }
+        };
+    })();
+
     // ----- Moving a task between days on the month calendar ---------------
     //
     // The same pointer gesture `taskListDrag` above is, for the same reason: the
     // desktop head's WebView2 aborts a native drag before it delivers a drop, so
-    // both halves come from pointer events. A press on a chip or a tray item that
+    // both halves come from pointer events. A press on a chip or a shelf plan that
     // travels past the threshold becomes a drag; the day under the pointer is lit
-    // while it moves; letting go over a day tells TaskCalendar which task landed
+    // while it moves; letting go over a day tells the Calendar's grid which task landed
     // where, once, and the click that follows the release is swallowed so the
     // drop does not also open the task. A press that never travels stays a click.
     //
@@ -7931,9 +7485,9 @@
     // Escape, a cancelled pointer, or the window losing focus put the task back.
     //
     // Mouse and pen only. A finger on a chip is how the calendar is scrolled, and
-    // the detail panel a tap opens sets the due date as well.
+    // the Tasks view a tap opens sets the due date as well.
     //
-    // A plan on the tray's "Plans without a window" is dragged the same way: it
+    // A plan on the shelf, "Plans without a window", is dragged the same way: it
     // carries `data-calendar-plan` rather than `data-calendar-task`, and its drop is
     // reported as `DropPlanOnDay` — the day its window opens on.
     const calendarRefs = new Map();
@@ -8012,7 +7566,7 @@
             over: null,
             // What the shared edge-scroll loop asks of a drag — see
             // `dragScrollTarget` in the first half of this file. The scroller
-            // is found from a day, not from the item: a tray item sits in a tray
+            // is found from a day, not from the item: a shelf plan sits in a shelf
             // that may scroll on its own, and the days are what must come into
             // reach. The month grid clips rather than scrolls, so the walk goes
             // on up to the pane that does.
@@ -8106,4 +7660,18 @@
         },
         true
     );
+
+    // An audio file the host holds, handed over as a stream and played from a
+    // blob URL. Not a data: URI: a recording runs to 24 MB, which as base64 would
+    // cross the Blazor Server circuit as one string and sit in the DOM. The URL
+    // lives until the player that asked for it is disposed and releases it.
+    window.backlogAudio = {
+        open: async (streamRef, contentType) => {
+            const bytes = await streamRef.arrayBuffer();
+            return URL.createObjectURL(new Blob([bytes], { type: contentType }));
+        },
+        release: url => {
+            if (url) URL.revokeObjectURL(url);
+        }
+    };
 })();

@@ -63,7 +63,7 @@ public sealed class C4DomainLinkTests : IDisposable
         }
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_domain_chapter_offers_the_C4_views_that_document_it()
@@ -117,17 +117,6 @@ public sealed class C4DomainLinkTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='domain-c4-view']"));
     }
 
-    [Fact]
-    public async Task With_the_key_off_a_domain_chapter_is_offered_nothing()
-    {
-        await using var harness = CreateHarness(references: DocumentsTheContextMap, c4Enabled: false);
-
-        var component = harness.Render(".domain/context-map.md");
-        harness.Settle(component);
-
-        Assert.Empty(component.FindAll("[data-testid='domain-c4-view']"));
-    }
-
     /// <summary>
     /// Every domain panel test written before this feature existed, and the storybook
     /// page. The store is resolved from the provider, so a host that never registered
@@ -145,10 +134,11 @@ public sealed class C4DomainLinkTests : IDisposable
         Assert.Contains("Backlog", component.Markup, StringComparison.Ordinal);
     }
 
-    private Harness CreateHarness(string references, bool c4Enabled = true, bool registerStore = true)
+    private Harness CreateHarness(string references, bool registerStore = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-domain-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-domain");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
@@ -162,7 +152,6 @@ public sealed class C4DomainLinkTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        if (c4Enabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -218,16 +207,6 @@ public sealed class C4DomainLinkTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

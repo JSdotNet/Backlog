@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -16,13 +17,15 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class StandUpSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-iteration-settings-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-iteration-settings-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string ShellPath => Path.Combine(_root, "shell-navigation.json");
 
     private string SettingsPath => Path.Combine(_root, IterationSettingsStore.FileName);
 
-    private IterationSettingsStore Store(ShellNavigationStore? legacy = null) => new(SettingsPath, legacy);
+    private IterationSettingsStore Store() => new(SettingsPath);
 
     private void WriteSettings(string content)
     {
@@ -31,24 +34,6 @@ public sealed class StandUpSettingsTests : IDisposable
     }
 
     private static readonly DateOnly Wednesday21 = new(2026, 10, 21);
-
-    [Fact]
-    public void The_store_keeps_the_length_and_start_across_a_restart()
-    {
-        var store = new ShellNavigationStore(ShellPath);
-        Assert.Null(store.GoalsIterationLength);
-        Assert.Null(store.GoalsTwoWeekStart);
-
-        store.SetGoalsIteration("two-weeks", new DateOnly(2026, 10, 5));
-        store.Flush();
-
-        var reopened = new ShellNavigationStore(ShellPath);
-        Assert.Equal("two-weeks", reopened.GoalsIterationLength);
-        Assert.Equal(new DateOnly(2026, 10, 5), reopened.GoalsTwoWeekStart);
-        var file = File.ReadAllText(ShellPath);
-        Assert.Contains("\"goalsIterationLength\": \"two-weeks\"", file, StringComparison.Ordinal);
-        Assert.Contains("\"goalsTwoWeekStart\": \"2026-10-05\"", file, StringComparison.Ordinal);
-    }
 
     /// <summary>The setting's stored values are the spec's (<c>context.md#iteration-length</c>),
     /// never the member names: choosing 2 weeks writes <c>two-weeks</c> and reads back as 2 weeks.</summary>
@@ -107,16 +92,21 @@ public sealed class StandUpSettingsTests : IDisposable
         Assert.DoesNotContain("goalsTwoWeekStart", file, StringComparison.Ordinal);
     }
 
+    /// <summary>The length and start an earlier build wrote to the shell navigation file
+    /// are dropped the next time the file is written: nothing reads them any more.</summary>
     [Fact]
-    public void A_start_that_is_no_date_reads_as_none()
+    public void A_stored_length_and_start_are_dropped_on_the_next_write()
     {
         Directory.CreateDirectory(_root);
-        File.WriteAllText(ShellPath, """{ "goalsIterationLength": "week", "goalsTwoWeekStart": "the fifth" }""");
+        File.WriteAllText(ShellPath, """{ "goalsIterationLength": "two-weeks", "goalsTwoWeekStart": "2026-10-05" }""");
 
         var store = new ShellNavigationStore(ShellPath);
+        store.SetToolsTab("tools");
+        store.Flush();
 
-        Assert.Equal("week", store.GoalsIterationLength);
-        Assert.Null(store.GoalsTwoWeekStart);
+        var file = File.ReadAllText(ShellPath);
+        Assert.DoesNotContain("goalsIterationLength", file, StringComparison.Ordinal);
+        Assert.DoesNotContain("goalsTwoWeekStart", file, StringComparison.Ordinal);
     }
 
     /// <summary>Scenario "Reopening the app": the person chose 2 weeks, and it reads by 2 weeks again.</summary>
@@ -190,7 +180,7 @@ public sealed class StandUpSettingsTests : IDisposable
                 new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero)),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(IterationSettingsReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)new DateOnly(2026, 10, 5)), (settings.Length, settings.TwoWeekStart));
         Assert.Equal(1, changes);
     }
@@ -209,20 +199,6 @@ public sealed class StandUpSettingsTests : IDisposable
         settings.SetTwoWeekStart(new DateOnly(2026, 10, 5));
 
         Assert.Equal(new IterationChoice("quarter", new DateOnly(2026, 10, 5)), store.Choice);
-    }
-
-    /// <summary>ADR 0036 §5: on the first start of this build, a length the person chose on
-    /// the old one is what the setting reads.</summary>
-    [Fact]
-    public void A_length_chosen_on_the_old_build_still_reads_after_the_upgrade()
-    {
-        var shell = new ShellNavigationStore(ShellPath);
-        shell.SetGoalsIteration("two-weeks", new DateOnly(2026, 10, 5));
-        shell.Flush();
-
-        var settings = new IterationSettings(Store(new ShellNavigationStore(ShellPath)));
-
-        Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)new DateOnly(2026, 10, 5)), (settings.Length, settings.TwoWeekStart));
     }
 
     [Fact]
@@ -246,7 +222,7 @@ public sealed class StandUpSettingsTests : IDisposable
     public void Dispose()
     {
         ShellNavigationStore.WaitForPendingWrites(ShellPath);
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temp.Dispose();
     }
 
     private sealed class FixedVelocity(decimal pace) : IPlanningVelocity

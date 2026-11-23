@@ -3,11 +3,13 @@ using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
@@ -70,6 +72,12 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
         Path.Combine("obj", "local-development", "device-credential.json")),
+    // A software key beside the credential, never the installed app's CNG key: a
+    // harness device bound to the real key would sign in as this PC's own app.
+    DeviceKeyStore = _ => DeviceKeyStoreFactory.CreateLocalDevelopmentStore(
+        builder.Environment.ContentRootPath,
+        "BACKLOG_DESKTOP_DEVICE_KEY_PATH",
+        Path.Combine("obj", "local-development", "device-key.json")),
     TaskSyncStateStore = _ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
         builder.Environment.ContentRootPath,
         "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
@@ -86,6 +94,11 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     BackupStatePath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
         ? backupStatePath
         : Path.Combine(localDevelopment, "backup-state.json"),
+    // The same MCP audit records the app writes, in this worktree's own file: a shared
+    // one would list every worktree's harness calls as this harness's.
+    McpAuditLogPath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_MCP_AUDIT_PATH") is { Length: > 0 } mcpAuditPath
+        ? mcpAuditPath
+        : Path.Combine(localDevelopment, "mcp-audit.db"),
     // Resolved the way the desktop head resolves it, so the Settings page behaves the
     // same here; under Aspire with nothing entered that is this AppHost run's sync
     // resource. A shared file would point both harnesses at whatever one was told.
@@ -105,10 +118,8 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // Under the content root, never %LOCALAPPDATA%: that folder is shared by every
     // worktree's harness and by the installed app.
     MyDayPreferences = _ => CreateLocalDevelopmentMyDayPreferencesStore(builder.Environment.ContentRootPath),
-    // Under the content root for the same reason, seeded from this harness's own shell
-    // navigation file.
-    IterationSettings = sp => CreateLocalDevelopmentIterationSettingsStore(
-        builder.Environment.ContentRootPath, sp.GetRequiredService<ShellNavigationStore>()),
+    // Under the content root for the same reason.
+    IterationSettings = _ => CreateLocalDevelopmentIterationSettingsStore(builder.Environment.ContentRootPath),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -182,7 +193,7 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // The Devbook - its adapters and AddDevbookModule - is in the composition above
 // since issue #738. The two things this harness did differently arrive through
 // its options there: the domain store is scoped with the rest of a circuit's
-// state, and the Copilot offers and Archify artifacts take the unavailable
+// state, and the Copilot offers take the unavailable
 // launcher, so pressing one says this host cannot start a CLI.
 
 // The same MCP server the desktop head serves, on the Kestrel pipeline this
@@ -209,7 +220,7 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // into a registration; here it would be one QA had to fetch out of a container
 // to drive a test, protecting a host that holds nothing the Origin check is not
 // already closing.
-builder.Services.AddBacklogMcpServer().WithHttpTransport();
+builder.Services.AddBacklogMcpServer(McpAudit.HarnessCaller).WithHttpTransport();
 // The bill for the Azure Foundry resource. When the settings are this session's
 // local seed, the query goes to the stand-in service beside the chat one — with a
 // token nothing signed, because the stand-in checks none — so the dashboard's
@@ -225,6 +236,10 @@ builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
 // What open_window opens and links to: no native window, and this harness's own
 // /window/{surfaceId} page at the address it listens on, with no token.
 builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, HarnessSurfaceWindowHost>();
+// Windows Hello (local ADR 0058 §6): this harness has none to ask, so it answers not
+// available and an Allow is refused here. It keeps no grants and composes no access desk,
+// so request_access says that too.
+builder.Services.AddSingleton<Backlog.SharedKernel.IUserConsent, Backlog.SharedKernel.UnavailableUserConsent>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
@@ -249,6 +264,10 @@ var app = builder.Build();
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
 
+// And the Inbox's transcription of meeting recordings (local ADR 0049), started as the
+// desktop head starts it, against the harness's local Foundry stand-in.
+app.Services.GetRequiredService<Backlog.Modules.Inbox.Services.InboxRecordingTranscriptionWorker>().Start();
+
 // And session replication's own loop, for the same reason and with the same
 // failure if it is left out. A sibling rather than a second exchange inside the
 // worker above: see SessionSyncWorker for why one loop over two independently
@@ -261,6 +280,9 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
 // And devbook subject state's loop, the annotations' sibling, on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
+// And knowledge event replication's loop (local ADR 0050 §2), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker>();
 
 // And the one-time devbook import, on the same terms and for the same reason the
 // desktop head resolves it.
@@ -281,12 +303,23 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+// And the session queue's completion sweep, for the same reason the desktop head
+// resolves it.
+_ = app.Services.GetRequiredService<SessionRequestCompletion>();
+
+// And the Desktop clock of the Events area, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Events.Services.HarvestTaskWorker>();
+
 // And the spec-manager question source, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
 // And the question relay's escalation timer (local ADR 0041), as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
+
+// And the schedule and loop alerts' sweep (local ADR 0051 §5), as the desktop head starts it.
+app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.SessionAlertPublisher>().Start();
 
 // And the run subject watch, as the desktop head starts it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.RunSubjectWatch>();
@@ -332,6 +365,8 @@ app.UseWhen(
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
         || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the report a scheduled run's hook posts (local ADR 0051).
+        || context.Request.Path.StartsWithSegments(ScheduleRunReportEndpoint.RoutePath)
         // And the question relay's hook script (local ADR 0041).
         || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
@@ -348,6 +383,11 @@ app.UseWhen(
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
         }
+
+        // No token, so no grant: the harness's caller holds every grantable scope, and the
+        // tools' scope policies (local ADR 0058 §4) still run against it. A principal already
+        // on the request — a test's — is left where it is.
+        if (context.User.Identity?.IsAuthenticated != true) context.User = McpScopePolicies.HarnessCaller;
 
         await next(context);
     }));
@@ -413,6 +453,8 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             context.RequestAborted,
             questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
             sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+            sessionId: context.Request.Query["sessionId"].ToString(),
+            loops: context.RequestServices.GetService<ILoopRegister>(),
             contact: context.RequestServices.GetService<DispatcherContact>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
@@ -421,11 +463,35 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     }
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    if (reply.Failure is not null && reply.StatusCode == 503) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    else if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
     context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+    await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
+});
+
+// And the report a scheduled run's hook posts (local ADR 0051 §1), into this harness's
+// backlog.db. No token here, for the reason the MCP endpoint has none; 404 while the
+// sessions flag is off.
+app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+{
+    var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+        context.Request.Body,
+        context.Request.ContentLength,
+        context.RequestServices.GetRequiredService<IScheduleRegister>(),
+        context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+        context.RequestServices.GetService<IAgentSessionSource>(),
+        TimeProvider.System,
+        context.RequestAborted);
+
+    context.Response.StatusCode = reply.StatusCode;
+    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+    if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    if (reply.Body.Length == 0) return;
+
+    context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
     await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 
@@ -582,7 +648,7 @@ static MyDayPreferencesStore CreateLocalDevelopmentMyDayPreferencesStore(string 
     return new MyDayPreferencesStore(settingsPath);
 }
 
-static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(string contentRootPath, ShellNavigationStore legacy)
+static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_ITERATION_SETTINGS_PATH");
     if (string.IsNullOrWhiteSpace(settingsPath))
@@ -590,7 +656,7 @@ static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(strin
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "iteration-settings.settings.json");
     }
 
-    return new IterationSettingsStore(settingsPath, legacy);
+    return new IterationSettingsStore(settingsPath);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

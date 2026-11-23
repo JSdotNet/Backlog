@@ -1,7 +1,9 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
-/// One step of a dynamic view as the zoom tab's steps panel lists it: who calls whom,
+/// One step of a dynamic view as the zoom navigation's steps panel lists it: who calls whom,
 /// what the call is, and what it travels over.
 /// </summary>
 /// <param name="Order">The step's own number, as the DSL numbered it and as its arrow
@@ -21,7 +23,7 @@ public sealed record C4PlaybackStep(
     string? Technology);
 
 /// <summary>
-/// The steps of a dynamic view, in the order the zoom tab plays them.
+/// The steps of a dynamic view, in the order the zoom navigation plays them.
 /// <para>
 /// Only the steps the picture draws are listed: a step whose endpoint the view cannot
 /// draw has no arrow to highlight, so listing it would offer a current step nothing on

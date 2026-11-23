@@ -70,6 +70,32 @@ public interface ITaskItems
         string? sourceInboxId = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Creates an entry from one block of entry markdown under
+    /// <paramref name="id"/>, the caller's id, only when this machine holds no task
+    /// with that id, live or deleted. Answers <see langword="true"/> when it created
+    /// the entry, and <see langword="false"/> when one was already held and nothing
+    /// was written — a deleted one stays deleted. Text with no title, or a
+    /// <c>plan</c> entry, is refused as <see cref="SaveFromTextAsync"/> refuses it.
+    /// <para>
+    /// For a caller that derives the id from what the entry is for, so two machines
+    /// asking for the same entry ask for the same id and the replica folds their
+    /// copies into one. The port is told an id and a text, never what the id was
+    /// derived from.
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is,
+    /// so a host or a test double that never files under an id still composes; the
+    /// module's own port overrides it.
+    /// </para></summary>
+    Task<Result<bool>> CreateFromTextIfAbsentAsync(
+        Guid id,
+        string rawText,
+        int order,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<bool>>(Error.Validation(
+            "entry.create_under_id_unavailable",
+            "An entry cannot be created under a given id here."));
+
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Position in the list becomes the entry's rank.</summary>
@@ -132,6 +158,26 @@ public interface ITaskItems
         Task.FromResult<Result<TaskItemDto>>(Error.Validation(
             "entry.planned_hours_unavailable",
             "Planned hours cannot be kept here."));
+
+    /// <summary>Sets the day an entry is due on, or clears it for null. Answers the entry
+    /// as it now stands; only the due date moves.
+    /// <para>
+    /// The due date is a token in the text, so the pane writes it by saving the text; this
+    /// is for a caller that holds no text to rewrite — the Calendar moving a task to the
+    /// day it was dropped on (local ADR 0056 §2).
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is, so a
+    /// host or a test double that keeps no due-date command still composes; the module's
+    /// own port overrides it.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetDueAsync(
+        Guid id,
+        DateOnly? dueOn,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<TaskItemDto>>(Error.Validation(
+            "entry.due_unavailable",
+            "A due date cannot be set here."));
 
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);

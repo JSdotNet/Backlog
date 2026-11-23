@@ -10,7 +10,8 @@
     - The A–Z card: every term chapter beside every model chapter of the context's
       domain files. A row's first line is its mark, its heading, its kind in words,
       a proposed or deprecated badge, where a borrowed term comes from, its Brain
-      notes and its aliases as code chips; the second its first sentence; then,
+      notes and its aliases as code chips; the second its first sentence, its
+      links kept, and on a model chapter "Open the model", to it on Model; then,
       where the invariants name it, its rule count, which opens them in place. A
       deprecated chapter is struck through on a sunken row. A long list shows
       fifteen rows and the rest behind "n more" until the reader filters or picks.
@@ -113,9 +114,15 @@
                                             </ul>
                                         }
                                     </div>
-                                    @if (entry.Summary.Length > 0)
+                                    @{
+                                        var model = ModelOf(entry);
+                                    }
+                                    @if (entry.Summary.Length > 0 || model is not null)
                                     {
-                                        <p class="domain-glossary__summary">@entry.Summary</p>
+                                        <p class="domain-glossary__summary" data-testid="domain-glossary-summary">@Summary(entry)@if (model is not null)
+                                            {
+                                                <text>@(entry.Summary.Length > 0 ? " " : null)<DevbookReferenceLink Reference="@model" Text="Open the model" OnNavigate="OnNavigate" TestId="domain-glossary-model" aria-label="@($"Open the model for {entry.Title}")" />.</text>
+                                            }</p>
                                     }
                                     @{
                                         var rules = RulesOf(entry);
@@ -123,7 +130,7 @@
                                     @if (rules.Count > 0)
                                     {
                                         var shown = _rulesShown.Contains(entry.Reference);
-                                        var listId = $"{_id}-rules-{DomainUnits.Slug(entry.Reference)}";
+                                        var listId = $"{_id}-rules-{HeadingAnchor.Of(entry.Reference)}";
                                         <AppButton Variant="ButtonVariant.None"
                                                    BaseClass="domain-glossary__rules"
                                                    TestId="domain-glossary-rules"
@@ -231,6 +238,14 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
+    /// <summary>The context's Model files — <c>.devbook/domain/tasks/model.md</c>
+    /// and any split. A model chapter's row ends on "Open the model", to the Model
+    /// file its own domain file pairs with (<see cref="DomainUnits.ModelFileFor"/>),
+    /// at the tab <see cref="DomainGlossaryEntry.ModelAnchor"/> names. Empty, or
+    /// with no <see cref="OnNavigate"/>, no row links to Model.</summary>
+    [Parameter]
+    public IReadOnlyList<string> ModelPaths { get; set; } = [];
+
     /// <summary>The rules about a chapter, by its reference
     /// (<see cref="DomainRuleCatalog.About(string)"/>): a row's rule count, which
     /// opens them in place. Unset, no row counts rules.</summary>
@@ -262,6 +277,11 @@
     private string _filter = string.Empty;
     private (DomainChapter?, IReadOnlyList<DomainChapterFile>?) _read;
     private string? _filterParameter;
+
+    // Each domain file's Model file, by the file's path, for the pair of lists it
+    // was worked out from.
+    private (IReadOnlyList<DomainChapterFile>? Files, IReadOnlyList<string>? Models) _pairedFrom;
+    private readonly Dictionary<string, string?> _modelOf = new(StringComparer.OrdinalIgnoreCase);
 
     private string SearchId => _id + "-find";
     private string ListId => _id + "-list";
@@ -370,12 +390,49 @@
             ? @<span class="domain-glossary__name"><s>@entry.Title</s><span class="sr-only"> (deprecated)</span></span>
             : @<span class="domain-glossary__name">@entry.Title</span>;
 
-    private static RenderFragment Tile(DomainGlossaryEntry entry) =>
+    /// <summary>A row's first sentence with its links kept, each followed the
+    /// way a link in the chapter's prose is (<see cref="DevbookInlineTargets"/>),
+    /// read against the chapter's own file. A row built without the markdown
+    /// shows its plain sentence.</summary>
+    private RenderFragment Summary(DomainGlossaryEntry entry) =>
+        entry.SummaryMarkdown.Length > 0
+            ? MarkdownRender.Inlines(
+                MarkdownPreview.ParseInlines(entry.SummaryMarkdown),
+                DevbookInlineTargets.For(entry.DocumentPath.Length > 0 ? entry.DocumentPath : DocumentPath, null, OnNavigate))
+            : @<text>@entry.Summary</text>;
+
+    /// <summary>The chapter on the Model page — the Model file the row's own
+    /// domain file pairs with, at the anchor <see cref="DomainGlossaryEntry.ModelAnchor"/>
+    /// names — or <see langword="null"/> for a term, with no Model file, or with
+    /// nowhere to send the reader: then the row has no link at all.</summary>
+    private DevbookReference? ModelOf(DomainGlossaryEntry entry)
+    {
+        if (!OnNavigate.HasDelegate || ModelPaths.Count == 0 || entry.ModelAnchor is not { } anchor) return null;
+        return PairedModel(entry.DocumentPath) is { } path
+            ? DevbookReference.Parse(anchor.Length > 0 ? $"{path}#{anchor}" : path)
+            : null;
+    }
+
+    /// <summary>The Model file a domain file is built in, read once per file.</summary>
+    private string? PairedModel(string documentPath)
+    {
+        if (!ReferenceEquals(_pairedFrom.Files, Files) || !ReferenceEquals(_pairedFrom.Models, ModelPaths))
+        {
+            _pairedFrom = (Files, ModelPaths);
+            _modelOf.Clear();
+        }
+        if (_modelOf.TryGetValue(documentPath, out var known)) return known;
+
+        var file = Files.FirstOrDefault(candidate => string.Equals(candidate.Path, documentPath, StringComparison.OrdinalIgnoreCase));
+        return _modelOf[documentPath] = DomainUnits.ModelFileFor(documentPath, ModelPaths, file);
+    }
+
+    private RenderFragment Tile(DomainGlossaryEntry entry) =>
         @<div class="domain-glossary__side" data-testid="domain-glossary-pair-term" data-term="@entry.Title">
             @Name(entry)
             @if (entry.Summary.Length > 0)
             {
-                <p class="domain-glossary__summary">@entry.Summary</p>
+                <p class="domain-glossary__summary">@Summary(entry)</p>
             }
             @if (entry.Aliases.Count > 0)
             {

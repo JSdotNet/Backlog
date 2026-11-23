@@ -36,7 +36,7 @@ const PLAN = JSON.stringify({
 })
 
 const BRIEF =
-  'You run one entry of the Backlog plan `+demo`: `2 - Second prompt` (id `b2`) in `JSdotNet/Backlog`,\n**attended**.'
+  'You run one entry of the Backlog plan `+demo`: `2 - Second prompt` (id `b2`) in `JSdotNet/Backlog`,\n**unattended**.'
 
 // What the host's session tools and a delivery surface answer about an entry session.
 const SESSION = 'local_7f3a-b2c1'

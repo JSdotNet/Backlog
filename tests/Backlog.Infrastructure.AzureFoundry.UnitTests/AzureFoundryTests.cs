@@ -11,18 +11,9 @@ namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 public sealed class AzureFoundrySettingsStoreTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-settings");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void Settings_are_normalized_and_survive_restart()
@@ -39,6 +30,35 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.Equal("secret", restarted.Current.ApiKey);
         Assert.Equal("2024-10-21", restarted.Current.ApiVersion);
         Assert.True(restarted.Current.IsConfigured);
+    }
+
+    [Fact]
+    public void The_transcription_deployment_defaults_survives_restart_and_is_kept_by_other_updates()
+    {
+        var path = NewSettingsPath();
+        var store = new AzureFoundrySettingsStore(path);
+        Assert.Equal("gpt-4o-transcribe", store.Current.TranscriptionDeployment);
+        Assert.Equal("2025-03-01-preview", store.Current.TranscriptionApiVersion);
+
+        store.SetTranscriptionDeployment(" meetings ");
+        store.SetConnection("https://foundry.example.com", "chat", "secret", null);
+        store.SetCostScope("/subscriptions/x");
+        store.SetApiKey("other");
+
+        Assert.Equal("meetings", new AzureFoundrySettingsStore(path).Current.TranscriptionDeployment);
+
+        store.SetTranscriptionDeployment("  ");
+        Assert.Equal("gpt-4o-transcribe", store.Current.TranscriptionDeployment);
+    }
+
+    [Fact]
+    public void A_settings_file_from_before_the_transcription_deployment_reads_as_the_default()
+    {
+        var path = NewSettingsPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "endpoint": "https://foundry.example.com", "deployment": "chat" }""");
+
+        Assert.Equal("gpt-4o-transcribe", new AzureFoundrySettingsStore(path).Current.TranscriptionDeployment);
     }
 
     [Fact]
@@ -186,28 +206,14 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.Equal("chat", settings.Deployment);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-settings", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 }
 
 public sealed class AzureFoundryChatClientTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-client");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Missing_settings_are_reported_before_http_request()
@@ -537,15 +543,6 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         Assert.Contains("empty answer", ex.Message);
     }
 
-    [Fact]
-    public async Task The_unavailable_client_refuses_a_plan_the_way_it_refuses_a_question()
-    {
-        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            new UnavailableAzureFoundryChatClient().DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
-
-        Assert.Contains("not registered", ex.Message);
-    }
-
     private static AzureFoundryPlanRequest PlanRequest() => new(
         "Fix the login page",
         "The login page 500s on submit.",
@@ -616,12 +613,7 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         return new AzureFoundryChatClient(new HttpClient(handler), settings);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-client", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 }
 
 /// <summary>
@@ -633,18 +625,9 @@ public sealed class AzureFoundryChatClientTests : IDisposable
 /// </summary>
 public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-drafter");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void Unconfigured_settings_read_as_unavailable_with_a_reason_that_points_at_settings()
@@ -814,13 +797,9 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
         return settings;
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-drafter", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
+    // Differs from StubAzureFoundryChatClient: answers plan drafts, or the failure it was given.
     private sealed class StubChatClient : IAzureFoundryChatClient
     {
         public string Plan { get; init; } = "# Step one\n`prompt` `!ready` `#plan` `id:step-1` `effort:2`\n\nDo it.";
@@ -883,18 +862,9 @@ public sealed class AzureFoundryLocalTestServiceTests
 /// </summary>
 public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-embeddings");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Missing_settings_are_reported_before_any_http_request()
@@ -986,17 +956,6 @@ public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
             TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task The_unavailable_client_says_so_rather_than_pretending()
-    {
-        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            new UnavailableAzureFoundryEmbeddingsClient().EmbedAsync(
-                new AzureFoundryEmbeddingRequest("text-embedding-3-small", ["a chapter"]),
-                TestContext.Current.CancellationToken));
-
-        Assert.Contains("not registered", ex.Message);
-    }
-
     private static HttpResponseMessage Json(string payload) =>
         new(HttpStatusCode.OK) { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
 
@@ -1007,12 +966,7 @@ public sealed class AzureFoundryEmbeddingsClientTests : IDisposable
         return new AzureFoundryEmbeddingsClient(new HttpClient(handler), settings);
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-embeddings", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     private sealed class CountingHandler(Func<HttpRequestMessage, HttpResponseMessage>? respond = null) : HttpMessageHandler
     {

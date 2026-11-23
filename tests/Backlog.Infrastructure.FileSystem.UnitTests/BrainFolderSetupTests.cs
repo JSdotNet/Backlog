@@ -10,12 +10,11 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class BrainFolderSetupTests : IDisposable
 {
-    private static readonly string[] ParaFolders = ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"];
+    private static readonly string[] ParaFolders = ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"];
 
-    private readonly string _brain = Path.Combine(
-        Path.GetTempPath(),
-        "brain-folder-setup-tests-" + Guid.NewGuid().ToString("N"),
-        "Brain");
+    private readonly TemporaryDirectory _temp = new("brain-folder-setup-tests");
+
+    private string _brain => _temp.Combine("Brain");
 
     public BrainFolderSetupTests() => Directory.CreateDirectory(_brain);
 
@@ -144,15 +143,5 @@ public sealed class BrainFolderSetupTests : IDisposable
         Assert.Equal(["CONVENTIONS.md", "README.md"], files.Order(StringComparer.Ordinal));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            var root = Path.GetDirectoryName(_brain)!;
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

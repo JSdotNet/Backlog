@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Features.CountTasks;
+using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.FileFollowUp;
 using Backlog.Modules.Tasks.Features.GetTask;
@@ -14,6 +15,7 @@ using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
 using Backlog.Modules.Tasks.Features.SetPlannedHours;
+using Backlog.Modules.Tasks.Features.SetTaskDue;
 using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Services;
@@ -51,10 +53,12 @@ public static class TasksModuleRegistration
         services.AddScoped<IQueryHandler<GetTaskQuery, TaskItemDto?>, GetTaskQueryHandler>();
         services.AddScoped<IQueryHandler<CountTasksQuery, int>, CountTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>>, CreateTaskIfAbsentCommandHandler>();
         services.AddScoped<ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>>, LinkTaskToIssueCommandHandler>();
         services.AddScoped<ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>>, UnlinkTaskFromIssueCommandHandler>();
         services.AddScoped<ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>>, SetDevbookReferencesCommandHandler>();
         services.AddScoped<ICommandHandler<SetPlannedHoursCommand, Result<TaskItemDto>>, SetPlannedHoursCommandHandler>();
+        services.AddScoped<ICommandHandler<SetTaskDueCommand, Result<TaskItemDto>>, SetTaskDueCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteTaskCommand>, DeleteTaskCommandHandler>();
         services.AddScoped<ICommandHandler<ReorderTasksCommand>, ReorderTasksCommandHandler>();
         services.AddScoped<ICommandHandler<RecordTaskUsageCommand>, RecordTaskUsageCommandHandler>();

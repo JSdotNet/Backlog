@@ -9,9 +9,9 @@ namespace Backlog.Infrastructure.DevPc.UnitTests;
 /// </summary>
 public sealed class DevToolClaudeQuestionHooksTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "backlog-question-hooks-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-question-hooks");
 
-    private string SettingsPath => Path.Combine(_directory, "settings.json");
+    private string SettingsPath => _temp.Combine("settings.json");
 
     /// <summary>The script as a Debug build writes it: under its own app data folder.</summary>
     private static readonly string DebugScript = Path.Combine(Path.GetTempPath(), "AppData", "Local", "Backlog.Debug", "hooks", "ask-backlog.mjs");
@@ -352,17 +352,10 @@ public sealed class DevToolClaudeQuestionHooksTests : IDisposable
         Assert.False(DevToolClaudeQuestionHooks.Remove(settings));
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_directory))
-        {
-            Directory.Delete(_directory, recursive: true);
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private async Task WriteAsync(string json)
     {
-        Directory.CreateDirectory(_directory);
         await File.WriteAllTextAsync(SettingsPath, json, TestContext.Current.CancellationToken);
     }
 

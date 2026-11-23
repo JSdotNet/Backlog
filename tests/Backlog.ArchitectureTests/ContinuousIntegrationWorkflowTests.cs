@@ -42,6 +42,7 @@ public class ContinuousIntegrationWorkflowTests
         ["app-insights-exceptions.yml"] = 30,
         [NightlyWorkflow] = 30,
         ["auto-merge.yml"] = 30,
+        ["branch-cleanup.yml"] = 30,
 
         [ReleaseWorkflow] = 60,
         ["deploy-foundry.yml"] = 60,
@@ -300,7 +301,7 @@ public class ContinuousIntegrationWorkflowTests
         foreach (var name in new[]
                  {
                      "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID", "AZURE_RESOURCE_GROUP",
-                     "AZURE_LOCATION", "SYNC_TOKEN_SIGNING_KEY"
+                     "AZURE_LOCATION"
                  })
         {
             Assert.Contains(name, check, StringComparison.Ordinal);

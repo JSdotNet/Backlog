@@ -2,6 +2,7 @@
 using System.Net;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 using Polly.Timeout;
@@ -397,7 +398,9 @@ public sealed class SyncTokenProviderTests
             IDeviceCredentialStore credentials,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
             Func<Task>? before = null,
-            FakeTimeProvider? clock = null)
+            FakeTimeProvider? clock = null,
+            IDeviceKeyStore? keys = null,
+            ILogger<SyncTokenProvider>? log = null)
         {
             clock ??= new FakeTimeProvider(DateTimeOffset.Parse("2026-09-07T09:00:00Z", CultureInfo.InvariantCulture));
             var handler = new StubHttpMessageHandler(respond ?? ((_, index) => TokenResponse(index, clock)), before);
@@ -405,6 +408,8 @@ public sealed class SyncTokenProviderTests
             var services = new ServiceCollection();
             services.AddSingleton<TimeProvider>(clock);
             services.AddSingleton(credentials);
+            if (keys is not null) services.AddSingleton(keys);
+            if (log is not null) services.AddSingleton(log);
             services.AddSingleton<SyncTokenProvider>();
             services.AddHttpClient(SyncTokenProvider.HttpClientName, client => client.BaseAddress = new Uri("https://sync.test"))
                 .ConfigurePrimaryHttpMessageHandler(() => handler);

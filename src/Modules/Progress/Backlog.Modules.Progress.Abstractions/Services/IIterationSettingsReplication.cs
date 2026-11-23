@@ -1,28 +1,7 @@
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Progress.Abstractions.Services;
-
-/// <summary>What <see cref="IIterationSettingsReplication.ApplyAsync"/> did with an
-/// inbound copy: the sync client counts the first as work applied, the last as a
-/// document this build could not read, and the two between as nothing to do.</summary>
-public enum IterationSettingsReplicaOutcome
-{
-    /// <summary>The copy was later than the local one, or there was none, and it
-    /// replaced it whole.</summary>
-    Taken,
-
-    /// <summary>The copy carries the stamp the local one already has: this device's
-    /// own push coming back, or a replayed page. Nothing was written.</summary>
-    Echo,
-
-    /// <summary>The copy is older than the local one and was refused, as the replica
-    /// refuses a stale push.</summary>
-    Refused,
-
-    /// <summary>The copy does not read as the iteration settings document. The local
-    /// one was left exactly as it was.</summary>
-    Unreadable,
-}
 
 /// <summary>
 /// The port the sync client hands the replicated iteration settings to, and reads them
@@ -63,7 +42,7 @@ public interface IIterationSettingsReplication
     /// another choice is taken, so two seeded desktops converge. A copy that does not
     /// read as the settings leaves the local one as it was.
     /// </summary>
-    Task<IterationSettingsReplicaOutcome> ApplyAsync(
+    Task<ReplicaOutcome> ApplyAsync(
         IterationSettingsCopyDto inbound,
         CancellationToken cancellationToken = default);
 }

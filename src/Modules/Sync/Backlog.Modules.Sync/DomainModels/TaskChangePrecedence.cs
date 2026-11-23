@@ -32,15 +32,39 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// runs against and the Cosmos store the service deploys with cannot disagree
 /// about what a stale push is.
 /// </para>
+/// <para>
+/// <b>A capture's tombstone is final.</b> Between a live capture and a capture
+/// tombstone the tombstone wins whatever the stamps say. The phone may edit a
+/// capture until the desktop decides it, and the desktop stamps its tombstone
+/// when it decides: an edit landing in between is stamped later than the
+/// tombstone still on its way, and by stamps alone that tombstone would be
+/// refused and the capture would wait on the phone for ever. The other half
+/// keeps it dead: another device's echo of the edited copy, stamped after the
+/// tombstone, is refused rather than bringing the capture back. Nothing makes a
+/// capture live again on purpose — a resent capture writes nothing — so the rule
+/// costs no legitimate write. A note or a task keeps the stamp rule, because
+/// both are restored on purpose.
+/// </para>
 /// </summary>
 public static class TaskChangePrecedence
 {
+    /// <summary>The capture document kind — the literal
+    /// <c>CaptureInboxItemCommandHandler.CaptureType</c> writes, repeated here
+    /// rather than referenced so this rule does not reach into a feature slice.</summary>
+    private const string CaptureType = "capture";
+
     /// <summary>True when <paramref name="inbound"/> is a later version than
     /// <paramref name="stored"/> and should be written over it.</summary>
     public static bool Supersedes(TaskChange inbound, TaskChange stored)
     {
         ArgumentNullException.ThrowIfNull(inbound);
         ArgumentNullException.ThrowIfNull(stored);
+
+        if (IsCapture(inbound) && IsCapture(stored)
+            && (inbound.DeletedAt is null) != (stored.DeletedAt is null))
+        {
+            return inbound.DeletedAt is not null;
+        }
 
         if (inbound.UpdatedAt != stored.UpdatedAt)
         {
@@ -50,4 +74,7 @@ public static class TaskChangePrecedence
         // Same stamp: only a deletion of the very version held says anything new.
         return inbound.DeletedAt is not null && stored.DeletedAt is null;
     }
+
+    private static bool IsCapture(TaskChange change) =>
+        string.Equals(change.Task.Type, CaptureType, StringComparison.Ordinal);
 }

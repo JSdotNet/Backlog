@@ -146,6 +146,30 @@ public sealed class InboxPaneTests
         Assert.Equal("false", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>.devbook/domain/inbox/requirements.md#requirement-meetings-have-a-mark-and-a-chip-of-their-own:
+    /// a meeting has a mark of its own, and its chip sits beside the note's.</summary>
+    [Fact]
+    public async Task A_meeting_has_its_own_mark_and_a_chip_beside_the_notes()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Release plan", ContentKind.Note);
+        harness.Inbox.Seed("Weekly sync", ContentKind.Meeting);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(
+            ["inbox-kind-all", "inbox-kind-note", "inbox-kind-meeting"],
+            pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-kind-meeting'] .inbox-pane__chip-label").TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-kind-meeting']").ClickAsync(new());
+
+        Assert.Equal(["Weekly sync"], Titles(pane));
+        var mark = pane.Find("[data-testid='inbox-pane-item-tile'] svg");
+        Assert.Contains("capture-kind-marker--meeting", mark.ClassList);
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-pane-item-kind']").TextContent.Trim());
+    }
+
     [Fact]
     public async Task A_filter_that_empties_the_slice_offers_to_clear_itself()
     {
@@ -727,6 +751,109 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
+    public async Task A_downloaded_recording_on_a_note_plays_in_its_row()
+    {
+        using var harness = Harness.Create();
+        harness.Context.JSInterop.Setup<string?>("backlogAudio.open", _ => true).SetResult("blob:recording");
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+        harness.Inbox.AttachmentBytes[recording.Id] = [0xFF, 0xF1, 0x50, 0x80];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForAssertion(() => Assert.Equal("blob:recording",
+            pane.Find($"[data-testid='inbox-attachment-player-{recording.Id:N}']").GetAttribute("src")));
+        var player = pane.Find($"[data-testid='inbox-attachment-player-{recording.Id:N}']");
+        Assert.Equal("audio", player.TagName, ignoreCase: true);
+        Assert.True(player.HasAttribute("controls"));
+        Assert.Equal("Play Recording · 47:12", player.GetAttribute("aria-label"));
+        Assert.NotNull(pane.Find($"[data-testid='inbox-attachment-row-{recording.Id:N}']")
+            .QuerySelector($"[data-testid='inbox-attachment-open-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_that_failed_to_transcribe_three_times_says_why_and_retry_sends_it_again()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null)
+        {
+            TranscriptionFailure = new Backlog.Modules.Inbox.Abstractions.Services.InboxTranscriptionFailureDto(
+                new string('a', 64), 3, "The deployment was not found.", DateTimeOffset.UnixEpoch),
+        };
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var notice = pane.Find($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']");
+        Assert.Equal("Transcription failed: The deployment was not found.", notice.TextContent.Trim());
+        Assert.Equal("status", notice.GetAttribute("role"));
+
+        await pane.Find($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([recording.Id], harness.Inbox.RetriedTranscriptions);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']"));
+        });
+    }
+
+    [Fact]
+    public async Task A_recording_not_downloaded_yet_keeps_its_waiting_row_and_no_player()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: false, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Equal(
+            "Waiting to download",
+            pane.Find($"[data-testid='inbox-attachment-waiting-{recording.Id:N}']").TextContent.Trim());
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-player-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_removed_from_this_machine_says_so_instead_of_playing()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "This recording is not on this machine any more.",
+            pane.Find($"[data-testid='inbox-attachment-player-missing-{recording.Id:N}']").TextContent.Trim()));
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-player-{recording.Id:N}']"));
+    }
+
+    [Fact]
+    public async Task A_recording_that_cannot_be_read_says_it_could_not_be_loaded_not_that_it_was_removed()
+    {
+        using var harness = Harness.Create();
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, recording);
+        harness.Inbox.AttachmentReadErrors[recording.Id] = InboxErrors.AttachmentsUnavailable;
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var notice = pane.WaitForElement($"[data-testid='inbox-attachment-player-missing-{recording.Id:N}']");
+        Assert.Equal("This recording could not be loaded.", notice.TextContent.Trim());
+        Assert.Contains("inbox-pane__file-player", notice.ClassList);
+    }
+
+    [Fact]
     public async Task A_voice_memo_shows_its_transcript()
     {
         using var harness = Harness.Create();
@@ -775,6 +902,86 @@ public sealed class InboxPaneTests
         var enabled = pane.Find("[data-testid='inbox-create-plan']");
         Assert.False(enabled.HasAttribute("disabled"));
         Assert.NotEqual("Configure Azure Foundry in Settings to create plans.", enabled.GetAttribute("title"));
+    }
+
+    /// <summary>Beside Move to backlog the detail offers a due date and Add to
+    /// My Day, and the route asks for exactly what was chosen (local ADR 0054).</summary>
+    [Fact]
+    public async Task Move_to_backlog_from_the_detail_carries_the_due_date_and_my_day_chosen_beside_it()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var due = pane.Find("[data-testid='inbox-detail-route-schedule-due'] select");
+        Assert.Equal(
+            ["", "today", "tomorrow", "next-week", "date"],
+            due.QuerySelectorAll("option").Select(option => option.GetAttribute("value") ?? string.Empty));
+        await due.ChangeAsync(new ChangeEventArgs { Value = "tomorrow" });
+        await pane.Find("[data-testid='inbox-detail-route-schedule-my-day'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        var schedule = Assert.Single(harness.Inbox.SingleRouteSchedules);
+        Assert.Equal(new InboxRouteScheduleDto(harness.State.Today.AddDays(1), AddToMyDay: true), schedule);
+    }
+
+    /// <summary>"On a date…" opens a date field, and the date typed is the one
+    /// the route asks for.</summary>
+    [Fact]
+    public async Task On_a_date_opens_a_date_field_whose_date_the_route_carries()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-detail-route-schedule-date']"));
+        await pane.Find("[data-testid='inbox-detail-route-schedule-due'] select").ChangeAsync(new ChangeEventArgs { Value = "date" });
+        await pane.Find("[data-testid='inbox-detail-route-schedule-date'] input").InputAsync(new ChangeEventArgs { Value = "2027-01-15" });
+
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        Assert.Equal(new InboxRouteScheduleDto(new DateOnly(2027, 1, 15)), Assert.Single(harness.Inbox.SingleRouteSchedules));
+    }
+
+    /// <summary>Without either choice the route is the plain one: no schedule
+    /// is sent at all.</summary>
+    [Fact]
+    public async Task Move_to_backlog_without_a_choice_sends_no_schedule()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Route me");
+        harness.Inbox.Seed("Still waiting");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        Assert.Null(Assert.Single(harness.Inbox.SingleRouteSchedules));
+    }
+
+    /// <summary>A batch route offers neither a due date nor My Day: the
+    /// selection bar's Move to backlog stands alone.</summary>
+    [Fact]
+    public async Task The_selection_bar_offers_no_due_date_or_my_day()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+
+        var bar = pane.Find("[data-testid='inbox-bulk-bar']");
+        Assert.Empty(bar.QuerySelectorAll("[data-testid*='route-schedule']"));
+        Assert.DoesNotContain("My Day", bar.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -834,7 +1041,7 @@ public sealed class InboxPaneTests
                 Key: button.QuerySelector("kbd")!.TextContent.Trim()))
             .ToList();
         Assert.Equal(
-            [("Move to backlog", "R"), ("To Brain", "B"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
+            [("Move to backlog", "R"), ("To Brain", "B"), ("Someday", "S"), ("Done now", "N"), ("Waiting for", "W"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
             decisions);
 
         // Defer in the bar offers the quick review dates.
@@ -858,6 +1065,81 @@ public sealed class InboxPaneTests
 
         Assert.Equal(3, Assert.Single(routed).TaskIds.Count);
         Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-plan-created");
+    }
+
+    /// <summary>Also start a project note: off by default, and the plan asks for
+    /// the note only once it is ticked; the toast names the note, and the next
+    /// plan starts off again (features.md#create-plan-from-an-item).</summary>
+    [Fact]
+    public async Task Create_plan_starts_a_project_note_only_when_the_option_is_ticked()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        var first = harness.Inbox.Seed("Ship the thing");
+        var second = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, first.Id);
+
+        var option = pane.Find("[data-testid='inbox-create-plan-project-note'] input");
+        Assert.False(option.HasAttribute("checked"));
+        Assert.False(option.HasAttribute("disabled"));
+
+        await option.ChangeAsync(new ChangeEventArgs { Value = true });
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        Assert.Equal([true], harness.Inbox.PlanProjectNoteAsks);
+        Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-plan-created"
+            && toast.Message.Contains("projects/ship-the-thing.md", StringComparison.Ordinal));
+
+        await harness.SelectAsync(pane, second.Id);
+        Assert.False(pane.Find("[data-testid='inbox-create-plan-project-note'] input").HasAttribute("checked"));
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        Assert.Equal([true, false], harness.Inbox.PlanProjectNoteAsks);
+    }
+
+    /// <summary>Undoing a plan made with a project note takes its Roadmap Item back
+    /// with the tasks; one made without a note laid out no item, and undoes as Move
+    /// to backlog does (features.md#undo-a-decision).</summary>
+    [Fact]
+    public async Task Undoing_a_plan_with_a_project_note_takes_its_roadmap_item_back_too()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        var noted = harness.Inbox.Seed("Ship the thing");
+        var plain = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, plain.Id);
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+        await harness.SelectAsync(pane, noted.Id);
+        await pane.Find("[data-testid='inbox-create-plan-project-note'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+        await pane.InvokeAsync(() => pane.Instance.OnShortcutAsync("u"));
+
+        Assert.Equal([("return-plan", noted.Id), ("return", plain.Id)], harness.Inbox.Undos);
+    }
+
+    [Fact]
+    public async Task Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        harness.Inbox.BrainUnavailableReason = "Choose a Brain folder in Settings.";
+        var item = harness.Inbox.Seed("Plan me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.True(pane.Find("[data-testid='inbox-create-plan-project-note'] input").HasAttribute("disabled"));
+        Assert.Equal("Choose a Brain folder in Settings.", pane.Find("[data-testid='inbox-create-plan-project-note-hint']").GetAttribute("title"));
+        Assert.False(pane.Find("[data-testid='inbox-create-plan']").HasAttribute("disabled"));
+
+        await pane.Find("[data-testid='inbox-create-plan']").ClickAsync(new());
+        Assert.Equal([false], harness.Inbox.PlanProjectNoteAsks);
     }
 
     [Fact]
@@ -1012,6 +1294,85 @@ public sealed class InboxPaneTests
         Assert.Equal("Nothing waiting", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
         Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-bar']"));
         Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-oldest']"));
+    }
+
+    [Fact]
+    public async Task Queue_health_counts_the_notes_waiting_in_the_Brains_inbox_area()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Waiting");
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 3);
+
+        var pane = await harness.RenderAsync();
+
+        var brain = pane.Find("[data-testid='inbox-pane-nav'] [data-testid='inbox-queue-health'] [data-testid='inbox-queue-health-brain']");
+        Assert.Equal("3 notes to file in the Brain", brain.TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task One_note_in_the_Brains_inbox_area_reads_in_the_singular()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 1);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("1 note to file in the Brain", pane.Find("[data-testid='inbox-queue-health-brain']").TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Without_a_Brain_or_with_nothing_to_file_queue_health_says_nothing_about_the_Brain(bool brainSet)
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Waiting");
+        harness.Inbox.BrainUnfiled = brainSet ? new InboxBrainUnfiledDto("_inbox", 0) : null;
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-brain']"));
+    }
+
+    [Fact]
+    public async Task Pressing_the_Brain_count_asks_the_host_to_open_the_Brain_at_its_inbox_area()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("Inbox", 2);
+        var opened = new List<string>();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.OnOpenBrainArea, (string folder) => opened.Add(folder)));
+
+        var brain = pane.Find("[data-testid='inbox-queue-health-brain']");
+        Assert.Equal("BUTTON", brain.TagName);
+        await brain.ClickAsync(new());
+
+        Assert.Equal(["Inbox"], opened);
+    }
+
+    [Fact]
+    public async Task Without_a_way_to_open_the_Brain_its_count_is_a_line_not_a_button()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("P", pane.Find("[data-testid='inbox-queue-health-brain']").TagName);
+    }
+
+    [Fact]
+    public async Task A_reload_takes_in_the_Brains_new_count()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+        var pane = await harness.RenderAsync();
+
+        harness.Inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 0);
+        await pane.InvokeAsync(harness.State.ReloadAsync);
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-brain']")));
     }
 
     // --- Deferral ------------------------------------------------------------
@@ -2073,7 +2434,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.Equal(decided.Id, Assert.Single(outcome.Failures).Id);
@@ -2096,7 +2457,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(0, outcome.Changed);
         Assert.Equal(2, outcome.Failures.Count);
@@ -2163,7 +2524,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing);
@@ -2191,7 +2552,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         harness.Inbox.BeforeRoute = () => release.Task;
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-move-to-backlog']").HasAttribute("disabled")));
         // Not awaited before the release: were the guard missing, the route
@@ -2221,7 +2582,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-bulk-backlog']").HasAttribute("disabled")));
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
         var batches = harness.Inbox.BatchRoutes.Count;
 
         release.SetResult();
@@ -3086,11 +3447,11 @@ public sealed class InboxPaneTests
 
     private sealed class Harness : IDisposable
     {
-        private readonly string _root;
+        private readonly TemporaryDirectory _temp;
 
-        private Harness(string root, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
         {
-            _root = root;
+            _temp = temp;
             Context = context;
             Inbox = inbox;
             GitHub = gitHub;
@@ -3111,8 +3472,8 @@ public sealed class InboxPaneTests
         /// is what the state reads "now" from; the system clock when null.</summary>
         public static Harness Create(TimeProvider? clock = null)
         {
-            var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-pane-tests", Guid.NewGuid().ToString("n"));
-            var gitHub = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+            var temp = new TemporaryDirectory("backlog-inbox-pane-tests");
+            var gitHub = new GitHubSettingsStore(temp.Combine("github.json"));
 
             var context = new BunitContext();
             // The split pane, the side menu's focus moves and the menus all
@@ -3123,7 +3484,7 @@ public sealed class InboxPaneTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(root, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
+            return new Harness(temp, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
         }
 
         /// <summary>Renders the pane the way the shell shows it: initialised, so
@@ -3142,14 +3503,7 @@ public sealed class InboxPaneTests
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            _temp.Dispose();
         }
     }
 }

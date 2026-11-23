@@ -17,7 +17,8 @@ public sealed class SessionSubjectClosureTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] Stages = ["Update Base", "Implement", "Summary"];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-subject-closure-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-subject-closure-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
 
     [Theory]
@@ -53,13 +54,13 @@ public sealed class SessionSubjectClosureTests : IDisposable
     [Fact]
     public async Task A_session_seen_open_and_then_archived_closes_its_notifications_once()
     {
-        var source = new SwitchingSource(Session("sess-91", archived: false));
+        var source = new StubSessionSource(Session("sess-91", archived: false));
         var watched = new SessionEndWatchingSource(source, () => _notifications);
 
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
         Assert.Empty(_notifications.Closed);
 
-        source.Answer = [Session("sess-91", archived: true)];
+        source.Sessions = [Session("sess-91", archived: true)];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
@@ -71,11 +72,11 @@ public sealed class SessionSubjectClosureTests : IDisposable
     [Fact]
     public async Task A_session_whose_desktop_record_is_gone_in_two_readings_ends_like_an_archived_one()
     {
-        var source = new SwitchingSource(Session("sess-92", archived: false));
+        var source = new StubSessionSource(Session("sess-92", archived: false));
         var watched = new SessionEndWatchingSource(source, () => _notifications);
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
-        source.Answer = [Session("sess-92", archived: null)];
+        source.Sessions = [Session("sess-92", archived: null)];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
         Assert.Empty(_notifications.Closed);
 
@@ -90,18 +91,18 @@ public sealed class SessionSubjectClosureTests : IDisposable
         // A record being rewritten reads as none for a moment; a reading that could not
         // open a folder, or an answer from the session record rather than the files, says
         // nothing about the desktop app at all.
-        var source = new SwitchingSource(Session("blip", archived: false), Session("unread", archived: false), Session("recorded", archived: false));
+        var source = new StubSessionSource(Session("blip", archived: false), Session("unread", archived: false), Session("recorded", archived: false));
         var watched = new SessionEndWatchingSource(source, () => _notifications);
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
-        source.Answer = [Session("blip", archived: null), Session("unread", archived: false), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
+        source.Sessions = [Session("blip", archived: null), Session("unread", archived: false), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
-        source.Answer = [Session("blip", archived: false), Session("unread", archived: null), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
+        source.Sessions = [Session("blip", archived: false), Session("unread", archived: null), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
         source.Unreadable = ["claude-desktop"];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
         source.Unreadable = [];
-        source.Answer = [Session("blip", archived: null), Session("unread", archived: false), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
+        source.Sessions = [Session("blip", archived: null), Session("unread", archived: false), Session("recorded", archived: null) with { Origin = AgentSessionOrigin.Recorded }];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(_notifications.Closed);
@@ -112,11 +113,11 @@ public sealed class SessionSubjectClosureTests : IDisposable
     {
         // Archived before this process read it: the startup probe's to catch. Missing:
         // a capped reading leaves sessions out on purpose.
-        var source = new SwitchingSource(Session("old", archived: true), Session("cli", archived: null), Session("open", archived: false));
+        var source = new StubSessionSource(Session("old", archived: true), Session("cli", archived: null), Session("open", archived: false));
         var watched = new SessionEndWatchingSource(source, () => _notifications);
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
-        source.Answer = [];
+        source.Sessions = [];
         await watched.GetSessionsAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(_notifications.Closed);
@@ -126,13 +127,13 @@ public sealed class SessionSubjectClosureTests : IDisposable
     public async Task A_session_reading_still_answers_when_closing_fails_or_no_notifications_are_composed()
     {
         _notifications.Fails = new InvalidOperationException("locked");
-        var source = new SwitchingSource(Session("sess-93", archived: false));
+        var source = new StubSessionSource(Session("sess-93", archived: false));
         var failing = new SessionEndWatchingSource(source, () => _notifications);
         var absent = new SessionEndWatchingSource(source, () => null);
         await failing.GetSessionsAsync(TestContext.Current.CancellationToken);
         await absent.GetSessionsAsync(TestContext.Current.CancellationToken);
 
-        source.Answer = [Session("sess-93", archived: true)];
+        source.Sessions = [Session("sess-93", archived: true)];
 
         Assert.Single((await failing.GetSessionsAsync(TestContext.Current.CancellationToken)).Sessions);
         Assert.Single((await absent.GetSessionsAsync(TestContext.Current.CancellationToken)).Sessions);
@@ -144,7 +145,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
     [InlineData(true, false)]
     public async Task The_probe_calls_a_session_ended_only_once_archived(bool? archived, bool live)
     {
-        var probe = Probe(sessions: new SwitchingSource(Session("sess-91", archived)));
+        var probe = Probe(sessions: new StubSessionSource(Session("sess-91", archived)));
 
         Assert.Equal(live, await probe.IsLiveAsync(new NotificationSubject("sessions", "session", "sess-91"), TestContext.Current.CancellationToken));
     }
@@ -152,8 +153,8 @@ public sealed class SessionSubjectClosureTests : IDisposable
     [Fact]
     public async Task The_probe_calls_a_session_no_source_knows_ended_unless_a_folder_was_unreadable()
     {
-        var gone = Probe(sessions: new SwitchingSource());
-        var unreadable = Probe(sessions: new SwitchingSource { Unreadable = ["claude"] });
+        var gone = Probe(sessions: new StubSessionSource());
+        var unreadable = Probe(sessions: new StubSessionSource { Unreadable = ["claude"] });
         var subject = new NotificationSubject("sessions", "session", "sess-404");
 
         Assert.False(await gone.IsLiveAsync(subject, TestContext.Current.CancellationToken));
@@ -163,7 +164,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
     [Fact]
     public async Task The_probe_reads_sessions_with_no_cap_and_once_per_pass()
     {
-        var source = new SwitchingSource(Session("a", archived: false));
+        var source = new StubSessionSource(Session("a", archived: false));
         var probe = Probe(sessions: source);
 
         await probe.IsLiveAsync(new NotificationSubject("sessions", "session", "a"), TestContext.Current.CancellationToken);
@@ -261,7 +262,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
         var surface = Surface();
         var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
         await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-b", cancellationToken: TestContext.Current.CancellationToken);
-        var probe = Probe(sessions: new SwitchingSource(Session("sess-a", archived: true), Session("sess-b", archived: true)));
+        var probe = Probe(sessions: new StubSessionSource(Session("sess-a", archived: true), Session("sess-b", archived: true)));
         var subject = new NotificationSubject("sessions", "run", run.RunId);
 
         Assert.False(await probe.IsLiveAsync(subject, TestContext.Current.CancellationToken));
@@ -278,7 +279,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
         var surface = Surface();
         var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "local_unindexed", cancellationToken: TestContext.Current.CancellationToken);
         if (otherArchived) await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
-        var probe = Probe(sessions: new SwitchingSource(Session("sess-a", archived: true)));
+        var probe = Probe(sessions: new StubSessionSource(Session("sess-a", archived: true)));
 
         Assert.True(await probe.IsLiveAsync(new NotificationSubject("sessions", "run", run.RunId), TestContext.Current.CancellationToken));
     }
@@ -291,7 +292,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
         var surface = Surface();
         var run = await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-a", cancellationToken: TestContext.Current.CancellationToken);
         await surface.StartRunAsync(Worktree, "flow-code", "Running", Stages, sessionId: "sess-b", cancellationToken: TestContext.Current.CancellationToken);
-        var probe = Probe(sessions: new SwitchingSource(
+        var probe = Probe(sessions: new StubSessionSource(
             Session("sess-a", archived: true),
             Session("sess-b", archived: false) with { State = state, LastActivityAt = Noon.AddDays(-6) }));
 
@@ -304,7 +305,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
         var surface = Surface();
         var finished = await surface.StartRunAsync(Worktree, "flow-spec", "Finished", Stages, cancellationToken: TestContext.Current.CancellationToken);
         await surface.FinishRunAsync(Worktree, finished.RunId, "done", cancellationToken: TestContext.Current.CancellationToken);
-        var probe = Probe(sessions: new SwitchingSource(Session("sess-91", archived: true)), pullRequests: new StubPullRequestStates(SessionPullRequestState.Merged));
+        var probe = Probe(sessions: new StubSessionSource(Session("sess-91", archived: true)), pullRequests: new StubPullRequestStates(SessionPullRequestState.Merged));
 
         Assert.Equal("Run finished", await probe.EndReasonAsync(new NotificationSubject("sessions", "run", finished.RunId), TestContext.Current.CancellationToken));
         Assert.Equal("Session archived", await probe.EndReasonAsync(new NotificationSubject("sessions", "session", "sess-91"), TestContext.Current.CancellationToken));
@@ -340,7 +341,7 @@ public sealed class SessionSubjectClosureTests : IDisposable
         IDeliveryRunSource? runs = null,
         ISessionPullRequestStates? pullRequests = null) =>
         new(
-            sessions ?? new SwitchingSource(),
+            sessions ?? new StubSessionSource(),
             runs ?? new LocalDeliveryRunSource(_home, "machine", "Workshop PC"),
             pullRequests,
             new FakeTimeProvider(Noon));
@@ -364,24 +365,6 @@ public sealed class SessionSubjectClosureTests : IDisposable
             Archived = archived
         };
 
-    private sealed class SwitchingSource(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public IReadOnlyList<AgentSession> Answer { get; set; } = sessions;
-
-        public IReadOnlyList<string> Unreadable { get; set; } = [];
-
-        public List<AgentSessionQuery> Queries { get; } = [];
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-        {
-            Queries.Add(query);
-            return Task.FromResult(new AgentSessionCatalog(Answer, Unreadable, Answer.Count));
-        }
-    }
-
     /// <summary>A run reading that skipped every file the first time — the reader drops a
     /// file it cannot open that moment — and reads normally after.</summary>
     private sealed class FirstReadingEmpty(IDeliveryRunSource inner) : IDeliveryRunSource
@@ -403,8 +386,5 @@ public sealed class SessionSubjectClosureTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

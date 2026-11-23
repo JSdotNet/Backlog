@@ -14,7 +14,9 @@ namespace Backlog.Desktop.UI.Devbook;
 /// because a person's own remark on their own device is theirs, and as the
 /// other machine's name when it came from there, which is what tells a reader
 /// where a remark was left. The timestamp is formatted here rather than by the
-/// view, which is the division <see cref="MarkdownComment"/> asks for.
+/// view, which is the division <see cref="MarkdownComment"/> asks for. A tool's
+/// slug author (<c>claude/chapter-review</c>) is passed through unchanged: the view
+/// reads it as a name, keeping the slug on its title (<c>MarkdownCommentAuthor</c>).
 /// </para>
 /// </summary>
 public static class DevbookAnnotationComments

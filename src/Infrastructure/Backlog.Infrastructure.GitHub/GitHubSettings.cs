@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -38,10 +39,6 @@ public sealed class GitHubSettings
     /// reads as, and is every install's starting point.
     /// </summary>
     public List<GitHubAccount> Accounts { get; init; } = [];
-
-    /// <summary>Legacy global token read from older settings files and migrated
-    /// onto repositories when saved again.</summary>
-    public string? Token { get; init; }
 
     public string ApiEndpoint { get; init; } = DefaultApiEndpoint;
 
@@ -576,8 +573,7 @@ public sealed record RepositoryRemoval(string Id, DateTimeOffset At);
 /// anywhere, so they are not written in the clear (local ADR 0030). Each
 /// <c>token</c> value is a DPAPI envelope sealed under the signed-in Windows user,
 /// and every other field stays legible. A token an earlier release wrote in
-/// plaintext, the legacy global one included, is read as it is and sealed on that
-/// first read; one this user cannot open reads as no token, which Settings shows as
+/// plaintext is read as it is and sealed on that first read; one this user cannot open reads as no token, which Settings shows as
 /// an empty token field to fill in again. The envelope is the local file's alone:
 /// neither shared document carries a token in any form, and sealing one is not an
 /// identity change, so it never restamps the accounts.
@@ -627,10 +623,7 @@ public sealed partial class GitHubSettingsStore
     /// a host can compose the two-argument form without restating the path, and
     /// so the parameterless constructor and that composition cannot drift
     /// apart.</summary>
-    public static string DefaultLocalPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Backlog",
-        "github.json");
+    public static string DefaultLocalPath => AppDataPaths.Shared("github.json");
 
     public GitHubSettingsStore()
         : this(DefaultLocalPath)
@@ -709,7 +702,7 @@ public sealed partial class GitHubSettingsStore
 
     /// <summary>
     /// Re-reads both files against whatever root the provider now answers with,
-    /// re-runs the carry-over, and announces the change like any other.
+    /// and announces the change like any other.
     /// <para>
     /// Wired to the workspace's <c>RootChanged</c> by both hosts. Moving the
     /// backlog folder moves the registry with it, exactly as it moves the task
@@ -934,17 +927,10 @@ public sealed partial class GitHubSettingsStore
         });
     }
 
-    public string? SetToken(string? token)
-    {
-        var repository = Current.Repositories.FirstOrDefault();
-        return repository is null ? null : SetRepositoryToken(repository.Alias, token);
-    }
-
     public string? SetApiEndpoint(string? apiEndpoint) =>
         Save(new GitHubSettings
         {
             Repositories = [.. Current.Repositories],
-            Token = null,
             ApiEndpoint = CleanEndpoint(apiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
@@ -1425,7 +1411,6 @@ public sealed partial class GitHubSettingsStore
         {
             Repositories = repositories,
             Accounts = NormalizeAccounts(settings.Accounts),
-            Token = null,
             ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = settings.ShowRepositoryColours,
             Renames = [.. _renames],
@@ -1550,15 +1535,13 @@ public sealed partial class GitHubSettingsStore
                         ApiEndpoint = account.ApiEndpoint
                     })
                 ],
-                Token = null,
                 ApiEndpoint = settings.ApiEndpoint,
                 ShowRepositoryColours = settings.ShowRepositoryColours
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
 
-            // What is on disk is now what a later write has to preserve, so the
-            // legacy fields this write dropped are not put back by the next one.
+            // What is on disk is now what a later write has to preserve.
             _localRows = rows;
             return null;
         }
@@ -1573,14 +1556,8 @@ public sealed partial class GitHubSettingsStore
     }
 
     /// <summary>
-    /// The reduced local rows: an id, and whatever this machine knows about that
-    /// repository.
-    /// <para>
-    /// The legacy identity fields are never emitted. They are read so an older
-    /// file still opens and can be carried over, and dropped by the next write —
-    /// the same per-field treatment the legacy global token already gets, where
-    /// the value is read and migrated onto the rows but written back as null.
-    /// </para>
+    /// The local rows: an id, and whatever this machine knows about that
+    /// repository. Identity lives in the shared registry alone.
     /// <para>
     /// A repository this machine knows nothing about gets no row at all. That is
     /// the ordinary shape of a repository somebody registered on another install,
@@ -1605,7 +1582,6 @@ public sealed partial class GitHubSettingsStore
 
         foreach (var repository in settings.Repositories)
         {
-            var existing = FindLocalRow(repository.FullName);
             if (!CarriesMachineLocalData(repository) && !preserve) continue;
 
             var row = new RepositoryDto
@@ -1625,24 +1601,13 @@ public sealed partial class GitHubSettingsStore
                 ]
             };
 
-            if (preserve && existing is not null)
-            {
-                // While the registry cannot be read, these fields are the only
-                // record that this repository exists at all, so the write that
-                // normally drops them keeps them until the registry can be read.
-                row.Alias = existing.Alias;
-                row.Owner = existing.Owner;
-                row.Name = existing.Name;
-                row.Colour = existing.Colour;
-            }
-
             rows.Add(row);
             written.Add(repository.FullName);
         }
 
         if (preserve)
         {
-            rows.AddRange(_localRows.Where(row => ExplicitIdOf(row) is { } id && !written.Contains(id)));
+            rows.AddRange(_localRows.Where(row => IdOf(row) is { } id && !written.Contains(id)));
         }
 
         return rows;
@@ -1661,14 +1626,11 @@ public sealed partial class GitHubSettingsStore
             .SequenceEqual(DevbookFolderSetting.Defaults());
 
     /// <summary>
-    /// Reads both files, carries a legacy local file over into the registry, and
-    /// composes the one value every consumer sees.
+    /// Reads both files and composes the one value every consumer sees.
     /// <para>
     /// Eager rather than lazy. <see cref="Current"/> has to be right before the
     /// first consumer touches it, and there are about thirty of them across the
-    /// settings screen, the entry list, the roadmap band and the push flow — a
-    /// migration that ran when somebody happened to open one screen would leave
-    /// the other twenty-nine reading a half-migrated workspace.
+    /// settings screen, the entry list, the roadmap band and the push flow.
     /// </para>
     /// </summary>
     private GitHubSettings Load()
@@ -1687,36 +1649,11 @@ public sealed partial class GitHubSettingsStore
         _registryStamp = registry.Stamp;
         _registrySignature = RegistrySignature(RegistryRowsFor(registry.Rows));
 
-        var rows = registry.Rows;
-        var carriedOver = false;
-        var carryOverAttempted = false;
-
-        if (_registryState is not RegistryState.Unreadable)
-        {
-            var withCarryOver = WithCarryOver(rows, local.Rows, _renames, _removals);
-            if (withCarryOver.Count != rows.Count)
-            {
-                carryOverAttempted = true;
-
-                // The shared write comes first and the reduced local write only
-                // follows a successful one. If the registry could not be written,
-                // the legacy file stays exactly as it is and the next start tries
-                // again — a failure here must not be the thing that loses the
-                // repositories it was carrying.
-                carriedOver = WriteRegistryRows(RegistryRowsFor(withCarryOver)) is null;
-
-                // Either way the session runs on the carried-over list, so a
-                // read-only workspace still shows the repositories it has.
-                rows = withCarryOver;
-            }
-        }
-
-        var composed = Compose(rows, local);
+        var composed = Compose(registry.Rows, local);
 
         // What an unchanged save would write is the baseline a change is measured
-        // against, so normalizing what was read is never mistaken for an edit. Not
-        // after a carry-over: that write already set the baseline to what it wrote.
-        if (_registryState is not RegistryState.Unreadable && !carryOverAttempted)
+        // against, so normalizing what was read is never mistaken for an edit.
+        if (_registryState is not RegistryState.Unreadable)
         {
             _registrySignature = RegistrySignature(RegistryRowsFor(composed));
         }
@@ -1726,10 +1663,8 @@ public sealed partial class GitHubSettingsStore
         _accountsSignature = AccountsSignature(composed.Accounts);
 
         // A token an earlier release left in the clear is sealed now rather than at
-        // the next save (local ADR 0030). Not after a carry-over that failed: the
-        // reduced write would drop the legacy identity fields that attempt still
-        // needs, and the next start seals it once the carry-over has gone through.
-        if (carriedOver || (local.HoldsPlaintextSecret && !carryOverAttempted)) _ = WriteLocal(composed);
+        // the next save (local ADR 0030).
+        if (local.HoldsPlaintextSecret) _ = WriteLocal(composed);
 
         return composed;
     }
@@ -1750,68 +1685,15 @@ public sealed partial class GitHubSettingsStore
     ];
 
     /// <summary>
-    /// The registry rows, plus one for every legacy local row the registry does
-    /// not already have.
-    /// <para>
-    /// Gap-filling only: an id already present is left exactly as the registry
-    /// holds it — alias, hue, position and all — so install #2 never reorders or
-    /// renames what install #1 chose. The gate is per repository rather than per
-    /// file, which is what makes it idempotent <em>and</em> what lets an install
-    /// whose synced workspace already has a registry still contribute the one
-    /// repository only it ever had.
-    /// </para>
-    /// <para>
-    /// Bounded hazard, accepted: a repository deliberately removed on install #1
-    /// can be resurrected by install #2's stale legacy file. The window is one
-    /// session per install and is closed by the reduced write immediately after a
-    /// successful carry-over. If that write fails the window stays open — degrade,
-    /// do not fail.
-    /// </para>
-    /// <para>
-    /// An id the registry records as removed, or as renamed away, is never carried
-    /// back. Once the registry travels between devices (local ADR 0021) that is the
-    /// ordinary state of a repository another device removed or renamed while this
-    /// one still holds a clone directory for it — and carrying it over would undo
-    /// the other device's change on every start.
-    /// </para>
-    /// </summary>
-    private static List<RegistryRow> WithCarryOver(
-        List<RegistryRow> registry,
-        List<RepositoryDto> localRows,
-        List<RepositoryRename> renames,
-        List<RepositoryRemoval> removals)
-    {
-        var carried = new List<RegistryRow>(registry);
-
-        foreach (var row in localRows)
-        {
-            if (IdentityOf(row) is not { } identity) continue;
-            if (carried.Any(known => string.Equals(known.Id, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
-            if (removals.Any(removal => string.Equals(removal.Id, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
-            if (renames.Any(rename => string.Equals(rename.OldId, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
-
-            carried.Add(identity);
-        }
-
-        return carried;
-    }
-
-    /// <summary>
     /// Joins the identity rows to the local overlay, which is the value every
     /// consumer of this store has always seen.
     /// <para>
-    /// While the registry is unreadable the identities come from the local file's
-    /// legacy fields instead, so an un-migrated install keeps working exactly as
-    /// it did before the split. An already-migrated one has nothing to fall back
-    /// on and shows an empty list, with <see cref="RegistryError"/> saying why.
+    /// While the registry is unreadable there are no identities to join, so the
+    /// list is empty, with <see cref="RegistryError"/> saying why.
     /// </para>
     /// </summary>
-    private GitHubSettings Compose(List<RegistryRow> rows, LocalFile local)
+    private GitHubSettings Compose(List<RegistryRow> identities, LocalFile local)
     {
-        var identities = _registryState is RegistryState.Unreadable
-            ? LegacyIdentities(local.Rows)
-            : rows;
-
         var renames = new GitHubSettings { Renames = [.. _renames] };
 
         return new GitHubSettings
@@ -1826,14 +1708,11 @@ public sealed partial class GitHubSettingsStore
                     return new GitHubRepositoryRef(identity.Alias, identity.Owner, identity.Name)
                     {
                         CloneDirectory = CleanPath(overlay?.CloneDirectory),
-                        Token = CleanToken(overlay?.Token) ?? CleanToken(local.Token),
+                        Token = CleanToken(overlay?.Token),
                         Colour = CleanColour(identity.Colour),
 
                         // The binding comes from the shared row, never from the
-                        // overlay. While the registry is unreadable the identities
-                        // are the legacy local ones, which state no account — so
-                        // every repository correctly reads as unbound and falls back
-                        // to the default rather than to a guess.
+                        // overlay.
                         Account = identity.Account,
 
                         // Shared, like the account and for the same reason: which
@@ -1845,23 +1724,19 @@ public sealed partial class GitHubSettingsStore
                         // request label filter lives, so it travels with the row.
                         PullRequestLabels = identity.PullRequestLabels ?? [],
 
-                        // Shared as well (local ADR 0029). While the registry is
-                        // unreadable the identities are the legacy local ones, which
-                        // state no flag, so every repository reads as active.
+                        // Shared as well (local ADR 0029).
                         Archived = identity.Archived,
 
                         // Machine-local, and absent stays absent rather than
                         // becoming false. Null is what lets DevbookSource read an
-                        // upgraded install as "the clone it always used". The
-                        // legacy name is consulted only when the current one is
-                        // absent, so a row carrying both keeps the newer answer.
-                        UseLocalDevbookFolder = overlay?.UseLocalDevbookFolder ?? overlay?.UseLocalKnowledgeFolder,
+                        // upgraded install as "the clone it always used".
+                        UseLocalDevbookFolder = overlay?.UseLocalDevbookFolder,
 
                         // A repository with no overlay row starts from the defaults,
                         // which is exactly where a repository registered on another
                         // install has to start.
                         DevbookFolders = DevbookFolderSetting.Normalize(
-                            (overlay?.DevbookFolders ?? overlay?.KnowledgeFolders ?? []).Select(f => new DevbookFolderSetting(
+                            (overlay?.DevbookFolders ?? []).Select(f => new DevbookFolderSetting(
                                 string.IsNullOrWhiteSpace(f.Key) ? string.Empty : f.Key!,
                                 string.Empty,
                                 string.Empty)
@@ -1892,7 +1767,6 @@ public sealed partial class GitHubSettingsStore
                     ApiEndpoint = CleanEndpoint(row.ApiEndpoint)
                 })
             ]),
-            Token = CleanToken(local.Token),
             ApiEndpoint = CleanEndpoint(local.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = local.ShowRepositoryColours,
             Renames = [.. _renames],
@@ -1900,51 +1774,11 @@ public sealed partial class GitHubSettingsStore
         };
     }
 
-    /// <summary>
-    /// The identities a legacy local file states, first one wins per id.
-    /// <para>
-    /// Only the pre-split <c>owner</c>/<c>name</c> rows count, deliberately. An
-    /// <c>id</c> is the overlay's key rather than a statement of identity — it
-    /// names no alias and no hue — so a row that has one and nothing else says
-    /// which repository this machine knows something about, not what that
-    /// repository is called. Composing from it would invent a label the shared
-    /// file, once readable again, may well disagree with.
-    /// </para>
-    /// </summary>
-    private static List<RegistryRow> LegacyIdentities(List<RepositoryDto> localRows)
-    {
-        var identities = new List<RegistryRow>();
-
-        foreach (var row in localRows)
-        {
-            if (string.IsNullOrWhiteSpace(row.Owner) || string.IsNullOrWhiteSpace(row.Name)) continue;
-            if (IdentityOf(row) is not { } identity) continue;
-            if (identities.Any(known => string.Equals(known.Id, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
-
-            identities.Add(identity);
-        }
-
-        return identities;
-    }
-
     /// <summary>The local row that belongs to one identity, matched on the id
-    /// without regard to case. A file written before the split states
-    /// <c>owner</c> and <c>name</c> rather than <c>id</c>, which
-    /// <see cref="ExplicitIdOf"/> reads as the same coordinate; a row that states
-    /// neither is matched by alias, as a legacy fallback only, because keying on
-    /// the alias is the very thing the split stopped doing.</summary>
-    private static RepositoryDto? FindOverlay(List<RepositoryDto> localRows, RegistryRow identity)
-    {
-        var byId = localRows.FirstOrDefault(row =>
-            ExplicitIdOf(row) is { } id && string.Equals(id, identity.Id, StringComparison.OrdinalIgnoreCase));
-
-        if (byId is not null) return byId;
-
-        return localRows.FirstOrDefault(row =>
-            ExplicitIdOf(row) is null
-            && !string.IsNullOrWhiteSpace(row.Alias)
-            && string.Equals(GitHubRepositoryRef.NormalizeAlias(row.Alias!), identity.Alias, StringComparison.Ordinal));
-    }
+    /// without regard to case.</summary>
+    private static RepositoryDto? FindOverlay(List<RepositoryDto> localRows, RegistryRow identity) =>
+        localRows.FirstOrDefault(row =>
+            IdOf(row) is { } id && string.Equals(id, identity.Id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The local row this machine kept under an id the registry has since renamed
@@ -1966,31 +1800,15 @@ public sealed partial class GitHubSettingsStore
         if (renames.Renames.Count == 0) return null;
 
         return localRows.FirstOrDefault(row =>
-            ExplicitIdOf(row) is { } id
+            IdOf(row) is { } id
             && !string.Equals(id, identity.Id, StringComparison.OrdinalIgnoreCase)
             && !identities.Any(known => string.Equals(known.Id, id, StringComparison.OrdinalIgnoreCase))
             && string.Equals(renames.RenamedTo(id), identity.Id, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>The row's own id: the <c>id</c> field, or the legacy
-    /// <c>owner</c>/<c>name</c> pair it replaced. Null when the row states
-    /// neither, which is a row that can only be matched by alias.</summary>
-    private static string? ExplicitIdOf(RepositoryDto row)
-    {
-        if (!string.IsNullOrWhiteSpace(row.Id)) return row.Id!.Trim();
-
-        return string.IsNullOrWhiteSpace(row.Owner) || string.IsNullOrWhiteSpace(row.Name)
-            ? null
-            : $"{row.Owner!.Trim()}/{row.Name!.Trim()}";
-    }
-
-    /// <summary>One local row read as an identity row, or null when it states no
-    /// coordinate. The alias falls back to the repository name, which is what a
-    /// configured line with no explicit alias has always meant.</summary>
-    private static RegistryRow? IdentityOf(RepositoryDto row) =>
-        ExplicitIdOf(row) is { } id
-            ? RegistryRow.From(id, row.Alias, CleanColour(row.Colour))
-            : null;
+    /// <summary>The row's own id, or null when it states none.</summary>
+    private static string? IdOf(RepositoryDto row) =>
+        string.IsNullOrWhiteSpace(row.Id) ? null : row.Id!.Trim();
 
     private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<RepositoryRemoval> Removals, DateTimeOffset? Stamp, string? Error) ReadRegistry()
     {
@@ -2074,7 +1892,6 @@ public sealed partial class GitHubSettingsStore
                 Accounts = dto.Accounts,
                 AccountsUpdatedAt = dto.AccountsUpdatedAt,
                 LastWrite = LastWriteOf(_path),
-                Token = Open(dto.Token),
                 ApiEndpoint = dto.ApiEndpoint,
                 ShowRepositoryColours = dto.ShowRepositoryColours,
                 HoldsPlaintextSecret = plaintext
@@ -2086,10 +1903,6 @@ public sealed partial class GitHubSettingsStore
             return new LocalFile();
         }
     }
-
-    private RepositoryDto? FindLocalRow(string id) =>
-        _localRows.FirstOrDefault(row =>
-            ExplicitIdOf(row) is { } rowId && string.Equals(rowId, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Carries the machine half of a repository across a re-typed list, keyed on
@@ -2120,7 +1933,7 @@ public sealed partial class GitHubSettingsStore
         {
             return repository with
             {
-                Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
+                Token = CleanToken(repository.Token),
                 Colour = CleanColour(repository.Colour),
                 Account = GitHubAccount.NormalizeLogin(repository.Account),
                 DevbookBranch = CleanBranch(repository.DevbookBranch),
@@ -2132,7 +1945,7 @@ public sealed partial class GitHubSettingsStore
         return repository with
         {
             CloneDirectory = string.IsNullOrWhiteSpace(repository.CloneDirectory) ? existing.CloneDirectory : repository.CloneDirectory,
-            Token = CleanToken(repository.Token) ?? existing.Token ?? CleanToken(Current.Token),
+            Token = CleanToken(repository.Token) ?? existing.Token,
             Colour = CleanColour(repository.Colour) ?? existing.Colour,
             Account = GitHubAccount.NormalizeLogin(repository.Account) ?? existing.Account,
 
@@ -2294,7 +2107,7 @@ public sealed partial class GitHubSettingsStore
     /// <summary>
     /// What reading the shared registry found. Three states rather than two,
     /// because "not there" and "there but unreadable" want opposite treatment: the
-    /// first is writable and may be carried over into, the second must never be
+    /// first is writable, the second must never be
     /// written over, must never prune an overlay row, and must refuse the writes
     /// that would act on a list it does not have.
     /// </summary>
@@ -2319,7 +2132,7 @@ public sealed partial class GitHubSettingsStore
         bool Archived = false)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
-            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch) is { } row
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch) is { } row
                 ? row with { PullRequestLabels = CleanLabels(dto.PullRequestLabels), Archived = dto.Archived is true }
                 : null;
 
@@ -2375,7 +2188,6 @@ public sealed partial class GitHubSettingsStore
         /// stamp once (local ADR 0021, as ADR 0018 does for the pace file).</summary>
         public DateTimeOffset? LastWrite { get; init; }
 
-        public string? Token { get; init; }
         public string? ApiEndpoint { get; init; }
         public bool ShowRepositoryColours { get; init; }
 
@@ -2427,9 +2239,8 @@ public sealed partial class GitHubSettingsStore
 
     /// <summary>
     /// One row of the shared registry: the identity, the label, the hue. There is
-    /// no version field — nothing else in this repository has one, and both
-    /// migrations are idempotent without one, so a version would be a thing to
-    /// maintain that gates nothing.
+    /// no version field — nothing else in this repository has one, so a version
+    /// would be a thing to maintain that gates nothing.
     /// </summary>
     private sealed class RegistryRepositoryDto
     {
@@ -2450,16 +2261,6 @@ public sealed partial class GitHubSettingsStore
         /// reads as the repository's own default branch.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? DevbookBranch { get; set; }
-
-        /// <summary>FROZEN LEGACY FIELD: the name <see cref="DevbookBranch"/> was
-        /// written under while the context was still called Knowledge. Read so a
-        /// registry another install wrote before the rename keeps its branch, and
-        /// never written again — the next write carries the value under the
-        /// current name only. The registry is the synced half, so an install still
-        /// on the old build reads a re-saved file as "no branch chosen" until it is
-        /// upgraded; accepted, because it regains the value on its next save.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? KnowledgeBranch { get; set; }
 
         /// <summary>The labels this repository's pull requests list is narrowed to.
         /// Omitted while empty, for the reason <see cref="Account"/> is: a workspace
@@ -2493,7 +2294,6 @@ public sealed partial class GitHubSettingsStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public DateTimeOffset? AccountsUpdatedAt { get; set; }
 
-        public string? Token { get; set; }
         public string? ApiEndpoint { get; set; }
 
         /// <summary>Defaults to false, which is what makes a file written before the
@@ -2504,24 +2304,7 @@ public sealed partial class GitHubSettingsStore
 
     /// <summary>
     /// One row of the per-user file: the id it belongs to, and the machine half.
-    /// <para>
-    /// <see cref="Alias"/>, <see cref="Owner"/>, <see cref="Name"/> and
-    /// <see cref="Colour"/> are FROZEN LEGACY FIELDS. They are read so a file
-    /// written before the registry existed still opens and can be carried over,
-    /// and they are never written again — the same per-field treatment
-    /// <see cref="SettingsDto.Token"/> already gets, where the value is read and
-    /// migrated onto the rows but written back as null. Do not add to them, and do
-    /// not start emitting them: identity lives in the shared registry now, and a
-    /// local file that also stated it would be a second answer to the one question
-    /// the split exists to give one answer to.
-    /// </para>
-    /// <para>
-    /// <see cref="KnowledgeFolders"/> and <see cref="UseLocalKnowledgeFolder"/>
-    /// are frozen for a different reason: they are the names
-    /// <see cref="DevbookFolders"/> and <see cref="UseLocalDevbookFolder"/> were
-    /// written under before the context was renamed. Same treatment — read when
-    /// the current name is absent, migrated onto the row, never emitted again.
-    /// </para>
+    /// Identity lives in the shared registry; this file never states it.
     /// </summary>
     private sealed class RepositoryDto
     {
@@ -2532,10 +2315,7 @@ public sealed partial class GitHubSettingsStore
         /// <see cref="Sealed"/> (local ADR 0030).</summary>
         public string? Token { get; set; }
 
-        /// <summary>Nullable so that "absent" is distinguishable from "empty":
-        /// absent is what lets a file written under the old name fall through to
-        /// <see cref="KnowledgeFolders"/>. Every write sets it, so the file never
-        /// carries a null.</summary>
+        /// <summary>Every write sets it; absent reads as the defaults.</summary>
         public List<DevbookFolderDto>? DevbookFolders { get; set; }
 
         /// <summary>
@@ -2554,32 +2334,6 @@ public sealed partial class GitHubSettingsStore
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? UseLocalDevbookFolder { get; set; }
-
-        // FROZEN LEGACY FIELDS: the pre-rename names of the two properties above.
-        // Read only when the current name is absent; never assigned on a write, so
-        // the next save carries the value under the current name and drops these.
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<DevbookFolderDto>? KnowledgeFolders { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? UseLocalKnowledgeFolder { get; set; }
-
-        // Omitted when null rather than written as null, which is what makes the
-        // reduced write actually reduced: a `"alias": null` in the file would
-        // still be the local file having an opinion about identity. They are only
-        // ever non-null on the one path that deliberately preserves them, while
-        // the registry cannot be read.
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Alias { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Owner { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Name { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public int? Colour { get; set; }
 
         /// <summary>This row as it is written: the same fields, with the token
         /// sealed.</summary>

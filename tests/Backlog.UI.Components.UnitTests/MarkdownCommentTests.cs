@@ -325,4 +325,307 @@ public sealed class MarkdownCommentTests
         Assert.Equal(0, deletes);
         Assert.Equal("Before", view.Find(".md-comment__body").TextContent);
     }
+
+    // --- The orphan group -------------------------------------------------
+
+    /// <summary>A remark whose index is past the end of <see cref="Blocks"/>: its
+    /// block has gone, so it lands in the orphan group.</summary>
+    private static MarkdownComment Orphan(string id = "c9", string body = "Is this still true?", string? author = "Reviewer") =>
+        new(id, 99, body, author, "today");
+
+    [Fact]
+    public void An_orphan_group_says_the_passage_changed_and_names_itself_by_it()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new[] { Orphan() }));
+
+        var group = view.Find("[data-testid='markdown-orphaned-comments']");
+        var label = group.QuerySelector(".md-comments__orphaned-label");
+
+        Assert.NotNull(label);
+        Assert.Equal("Passage changed", label!.TextContent.Trim());
+        Assert.Equal("group", group.GetAttribute("role"));
+        Assert.Equal(label.Id, group.GetAttribute("aria-labelledby"));
+        Assert.False(string.IsNullOrEmpty(label.Id));
+    }
+
+    [Fact]
+    public void An_orphan_group_tells_the_reader_what_they_can_do_with_a_remark()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new[] { Orphan() })
+            .Add(v => v.OnEditComment, _ => { })
+            .Add(v => v.OnResolveComment, _ => { })
+            .Add(v => v.OnDeleteComment, _ => { })
+            .Add(v => v.OnAddComment, _ => { }));
+
+        var group = view.Find("[data-testid='markdown-orphaned-comments']");
+
+        Assert.Equal(
+            "These remarks were left on text that has since been reworded or removed. Resolve or delete each one, or leave a new remark where it belongs now.",
+            group.QuerySelector(".md-comments__orphaned-hint")!.TextContent.Trim());
+
+        // The tools to act on it are still on the remark itself.
+        Assert.NotNull(group.QuerySelector("[data-testid='markdown-comment-edit-c9']"));
+        Assert.NotNull(group.QuerySelector("[data-testid='markdown-comment-resolve-c9']"));
+        Assert.NotNull(group.QuerySelector("[data-testid='markdown-comment-delete-c9']"));
+    }
+
+    [Fact]
+    public void An_orphan_group_nobody_can_act_on_says_only_what_happened()
+    {
+        // An archived repository's chapter: the host binds no remark callback.
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new[] { Orphan() }));
+
+        var group = view.Find("[data-testid='markdown-orphaned-comments']");
+
+        Assert.Equal("Passage changed", group.QuerySelector(".md-comments__orphaned-label")!.TextContent.Trim());
+        Assert.Equal(
+            "These remarks were left on text that has since been reworded or removed.",
+            group.QuerySelector(".md-comments__orphaned-hint")!.TextContent.Trim());
+        Assert.Null(group.QuerySelector("[data-testid='markdown-comment-resolve-c9']"));
+        Assert.Null(group.QuerySelector("[data-testid='markdown-comment-delete-c9']"));
+    }
+
+    [Fact]
+    public void An_orphan_group_of_resolved_remarks_does_not_offer_to_resolve_them()
+    {
+        // Each card offers Reopen, not Resolve, so the hint must not name Resolve.
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new[] { Orphan() with { Resolved = true } })
+            .Add(v => v.OnResolveComment, _ => { })
+            .Add(v => v.OnDeleteComment, _ => { })
+            .Add(v => v.OnAddComment, _ => { }));
+
+        var group = view.Find("[data-testid='markdown-orphaned-comments']");
+
+        Assert.Equal(
+            "These remarks were left on text that has since been reworded or removed. Delete each one, or leave a new remark where it belongs now.",
+            group.QuerySelector(".md-comments__orphaned-hint")!.TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData(true, true, false, "Resolve or delete each one.")]
+    [InlineData(true, false, false, "Resolve each one.")]
+    [InlineData(false, true, false, "Delete each one.")]
+    [InlineData(true, false, true, "Resolve each one, or leave a new remark where it belongs now.")]
+    [InlineData(false, false, true, "Leave a new remark where it belongs now.")]
+    public void An_orphan_group_names_only_the_actions_it_offers(bool resolve, bool delete, bool add, string action)
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p =>
+        {
+            p.Add(v => v.Blocks, Blocks).Add(v => v.Comments, new[] { Orphan() });
+            if (resolve) p.Add(v => v.OnResolveComment, _ => { });
+            if (delete) p.Add(v => v.OnDeleteComment, _ => { });
+            if (add) p.Add(v => v.OnAddComment, _ => { });
+        });
+
+        Assert.Equal(
+            $"These remarks were left on text that has since been reworded or removed. {action}",
+            view.Find(".md-comments__orphaned-hint").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_tag_in_a_remark_reads_as_typed()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "Check the #sync step.") }));
+
+        var body = view.Find(".md-comment__body");
+
+        Assert.Equal("Check the #sync step.", body.TextContent);
+        Assert.Null(body.QuerySelector(".tag-chip"));
+    }
+
+    [Fact]
+    public void An_orphan_group_of_proposals_alone_speaks_of_proposals()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Proposals, new AiProposal[] { new("p1", AiProposalKind.Rewrite, "A better paragraph.", BlockIndex: 99) }));
+
+        var group = view.Find("[data-testid='markdown-orphaned-comments']");
+
+        Assert.Equal("Passage changed", group.QuerySelector(".md-comments__orphaned-label")!.TextContent.Trim());
+        Assert.Equal(
+            "These proposals were made on text that has since been reworded or removed.",
+            group.QuerySelector(".md-comments__orphaned-hint")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_view_with_every_remark_in_place_has_no_orphan_label()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "In place") }));
+
+        Assert.Empty(view.FindAll("[data-testid='markdown-orphaned-comments']"));
+        Assert.Empty(view.FindAll(".md-comments__orphaned-label"));
+    }
+
+    // --- The body ---------------------------------------------------------
+
+    [Fact]
+    public void A_remark_body_renders_its_inline_markdown()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "See [the docs](https://example.test/docs), `code` and *now* **bold** ~~gone~~.") }));
+
+        var body = view.Find(".md-comment__body");
+
+        Assert.Equal("https://example.test/docs", body.QuerySelector("a.md-link")!.GetAttribute("href"));
+        Assert.Equal("code", body.QuerySelector("code")!.TextContent);
+        Assert.Equal("now", body.QuerySelector("em")!.TextContent);
+        Assert.Equal("bold", body.QuerySelector("strong")!.TextContent);
+        Assert.Equal("gone", body.QuerySelector("s")!.TextContent);
+    }
+
+    [Fact]
+    public void A_plain_body_reads_exactly_as_it_was_written()
+    {
+        using var context = new BunitContext();
+        const string Plain = "First line.\nSecond line, still plain.";
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, Plain) }));
+
+        Assert.Equal(Plain, view.Find(".md-comment__body").TextContent);
+    }
+
+    [Fact]
+    public void Markup_in_a_remark_body_stays_text()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "<script>alert(1)</script> <b>x</b>") }));
+
+        var body = view.Find(".md-comment__body");
+
+        Assert.Empty(body.QuerySelectorAll("script"));
+        Assert.Empty(body.QuerySelectorAll("b"));
+        Assert.Equal("<script>alert(1)</script> <b>x</b>", body.TextContent);
+    }
+
+    [Fact]
+    public void An_image_in_a_remark_shows_as_its_alt_text()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "Look: ![the diagram](https://example.test/d.png)") }));
+
+        var body = view.Find(".md-comment__body");
+
+        Assert.Empty(body.QuerySelectorAll("img"));
+        Assert.Equal("Look: the diagram", body.TextContent);
+    }
+
+    [Fact]
+    public void A_link_in_a_remark_on_a_chapter_goes_where_the_chapters_own_link_goes()
+    {
+        using var context = new BunitContext();
+        var followed = new List<DevbookReference>();
+        const string Link = "[the sessions model](.domain/sessions/domain.md)";
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, MarkdownPreview.Parse($"See {Link}.\n\nA paragraph."))
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.OnDevbookNavigate, EventCallback.Factory.Create<DevbookReference>(this, followed.Add))
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, $"Compare {Link}.") }));
+
+        var inBody = view.Find(".md-comment__body button.devbook-ref--action");
+        var inChapter = view.FindAll("button.devbook-ref--action").First(b => b.Closest(".md-comment__body") is null);
+
+        Assert.Equal(inChapter.GetAttribute("title"), inBody.GetAttribute("title"));
+        Assert.Equal(inChapter.TextContent, inBody.TextContent);
+
+        inBody.Click();
+
+        Assert.Equal(".domain/sessions/domain.md", Assert.Single(followed).Path);
+    }
+
+    [Fact]
+    public void Editing_a_markdown_body_edits_and_saves_its_source()
+    {
+        using var context = new BunitContext();
+        MarkdownComment? edited = null;
+        const string Source = "See [the docs](https://example.test) and `code`.";
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, Source) })
+            .Add(v => v.OnEditComment, c => edited = c));
+
+        view.Find("[data-testid='markdown-comment-edit-c1']").Click();
+
+        // The box holds what was typed, not what it rendered as.
+        Assert.Equal(Source, view.Find("textarea").GetAttribute("value"));
+
+        const string Revised = "See [the docs](https://example.test), `code` and *more*.";
+        view.Find("textarea").Input(Revised);
+        view.Find("[data-testid='markdown-comment-save-c1']").Click();
+
+        Assert.Equal(Revised, edited?.Body);
+    }
+
+    // --- The author -------------------------------------------------------
+
+    [Fact]
+    public void A_slug_author_reads_as_a_name_and_keeps_the_slug_on_its_title()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "A remark", "claude/chapter-review") }));
+
+        var author = view.Find(".md-comment__author");
+
+        Assert.Equal("Claude · chapter review", author.TextContent);
+        Assert.Equal("claude/chapter-review", author.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_plain_author_reads_as_written_with_no_title()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "A remark", "DEV-LAPTOP") }));
+
+        var author = view.Find(".md-comment__author");
+
+        Assert.Equal("DEV-LAPTOP", author.TextContent);
+        Assert.False(author.HasAttribute("title"));
+    }
 }

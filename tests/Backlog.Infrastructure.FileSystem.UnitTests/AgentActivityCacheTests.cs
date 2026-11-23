@@ -15,17 +15,15 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class AgentActivityCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "agent-activity-cache-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("agent-activity-cache-tests");
+
+    private string _root => _temp.Path;
 
     private static readonly DateTimeOffset Written = new(2026, 8, 19, 11, 0, 0, TimeSpan.Zero);
 
     private static readonly TimeSpan Threshold = TimeSpan.FromMinutes(5);
 
     private const string Transcript = @"C:\Users\dev\.claude\projects\D--Repos-Backlog\7f1a.jsonl";
-
-    public AgentActivityCacheTests() => Directory.CreateDirectory(_root);
 
     private AgentActivityCache Cache() => new(() => _root);
 
@@ -309,12 +307,6 @@ public class AgentActivityCacheTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

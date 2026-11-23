@@ -55,18 +55,19 @@
             </DescriptionContent>
         </EmptyState>
     }
-    else if (InSurface)
+    else
     {
-        @* The architecture surface (plan c4-zoom-navigation, the design's every
-           screen): while `c4-zoom` is on, this pane is one surface rather than the
-           Chapters / C4 / C4 zoom tabs below. The zoom bar, always there; the left
+        @* The architecture surface (local ADR 0046, the design's every screen): this
+           pane is one surface, and the only reading of the C4 model. The zoom bar,
+           always there; the left
            navigation, headed by the find field; the picture,
            or a chapter, an ADR or a TDR opened in its place; and the right-hand
            panel that goes with what is open. The pane's own chapter menu stands down
-           while it is on (DevbookPane.SurfaceOwnsMenu): the design has one left
+           for this section (DevbookPane.SurfaceOwnsMenu): the design has one left
            navigation, and it is this one. *@
-        @* The same image source the tabs cascade, so a chapter opened on the surface
-           draws its `![…](c4:<view key>)` embeds too. *@
+        @* The image source wraps the one the pane cascades, so a chapter opened on the
+           surface draws its `![…](c4:<view key>)` embeds and every other image still
+           reaches the scenario screenshots. *@
         <CascadingValue TValue="IDevbookImageSource" Value="@_c4Images" IsFixed="true">
         <section class="arc42-surface" data-testid="arc42-surface" aria-label="Architecture">
             @C4WorkspaceChoice
@@ -101,101 +102,14 @@
         </section>
         </CascadingValue>
     }
-    else
-    {
-        @* Two tabs rather than one surface, the same shape the Technology panel
-           keeps: the chapters are what this section opens with, and the C4 model is
-           a second reading of the same architecture rather than a continuation of
-           the first. It is not a chapter and it is in no chapter, so it was never
-           going to sit comfortably in the chapter list — which is where it was, and
-           why it moved.
-
-           The second tab is absent, not empty, when the feature is off or there is
-           neither a workspace nor a C4 fence in the chapters to draw one from. A tab
-           that opens onto nothing is worse than no tab.
-
-           The image source wraps the one the pane cascades, so a chapter's
-           `![…](c4:<view key>)` draws that view and every other image still reaches
-           the scenario screenshots. *@
-        <CascadingValue TValue="IDevbookImageSource" Value="@_c4Images" IsFixed="true">
-        <Tabs AriaLabel="Architecture views"
-              TestId="arc42-tabs"
-              ActiveId="@_tab"
-              ActiveIdChanged="OnTabChanged">
-
-            <TabPanel Id="@ChaptersTab"
-                      Title="Chapters"
-                      Element="section"
-                      TestId="arc42-chapters-panel"
-                      TabTestId="arc42-chapters-tab"
-                      aria-label="Architecture chapters">
-                @* A fragment, not a call on this component's builder: the panel's
-                   child content is written through the tab panel's own. *@
-                @ChapterDocument
-            </TabPanel>
-
-            @if (_c4.Workspaces.Count > 0)
-            {
-                <TabPanel Id="@C4Tab"
-                          Title="C4"
-                          Element="section"
-                          TestId="arc42-c4-panel"
-                          TabTestId="arc42-c4-tab"
-                          aria-label="C4 model">
-
-                    @C4WorkspaceChoice
-
-                    @if (Workspace is { } workspace)
-                    {
-                        <C4Explorer Workspace="@workspace.Workspace"
-                                    Problems="@workspace.Problems"
-                                    ViewKey="@_viewKey"
-                                    ViewKeyChanged="key => _viewKey = key"
-                                    ViewFooter="@ViewReferences"
-                                    TestId="arc42-c4-explorer" />
-                    }
-                </TabPanel>
-            }
-
-            @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
-               both switches are on (local ADR 0046). The same model, walked one
-               level at a time; it replaces the C4 tab only once it is validated, so
-               until then the C4 tab above is left exactly as it was. *@
-            @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
-            {
-                <TabPanel Id="@C4ZoomTab"
-                          Title="C4 zoom"
-                          Element="section"
-                          TestId="arc42-c4-zoom-panel"
-                          TabTestId="arc42-c4-zoom-tab"
-                          KeepAlive="true"
-                          aria-label="C4 zoom">
-                    @C4WorkspaceChoice
-
-                    <C4ZoomExplorer Workspace="@zoomWorkspace.Workspace"
-                                    Problems="@zoomWorkspace.Problems"
-                                    HintDismissed="@C4ZoomHintDismissed"
-                                    OnHintDismissed="DismissC4ZoomHint"
-                                    OpenView="@_zoomOpen"
-                                    RecordsFor="@InspectorRecords(zoomWorkspace)"
-                                    CrossCuttingDebt="@CrossCuttingDebt()"
-                                    OnOpenRecord="OpenInspectedRecordAsync"
-                                    Code="@ZoomCode"
-                                    TestId="arc42-c4-zoom-explorer" />
-                </TabPanel>
-            }
-        </Tabs>
-        </CascadingValue>
-    }
 </aside>
 
 @code {
 
     /// <summary>
-    /// The open chapter or record: the file view, and beside it, while <c>c4-zoom</c>
-    /// is on, what it is on the model — a record's placement, or on the surface a
-    /// chapter's views, citing decisions and debt. The Chapters tab draws it, and the
-    /// architecture surface draws it in place of the picture.
+    /// The open chapter or record: the file view, and beside it what it is on the
+    /// model — a record's placement, or a chapter's views, citing decisions and debt.
+    /// The architecture surface draws it in place of the picture.
     /// </summary>
     private void RenderChapterDocument(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
     {
@@ -213,7 +127,7 @@
 
         // On the surface a chapter that is no record has its own right-hand panel:
         // the views it documents, the decisions citing it, the debt on its elements.
-        var chapterLinks = InSurface && recordPlacement is null && Arc42Surface.IsChapter(_selected) ? SurfaceChapterLinks() : null;
+        var chapterLinks = recordPlacement is null && Arc42Surface.IsChapter(_selected) ? SurfaceChapterLinks() : null;
         <div class="arc42-devbook-layout @(recordPlacement is null && chapterLinks is null ? null : "arc42-devbook-layout--record")">
             @* No longer a card. This article always holds a file view now, and the
                file view draws its own edge, so a card here framed a framed
@@ -302,37 +216,11 @@
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />
                 </CascadingValue>
 
-                @* The other half of the reference, under the chapter.
-                   It is here rather than in the file view's metadata because this
-                   panel deliberately does not draw metadata fields — the note on
-                   RenderDevbookMetadataFields says why — so a chapter's `related`
-                   entry naming a view would otherwise be authored, honoured on the
-                   view side, and invisible on the chapter side. Drawn from the same
-                   single statement as the view's own list, read the same way. *@
-                @if (!InSurface && ViewsReferencedBy(_selected) is { Count: > 0 } chapterViews)
-                {
-                    <nav class="devbook-chapters devbook-chapters--c4" aria-label="C4 views documenting this chapter" data-testid="arc42-chapter-c4-views">
-                        @foreach (var view in chapterViews)
-                        {
-                            <div class="devbook-chapter" data-testid="arc42-chapter-c4-view">
-                                <AppButton BaseClass="devbook-chapter__button"
-                                           Variant="ButtonVariant.None"
-                                           title="@view.Reference"
-                                           OnClick="() => SelectView(view)">
-                                    <span class="devbook-chapter__title">@view.Title</span>
-                                    <span class="devbook-chapter__meta">
-                                        <StatusBadge BaseClass="devbook-status" Kind="" Status="@ViewKindLabel(view)" />
-                                    </span>
-                                </AppButton>
-                            </div>
-                        }
-                    </nav>
-                }
             </article>
 
             @* Where a decision or debt record lands on the model, beside it, while
-               `c4-zoom` is on (the design's ADR screen). Absent, not empty, with the
-               switch off or for any other chapter. *@
+               the surface draws it (the design's ADR screen). Absent, not empty, for any
+               other chapter. *@
             @if (recordPlacement is not null)
             {
                 <C4RecordPanel Placement="@recordPlacement"
@@ -391,32 +279,17 @@
     /// view draws; rebuilt with every read of the chapter.</summary>
     private DevbookSyncScope? _syncScope;
 
-    /// <summary>The C4 model beside these chapters. Empty and harmless when the
-    /// feature is off, which is what keeps every branch below a no-op rather than a
+    /// <summary>The C4 model beside these chapters. Empty and harmless when there
+    /// is no model, or no store composed, which is what keeps every branch below a no-op rather than a
     /// condition the rest of the panel has to be written around.</summary>
     private C4Catalog _c4 = C4Catalog.Off;
 
-    /// <summary>Which tab is open. Panel state: the host's selection is a chapter
-    /// path, and which of two readings of the folder is on screen is not something a
-    /// path can say.</summary>
-    private string _tab = ChaptersTab;
-
-    /// <summary>The workspace the C4 tab is showing, when there is more than one to
+    /// <summary>The workspace the surface is showing, when there is more than one to
     /// choose between.</summary>
     private C4WorkspaceEntry? _selectedWorkspace;
 
-    /// <summary>Which view the explorer has open. Held here rather than left to the
-    /// explorer so that arriving from a chapter reference, or from another section,
-    /// opens the view that was asked for.</summary>
-    private string? _viewKey;
-
-    private const string ChaptersTab = "chapters";
-    private const string C4Tab = "c4";
-    private const string C4ZoomTab = "c4-zoom";
-
     /// <summary>
-    /// The workspace picker and the derived-model note, the same over both C4 tabs:
-    /// either tab reads the workspace chosen here.
+    /// The workspace picker and the derived-model note, over the surface's picture.
     /// </summary>
     private RenderFragment C4WorkspaceChoice => @<text>
     @* More than one workspace is possible and not expected, so the
@@ -450,7 +323,7 @@
     }
     </text>;
 
-    /// <summary>Where the C4 zoom tab's dismissed hint is remembered: the host's
+    /// <summary>Where the surface's dismissed zoom hint is remembered: the host's
     /// per-device preferences, or nowhere when the host composed none — then the
     /// dismissal holds for the life of the panel.</summary>
     private IDevbookViewPreferences? _viewPreferences;
@@ -532,8 +405,7 @@
     /// <summary>
     /// The C4 model, or nothing.
     /// <para>
-    /// Resolved from the provider rather than injected, by the same rule the shared
-    /// diagram component already follows for Archify artifacts: a host that has not
+    /// Resolved from the provider rather than injected, so that a host that has not
     /// registered it — the storybook page, a unit test rendering this panel for a
     /// reason that has nothing to do with C4 — gets the panel as it was, rather than
     /// an injection error for a feature it never asked about.
@@ -546,7 +418,7 @@
     private C4ZoomCode? _zoomCode;
     private C4Catalog? _zoomCodeFor;
 
-    /// <summary>What the zoom tab is handed to open level 4: made once per catalog, so
+    /// <summary>What the zoom navigation is handed to open level 4: made once per catalog, so
     /// a render hands the same one and only a reload reads an open level again.</summary>
     private C4ZoomCode? ZoomCode
     {
@@ -564,7 +436,7 @@
     }
 
     /// <summary>A decision record picked on the Code level's type panel: its chapter,
-    /// on the Chapters tab, as any reference to it opens.</summary>
+    /// opened as any reference to it opens.</summary>
     private async Task OpenCodeRecordAsync(C4CodeRecord record)
     {
         if (DevbookReference.Parse(record.Path) is not { } reference) return;
@@ -652,7 +524,6 @@
     protected override async Task OnParametersSetAsync()
     {
         _c4Images.Next = PaneImages;
-        _c4Images.OpenLabel = InSurface ? C4ViewImages.SurfaceLabel : C4ViewImages.TabLabel;
         if (!_c4Images.OnOpen.HasDelegate) _c4Images.OnOpen = EventCallback.Factory.Create<C4View>(this, OpenEmbeddedView);
 
         if (_catalog is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
@@ -785,14 +656,11 @@
         // same path back — it never took the last request, or it re-rendered for
         // reasons of its own — must not put the earlier chapter back. Only a path the
         // host changed is a request.
-        if (InSurface)
-        {
-            if (string.Equals(_appliedSelectedPath, SelectedPath, StringComparison.Ordinal)
-                && _selected is not null
-                && _catalog.Documents.Contains(_selected)) return;
+        if (string.Equals(_appliedSelectedPath, SelectedPath, StringComparison.Ordinal)
+            && _selected is not null
+            && _catalog.Documents.Contains(_selected)) return;
 
-            _appliedSelectedPath = SelectedPath;
-        }
+        _appliedSelectedPath = SelectedPath;
 
         _selected = _catalog.Documents.FirstOrDefault(document => DevbookPath.Matches(document.Path,SelectedPath)) ?? _selected;
     }
@@ -876,7 +744,7 @@
     /// and that is the reason the guard would skip the reload.</summary>
     private Task OnChapterSavedAsync()
     {
-        // The C4 tab may be drawn from this chapter's own fences, and that model is
+        // The C4 model may be drawn from this chapter's own fences, and that model is
         // cached; it has to be let go before the re-read below asks for it.
         _c4Store?.ChapterSaved();
         return RefreshAsync(_selected?.Path);
@@ -1044,7 +912,7 @@
         // do — and the reference would read as a control that goes nowhere.
         if (_c4.Find(reference?.Raw) is { } view)
         {
-            SelectView(view);
+            OpenViewInSurface(view);
             return;
         }
 
@@ -1053,17 +921,7 @@
         // On the surface the chapter opens inside it, in place of the picture, and is
         // opened here as well as asked of the host: the surface is this section's
         // whole screen, so it does not wait on a host that may not answer.
-        if (InSurface && target.AreaKey is ChaptersArea) await OpenLocallyAsync(target.Path);
-
-        // A chapter reference brings the Chapters tab with it. Following one from the
-        // C4 tab otherwise opened the chapter *behind* the diagram: the host changed
-        // its selection, this panel stayed where it was, and the reader was left
-        // looking at the picture they had just navigated away from.
-        //
-        // The mirror of what SelectView does for a view, and for the same reason —
-        // the tab is part of the answer to "take me there", not a separate setting
-        // the reader is expected to change themselves.
-        if (target.AreaKey is ChaptersArea) _tab = ChaptersTab;
+        if (target.AreaKey is ChaptersArea) await OpenLocallyAsync(target.Path);
 
         await OnNavigateToChapter.InvokeAsync(target);
     }
@@ -1172,8 +1030,8 @@
 
     // ---- the C4 views a chapter documents, drawn in it --------------------
 
-    /// <summary>The last request to open a view in the C4 zoom tab, made from a
-    /// view drawn in a chapter. A new one per click; see <see cref="C4ZoomOpen"/>.</summary>
+    /// <summary>The last request to open a view in the surface's zoom navigation,
+    /// made from a view drawn in a chapter. A new one per click; see <see cref="C4ZoomOpen"/>.</summary>
     private C4ZoomOpen? _zoomOpen;
 
     private IReadOnlyList<C4ChapterEmbed> _chapterEmbeds = [];
@@ -1183,7 +1041,7 @@
 
     /// <summary>
     /// The views this chapter documents, drawn under the sections that name them,
-    /// while <c>c4-zoom</c> is on (the design's arc42 screen). Null with it off, so
+    /// (the design's arc42 screen). Null when there are none, so
     /// the file view is handed no hook and draws the chapter exactly as before.
     /// <para>
     /// Worked out again only when the catalog, the chapter's text or its path
@@ -1192,7 +1050,7 @@
     /// </summary>
     private Func<int, string, int, RenderFragment?>? ChapterC4Views()
     {
-        if (_c4Store is not { ZoomEnabled: true } || _selected is null) return null;
+        if (_selected is null) return null;
 
         // Only once the selected chapter's own text has landed: between a switch and
         // its read, _chapter is still the last chapter's.
@@ -1227,13 +1085,12 @@
     }
     </text>;
 
-    /// <summary>"Open in C4 zoom" on a view drawn in a chapter: the zoom tab, on that
-    /// view's workspace, at that view.</summary>
+    /// <summary>"Open in the C4 model" on a view drawn in a chapter: the surface's picture,
+    /// on that view's workspace, at that view.</summary>
     private void OpenInC4Zoom(C4ChapterEmbed embed)
     {
         _selectedWorkspace = embed.Workspace;
         _zoomOpen = new C4ZoomOpen(embed.View.Key);
-        _tab = C4ZoomTab;
         _showDocument = false;
     }
 
@@ -1243,7 +1100,7 @@
     private C4WorkspaceEntry? _inspectorWorkspace;
     private C4RecordStates? _inspectorStates;
 
-    /// <summary>What the zoom tab's inspector is told about an element. One delegate
+    /// <summary>What the surface's inspector is told about an element. One delegate
     /// while the model, the chapters and the workspace stay the same, so the explorer
     /// asks again only when one of them changed rather than on every render.</summary>
     private Func<string, C4ElementRecords> InspectorRecords(C4WorkspaceEntry workspace)
@@ -1270,7 +1127,7 @@
     private IReadOnlyList<C4InspectorRecord> _crossCuttingDebt = [];
     private (C4Catalog? C4, Arc42DevbookCatalog? Chapters, C4RecordStates? States) _crossCuttingDebtFor;
 
-    /// <summary>The debt records that name no element, for the zoom tab's Debt overlay
+    /// <summary>The debt records that name no element, for the surface's Debt overlay
     /// tray. Read again only when the model or the chapters changed, so the explorer
     /// is handed the same list on every other render.</summary>
     private IReadOnlyList<C4InspectorRecord> CrossCuttingDebt()
@@ -1287,8 +1144,8 @@
         return _crossCuttingDebt;
     }
 
-    /// <summary>A chapter or a record picked in the zoom tab's inspector: followed
-    /// the way a reference in a chapter is, which brings the Chapters tab with it.</summary>
+    /// <summary>A chapter or a record picked in the surface's inspector: followed
+    /// the way a reference in a chapter is.</summary>
     private Task OpenInspectedRecordAsync(string path) =>
         DevbookReference.Parse(path) is { } reference ? NavigateDevbookReferenceAsync(reference) : Task.CompletedTask;
 
@@ -1298,13 +1155,13 @@
     private (Arc42DevbookCatalog? Catalog, C4Catalog C4, DevbookDocument? Record, C4RecordStates? States) _recordPlacementFor;
 
     /// <summary>
-    /// The open record's placement on the model, while <c>c4-zoom</c> is on and the
+    /// The open record's placement on the model, while the
     /// chapter open is an ADR or a TDR; null otherwise, which leaves the layout as it
     /// was. Worked out again only when the catalog, the model or the record changed.
     /// </summary>
     private C4RecordPlacement? RecordPlacement()
     {
-        if (_c4Store is not { ZoomEnabled: true } || _catalog is null || _selected is null) return null;
+        if (_catalog is null || _selected is null) return null;
 
         var states = RecordStates;
         if (!ReferenceEquals(_recordPlacementFor.Catalog, _catalog)
@@ -1319,14 +1176,13 @@
         return _recordPlacement;
     }
 
-    /// <summary>"Open in C4 zoom" on a record's map: the zoom tab, on the workspace
+    /// <summary>"Open in the C4 model" on a record's map: the surface's picture, on the workspace
     /// the record's links resolve in, at the container view with the element the
     /// request names selected.</summary>
     private void OpenRecordInC4Zoom(C4ZoomOpen request)
     {
         if (_recordPlacement?.Map is { } map) _selectedWorkspace = map.Workspace;
         _zoomOpen = request;
-        _tab = C4ZoomTab;
         _showDocument = false;
     }
 
@@ -1335,11 +1191,7 @@
     private Task NavigateRecordReferenceAsync(string reference) =>
         DevbookReference.Parse(reference) is { } parsed ? NavigateDevbookReferenceAsync(parsed) : Task.CompletedTask;
 
-    // ---- the architecture surface (c4-zoom on) -----------------------------
-
-    /// <summary>Whether the pane is the architecture surface: while <c>c4-zoom</c> is
-    /// on. Off, the tabs are drawn exactly as before.</summary>
-    private bool InSurface => _c4Store is { ZoomEnabled: true };
+    // ---- the architecture surface ------------------------------------------
 
     /// <summary>Whether a chapter, an ADR or a TDR stands in for the picture. Always,
     /// when there is no model to show.</summary>
@@ -1355,36 +1207,16 @@
 
     private void OnZoomLocationChanged(C4ZoomLocation location) => _zoomLocation = location;
 
-    /// <summary>"Back to the C4 model", or a press on the zoom bar: the picture again,
+    /// <summary>A press on the zoom bar, or a line of the C4 views: the picture again,
     /// where the reader left it.</summary>
     private void ReturnToModel() => _showDocument = false;
 
-    /// <summary>Which list the left navigation draws: the model's, or the one that
-    /// goes with the document open — the decisions chapter with the decision log, the
-    /// risks chapter with the debt.</summary>
-    private Arc42SurfaceMode SurfaceMode
-    {
-        get
-        {
-            if (!ShowingDocument || _selected is not { } document) return Arc42SurfaceMode.Model;
-            if (Arc42DevbookCatalog.IsArchitectureDecision(document.Path)) return Arc42SurfaceMode.Decisions;
-            if (Arc42DevbookCatalog.IsDebtRecord(document.Path)) return Arc42SurfaceMode.Debt;
-
-            return C4ElementInspection.NumberOf(document.Path) switch
-            {
-                Arc42Surface.DecisionsChapter => Arc42SurfaceMode.Decisions,
-                Arc42Surface.DebtChapter => Arc42SurfaceMode.Debt,
-                _ => Arc42SurfaceMode.Chapters
-            };
-        }
-    }
-
-    /// <summary>The left navigation: the find field, then the lists that go with what
-    /// is open. The surface has no header row; the find field heads this column.</summary>
+    /// <summary>The left navigation: the find field, then the one tree — the views, the
+    /// chapters, the records — whatever is open. The surface has no header row; the
+    /// find field heads this column.</summary>
     private RenderFragment SurfaceNavigation => @<div class="arc42-surface__side">
         <Arc42SurfaceFind Find="@FindInSurface" OnOpen="OpenFoundAsync" />
-        <Arc42SurfaceNavigation Mode="@SurfaceMode"
-                                Views="@SurfaceViews"
+        <Arc42SurfaceNavigation Views="@SurfaceViews"
                                 Location="@_zoomLocation"
                                 Documenting="@SurfaceDocumenting"
                                 Chapters="@SurfaceLists.Chapters"
@@ -1393,15 +1225,11 @@
                                 OpenPath="@(ShowingDocument ? _selected?.Path : null)"
                                 HasModel="@(Workspace is not null)"
                                 OnOpenView="OpenIndexedView"
-                                OnOpenDocument="OpenSurfaceDocumentAsync"
-                                OnShowChapters="ShowChaptersAsync"
-                                OnShowDecisions="ShowDecisionsAsync"
-                                OnShowDebt="ShowDebtAsync"
-                                OnBackToModel="ReturnToModel" />
+                                OnOpenDocument="OpenSurfaceDocumentAsync" />
     </div>;
 
-    /// <summary>The open chapter or record, as a fragment the Chapters tab and the
-    /// surface both draw.</summary>
+    /// <summary>The open chapter or record, as a fragment the surface draws in place
+    /// of the picture, or beside its navigation when there is no model.</summary>
     private RenderFragment ChapterDocument => RenderChapterDocument;
 
     /// <summary>After the open view's key: the chapters that document it.</summary>
@@ -1418,8 +1246,10 @@
         return numbers.Count == 0 ? " · documented by no chapter yet" : $" · documented by {string.Join(", ", numbers)}";
     }
 
+    /// <summary>The chapters that document the view the zoom is at — kept while a
+    /// document stands in for the picture, so the chapter list still marks them.</summary>
     private IReadOnlyList<Arc42SurfaceCitation> SurfaceDocumenting =>
-        _catalog is null || ShowingDocument ? [] : Arc42Surface.DocumentsView(_catalog, Workspace, _zoomLocation?.ViewKey);
+        _catalog is null ? [] : Arc42Surface.DocumentsView(_catalog, Workspace, _zoomLocation?.ViewKey);
 
     private IReadOnlyList<C4ViewIndexEntry> _surfaceViews = [];
     private (C4Workspace? Workspace, C4ZoomCode? Code) _surfaceViewsFor;
@@ -1571,32 +1401,6 @@
         await LoadSelectedChapterAsync();
     }
 
-    /// <summary>"All n chapters": the first chapter that documents the open view, or the
-    /// first chapter.</summary>
-    private Task ShowChaptersAsync()
-    {
-        var target = SurfaceDocumenting.FirstOrDefault()?.Path
-            ?? SurfaceLists.Chapters.FirstOrDefault(chapter => chapter.Number is not null)?.Path;
-
-        return target is null ? Task.CompletedTask : OpenSurfaceDocumentAsync(target);
-    }
-
-    /// <summary>"Decisions": the decisions chapter, beside the decision log — or the
-    /// first decision, in a folder without one.</summary>
-    private Task ShowDecisionsAsync() => OpenChapterOrFirstAsync(Arc42Surface.DecisionsChapter, SurfaceLists.Decisions);
-
-    /// <summary>"Technical debt": the risks chapter, beside the debt — or the first
-    /// debt record.</summary>
-    private Task ShowDebtAsync() => OpenChapterOrFirstAsync(Arc42Surface.DebtChapter, SurfaceLists.Debt);
-
-    private Task OpenChapterOrFirstAsync(string number, IReadOnlyList<Arc42SurfaceRecord> records)
-    {
-        var target = SurfaceLists.Chapters.FirstOrDefault(chapter => chapter.Number == number)?.Path
-            ?? records.FirstOrDefault()?.Path;
-
-        return target is null ? Task.CompletedTask : OpenSurfaceDocumentAsync(target);
-    }
-
     // ---- a record's state, from the subject store ---------------------------
 
     /// <summary>
@@ -1732,7 +1536,7 @@
                 var read = shown ? C4RecordStates.From(_subjects.List(RepositoryAlias)) : C4RecordStates.None;
 
                 // Kept when it says the same: every read below keys on this instance,
-                // and the zoom tab recounts its overlays for a new one.
+                // and the zoom navigation recounts its overlays for a new one.
                 if (!read.SameAs(_recordStates)) _recordStates = read;
             }
 
@@ -1742,7 +1546,7 @@
 
     // ---- the C4 model beside the chapters ----------------------------------
 
-    /// <summary>The workspace the C4 tab is on: the one chosen, or the only one
+    /// <summary>The workspace the surface is on: the one chosen, or the only one
     /// there is.</summary>
     private C4WorkspaceEntry? Workspace =>
         _selectedWorkspace is not null && _c4.Workspaces.Contains(_selectedWorkspace)
@@ -1752,134 +1556,31 @@
     private void SelectWorkspace(C4WorkspaceEntry entry)
     {
         _selectedWorkspace = entry;
-        _viewKey = null;
-    }
-
-    private void OnTabChanged(string tab)
-    {
-        _tab = tab;
-
-        // A request to open a view in the zoom tab is spent once the reader leaves
-        // it, so a zoom explorer created again later opens where it always opens.
-        if (tab != C4ZoomTab) _zoomOpen = null;
     }
 
     /// <summary>The view the host asked for, if it names one these workspaces have.
-    /// A reference that resolves to nothing leaves the panel where it was rather than
-    /// switching tabs for a view that does not exist.</summary>
+    /// A reference that resolves to nothing leaves the panel where it was.</summary>
     private void SelectRequestedView()
     {
         // On the surface a view the host names is a request once: asked again on every
         // parameter set it would close any chapter the reader opened since.
-        if (InSurface)
-        {
-            if (string.Equals(_seenC4View, SelectedC4View, StringComparison.Ordinal)) return;
-            _seenC4View = SelectedC4View;
-        }
+        if (string.Equals(_seenC4View, SelectedC4View, StringComparison.Ordinal)) return;
+        _seenC4View = SelectedC4View;
 
         if (string.IsNullOrWhiteSpace(SelectedC4View)) return;
         if (_c4.Find(SelectedC4View) is not { } view) return;
 
-        SelectView(view);
+        OpenViewInSurface(view);
     }
 
-    /// <summary>
-    /// Opening a view: the C4 tab, on that view's workspace, at that view.
-    /// <para>
-    /// Switching the tab is the point. Every way in — a chapter that lists the views
-    /// documenting it, a <c>.domain</c> chapter reaching across, the host naming one —
-    /// asks for a picture, and leaving the reader on the chapters tab with the
-    /// selection changed underneath them answers a question nobody asked.
-    /// </para>
-    /// </summary>
-    private void SelectView(C4ViewEntry view)
-    {
-        if (InSurface)
-        {
-            OpenViewInSurface(view);
-            return;
-        }
-
-        _selectedWorkspace = _c4.WorkspaceOf(view) ?? _selectedWorkspace;
-        _viewKey = view.Key;
-        _tab = C4Tab;
-    }
-
-    /// <summary>"Open in C4 tab" under a view a chapter embeds.</summary>
+    /// <summary>"Open in the C4 model" under a view a chapter embeds.</summary>
     private void OpenEmbeddedView(C4View view)
     {
         if (_c4.Views.FirstOrDefault(entry => string.Equals(entry.Key, view.Key, StringComparison.OrdinalIgnoreCase)) is { } entry)
         {
-            SelectView(entry);
+            OpenViewInSurface(entry);
         }
     }
-
-    /// <summary>The chapters the open view documents, drawn under the diagram. Handed
-    /// to the explorer as a slot because the component library has no idea what a
-    /// devbook chapter is, and should not learn.</summary>
-    private RenderFragment<C4View> ViewReferences => view => builder =>
-    {
-        var references = ReferencesTo(view);
-        var sequence = 0;
-
-        builder.OpenElement(sequence++, "div");
-        builder.AddAttribute(sequence++, "class", "devbook-c4-references");
-        builder.AddAttribute(sequence++, "data-testid", "arc42-c4-view-references");
-
-        if (references.Count > 0)
-        {
-            builder.OpenComponent<MetadataReferenceList>(sequence++);
-            builder.AddAttribute(sequence++, "References", references);
-            builder.AddAttribute(sequence++, "OnNavigate", EventCallback.Factory.Create<DevbookReference>(this, NavigateDevbookReferenceAsync));
-            builder.CloseComponent();
-        }
-        else
-        {
-            builder.OpenComponent<Alert>(sequence++);
-            builder.AddAttribute(sequence++, "Message", $"No chapter embeds this view yet. Embed it as ![…](c4:{view.Key}) in the chapter it belongs to.");
-            builder.AddAttribute(sequence++, "TestId", "arc42-c4-view-unreferenced");
-            builder.AddAttribute(sequence++, "Role", "status");
-            builder.CloseComponent();
-        }
-
-        builder.CloseElement();
-    };
-
-    /// <summary>The view kind as a reader says it: "System Context", not
-    /// "SystemContext".</summary>
-    private static string ViewKindLabel(C4ViewEntry view) => view.Kind switch
-    {
-        C4ViewKind.SystemLandscape => "System landscape",
-        C4ViewKind.SystemContext => "System context",
-        C4ViewKind.Container => "Container",
-        C4ViewKind.Component => "Component",
-        C4ViewKind.Dynamic => "Dynamic",
-        C4ViewKind.Deployment => "Deployment",
-        _ => "C4"
-    };
-
-    /// <summary>
-    /// The chapters the open view documents: the sections that embed it, plus what
-    /// <c>_c4/references.json</c> still states.
-    /// <para>
-    /// One map, read here and inverted for the chapter side, so the two directions
-    /// cannot disagree. A reference may name a section and this keeps the section: it
-    /// is part of what the author wrote. Whether a given chapter counts as documented is a
-    /// question about the file, which is <c>C4ViewEntry.Documented</c>.
-    /// </para>
-    /// </summary>
-    private List<DevbookReference> ReferencesTo(C4View view) =>
-        [.. (Workspace?.Documents(view.Key) ?? []).Select(DevbookReference.Parse).OfType<DevbookReference>()];
-
-    /// <summary>The views that say they document this chapter — the same authored
-    /// statement as <see cref="ReferencesTo"/> reads, inverted.</summary>
-    private List<C4ViewEntry> ViewsReferencedBy(DevbookDocument? document) =>
-        document is null || !_c4.HasViews
-            ? []
-            : [.. _c4.Views.Where(view => view.Documented(document.Path))];
-
-    private List<C4WorkspaceProblem> ProblemsFor(C4ViewEntry view) =>
-        [.. _c4.Problems.Where(problem => string.Equals(problem.WorkspaceFile, view.WorkspaceFile, StringComparison.OrdinalIgnoreCase))];
 
     public void Dispose()
     {

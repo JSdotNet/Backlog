@@ -8,7 +8,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class UserContextSourcesTests : IDisposable
 {
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-user-context-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-user-context-tests");
+
+    private string _home => _temp.Path;
 
     [Fact]
     public void Reads_the_user_level_instruction_file()
@@ -181,14 +183,5 @@ public sealed class UserContextSourcesTests : IDisposable
         File.WriteAllText(full, content);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

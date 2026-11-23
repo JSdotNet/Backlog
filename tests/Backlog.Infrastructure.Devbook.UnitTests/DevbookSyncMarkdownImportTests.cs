@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public sealed class DevbookSyncMarkdownImportTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-sync-import-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-sync-import-tests");
 
     [Fact]
     public void A_context_and_a_unit_stating_a_direction_are_imported_by_address()
@@ -20,7 +20,7 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
         Write("orders/domain.md", "# Orders\n\n```meta\ntype: domain\n```\n\n## Order\n\n```meta\ntype: aggregate\nsync: Push\n```\n");
         Write("context-map.md", "# Context Map\n\n```meta\nsync: report\n```\n");
 
-        var imported = DevbookSyncMarkdownImport.Read(_root, DevbookFolder.Domain);
+        var imported = DevbookSyncMarkdownImport.Read(_temp.Path, DevbookFolder.Domain);
 
         Assert.Equal(
             [
@@ -38,7 +38,7 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
 
         Assert.Equal(
             [("domain/orders/domain.md#customers-order", "push"), ("domain/orders/domain.md#user_id", "pull")],
-            DevbookSyncMarkdownImport.Read(_root, DevbookFolder.Domain));
+            DevbookSyncMarkdownImport.Read(_temp.Path, DevbookFolder.Domain));
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
         Write("orders/domain.md", "# Orders\n\n```meta\ntype: domain\n```\n\n## Order\n\n```meta\ntype: aggregate\n```\n\n### Order Line\n\n```meta\ntype: entity\nsync: push\n```\n");
         Write("orders/requirements.md", "# Requirements\n\n```meta\ntype: requirements\nsync: pull\n```\n");
 
-        Assert.Empty(DevbookSyncMarkdownImport.Read(_root, DevbookFolder.Domain));
+        Assert.Empty(DevbookSyncMarkdownImport.Read(_temp.Path, DevbookFolder.Domain));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
     {
         Write("orders/context.md", "# Orders\n\n```meta\ntype: context\nsync: both\n```\n");
 
-        Assert.Empty(DevbookSyncMarkdownImport.Read(_root, DevbookFolder.Domain));
+        Assert.Empty(DevbookSyncMarkdownImport.Read(_temp.Path, DevbookFolder.Domain));
     }
 
     [Fact]
@@ -63,13 +63,13 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
     {
         Write("orders/context.md", "# Orders\n\n````markdown\n## Sample\n\n```meta\ntype: aggregate\nsync: push\n```\n````\n");
 
-        Assert.Empty(DevbookSyncMarkdownImport.Read(_root, DevbookFolder.Domain));
+        Assert.Empty(DevbookSyncMarkdownImport.Read(_temp.Path, DevbookFolder.Domain));
     }
 
     [Fact]
     public void A_building_block_and_a_component_are_imported_and_an_index_root_is_not()
     {
-        var arc42 = Path.Combine(_root, "arc42");
+        var arc42 = _temp.Combine("arc42");
         Write("arc42/building-blocks/sync.md", "# Sync\n\n```meta\nsync: pull\n```\n");
         Write("arc42/building-blocks/README.md", "# Building Blocks\n\n```meta\nindex: root\nsync: push\n```\n");
         Write("design/component-libraries.md", "# Component Libraries\n\n## Button\n\n```meta\nsync: sync\n```\n");
@@ -77,7 +77,7 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
         Assert.Equal([("arc42/building-blocks/sync.md", "pull")], DevbookSyncMarkdownImport.Read(arc42, DevbookFolder.Arc42));
         Assert.Equal(
             [("design/component-libraries.md#button", "sync")],
-            DevbookSyncMarkdownImport.Read(Path.Combine(_root, "design"), DevbookFolder.Design));
+            DevbookSyncMarkdownImport.Read(_temp.Combine("design"), DevbookFolder.Design));
     }
 
     [Theory]
@@ -87,13 +87,13 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
     {
         Write("technology-graph.md", "# Graph\n\n```meta\nsync: push\n```\n");
 
-        Assert.Empty(DevbookSyncMarkdownImport.Read(_root, folder));
+        Assert.Empty(DevbookSyncMarkdownImport.Read(_temp.Path, folder));
     }
 
     [Fact]
     public void A_folder_that_is_not_there_imports_nothing()
     {
-        Assert.Empty(DevbookSyncMarkdownImport.Read(Path.Combine(_root, "missing"), DevbookFolder.Domain));
+        Assert.Empty(DevbookSyncMarkdownImport.Read(_temp.Combine("missing"), DevbookFolder.Domain));
     }
 
     /// <summary>
@@ -110,16 +110,11 @@ public sealed class DevbookSyncMarkdownImportTests : IDisposable
         Assert.Empty(DevbookSyncMarkdownImport.Read(domain, DevbookFolder.Domain));
     }
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private void Write(string relative, string content)
     {
-        var path = Path.Combine(_root, relative.Replace('/', Path.DirectorySeparatorChar));
+        var path = _temp.Combine(relative.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
     }

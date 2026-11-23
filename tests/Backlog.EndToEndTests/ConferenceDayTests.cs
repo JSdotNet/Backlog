@@ -295,8 +295,8 @@ public sealed class ConferenceDayTests
 
             await phone.Page.BringToFrontAsync();
             await OnPhoneEventuallyAsync(
-                "notes",
-                "Notes",
+                "inbox?kind=notes",
+                "Inbox",
                 async () => await ShowsAsync(phone.NoteRow(note))
                             && (await phone.NoteRow(note).InnerTextAsync()).Contains("Edited on the desktop", StringComparison.Ordinal),
                 "the desktop's edit to reach the phone's note");
@@ -310,10 +310,10 @@ public sealed class ConferenceDayTests
 
             await phone.Page.BringToFrontAsync();
             await OnPhoneEventuallyAsync(
-                "notes",
-                "Notes",
-                async () => await ShowsAsync(phone.Page.GetByTestId("notes-count")) && await phone.NoteRow(note).CountAsync() == 0,
-                "the archived note to leave the phone's Notes");
+                "inbox?kind=notes",
+                "Inbox",
+                async () => await ShowsAsync(phone.Page.GetByTestId("inbox-count")) && await phone.NoteRow(note).CountAsync() == 0,
+                "the archived note to leave the phone Inbox");
             await evidence.ScreenshotAsync(phone.Page, "phone-archived-note-gone");
 
             // 7. Offline: an Inbox capture with a photo, a plain one and a task for

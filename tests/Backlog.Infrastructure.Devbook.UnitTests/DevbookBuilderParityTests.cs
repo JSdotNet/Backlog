@@ -25,16 +25,14 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 public class DevbookBuilderParityTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-devbook-parity", Guid.NewGuid().ToString("N"));
-
-    public DevbookBuilderParityTests() => Directory.CreateDirectory(_scratch);
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-parity");
 
     [Fact]
     public void The_app_builds_the_same_database_as_the_node_writer()
     {
         var repository = RepositoryRoot.Root.FullName;
-        var fromNode = Path.Combine(_scratch, "node.db");
-        var fromApp = Path.Combine(_scratch, "app.db");
+        var fromNode = _temp.Combine("node.db");
+        var fromApp = _temp.Combine("app.db");
 
         RunNodeWriter(repository, fromNode);
         Assert.True(DevbookDatabaseBuilder.Build(repository, fromApp, TestContext.Current.CancellationToken));
@@ -67,7 +65,7 @@ public class DevbookBuilderParityTests : IDisposable
     [Fact]
     public void The_app_matches_the_node_writer_on_the_convention_s_edge_cases()
     {
-        var fixture = Path.Combine(_scratch, "fixture");
+        var fixture = _temp.Combine("fixture");
         foreach (var (path, text) in EdgeCases)
         {
             var file = Path.Combine(fixture, path.Replace('/', Path.DirectorySeparatorChar));
@@ -75,8 +73,8 @@ public class DevbookBuilderParityTests : IDisposable
             File.WriteAllText(file, text);
         }
 
-        var fromNode = Path.Combine(_scratch, "fixture-node.db");
-        var fromApp = Path.Combine(_scratch, "fixture-app.db");
+        var fromNode = _temp.Combine("fixture-node.db");
+        var fromApp = _temp.Combine("fixture-app.db");
 
         RunNodeWriter(fixture, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"));
         Assert.True(DevbookDatabaseBuilder.Build(fixture, fromApp, TestContext.Current.CancellationToken));
@@ -195,7 +193,8 @@ public class DevbookBuilderParityTests : IDisposable
     /// that hold a note — mixed case, one only deeply nested — by name, but not an
     /// ignored folder (one also declared), a dot-folder, a folder whose only note
     /// sits in a dot sub-folder or a folder with no note at all; the
-    /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, <c>repo:</c> links in
+    /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, a file's <c>review</c> —
+    /// a date, words, a list — and a heading's, which is not kept, <c>repo:</c> links in
     /// <c>related</c> and in prose (one inside a fence, one twice), a reference
     /// into an area that resolves to nothing, one outside every area, a repeated
     /// slug and the reading-order rules. The Node writer reads
@@ -215,7 +214,7 @@ public class DevbookBuilderParityTests : IDisposable
     [Fact]
     public void The_app_matches_the_node_writer_on_a_brain()
     {
-        var brain = Path.Combine(_scratch, "brain");
+        var brain = _temp.Combine("brain");
         foreach (var (path, text) in BrainCases)
         {
             var file = Path.Combine(brain, path.Replace('/', Path.DirectorySeparatorChar));
@@ -223,8 +222,8 @@ public class DevbookBuilderParityTests : IDisposable
             File.WriteAllText(file, text);
         }
 
-        var fromNode = Path.Combine(_scratch, "brain-node.db");
-        var fromApp = Path.Combine(_scratch, "brain-app.db");
+        var fromNode = _temp.Combine("brain-node.db");
+        var fromApp = _temp.Combine("brain-app.db");
 
         RunNodeWriter(brain, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"), brain: true);
         Assert.True(DevbookDatabaseBuilder.Build(brain, fromApp, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
@@ -249,6 +248,10 @@ public class DevbookBuilderParityTests : IDisposable
         }
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:para | value=TEXT:work", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:tasks", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-11-20", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:next week", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-11-20,2026-12-01", StringComparison.Ordinal));
+        Assert.DoesNotContain(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:review | value=TEXT:2026-01-01", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("type=TEXT:repo-link", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("target=TEXT:repo:backlog/.devbook/arc42/05-building-block-view.md#devbook", StringComparison.Ordinal));
         Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("id=TEXT:repo:", StringComparison.Ordinal));
@@ -304,7 +307,10 @@ public class DevbookBuilderParityTests : IDisposable
         ("work/02-second.md", "# Second\n"),
         ("work/01-first.md", "# First\n"),
         ("work/hidden.md", "# Hidden\n\n```meta\nindex: exclude\n```\n"),
-        ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\n```\n"),
+        ("work/clients/acme.md", "# Acme\n\n```meta\nrepos: acme-web\nreview: 2026-11-20\n```\n"),
+        ("work/clients/later.md", "# Later\n\n```meta\nreview: next week\n```\n"),
+        ("work/clients/blocks.md", "# Blocks\n\n```meta\ntype: note\ntasks:\n  - c5a14485\n  # a comment\n\n  - \"bb8ce071\"\nroadmap:\n  - +gtd-para\nrepos:\n- backlog\nrelated:\n  - work/standup.md\n```\n\n## Again\n\n```meta\ntasks:\n  - c5a14485\ntasks: [d1]\nroadmap: [sync]\nrepos:\n```\n"),
+        ("work/clients/twice.md", "# Twice\n\n```meta\nreview: [2026-11-20, 2026-12-01]\n```\n\n## Aside\n\n```meta\nreview: 2026-01-01\n```\n"),
         ("design/README.md", "# Design notes\n"),
         ("design/palette.md", "# Palette\n\n```meta\ntype: guideline\n```\n\n## Teal\n\nA calm accent.\n"),
         ("projects/brain.md", """
@@ -709,7 +715,6 @@ public class DevbookBuilderParityTests : IDisposable
                 ("edge", "id, type, source, target"),
                 ("outline_entry", "id"),
                 ("chapter", "id"),
-                ("archify_artifact", "chapter_path, fence_hash, ordinal"),
                 ("demo", "path"),
                 ("demo_link", "chapter_path, line, ordinal"),
                 ("chapter_embedding", "content_hash")
@@ -851,15 +856,5 @@ public class DevbookBuilderParityTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

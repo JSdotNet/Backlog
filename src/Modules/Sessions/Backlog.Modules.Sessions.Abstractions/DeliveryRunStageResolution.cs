@@ -201,14 +201,6 @@ public static partial class DeliveryRunStageResolution
     /// person approves, which Sessions asks about in a notification.</summary>
     public static bool IsGate(string? stageName) => stageName is not null && GateName().IsMatch(stageName);
 
-    /// <summary>Whether the run recorded a resolved phase map at all.</summary>
-    public static bool RecordsPhases(DeliveryRun run)
-    {
-        ArgumentNullException.ThrowIfNull(run);
-
-        return PhaseMap(Parse(run.RunContext), run.SkillId) is { Count: > 0 };
-    }
-
     /// <summary>
     /// What the stage's marks stand for, in words: the configured id that did not
     /// resolve, each field that ran other than configured, and an inference. The

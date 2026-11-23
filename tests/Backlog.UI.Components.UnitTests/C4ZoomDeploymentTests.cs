@@ -216,8 +216,8 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         Assert.DoesNotContain($"id=\"zoom-{Alias("pc.root")}\"", svg, StringComparison.Ordinal);
     }
 
-    /// <summary>The C4 tab's explorer passes no options, and its frames must stay
-    /// frames: a frame it cannot select drawn as a card would take its clicks.</summary>
+    /// <summary>A picture handed no selectable frames, a chapter's embed, keeps its
+    /// frames frames: a frame it cannot select drawn as a card would take its clicks.</summary>
     [Fact]
     public void Without_the_option_every_frame_is_drawn_as_before()
     {
@@ -228,8 +228,6 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     }
 
     // ---- nested frames -------------------------------------------------------------
-
-    private static readonly C4LayoutOptions Nested = new() { NestedDeploymentNodes = true };
 
     private static C4PlacedBoundary Frame(C4Diagram diagram, string label) =>
         Assert.Single(diagram.Boundaries, boundary => boundary.Label == label);
@@ -244,21 +242,10 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         && card.X + card.Width <= frame.X + frame.Width
         && card.Y + card.Height <= frame.Y + frame.Height;
 
-    /// <summary>The C4 tab's layout draws only the frame a card sits in directly, so a
-    /// node that holds only other nodes is not drawn. That picture is kept.</summary>
     [Fact]
-    public void Without_nested_frames_a_node_holding_only_nodes_is_not_drawn()
+    public void A_node_holding_only_nodes_is_drawn_round_them()
     {
         var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"));
-
-        Assert.DoesNotContain(diagram.Boundaries, boundary => boundary.Label == "Windows PC");
-        Assert.DoesNotContain(C4LayoutEngine.Build(Workspace, View("deployment-azure")).Boundaries, boundary => boundary.Label == "Azure");
-    }
-
-    [Fact]
-    public void With_nested_frames_a_node_holding_only_nodes_is_drawn_round_them()
-    {
-        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested);
 
         var pc = Frame(diagram, "Windows PC");
         Assert.Equal("Deployment Node", pc.Kind);
@@ -271,7 +258,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     [Fact]
     public void An_outer_frame_is_drawn_before_the_frames_inside_it()
     {
-        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-azure"), Nested);
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-azure"));
         var order = diagram.Boundaries.Select(boundary => boundary.Label).ToList();
 
         Assert.Contains("Azure", order);
@@ -282,7 +269,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     [Fact]
     public void Each_card_sits_in_its_own_frame_and_sibling_frames_are_apart()
     {
-        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested);
+        var diagram = C4LayoutEngine.Build(Workspace, View("deployment-local"));
         var msix = Frame(diagram, "MSIX package");
         var root = Frame(diagram, "User-owned root");
 
@@ -339,7 +326,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         var workspace = C4DslReader.Read(Deep);
         Assert.Empty(workspace.Problems);
 
-        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!, Nested);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!);
 
         var azure = Frame(diagram, "Azure");
         var data = Frame(diagram, "Managed data");
@@ -359,7 +346,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     public void A_frame_holding_frames_wraps_two_to_a_row()
     {
         var workspace = C4DslReader.Read(Deep);
-        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!, Nested);
+        var diagram = C4LayoutEngine.Build(workspace, workspace.View("deployment-azure")!);
 
         var cosmos = Frame(diagram, "Azure Cosmos DB");
         var storage = Frame(diagram, "Azure Storage");
@@ -373,8 +360,8 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     [Fact]
     public void With_nested_frames_the_outer_nodes_are_selectable_too()
     {
-        var local = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-local"), Nested));
-        var azure = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-azure"), Nested));
+        var local = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-local")));
+        var azure = C4ZoomDeployment.SelectableFrames(C4LayoutEngine.Build(Workspace, View("deployment-azure")));
 
         Assert.Contains(Alias("pc"), local);
         Assert.Contains(Alias("pc.msix"), local);
@@ -416,6 +403,31 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         var hidden = Assert.Single(explorer.FindAll("[role='tabpanel'][hidden]"));
         Assert.Empty(hidden.Children);
         Assert.All(explorer.FindAll("[role='tabpanel']"), panel => Assert.Equal("-1", panel.GetAttribute("tabindex")));
+    }
+
+    /// <summary>On the surface the environments are a switch in the view heading, not
+    /// a tab strip over the picture, so the picture keeps that strip's height.</summary>
+    [Fact]
+    public void On_the_surface_the_environments_are_a_switch_in_the_view_heading()
+    {
+        var explorer = _context.Render<C4ZoomExplorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.HintDismissed, true)
+            .Add(c => c.Navigation, (RenderFragment)(builder => builder.AddContent(0, "nav")))
+            .Add(c => c.OpenView, new C4ZoomOpen("deployment-local")));
+
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-environments']"));
+        Assert.Empty(explorer.FindAll("[role='tabpanel']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-zoom-frame']"));
+
+        var choices = explorer.FindAll("[data-testid='c4-zoom-tools'] [data-testid='c4-zoom-environment-choice']");
+        Assert.Equal(["Local machine", "Azure"], choices.Select(choice => choice.TextContent.Trim()));
+        Assert.Equal("true", choices[0].GetAttribute("aria-checked"));
+
+        explorer.FindAll("[data-testid='c4-zoom-environment-choice']").Single(choice => choice.TextContent.Trim() == "Azure").Click();
+
+        Assert.Equal("deployment-azure", explorer.Instance.ViewKey);
+        Assert.Equal("true", explorer.FindAll("[data-testid='c4-zoom-environment-choice']").Single(choice => choice.TextContent.Trim() == "Azure").GetAttribute("aria-checked"));
     }
 
     [Fact]
@@ -535,22 +547,6 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         var inspector = explorer.Find("[data-testid='c4-element-inspector']");
         Assert.Equal("Windows PC", inspector.QuerySelector("[data-testid='c4-inspector-name']")!.TextContent);
         Assert.Equal(2, inspector.QuerySelectorAll("[data-testid='c4-deployment-instance']").Length);
-    }
-
-    /// <summary>The C4 tab lays the same view out with no options: still one level of
-    /// frame, the machine round them not drawn.</summary>
-    [Fact]
-    public void The_C4_tab_draws_no_outer_node()
-    {
-        var explorer = _context.Render<C4Explorer>(parameters => parameters
-            .Add(c => c.Workspace, Workspace)
-            .Add(c => c.ViewKey, "deployment-local"));
-
-        var names = explorer.FindAll("svg.c4-diagram g.c4-diagram__boundary .c4-diagram__boundary-name")
-            .Select(name => name.TextContent)
-            .ToList();
-
-        Assert.Equal(["MSIX package", "User-owned root"], names);
     }
 
     [Fact]

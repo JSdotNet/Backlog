@@ -31,12 +31,21 @@
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
+    <!-- The Calendar (local ADR 0055): AddCalendarModule registers its Tasks, Plans and
+         Events layers' read policies. -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar\Backlog.Modules.Calendar.csproj" />
     <!-- Dev PC Management's port, which each head answers differently and hands in
          through the options. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <!-- The Brain module (local ADR 0040): AddBrainModule registers its adapters
          and the mode it adds to the Devbook pane. -->
     <ProjectReference Include="..\..\Modules\Brain\Backlog.Modules.Brain.UI\Backlog.Modules.Brain.UI.csproj" />
+    <!-- The Events pane (local ADR 0050): AddEventsSurface registers its takeover. -->
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.UI\Backlog.Modules.Events.UI.csproj" />
+    <!-- The Calendar view (local ADR 0055): AddCalendarSurface registers it, and it draws
+         its own grid (local ADR 0056). -->
+    <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.UI\Backlog.Modules.Calendar.UI.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />

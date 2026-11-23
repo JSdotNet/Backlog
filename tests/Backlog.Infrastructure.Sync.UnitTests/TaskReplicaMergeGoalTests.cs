@@ -1,5 +1,6 @@
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -52,10 +53,10 @@ public sealed class TaskReplicaMergeGoalTests
     }
 
     [Theory]
-    [InlineData(GoalReplicaOutcome.Echo, 0, 0)]
-    [InlineData(GoalReplicaOutcome.Refused, 0, 0)]
-    [InlineData(GoalReplicaOutcome.Unreadable, 0, 1)]
-    public async Task An_echo_an_older_copy_or_an_unreadable_one_counts_as_the_port_said(GoalReplicaOutcome answer, int applied, int skipped)
+    [InlineData(ReplicaOutcome.Echo, 0, 0)]
+    [InlineData(ReplicaOutcome.Refused, 0, 0)]
+    [InlineData(ReplicaOutcome.Unreadable, 0, 1)]
+    public async Task An_echo_an_older_copy_or_an_unreadable_one_counts_as_the_port_said(ReplicaOutcome answer, int applied, int skipped)
     {
         var goals = new RecordingGoalReplication { Answer = answer };
 

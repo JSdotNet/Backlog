@@ -251,7 +251,7 @@ public sealed class GitHubClientMergedPullRequestsTests
     [Fact]
     public async Task A_client_that_cannot_list_merged_pull_requests_refuses_like_github()
     {
-        IGitHubClient client = new NothingClient();
+        IGitHubClient client = new StubGitHubClient();
 
         await Assert.ThrowsAsync<GitHubException>(() =>
             client.ListMergedPullRequestsAsync(Repository, Since, TestContext.Current.CancellationToken));
@@ -297,19 +297,4 @@ public sealed class GitHubClientMergedPullRequestsTests
           "mergedBy": {{mergedBy}}
         }
         """;
-
-    private sealed class NothingClient : IGitHubClient
-    {
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
 }

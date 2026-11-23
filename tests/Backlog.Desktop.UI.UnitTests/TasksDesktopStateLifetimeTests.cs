@@ -32,7 +32,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class TasksDesktopStateLifetimeTests : IDisposable
 {
     private readonly FiringClock _clock = new();
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     /// <summary>
@@ -302,10 +302,10 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 
@@ -320,9 +320,9 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
 
     private string TempRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-state-lifetime", Guid.NewGuid().ToString("n"));
+        var root = new TemporaryDirectory("backlog-state-lifetime");
         _tempDirs.Add(root);
-        return root;
+        return root.Path;
     }
 
     private TasksDesktopState State(string root, TaskStoreCalls? storeCalls = null)

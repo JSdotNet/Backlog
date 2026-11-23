@@ -31,6 +31,11 @@ public static class InboxEnumMap
     /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>).</summary>
     public const string NoteKind = "note";
 
+    /// <summary>The slug of <see cref="ContentKind.Meeting"/>. A meeting's document
+    /// carries the <see cref="NoteKind"/> type with this kind beside it
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>).</summary>
+    public const string MeetingKind = "meeting";
+
     private static readonly WireTokenMap<InboxStatus> Statuses = new("inbox status", new Dictionary<InboxStatus, string>
     {
         [InboxStatus.Unprocessed] = "unprocessed",
@@ -51,7 +56,8 @@ public static class InboxEnumMap
         [ContentKind.Code] = "code",
         [ContentKind.Voice] = "voice",
         [ContentKind.ClaudeArtifact] = "claude-artifact",
-        [ContentKind.Note] = NoteKind
+        [ContentKind.Note] = NoteKind,
+        [ContentKind.Meeting] = MeetingKind
     });
 
     private static readonly WireTokenMap<RoutingDomain> RoutingDomains = new(
@@ -60,7 +66,8 @@ public static class InboxEnumMap
         {
             [RoutingDomain.Tasks] = "tasks",
             [RoutingDomain.Devbook] = "devbook",
-            [RoutingDomain.Archive] = "archive"
+            [RoutingDomain.Archive] = "archive",
+            [RoutingDomain.Events] = "events"
         },
         // The wire token the member carried before the context was renamed; nothing
         // routed there, but a row that did would still be readable rather than thrown on.
@@ -84,6 +91,13 @@ public static class InboxEnumMap
 
     public static RoutingDomain ParseRoutingDomain(string value) => RoutingDomains.Parse(value);
 
+    /// <summary>Whether a kind slug names a note or a meeting: the kinds that change
+    /// after they are captured and travel as a <see cref="NoteKind"/> document,
+    /// their tombstones included. Ordinal, as every token on the feed is compared.</summary>
+    public static bool IsNoteKind(string? slug) =>
+        string.Equals(slug, NoteKind, StringComparison.Ordinal)
+        || string.Equals(slug, MeetingKind, StringComparison.Ordinal);
+
     /// <summary>
     /// The channel token an item is filed under, from whatever a client wrote as
     /// its capture source. The editor extension calls itself <c>vscode</c> and
@@ -100,7 +114,7 @@ public static class InboxEnumMap
         return trimmed.ToLowerInvariant() switch
         {
             "vscode" => "ide",
-            var known and ("mobile" or "youtube" or "website" or "email" or "web_clipper" or "ide" or "import" or ManualChannel) => known,
+            var known and ("mobile" or "youtube" or "website" or "event_page" or "email" or "web_clipper" or "ide" or "import" or ManualChannel) => known,
             _ => trimmed
         };
     }

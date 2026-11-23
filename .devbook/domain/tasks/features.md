@@ -8,7 +8,6 @@ type: features
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
 
@@ -111,8 +110,8 @@ is recorded, not how much.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage, .devbook/arc42/adr/0053-a-plan-or-a-task-may-reference-a-brain-note.md]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskDevbookReferenceTests.A_brain_note_is_kept_as_its_address, unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanDevbookReferenceTests.A_devbook_token_naming_a_brain_note_lands_on_the_task, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainDevbookReferenceResolverTests, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_brain_address_is_never_looked_up_in_the_repository_devbook, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.A_brain_note_is_listed_with_the_brain_scope_and_its_note_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_brain_note_is_a_brain_chip_that_says_when_it_is_not_in_this_brain_and_can_be_removed, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
 A task can point at the parts of a journey that prove it. A journey is one
@@ -152,6 +151,24 @@ screenshot is shown where its scenarios file is read in the Devbook pane
 A coding session gets the same answer. Listing a task's Devbook references gives
 each part with its state, last run and failed step, and a count
 with whether the task is proved.
+
+A task's Devbook references may also name a note in the person's Brain, as
+`#brain:<path from the Brain's root>`, optionally followed by `#heading`. It is
+typed into the task's Devbook picker, written by Import's `devbook:` token, or set
+over MCP. One that names no note, such as `#brain:` alone, is refused. It is never
+looked up in the repository's devbook.
+
+Only the Brain's owner sees it resolved, from their own Brain. The task shows it as
+a Brain chip titled from the note, which opens the note on the Devbook pane's Brain
+side. Anyone else, and an owner with no Brain set, sees the address unresolved,
+never as an error. A Brain without the note says so on the chip. Either way the
+chip can be removed.
+
+Listing the references over MCP marks the note with `scope: "#brain"` and gives
+its path from the Brain's root, which `read_knowledge_chapter` reads under
+`#brain` ([MCP Brain scope](../brain/features.md#mcp-brain-scope)). A session run
+on the task reads those notes before it works. The address travels with the task,
+and the note's content never does (local ADR 0053).
 
 ## Bulk editing
 
@@ -219,8 +236,10 @@ depends-on: [.devbook/domain/tasks/features.md#effort-registration]
 related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .devbook/domain/tasks/features.md#task-dependencies]
 ```
 
-Say how much work is open, not only how it splits. The total sits at the end of the filter bar as one line: how many tasks
-are open, the points they carry, and how many carry none.
+Say how much work is open, not only how it splits. The total is one line: how many tasks
+are open, the points they carry, and how many carry none. It sits at the end of the
+filter bar. In a narrow list it moves beside **New entry**, so the bar keeps its room for filters.
+The Board has no **New entry** row, so there it stays on the bar.
 
 It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
@@ -481,6 +500,30 @@ tracked [raises an impediment](../progress/features.md#raising-an-impediment) an
 [links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
 The task stores no impediment id, and Tasks never calls Progress.
 
+### Waiting for someone
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#waiting-for, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.The_waiting_for_survives_the_canonical_rewrite, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryWaitingForTests.A_passed_follow_up_date_reads_overdue, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskWaitingForTests.A_database_written_before_the_waiting_for_columns_still_opens_and_reads, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaWaitingForTests.A_waiting_for_survives_the_json_document, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.WaitingForToolsTests.List_entries_names_who_an_entry_waits_on_and_when_to_follow_up, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_slice_keeps_the_waiting_tasks_soonest_follow_up_first_and_undated_last, unit:dotnet:Backlog.Desktop.UI.UnitTests.WaitingForScopeTests.The_editor_clears_the_follow_up_date_alone_or_the_whole_waiting_for]
+```
+
+Record who a task waits on outside the backlog, and when to chase them: its
+[Waiting For](domain.md#waiting-for). It is the `waiting:` token on the task's
+metadata line, free text, with an optional `followup:` date beside it. It is not
+the "Waiting for" of a [dependency chain](#readiness-and-chain-order), which names
+other entries.
+
+- The open task's **Waiting on someone** group names who and the follow-up date,
+  and clears either. Clearing who clears the date too.
+- A follow-up date that has passed reads overdue on the task until the waiting-for
+  is cleared or the task is ticked off.
+- The filter bar's **Waiting** scope lists the open tasks waiting on someone,
+  soonest follow-up first and undated last. Reordering is off while it is on,
+  because that order is not the rank.
+- `list_entries` and `read_item` name who and the date. The waiting-for crosses
+  [sync](#multi-device-sync) as two fields of the task's document.
+
 ### Filing a follow-up after an entry
 
 ```meta
@@ -733,7 +776,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 ```meta
 type: feature
 related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_tab_shows_the_grid_in_its_own_region_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
 Find and narrow the backlog:
@@ -774,20 +817,25 @@ every repository. A scope narrowed back to one comes back as that one. Where an
 appears in the scope, the Board and the pickers is set by
 [its requirements](../repository-management/requirements.md#archiving-a-repository).
 
-The filtered tasks can be read three ways, picked in the header's view switch:
-**Tasks**, the list with the open task beside it; the
-[Board](#board-view); and the [Calendar](#calendar-view). The three share one
-filter bar, one open task and one selection, so switching never loses what the reader narrowed to.
+The filtered tasks can be read two ways, picked in the header's view switch:
+**Tasks**, the list with the open task beside it, and the
+[Board](#board-view). The two share one filter bar, one open task and one selection, so
+switching never loses what the reader narrowed to. The
+[Calendar](../calendar/features.md#calendar-view) is a surface of its own, under a header
+tab of its own, and shows the tasks as its [Tasks layer](#tasks-on-the-calendar). The
+filter bar does not reach it.
 
 Among the filters is the [Task Type](domain.md#task-type): prompt, task, idea or
-test, one at a time. The Board and the Calendar, including its tray of tasks with
-no due date, narrow by type like the list. The filter bar belongs to
-these three views only. The app reopens on the view last
+test, one at a time. The Board narrows by type like the list. The filter bar belongs to
+these two views only. The app reopens on the view last
 chosen, and on Tasks by default. The Inbox and the Devbook open
 beside any of them.
 
-The tags on the filter bar sit in one row, and the strip shows a
-**More** toggle only while its tags overflow it. A pressed
+The source and type filters offer only what has open work, plus the one pressed.
+In a narrow list, both fold into one **Filter** menu on the bar.
+
+The tags on the filter bar sit in one row of their own, below the other filters,
+and the strip shows a **More** toggle only while its tags overflow it. A pressed
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
 `+` and all, while the
@@ -813,6 +861,34 @@ related: [.devbook/domain/tasks/requirements.md#manual-ordering]
 Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. Where a task nobody ranked lands is
 [a requirement](requirements.md#requirement-unranked-tasks-fall-back-to-recency).
+
+### Next actions
+
+```meta
+type: sub-feature
+related: [.devbook/domain/tasks/domain.md#readiness, .devbook/domain/tasks/domain.md#context, .devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#waiting-for, .devbook/domain/brain/domain.md#para-category, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_keeps_the_next_actions_grouped_by_context_then_no_context, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_chips_narrow_the_slice_and_name_the_unfiled_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_slice_composes_with_the_repository_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.NextActionsScopeTests.The_area_picker_suggests_the_brain_areas_first_then_the_areas_in_use, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryContextTagTests.A_context_on_the_metadata_line_survives_the_canonical_rewrite]
+```
+
+The filter bar's **Next actions** scope lists what can be picked up now:
+
+- an open task whose [Readiness](domain.md#readiness) is ready;
+- that waits on nobody, with no [Waiting For](domain.md#waiting-for);
+- and that is not [marked blocked](#marking-a-task-blocked).
+
+The tasks are grouped by [Context](domain.md#context), the tags starting `@`, by
+name. The tasks with no context come last, under *No context*. A task with two
+contexts is listed once, under the first by name. Rank decides the order within
+a group. Reordering is off while the scope is on, because that order is not the
+rank.
+
+The scope composes with the repository scope, the Brain chip and the other scope
+chips, as My Day does. While it is on, the area chips narrow it to one
+[Area](domain.md#area), or to *No area*.
+
+The open task's **Area** picker files the task under an area. It suggests the
+Brain's area names first, then the areas already used on a task, and takes
+whatever is typed.
 
 ### Board view
 
@@ -847,108 +923,36 @@ done. Dropping it makes the same status change as the task's status picker.
 Each status column ends in a way to write a new task into that status.
 With the task open beside it, the board scrolls sideways rather than squeezing its columns.
 
-### Calendar view
+### Tasks on the Calendar
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/features.md#planned-hours, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/calendar/context.md#show-tasks, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
-The same filtered tasks laid out on a month or on a week by their
-[Due Date](domain.md#due-date), under the same filters and beside the same open
-task. A **Month | Week** choice beside the month's name picks the range. One of the two is always pressed, and the choice is remembered on this device. The month
-runs Monday to Sunday in whole weeks, so its first and last rows reach into the
-neighbouring months. Those days are dimmed, and weekends are shaded. Today is
-marked and says how many tasks are in [My Day](#my-day).
+The [Calendar](../calendar/features.md#calendar-view) is a surface of its own, and the
+tasks are its Tasks layer (local ADR 0056). The Calendar reads them through a port it
+owns, which an adapter answers over Tasks' published contract, so Tasks registers
+nothing for the Calendar. The layer lays out each task with a
+[Due Date](domain.md#due-date) in the range, within the repository scope. The Tasks
+filter bar does not narrow it, and the open task and the selection stay in Tasks. The
+Calendar's [Show tasks](../calendar/context.md#show-tasks) choice turns the layer off.
 
-Each day lists its tasks with their lifecycle state. An open task
-past its due date stands out as overdue, and a finished one is struck through. On
-the month, past two a day folds the rest behind a count that opens the whole day.
-A recurring task shows on its due date only, because the next occurrence is written when
-this one is finished.
+Each day lists its tasks with their lifecycle state. An open task past its due date
+stands out as overdue, and a finished one is struck through and never overdue. An
+archived task is left out, as the Tasks view leaves it out by default. On the month,
+past two a day folds the rest behind a count that opens the whole day. A recurring task
+shows on its due date only, because the next occurrence is written when this one is
+finished.
 
-The open tasks with no due
-date wait beside the calendar. Dragging one onto a day gives it that due date,
-and dragging a task to another day moves it. Only the due date places a task here.
+Pressing a task shows the Tasks view with that task selected and open. Dragging a task
+to another day moves its due date. Only the due date places a task here: a task with no
+due date is not on the Calendar, and gets one in Tasks.
 
-The week shows its seven days, Monday first, as tall columns. Each day lists
-every task, with nothing folded and no day dimmed. The reader picked the week, so a day of the neighbouring month is part of it. The plans, the
-[planned hours](#planned-hours) and the drags work as on the month.
-Previous and next step a week at a time. The heading names the week's
-days, such as "5 – 11 October 2026".
-
-- Switching to the week opens on the week holding today when today is in the
-  month shown, and on the month's first week otherwise.
-- Switching back to the month shows the month holding the week's Thursday. A
-  week across two months therefore lands in the month that holds most of its
-  days.
-- Only the range is remembered, never the date shown.
-
-The roadmap's plans can be drawn over the month. A **Show plans** choice beside
-the month's name turns them on; it is off by default, and remembered on this device.
-
-- Each planned item's window is a bar across the days it spans, cut at every
-  week, under the day numbers and above the tasks.
-- Plans that overlap in a week each take a row of their own. A bar carried on
-  from the week before opens with "…".
-- A bar says its title, its plan tag and how many of its points are finished out
-  of the total.
-- A bar wears its repository's colour while repository colours are showing, as on
-  the roadmap. It wears a neutral grey while they are not.
-- A milestone is a diamond on its date.
-
-Beside the tasks with no due date, **Plans without a window** lists the plans
-waiting on the roadmap's
-[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first).
-Dropping one on a day starts its window there. The roadmap, never the Tasks view,
-works out where it ends from its points and the pace, as it places any plan.
-
-The drop is a pointer gesture. The keyboard ways are on the
-roadmap: its shelf's **Plan it** places the plan from today, and its item editor
-moves the window to any day. The Calendar reads the plans and starts a shelf plan, and changes nothing else.
-
-### Planned hours
-
-```meta
-type: sub-feature
-related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md, .devbook/design/interaction-guidelines.md#combobox]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests]
-```
-
-The person can set [Planned Hours](domain.md#planned-hours) aside for a task on
-a day of the [Calendar](#calendar-view). A day shows each such task as a chip of its own with the figure, such as "Refactor sync · 3h", apart
-from the due-date chips. The day adds its hours up against the hours the person
-works that day, read from the roadmap's working week and days off. A day holding
-more is marked, and says by how much.
-
-Hours are set in either of two ways:
-
-- From a day's **Add hours…**, which asks for the task and the figure.
-- By dragging a task onto a day with Shift held, from the month or from the
-  tasks with no due date. This asks for the figure only and leaves the due date.
-
-Pressing a task's hours on a day changes or removes them. The open task's
-**Planned hours** lists every day it has hours on, to change, remove or add one.
-The hours follow the filters and repository colours like the task chips.
-
-The figure is typed, or taken from suggestions: half an hour, and
-1, 2, 3, 4, 6 and 8 hours. A typed figure is rounded to the quarter hour. A figure
-that is not a number, is none, or is more than a whole day is refused with a
-sentence that says why.
-
-In the open task's **Planned hours**, a refused figure goes back to the
-figure that stood. Taking a suggestion for a day there changes that day at once.
-A typed figure is kept on Enter or when the field is left. On the line that adds
-a day, a suggestion only fills in the figure, and **Add hours** adds the day and
-the figure together.
-
-When the day's hours editor closes, the keyboard focus goes back to what opened
-it: the task's hours on the day, or the day's **Add hours…**. After the hours are removed, the
-focus goes to **Add hours…**.
-
-The roadmap never reads planned hours. A plan's window and pace come from points and finished work, so setting hours aside moves no bar on
-the roadmap or the Calendar.
+The [planned hours](../calendar/features.md#planned-hours) on a day are the task's
+[Planned Hours](domain.md#planned-hours). Every change the layer makes, a due date or
+an hours figure, goes through Tasks' published contract, as the task's own editor makes
+it.
 
 ## Prompt features
 
@@ -965,7 +969,6 @@ entry while the [`copy-entries`](context.md#copy-entries) flag is on (the defaul
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/tasks/context.md#copy-entries
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#task-type]
 ```
 

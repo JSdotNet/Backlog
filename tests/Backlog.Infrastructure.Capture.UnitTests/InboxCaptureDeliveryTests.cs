@@ -109,6 +109,36 @@ public sealed class InboxCaptureDeliveryTests
         Assert.Null(capture.ListId);
         Assert.Null(capture.Tags);
         Assert.Null(capture.Person);
+        Assert.Null(capture.Event);
+    }
+
+    /// <summary>An event page capture's dates, place and watched page reach the
+    /// Inbox part for part (<c>.devbook/domain/inbox/domain.md#event-facts</c>).</summary>
+    [Fact]
+    public async Task An_event_page_captures_facts_travel_to_the_intake()
+    {
+        var intake = new RecordingIntake();
+        var offset = TimeSpan.FromHours(1);
+        var item = new CaptureItem(
+            Guid.NewGuid(), CaptureSourceKind.EventPage, "dotNET Friday Q4", "https://dotnetfriday.nl/q4", null, CapturedAt,
+            new CaptureFacts(null, [], null, null)
+            {
+                Event = new CaptureEventFacts(
+                    new CaptureEventDate(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), offset),
+                    new CaptureEventDate(new DateOnly(2026, 11, 27)),
+                    "Nieuwegein",
+                    "https://dotnetfriday.nl",
+                    "dotNET Friday")
+            });
+
+        await new InboxCaptureDelivery(intake).DeliverAsync(item, TestContext.Current.CancellationToken);
+
+        var facts = Assert.Single(intake.Received).Event!;
+        Assert.Equal(new InboxEventDateDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), offset), facts.Start);
+        Assert.Equal(new InboxEventDateDto(new DateOnly(2026, 11, 27)), facts.End);
+        Assert.Equal("Nieuwegein", facts.Place);
+        Assert.Equal("https://dotnetfriday.nl", facts.PageUrl);
+        Assert.Equal("dotNET Friday", facts.PageTitle);
     }
 
     private sealed class FixedLists(params InboxListDto[] lists) : IInboxListLookup

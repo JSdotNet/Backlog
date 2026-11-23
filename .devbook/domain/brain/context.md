@@ -66,7 +66,7 @@ related: [".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/brai
 
 With the `atlas-lobes` flag on, the Devbook pane's **Atlas** button opens the [Lobes atlas](features.md#lobes-atlas) on the header's repository scope, whose anchor the pane reads. The shell header offers the atlas. Off, the button opens today's atlas and the header offers none. The Technology section keeps its own views either way.
 
-It ships off, marked in development, while the Lobes atlas is finished. The key is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the settings screen lists it with the other switches. A person's choice is kept in `features.json` like the pane's. It means nothing with Devbook off: Devbook's scope service answers the header and the pane from the two switches together.
+It ships off, marked in development, while the Lobes atlas is finished. The key is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the settings screen lists it with the other switches. A person's choice is kept in `features.json`.
 
 ## Dependencies
 
@@ -79,10 +79,11 @@ The Brain is downstream of Devbook, whose reading machinery it uses, and of the 
 | [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), conforming to the devbook convention as Published Language | In-process use of Devbook's Markdown and `meta` reader, builder, viewer, search and remarks | The devbook convention (local ADR 0016); `DevbookCorpusProfile`, the corpus hook; local ADR 0040 | A Brain note is a devbook chapter with three more fields. |
 | [Devbook](../devbook/context.md) | Customer/Supplier (Devbook = supplier), read-only | In-process: Devbook's reader opens the devbook database of every registered repository for the [Lobes atlas](features.md#lobes-atlas) | The devbook database and its reader (local ADR 0015); local ADR 0040 §2 | The Lobes atlas draws every registered repository's devbook beside the Brain. |
 | [Devbook](../devbook/context.md) | One-way reference | A [repo link](domain.md#repo-link), `repo:<alias>/<devbook path>[#slug]`, resolved against the repositories configured on this machine | `.devbook/domain/brain/domain.md#repo-link`; local ADR 0027 §6 | A note points at the repository chapter it is about. A repository devbook never links back. |
-| [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link, read both ways from the note's `tasks` field | `.devbook/domain/brain/domain.md#cross-linking` | Notes link to tasks, and a task row counts the owner's notes that name it. |
+| [Tasks](../tasks/domain.md#task) | Partnership | Id-based cross-link, read both ways from the note's `tasks` field; the app appends to it | `.devbook/domain/brain/domain.md#cross-linking`; local ADR 0052 | Notes link to tasks, and a task row counts the owner's notes that name it. |
 | [Repository Management](../repository-management/context.md) | Customer/Supplier (Repository Management = supplier) | Repository registry lookup by alias | The configured repository aliases | A repo link's alias resolves only on a machine where that repository is configured. |
 
 - **Devbook, the chapter machinery.** The Brain reads, indexes and renders a note with Devbook's machinery, applied to the Brain folder. `DevbookCorpusProfile` in `Backlog.Infrastructure.Devbook` is the hook through which Devbook's builder reads that folder.
+- **Tasks.** When the app makes a task or a plan from a note, [Cross-Linking](domain.md#cross-linking) appends the task's id to the note's `tasks` field, or the plan's Roadmap Tag to its `roadmap` list (local ADR 0052).
 - **Devbook, the database reader.** The read runs one way, Brain to Devbook. The Brain writes nothing into a repository's devbook, and none links into the Brain.
 - **Repository Management.** The registry also lists the repositories whose devbooks the Lobes atlas draws. An alias the notes name that the registry does not hold is a ghost devbook there.
 

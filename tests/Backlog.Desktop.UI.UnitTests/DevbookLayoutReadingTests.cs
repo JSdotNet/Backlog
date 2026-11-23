@@ -20,10 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookLayoutReadingTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-devbook-layout-reading-tests",
-        Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-layout-reading-tests");
 
     private const string Scope = ".devbook/domain";
 
@@ -66,14 +63,14 @@ public sealed class DevbookLayoutReadingTests : IDisposable
     [Fact]
     public void A_devbook_only_holding_configuration_is_not_the_devbook_layout()
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook"));
-        File.WriteAllText(Path.Combine(_root, ".devbook", "config.json"), "{}");
+        Directory.CreateDirectory(_temp.Combine(".devbook"));
+        File.WriteAllText(_temp.Combine(".devbook", "config.json"), "{}");
 
-        Assert.False(DevbookLayout.UsesDevbookLayout(_root));
+        Assert.False(DevbookLayout.UsesDevbookLayout(_temp.Path));
 
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook", "tech"));
+        Directory.CreateDirectory(_temp.Combine(".devbook", "tech"));
 
-        Assert.True(DevbookLayout.UsesDevbookLayout(_root));
+        Assert.True(DevbookLayout.UsesDevbookLayout(_temp.Path));
     }
 
     /// <summary>Local ADR 0015: in either layout the database is the app's, keyed
@@ -82,19 +79,19 @@ public sealed class DevbookLayoutReadingTests : IDisposable
     [Fact]
     public void The_database_of_either_layout_is_in_app_storage_and_not_in_the_repository()
     {
-        var domain = Path.Combine(_root, ".devbook", "domain");
+        var domain = _temp.Combine(".devbook", "domain");
         Directory.CreateDirectory(domain);
         var legacy = CreateEmptyFile(".devbook", "_meta", DevbookDatabaseLocation.FileName);
         var rootLegacy = CreateEmptyFile("_meta", DevbookDatabaseLocation.FileName);
 
-        var database = DevbookDatabaseLocation.ForRepositoryRoot(_root);
+        var database = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path);
 
         Assert.NotNull(database);
         Assert.NotEqual(legacy, database);
         Assert.NotEqual(rootLegacy, database);
-        Assert.False(database.StartsWith(_root, StringComparison.OrdinalIgnoreCase), "the database is outside the repository");
+        Assert.False(database.StartsWith(_temp.Path, StringComparison.OrdinalIgnoreCase), "the database is outside the repository");
         Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(domain));
-        Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(Path.Combine(_root, ".domain")));
+        Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(_temp.Combine(".domain")));
     }
 
     [Fact]
@@ -266,7 +263,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
     {
         // The AI and Design views name their documents .ai/… whichever layout the
         // folder is in; the write resolves that against the folder it was read from.
-        var folder = Path.Combine(_root, ".devbook", "ai");
+        var folder = _temp.Combine(".devbook", "ai");
         Directory.CreateDirectory(folder);
         var file = Path.Combine(folder, "01-author.md");
         File.WriteAllText(file, "# Author\n\n```meta\nstatus: trial\n```\n\nWriting with AI.\n");
@@ -274,12 +271,12 @@ public sealed class DevbookLayoutReadingTests : IDisposable
         DevbookMarkdownRatingWriter.UpdateRating(folder, DocumentDevbookFolder.Ai.DocumentPath("01-author.md"), DocumentDevbookFolder.Ai.PathPrefix, "adopted");
 
         Assert.Contains("rating: adopted", File.ReadAllText(file));
-        Assert.False(Directory.Exists(Path.Combine(_root, ".ai")));
+        Assert.False(Directory.Exists(_temp.Combine(".ai")));
     }
 
     private string Arrange(bool withDatabase = true)
     {
-        var folder = Path.Combine(_root, ".devbook", "domain");
+        var folder = _temp.Combine(".devbook", "domain");
         Directory.CreateDirectory(Path.Combine(folder, "inbox"));
 
         Write(ChapterPath, "# Inbox\n\nQuick capture never blocks on a decision.\n");
@@ -287,7 +284,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
 
         if (!withDatabase) return folder;
 
-        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -334,7 +331,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
 
     private string CreateEmptyFile(params string[] segments)
     {
-        var path = Path.Combine([_root, .. segments]);
+        var path = _temp.Combine(segments);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, string.Empty);
         return path;
@@ -343,7 +340,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
     private void Write(string relativePath, string markdown) => File.WriteAllText(Resolve(relativePath), markdown);
 
     private string Resolve(string relativePath) =>
-        Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        _temp.Combine(relativePath.Replace('/', Path.DirectorySeparatorChar));
 
     private static void Execute(SqliteConnection connection, string sql)
     {
@@ -358,14 +355,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        SqliteConnection.ClearAllPools();
+        _temp.Dispose();
     }
 }

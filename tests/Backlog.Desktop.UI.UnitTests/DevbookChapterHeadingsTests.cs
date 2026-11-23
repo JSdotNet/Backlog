@@ -65,26 +65,19 @@ public sealed class DevbookChapterHeadingsTests
     [Fact]
     public void A_path_that_leaves_the_repository_reads_nothing()
     {
-        var parent = Directory.CreateTempSubdirectory("headings-");
-        try
-        {
-            var root = Directory.CreateDirectory(Path.Combine(parent.FullName, "repo"));
-            System.IO.File.WriteAllText(Path.Combine(parent.FullName, "outside.md"), "## Secret\n");
-            System.IO.File.WriteAllText(Path.Combine(root.FullName, "inside.md"), "## Shared\n");
+        using var parent = new TemporaryDirectory("headings");
+        var root = Directory.CreateDirectory(parent.Combine("repo"));
+        System.IO.File.WriteAllText(parent.Combine("outside.md"), "## Secret\n");
+        System.IO.File.WriteAllText(Path.Combine(root.FullName, "inside.md"), "## Shared\n");
 
-            var outside = DevbookReference.Parse("../outside.md#secret");
-            var inside = DevbookReference.Parse("inside.md#shared");
-            Assert.NotNull(outside);
-            Assert.NotNull(inside);
+        var outside = DevbookReference.Parse("../outside.md#secret");
+        var inside = DevbookReference.Parse("inside.md#shared");
+        Assert.NotNull(outside);
+        Assert.NotNull(inside);
 
-            var names = DevbookChapterHeadings.Read(root.FullName, [outside, inside]);
+        var names = DevbookChapterHeadings.Read(root.FullName, [outside, inside]);
 
-            Assert.Equal("Shared", Assert.Single(names).Value);
-            Assert.Empty(DevbookChapterHeadings.Read(null, [inside]));
-        }
-        finally
-        {
-            parent.Delete(recursive: true);
-        }
+        Assert.Equal("Shared", Assert.Single(names).Value);
+        Assert.Empty(DevbookChapterHeadings.Read(null, [inside]));
     }
 }

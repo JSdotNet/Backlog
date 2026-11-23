@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -54,9 +55,9 @@ public sealed class TaskReplicaMergeRoadmapTests
     /// <summary>ADR 0018 Verification 2 and 3: an older copy and an echo write
     /// nothing, so they count as neither applied nor skipped.</summary>
     [Theory]
-    [InlineData(RoadmapReplicaOutcome.Echo)]
-    [InlineData(RoadmapReplicaOutcome.Refused)]
-    public async Task An_echo_or_an_older_copy_counts_as_nothing_applied(RoadmapReplicaOutcome answer)
+    [InlineData(ReplicaOutcome.Echo)]
+    [InlineData(ReplicaOutcome.Refused)]
+    public async Task An_echo_or_an_older_copy_counts_as_nothing_applied(ReplicaOutcome answer)
     {
         var roadmap = new RecordingRoadmapReplication { Answer = answer };
         var activity = new SyncActivityLog();
@@ -73,7 +74,7 @@ public sealed class TaskReplicaMergeRoadmapTests
     [Fact]
     public async Task A_copy_the_roadmap_cannot_read_counts_skipped()
     {
-        var roadmap = new RecordingRoadmapReplication { Answer = RoadmapReplicaOutcome.Unreadable };
+        var roadmap = new RecordingRoadmapReplication { Answer = ReplicaOutcome.Unreadable };
 
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), roadmap: roadmap)
             .ApplyAsync([TaskChanges.Record(RoadmapReplicaChanges.Plan("not a plan", Morning), OtherPc, 100)], Cancellation);

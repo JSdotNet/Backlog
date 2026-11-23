@@ -3,10 +3,12 @@ using System.Text.Json;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.C4;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 
 using DevbookC4Graph = Backlog.Infrastructure.Devbook.Building.DevbookC4Graph;
+using DevbookC4Includes = Backlog.Infrastructure.Devbook.Building.DevbookC4Includes;
 using DevbookMarkdown = Backlog.Infrastructure.Devbook.Building.DevbookMarkdown;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -14,8 +16,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <summary>
 /// The C4 model that sits beside the architecture chapters.
 /// <para>
-/// Everything the pure reader deliberately does not know is here: whether the
-/// feature is switched on, which repository clone the chapters came from, and where
+/// Everything the pure reader deliberately does not know is here: which repository
+/// clone the chapters came from, and where
 /// <c>workspace.dsl</c> sits inside it. The reader is handed text and answers with a
 /// workspace; this is where that becomes a question about files.
 /// </para>
@@ -34,13 +36,6 @@ namespace Backlog.Desktop.UI.Devbook;
 /// rather than read, and it is held only as long as the catalog is: an authored
 /// workspace, once there is one, replaces it entirely.
 /// </para>
-/// <para>
-/// That is the whole difference from the Archify arrangement next door. An Archify
-/// artifact is a re-authoring of a mermaid fence with nothing in it pointing back,
-/// so it has to be matched to that fence by hash and filed in a generated index, and
-/// it can go stale. A C4 workspace is attached to no fence, has no committed
-/// rendering, and therefore has nothing to drift from.
-/// </para>
 /// </summary>
 public sealed class C4DevbookStore : IDisposable
 {
@@ -49,11 +44,11 @@ public sealed class C4DevbookStore : IDisposable
     public const string WorkspaceFile = "workspace.dsl";
 
     /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
-    public const string IncludeDirectory = "c4";
+    public const string IncludeDirectory = DevbookC4Includes.Folder;
 
     /// <summary>The folder that held the workspaces before contract 33 and still holds
-    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_archify</c> and
-    /// <c>_meta</c>, which is what puts it out of the way of the chapter listing.</summary>
+    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_meta</c>, which is what
+    /// puts it out of the way of the chapter listing.</summary>
     public const string ReferenceDirectory = "_c4";
 
     /// <summary>
@@ -64,10 +59,9 @@ public sealed class C4DevbookStore : IDisposable
     /// embed and the file is retired. A view a chapter embeds needs no entry here.
     /// </para>
     /// <para>
-    /// <c>references.json</c> rather than <c>index.json</c> because the
-    /// <c>_archify/index.json</c> beside a chapter is generated, and a file with that
-    /// name beside a workspace would read as generated too. This one is authored and
-    /// reviewed like the <c>.dsl</c> is.
+    /// <c>references.json</c> rather than <c>index.json</c> because an
+    /// <c>index.json</c> reads as generated. This one is authored and reviewed like
+    /// the <c>.dsl</c> is.
     /// </para>
     /// <para>
     /// A file at all because the two better homes are both closed. A chapter's own
@@ -106,7 +100,6 @@ public sealed class C4DevbookStore : IDisposable
     /// <summary>The derived workspace's name, as the tab shows it.</summary>
     public const string DerivedWorkspaceName = "From the chapters";
 
-    private readonly IAppFeatureSettings _features;
     private readonly IDevbookFolderSource _folders;
     private readonly object _gate = new();
 
@@ -128,25 +121,14 @@ public sealed class C4DevbookStore : IDisposable
     /// the model as the first save had it.</summary>
     private int _generation;
 
-    public C4DevbookStore(IAppFeatureSettings features, IDevbookFolderSource folders)
+    public C4DevbookStore(IDevbookFolderSource folders)
     {
-        _features = features;
         _folders = folders;
 
         _folders.Changed += Invalidate;
-        _features.Changed += Invalidate;
     }
 
     public event Action? Changed;
-
-    /// <summary>Whether the feature is on at all. Asked before anything is drawn, so
-    /// a panel with the feature off is the panel it was before this existed.</summary>
-    public bool Enabled => _features.IsEnabled(DevbookFeatures.C4Diagrams);
-
-    /// <summary>Whether the C4 zoom tab is offered beside the C4 tab. Both switches,
-    /// never the zoom one alone: the zoom tab reads the same model the C4 tab does,
-    /// and with <see cref="Enabled"/> off there is no model to read.</summary>
-    public bool ZoomEnabled => Enabled && _features.IsEnabled(DevbookFeatures.C4Zoom);
 
     /// <summary>
     /// The workspaces beside the architecture chapters of this scope, with every
@@ -160,8 +142,6 @@ public sealed class C4DevbookStore : IDisposable
     /// </summary>
     public async Task<C4Catalog> LoadAsync(string? repositoryAlias = null)
     {
-        if (!Enabled) return C4Catalog.Off;
-
         var key = repositoryAlias ?? string.Empty;
         int generation;
         C4Catalog? relink;
@@ -300,7 +280,11 @@ public sealed class C4DevbookStore : IDisposable
         {
             var workspacePath = Path.GetFullPath(Path.Combine(directory, WorkspaceFile));
             workspace = reuse
-                ?? C4DslReader.Read(ExpandIncludes(File.ReadAllText(workspacePath), workspacePath, Path.Combine(directory, IncludeDirectory), [workspacePath]));
+                ?? C4DslReader.Read(File.ReadAllText(workspacePath), new C4ReadOptions
+                {
+                    File = WorkspaceFile,
+                    Include = DevbookC4Includes.Resolver(directory, workspacePath)
+                });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -419,45 +403,6 @@ public sealed class C4DevbookStore : IDisposable
         location.Available
         && location.FullPath is not null
         && File.Exists(Path.Combine(location.FullPath, WorkspaceFile));
-
-    /// <summary>
-    /// The workspace with every <c>!include</c> of a file in <c>c4/</c> replaced by
-    /// that file's text.
-    /// <para>
-    /// The reader knows no <c>!include</c> — it is handed text, never a folder — so
-    /// the splice happens here, where the files are. A path is resolved from the
-    /// including file, as devbook's <c>c4.mjs</c> resolves it, and spliced only when
-    /// it lands on a file inside <c>c4/</c>, the one folder a workspace includes from.
-    /// Any other <c>!include</c> — outside that folder, missing, absolute, or a file
-    /// already being read — is left in place for the reader to report, so the panel
-    /// still says what it could not read.
-    /// </para>
-    /// </summary>
-    private static string ExpandIncludes(string text, string fromFile, string allowed, IReadOnlyList<string> stack)
-    {
-        if (!text.Contains("!include", StringComparison.OrdinalIgnoreCase)) return text;
-
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var root = Path.GetFullPath(allowed) + Path.DirectorySeparatorChar;
-
-        for (var index = 0; index < lines.Length; index++)
-        {
-            var parts = lines[index].Trim().Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 2 || !string.Equals(parts[0], "!include", StringComparison.OrdinalIgnoreCase)) continue;
-
-            var target = parts[1].Trim().Trim('"');
-            if (target.Length == 0 || Path.IsPathRooted(target) || target.Contains(':', StringComparison.Ordinal)) continue;
-
-            var resolved = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fromFile)!, target.Replace('/', Path.DirectorySeparatorChar)));
-            if (!resolved.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
-            if (!File.Exists(resolved)) continue;
-            if (stack.Contains(resolved, StringComparer.OrdinalIgnoreCase)) continue;
-
-            lines[index] = ExpandIncludes(File.ReadAllText(resolved), resolved, allowed, [.. stack, resolved]);
-        }
-
-        return string.Join('\n', lines);
-    }
 
     /// <summary>
     /// The model drawn from the chapters' own C4 fences, for a folder with no
@@ -761,7 +706,6 @@ public sealed class C4DevbookStore : IDisposable
     public void Dispose()
     {
         _folders.Changed -= Invalidate;
-        _features.Changed -= Invalidate;
     }
 }
 
@@ -854,9 +798,8 @@ public sealed record C4WorkspaceEntry(
         viewKey is not null && References.TryGetValue(viewKey, out var chapters) ? chapters : [];
 }
 
-/// <param name="Available">Whether the architecture folder resolved at all. False
-/// is also what an switched-off feature looks like, and the two are the same to a
-/// panel: there is nothing to draw either way.</param>
+/// <param name="Available">Whether the architecture folder resolved at all. False,
+/// there is nothing to draw.</param>
 /// <param name="Workspaces">The parsed model — <c>workspace.dsl</c>, or the one
 /// drawn from the chapters' fences. What the explorer is given.</param>
 public sealed record C4Catalog(

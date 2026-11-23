@@ -300,15 +300,6 @@ html, body {
     border: var(--border-width) dashed var(--color-border);
 }
 
-/* The calendar is a pane's content, so it gets a pane's room and its own scroll
-   at a width narrower than its grid. */
-.sb-calendar {
-    max-width: 100%;
-    overflow-x: auto;
-    border: var(--border-width) solid var(--color-background-raised);
-    border-radius: var(--border-radius-md);
-}
-
 /* A detail panel's width, for a section of the Tasks panel shown on its own. */
 .sb-panel {
     width: 26rem;
@@ -317,6 +308,30 @@ html, body {
     padding: var(--spacing-sm);
     border: var(--border-width) solid var(--color-background-raised);
     border-radius: var(--border-radius-md);
+}
+
+/* The figure the crowded margin story inserts after a heading, standing in for
+   an arc42 chapter's C4 view: the full width of the view, notes column
+   included, with its control at the right edge where a remark would cover it. */
+.sb-chapter-insert {
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sb-chapter-insert__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.sb-chapter-insert__body {
+    margin: 0;
+    padding: var(--spacing-md);
 }
 
 .sb-stack {
@@ -531,12 +546,6 @@ html, body {
     gap: var(--spacing-xs);
 }
 
-/* Remember this window is a glyph in a box, so it takes the folded sides an
-   icon-only toggle takes. */
-.sb-window-header__remember {
-    padding-inline: var(--spacing-sm);
-}
-
 /* A phone's whole screen, for something that covers one — the capture sheet
    rises from the bottom edge over a dimmed screen. The transform makes this box
    the containing block of the sheet's fixed layers, so the sheet covers the
@@ -682,6 +691,16 @@ html, body {
         grid-template-columns: minmax(0, 1fr);
         height: auto;
     }
+}
+
+/* A bottom band with room above it, so a panel that opens upward from a trigger
+   at its end has somewhere to open into, as it does over the app's footer. */
+.sb-footer-band {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10rem;
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-border);
 }
 
 /* Gives an example a definite height to fill. A component that sizes itself to
@@ -1359,7 +1378,7 @@ html, body {
     min-height: 0;
 }
 
-/* The zoom tab sizes its own frame, so its stage takes the height it asks for. */
+/* The zoom navigation sizes its own frame, so its stage takes the height it asks for. */
 .sb-c4-stage--zoom {
     display: block;
     height: auto;

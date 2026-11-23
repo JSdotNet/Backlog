@@ -17,18 +17,9 @@ public sealed class AzureFoundryCostClientTests : IDisposable
 {
     private const string Scope = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai";
 
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-cost");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Without_a_cost_scope_the_client_is_unavailable_and_points_at_settings()
@@ -253,9 +244,7 @@ public sealed class AzureFoundryCostClientTests : IDisposable
 
     private AzureFoundrySettingsStore Settings(string? scope)
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-cost", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        var store = new AzureFoundrySettingsStore(path);
+        var store = new AzureFoundrySettingsStore(_temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json"));
         if (scope is not null) store.SetCostScope(scope);
         return store;
     }

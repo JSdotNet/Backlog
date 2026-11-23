@@ -652,6 +652,66 @@ The system SHALL draw on a task row a teal ◆ n note badge counting the notes i
 - **When** the task list shows that task in a repository scope or the Brain scope
 - **Then** its row carries ◆ 2 notes marked only you see this, and pressing it lists both notes to open
 
+### Requirement: Create task links the task from its note
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Create_task_files_a_draft_in_the_brain_scope_pointing_at_the_note_and_lists_it, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Create_task_from_a_selected_line_takes_the_line_as_its_title, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Create_task_on_a_note_naming_repositories_files_one_task_in_each, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Create_task_takes_the_selected_line_and_says_the_note_lists_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Create_task_with_nothing_selected_asks_for_the_note_itself]
+```
+
+The system SHALL make, from a Brain note's **Create task**, a draft task titled by the selected line or the note's title, filed in the Brain scope or in each repository the note's `repos` names, carrying `#brain:<path>` in its Devbook references, and SHALL append its id to the note's `tasks`.
+
+#### Scenario: A task from a selected line
+
+- **Given** a Brain note with no `repos` and a line `- [ ] Buy boxes` selected in it
+- **When** the reader presses Create task
+- **Then** a draft task titled Buy boxes is filed in the Brain scope, it references the note, and the note's `tasks` lists its id
+
+### Requirement: Plan this project names the plan in its note
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Plan_this_project_drafts_from_the_note_and_its_links_imports_under_a_plan_entry_and_names_the_tag, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.A_plan_naming_a_repository_the_note_does_not_is_refused_before_import, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.A_note_naming_a_repository_the_workspace_does_not_have_makes_nothing, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Plan_this_project_is_refused_on_a_note_outside_projects, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Plan_this_project_is_offered_on_a_project_note_and_asks_for_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.A_note_outside_projects_offers_no_plan]
+```
+
+The system SHALL offer **Plan this project** on a note under the Brain's projects area only, draft the plan from the note and the Brain notes its `related` names, import it under a `plan` entry whose Knowledge Ref is the note, and append the plan's Roadmap Tag to the note's `roadmap`.
+
+#### Scenario: A project note becomes a plan
+
+- **Given** a note under `projects/` relating one resource note, and a configured plan drafter
+- **When** the reader presses Plan this project
+- **Then** the drafter is asked with both notes, the plan's roadmap item references the project note, and the note's `roadmap` names the plan's tag
+
+### Requirement: The open note shows the link a pickup wrote
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Create_task_lists_the_new_task_on_the_open_note_at_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Plan_this_project_reads_the_note_it_named_the_plan_in_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.A_link_the_note_refused_lists_no_task_the_note_does_not_name]
+```
+
+The system SHALL read the open note again once Create task or Plan this project has linked it, listing in its Tasks section every task its `tasks` field names, before the Brain database is rebuilt.
+
+#### Scenario: The new task's chip without reopening the note
+
+- **Given** a project note open in the Brain pane, its `tasks` field empty
+- **When** the reader presses Create task and the pane says the note lists the task
+- **Then** the note's Tasks section shows the new task's chip without the note being opened again
+
+### Requirement: A refused link keeps the work
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.A_note_whose_meta_block_does_not_parse_keeps_the_task_and_says_the_link_was_not_written, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.A_refused_roadmap_link_keeps_the_plan_and_says_so, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Without_a_brain_or_a_backlog_both_actions_are_unavailable_with_a_reason, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainPickupTests.Without_a_drafter_only_plan_is_unavailable, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.A_link_the_note_refused_is_said_as_a_warning_and_the_work_stays, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainPickupTests.Each_action_that_cannot_run_stays_disabled_with_its_reason]
+```
+
+The system SHALL keep a task or plan made from a note whose top `meta` block it cannot parse, and say the link was not written and why; and SHALL show each pickup disabled with its reason while no Brain folder, or for a plan no drafter, is set.
+
+#### Scenario: A note with a broken meta block
+
+- **Given** a Brain note whose `tasks` list is not closed on its line
+- **When** the reader presses Create task
+- **Then** the task is in the backlog, the note is unchanged, and the pane says the link was not written into the note
+
 ## Atlas edges
 
 ```meta
@@ -1385,3 +1445,72 @@ The system SHALL write a note sent to the capture tool into the Brain's inbox ar
 - **When** an assistant calls the capture tool with a title and a body
 - **Then** a new note with that title and body is in the Brain's inbox area
 
+
+## PARA default gains someday
+
+```meta
+type: requirements
+related: [.devbook/domain/brain/features.md#para-organization, .devbook/domain/brain/domain.md#para-category, .devbook/domain/brain/domain.md#knowledge-note, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+```
+
+> Local ADR 0054 decides these. Only the first is built.
+
+### Requirement: The PARA default holds someday after projects
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests.The_para_default_set_has_eight_areas_with_someday_after_projects, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests.A_brain_declaring_its_own_areas_gets_no_someday, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_eight_para_areas_are_the_tabs]
+```
+
+The system SHALL show, for a Brain whose `CONVENTIONS.md` declares no areas, the area `someday` directly after `projects`, and SHALL add no `someday` area to a Brain that declares its own.
+
+#### Scenario: No declaration
+
+- **Given** a `CONVENTIONS.md` declaring no areas
+- **And** no other top folder holds a note
+- **When** the pane shows the Brain
+- **Then** it shows the tabs `_inbox`, `projects`, `someday`, `areas`, `resources`, `people`, `journal` and `archive`, in that order
+
+#### Scenario: Declared areas
+
+- **Given** a `CONVENTIONS.md` declaring the areas *Work* (`work`) and *Home life* (`home`)
+- **And** no other top folder holds a note
+- **When** the pane shows the Brain
+- **Then** it shows the tabs *Work* and *Home life* and no *Someday* tab
+
+### Requirement: The app never writes a review date
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainNoteLinkWriterTests.A_link_written_beside_a_review_date_never_touches_it]
+```
+
+The system SHALL read a note's optional `review` date and SHALL never add, change or remove it, through capture, To Brain or the link writer.
+
+#### Scenario: Linking a note with a review date
+
+- **Given** a note whose top `meta` block says `review: 2026-12-01`
+- **When** the app appends a task id to the note's `tasks` field
+- **Then** the block still says `review: 2026-12-01`, byte for byte
+
+### Requirement: A note's review date comes due
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.The_notes_whose_review_date_has_come_arrive_oldest_first, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.An_unreadable_date_is_a_warning_and_the_rest_still_answer, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainReviewDateReaderTests.A_later_day_brings_the_future_review_in_and_a_headings_review_never, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.BrainReviewToolTests.It_answers_the_due_notes_and_the_warnings_for_today]
+```
+
+The system SHALL keep the `review` value of a note's top `meta` block in the Brain's database as written, and SHALL answer the notes whose date is on or before a given day, oldest first, to the app and through `list_brain_reviews`. A value that is not a `YYYY-MM-DD` date SHALL be a warning beside that answer, never an error.
+
+#### Scenario: A review date that has come
+
+- **Given** a note whose top `meta` block says `review: 2026-11-01`
+- **When** the app asks for the notes due on 2026-11-11
+- **Then** the note is in the answer, with its date
+
+#### Scenario: A review value that is no date
+
+- **Given** a note whose top `meta` block says `review: next week`
+- **When** the app asks for the notes due on any day
+- **Then** the note is listed as a warning and left out of the due notes
+- **And** the build and the other notes' answer go on as before

@@ -5,6 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
 using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -40,8 +41,9 @@ public sealed class DomainDevbookStore : IDisposable
     /// (it declares <c>index: root</c>); then <c>domain.md</c>, <c>actors.md</c>,
     /// <c>features.md</c> or <c>skills.md</c> — a context takes one of the two, so
     /// their relative order never shows — <c>requirements.md</c>,
-    /// <c>model.md</c>, <c>flow.md</c> and <c>dependencies.md</c>, and after all of
-    /// them the additional pages the convention does not name. A legacy
+    /// <c>model.md</c> and <c>dependencies.md</c>, and after all of them the
+    /// additional pages the convention does not name — a legacy <c>flow.md</c>
+    /// among them, since devbook contract 37 retired it. A legacy
     /// <c>index.md</c>, which some contexts used as their root before contract 11,
     /// reads straight after the model narrative, where it always has, and a
     /// contract-16 <c>invariants.md</c> after the requirements, where it did.</para>
@@ -65,7 +67,6 @@ public sealed class DomainDevbookStore : IDisposable
         DomainDevbookDocumentKind.Requirements,
         DomainDevbookDocumentKind.Invariants,
         DomainDevbookDocumentKind.Model,
-        DomainDevbookDocumentKind.Flow,
         DomainDevbookDocumentKind.Dependencies,
         DomainDevbookDocumentKind.Page
     ];
@@ -82,8 +83,7 @@ public sealed class DomainDevbookStore : IDisposable
         ["skills"] = DomainDevbookDocumentKind.Skills,
         ["requirements"] = DomainDevbookDocumentKind.Requirements,
         ["invariants"] = DomainDevbookDocumentKind.Invariants,
-        ["model"] = DomainDevbookDocumentKind.Model,
-        ["flow"] = DomainDevbookDocumentKind.Flow
+        ["model"] = DomainDevbookDocumentKind.Model
     };
 
     /// <summary>Re-published from the folder source so an open panel can reload
@@ -284,7 +284,7 @@ public sealed class DomainDevbookStore : IDisposable
     }
 
     /// <summary>A block value as its entries: <c>[a, b]</c>, <c>a, b</c> — the
-    /// flattened shape <see cref="ReadMeta"/> leaves a list in — or one plain
+    /// flattened shape <see cref="MetadataFence.Flat"/> leaves a list in — or one plain
     /// value.</summary>
     private static IEnumerable<string> ListValues(string value) =>
         value.Trim().Trim('[', ']')
@@ -398,7 +398,12 @@ public sealed class DomainDevbookStore : IDisposable
             {
                 title = match.Groups[2].Value.Trim();
                 i++;
-                metadata = ReadMeta(lines, ref i);
+                if (MetadataFence.At(lines, i) is { } titleFence)
+                {
+                    metadata = titleFence.Flat();
+                    i = titleFence.End;
+                }
+
                 break;
             }
             i++;
@@ -469,7 +474,9 @@ public sealed class DomainDevbookStore : IDisposable
         var title = heading.Success ? heading.Groups[2].Value.Trim() : "Section";
         var level = heading.Success ? heading.Groups[1].Value.Length : 2;
         var index = start + 1;
-        var metadata = ReadMeta(lines, ref index);
+        var fence = MetadataFence.At(lines, index);
+        var metadata = fence?.Flat() ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (fence is not null) index = Math.Min(fence.End, end);
         var body = lines[index..end].ToList();
         var diagrams = new List<DomainDevbookDiagram>();
         CollectDiagrams(body, title, diagrams);
@@ -479,41 +486,6 @@ public sealed class DomainDevbookStore : IDisposable
         return new DomainDevbookSection(title, level, Status(metadata), metadata, Excerpt(readable), diagrams, [.. links], $"{documentPath}#{Slug(title)}");
     }
 
-
-    private static Dictionary<string, string> ReadMeta(string[] lines, ref int index)
-    {
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-        if (index >= lines.Length || !string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return [];
-        index++;
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string? currentKey = null;
-        while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
-        {
-            var rawLine = lines[index];
-            var line = rawLine.Trim();
-            var sep = line.IndexOf(':');
-            if (sep > 0 && !line.StartsWith("-", StringComparison.Ordinal))
-            {
-                currentKey = line[..sep].Trim();
-                result[currentKey] = line[(sep + 1)..].Trim();
-            }
-            else if (currentKey is not null && line.StartsWith("- ", StringComparison.Ordinal))
-            {
-                result[currentKey] = AppendMetadataValue(result[currentKey], line[2..].Trim());
-            }
-            else if (currentKey is not null && char.IsWhiteSpace(rawLine.FirstOrDefault()) && line.Length > 0)
-            {
-                result[currentKey] = AppendMetadataValue(result[currentKey], line);
-            }
-            index++;
-        }
-        if (index < lines.Length) index++;
-        while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
-        return result;
-    }
-
-    private static string AppendMetadataValue(string existing, string next) =>
-        string.IsNullOrWhiteSpace(existing) ? next : $"{existing}, {next}";
 
     /// <summary>
     /// The <c>mermaid</c> fences in a run of lines, as diagrams.
@@ -622,7 +594,6 @@ public sealed class DomainDevbookStore : IDisposable
         "requirements.md" => DomainDevbookDocumentKind.Requirements,
         "invariants.md" => DomainDevbookDocumentKind.Invariants,
         "model.md" => DomainDevbookDocumentKind.Model,
-        "flow.md" => DomainDevbookDocumentKind.Flow,
         "dependencies.md" => DomainDevbookDocumentKind.Dependencies,
         "index.md" => DomainDevbookDocumentKind.Other,
         var name when IsInvariantsSubpage(name) => DomainDevbookDocumentKind.Invariants,
@@ -781,7 +752,6 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
         DomainDevbookDocumentKind.Requirements => "Requirements",
         DomainDevbookDocumentKind.Invariants => "Invariants",
         DomainDevbookDocumentKind.Model => "Structural model",
-        DomainDevbookDocumentKind.Flow => "Flow",
         DomainDevbookDocumentKind.Dependencies => "Dependencies",
         // A scenario page is an additional page that says what it is.
         DomainDevbookDocumentKind.Page when DevbookTypeMarkers.IsScenario(Metadata.GetValueOrDefault("type")) => "Scenario page",
@@ -812,7 +782,6 @@ public enum DomainDevbookDocumentKind
     Requirements,
     Invariants,
     Model,
-    Flow,
     Dependencies,
 
     /// <summary>A file the convention does not name, added by the context for
@@ -833,7 +802,7 @@ public enum DomainDevbookDocumentKind
 /// The two lists say the same thing in two vocabularies, and this is the single
 /// place they meet. The alternative — a second filename-to-slug switch wherever a
 /// mark is wanted — is how the tree and the panel would come to disagree about
-/// what <c>flow.md</c> is.
+/// what <c>model.md</c> is.
 /// </para>
 /// <para>
 /// An additional page has no fixed value: its type is its own filename, so
@@ -874,7 +843,6 @@ public static class DomainDevbookFileTypes
         DomainDevbookDocumentKind.Requirements => "requirements",
         DomainDevbookDocumentKind.Invariants => "invariants",
         DomainDevbookDocumentKind.Model => "model",
-        DomainDevbookDocumentKind.Flow => "flow",
         DomainDevbookDocumentKind.Dependencies => "dependencies",
         _ => null
     };

@@ -10,12 +10,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class AskBacklogHookTests : IDisposable
 {
-    private readonly string _appData = Path.Combine(Path.GetTempPath(), "ask-backlog-hook-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("ask-backlog-hook");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_appData)) Directory.Delete(_appData, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_script_is_embedded_as_a_node_script()
@@ -30,11 +27,11 @@ public sealed class AskBacklogHookTests : IDisposable
     [Fact]
     public void Install_writes_the_embedded_bytes_to_the_hooks_folder()
     {
-        var path = AskBacklogHook.Install(_appData);
+        var path = AskBacklogHook.Install(_temp.Path);
 
-        Assert.Equal(Path.Combine(_appData, "hooks", "ask-backlog.mjs"), path);
+        Assert.Equal(Path.Combine(_temp.Path, "hooks", "ask-backlog.mjs"), path);
         Assert.Equal(AskBacklogHook.Bytes.ToArray(), File.ReadAllBytes(path));
-        Assert.Single(Directory.GetFiles(Path.Combine(_appData, "hooks")));
+        Assert.Single(Directory.GetFiles(Path.Combine(_temp.Path, "hooks")));
     }
 
     /// <summary>
@@ -45,7 +42,7 @@ public sealed class AskBacklogHookTests : IDisposable
     [Fact]
     public void The_installed_path_is_the_script_under_the_builds_own_app_data_folder()
     {
-        var debug = Path.Combine(_appData, "Backlog.Debug");
+        var debug = Path.Combine(_temp.Path, "Backlog.Debug");
 
         Assert.Equal(Path.Combine(debug, "hooks", "ask-backlog.mjs"), AskBacklogHook.PathUnder(debug));
         Assert.Equal(AskBacklogHook.PathUnder(debug), AskBacklogHook.Install(debug));
@@ -55,10 +52,10 @@ public sealed class AskBacklogHookTests : IDisposable
     [Fact]
     public void Install_replaces_a_script_an_earlier_version_left()
     {
-        var folder = Directory.CreateDirectory(Path.Combine(_appData, "hooks")).FullName;
+        var folder = Directory.CreateDirectory(Path.Combine(_temp.Path, "hooks")).FullName;
         File.WriteAllText(Path.Combine(folder, "ask-backlog.mjs"), "// an older app's script");
 
-        var path = AskBacklogHook.Install(_appData);
+        var path = AskBacklogHook.Install(_temp.Path);
 
         Assert.Equal(AskBacklogHook.Bytes.ToArray(), File.ReadAllBytes(path));
         Assert.Single(Directory.GetFiles(folder));
@@ -69,11 +66,11 @@ public sealed class AskBacklogHookTests : IDisposable
     [Fact]
     public void Install_leaves_a_matching_script_untouched()
     {
-        var path = AskBacklogHook.Install(_appData);
+        var path = AskBacklogHook.Install(_temp.Path);
         var written = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(path, written);
 
-        AskBacklogHook.Install(_appData);
+        AskBacklogHook.Install(_temp.Path);
 
         Assert.Equal(written, File.GetLastWriteTimeUtc(path));
     }

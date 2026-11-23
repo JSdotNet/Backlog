@@ -14,7 +14,8 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteModelPriceStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-model-prices", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-model-prices");
+    private string _root => _temp.Path;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -70,7 +71,6 @@ public sealed class SqliteModelPriceStoreTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

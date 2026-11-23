@@ -187,29 +187,23 @@ public sealed class DevbookMarkdownImportTests
     [InlineData("", "2026-09-20T10:00:00Z", "2026-09-20")]
     public void A_reply_naming_no_one_and_no_date_still_reads_back_as_a_reply(string fenceDate, string? committed, string at)
     {
-        var root = Path.Combine(Path.GetTempPath(), "devbook-import-undated-" + Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("devbook-import-undated");
+        var root = temp.Path;
         var chapter = Path.Combine(root, ".devbook", "arc42", "01-introduction.md");
         Directory.CreateDirectory(Path.GetDirectoryName(chapter)!);
 
-        try
-        {
-            File.WriteAllText(
-                chapter,
-                "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\n" + fenceDate
-                + "body: From payment?\nreplies:\n  - body: Yes, from payment.\n```\n");
+        File.WriteAllText(
+            chapter,
+            "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\n" + fenceDate
+            + "body: From payment?\nreplies:\n  - body: Yes, from payment.\n```\n");
 
-            var note = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
-            var remark = note.ToAnnotation(Alias, committed is null ? null : DateTimeOffset.Parse(committed, System.Globalization.CultureInfo.InvariantCulture));
+        var note = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
+        var remark = note.ToAnnotation(Alias, committed is null ? null : DateTimeOffset.Parse(committed, System.Globalization.CultureInfo.InvariantCulture));
 
-            var (body, replies) = DevbookNoteReplies.Split(remark.Body);
+        var (body, replies) = DevbookNoteReplies.Split(remark.Body);
 
-            Assert.Equal("From payment?", body);
-            Assert.Equal([new DevbookNoteReply(DevbookMarkdownImport.UnknownReplyAuthor, at, "Yes, from payment.")], replies);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal("From payment?", body);
+        Assert.Equal([new DevbookNoteReply(DevbookMarkdownImport.UnknownReplyAuthor, at, "Yes, from payment.")], replies);
     }
 
     [Fact]
@@ -302,28 +296,22 @@ public sealed class DevbookMarkdownImportTests
     [Fact]
     public void A_reply_added_to_a_note_does_not_change_its_id()
     {
-        var root = Path.Combine(Path.GetTempPath(), "devbook-import-reply-" + Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("devbook-import-reply");
+        var root = temp.Path;
         var chapter = Path.Combine(root, ".devbook", "arc42", "01-introduction.md");
         Directory.CreateDirectory(Path.GetDirectoryName(chapter)!);
 
-        try
-        {
-            const string Before = "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\ndate: 2026-09-03\nbody: From payment?\n```\n";
-            const string After = "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\ndate: 2026-09-03\nbody: From payment?\nreplies:\n  - author: claude/handle-remarks\n    date: 2026-09-04\n    body: Yes.\n```\n";
+        const string Before = "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\ndate: 2026-09-03\nbody: From payment?\n```\n";
+        const string After = "# Introduction\n\nOrders ship in an hour.\n\n```annotation\nkind: question\nauthor: jobsc\ndate: 2026-09-03\nbody: From payment?\nreplies:\n  - author: claude/handle-remarks\n    date: 2026-09-04\n    body: Yes.\n```\n";
 
-            File.WriteAllText(chapter, Before);
-            var before = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
+        File.WriteAllText(chapter, Before);
+        var before = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
 
-            File.WriteAllText(chapter, After);
-            var after = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
+        File.WriteAllText(chapter, After);
+        var after = Assert.Single(DevbookMarkdownImport.Plan(Alias, root, DevbookFolderSetting.Defaults()).Notes);
 
-            Assert.Equal(before.Id, after.Id);
-            Assert.NotEqual(before.ToAnnotation(Alias, null).Body, after.ToAnnotation(Alias, null).Body);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(before.Id, after.Id);
+        Assert.NotEqual(before.ToAnnotation(Alias, null).Body, after.ToAnnotation(Alias, null).Body);
     }
 
     /// <summary>Eight hex characters of SHA-256 over a paragraph's text — the anchor

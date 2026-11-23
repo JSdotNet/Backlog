@@ -81,7 +81,9 @@ export const GENERATOR = 'tools/devbook/build-database.mjs';
  *  value, so a reader filters instead of splitting. */
 const LIST_ATTRIBUTES = ['feature-flag', 'roadmap', 'aliases', 'alternatives', 'tests'];
 
-/** Generated output and vendored trees hold no authored Markdown. */
+/** Generated output and vendored trees hold no authored Markdown. `_archify` is
+ *  skipped although this repository has none left: other repositories may still
+ *  carry the folder (local ADR 0057 §4). */
 const SKIPPED_DIRECTORIES = new Set(['_meta', '_archify', 'node_modules', '.git']);
 
 const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
@@ -103,25 +105,6 @@ async function collectMarkdown(repoRoot, relFolder, found = []) {
         } else if (entry.isFile() && entry.name.endsWith('.md')) {
             found.push(child);
         }
-    }
-
-    return found.sort();
-}
-
-/** Every `_archify/index.json` under `relFolder`, as repo-relative posix paths. */
-async function collectArchifyIndexes(repoRoot, relFolder, found = []) {
-    let entries;
-    try {
-        entries = await readdir(path.join(repoRoot, relFolder), { withFileTypes: true });
-    } catch {
-        return found;
-    }
-
-    for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const child = `${relFolder}/${entry.name}`;
-        if (entry.name === '_archify') found.push(`${child}/index.json`);
-        else if (!SKIPPED_DIRECTORIES.has(entry.name)) await collectArchifyIndexes(repoRoot, child, found);
     }
 
     return found.sort();
@@ -494,67 +477,6 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
     return { chapter: count, files, demo_link: links };
 }
 
-async function insertArchify(db, repoRoot, folders, problems) {
-    const insert = db.prepare(`
-        INSERT INTO archify_artifact (chapter_path, fence_hash, ordinal, type, quality, kind, spec_path, artifact_path, checks_passed, check_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    let count = 0;
-    for (const folder of folders) {
-        for (const indexPath of await collectArchifyIndexes(repoRoot, folder, [])) {
-            const artifactDirectory = path.posix.dirname(indexPath);
-            const chapterDirectory = path.posix.dirname(artifactDirectory);
-
-            let document;
-            try {
-                document = JSON.parse(await readFile(path.join(repoRoot, indexPath), 'utf8'));
-            } catch {
-                // An unreadable index is the same answer as no index — the same
-                // rule ArchifyDiagramArtifacts already applies when it reads one.
-                problems.push({
-                    scope: folder,
-                    severity: 'warning',
-                    path: indexPath,
-                    message: `${indexPath} is not readable JSON; its artifacts are absent from the database and their chapters fall back to mermaid.`,
-                });
-                continue;
-            }
-
-            for (const [fenceHash, entry] of Object.entries(document?.entries ?? {})) {
-                if (typeof entry?.chapter !== 'string') {
-                    // Written before one folder was found to hold several
-                    // chapters. There is no chapter to key the row to, so the
-                    // fence renders as mermaid until the index is regenerated.
-                    problems.push({
-                        scope: folder,
-                        severity: 'warning',
-                        path: indexPath,
-                        message: `${indexPath} entry "${fenceHash}" names no chapter; re-run tools/diagrams/archify-artifacts.mjs.`,
-                    });
-                    continue;
-                }
-
-                insert.run(
-                    `${chapterDirectory}/${entry.chapter}`,
-                    fenceHash,
-                    entry.ordinal ?? 0,
-                    entry.type ?? null,
-                    entry.quality ?? null,
-                    entry.kind ?? null,
-                    entry.spec ? `${artifactDirectory}/${entry.spec}` : null,
-                    entry.artifact ? `${artifactDirectory}/${entry.artifact}` : null,
-                    typeof entry.checksPassed === 'number' ? entry.checksPassed : null,
-                    typeof entry.checkCount === 'number' ? entry.checkCount : null
-                );
-                count++;
-            }
-        }
-    }
-
-    return count;
-}
-
 /**
  * One `demo` row per `*.demo.html` in the adopted folders, paired with the page
  * its name says when that page is there. A demo that pairs with no page and that
@@ -654,7 +576,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
             problems.push({ scope: REPO_SCOPE, ...problem });
         }
 
-        // A Brain adds `para`, `repos` and `tasks` (brain.mjs); a devbook adds none.
+        // A Brain adds `para`, `repos`, `tasks` and `review` (brain.mjs); a devbook adds none.
         counts = insertGraph(db, graph, generator.listAttributes ?? []);
         counts.outline_entry = 0;
 
@@ -679,7 +601,6 @@ export async function buildDatabase(repoRoot, target, generator = null) {
         counts.files = chapters.files;
         counts.demo_link = chapters.demo_link;
         counts.chapter_embedding = 0; // vectors are the app's: its refresher embeds into the database it built (DevbookChapterEmbeddings).
-        counts.archify_artifact = await insertArchify(db, repoRoot, folders, problems);
         counts.demo = await insertDemos(db, repoRoot, folders, generator, problems);
 
         const problem = db.prepare('INSERT INTO problem (scope, severity, path, message) VALUES (?, ?, ?, ?)');
@@ -717,7 +638,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
 export function formatCounts(counts) {
     const order = [
         'files', 'chapter', 'open_annotations', 'node', 'node_attribute', 'edge',
-        'outline_entry', 'archify_artifact', 'demo', 'demo_link', 'chapter_embedding', 'problem', 'meta',
+        'outline_entry', 'demo', 'demo_link', 'chapter_embedding', 'problem', 'meta',
     ];
     return order
         .filter((table) => counts[table] !== undefined)

@@ -16,7 +16,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookReadOnlyBranchTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     // --- The stores refuse ----------------------------------------------------
 
@@ -80,7 +80,7 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
     {
         var root = WithDebtRecord();
         var subjects = new SessionDevbookSubjectStateStore();
-        var store = new Arc42DevbookStore(new StubFolderSource(root, source, archived: true));
+        var store = new Arc42DevbookStore(new StubFolderSource(root, source) { Archived = true });
 
         var outcome = store.SetSubjectState(subjects, "backlog", DevbookSubject.Debt(".arc42/tdr/0001-sync-lag.md"), "planned");
 
@@ -226,64 +226,16 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-read-only-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-read-only-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs)
+        foreach (var temp in _temps)
         {
-            try
-            {
-                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
-    }
-
-    /// <summary>
-    /// Resolves every area against one root and stamps the source on it.
-    /// <para>
-    /// Deliberately not the real <c>DevbookFolderSource</c> over a real
-    /// settings pair: what these tests are about is what a store does with a
-    /// location it was handed, and building the settings that produce one would
-    /// put the resolution under test in every assertion about the writer.
-    /// </para>
-    /// </summary>
-    private sealed class StubFolderSource(string root, DevbookSourceKind source, bool archived = false) : IDevbookFolderSource
-    {
-        public event Action? Changed
-        {
-            add { }
-            remove { }
-        }
-
-        public void NotifyContentChanged()
-        {
-        }
-
-        public string StorageDirectory => root;
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
-        {
-            var folder = DevbookFolderSetting.Defaults()
-                .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
-            // The fixtures sit in the root layout, which the real source reaches
-            // through its fallback to the legacy folder.
-            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
-
-            var full = Path.Combine(root, folder.EffectivePath);
-
-            return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", "backlog", source, RepositoryArchived: archived)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: source);
+            temp.Dispose();
         }
     }
 }

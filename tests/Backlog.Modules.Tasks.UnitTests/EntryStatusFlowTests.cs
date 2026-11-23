@@ -41,18 +41,6 @@ public class EntryStatusFlowTests
         }
     }
 
-    /// <summary>The same for the explanation a refusal carries. Order matters as
-    /// well as membership: the list is shown to a person, and the first entry is
-    /// the move the lifecycle expects next.</summary>
-    [Fact]
-    public void The_next_steps_are_the_same_list_in_the_same_order()
-    {
-        foreach (var from in Enum.GetValues<EntryStatus>())
-        {
-            Assert.Equal(EntryStatusFlow.NextFrom(from), TaskItem.NextStatusesFrom(from));
-        }
-    }
-
     /// <summary>
     /// The edges <c>.devbook/domain/tasks/flow.md#task-lifecycle</c> draws, stated here
     /// against the published graph rather than against the aggregate.

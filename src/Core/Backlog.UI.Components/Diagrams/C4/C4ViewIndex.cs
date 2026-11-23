@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>Which group of the architecture surface's views list a line sits in.</summary>
@@ -54,7 +56,7 @@ public sealed record C4ViewIndexEntry(
 }
 
 /// <summary>
-/// The architecture surface's views list (plan c4-zoom-navigation, the design's left
+/// The architecture surface's views list (local ADR 0046, the design's left
 /// navigation): the landscape and the zoom chain — a system's context, its containers,
 /// a components view per container and the Code level of each component that has one,
 /// one line per level and indented one step per level — then the flows, the

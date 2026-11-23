@@ -14,7 +14,9 @@ public interface IDeviceStore
 
     Task AddAsync(OutboxEntry entry, CancellationToken cancellationToken = default);
 
-    /// <summary>Writes the entry's attempts and last error.</summary>
+    /// <summary>Writes the entry as it now stands: its payload — rewritten by the
+    /// person, or checkpointed by a staged kind — its attempts, its last error and
+    /// whether it was set aside. Its id, kind and creation time never change.</summary>
     Task UpdateAsync(OutboxEntry entry, CancellationToken cancellationToken = default);
 
     Task RemoveAsync(Guid id, CancellationToken cancellationToken = default);

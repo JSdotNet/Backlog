@@ -1,4 +1,10 @@
 using Backlog.Desktop.UI.Shell;
+using Backlog.Infrastructure.Sessions;
+using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Services;
+using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Tasks.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -217,6 +223,35 @@ public sealed class SurfaceWindowTests
             TimeSpan.FromSeconds(10));
     }
 
+    /// <summary>A popped-out window's Inbox hears an MCP capture as the main
+    /// window's does: its own Inbox state reloads, on its own dispatcher.</summary>
+    [Fact]
+    public async Task An_inbox_capture_made_outside_the_window_reloads_its_inbox()
+    {
+        using var temp = new TemporaryDirectory("backlog-surface-window-tests");
+        using var host = await CreateHostAsync();
+        var signal = new InboxChangeSignal();
+        host.Pane.Context.Services.AddSingleton<IInboxChangeSignal>(signal);
+        host.Pane.Context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
+            temp.Combine("github.json")));
+        var fake = InboxTestHost.AddInboxState(host.Pane.Context.Services);
+
+        var window = host.Render("rows");
+        var inbox = host.Pane.Context.Services.GetRequiredService<InboxDesktopState>();
+        await window.InvokeAsync(inbox.ReloadAsync);
+        Assert.Empty(inbox.Items);
+
+        await Task.Run(() =>
+        {
+            fake.Seed("Remind me to call the plumber");
+            signal.Raise();
+        }, TestContext.Current.CancellationToken);
+
+        window.WaitForAssertion(
+            () => Assert.Equal("Remind me to call the plumber", Assert.Single(inbox.Items).Title),
+            TimeSpan.FromSeconds(10));
+    }
+
     /// <summary>A window that closed stops listening: a write after it reloads
     /// nothing into the list it held.</summary>
     [Fact]
@@ -246,64 +281,189 @@ public sealed class SurfaceWindowTests
         Assert.Equal("Named before the window closed", Assert.Single(host.Pane.State.Rows).PreviewTitle);
     }
 
+    /// <summary>A popped-out window's Sessions list hears a run file written by the
+    /// delivery surface's MCP tools, through the one process-wide run signal: the run
+    /// appears in place, and the window reads no sessions again for it.</summary>
+    [Fact]
+    public async Task A_run_written_outside_the_window_shows_in_its_sessions_list()
+    {
+        using var host = await CreateHostAsync();
+        var signal = new DeliveryRunChangeSignal();
+        var (sessions, runs) = AddSessions(host, signal, [PoppedRun("run-1")]);
+
+        var window = host.Render("sessions");
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+
+        runs.Runs = [PoppedRun("run-2", minutesAgo: 1), PoppedRun("run-1")];
+        await Task.Run(signal.Raise, TestContext.Current.CancellationToken);
+
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-2", "run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(1, sessions.Reads);
+    }
+
+    /// <summary>A Sessions window that closed stops listening: a run written after it
+    /// reads nothing.</summary>
+    [Fact]
+    public async Task A_closed_sessions_window_no_longer_reads_for_a_run_written_outside_it()
+    {
+        using var host = await CreateHostAsync();
+        var signal = new DeliveryRunChangeSignal();
+        var (sessions, runs) = AddSessions(host, signal, [PoppedRun("run-1")]);
+
+        var window = host.Render("sessions");
+        window.WaitForAssertion(
+            () => Assert.Equal(["run-1"], RunIds(window)),
+            TimeSpan.FromSeconds(10));
+        await host.Pane.Context.DisposeComponentsAsync();
+
+        await Task.Run(signal.Raise, TestContext.Current.CancellationToken);
+
+        // Long enough for a read the dispatcher had queued to start; none should.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, runs.Reads);
+        Assert.Equal(1, sessions.Reads);
+    }
+
+    private const string PoppedFolder = @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825";
+
+    private static (StubSessionSource Sessions, PoppedRunSource Runs) AddSessions(Host host, IDeliveryRunChangeSignal signal, IReadOnlyList<DeliveryRun> runs)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sessions = new StubSessionSource(
+        [
+            new AgentSession(
+                Id: "5905cf2d",
+                Kind: AgentSessionKind.Claude,
+                EnvironmentId: "tower",
+                Environment: "DEV-TOWER",
+                Title: "keen-bose-667825",
+                WorkingFolder: PoppedFolder,
+                Repository: null,
+                Branch: "claude/desktop-session-area",
+                StartedAt: now.AddHours(-2),
+                LastActivityAt: now.AddMinutes(-1),
+                State: AgentSessionState.Running,
+                TurnCount: 12,
+                Origin: AgentSessionOrigin.Local)
+        ]);
+        var source = new PoppedRunSource(runs);
+
+        var services = host.Pane.Context.Services;
+        services.AddSingleton(new ShellSurface("sessions", "Sessions", ShellSurfaceGroup.Takeover, 40, typeof(SessionsSurface)));
+        services.AddSingleton<IAgentSessionSource>(sessions);
+        services.AddSingleton<IDeliveryRunSource>(source);
+        services.AddSingleton(signal);
+
+        return (sessions, source);
+    }
+
+    private static DeliveryRun PoppedRun(string id, int minutesAgo = 10)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        return new DeliveryRun(
+            Id: id,
+            Dashboard: "orch-dashboard",
+            Worktree: DeliveryRunWorktrees.KeyOf(PoppedFolder)!,
+            WorktreeName: "keen-bose-667825",
+            EnvironmentId: "tower",
+            Environment: "DEV-TOWER",
+            SkillId: "orch-feature",
+            Title: "A run",
+            Status: "in_progress",
+            ChangeKind: "new-functionality",
+            References: [],
+            StartedAt: now.AddMinutes(-minutesAgo - 5),
+            UpdatedAt: now.AddMinutes(-minutesAgo),
+            Stages: [],
+            TokenUsage: null,
+            Context: null,
+            InsightsByCategory: [],
+            InsightsByServer: []);
+    }
+
+    private static string?[] RunIds(IRenderedComponent<SurfaceWindow> window) =>
+        [.. window.FindAll("[data-testid='sessions-run-card'] [data-testid='sessions-run']").Select(line => line.GetAttribute("data-run-id"))];
+
+    private sealed class PoppedRunSource(IReadOnlyList<DeliveryRun> runs) : IDeliveryRunSource
+    {
+        private int _reads;
+        private volatile IReadOnlyList<DeliveryRun> _runs = runs;
+
+        public int Reads => Volatile.Read(ref _reads);
+
+        public IReadOnlyList<DeliveryRun> Runs
+        {
+            get => _runs;
+            set => _runs = value;
+        }
+
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _reads);
+
+            return Task.FromResult(new DeliveryRunCatalog(_runs, []));
+        }
+    }
+
     /// <summary>
-    /// Remember this window (local ADR 0043 §4, §5): an icon-only toggle, the bookmark,
-    /// immediately before Show in main window, unpressed until pressed, and its tooltip
-    /// saying what the next press does.
+    /// Keep on top and Remember this window live in the head's native title bar
+    /// (local ADR 0043 §4; <see cref="SurfaceWindowCaption"/> decides them), so the
+    /// slim header draws neither, even where the head can do both. What is left reads
+    /// title, scope chips, Show in main window.
     /// </summary>
     [Fact]
-    public async Task Remember_this_window_stands_before_show_in_main_window_and_remembers_and_forgets_this_window()
+    public async Task The_header_draws_no_caption_toggle_and_reads_title_scope_chips_then_show_in_main_window()
     {
-        using var host = await CreateHostAsync(canRemember: true);
+        using var host = await CreateHostAsync(canRemember: true, canKeepOnTop: true);
         var window = host.Render("alpha");
 
-        var remember = window.Find("[data-testid='surface-window-remember']");
-        Assert.Equal("Remember this window", remember.GetAttribute("aria-label"));
-        Assert.Equal("false", remember.GetAttribute("aria-pressed"));
-        Assert.Equal("Remember this window", remember.GetAttribute("title"));
-        Assert.Equal("true", remember.QuerySelector("svg")!.GetAttribute("aria-hidden"));
-        Assert.Equal("surface-window-show-in-main", remember.NextElementSibling!.GetAttribute("data-testid"));
+        var header = window.Find("[data-testid='surface-window-header']");
+        Assert.Empty(header.QuerySelectorAll("[data-testid='surface-window-on-top']"));
+        Assert.Empty(header.QuerySelectorAll("[data-testid='surface-window-remember']"));
+        Assert.Empty(header.QuerySelectorAll("svg.pin-icon, svg.bookmark-icon"));
 
-        remember.Click();
+        Assert.Equal(
+            ["surface-window-title", "surface-window-scope", "surface-window-actions"],
+            header.Children.Select(Role));
+        Assert.Equal(
+            ["surface-window-show-in-main"],
+            header.QuerySelector(".surface-window__actions")!.Children.Select(child => child.GetAttribute("data-testid")));
 
-        remember = window.Find("[data-testid='surface-window-remember']");
-        Assert.Equal("true", remember.GetAttribute("aria-pressed"));
-        Assert.Equal("Forget this window", remember.GetAttribute("title"));
-        Assert.Equal("Remember this window", remember.GetAttribute("aria-label"));
-        Assert.Equal([WindowKey], host.Windows.Remembered);
-
-        remember.Click();
-
-        Assert.Equal("false", window.Find("[data-testid='surface-window-remember']").GetAttribute("aria-pressed"));
+        // Drawing nothing, the header changes nothing either.
+        Assert.Empty(host.Windows.OnTop);
         Assert.Empty(host.Windows.Remembered);
+
+        static string Role(AngleSharp.Dom.IElement child) =>
+            child.GetAttribute("data-testid")
+            ?? (child.ClassList.Contains("surface-window__scope") ? "surface-window-scope"
+                : child.ClassList.Contains("surface-window__actions") ? "surface-window-actions"
+                : child.LocalName);
     }
 
+    /// <summary>
+    /// The surface is handed no close of its own (local ADR 0043 §4): the OS close
+    /// button closes the window, so a ✕ the surface drew would only repeat it. A
+    /// surface that offers a close while it has a delegate therefore draws none here.
+    /// </summary>
     [Fact]
-    public async Task A_window_already_remembered_opens_with_remember_this_window_pressed()
+    public async Task The_surface_is_handed_no_close_callback_and_draws_no_close_of_its_own()
     {
-        using var host = await CreateHostAsync(canRemember: true);
-        host.Windows.Remembered.Add(WindowKey);
-
+        using var host = await CreateHostAsync();
         var window = host.Render("alpha");
 
-        var remember = window.Find("[data-testid='surface-window-remember']");
-        Assert.Equal("true", remember.GetAttribute("aria-pressed"));
-        Assert.Equal("Forget this window", remember.GetAttribute("title"));
-    }
+        Assert.NotEmpty(window.FindAll("[data-testid='alpha-body']"));
+        Assert.Empty(window.FindAll("[data-testid='alpha-close']"));
 
-    /// <summary>No Remember toggle where the window cannot be remembered: a window under no key,
-    /// as in the web harness, and a host that remembers no windows, as a browser tab's.</summary>
-    [Theory]
-    [InlineData(true, null)]
-    [InlineData(false, WindowKey)]
-    public async Task No_remember_toggle_is_drawn_where_the_window_cannot_be_remembered(bool canRemember, string? key)
-    {
-        using var host = await CreateHostAsync(canRemember: canRemember);
-
-        var window = host.Render("alpha", windowKey: key);
-
-        Assert.Empty(window.FindAll("[data-testid='surface-window-remember']"));
-        Assert.NotEmpty(window.FindAll("[data-testid='surface-window-show-in-main']"));
+        var parameters = window.FindComponent<DynamicComponent>().Instance.Parameters;
+        Assert.NotNull(parameters);
+        var close = Assert.IsType<EventCallback>(parameters[ShellSurface.CloseParameter]);
+        Assert.False(close.HasDelegate);
     }
 
     /// <summary>A jump or a chip changes what the window shows, and the window says so,
@@ -321,69 +481,6 @@ public sealed class SurfaceWindowTests
 
         window.Find("[data-testid='alpha-jump']").Click();
         window.WaitForAssertion(() => Assert.Equal(("beta", "item=7"), host.Windows.LastShowing));
-    }
-
-    /// <summary>Both toggles where the head can do both: Keep on top, then Remember this
-    /// window, then Show in main window, each its own glyph.</summary>
-    [Fact]
-    public async Task Keep_on_top_and_remember_this_window_stand_in_order_before_show_in_main_window()
-    {
-        using var host = await CreateHostAsync(canRemember: true, canKeepOnTop: true);
-        var window = host.Render("alpha");
-
-        var onTop = window.Find("[data-testid='surface-window-on-top']");
-        Assert.Equal("surface-window-remember", onTop.NextElementSibling!.GetAttribute("data-testid"));
-        Assert.Equal("surface-window-show-in-main", onTop.NextElementSibling!.NextElementSibling!.GetAttribute("data-testid"));
-        Assert.NotNull(onTop.QuerySelector("svg.pin-icon"));
-        Assert.NotNull(window.Find("[data-testid='surface-window-remember']").QuerySelector("svg.bookmark-icon"));
-    }
-
-    /// <summary>Where the window can be kept on top of other windows, its header has a
-    /// pin: pressed, the window is kept on top; pressed again, it is let go.</summary>
-    [Fact]
-    public async Task The_pin_keeps_the_window_on_top_and_lets_it_go()
-    {
-        using var host = await CreateHostAsync(canKeepOnTop: true);
-        var window = host.Render("alpha");
-
-        var pin = window.Find("[data-testid='surface-window-on-top']");
-        Assert.Equal("false", pin.GetAttribute("aria-pressed"));
-        Assert.Equal("Keep on top", pin.GetAttribute("aria-label"));
-
-        pin.Click();
-
-        Assert.Contains(WindowKey, host.Windows.OnTop);
-        window.WaitForAssertion(() =>
-            Assert.Equal("true", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed")));
-
-        window.Find("[data-testid='surface-window-on-top']").Click();
-
-        Assert.DoesNotContain(WindowKey, host.Windows.OnTop);
-        window.WaitForAssertion(() =>
-            Assert.Equal("false", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed")));
-    }
-
-    /// <summary>A window that opens kept on top — its surface's last window was —
-    /// shows the pin pressed.</summary>
-    [Fact]
-    public async Task A_window_opened_on_top_shows_the_pin_pressed()
-    {
-        using var host = await CreateHostAsync(canKeepOnTop: true);
-        host.Windows.OnTop.Add(WindowKey);
-
-        var window = host.Render("alpha");
-
-        Assert.Equal("true", window.Find("[data-testid='surface-window-on-top']").GetAttribute("aria-pressed"));
-    }
-
-    /// <summary>A host whose windows cannot be kept on top — a browser tab — shows no pin.</summary>
-    [Fact]
-    public async Task A_host_that_cannot_keep_a_window_on_top_shows_no_pin()
-    {
-        using var host = await CreateHostAsync();
-        var window = host.Render("alpha");
-
-        Assert.Empty(window.FindAll("[data-testid='surface-window-on-top']"));
     }
 
     /// <summary>Show in main window keeps its name when a narrow window hides its words:
@@ -507,8 +604,9 @@ public sealed class SurfaceWindowTests
         }
     }
 
-    /// <summary>A surface that draws the query it was handed and jumps to
-    /// <see cref="JumpTo"/> on its button.</summary>
+    /// <summary>A surface that draws the query it was handed, jumps to
+    /// <see cref="JumpTo"/> on its button, and offers a close of its own only while it
+    /// was handed a close to call, as the module panes do.</summary>
     private abstract class TestSurface : ComponentBase
     {
         [Inject]
@@ -536,6 +634,15 @@ public sealed class SurfaceWindowTests
             builder.AddAttribute(5, "onclick", EventCallback.Factory.Create(this, () => Navigator.Show(JumpTo.SurfaceId, JumpTo.Query)));
             builder.AddContent(6, "Jump");
             builder.CloseElement();
+            if (OnClose.HasDelegate)
+            {
+                builder.OpenElement(7, "button");
+                builder.AddAttribute(8, "data-testid", $"{Id}-close");
+                builder.AddAttribute(9, "onclick", OnClose);
+                builder.AddContent(10, "✕");
+                builder.CloseElement();
+            }
+
             builder.CloseElement();
         }
     }

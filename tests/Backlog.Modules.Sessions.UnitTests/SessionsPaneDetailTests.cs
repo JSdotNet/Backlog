@@ -803,7 +803,7 @@ public sealed class SessionsPaneDetailTests
                 Stages = [new DeliveryRunStage("Implement", "done", 60_000, 1)]
             };
 
-        using var context = Context([], [Finished("a", "flow-code", "JSdotNet/Backlog", 1), Finished("b", "flow-spec", "JSdotNet/Archify", 2), Finished("c", "flow-spec", "JSdotNet/Archify", 3)]);
+        using var context = Context([], [Finished("a", "flow-code", "JSdotNet/Backlog", 1), Finished("b", "flow-spec", "JSdotNet/Almanac", 2), Finished("c", "flow-spec", "JSdotNet/Almanac", 3)]);
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
 
@@ -812,7 +812,7 @@ public sealed class SessionsPaneDetailTests
             .Add(p => p.RepositoryAlias, repository => repository?.ToLowerInvariant() switch
             {
                 "jsdotnet/backlog" => "backlog",
-                "jsdotnet/archify" => "archify",
+                "jsdotnet/almanac" => "almanac",
                 _ => null
             }));
 
@@ -876,24 +876,24 @@ public sealed class SessionsPaneDetailTests
             Task.FromResult(new DeliveryRunCatalog(++Reads == 1 ? first : then, []));
     }
 
-    /// <summary>The page is inside the takeover, so its ✕ is the pane's own close.</summary>
+    /// <summary>The page is inside the takeover, and like the list it draws no close of
+    /// its own (interaction-guidelines.md#shell-header, "A surface draws no close of
+    /// its own"): its breadcrumb is the way back to the list.</summary>
     [Fact]
-    public void Delivery_economics_closes_the_takeover_the_way_the_list_does()
+    public void Delivery_economics_draws_no_close_the_way_the_list_draws_none()
     {
-        var closed = 0;
-
         using var context = Context([Claude], []);
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var pane = context.Render<SessionsPane>(parameters => parameters.Add(p => p.OnClose, () => closed++));
+        var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-open-economics']")));
+        Assert.Empty(pane.FindAll("[aria-label='Close sessions pane']"));
         pane.Find("[data-testid='sessions-open-economics']").Click();
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='delivery-economics']")));
 
-        pane.Find("[data-testid='delivery-economics'] [aria-label='Close sessions pane']").Click();
-
-        pane.WaitForAssertion(() => Assert.Equal(1, closed));
+        Assert.Empty(pane.FindAll("[data-testid='delivery-economics'] [aria-label='Close sessions pane']"));
+        Assert.NotNull(pane.Find("[data-testid='economics-back']"));
     }
 
     /// <summary>The run and its five earlier runs of the insight test, on the clock of
@@ -1075,13 +1075,4 @@ public sealed class SessionsPaneDetailTests
         State: AgentSessionState.Running,
         TurnCount: null,
         Origin: AgentSessionOrigin.Local);
-
-    private sealed class StubSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
-    }
 }

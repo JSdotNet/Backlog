@@ -36,28 +36,12 @@ public interface IGitHubClient
         Task.FromException<GitHubPullRequest>(new GitHubException("This GitHub client cannot read a pull request."));
 
     /// <summary>
-    /// Reads one pull request's state, check roll-up and auto-merge request, and
-    /// what the merge acts need to act on it — one GraphQL query. See
-    /// <see cref="GitHubPullRequestStatus"/>.
-    /// <para>
-    /// A default body for the reason <see cref="GetPullRequestAsync"/> has one: a
-    /// test double that is not about pull requests answers like a GitHub that
-    /// cannot find it, which the caller already treats as "not read".
-    /// </para>
-    /// </summary>
-    Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
-        GitHubRepositoryRef repository,
-        int number,
-        CancellationToken cancellationToken = default) =>
-        Task.FromException<GitHubPullRequestStatus>(new GitHubException("This GitHub client cannot read a pull request's status."));
-
-    /// <summary>
     /// Asks GitHub to merge the pull request by itself once its requirements are
     /// met — GitHub's native auto-merge. GitHub does the waiting; nothing in this
     /// app polls or merges on a timer.
     /// </summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
-    /// <see cref="GetPullRequestStatusAsync"/>.</param>
+    /// <see cref="ListOpenPullRequestsAsync"/>.</param>
     Task EnableAutoMergeAsync(
         GitHubRepositoryRef repository,
         string pullRequestId,
@@ -410,38 +394,6 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
         return ReadPullRequest(response, repository.FullName);
     }
 
-    /// <summary>
-    /// The status query. The repository's merge settings ride along with the pull
-    /// request because the method an auto-merge request is made with has to be one
-    /// the repository allows, and asking in the same round trip keeps "read, then
-    /// act" to one read.
-    /// <para>
-    /// The check roll-up is the head commit's — <c>commits(last: 1)</c> — which is
-    /// the commit GitHub gates the merge on.
-    /// </para>
-    /// </summary>
-    private const string StatusQuery = """
-        query($owner: String!, $name: String!, $number: Int!) {
-          repository(owner: $owner, name: $name) {
-            mergeCommitAllowed
-            squashMergeAllowed
-            rebaseMergeAllowed
-            defaultBranchRef { name }
-            pullRequest(number: $number) {
-              id
-              number
-              state
-              isDraft
-              baseRefName
-              mergeStateStatus
-              reviewDecision
-              autoMergeRequest { enabledAt }
-              commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
-            }
-          }
-        }
-        """;
-
     private const string EnableAutoMergeMutation = """
         mutation($id: ID!, $method: PullRequestMergeMethod!) {
           enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) { clientMutationId }
@@ -467,10 +419,11 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
         """;
 
     /// <summary>
-    /// The list query: the status query's fields for every open pull request at once,
-    /// plus what a list shows that a single link does not — the branches, the author,
-    /// and the merge state's other answers. The merge settings ride along for the
-    /// reason they do on <see cref="StatusQuery"/>.
+    /// The list query: every open pull request's state, head-commit check roll-up and
+    /// auto-merge request at once, plus the branches, the author, and the merge state's
+    /// other answers. The repository's merge settings ride along because the method an
+    /// auto-merge request is made with has to be one the repository allows, and asking
+    /// in the same round trip keeps "read, then act" to one read.
     /// <para>
     /// Fifty, most recently updated first, read as pages of
     /// <see cref="OpenPullRequestPageSize"/>. A repository with more open pull requests
@@ -701,44 +654,6 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
         }
         """;
 
-    public async Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
-        GitHubRepositoryRef repository,
-        int number,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(repository);
-
-        var data = await GitHubGraphQl.SendAsync(
-            transport,
-            repository,
-            StatusQuery,
-            new Dictionary<string, object?>
-            {
-                ["owner"] = repository.Owner,
-                ["name"] = repository.Name,
-                ["number"] = number
-            },
-            cancellationToken,
-            tolerate: OnlyTheCheckRollupWasRefused).ConfigureAwait(false);
-
-        return ReadPullRequestStatus(data, repository.FullName, number);
-    }
-
-    /// <summary>
-    /// The one partial status answer that is still a status: every error points
-    /// inside <c>statusCheckRollup</c>, and the pull request itself came back. A
-    /// fine-grained token without access to checks is answered exactly this way —
-    /// FORBIDDEN on the roll-up, everything else intact — and the state, the
-    /// auto-merge request and the merge act do not depend on the one field it cannot
-    /// see. The roll-up comes back null, which <see cref="ReadChecks"/> already reads
-    /// as no checks.
-    /// </summary>
-    private static bool OnlyTheCheckRollupWasRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
-        errors.All(error => GitHubGraphQl.PathPassesThrough(error, "statusCheckRollup"))
-        && data.TryGetProperty("repository", out var repository)
-        && repository.ValueKind == JsonValueKind.Object
-        && repository.TryGetProperty("pullRequest", out var pull)
-        && pull.ValueKind == JsonValueKind.Object;
 
     public Task EnableAutoMergeAsync(
         GitHubRepositoryRef repository,
@@ -1356,10 +1271,10 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     }
 
     /// <summary>
-    /// The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the same
-    /// refusal, once per pull request, and the same reason to read around it — a
-    /// token that cannot see checks can still see which pull requests are open.
-    /// Widened to the other facts a narrower token is refused one by one: the check
+    /// A fine-grained token without access to checks is refused the check roll-up
+    /// alone — FORBIDDEN with a path into <c>statusCheckRollup</c>, once per pull
+    /// request — and can still see which pull requests are open, so the list is read
+    /// around it. Widened to the other facts a narrower token is refused one by one: the check
     /// counts, the reviews, the review requests and the closing references. Each comes back null and reads
     /// as that fact missing, never as the row missing.
     /// </summary>
@@ -1656,52 +1571,6 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
         GitHubMergeMethod.Rebase => "REBASE",
         _ => "MERGE"
     };
-
-    /// <summary>The status query's <c>data</c>, as the record the merge controls
-    /// read. A missing pull request is a not-found, the same answer the REST read
-    /// gives for one.</summary>
-    internal static GitHubPullRequestStatus ReadPullRequestStatus(JsonElement data, string repositoryFullName, int number)
-    {
-        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object
-            || !repository.TryGetProperty("pullRequest", out var pull) || pull.ValueKind != JsonValueKind.Object)
-        {
-            throw new GitHubException($"GitHub couldn't find pull request #{number} in {repositoryFullName}.")
-            {
-                Status = System.Net.HttpStatusCode.NotFound
-            };
-        }
-
-        var nodeId = String(pull, "id");
-        if (string.IsNullOrWhiteSpace(nodeId))
-        {
-            throw new GitHubException("GitHub returned a pull request without an id.");
-        }
-
-        var state = String(pull, "state") switch
-        {
-            "MERGED" => GitHubItemState.Merged,
-            "CLOSED" => GitHubItemState.Closed,
-            _ when pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True => GitHubItemState.Draft,
-            _ => GitHubItemState.Open
-        };
-
-        return new GitHubPullRequestStatus(
-            pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : number,
-            repositoryFullName,
-            nodeId,
-            state,
-            ReadChecks(pull),
-            pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
-            String(pull, "mergeStateStatus") is { } mergeState && MergeableNow.Contains(mergeState),
-            PreferredMergeMethod(repository))
-        {
-            ReviewState = ReadReviewState(pull),
-            BaseRefName = String(pull, "baseRefName"),
-            DefaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
-                ? String(defaultRef, "name")
-                : null
-        };
-    }
 
     /// <summary>
     /// The list query's <c>data</c>, as the records the pull requests list reads. A
@@ -2414,8 +2283,8 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
                     : GitHubItemState.Open;
 
         // The base names the branch it merges into, and the base repository's own
-        // default branch rides along on it — what the status query reads as
-        // baseRefName and defaultBranchRef, so the fallback can answer the same.
+        // default branch rides along on it — what the GraphQL lists read as
+        // baseRefName and defaultBranchRef, so this read can answer the same.
         var hasBase = element.TryGetProperty("base", out var baseRef) && baseRef.ValueKind == JsonValueKind.Object;
         JsonElement? baseRepo = hasBase && baseRef.TryGetProperty("repo", out var repo) && repo.ValueKind == JsonValueKind.Object ? repo : null;
 

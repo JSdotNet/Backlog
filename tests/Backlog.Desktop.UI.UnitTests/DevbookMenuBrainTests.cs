@@ -11,10 +11,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookMenuBrainTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "devbook-menu-brain-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-menu-brain-tests");
     private string? _setting;
 
-    private string Brain => Path.Combine(_root, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
     private BrainFolderSource Source() => new(() => _setting);
 
@@ -48,10 +48,10 @@ public sealed class DevbookMenuBrainTests : IDisposable
         var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            ["Inbox", "Projects", "Areas", "Resources", "People", "Journal", "Archive"],
+            ["Inbox", "Projects", "Someday", "Areas", "Resources", "People", "Journal", "Archive"],
             tree.Roots.Select(root => root.Label));
         Assert.Equal(
-            ["_inbox", "projects", "areas", "resources", "people", "journal", "archive"],
+            ["_inbox", "projects", "someday", "areas", "resources", "people", "journal", "archive"],
             tree.Roots.Select(root => root.Path));
     }
 
@@ -229,14 +229,5 @@ public sealed class DevbookMenuBrainTests : IDisposable
         File.WriteAllText(file, text);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

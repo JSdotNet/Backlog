@@ -3,60 +3,13 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <summary>
 /// The feature keys Devbook owns.
 /// <para>
-/// <see cref="RepositoryDevbook"/> is read by this context's own scope service
-/// and by the Shell that decides whether to offer the pane at all. It names
-/// something about the devbook rather than about the screen asking, so it sits
-/// here and the Shell reads it across — the direction that works, because
-/// nothing below the Shell may read the Shell.
+/// Each key names something about the devbook rather than about the screen
+/// asking, so it sits here and the Shell reads it across — the direction that
+/// works, because nothing below the Shell may read the Shell.
 /// </para>
 /// </summary>
 public static class DevbookFeatures
 {
-    /// <summary>Show the Devbook side pane and its design, architecture, domain,
-    /// technology, AI adoption and instruction sections.
-    /// <para>
-    /// One switch where there were two: <c>devbook-sections</c> gated the sections
-    /// and this key the pane, and neither meant anything without the other — a pane
-    /// with its sections off offered nothing to read. The catalog names the former
-    /// key, so a choice made under it carries over.
-    /// </para></summary>
-    public const string RepositoryDevbook = "repository-devbook";
-
-    /// <summary>Draw a chapter diagram from its generated Archify artifact where
-    /// one exists, instead of rendering the mermaid.
-    /// <para>
-    /// A devbook key rather than a shell one, by the same rule as its
-    /// neighbours: what it switches is how a devbook chapter's diagrams are
-    /// drawn, so it belongs with the context the chapters are of. The Shell only
-    /// contributes the catalog row that names and describes it, and the adapter
-    /// that answers it lives with the panels that render the chapters.
-    /// </para></summary>
-    public const string ArchifyDiagrams = "archify-diagrams";
-
-    /// <summary>Show the C4 model that sits beside the architecture chapters, and
-    /// the references between the two.
-    /// <para>
-    /// Its own key rather than a second meaning for <see cref="ArchifyDiagrams"/>,
-    /// because the two switch unrelated things. Archify changes how a chapter's own
-    /// mermaid fence is drawn; this adds views that are not in any chapter and are
-    /// authored somewhere else entirely — in c4hero, as Structurizr DSL under
-    /// <c>.devbook/arc42/workspace.dsl</c>. Someone who wants richer pictures of the fences they
-    /// have should not have to take a whole second model with them.
-    /// </para></summary>
-    public const string C4Diagrams = "c4-diagrams";
-
-    /// <summary>Offer a second C4 tab, <c>C4 zoom</c>, that walks the model one level at
-    /// a time — System context, Containers, Components, Code — beside the C4 tab, which
-    /// stays as it is.
-    /// <para>
-    /// Effective only while <see cref="C4Diagrams"/> is on: the zoom tab is another
-    /// reading of the same model, and with the model off there is nothing to zoom
-    /// through. Its own key rather than a change to the C4 tab, so the new navigation
-    /// can be used beside the current one and replace it only once it is validated
-    /// (local ADR 0046).
-    /// </para></summary>
-    public const string C4Zoom = "c4-zoom";
-
     /// <summary>Search the knowledge areas by the words their chapters use.
     /// <para>
     /// A devbook key by the same rule as its neighbours: what it switches on is
@@ -110,8 +63,7 @@ public static class DevbookFeatures
     /// the unit is (local ADR 0047), instead of the Domain area as it reads today.
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
-    /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane
-    /// at all, do not. It ships off while the plan <c>+devbook-domain-view</c> builds
+    /// it: the other areas do not. It ships off while the plan <c>+devbook-domain-view</c> builds
     /// the view, and is retired when the old Domain view is removed.
     /// </para></summary>
     public const string DomainView = "devbook-domain-view";

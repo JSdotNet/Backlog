@@ -832,7 +832,7 @@ With a host listening on OnAttach and at least one goal, each row leads with a g
     private const string StartCode = """
         <TwoWeekStartDialog Open="_askingStart"
                             OpenChanged="open => _askingStart = open"
-                            Offered="@Iterations.MondayOf(today)"
+                            Offered="@(global::Backlog.SharedKernel.CalendarWeek.MondayOf(today))"
                             OnSave="start => { settings.SetTwoWeekStart(start); settings.SetLength(IterationLength.TwoWeeks, today); }" />
         """;
 

@@ -233,6 +233,12 @@ public sealed class TaskItem
     /// status, still counts as ready to a chain, and can still be ticked off.</summary>
     public DateOnly? BlockedSince { get; private set; }
 
+    /// <summary>Who the entry waits on and when to follow up, or null when it waits
+    /// on nobody (<c>.devbook/domain/tasks/domain.md#waiting-for</c>). Not the hand-set
+    /// <see cref="BlockedSince"/> and not an Impediment: it names a party the person
+    /// is waiting to hear from. No lifecycle rule reads it.</summary>
+    public WaitingFor? WaitingFor { get; private set; }
+
     /// <summary>Which reading of the body the person last asked for, or null when
     /// they have never said. Held on the aggregate and not in a view-model because
     /// the entry's markdown is canonical: the preference is written on the metadata
@@ -525,6 +531,14 @@ public sealed class TaskItem
     /// <c>blocked:</c> token off the entry's text, the way they read the tick.</summary>
     public bool IsBlocked => BlockedSince is not null;
 
+    /// <summary>Records who the entry waits on and its follow-up date, or clears the
+    /// waiting-for with null. Touches nothing else — see <see cref="WaitingFor"/>.</summary>
+    public void SetWaitingFor(WaitingFor? waitingFor)
+    {
+        WaitingFor = waitingFor;
+        Touch();
+    }
+
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.
     /// <para>
@@ -639,13 +653,6 @@ public sealed class TaskItem
     /// <see cref="EntryStatusFlow.IsAllowed"/>.</summary>
     public static bool IsTransitionAllowed(EntryStatus from, EntryStatus to) =>
         EntryStatusFlow.IsAllowed(from, to);
-
-    /// <summary>The statuses this entry may move to right now, excluding its
-    /// current one. Callers use this to explain a refusal rather than just
-    /// swallow it. The published spelling of
-    /// <see cref="EntryStatusFlow.NextFrom"/>.</summary>
-    public static IReadOnlyList<EntryStatus> NextStatusesFrom(EntryStatus from) =>
-        EntryStatusFlow.NextFrom(from);
 
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
     public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
@@ -780,19 +787,6 @@ public sealed class TaskItem
         var subItem = FindSubItem(subItemId);
         subItem.Title = title;
         subItem.Notes = notes;
-        Touch();
-    }
-
-    /// <summary>Moves a sub-item to a new zero-based position, reindexing the rest.</summary>
-    public void ReorderSubItem(Guid subItemId, int newIndex)
-    {
-        var subItem = FindSubItem(subItemId);
-        if (newIndex < 0 || newIndex >= _subItems.Count)
-            throw new ArgumentOutOfRangeException(nameof(newIndex));
-
-        _subItems.Remove(subItem);
-        _subItems.Insert(newIndex, subItem);
-        Reindex();
         Touch();
     }
 

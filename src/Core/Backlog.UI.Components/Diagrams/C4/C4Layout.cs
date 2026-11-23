@@ -1,10 +1,12 @@
 using System.Globalization;
 
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>One drawn card, placed.</summary>
-/// <param name="Alias">The identifier the rendered shape carries, so a click and a
-/// Highlighter dim both resolve through the same thread the mermaid rendering used.</param>
+/// <param name="Alias">The identifier the rendered shape carries, so a click resolves
+/// through the same thread the mermaid rendering used.</param>
 public sealed record C4PlacedNode(
     C4Node Node,
     string Alias,
@@ -12,8 +14,7 @@ public sealed record C4PlacedNode(
     double Y,
     double Width,
     double Height,
-    bool External,
-    bool Drillable);
+    bool External);
 
 /// <summary>A boundary: the frame drawn around whatever the view opened up.</summary>
 public sealed record C4PlacedBoundary(
@@ -42,8 +43,7 @@ public sealed record C4PlacedEdge(
 {
     /// <summary>The group this edge was drawn to or from as a whole, when it stands for
     /// several relationships between one element and members of that group; otherwise
-    /// <see langword="null"/>. Only a layout with <see cref="C4LayoutOptions.GroupBands"/>
-    /// draws such an edge.</summary>
+    /// <see langword="null"/>. Only a view with a group band draws such an edge.</summary>
     public string? Group { get; init; }
 }
 
@@ -67,20 +67,16 @@ public sealed record C4PlacedGroup(
     IReadOnlyList<string> MemberAliases);
 
 /// <summary>
-/// What a host may ask the layout for beyond what every C4 view is laid out as.
+/// The card size a host may ask the layout for, for the Code level's class boxes.
 /// <para>
-/// Off by default, and a layout handed no options places exactly what it placed before
-/// options existed. The C4 tab's explorer never passes any; the C4 zoom tab passes
-/// <see cref="GroupBands"/> - the rule local ADR 0046 sets for the two tabs while they
-/// stand side by side, as <see cref="C4SvgOptions"/> does for the writer.
+/// What the zoom navigation once asked for by switch - group bands beside the picture,
+/// nested deployment frames, the wider gaps - every view is now laid out with, since the
+/// C4 tab that had to stay unchanged beside it is retired (local ADR 0046).
 /// </para>
 /// </summary>
-/// <param name="GroupBands">Whether elements that share a <see cref="C4Element.Group"/>,
-/// and sit in no boundary, are kept together in one band per group, and whether a
-/// relationship to several members of one group is drawn once, to the band.</param>
-public sealed record C4LayoutOptions(bool GroupBands = false)
+public sealed record C4LayoutOptions
 {
-    /// <summary>No additions: the layout every view had before options existed.</summary>
+    /// <summary>The C4 card's own size.</summary>
     public static C4LayoutOptions None { get; } = new();
 
     /// <summary>The width every card is laid out at. Null keeps the C4 card's own
@@ -92,27 +88,6 @@ public sealed record C4LayoutOptions(bool GroupBands = false)
     /// size; the Code level asks for one tall enough for the longest member list it
     /// shows.</summary>
     public double? CardHeight { get; init; }
-
-    /// <summary>Whether every deployment node a card sits in is framed, each frame nested
-    /// in the one round it, rather than only the node the card sits in directly. A node
-    /// that holds only other nodes - a machine holding packages, a subscription holding
-    /// services - is otherwise never drawn, so nothing on the picture stands for it.
-    /// Frames of anything else stay one level deep: a system opened up round a container
-    /// opened up would put the whole component view on one row.</summary>
-    public bool NestedDeploymentNodes { get; init; }
-
-    /// <summary>Whether the group bands, with <see cref="GroupBands"/>, sit in one column
-    /// to the right of the rest of the picture, beside what they relate to, as the
-    /// design's landscape draws them - rather than on the rows their relationships rank
-    /// them onto. A band holding a person keeps its place on the top row.</summary>
-    public bool BandsBeside { get; init; }
-
-    /// <summary>The space between two cells in a row, and between two cards in a frame.
-    /// Null keeps the layout's own.</summary>
-    public double? ColumnGap { get; init; }
-
-    /// <summary>The space between two rows. Null keeps the layout's own.</summary>
-    public double? RowGap { get; init; }
 }
 
 /// <summary>Everything needed to draw one view, in one coordinate space.</summary>
@@ -125,8 +100,8 @@ public sealed record C4Diagram(
 {
     public static C4Diagram Empty { get; } = new(0, 0, [], [], []);
 
-    /// <summary>The group bands, drawn under everything else. Empty unless the layout
-    /// was asked for <see cref="C4LayoutOptions.GroupBands"/>.</summary>
+    /// <summary>The group bands, drawn under everything else. Empty unless the view
+    /// draws elements a <c>group</c> block gathered.</summary>
     public IReadOnlyList<C4PlacedGroup> Groups { get; init; } = [];
 
     public bool HasContent => Nodes.Count > 0;
@@ -150,6 +125,15 @@ public sealed record C4Diagram(
 /// no gain at this size.
 /// </para>
 /// <para>
+/// Elements that share a <see cref="C4Element.Group"/> and sit in no boundary are kept
+/// together in one band per group, in one column to the right of the rest of the
+/// picture, as the design's landscape draws them; a relationship to several members of
+/// one group is drawn once, to the band, and a band holding a person keeps its place on
+/// the top row. Every deployment node a card sits in is framed, each frame nested in the
+/// one round it, so a node that holds only other nodes is drawn too; frames of anything
+/// else stay one level deep. The gaps leave the labels on a larger view room.
+/// </para>
+/// <para>
 /// Selection is not re-derived here. Which elements and which edges a view contains
 /// comes from <see cref="C4MermaidWriter.VisibleElements"/> and
 /// <see cref="C4MermaidWriter.VisibleRelationships"/>, so the two renderings always
@@ -160,8 +144,8 @@ public static class C4LayoutEngine
 {
     private const double DefaultCardWidth = 196;
     private const double DefaultCardHeight = 84;
-    private const double DefaultColumnGap = 44;
-    private const double DefaultRowGap = 92;
+    private const double ColumnGap = 80;
+    private const double RowGap = 144;
     private const double BoundaryPadding = 28;
     private const double BoundaryHeader = 26;
     private const double Margin = 28;
@@ -205,16 +189,14 @@ public static class C4LayoutEngine
         // A cell is either one card or one boundary full of cards. Layering happens
         // over cells, so a system that was opened up moves as a whole.
         var card = new CardSize(options.CardWidth ?? DefaultCardWidth, options.CardHeight ?? DefaultCardHeight);
-        var gaps = new Gaps(options.ColumnGap ?? DefaultColumnGap, options.RowGap ?? DefaultRowGap);
-        var cells = BuildCells(workspace, nodes, elements, options, card, gaps);
+        var gaps = new Gaps(ColumnGap, RowGap);
+        var cells = BuildCells(workspace, nodes, elements, card, gaps);
         var edges = C4MermaidWriter.VisibleRelationships(workspace, view);
 
         // Bands set beside the picture take no row: ranking them would put whatever
         // they relate to on the rows round them, which is how the system came to sit
         // under its own capture sources.
-        var beside = options.GroupBands && options.BandsBeside
-            ? cells.Where(cell => cell.Group is not null && !cell.Members.Any(member => member.Node.Kind == C4ElementKind.Person)).ToList()
-            : [];
+        var beside = cells.Where(cell => cell.Group is not null && !cell.Members.Any(member => member.Node.Kind == C4ElementKind.Person)).ToList();
         var ranked = beside.Count == 0 ? cells : cells.Except(beside).ToList();
 
         AssignRanks(ranked, edges);
@@ -275,8 +257,7 @@ public static class C4LayoutEngine
                     cell.Y + member.OffsetY,
                     card.Width,
                     card.Height,
-                    IsExternal(workspace, view, member.Node.ElementId),
-                    member.Node.DrillViewKey is not null));
+                    IsExternal(workspace, view, member.Node.ElementId)));
             }
         }
 
@@ -357,8 +338,8 @@ public static class C4LayoutEngine
 
     /// <summary>
     /// Groups the drawn cards into cells: one per boundary, plus one per card that is
-    /// in no boundary - or, with <paramref name="groupBands"/>, one per model group for
-    /// the cards in no boundary that a <c>group</c> block gathered.
+    /// in no boundary - or one per model group for the cards in no boundary that a
+    /// <c>group</c> block gathered.
     /// <para>
     /// A boundary is an element the view draws something <em>inside</em> — the same
     /// test the mermaid writer makes when it chooses between a frame and a card, so the
@@ -369,11 +350,9 @@ public static class C4LayoutEngine
         C4Workspace workspace,
         IReadOnlyList<C4Node> nodes,
         Dictionary<string, C4Element> elements,
-        C4LayoutOptions options,
         CardSize card,
         Gaps gaps)
     {
-        var groupBands = options.GroupBands;
         var boundaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var element in elements.Values)
@@ -426,7 +405,7 @@ public static class C4LayoutEngine
 
             // A band sits where its first member would have, so the rest of the row
             // keeps the order the model declared it in.
-            if (groupBands && element?.Group is { } group && !string.IsNullOrWhiteSpace(group))
+            if (element?.Group is { } group && !string.IsNullOrWhiteSpace(group))
             {
                 if (!byGroup.TryGetValue(group, out var band))
                 {
@@ -463,8 +442,7 @@ public static class C4LayoutEngine
         // A frame is nested only where it and what it sits in are both deployment
         // nodes; every other frame is drawn the one level deep it always was.
         bool Nests(string boundaryId) =>
-            options.NestedDeploymentNodes
-            && elements.GetValueOrDefault(boundaryId)?.Kind == C4ElementKind.DeploymentNode;
+            elements.GetValueOrDefault(boundaryId)?.Kind == C4ElementKind.DeploymentNode;
 
         // The cell of a nested frame, made the first time a card inside it is met and
         // put inside the frame round it - or among the top-level cells, where nothing
@@ -820,10 +798,8 @@ public static class C4LayoutEngine
                 else from = BandAsCard(bundle.Band, from);
             }
 
-            var inside = bundle?.Band.Placed.MemberAliases;
             var obstacles = placed
                 .Where(node => !ReferenceEquals(node, from) && !ReferenceEquals(node, to))
-                .Where(node => inside is null || !inside.Contains(node.Alias, StringComparer.Ordinal))
                 .ToList();
 
             var label = bundle is null ? edge.Description : bundle.Description;
@@ -998,8 +974,7 @@ public static class C4LayoutEngine
             band.Placed.Y,
             band.Placed.Width,
             band.Placed.Height,
-            External: false,
-            Drillable: false);
+            External: false);
 
     /// <summary>The alias an edge drawn to a band names as its end. Never a card's
     /// alias: those are model identifiers, which cannot carry a space or a colon.</summary>

@@ -15,18 +15,13 @@ public sealed class UsageReadLogStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Morning = new(2026, 10, 13, 8, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "usage-read-log-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("usage-read-log-store-tests");
+
+    private string _root => _temp.Path;
 
     private readonly FakeTimeProvider _time = new(Morning);
 
-    public UsageReadLogStoreTests() => Directory.CreateDirectory(_root);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private string LogFile => Path.Combine(_root, UsageReadLogStore.FileName);
 

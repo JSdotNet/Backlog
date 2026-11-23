@@ -30,9 +30,3 @@ internal sealed class EntryMarkdownMetadataReader : IMarkdownMetadataReader
             parsed.MetadataTags);
     }
 }
-
-public static class EntryMarkdownMetadataExtensions
-{
-    public static EntryMarkdownMetadata? EntryMetadata(this MdSubItem subItem) =>
-        subItem.Metadata?.Value as EntryMarkdownMetadata;
-}

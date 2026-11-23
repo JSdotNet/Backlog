@@ -5,16 +5,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 public sealed class AgentSessionRecordStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "agent-session-record-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("agent-session-record-store-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static readonly DateTimeOffset Noon = new(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private AgentSessionRecordStore Store() => new(() => _root);
 
@@ -131,6 +128,22 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         Assert.Null(read.Session.ScheduledTask);
         Assert.Null(read.Session.DesktopTitle);
         Assert.Equal(record.Session.Title, read.Session.Title);
+    }
+
+    /// <summary>A record is written no earlier than anything folded into it, so a file last
+    /// written before the bound holds nothing after it: the bounded read leaves it unread.</summary>
+    [Fact]
+    public void Records_last_written_before_a_time_are_left_unread()
+    {
+        var store = Store();
+        store.Save([Record("s-old")]);
+        File.SetLastWriteTimeUtc(Assert.Single(Directory.GetFiles(_root, "*.json")), Noon.AddDays(-30).UtcDateTime);
+        store.Save([Record("s-new")]);
+
+        var since = store.AmendedSince(Noon.AddDays(-10));
+
+        Assert.Equal(["s-new"], since.Select(record => record.Session.Id));
+        Assert.Equal(2, store.All().Count);
     }
 
     /// <summary>Two agents issuing one session id are two records.</summary>

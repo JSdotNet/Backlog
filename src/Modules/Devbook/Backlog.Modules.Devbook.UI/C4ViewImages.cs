@@ -1,3 +1,4 @@
+using Backlog.SharedKernel.C4;
 using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Diagrams.C4;
 
@@ -17,7 +18,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </para>
 /// <para>
 /// A key is matched without regard to case, as devbook's checker matches it. A key
-/// that names no view — or any key while the feature is off, when the catalog is
+/// that names no view — or any key when there is no model, when the catalog is
 /// <see cref="C4Catalog.Off"/> — is declined, so the chapter keeps its own rule and
 /// shows the alt text, which is what devbook's checker flags as an error anyway.
 /// </para>
@@ -34,19 +35,13 @@ public sealed class C4ViewImages : IDevbookImageSource
     /// declines.</summary>
     public IDevbookImageSource? Next { get; set; }
 
-    /// <summary>What following "Open in C4 tab" does. Unset, the figure offers no way
-    /// across.</summary>
+    /// <summary>What following "Open in the C4 model" does. Unset, the figure offers no
+    /// way across.</summary>
     public EventCallback<C4View> OnOpen { get; set; }
 
-    /// <summary>The way across as the tabs name it.</summary>
-    public const string TabLabel = "Open in C4 tab";
-
-    /// <summary>The way across as the architecture surface names it: it has no C4 tab,
-    /// and the view opens in its picture.</summary>
-    public const string SurfaceLabel = "Open in the C4 model";
-
-    /// <summary>What the way across says; the host sets it to where the view opens.</summary>
-    public string OpenLabel { get; set; } = TabLabel;
+    /// <summary>The way across: the view opens in the architecture surface's
+    /// picture.</summary>
+    public const string OpenLabel = "Open in the C4 model";
 
     public RenderFragment? Image(string target, string caption, string? documentPath) =>
         Resolve(target) is { } resolved
@@ -85,7 +80,6 @@ public sealed class C4ViewImages : IDevbookImageSource
         builder.AddComponentParameter(2, nameof(C4EmbeddedView.View), view);
         builder.AddComponentParameter(3, nameof(C4EmbeddedView.Caption), caption);
         builder.AddComponentParameter(4, nameof(C4EmbeddedView.OnOpen), OnOpen);
-        builder.AddComponentParameter(5, nameof(C4EmbeddedView.OpenLabel), OpenLabel);
         builder.CloseComponent();
     };
 }

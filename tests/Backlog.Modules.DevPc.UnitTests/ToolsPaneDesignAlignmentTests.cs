@@ -158,16 +158,18 @@ public sealed class ToolsPaneDesignAlignmentTests
         Assert.Equal("Check for updates", refresh.TextContent.Trim());
     }
 
+    /// <summary>No close of its own (interaction-guidelines.md#shell-header, "A surface
+    /// draws no close of its own"): the Tools option, Escape, or the OS close of a
+    /// window of its own is the way out.</summary>
     [Fact]
-    public void Close_is_a_cross_glyph_named_for_what_it_does()
+    public void The_pane_draws_no_close_of_its_own()
     {
         using var context = Context(FakeDevToolService.With(Tool("plugin:a", "a")));
-        var close = context.Render<ToolsPane>().Find("[data-testid='tools-close']");
+        var pane = context.Render<ToolsPane>();
 
-        Assert.Equal("Close tools pane", close.GetAttribute("aria-label"));
-        Assert.Contains("tools-panel__close", close.ClassName, StringComparison.Ordinal);
-        Assert.NotNull(close.QuerySelector("svg.x-icon[aria-hidden='true']"));
-        Assert.DoesNotContain("✕", close.TextContent, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='tools-close']"));
+        Assert.Empty(pane.FindAll("[aria-label='Close tools pane']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-header'] svg.x-icon"));
     }
 
     // ------------------------------------------------------------ B4 the Needs you subtitle

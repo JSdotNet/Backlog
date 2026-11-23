@@ -378,6 +378,13 @@ public sealed class DomainModelArrangementTests
     /// stereotypes — or none, for a type another context owns — as the Devbook
     /// feature <c>.devbook/domain/devbook/features.md#domain-view-by-unit</c> says a
     /// model file is written.
+    /// <para>
+    /// Every context with a <c>context.md</c> has a model, except the ones in
+    /// <see cref="ContextsWithoutAggregate"/>, which own no aggregate and so have no model
+    /// an aggregate root could anchor. An exempt context may still keep a model file that
+    /// draws how it is put together; with no aggregate root it opens on mermaid, as the
+    /// feature says, so its class diagrams need only parse.
+    /// </para>
     /// </summary>
     [Fact]
     public void Every_model_in_this_repository_arranges()
@@ -390,8 +397,13 @@ public sealed class DomainModelArrangementTests
 
         var contexts = domain.EnumerateDirectories()
             .Where(d => File.Exists(Path.Combine(d.FullName, "context.md")))
-            .Select(d => d.Name);
-        Assert.Superset(contexts.ToHashSet(StringComparer.Ordinal), models.Select(m => m.Context).ToHashSet(StringComparer.Ordinal));
+            .Select(d => d.Name)
+            .ToList();
+        foreach (var exempt in ContextsWithoutAggregate) Assert.Contains(exempt, contexts);
+
+        Assert.Superset(
+            contexts.Except(ContextsWithoutAggregate, StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal),
+            models.Select(m => m.Context).ToHashSet(StringComparer.Ordinal));
         string[] convention = ["aggregate root", "entity", "value object", "enumeration", "domain service"];
         foreach (var (context, fences) in models)
         {
@@ -400,12 +412,23 @@ public sealed class DomainModelArrangementTests
             {
                 var diagram = DomainClassDiagramReader.TryRead(fence);
                 Assert.True(diagram is not null, $"{context}: a classDiagram fence does not parse.");
+                if (ContextsWithoutAggregate.Contains(context, StringComparer.Ordinal)) continue;
                 var stray = diagram!.Classes.Where(c => c.Stereotype is { } s && !convention.Contains(s.Trim())).Select(c => $"{c.Name} <<{c.Stereotype}>>").ToList();
                 Assert.True(stray.Count == 0, $"{context}: stereotypes outside the convention: {string.Join(", ", stray)}");
                 Assert.True(DomainModelArrangement.Arrange(diagram) is not null, $"{context}: a classDiagram fence names no <<aggregate root>>.");
             }
         }
     }
+
+    /// <summary>
+    /// The bounded contexts that own no aggregate, and so no model an aggregate root anchors: the Calendar
+    /// reads layers its sources own and keeps no data of its own
+    /// (<c>.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md</c>
+    /// §6: its core project holds no aggregate; <c>.devbook/domain/calendar/domain.md</c>:
+    /// the Calendar owns no aggregate). Named one by one, so a context is never excused by
+    /// accident.
+    /// </summary>
+    private static readonly string[] ContextsWithoutAggregate = ["calendar"];
 
     private static IEnumerable<string> ClassDiagramFences(string markdown)
     {

@@ -30,7 +30,10 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// tag, stored bare; <c>@name</c> is a person, stored with its <c>@</c> and only
 /// ever read off the title, because on the metadata line <c>@</c> already means
 /// Area; <c>+name</c> is a plan tag, stored with its <c>+</c> and at home on both
-/// the title and the metadata line, where <c>+</c> was free.
+/// the title and the metadata line, where <c>+</c> was free. A context —
+/// <c>#@pc</c>, a tag whose name starts with <c>@</c> (local ADR 0054 §5) — is read
+/// anywhere a <c>#</c> tag is, and stored as <c>@pc</c>, the way the title stores
+/// a person.
 /// </para>
 /// <para>
 /// Heading level carries structure: a second <c>#</c> heading starts a whole
@@ -50,7 +53,11 @@ public static class EntryTextParser
 {
     private static readonly Regex MetaLineRegex = new(@"^(\s*`[^`\n]+`\s*)+$", RegexOptions.Compiled);
     private static readonly Regex TokenRegex = new(@"`([^`]+)`", RegexOptions.Compiled);
-    private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
+    /// <summary>A general tag in the body's prose, or a context: <c>#@pc</c> is the
+    /// tag <c>@pc</c> (local ADR 0054 §5,
+    /// <c>.devbook/domain/tasks/domain.md#context</c>). The <c>@</c> stays in the
+    /// captured name, so a context is stored the way a title's person tag is.</summary>
+    private static readonly Regex TagRegex = new(@"(?<!\S)#(@?[A-Za-z][\w-]*)", RegexOptions.Compiled);
     /// <summary>The entry title's own tag grammar, which is the body's plus two
     /// more sigils: <c>#name</c> is a general tag, <c>@name</c> is a person and
     /// <c>+name</c> is a plan tag. Deliberately a separate expression from
@@ -62,8 +69,13 @@ public static class EntryTextParser
     /// when nothing is welded to its left, which is what keeps
     /// <c>mail bob@example.com</c> from naming a person called
     /// <c>example</c>, and <c>c++ compiler</c> from filing anything under a plan.
+    /// </para>
+    /// <para>
+    /// <c>#@pc</c> is a context in the body's spelling (local ADR 0054 §5): the same
+    /// stored tag <c>@pc</c> an <c>@pc</c> on the title is. Its sigil group reads
+    /// <c>#@</c>, so a writer can tell the two spellings apart and still store one.
     /// </para></summary>
-    private static readonly Regex TitleTagRegex = new(@"(?<!\S)([@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
+    private static readonly Regex TitleTagRegex = new(@"(?<!\S)(#@|[@#+])([A-Za-z][\w-]*)", RegexOptions.Compiled);
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
     private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*#{2,3}[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
@@ -217,7 +229,8 @@ public static class EntryTextParser
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
         DateOnly? BlockedSince = null,
-        AgendaTime? AgendaTime = null);
+        AgendaTime? AgendaTime = null,
+        WaitingFor? WaitingFor = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -241,7 +254,8 @@ public static class EntryTextParser
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
         DateOnly? BlockedSince = null,
-        AgendaTime? AgendaTime = null)
+        AgendaTime? AgendaTime = null,
+        WaitingFor? WaitingFor = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -395,7 +409,8 @@ public static class EntryTextParser
             metadata.StartedOn,
             metadata.DevbookReferences ?? [],
             metadata.BlockedSince,
-            metadata.AgendaTime);
+            metadata.AgendaTime,
+            metadata.WaitingFor);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -416,6 +431,9 @@ public static class EntryTextParser
         DateOnly? completedOn = null;
         DateOnly? startedOn = null;
         DateOnly? blockedSince = null;
+        string? waitingWho = null;
+        DateOnly? followUpOn = null;
+        string? followUpText = null;
         EntryView? view = null;
         Attachment? attachment = null;
         int? effort = null;
@@ -513,6 +531,29 @@ public static class EntryTextParser
                         // backlog is in the way, so it is written down.
                         if (TryParseDateToken(value, out var blockedOn)) blockedSince = blockedOn;
                         else unreadable.Add(new UnreadableToken("blocked", value));
+                        break;
+
+                    case "waiting":
+                        // Who the task waits on, free text: whatever is between the
+                        // colon and the closing backtick, spaces and all
+                        // (.devbook/domain/tasks/domain.md#waiting-for). Last one
+                        // wins like `due:`, because a task waits on one party.
+                        // Empty is the one malformed value: absent means absent.
+                        if (value.Length == 0) unreadable.Add(new UnreadableToken("waiting", value));
+                        else waitingWho = value;
+                        break;
+
+                    case "followup":
+                        // The waiting-for's follow-up date. Whether it stands
+                        // beside a `waiting:` is only known once the whole line is
+                        // read, so it is held here and judged after the loop, the
+                        // way `for:` is.
+                        if (TryParseDateToken(value, out var followUp))
+                        {
+                            followUpOn = followUp;
+                            followUpText = value;
+                        }
+                        else unreadable.Add(new UnreadableToken("followup", value));
                         break;
 
                     case "effort":
@@ -686,6 +727,18 @@ public static class EntryTextParser
             unreadable.Add(new UnreadableToken("for", agendaMinutesText));
         }
 
+        // A follow-up date with nobody to follow up with is not a waiting-for: it
+        // reads as malformed, the way `for:` does without `at:`.
+        WaitingFor? waitingFor = null;
+        if (waitingWho is not null)
+        {
+            waitingFor = new WaitingFor(waitingWho, followUpOn);
+        }
+        else if (followUpText is not null)
+        {
+            unreadable.Add(new UnreadableToken("followup", followUpText));
+        }
+
         return new Metadata(
             type,
             priority,
@@ -708,7 +761,8 @@ public static class EntryTextParser
             startedOn,
             devbookReferences,
             blockedSince,
-            agendaTime);
+            agendaTime,
+            waitingFor);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1154,37 +1208,6 @@ public static class EntryTextParser
     public static string GetSubItemTitle(string raw, int subItemIndex) =>
         SubItemTitleOf(GetSubItemText(raw, subItemIndex));
 
-    /// <summary>One sub-item's title and notes, as <see cref="GetSubItemTitle"/>
-    /// and <see cref="GetSubItemNote"/> read them.</summary>
-    public sealed record SubItemTitleAndNote(string Title, string Note);
-
-    /// <summary>
-    /// Every sub-item's title and notes, in the order <see cref="LocateSubItems"/>
-    /// finds them — the nth item is exactly what <see cref="GetSubItemTitle"/> and
-    /// <see cref="GetSubItemNote"/> return for index n.
-    /// <para>
-    /// One pass over the text rather than two per sub-item: each per-index call
-    /// locates every sub-item again to find its one, which a list of steps redrawn
-    /// on every keystroke pays for once per step.
-    /// </para>
-    /// </summary>
-    public static IReadOnlyList<SubItemTitleAndNote> GetSubItemTitlesAndNotes(string raw)
-    {
-        var normalized = Normalize(raw);
-        var lines = normalized.Split('\n');
-        var spans = LocateSubItemDetails(normalized);
-
-        var steps = new List<SubItemTitleAndNote>(spans.Count);
-        foreach (var located in spans)
-        {
-            var span = located.Span;
-            var text = string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
-            steps.Add(new SubItemTitleAndNote(SubItemTitleOf(text), SubItemNoteOf(text)));
-        }
-
-        return steps;
-    }
-
     /// <summary>The title of one sub-item's text as <see cref="GetSubItemText"/>
     /// cuts it out.</summary>
     private static string SubItemTitleOf(string text)
@@ -1198,29 +1221,6 @@ public static class EntryTextParser
         var box = CheckboxPrefixRegex.Match(title);
 
         return box.Success ? title[box.Length..].Trim() : title;
-    }
-
-    /// <summary>Renames one sub-item, keeping its heading level and its checkbox
-    /// marker. Neither is anything the rename asked about: a step does not change
-    /// depth or come undone because somebody fixed a typo in its name.</summary>
-    public static string WithSubItemTitle(string raw, int subItemIndex, string title)
-    {
-        var text = GetSubItemText(raw, subItemIndex);
-        if (text.Length == 0) return raw;
-
-        var lines = Normalize(text).Split('\n').ToList();
-        var heading = HeadingRegex.Match(lines[0].TrimStart());
-        if (!heading.Success) return raw;
-
-        var marker = HeadingCheckboxMarkerRegex.Match(lines[0]);
-        var hashes = heading.Groups[1].Value;
-        var renamed = (title ?? string.Empty).Trim();
-
-        lines[0] = marker.Success
-            ? $"{hashes} [{marker.Groups["marker"].Value}] {renamed}"
-            : $"{hashes} {renamed}";
-
-        return ReplaceSubItemText(raw, subItemIndex, string.Join('\n', lines));
     }
 
     /// <summary>One sub-item's notes: what is written under its heading, past its
@@ -1240,60 +1240,6 @@ public static class EntryTextParser
         return start < 0 || start >= lines.Count
             ? string.Empty
             : string.Join('\n', lines.Skip(start)).Trim('\n');
-    }
-
-    /// <summary>Writes one sub-item's notes back, keeping its heading and its own
-    /// metadata line. The bargain <see cref="WithNote"/> makes about the entry,
-    /// one level down.</summary>
-    public static string WithSubItemNote(string raw, int subItemIndex, string note)
-    {
-        var text = GetSubItemText(raw, subItemIndex);
-        if (text.Length == 0) return raw;
-
-        var lines = Normalize(text).Split('\n').ToList();
-        var start = NoteStartLine(lines);
-
-        var head = start < 0 ? lines : lines.Take(start).ToList();
-        while (head.Count > 0 && string.IsNullOrWhiteSpace(head[^1])) head.RemoveAt(head.Count - 1);
-
-        var body = Normalize(note ?? string.Empty).Trim('\n');
-
-        // One newline, not the blank line the entry's note gets. A sub-item chapter
-        // is written `## Heading` then its notes on the next line — that is what
-        // MoveSubItem rebuilds and what every entry in the store already holds — and
-        // inserting a blank line here would be exactly the "gratuitous whitespace
-        // churn" .devbook/design/content-editing.md#round-trip-fidelity rules out, on every
-        // step of every entry somebody edited the notes of.
-        var replacement = body.Length == 0
-            ? string.Join('\n', head)
-            : string.Join('\n', head) + "\n" + body;
-
-        return ReplaceSubItemText(raw, subItemIndex, replacement);
-    }
-
-    /// <summary>
-    /// Adds a step at the end of the entry, as a <c>##</c> chapter.
-    /// <para>
-    /// At the end because that is where the reader just looked: the add row sits
-    /// under the last step, and a step that appeared above the ones already there
-    /// would be a step nobody saw arrive. At level two because nesting one under
-    /// another is a move, and moving it is a gesture the list already offers.
-    /// </para>
-    /// <para>
-    /// An empty title adds nothing. There is no such thing as a step with no name,
-    /// and a bare <c>##</c> would leave a chapter the reader cannot see, select or
-    /// delete.
-    /// </para>
-    /// </summary>
-    public static string AppendSubItem(string raw, string title)
-    {
-        var trimmed = (title ?? string.Empty).Trim();
-        if (trimmed.Length == 0) return raw;
-
-        var normalized = Normalize(raw).TrimEnd('\n');
-        var heading = "## " + trimmed;
-
-        return normalized.Length == 0 ? heading : normalized + "\n\n" + heading;
     }
 
     /// <summary>Where an entry's sub-items begin, or -1 when it has none to
@@ -1598,8 +1544,25 @@ public static class EntryTextParser
     /// had its <c># </c> marker taken off.</summary>
     private static List<string> TitleTags(string title) =>
         TitleTagRegex.Matches(title)
-            .Select(m => (m.Groups[1].Value == "#" ? string.Empty : m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
+            .Select(m => TitleSigil(m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
             .ToList();
+
+    /// <summary>The tags a title carries, stored the way <see cref="Parse"/> stores
+    /// them: <c>@carol</c> and a <c>#@calls</c> context with their <c>@</c>, a plan
+    /// with its <c>+</c>, a general tag bare. The title without its <c>#</c>
+    /// marker.</summary>
+    public static IReadOnlyList<string> TitleTagsOf(string? title) =>
+        string.IsNullOrEmpty(title) ? [] : TitleTags(title);
+
+    /// <summary>The sigil a title tag is stored with: none for a general tag,
+    /// <c>@</c> for a person and for a context written <c>#@pc</c>, <c>+</c> for a
+    /// plan.</summary>
+    private static string TitleSigil(string sigil) => sigil switch
+    {
+        "#" => string.Empty,
+        "#@" => "@",
+        _ => sigil
+    };
 
     /// <summary>The tags <see cref="Parse"/> derives from a body's prose.</summary>
     private static List<string> BodyTags(string body) =>
@@ -1617,14 +1580,13 @@ public static class EntryTextParser
 
         var meta = $"`{TypeToken(entry.Type)}` `*{PriorityToken(entry.Priority)}` `!{StatusToken(entry.Status)}`";
         if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
-        // Person tags are skipped, not written. This loop composes a sigilled
-        // token, so an `@bob` arriving here would be emitted as `#@bob` — which is
-        // not a tag in any grammar, and sits on the one line where a bare `@`
-        // already means Area. Nothing is lost by leaving them off: a person tag is
-        // derived from the title, the title is preserved verbatim, and the next
-        // parse reads it straight back off the text that is still there. The title
-        // is also where the editor *writes* one — WithPersonTags — so the two
-        // halves of the round trip meet on the same line.
+        // A tag starting `@` that the title carries is skipped, not written: the
+        // title is preserved verbatim and the next parse reads it straight back off
+        // the text still there. The title is also where the editor *writes* a person
+        // — WithPersonTags — so the two halves of that round trip meet on the same
+        // line. Any other `@` tag is a context typed on this line as `#@pc` (local
+        // ADR 0054 §5) and is written back as that token: `#@pc` is a tag in this
+        // grammar, and never an Area, which is a bare `@` token.
         //
         // A plan tag is written, and written as `+slug` rather than `#+slug`: `+`
         // is free on this line, so the sigil the stored value already carries is
@@ -1637,11 +1599,13 @@ public static class EntryTextParser
         // then put back. The DTO cannot tell a line token from prose, so a tag on
         // both stays a tag through the body alone. A title tag is still written:
         // the plan-tag round trip keeps it on the line on purpose.
+        var titleTags = TitleTags(entry.Title);
         var bodyOnly = new HashSet<string>(BodyTags(entry.Body), StringComparer.OrdinalIgnoreCase);
-        bodyOnly.ExceptWith(TitleTags(entry.Title));
+        bodyOnly.ExceptWith(titleTags);
+        var titleAtTags = new HashSet<string>(titleTags.Where(IsPersonTag), StringComparer.OrdinalIgnoreCase);
         foreach (var tag in entry.Tags
             .Select(tag => tag.Trim())
-            .Where(tag => !IsPersonTag(tag) && !bodyOnly.Contains(tag))
+            .Where(tag => !(IsPersonTag(tag) && titleAtTags.Contains(tag)) && !bodyOnly.Contains(tag))
             .Select(MetaTagToken)
             .Where(token => token.Length > 1)
             .Distinct(StringComparer.OrdinalIgnoreCase))
@@ -1672,6 +1636,14 @@ public static class EntryTextParser
         // has found something in the way of it — the newest fact about it, so it
         // reads last of the three.
         if (entry.BlockedSince is { } blockedSince) meta += $" `blocked:{DateToken(blockedSince)}`";
+
+        // Who the task waits on, after the block and before the entries it waits
+        // on: the three together answer "why is this not moving".
+        if (entry.WaitingFor is { } waitingFor)
+        {
+            foreach (var token in WaitingForTokens(waitingFor)) meta += $" `{token}`";
+        }
+
         foreach (var id in (entry.DependsOn ?? []).Where(id => !string.IsNullOrWhiteSpace(id)))
         {
             meta += $" `after:{id.Trim()}`";
@@ -1740,21 +1712,6 @@ public static class EntryTextParser
         return string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
     }
 
-    public static string ReplaceSubItemText(string raw, int subItemIndex, string replacement)
-    {
-        if (subItemIndex < 0) return raw;
-
-        var normalized = Normalize(raw);
-        var lines = normalized.Split('\n').ToList();
-        var spans = LocateSubItems(normalized);
-        if (subItemIndex >= spans.Count) return raw;
-
-        var span = spans[subItemIndex];
-        var replacementLines = Normalize(replacement).Split('\n').ToList();
-        lines.RemoveRange(span.Start, span.End - span.Start);
-        lines.InsertRange(span.Start, replacementLines);
-        return string.Join('\n', lines);
-    }
     public static string WithArea(string raw, string? area) =>
         RewriteMetaLine(raw, area: area, updateArea: true);
 
@@ -1784,8 +1741,26 @@ public static class EntryTextParser
     public static string WithTags(string raw, string tags) =>
         WithTagSet(raw, ParseTagsInput(tags));
 
-    private static string WithTagSet(string raw, IReadOnlyList<string> tags) =>
-        WithPersonTags(RewriteMetaLine(raw, tags: tags), tags.Where(IsPersonTag));
+    /// <summary>
+    /// Writes the set on to its two lines. An <c>@</c> tag the metadata line
+    /// already carries as a <c>#@calls</c> context (local ADR 0054 §5) stays on that
+    /// line — <see cref="RewriteMetaLine"/> keeps it there — and every other
+    /// <c>@</c> tag goes on the title, where the editor has always written a person,
+    /// so no tag moves between the two lines because another tag was edited.
+    /// </summary>
+    private static string WithTagSet(string raw, IReadOnlyList<string> tags)
+    {
+        var onTheLine = MetaLineContexts(raw);
+
+        return WithPersonTags(
+            RewriteMetaLine(raw, tags: tags),
+            tags.Where(tag => IsPersonTag(tag) && !onTheLine.Contains(tag.Trim())));
+    }
+
+    /// <summary>The <c>@</c> tags the metadata line carries as <c>#@name</c>
+    /// tokens, stored the way <see cref="Parse"/> stores them.</summary>
+    private static HashSet<string> MetaLineContexts(string raw) =>
+        new(Parse(raw).MetadataTags.Where(IsPersonTag), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the title's person tags: every <c>@name</c> in <paramref name="persons"/>
@@ -1834,7 +1809,10 @@ public static class EntryTextParser
 
         foreach (Match match in TitleTagRegex.Matches(line))
         {
-            if (match.Groups[1].Value != "@")
+            // A context written `#@calls` is the stored tag `@calls` an `@calls`
+            // is, so it counts as carried and comes off like one; otherwise a set
+            // naming it would append a second spelling of it.
+            if (match.Groups[1].Value is not ("@" or "#@"))
             {
                 continue;
             }
@@ -1931,6 +1909,24 @@ public static class EntryTextParser
     public static string WithBlocked(string raw, DateOnly? blockedSince) =>
         RewriteMetaLine(raw, blockedSince: blockedSince, updateBlocked: true);
 
+    /// <summary>Writes who the entry waits on, and its follow-up date, on to the
+    /// metadata line, or clears both. The two tokens travel together: clearing the
+    /// waiting-for takes <c>followup:</c> with it, since a date alone is no
+    /// waiting-for (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>).</summary>
+    public static string WithWaitingFor(string raw, WaitingFor? waitingFor) =>
+        RewriteMetaLine(raw, waitingFor: waitingFor, updateWaitingFor: true);
+
+    /// <summary>The <c>waiting:</c> and <c>followup:</c> tokens for a waiting-for,
+    /// in that order; no <c>followup:</c> when it has no date.</summary>
+    public static IReadOnlyList<string> WaitingForTokens(WaitingFor waitingFor)
+    {
+        ArgumentNullException.ThrowIfNull(waitingFor);
+
+        return waitingFor.FollowUpOn is { } followUp
+            ? [$"waiting:{waitingFor.Who}", $"followup:{DateToken(followUp)}"]
+            : [$"waiting:{waitingFor.Who}"];
+    }
+
     /// <summary>Rewrites the whole set of <c>after:</c> tokens. An empty list
     /// clears them: the ids are the dependency, so there is nothing left to say
     /// once they are gone.</summary>
@@ -1955,13 +1951,6 @@ public static class EntryTextParser
     /// than writing a zero.</summary>
     public static string WithEffort(string raw, int? effort) =>
         RewriteMetaLine(raw, effort: effort, updateEffort: true);
-
-    /// <summary>Records which reading of the body the reader asked for, or clears
-    /// the token. Clearing is expressible for the same reason it is on every other
-    /// named token: "no preference" and "prefers the steps" are different facts,
-    /// and only one of them should survive into an entry nobody chose for.</summary>
-    public static string WithView(string raw, EntryView? view) =>
-        RewriteMetaLine(raw, view: view, updateView: true);
 
     /// <summary>Writes the attached place on to the metadata line, or clears it.
     /// Detaching and attaching nothing are the same gesture, for the reason every
@@ -2007,8 +1996,6 @@ public static class EntryTextParser
     public static IReadOnlyList<string> ParseTagsInput(string tags) =>
         NormalizeTags(Regex.Split(tags ?? string.Empty, @"[\s,]+"));
 
-    public static string FormatTagsInput(IEnumerable<string> tags) => string.Join(" ", NormalizeTags(tags));
-
     /// <summary>Whether a stored tag names a person. The sigil is kept in the
     /// stored value — <c>["@bob", "deploy"]</c> — precisely so that an existing
     /// unsigilled tag keeps meaning "general" with no migration behind it, which
@@ -2027,8 +2014,10 @@ public static class EntryTextParser
     /// as: <c>#deploy</c> for the bare <c>deploy</c>, <c>+release-q4</c> for the
     /// stored <c>+release-q4</c>. One place composes it because two writers and the
     /// canonical line all have to agree, and <c>#+release-q4</c> is what the old
-    /// <c>"#" + tag</c> would have produced. Person tags are the caller's to leave
-    /// off before this sees them — on that line <c>@</c> means Area.</summary>
+    /// <c>"#" + tag</c> would have produced. An <c>@</c> tag comes out as the
+    /// context token <c>#@calls</c> (local ADR 0054 §5), never the bare <c>@calls</c>
+    /// that line reads as an Area; which <c>@</c> tags belong on the line rather than
+    /// the title is the caller's to decide.</summary>
     private static string MetaTagToken(string tag)
     {
         var trimmed = tag.Trim();
@@ -2172,14 +2161,14 @@ public static class EntryTextParser
         bool updateCompletedOn = false,
         DateOnly? blockedSince = null,
         bool updateBlocked = false,
+        WaitingFor? waitingFor = null,
+        bool updateWaitingFor = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
         IReadOnlyList<string>? repoIds = null,
         bool updateRepoIds = false,
         int? effort = null,
         bool updateEffort = false,
-        EntryView? view = null,
-        bool updateView = false,
         Attachment? attachment = null,
         bool updateAttachment = false)
     {
@@ -2228,17 +2217,21 @@ public static class EntryTextParser
         {
             // Both tag tokens come off: a plan tag is as much "the tags" as a
             // general one, and leaving `+` tokens behind would let a tag the
-            // editor just removed survive the save.
+            // editor just removed survive the save. A `#@calls` context the line
+            // carried is noted first, because it stays here while the set names it.
+            var lineContexts = new HashSet<string>(
+                tokens.Where(token => token.StartsWith("#@", StringComparison.Ordinal) && token.Length > 2)
+                    .Select(token => token[1..].Trim().ToLowerInvariant()),
+                StringComparer.OrdinalIgnoreCase);
             tokens.RemoveAll(token => token.StartsWith('#') || token.StartsWith('+'));
 
-            // The same rule ToRawText's tag loop follows, and for the same two
-            // reasons: this composes a sigilled token, so a person tag would land
-            // as the corrupt `#@bob`, and `@` on this line already means Area.
-            // A person tag is carried by the title instead, which is where the
-            // editor writes one — WithTags hands the `@` tags to WithPersonTags
-            // after this line is done, so skipping them here drops nothing.
+            // An `@` tag the line did not carry is written on to the title instead,
+            // which is where the editor writes a person — WithTags hands those to
+            // WithPersonTags after this line is done, so skipping them here drops
+            // nothing. One the line carried as `#@calls` (local ADR 0054 §5) is
+            // written back as that token, so editing another tag never moves it.
             tokens.AddRange(tags
-                .Where(tag => !IsPersonTag(tag))
+                .Where(tag => !IsPersonTag(tag) || lineContexts.Contains(tag.Trim()))
                 .Select(MetaTagToken)
                 .Where(tag => tag.Length > 1));
         }
@@ -2312,6 +2305,13 @@ public static class EntryTextParser
             if (blockedSince is { } blockedOn) tokens.Add($"blocked:{DateToken(blockedOn)}");
         }
 
+        if (updateWaitingFor)
+        {
+            RemoveNamedToken(tokens, "waiting");
+            RemoveNamedToken(tokens, "followup");
+            if (waitingFor is { } waiting) tokens.AddRange(WaitingForTokens(waiting));
+        }
+
         if (updateDependsOn)
         {
             RemoveNamedToken(tokens, "after");
@@ -2343,12 +2343,6 @@ public static class EntryTextParser
         {
             RemoveNamedToken(tokens, "files");
             if (attachment is { } attached) tokens.Add($"files:{attached.Path}");
-        }
-
-        if (updateView)
-        {
-            RemoveNamedToken(tokens, "view");
-            if (view is { } chosenView) tokens.Add($"view:{ViewToken(chosenView)}");
         }
 
         var metaLine = string.Join(' ', tokens.Select(token => $"`{token}`"));
@@ -2421,6 +2415,7 @@ public static class EntryTextParser
         if (parsed.StartedOn is { } startedOn) tokens.Add($"started:{DateToken(startedOn)}");
         if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
         if (parsed.BlockedSince is { } blockedSince) tokens.Add($"blocked:{DateToken(blockedSince)}");
+        if (parsed.WaitingFor is { } waitingFor) tokens.AddRange(WaitingForTokens(waitingFor));
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
         if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");
         tokens.AddRange((parsed.RepoIds ?? []).Select(repo => $"repo:{repo}"));

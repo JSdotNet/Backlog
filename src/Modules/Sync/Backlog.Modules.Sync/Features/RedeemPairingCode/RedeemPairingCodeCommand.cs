@@ -12,9 +12,10 @@ namespace Backlog.Modules.Sync.Features.RedeemPairingCode;
 /// The second device in. It has no credential and no token yet — the code it
 /// was handed out of band is the whole of its claim, which is why this slice
 /// runs anonymously and why every failure it can produce says as little as
-/// possible.
+/// possible. A device that sends its <paramref name="PublicKey"/> is bound to that
+/// key and gets no credential (local ADR 0058 §2).
 /// </summary>
-public sealed record RedeemPairingCodeCommand(string Code, string DeviceName);
+public sealed record RedeemPairingCodeCommand(string Code, string DeviceName, string? PublicKey = null);
 
 /// <summary>
 /// Trades a live code for a registration credential under the code's owner.
@@ -53,6 +54,13 @@ public sealed class RedeemPairingCodeCommandHandler(
         if (name.IsFailure)
         {
             return name.Error;
+        }
+
+        // Before the code is looked up, so a malformed key never burns a code.
+        var publicKey = command.PublicKey is null ? null : DevicePublicKey.Validate(command.PublicKey);
+        if (publicKey is { IsFailure: true })
+        {
+            return publicKey.Error;
         }
 
         var normalized = PairingCodeFormat.Normalize(command.Code ?? string.Empty);
@@ -97,10 +105,17 @@ public sealed class RedeemPairingCodeCommandHandler(
         }
 
         var deviceId = DeviceId.New();
-        var credential = credentials.Next();
+        var credential = publicKey is null ? credentials.Next() : null;
 
         await devices.Add(
-            new Device(deviceId, code.OwnerId, name.Value, hasher.Hash(credential), clock.GetUtcNow(), PairedBy: code.IssuedBy),
+            new Device(
+                deviceId,
+                code.OwnerId,
+                name.Value,
+                credential is null ? null : hasher.Hash(credential),
+                clock.GetUtcNow(),
+                PairedBy: code.IssuedBy,
+                PublicKey: publicKey?.Value),
             cancellationToken);
 
         return new DeviceRegistrationResponse(code.OwnerId.Value, deviceId.Value, credential);

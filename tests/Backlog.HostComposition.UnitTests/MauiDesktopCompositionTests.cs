@@ -21,7 +21,6 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,22 +50,9 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class MauiDesktopCompositionTests : IDisposable
 {
-    private readonly string _appData = Path.Combine(
-        Path.GetTempPath(), "backlog-maui-composition", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-maui-composition");
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_appData, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>
     /// Every registration the head makes can be constructed. This is the check that
@@ -124,6 +110,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(Backlog.Infrastructure.Sync.Sessions.SessionSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Annotations.AnnotationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker),
+            typeof(Backlog.Infrastructure.Sync.KnowledgeEvents.KnowledgeEventSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener),
             typeof(BackupWorker),
@@ -258,9 +245,102 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             first.ServiceProvider.GetRequiredService<ITaskChangeSignal>(),
             second.ServiceProvider.GetRequiredService<ITaskChangeSignal>());
+        // So is the delivery run change signal: the MCP listener raises it from the root,
+        // and the Sessions pane in every window listens on the same one.
+        Assert.Same(
+            provider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunChangeSignal>());
+        // The Calendar's layers (local ADR 0055): the Plans port and its read policy are a
+        // window's, as the roadmap ports they read are; the working week is the process's.
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlans>());
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarPlansLayer>());
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.Abstractions.Services.ICalendarCapacity>());
+        Assert.NotNull(first.ServiceProvider.GetRequiredService<Backlog.Modules.Calendar.UI.ICalendarViewPreferences>());
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
+        Assert.IsType<CngDeviceKeyStore>(provider.GetRequiredService<IDeviceKeyStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
+    }
+
+    /// <summary>
+    /// The key store reaches the two clients that use it, not only the container
+    /// (local ADR 0058 §2): the token provider the head resolves signs its fetch with
+    /// the key, and the pairing client it resolves sends the key's public half. Proved
+    /// on the wire, through the head's own client pipelines with a recording handler at
+    /// the bottom, so a registration that dropped the key would show as a request
+    /// without one.
+    /// </summary>
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task The_maui_head_hands_its_key_store_to_the_token_provider_and_the_pairing_client()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var keys = new InMemoryDeviceKeyStore();
+        var wire = new RecordingSyncService();
+        var services = BuildMauiShapedServices();
+
+        // In place of the CNG store, so nothing here opens or makes a machine key.
+        services.AddSingleton<IDeviceKeyStore>(keys);
+        services.AddHttpClient(SyncTokenProvider.HttpClientName)
+            .ConfigureHttpClient(client => client.BaseAddress = RecordingSyncService.Address)
+            .ConfigurePrimaryHttpMessageHandler(() => wire);
+        services.AddHttpClient<DevicePairingClient>()
+            .ConfigureHttpClient(client => client.BaseAddress = RecordingSyncService.Address)
+            .ConfigurePrimaryHttpMessageHandler(() => wire);
+
+        using var provider = services.BuildServiceProvider();
+        var cancellation = TestContext.Current.CancellationToken;
+
+        await provider.GetRequiredService<DevicePairingClient>().PairAsync("K7MN9PQR", "Workshop PC", cancellation);
+
+        var redeem = Assert.Single(wire.Bodies(Backlog.Modules.Sync.Abstractions.SyncRoutes.RedeemPairingCode));
+        Assert.Equal(keys.GetOrCreate().PublicKey, redeem.GetProperty("publicKey").GetString());
+
+        await provider.GetRequiredService<IDeviceCredentialStore>().SaveAsync(
+            new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Workshop PC", Credential: null), cancellation);
+        await provider.GetRequiredService<SyncTokenProvider>().GetAccessTokenAsync(cancellation);
+
+        var token = Assert.Single(wire.Bodies(Backlog.Modules.Sync.Abstractions.SyncRoutes.DeviceToken));
+        Assert.Equal(
+            Backlog.Modules.Sync.Abstractions.SyncAssertion.ClientAssertionType,
+            token.GetProperty("clientAssertionType").GetString());
+        Assert.False(string.IsNullOrEmpty(token.GetProperty("clientAssertion").GetString()));
+    }
+
+    /// <summary>The sync service as a recorder: every request body is kept by path, and
+    /// every request answers 404, which each client takes as a failure and goes on.</summary>
+    private sealed class RecordingSyncService : HttpMessageHandler
+    {
+        public static readonly Uri Address = new("https://sync.composition.test");
+
+        private readonly System.Collections.Concurrent.ConcurrentQueue<(string Path, string Body)> _requests = new();
+
+        public IEnumerable<System.Text.Json.JsonElement> Bodies(string route) =>
+            _requests
+                .Where(request => request.Path == Backlog.Modules.Sync.Abstractions.SyncRoutes.Absolute(route) && request.Body.Length > 0)
+                .Select(request => System.Text.Json.JsonDocument.Parse(request.Body).RootElement.Clone())
+                .ToList();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+            _requests.Enqueue((request.RequestUri!.AbsolutePath, body));
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound) { RequestMessage = request };
+        }
     }
 
     /// <summary>
@@ -357,7 +437,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
 
         Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
-        Assert.Equal(Path.Combine(_appData, IterationSettingsStore.FileName), store.SettingsPath);
+        Assert.Equal(_temp.Combine(IterationSettingsStore.FileName), store.SettingsPath);
     }
 
     /// <summary>
@@ -390,6 +470,85 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Equal(1, merged.Applied);
         Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, settings.Length);
         Assert.Equal(new DateOnly(2026, 10, 19), settings.TwoWeekStart);
+    }
+
+    /// <summary>
+    /// The sync merge the head composes hands an <c>event-attachment-request</c> the phone wrote
+    /// to Events once the <c>events</c> area is on (<c>.devbook/domain/events/domain.md#attachment-request</c>):
+    /// the event gains the Talk note under its title, and the request waits to be retired. With
+    /// the area off the same request is held.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_attaches_a_talk_note_the_phone_asked_for_while_the_events_area_is_on()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var spotted = await provider.GetRequiredService<Backlog.Modules.Events.Abstractions.IKnowledgeEvents>()
+            .SpotAsync(new Backlog.Modules.Events.Abstractions.SpotKnowledgeEventDto("Techorama 2026", null, null, null, null, null, null), ct);
+        var noteId = Guid.NewGuid();
+        var change = EventAttachmentReplicaDocuments.ToChange(
+            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), spotted.Value.EventId, noteId, "Keynote"),
+            new DateTimeOffset(2026, 10, 27, 9, 40, 0, TimeSpan.Zero));
+        var record = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1);
+
+        var features = provider.GetRequiredService<Backlog.SharedKernel.IAppFeatureSettings>();
+        Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, false));
+        var held = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
+
+        // Kept in the head's per-installation folder, so a restart before the area is on again
+        // still applies it.
+        var store = provider.GetRequiredService<Backlog.Infrastructure.Sync.KnowledgeEvents.IHeldAttachmentRequestStore>();
+        Assert.Equal(change.Id, Assert.Single(store.ReadAll()).Id);
+        Assert.True(File.Exists(_temp.Combine("held-attachment-requests.json")));
+
+        Assert.Null(features.SetEnabled(Backlog.Modules.Events.Abstractions.EventsFeatures.Events, true));
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync([record], ct);
+
+        Assert.Equal(0, held.Applied);
+        Assert.Equal(1, merged.Applied);
+        Assert.Empty(store.ReadAll());
+        var copy = Assert.Single(await provider.GetRequiredService<Backlog.Modules.Events.Abstractions.Services.IKnowledgeEventReplication>()
+            .ListEventsChangedSinceAsync(DateTimeOffset.MinValue, ct));
+        var link = Assert.Single(copy.Notes);
+        Assert.Equal((Backlog.Modules.Events.Abstractions.NoteLinkKind.Talk, noteId.ToString("D"), "Keynote"), (link.Kind, link.Reference, link.Title));
+        Assert.Equal(change.Id, Assert.Single(provider.GetRequiredService<PhoneRequestRetirements>().Waiting()).Id);
+    }
+
+    /// <summary>
+    /// <c>add_knowledge_event</c> in this head: <c>EventTools</c> is built out of a scope the way
+    /// the MCP listener's forwarding builds it, from <c>IEventsPane</c> and the clock, and the
+    /// event it adds reaches an Events pane open in another scope, a window's, on that pane's
+    /// <c>Changed</c> — the one notice an MCP write has to reach an open page by.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_builds_the_events_tool_and_an_open_events_pane_hears_what_it_adds()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        using var provider = BuildMauiShaped(validateScopes: true);
+        using var window = provider.CreateScope();
+        using var request = provider.CreateScope();
+        var pane = window.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventsPane>();
+        var heard = 0;
+        pane.Changed += () => Interlocked.Increment(ref heard);
+
+        var tools = ActivatorUtilities.CreateInstance<Backlog.Infrastructure.Mcp.EventTools>(request.ServiceProvider);
+        var added = await tools.AddAsync("Techorama Belgium 2027", series: "Techorama", start: "2027-05-18", cancellationToken: ct);
+
+        Assert.Equal(1, Volatile.Read(ref heard));
+        Assert.Equal(("Spotted", "2027-05-18", "Typed"), (added.State, added.Start, added.DateSource));
+        Assert.Contains((await pane.ListAsync(ct)).SelectMany(group => group.Events), listed => listed.Id == added.Id);
     }
 
     /// <summary>
@@ -472,7 +631,6 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(
             provider.GetRequiredService<IDevbookSubjectStateStore>(),
             provider.GetRequiredService<IDevbookSyncDirectionStore>());
-        Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
         Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
     }
 
@@ -498,7 +656,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.IsType<DevbookFolderSource>(provider.GetRequiredService<IDevbookFolderSource>());
         Assert.Single(provider.GetServices<IDevbookFolderSource>());
 
-        var folder = Path.Combine(_appData, "Brain");
+        var folder = _temp.Combine("Brain");
         Assert.Null(provider.GetRequiredService<IBrainSettings>().TrySetBrainFolder(folder));
         Assert.Equal(folder, brain.BrainRoot);
 
@@ -525,7 +683,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         });
 
     [SupportedOSPlatform("windows")]
-    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_appData);
+    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_temp.Path);
 
     /// <summary>The MAUI head's container as <c>MauiProgram</c> composes it, every
     /// per-user file under <paramref name="appData"/>; shared with
@@ -540,10 +698,14 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         {
             DeviceIdentity = new DeviceIdentityStore(Path.Combine(appData, "device.json")),
             DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            // A name of the test's own: nothing here signs, but nothing here may ever
+            // open the installed app's key either.
+            DeviceKeyStore = _ => new CngDeviceKeyStore("Backlog.Sync.DeviceKey.CompositionTests"),
             TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
             SessionSyncFolder = appData,
             AnnotationSyncFolder = appData,
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),
@@ -555,7 +717,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
-                Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
+                Path.Combine(appData, IterationSettingsStore.FileName)),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),
@@ -615,7 +777,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         services.TryAddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost>(sp => new Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost(
             new NoShellWindows(),
             sp.GetRequiredService<Backlog.Desktop.UI.Mcp.WindowLinkTokens>(),
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort));
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort,
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost>>()));
 
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
     }

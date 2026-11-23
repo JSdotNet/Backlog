@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Markdown;
 
@@ -13,7 +15,31 @@ public sealed record DomainChapterSource(string Path, string Markdown);
 /// <param name="Summary">The chapter's first sentence.</param>
 /// <param name="Invocation">The chapter's <em>Invocation semantics</em> prose, as
 /// markdown, without the label — or null when the chapter does not say how it runs.</param>
-public sealed record DomainServiceInvocation(string Title, string Anchor, string Summary, string? Invocation);
+public sealed record DomainServiceInvocation(string Title, string Anchor, string Summary, string? Invocation)
+{
+    /// <summary>Why it is a service rather than an aggregate's method: what the
+    /// chapter's "It is a service because …" sentence gives after its
+    /// <em>because</em>, as markdown, made a sentence of its own — or null when
+    /// the chapter does not say.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>The service's own chapter and every chapter its <c>related</c>
+    /// names, repository-relative: what the rules it relies on are looked up by
+    /// (<see cref="DomainRuleCatalog.About(IEnumerable{string})"/>).</summary>
+    public IReadOnlyList<string> References { get; init; } = [];
+
+    /// <summary>What calls it, as a caption beside its name on Diagram: the
+    /// first sentence of <see cref="Invocation"/>, plain, as written and without
+    /// its full stop — "Called when a repeat is ticked". Null when the chapter
+    /// does not say how it runs.</summary>
+    public string? Caption => DomainChapterContracts.Caption(Invocation);
+}
+
+/// <summary>A chapter that raises an event, and what kind of chapter it is.</summary>
+/// <param name="Name">The chapter's heading, as <see cref="DomainEventContract.RaisedBy"/> names it.</param>
+/// <param name="Kind">The word its <c>type</c> reads as: <c>aggregate</c>,
+/// <c>entity</c> or <c>service</c>.</param>
+public sealed record DomainEventRaiser(string Name, string Kind);
 
 /// <summary>Whether an event is only described or actually raised, as the
 /// chapters say.</summary>
@@ -42,7 +68,13 @@ public sealed record DomainEventContract(
     string? Payload,
     string? Consumers,
     string? Rules,
-    DomainEventDelivery Delivery);
+    DomainEventDelivery Delivery)
+{
+    /// <summary>The chapters of <see cref="RaisedBy"/>, each with its kind — what
+    /// the flow's "raised by" step says after the name. Empty when the event was
+    /// not read from chapters, and the names stand alone.</summary>
+    public IReadOnlyList<DomainEventRaiser> Raisers { get; init; } = [];
+}
 
 /// <summary>The technical half of a context's domain chapters: how each domain
 /// service runs and what each event carries (local ADR 0047 §6).</summary>
@@ -78,7 +110,11 @@ public static partial class DomainChapterContracts
 
         var services = chapters
             .Where(c => c.Type == "domain-service")
-            .Select(c => new DomainServiceInvocation(c.Title, c.Anchor, FirstSentence(c.Own), Invocation(c.Own)))
+            .Select(c => new DomainServiceInvocation(c.Title, c.Anchor, FirstSentence(c.Own), Invocation(c.Own))
+            {
+                Reason = Reason(c.Own),
+                References = References(c)
+            })
             .ToList();
 
         // A context that says it publishes no events yet has said it of every event.
@@ -98,7 +134,10 @@ public static partial class DomainChapterContracts
                     Subchapter(c, "payload"),
                     Subchapter(c, "consumers"),
                     Subchapter(c, "published language rules") ?? Subchapter(c, "published language"),
-                    noneEmitted ? DomainEventDelivery.Documented : Delivery(c, raisers));
+                    noneEmitted ? DomainEventDelivery.Documented : Delivery(c, raisers))
+                {
+                    Raisers = [.. raisers.Select(r => new DomainEventRaiser(r.Title, KindWord(r.Type)))]
+                };
             })
             .ToList();
 
@@ -114,7 +153,7 @@ public static partial class DomainChapterContracts
             if (chapter.Level < 2) continue;
 
             var lines = chapter.Text.Split('\n').Skip(1).ToList();
-            var meta = ReadMeta(lines);
+            var meta = MetadataFence.At(lines, 0)?.Flat() ?? [];
             if (!meta.TryGetValue("type", out var type)) continue;
 
             var body = WithoutFences(lines);
@@ -131,7 +170,7 @@ public static partial class DomainChapterContracts
                 folder,
                 file,
                 chapter.Title,
-                $"{source.Path}#{Slug(chapter.Title)}",
+                $"{source.Path}#{HeadingAnchor.Of(chapter.Title)}",
                 type.Trim().ToLowerInvariant(),
                 (meta.GetValueOrDefault("rating") ?? meta.GetValueOrDefault("status"))?.Trim() is { Length: > 0 } status ? status : "draft",
                 meta.TryGetValue("related", out var related) ? List(related) : [],
@@ -161,7 +200,7 @@ public static partial class DomainChapterContracts
             var target = chapters.FirstOrDefault(c => CanRaise(c)
                 && string.Equals(c.File, linkFile, StringComparison.OrdinalIgnoreCase)
                 && (linkFolder is null || string.Equals(c.Folder, linkFolder, StringComparison.OrdinalIgnoreCase))
-                && string.Equals(Slug(c.Title), anchor, StringComparison.OrdinalIgnoreCase));
+                && string.Equals(HeadingAnchor.Of(c.Title), anchor, StringComparison.OrdinalIgnoreCase));
             if (target is not null && !raisers.Contains(target)) raisers.Add(target);
         }
 
@@ -220,6 +259,48 @@ public static partial class DomainChapterContracts
         return null;
     }
 
+    /// <summary>What the "It is a service because …" sentence gives as the reason,
+    /// its lines joined, from after <em>because</em> to the sentence's end, with
+    /// its first letter raised: "It creates a second Task, which an aggregate
+    /// cannot do to itself." Null when the chapter writes no such sentence.</summary>
+    private static string? Reason(string own)
+    {
+        var paragraph = string.Join(' ', own.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0));
+        var match = ServiceBecause().Match(paragraph);
+        if (!match.Success) return null;
+
+        var reason = match.Groups["reason"].Value.Trim();
+        return reason.Length == 0 ? null : char.ToUpperInvariant(reason[0]) + reason[1..];
+    }
+
+    /// <summary>The chapter's own reference and each of its <c>related</c>
+    /// entries made repository-relative.</summary>
+    private static IReadOnlyList<string> References(Chapter chapter) =>
+        [chapter.Anchor, .. DomainUnits.RelatedOf(chapter.Related, DomainUnits.PathOf(chapter.Anchor))];
+
+    /// <summary>The word a raiser's <c>type</c> reads as after its name.</summary>
+    private static string KindWord(string type) => type switch
+    {
+        "domain-service" => "service",
+        _ => type
+    };
+
+    /// <summary>The first sentence of the invocation prose, plain and as the
+    /// chapter writes it (ADR 0047 §5): a list's items read as one paragraph, the
+    /// full stop dropped.</summary>
+    internal static string? Caption(string? invocation)
+    {
+        if (string.IsNullOrWhiteSpace(invocation)) return null;
+
+        var paragraph = string.Join(' ', invocation.Split('\n')
+            .Select(line => ListItem().Replace(line, string.Empty).Trim())
+            .Where(line => line.Length > 0));
+        var plain = DomainUnits.Plain(paragraph);
+        var match = Sentence().Match(plain);
+        var sentence = (match.Success ? match.Value : plain).Trim().TrimEnd('.', ';', ':').Trim();
+        return sentence.Length == 0 ? null : sentence;
+    }
+
     private static string FirstSentence(string own)
     {
         var paragraph = string.Join(' ', own.Split('\n')
@@ -228,22 +309,6 @@ public static partial class DomainChapterContracts
             .TakeWhile(l => l.Length > 0));
         var match = Sentence().Match(paragraph);
         return (match.Success ? match.Value : paragraph).Trim();
-    }
-
-    private static Dictionary<string, string> ReadMeta(List<string> lines)
-    {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var index = 0;
-        while (index < lines.Count && lines[index].Trim().Length == 0) index++;
-        if (index >= lines.Count || !string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return result;
-
-        for (index++; index < lines.Count && lines[index].Trim() != "```"; index++)
-        {
-            var colon = lines[index].IndexOf(':');
-            if (colon > 0) result.TryAdd(lines[index][..colon].Trim(), lines[index][(colon + 1)..].Trim());
-        }
-
-        return result;
     }
 
     /// <summary>The body without its <c>meta</c> and <c>annotation</c> fences: the
@@ -291,15 +356,6 @@ public static partial class DomainChapterContracts
         return slash < 0 ? trimmed : trimmed[(slash + 1)..];
     }
 
-    /// <summary>A heading's anchor as the devbook writes one: lower case, words
-    /// joined by hyphens, punctuation dropped.</summary>
-    internal static string Slug(string title)
-    {
-        var lower = title.Trim().ToLowerInvariant();
-        var kept = new string([.. lower.Where(ch => char.IsLetterOrDigit(ch) || ch is ' ' or '-' or '_')]);
-        return Regex.Replace(kept, @"\s", "-");
-    }
-
     internal static string Compact(string value) => new([.. value.Where(char.IsLetterOrDigit)]);
 
     [GeneratedRegex(@"^(#{1,6})[ \t]+\S")]
@@ -310,6 +366,12 @@ public static partial class DomainChapterContracts
 
     [GeneratedRegex(@"^\s*([-*+]|\d+\.)\s")]
     private static partial Regex ListItem();
+
+    // The reason runs to the sentence's end: a full stop, or a question or
+    // exclamation mark, before a space or the paragraph's end. The full stop that
+    // closes an abbreviation — "e.g.", "i.e.", "cf.", "vs." — ends no sentence.
+    [GeneratedRegex(@"\bIt is a service because\s+(?<reason>.+?(?<!\b(?:e\.g|i\.e|cf|vs))[.!?])(?=\s|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex ServiceBecause();
 
     [GeneratedRegex(@"^.*?[.!?](?=\s|$)")]
     private static partial Regex Sentence();

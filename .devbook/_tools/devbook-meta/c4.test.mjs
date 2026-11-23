@@ -254,6 +254,9 @@ model {
             const other = readWorkspace(path.join(arc, "workspace.dsl"), { root: flipped });
             check(!!el(other, "s.api"), "on Windows, a root whose drive letter differs in case still includes", show(other.problems));
         }
+        const refused = (p, r2) => { try { readWorkspace(p, { root: r2 }); return false; } catch (e) { return /was not read/.test(e.message); } };
+        check(refused("../outside.dsl", path.join(arc, "c4")), "a workspace outside the root throws and is not read");
+        check(refused(".devbook/arc42/c4x/sib.txt", root), "a workspace that is not a .dsl file throws and is not read");
         check(eq(files(/no such file/), [".devbook/arc42/workspace.dsl:7"]), "a missing include is a problem");
         check(eq(files(/is not a file/), [".devbook/arc42/workspace.dsl:8"]), "including a folder is a problem");
         check(eq(files(/only a relative path/), [".devbook/arc42/workspace.dsl:9", ".devbook/arc42/workspace.dsl:10"]), "a URL or an absolute include is a problem", show(r.problems));

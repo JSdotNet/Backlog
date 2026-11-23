@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class LocalGitRepositoryUpdateTests : IDisposable
 {
-    private readonly List<string> _directories = [];
+    private readonly List<TemporaryDirectory> _directories = [];
     private readonly LocalGitRepositoryService _service = new();
     private readonly GitHubRepositoryRef _repository = new("backlog", "JSdotNet", "Backlog");
 
@@ -186,7 +186,6 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
 
         var clone = Path.Combine(NewDirectory(), "clone");
         Git(Path.GetDirectoryName(clone)!, "clone", "--quiet", origin, clone);
-        _directories.Add(clone);
         PinConfig(clone);
 
         return (origin, clone);
@@ -194,10 +193,9 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
 
     private string NewDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), "backlog-local-git-update-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        var directory = new TemporaryDirectory("backlog-local-git-update");
         _directories.Add(directory);
-        return directory;
+        return directory.Path;
     }
 
     private string NewRepository()
@@ -262,19 +260,9 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
 
     public void Dispose()
     {
-        // Deepest first, because a clone is created inside a directory that is
-        // also tracked and deleting the parent first would leave the child's entry
-        // pointing at nothing.
-        foreach (var directory in _directories.OrderByDescending(path => path.Length).Where(Directory.Exists))
+        foreach (var directory in _directories)
         {
-            // git writes loose objects read-only and Directory.Delete refuses
-            // those, so the attribute comes off before the recursive delete.
-            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-            {
-                try { File.SetAttributes(file, FileAttributes.Normal); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            }
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            directory.Dispose();
         }
     }
 }

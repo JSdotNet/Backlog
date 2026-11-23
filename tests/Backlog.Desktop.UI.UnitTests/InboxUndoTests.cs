@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxUndoTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-undo-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-undo-tests");
 
     // --- Each decision's way back ------------------------------------------------
 
@@ -334,7 +334,7 @@ public sealed class InboxUndoTests : IDisposable
         await state.ReloadAsync();
         state.TogglePicked(a.Id, true, range: false);
         state.TogglePicked(b.Id, true, range: false);
-        await state.BulkRouteToBacklogAsync();
+        await state.RouteSelectionToBacklogAsync();
         Assert.NotNull(inbox.Find(a.Id)!.Routing);
         Assert.NotNull(inbox.Find(b.Id)!.Routing);
         Assert.Equal(2, state.DecisionCount(InboxDecisionKind.MoveToBacklog));
@@ -455,7 +455,7 @@ public sealed class InboxUndoTests : IDisposable
         var c = inbox.Seed("C", capturedAt: inbox.Now.AddMinutes(1));
         await state.ReloadAsync();
         foreach (var id in new[] { a.Id, b.Id, c.Id }) state.TogglePicked(id, true, range: false);
-        await state.BulkRouteToBacklogAsync();
+        await state.RouteSelectionToBacklogAsync();
         var group = Assert.IsType<InboxGroupUndoStep>(state.UndoHistory.Latest);
         var members = group.Steps.Select(step => Assert.IsType<InboxRouteUndoStep>(step).ItemId).ToList();
         var (refused, thrown, landed) = (members[0], members[1], members[2]);
@@ -563,7 +563,7 @@ public sealed class InboxUndoTests : IDisposable
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        context.Services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github.json")));
         TasksTestHost.AddToastChannel(context.Services);
         var inbox = InboxTestHost.AddInboxState(context.Services);
         var item = inbox.Seed("Call the dentist");
@@ -599,7 +599,7 @@ public sealed class InboxUndoTests : IDisposable
     {
         var inbox = new FakeInboxItems();
         var toasts = new ToastChannel();
-        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")), toasts);
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(_temp.Combine("github.json")), toasts);
         return (inbox, state, toasts);
     }
 
@@ -609,14 +609,5 @@ public sealed class InboxUndoTests : IDisposable
         state.SelectItem(id);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

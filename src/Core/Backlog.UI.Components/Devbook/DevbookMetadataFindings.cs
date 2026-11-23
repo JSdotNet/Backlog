@@ -200,19 +200,12 @@ public static class DevbookMetadataFindings
     {
         if (string.IsNullOrWhiteSpace(record.Type)) return;
 
-        // Named by the spelling the file used, so the finding points at a line the
-        // author can find.
-        var field = record.TypeReadFromKind ? DevbookSchema.LegacyTechTypeField : "type";
+        const string field = "type";
 
         if (!DevbookSchema.DefinesTypes(folder))
         {
             findings.Add(Warn(field, "This folder defines no type: omit the field."));
             return;
-        }
-
-        if (record.TypeReadFromKind)
-        {
-            findings.Add(Warn(field, "The old spelling of type: rename it to type."));
         }
 
         if (!DevbookSchema.IsKnownType(folder, level, record.Type, fileName))

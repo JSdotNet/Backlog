@@ -578,12 +578,13 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The machine select and the window toggle sit in the header's actions, beside the
-    /// ✕ (board Main), because they scope every tab rather than one — and there is no
-    /// filter row of their own under the header any more (AC1).
+    /// The machine select and the window toggle sit in the header's actions (board
+    /// Main), because they scope every tab rather than one — and there is no filter
+    /// row of their own under the header any more (AC1). No ✕ sits beside them: no
+    /// surface draws a close of its own (interaction-guidelines.md#shell-header).
     /// </summary>
     [Fact]
-    public void The_controls_sit_in_the_header_beside_the_close()
+    public void The_controls_sit_in_the_header_and_no_close_beside_them()
     {
         using var context = Context();
 
@@ -592,7 +593,7 @@ public class DashboardPaneTests
 
         Assert.NotNull(actions.QuerySelector("[data-testid='dashboard-machine-filter']"));
         Assert.NotNull(actions.QuerySelector("[data-testid='dashboard-window-filter']"));
-        Assert.NotNull(actions.QuerySelector("[aria-label='Close dashboard']"));
+        Assert.Null(actions.QuerySelector("[aria-label='Close dashboard']"));
         Assert.Empty(pane.FindAll("[data-testid='dashboard-filters']"));
         Assert.Null(actions.Closest("[data-testid='dashboard-section-tabs']"));
     }
@@ -2951,7 +2952,7 @@ public class DashboardPaneTests
     /// The surface is deliberately not configurable — no layout editing, no adding or
     /// removing a part, nothing persisted. This is the guard against that quietly
     /// changing: the only controls on the panel are the filter, the per-part refresh
-    /// and info mark, the six section tabs, and the close button.
+    /// and info mark, and the six section tabs; no close button of its own.
     /// </summary>
     [Fact]
     public void The_panel_offers_no_way_to_configure_itself()
@@ -2998,17 +2999,17 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
         Assert.Equal(20, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
-        Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
+        Assert.Empty(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, four window buttons, twenty refreshes, six
+        // One filter select, four window buttons, twenty refreshes, six
         // tabs, twenty info marks, the "Read as brief" link, which opens a view
         // and configures nothing, and a "try again" on each of the five headline tiles,
         // which read again and only appear while a tile is unavailable, as every one is
         // here. Needs you draws a link per item, and there are none here.
         Assert.Equal(5, pane.FindAll("[data-testid$='-retry']").Count);
-        Assert.Equal(1 + 1 + 4 + 20 + 6 + 20 + 1 + 5, controls.Count);
+        Assert.Equal(1 + 4 + 20 + 6 + 20 + 1 + 5, controls.Count);
     }
 
     /// <summary>
@@ -3034,18 +3035,18 @@ public class DashboardPaneTests
         Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllMachines));
     }
 
+    /// <summary>No close of its own (interaction-guidelines.md#shell-header, "A surface
+    /// draws no close of its own"): the Dashboard option, Escape, or the OS close of a
+    /// window of its own is the way out, and the pane draws no ✕ for it.</summary>
     [Fact]
-    public void The_close_button_reports_that_it_was_pressed_and_nothing_else()
+    public void The_pane_draws_no_close_of_its_own()
     {
         using var context = Context();
 
-        var closed = 0;
-        var pane = context.Render<DashboardPane>(parameters =>
-            parameters.Add(pane => pane.OnClose, () => closed++));
+        var pane = context.Render<DashboardPane>();
 
-        pane.Find("[aria-label='Close dashboard']").Click();
-
-        Assert.Equal(1, closed);
+        Assert.Empty(pane.FindAll("[aria-label='Close dashboard']"));
+        Assert.DoesNotContain(pane.FindAll("button"), button => button.TextContent.Trim() == "✕");
     }
 
     /// <summary>The shell finds the surface by this id and test id; renaming either

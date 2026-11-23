@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewModelPageTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The model page reads the folder off the renderer's thread, and under
     /// the whole solution's concurrent run one second was not always enough.</summary>
@@ -321,6 +321,38 @@ public sealed class DomainViewModelPageTests : IDisposable
         Assert.Equal("StatusChanged", component.Find("[data-testid='domain-event']").GetAttribute("data-name"));
     }
 
+    /// <summary>A move under Would fire on opens the Domain page on the unit whose
+    /// chapter draws the lifecycle, on About, with that lifecycle focused — the
+    /// way its own How it moves does.</summary>
+    [Fact]
+    public async Task A_move_an_event_fires_on_opens_its_lifecycle_on_the_Domain_page()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-view']")), Patience);
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")), Patience);
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Model")), Patience);
+        await ClickMenuItemAsync(component, "Model");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-model-band']")), Patience);
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-model-tab-events']").Click());
+        await component.InvokeAsync(() => component.FindAll("[data-testid='domain-event-pick']").Single(pick => pick.TextContent.Trim() == "TaskProjected").Click());
+
+        component.WaitForAssertion(() => Assert.Equal("Ready → In progress", component.Find("[data-testid='domain-event-move-link']").TextContent.Trim()), Patience);
+        var focusedBefore = Focused(harness.Context).Count;
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-event-move-link']").Click());
+
+        component.WaitForAssertion(() => Assert.Equal("domain", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
+        component.WaitForAssertion(() => Assert.Equal("task", component.Find("[data-testid='domain-unit']").GetAttribute("data-unit")), Patience);
+        Assert.Equal("true", component.Find("[data-testid='domain-unit-about-tab']").GetAttribute("aria-selected"));
+        component.WaitForAssertion(() => Assert.IsType<Microsoft.AspNetCore.Components.ElementReference>(Assert.Single(Focused(harness.Context).Skip(focusedBefore)).Arguments[0]), Patience);
+    }
+
+    // The FocusAsync calls the pages made: on the Domain page, a flow section.
+    private static IReadOnlyList<JSRuntimeInvocation> Focused(BunitContext context) =>
+        [.. context.JSInterop.Invocations.Where(invocation => invocation.Identifier.EndsWith("focus", StringComparison.Ordinal))];
+
     /// <summary>One menu row, by the label a reader reads; null while it is not drawn.</summary>
     private static IElement? MenuItem(IRenderedComponent<DevbookPane> component, string label) =>
         component.FindAll(".devbook-menu__item")
@@ -333,10 +365,11 @@ public sealed class DomainViewModelPageTests : IDisposable
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-model-page", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-view-model-page");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
@@ -351,7 +384,6 @@ public sealed class DomainViewModelPageTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -391,10 +423,9 @@ public sealed class DomainViewModelPageTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

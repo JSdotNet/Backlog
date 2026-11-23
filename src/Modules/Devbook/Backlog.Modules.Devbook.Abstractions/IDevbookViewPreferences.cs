@@ -14,7 +14,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// </summary>
 public interface IDevbookViewPreferences
 {
-    /// <summary>Whether the reader dismissed the ways-to-move hint the C4 zoom tab shows
+    /// <summary>Whether the reader dismissed the ways-to-move hint the C4 zoom navigation shows
     /// the first time it opens.</summary>
     bool C4ZoomHintDismissed { get; }
 

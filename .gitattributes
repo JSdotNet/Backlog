@@ -1,23 +1,3 @@
-# Derived index artifacts are written by generators that always emit LF.
-# Without this, git's autocrlf would rewrite the working copy to CRLF on
-# Windows and the generator's next run would show a spurious diff.
-#
-# One generator writes a pinned index that git tracks:
-#   tools/diagrams/archify-artifacts.mjs   -> **/_archify/index.json
-#
-# It was missing from this list once, and fourteen index files reported as
-# modified after every re-render while git diff showed nothing.
-#
-# `**/_meta/*.json` used to be pinned beside it, for the predecessor generator's
-# staleness check. Local ADR 0004 took the derived knowledge layer out of version
-# control entirely, and local ADR 0015 moved the database into the app's storage,
-# so no tracked file is left for that rule to apply to.
-#
-# Only the generated index is pinned. The Archify specifications beside it are
-# authored by hand, and pinning those would change what a Windows editor writes
-# instead of fixing a generator's phantom diff.
-**/_archify/index.json text eol=lf
-
 # The Workflow tool refuses a script with CRLF line endings, so the devbook
 # sweep's workflow scripts in plugins/backlog-tools stay LF on a Windows checkout.
 *.workflow.js text eol=lf
@@ -25,12 +5,6 @@
 # Test fixtures are byte-exact inputs: a PDF's xref offsets and a JPEG's EXIF
 # would break under line-ending conversion.
 tests/**/Fixtures/** binary
-
-# GitHub's language bar (Linguist) counts bytes per language. The vendored
-# Archify examples are sample input, not this repository's code. The rendered
-# Archify pages used to be marked generated here too; local ADR 0034 stopped
-# committing them, and .gitignore keeps them out.
-tools/archify/examples/** linguist-documentation
 
 # Third-party builds vendored into the component library, kept byte for byte as
 # published. autocrlf would otherwise rewrite them on a Windows checkout, and a

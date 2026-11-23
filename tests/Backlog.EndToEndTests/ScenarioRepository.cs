@@ -36,14 +36,15 @@ internal sealed class ScenarioRepository : IAsyncDisposable
 
     private readonly IPlaywright _playwright;
     private readonly IBrowser _browser;
+    private readonly TemporaryDirectory _folder;
 
-    private ScenarioRepository(IPlaywright playwright, IBrowser browser, AspireAppHost appHost, DesktopHarness desktop, string folder, Evidence evidence, string token)
+    private ScenarioRepository(IPlaywright playwright, IBrowser browser, AspireAppHost appHost, DesktopHarness desktop, TemporaryDirectory folder, Evidence evidence, string token)
     {
         _playwright = playwright;
         _browser = browser;
         AppHost = appHost;
         Desktop = desktop;
-        Folder = folder;
+        _folder = folder;
         Evidence = evidence;
         Token = token;
     }
@@ -53,7 +54,7 @@ internal sealed class ScenarioRepository : IAsyncDisposable
     public DesktopHarness Desktop { get; }
 
     /// <summary>The registered clone: the fixture, copied.</summary>
-    public string Folder { get; }
+    public string Folder => _folder.Path;
 
     public Evidence Evidence { get; }
 
@@ -70,8 +71,8 @@ internal sealed class ScenarioRepository : IAsyncDisposable
         await appHost.WaitHealthyAsync(DesktopHarness.Resource, TimeSpan.FromMinutes(10), cancellationToken);
 
         var token = DateTime.Now.ToString("MMdd-HHmmss", CultureInfo.InvariantCulture);
-        var folder = Path.Combine(Path.GetTempPath(), "backlog-e2e-scenarios", $"{scenario}-{token}-{Guid.NewGuid().ToString("n")[..8]}");
-        Copy(RepositoryRoot.Directory("tests", "Fixtures", "scenario-repository"), folder);
+        var folder = new TemporaryDirectory($"backlog-e2e-scenarios-{scenario}-{token}");
+        Copy(RepositoryRoot.Directory("tests", "Fixtures", "scenario-repository"), folder.Path);
 
         var playwright = await Playwright.CreateAsync();
         var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
@@ -86,8 +87,8 @@ internal sealed class ScenarioRepository : IAsyncDisposable
         try
         {
             await desktop.RemoveRepositoryAsync(Alias);
-            await desktop.AddRepositoryAsync(Alias, FullName, folder);
-            TestContext.Current.SendDiagnosticMessage($"{FullName} registered as {Alias} at {folder}");
+            await desktop.AddRepositoryAsync(Alias, FullName, folder.Path);
+            TestContext.Current.SendDiagnosticMessage($"{FullName} registered as {Alias} at {folder.Path}");
         }
         catch
         {
@@ -124,14 +125,7 @@ internal sealed class ScenarioRepository : IAsyncDisposable
         await _browser.DisposeAsync();
         _playwright.Dispose();
 
-        try
-        {
-            Directory.Delete(Folder, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A watch may still hold it a moment; it is under the temp folder.
-        }
+        _folder.Dispose();
     }
 
     private static void Copy(string from, string to)

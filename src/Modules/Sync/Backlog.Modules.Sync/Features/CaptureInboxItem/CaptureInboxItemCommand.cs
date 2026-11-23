@@ -98,7 +98,8 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, IAttach
     /// <summary>The document kind of a capture. Not a task type: the desktop's
     /// Tasks vocabulary has no member for it, on purpose (see the class remarks).
     /// The same literal is read in <c>InMemoryTaskReplica</c>, in
-    /// <c>CosmosTaskReplica</c>, and in the desktop's <c>TaskReplicaMerge</c>.</summary>
+    /// <c>CosmosTaskReplica</c>, in <c>TaskChangePrecedence</c>, and in the
+    /// desktop's <c>TaskReplicaMerge</c>.</summary>
     internal const string CaptureType = "capture";
 
     /// <summary>Unreviewed. The desktop is what promotes it once a person has

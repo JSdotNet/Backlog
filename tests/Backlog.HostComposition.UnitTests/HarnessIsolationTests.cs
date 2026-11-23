@@ -5,8 +5,10 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sqlite.Mcp;
 using Backlog.Infrastructure.Sync;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -59,7 +61,9 @@ public class HarnessIsolationTests
             services.GetRequiredService<PullRequestPinsStore>().SettingsPath,
             services.GetRequiredService<ClaudeSettingsStore>().SettingsPath,
             services.GetRequiredService<AzureFoundrySettingsStore>().SettingsPath,
-            services.GetRequiredService<SyncServiceSettingsStore>().SettingsPath
+            services.GetRequiredService<SyncServiceSettingsStore>().SettingsPath,
+            // Registered by its port alone, and a database file rather than settings.
+            Assert.IsType<SqliteMcpAuditLog>(services.GetRequiredService<IMcpAuditLog>()).DatabasePath
         ];
 
         foreach (var path in paths)

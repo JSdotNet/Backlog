@@ -75,4 +75,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)Shared\Polling.cs" Link="Shared\Polling.cs" />
   </ItemGroup>
 
+  <!--
+    The one temporary folder a test creates and deletes, so no test class writes
+    its own GetTempPath root, CreateDirectory and quiet delete. Linked everywhere
+    for the same reason as Polling: it depends on nothing but the base class
+    library. See tests/Shared/TemporaryDirectory.cs.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\TemporaryDirectory.cs" Link="Shared\TemporaryDirectory.cs" />
+  </ItemGroup>
+
 </Project>

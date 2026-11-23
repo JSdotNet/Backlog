@@ -19,6 +19,12 @@ public static class InboxErrors
         "inbox.item.needs_title",
         "A capture needs some text before it can be kept.");
 
+    /// <summary>A source link named beside a capture that is no absolute http
+    /// or https address.</summary>
+    public static readonly Error SourceUrlNotALink = Error.Validation(
+        "inbox.capture.source_not_a_link",
+        "The source link has to be a web address, starting with http:// or https://.");
+
     /// <summary>Only a note changes after it is captured
     /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>).</summary>
     public static readonly Error NotANote = Error.Validation(
@@ -43,6 +49,24 @@ public static class InboxErrors
 
     /// <summary>What To Brain says in a host composed without a Brain.</summary>
     public const string NoBrainHere = "There is no Brain here to keep notes in.";
+
+    /// <summary>The code of a To Event refused because the route is not offered:
+    /// the Events area is off, or the host composed no Events.</summary>
+    public const string EventsUnavailableCode = "inbox.events.unavailable";
+
+    /// <summary>To Event while it is not offered. The item is left as it was.</summary>
+    public static readonly Error EventsUnavailable = Error.Validation(
+        EventsUnavailableCode,
+        "To Event is offered only while the Events area is on.");
+
+    /// <summary>The code of a To Event whose event Events did not make.</summary>
+    public const string EventNotMadeCode = "inbox.events.not_made";
+
+    /// <summary>Events refused or failed to make the event. Carries Events' own
+    /// words; the item stays open.</summary>
+    public static Error EventNotMade(string detail) => Error.Validation(
+        EventNotMadeCode,
+        string.IsNullOrWhiteSpace(detail) ? "The event was not made." : $"The event was not made: {detail}");
 
     public static readonly Error AttachmentNotFound = Error.NotFound(
         "inbox.attachment.not_found",
@@ -111,6 +135,24 @@ public static class InboxErrors
     public static Error PlanFailed(string detail) => new(
         "inbox.plan.failed",
         detail);
+
+    /// <summary>A meeting recording could not be transcribed or summarized (local ADR 0049).
+    /// The detail is this adapter's own words, never Foundry's, which may quote the audio.</summary>
+    public static Error TranscriptionFailed(string detail) => new(
+        "inbox.transcription.failed",
+        detail);
+
+    /// <summary>A host that keeps no transcription records transcribes nothing, so there is
+    /// nothing to retry (local ADR 0049).</summary>
+    public static readonly Error TranscriptionUnavailable = new(
+        "inbox.transcription.unavailable",
+        "Recordings are not transcribed on this machine.");
+
+    /// <summary>The failure record could not be cleared — its file is locked or cannot be
+    /// read — so the recording would only be refused again.</summary>
+    public static readonly Error TranscriptionRetryFailed = new(
+        "inbox.transcription.retry_failed",
+        "The recording's failed attempts could not be cleared on this machine. Try again in a moment.");
 
     /// <summary>No triage advisor, or one that says it cannot run. Every AI
     /// surface is hidden in this case (local ADR 0023 §4), so the message is
@@ -285,6 +327,15 @@ public static class InboxErrors
         "inbox.batch.merge_save_failed",
         $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
 
+    /// <summary>The code <see cref="WaitingForWhoRequired"/> answers with.</summary>
+    public const string WaitingForWhoRequiredCode = "inbox.route.waiting_for_who_required";
+
+    /// <summary>Waiting for was asked with nobody to wait on, or with a name
+    /// holding a backtick, which entry text cannot carry. Nothing was routed.</summary>
+    public static Error WaitingForWhoRequired { get; } = Error.Validation(
+        WaitingForWhoRequiredCode,
+        "Name who it waits on, without a backtick, so nothing was routed.");
+
     /// <summary>The code <see cref="UnknownEntryType"/> answers with.</summary>
     public const string UnknownEntryTypeCode = "inbox.route.unknown_entry_type";
 
@@ -307,4 +358,15 @@ public static class InboxErrors
     public static Error UndoTaskStarted(string taskTitle) => Error.Validation(
         UndoTaskStartedCode,
         $"Can't undo — {taskTitle} has started");
+
+    /// <summary>The code <see cref="UndoPlanEdited"/> answers with.</summary>
+    public const string UndoPlanEditedCode = "inbox.undo.plan_edited";
+
+    /// <summary>Undoing Create plan would remove the Roadmap Item its <c>plan</c>
+    /// entry laid out, and a person has changed that item since — renamed it,
+    /// moved it, or planned around it. Their planning is not the undo's to throw
+    /// away, so nothing was deleted and the item stays routed.</summary>
+    public static Error UndoPlanEdited(string itemTitle) => Error.Validation(
+        UndoPlanEditedCode,
+        $"Can't undo — the roadmap item {itemTitle} has been changed");
 }

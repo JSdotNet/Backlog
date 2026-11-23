@@ -129,6 +129,21 @@ public sealed class AttachmentSyncEndpointTests : IDisposable
         Assert.Contains(contentType, problem.Detail, StringComparison.Ordinal);
     }
 
+    /// <summary>A meeting recording of local ADR 0048 is on the default list, so a
+    /// note carrying one syncs instead of waiting on a 415.</summary>
+    [Theory]
+    [InlineData("audio/aac")]
+    [InlineData("audio/mp4")]
+    [InlineData("audio/x-m4a")]
+    public async Task A_meeting_recording_is_accepted_by_default(string contentType)
+    {
+        var device = await Device();
+
+        var response = await device.Upload(Guid.CreateVersion7(), Bytes(10), contentType);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
     /// <summary>A charset or other parameter does not change what a type is.</summary>
     [Fact]
     public async Task An_allowed_type_with_parameters_is_accepted_and_served_as_declared()
@@ -338,10 +353,12 @@ public sealed class AttachmentSyncEndpointTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, (await phone.GetAsync(SyncRoutes.AttachmentFor(capture.Attachments![0].Id), Cancellation)).StatusCode);
     }
 
-    /// <summary>A tombstone the replica refuses as stale leaves the capture
-    /// waiting, so its files stay too.</summary>
+    /// <summary>A capture's tombstone is final whatever its stamp
+    /// (<c>TaskChangePrecedence</c>): one stamped before the copy held — the
+    /// desktop decided before the phone's edit landed — still takes the capture
+    /// out of the inbox, so its files go with it.</summary>
     [Fact]
-    public async Task A_stale_pushed_tombstone_releases_nothing()
+    public async Task A_capture_tombstone_stamped_before_the_held_copy_still_releases_the_files()
     {
         var phone = await Device();
         var capture = await CaptureWithAttachment(phone);
@@ -350,7 +367,25 @@ public sealed class AttachmentSyncEndpointTests : IDisposable
 
         await phone.PushChanges([held with { UpdatedAt = earlier, DeletedAt = earlier }]);
 
-        Assert.Equal(HttpStatusCode.OK, (await phone.GetAsync(SyncRoutes.AttachmentFor(capture.Attachments![0].Id), Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await phone.GetAsync(SyncRoutes.AttachmentFor(capture.Attachments![0].Id), Cancellation)).StatusCode);
+    }
+
+    /// <summary>A tombstone the replica refuses as stale — an older copy of the
+    /// tombstone it already holds — releases nothing a second time and leaves the
+    /// capture tombstoned.</summary>
+    [Fact]
+    public async Task A_stale_pushed_tombstone_is_refused_and_the_capture_stays_out()
+    {
+        var phone = await Device();
+        await CaptureWithAttachment(phone);
+        var held = Assert.Single((await phone.PullTasks()).Tasks).Change;
+        var decided = held.UpdatedAt.AddMinutes(1);
+        await phone.PushChanges([held with { UpdatedAt = decided, DeletedAt = decided }]);
+
+        var push = await phone.PushChanges([held with { UpdatedAt = held.UpdatedAt, DeletedAt = held.UpdatedAt }]);
+
+        Assert.Equal(HttpStatusCode.OK, push.StatusCode);
+        Assert.Equal(decided, Assert.Single((await phone.PullTasks()).Tasks).Change.DeletedAt);
     }
 
     /// <summary>The store failing to delete is the lifecycle rule's to clean

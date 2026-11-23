@@ -2,7 +2,7 @@
 
 ```meta
 type: dependencies
-related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md, .devbook/domain/calendar/context.md]
 ```
 
 > Dependencies this bounded context has on other bounded contexts or
@@ -66,6 +66,8 @@ Tasks is the customer in every Customer/Supplier row.
 | [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Tasks = supplier) | Intended subscription to status and projection events; Tasks emits none yet | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted`, `.devbook/domain/tasks/domain.md#occurrencespawned` | Work-state and projection-state changes, and occurrence provenance. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | AI-assisted activity evidence linked to a task. |
 | [Sessions](../sessions/context.md) | Customer/Supplier (Tasks = supplier) | Calls a capability Tasks publishes in `Backlog.Modules.Tasks.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry` | Tasks filing exactly one `ready` prompt after the gated entry per notification id. |
+| [Events](../events/context.md) | Customer/Supplier (Tasks = supplier) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal`, in process | `.devbook/domain/events/domain.md#harvest-task-policy`; local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md) §3 | Tasks filing a task from its text, under a caller's id only if no task holds it, live or deleted; reading a task by id; and ticking one off. |
+| [Calendar](../calendar/context.md) | Customer/Supplier (Tasks = supplier) | `ICalendarTasks` in the Calendar's abstractions, answered by `TasksCalendarTasks` in `Backlog.Infrastructure.FileSystem/Calendar/` over `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`, in process; `NoCalendarTasks` in a host without Tasks | Tasks' published contract; local [ADR 0056](../../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) §2 | The Tasks layer: the tasks with a due date in a window, their planned hours and the change signal; setting a task's due date, and its hours on a day. |
 | Desktop shell (composition root), for Repository Management's pull requests pane and Sessions' detail panel | OHS + Published Language (Tasks = supplier) | A lookup port in Tasks' abstractions, `ITaskLookup`, from a session id or a pull request to its task | `.devbook/domain/tasks/domain.md#projection-ref` | A link being the `session` or `pull-request` Projection Ref a task carries. |
 
 - **Roadmap Planning:** The task id shows a planned item's progress. The tag and
@@ -76,6 +78,12 @@ Tasks is the customer in every Customer/Supplier row.
 - **Sessions:** The prompt lands in the gated entry's plan and repository. One prompt
   per notification id means an answer handed over twice files one follow-up.
   **Built**: `ITaskFollowUps`, implemented by the `FileFollowUp` feature.
+- **Calendar:** Neither module references the other, and Tasks' UI registers nothing for
+  the Calendar. No filter, open task or selection crosses: the Calendar reads the tasks
+  under the window's repository scope alone. The due date is written through
+  `ITaskItems.SetDueAsync` (ADR 0056 §2). Pressing a task on the Calendar opens it in the
+  Tasks view by the `tasks` surface id and its `entry` key (local ADR 0043 §3). No Tasks
+  type holds an event id.
 - **Desktop shell:** These find their task through the port
   (local [ADR 0042 §9](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#9-tasks-publishes-a-lookup-from-a-session-or-a-pull-request-to-its-task)):
   - the pane's Mine view;

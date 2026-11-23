@@ -21,12 +21,12 @@ public sealed class DevbookSyncWriteTests : IDisposable
     private const string ContextMap = "domain/context-map.md";
     private const string Pad = ".file-view__header [role='group'][aria-label='Sync direction']";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Theory]
     [InlineData(DevbookSourceKind.LocalFolder)]
     [InlineData(DevbookSourceKind.Branch)]
-    public void A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
+    public async Task A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
     {
         using var harness = DomainHarness(source, out var directions, out var file);
         var before = File.ReadAllBytes(file);
@@ -35,7 +35,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
 
         // The pad's left key states pull.
-        component.Find($"{Pad} .sync-pad__key--left").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--left");
 
         component.WaitForAssertion(() =>
         {
@@ -47,7 +47,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     }
 
     [Fact]
-    public void Inheriting_again_clears_the_entry()
+    public async Task Inheriting_again_clears_the_entry()
     {
         using var harness = DomainHarness(DevbookSourceKind.LocalFolder, out var directions, out _);
         directions.Set(Alias, ContextMap, "push", "someone");
@@ -56,7 +56,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Contains("badge--sync-push", component.Find($"{Pad} .sync-pad__value").ClassName, StringComparison.Ordinal));
 
         // The pad's down key states nothing, so the block inherits.
-        component.Find($"{Pad} .sync-pad__key--down").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--down");
 
         component.WaitForAssertion(() => Assert.Empty(directions.List(Alias)));
     }
@@ -90,7 +90,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     }
 
     [Fact]
-    public void A_pick_in_the_design_view_states_the_direction_in_the_map_on_a_branch_and_writes_no_file()
+    public async Task A_pick_in_the_design_view_states_the_direction_in_the_map_on_a_branch_and_writes_no_file()
     {
         var root = TempDir();
         var design = Path.Combine(root, ".design");
@@ -112,7 +112,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll(Pad)));
 
         // The pad's right key states push.
-        component.Find($"{Pad} .sync-pad__key--right").Click();
+        await component.ClickAsync($"{Pad} .sync-pad__key--right");
 
         component.WaitForAssertion(() => Assert.Equal("push", directions.Get(Alias, "design/component-libraries.md")));
         Assert.Equal(before, File.ReadAllBytes(file));
@@ -181,49 +181,21 @@ public sealed class DevbookSyncWriteTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-sync-write-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        _roots.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-sync-write-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 
     private sealed record Harness(BunitContext Context) : IDisposable
     {
         public void Dispose() => Context.Dispose();
-    }
-
-    /// <summary>Resolves every area against one root in the legacy layout and
-    /// stamps the source and the archive flag on it, as
-    /// <see cref="DevbookPanelsReadOnlyBranchTests"/>' stub does.</summary>
-    private sealed class StubFolderSource(string root, DevbookSourceKind source) : IDevbookFolderSource
-    {
-        public bool Archived { get; set; }
-
-        public event Action? Changed;
-
-        public void NotifyContentChanged() => Changed?.Invoke();
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
-        {
-            var folder = DevbookFolderSetting.Defaults()
-                .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
-            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
-
-            var full = Path.Combine(root, folder.EffectivePath);
-
-            return Directory.Exists(full)
-                ? new DevbookFolderLocation(key, true, null, "JSdotNet/Backlog", folder, full, root, "JSdotNet/Backlog", Alias, source, RepositoryArchived: Archived)
-                : DevbookFolderLocation.Unavailable(key, $"No {key}.", source: source, repositoryArchived: Archived);
-        }
     }
 }

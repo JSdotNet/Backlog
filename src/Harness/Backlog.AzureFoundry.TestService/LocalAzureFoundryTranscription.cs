@@ -43,6 +43,15 @@ public static class LocalAzureFoundryTranscription
             return Error(StatusCodes.Status400BadRequest, "invalid_request", "The multipart body has no 'file' part.");
         }
 
+        // The real model refuses AAC in ADTS ("other formats return an error"), which is why
+        // the desktop remuxes a meeting recording to M4A first (local ADR 0049 §3); the
+        // stand-in refuses it too, so a recording sent unremuxed fails here as it would there.
+        if (string.Equals(file.ContentType, "audio/aac", StringComparison.OrdinalIgnoreCase)
+            || file.FileName.EndsWith(".aac", StringComparison.OrdinalIgnoreCase))
+        {
+            return Error(StatusCodes.Status400BadRequest, "invalid_value", "Unsupported file format: AAC in ADTS is not accepted.");
+        }
+
         if (!string.Equals(form["response_format"], "json", StringComparison.Ordinal))
         {
             return Error(StatusCodes.Status400BadRequest, "invalid_request", "The stand-in answers only response_format=json.");

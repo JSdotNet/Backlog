@@ -56,3 +56,25 @@ tests: unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.An
 Acknowledging a capture releases the attachments the held capture named, never ones its [tombstone](../tasks/domain.md#tombstone) names. A failed release never fails the acknowledgement.
 
 Enforced at: `CaptureAttachmentRelease`, from `AcknowledgeInboxItemCommandHandler` and `PushTasksCommandHandler`
+
+### Invariant: An edit changes only a waiting capture's title and body
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.EditCaptureHandlerTests.An_edit_replaces_the_title_and_body_and_keeps_everything_else_the_capture_said, unit:dotnet:Backlog.Modules.Sync.UnitTests.EditCaptureHandlerTests.An_edit_is_stamped_after_the_held_version_when_the_service_clock_is_not_later, unit:dotnet:Backlog.Modules.Sync.UnitTests.EditCaptureHandlerTests.An_edit_of_anything_but_a_waiting_capture_is_not_found_and_writes_nothing]
+```
+
+An edit replaces the title and body of a live capture of its owner, stamped on the service's clock or one tick after the held stamp, and keeps its id, capture instant, source, tags, person and attachments. Anything else is not found (`inbox.item_not_found`).
+
+Enforced at: `EditCaptureCommandHandler`
+
+### Invariant: A capture's tombstone is final
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.A_capture_tombstone_wins_over_a_live_capture_whatever_the_stamps, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.Any_other_tombstone_still_yields_to_a_later_live_copy, unit:dotnet:Backlog.Modules.Sync.UnitTests.InMemoryTaskReplicaPrecedenceTests.The_desktop_tombstone_stamped_before_a_phone_edit_still_tombstones_the_capture]
+```
+
+Between a capture tombstone and a live capture, the tombstone wins in both directions whatever their stamps. A decision racing a phone edit therefore still ends tombstoned. Tasks and notes keep last-write-wins, because both are restored on purpose.
+
+Enforced at: `TaskChangePrecedence.Supersedes()`

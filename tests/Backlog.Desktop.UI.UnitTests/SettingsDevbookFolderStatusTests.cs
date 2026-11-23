@@ -291,7 +291,8 @@ public sealed class SettingsDevbookFolderStatusTests
 
     private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null, bool withOverview = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devbook-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-devbook-status-tests");
+        var root = temp.Path;
 
         string? clone = null;
         if (cloneDirectory is not CloneDirectory.None)
@@ -325,7 +326,7 @@ public sealed class SettingsDevbookFolderStatusTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store, snapshots));
         if (withOverview)
@@ -347,7 +348,7 @@ public sealed class SettingsDevbookFolderStatusTests
             context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         }
 
-        return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, clone, context, context.Render<Settings>());
     }
 
     /// <summary>A snapshot cache whose one fetch waits until the test lands it,
@@ -395,61 +396,18 @@ public sealed class SettingsDevbookFolderStatusTests
             Task.FromResult(new DevbookSnapshotResult(TryRead(repository, branch), false, false, null));
     }
 
-    private sealed class UnreachableGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NotConnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         string? CloneDirectory,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

@@ -127,9 +127,8 @@ public sealed record TechnologyNode(
     public string Status => Metadata.Status ?? "unknown";
 
     /// <summary>What kind of technology this is — <c>library</c>, <c>tool</c>,
-    /// <c>format</c> — as the chapter's <c>type</c> states it (or the legacy
-    /// <c>kind</c>; see <see cref="DevbookMetadata.Kind"/>). A chapter that states
-    /// neither is a <c>technology</c>.</summary>
+    /// <c>format</c> — as the chapter's <c>type</c> states it. A chapter that states
+    /// none is a <c>technology</c>.</summary>
     public string Kind => Metadata.Kind ?? "technology";
 }
 
@@ -247,9 +246,8 @@ public sealed record TechnologyGraphStats(int Nodes, int Edges, IReadOnlyDiction
 
 /// <summary>The few fields a <c>.tech</c> chapter's block carries that the
 /// technology panel reads.</summary>
-/// <param name="Kind">The chapter's <c>type</c>, read from <c>type</c> first and the
-/// legacy <c>kind</c> second. Named for the property every caller already reads;
-/// the value is the field the convention now calls <c>type</c>.</param>
+/// <param name="Kind">The chapter's <c>type</c>. Named for the property every caller
+/// already reads.</param>
 public sealed record DevbookMetadata(
     string? Status,
     string? Kind,
@@ -873,11 +871,7 @@ internal static class TechnologyMarkdownParser
             // The rating: `rating` once the repository has migrated to devbook
             // contract 38, `status` until then.
             ReadString(values, "rating") ?? ReadString(values, "status"),
-            // `type` is the field; `kind` is how `.tech` spelled it before, and
-            // the convention still parses it. Read in that order — the corpus
-            // writes `type`, and reading only `kind` left every node a generic
-            // "technology".
-            ReadString(values, "type") ?? ReadString(values, DevbookSchema.LegacyTechTypeField),
+            ReadString(values, "type"),
             ReadString(values, "version"),
             ReadList(values, "depends-on"),
             ReadList(values, "related"),

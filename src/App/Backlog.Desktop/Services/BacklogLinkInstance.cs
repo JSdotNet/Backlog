@@ -40,6 +40,7 @@ internal static class BacklogLinkInstance
     private static readonly List<string> Waiting = [];
     private static BacklogLinkActivation? _activation;
     private static Action? _showMain;
+    private static bool _showWaiting;
 
     /// <summary>True when Windows started this process through the sign-in startup
     /// task, so the main window is created hidden and the app opens to the tray.</summary>
@@ -103,26 +104,31 @@ internal static class BacklogLinkInstance
     public static void Attach(BacklogLinkActivation activation, Action showMain)
     {
         string[] waiting;
+        bool showWaiting;
         lock (Gate)
         {
             _activation = activation;
             _showMain = showMain;
             waiting = [.. Waiting];
             Waiting.Clear();
+            showWaiting = _showWaiting;
+            _showWaiting = false;
         }
 
+        if (showWaiting) showMain();
         foreach (var link in waiting) activation.Activate(link);
     }
 
     /// <summary>A plain launch redirected here: the main window comes back. One that
-    /// arrives before <see cref="Attach"/> needs nothing, since the window this
-    /// instance is about to open is shown anyway.</summary>
+    /// arrives before <see cref="Attach"/> waits for it: a start at sign-in opens to
+    /// the tray, and would otherwise stay there.</summary>
     private static void ShowMain()
     {
         Action? showMain;
         lock (Gate)
         {
             showMain = _showMain;
+            if (showMain is null) _showWaiting = true;
         }
 
         showMain?.Invoke();

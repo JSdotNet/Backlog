@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -54,9 +55,9 @@ public sealed class TaskReplicaMergeGitHubTests
     /// <summary>ADR 0021 Verification 8: an older copy and an echo write nothing, so
     /// they count as neither applied nor skipped.</summary>
     [Theory]
-    [InlineData(GitHubReplicaOutcome.Echo)]
-    [InlineData(GitHubReplicaOutcome.Refused)]
-    public async Task An_echo_or_an_older_copy_counts_as_nothing_applied(GitHubReplicaOutcome answer)
+    [InlineData(ReplicaOutcome.Echo)]
+    [InlineData(ReplicaOutcome.Refused)]
+    public async Task An_echo_or_an_older_copy_counts_as_nothing_applied(ReplicaOutcome answer)
     {
         var github = new RecordingGitHubSettingsReplication { Answer = answer };
         var activity = new SyncActivityLog();
@@ -73,7 +74,7 @@ public sealed class TaskReplicaMergeGitHubTests
     [Fact]
     public async Task A_copy_the_store_cannot_read_counts_skipped()
     {
-        var github = new RecordingGitHubSettingsReplication { Answer = GitHubReplicaOutcome.Unreadable };
+        var github = new RecordingGitHubSettingsReplication { Answer = ReplicaOutcome.Unreadable };
 
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), github: github)
             .ApplyAsync([TaskChanges.Record(GitHubReplicaChanges.Accounts("not accounts", Morning), OtherPc, 100)], Cancellation);

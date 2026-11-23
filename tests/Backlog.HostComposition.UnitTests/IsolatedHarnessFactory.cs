@@ -102,6 +102,8 @@ internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFact
 /// </summary>
 internal static class HarnessIsolation
 {
+    private static readonly TemporaryDirectory Temp = new("backlog-host-composition");
+
     /// <summary>Each variable, the name its file or folder gets, and whether the
     /// variable names a folder rather than a file.</summary>
     private static readonly (string Variable, string Name, bool IsFolder)[] Overrides =
@@ -113,6 +115,7 @@ internal static class HarnessIsolation
         ("BACKLOG_DESKTOP_SESSION_SYNC_PATH", "session-sync", true),
         ("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH", "annotation-sync", true),
         ("BACKLOG_DESKTOP_BACKUP_STATE_PATH", "backup-state.json", false),
+        ("BACKLOG_DESKTOP_MCP_AUDIT_PATH", "mcp-audit.db", false),
         ("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH", "sync-service.json", false),
         ("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH", "azure-foundry.settings.json", false),
         ("BACKLOG_FEATURE_SETTINGS_PATH", "feature.settings.json", false),
@@ -132,8 +135,8 @@ internal static class HarnessIsolation
 
     static HarnessIsolation()
     {
-        Root = Path.Combine(Path.GetTempPath(), "backlog-host-composition-" + Guid.NewGuid().ToString("N"));
-        var machine = Path.Combine(Root, "machine");
+        Root = Temp.Path;
+        var machine = Temp.Combine("machine");
         Directory.CreateDirectory(machine);
 
         foreach (var (variable, name, isFolder) in Overrides)
@@ -145,12 +148,7 @@ internal static class HarnessIsolation
 
         // Best effort: a pooled SQLite connection may still hold a database open,
         // and a temporary folder left behind is the operating system's to clear.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-        {
-            try { Directory.Delete(Root, recursive: true); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Temp.Dispose();
     }
 
     /// <summary>

@@ -26,6 +26,10 @@ public static class SessionNotificationSubjects
     /// <summary>A pull request, by <see cref="PullRequestId"/>.</summary>
     public const string PullRequest = "pull-request";
 
+    /// <summary>A schedule or loop alert of local ADR 0051 §5, by its <see cref="SessionAlert.Key"/>:
+    /// one subject per occurrence of a cause, so closing one cause closes nothing else.</summary>
+    public const string Alert = "alert";
+
     /// <summary>Why a notification about a session closes: it was archived or deleted.</summary>
     public const string SessionEndedReason = "Session archived";
 
@@ -57,6 +61,11 @@ public static class SessionNotificationSubjects
     /// <summary>The choice that sends a run's Personal Validation back for another round
     /// with the person's words. Takes text; recorded as a rejection with those words.</summary>
     public const string ReviseChoice = "revise";
+
+    /// <summary>The choice that withdraws a run's Personal Validation question on every
+    /// device and records no gate decision. Takes no text; drawn as a small quiet action.
+    /// An older build, which knows no such id, would record its answer as Revise.</summary>
+    public const string DismissChoice = "dismiss";
 
     /// <summary>
     /// The source key of the Personal Validation question about a run: the run and the

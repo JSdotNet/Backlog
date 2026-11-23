@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DomainViewContextMapPageTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The page reads the folder off the renderer's thread, and under the
     /// whole solution's concurrent run one second was not always enough.</summary>
@@ -153,11 +153,108 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         var read = DomainViewContextMapPage.Read(view);
 
         Assert.Null(read.Problem);
-        Assert.Equal(16, read.Map.Contexts.Count);
+        Assert.Equal(18, read.Map.Contexts.Count);
         Assert.Contains(read.Map.Contexts, context => context.Slug == "brain");
+        Assert.Contains(read.Map.Contexts, context => context.Slug == "calendar");
         Assert.All(read.Map.Contexts, context => Assert.NotNull(context.Slug));
         var unworded = read.Map.Lines.Where(line => line.Wording.Length == 0).Select(read.Map.Describe).ToList();
         Assert.True(unworded.Count == 0, "Lines no dependency row words: " + string.Join("; ", unworded));
+    }
+
+    private const string Languages = """
+
+
+        ## Published languages and contracts
+
+        | Contract owner | Published language / contract | Used by |
+        |---|---|---|
+        | Tasks | `.devbook/domain/tasks/domain.md#taskcompleted` | Sync |
+        | Tasks | `.devbook/domain/tasks/domain.md#taskprojected` | Sync |
+        | Sync | `SyncRoutes` | Tasks |
+        """;
+
+    private const string TasksDomain = """
+        # Domain: Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined, actionable item.
+
+        ### TaskCompleted
+
+        ```meta
+        type: domain-event
+        ```
+
+        Raised when a task is done.
+        """;
+
+    private const string TasksModel = """
+        # Model: Tasks
+
+        ```meta
+        type: model
+        ```
+
+        ## Model diagram
+
+        ```mermaid
+        classDiagram
+            class Task {
+                <<aggregate root>>
+            }
+        ```
+        """;
+
+    /// <summary>A published language's owner opens that context's Model on Events
+    /// when the contract names an event its domain files document.</summary>
+    [Fact]
+    public async Task An_owner_naming_a_documented_event_opens_its_contexts_model_on_events()
+    {
+        await using var harness = CreateHarness(withModel: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='context-map-page']")), Patience);
+        await component.InvokeAsync(() => component.Find("[data-testid='context-map-page-tab-list']").Click());
+
+        var owners = component.FindAll("[data-testid='context-map-contract-owner']");
+        Assert.Equal(["Tasks", "Tasks", "Sync"], owners.Select(owner => owner.TextContent.Trim()));
+        Assert.Equal(["events", "context", "context"], owners.Select(owner => owner.GetAttribute("data-opens")));
+        // The name says which event opens, in the words its row shows it.
+        var shown = component.FindAll("[data-testid='context-map-contract-row']")[0].QuerySelector("[data-testid='context-map-contract']")!.TextContent.Trim();
+        Assert.Equal($"Tasks: {shown} on Model", owners[0].GetAttribute("aria-label"));
+
+        var read = DomainViewContextMapPage.Read(await harness.Context.Services.GetRequiredService<DomainDevbookStore>().LoadAsync(harness.RepositoryAlias, TestContext.Current.CancellationToken));
+        var tasks = read.Map.Contexts.Single(context => context.Slug == "tasks");
+        Assert.Equal(".domain/tasks/model.md#taskcompleted", DomainViewContextMapPage.EventsOf(read, tasks, read.Map.Contracts[0])?.Raw);
+        Assert.Null(DomainViewContextMapPage.EventsOf(read, tasks, read.Map.Contracts[1]));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='context-map-contract-owner'][data-opens='events']").Click());
+
+        component.WaitForAssertion(() => Assert.Equal("model", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='domain-model-tab-events']").GetAttribute("aria-selected")), Patience);
+    }
+
+    /// <summary>An owner whose contract names no event its model documents — or
+    /// whose context has no Model file — opens its context page, as its card does.</summary>
+    [Fact]
+    public async Task An_owner_naming_no_documented_event_opens_its_context_page()
+    {
+        await using var harness = CreateHarness(withModel: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='context-map-page']")), Patience);
+        await component.InvokeAsync(() => component.Find("[data-testid='context-map-page-tab-list']").Click());
+
+        await component.InvokeAsync(() => component.FindAll("[data-testid='context-map-contract-owner'][data-opens='context']")
+            .Single(owner => owner.TextContent.Trim() == "Sync").Click());
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context-page']")), Patience);
+        Assert.Equal("sync/context.md", component.FindComponent<DomainView>().Instance.SelectedPath);
     }
 
     /// <summary>One menu row, by the label a reader reads; null while it is not drawn.</summary>
@@ -170,22 +267,29 @@ public sealed class DomainViewContextMapPageTests : IDisposable
     private static Task ClickMenuItemAsync(IRenderedComponent<DevbookPane> component, string label) =>
         component.InvokeAsync(() => MenuItem(component, label)!.Click());
 
-    private Harness CreateHarness(string? cloneDirectory = null)
+    /// <param name="withModel">Whether Tasks has a domain.md raising an event and a
+    /// model.md, and the map a Published languages table Tasks and Sync own.</param>
+    private Harness CreateHarness(string? cloneDirectory = null, bool withModel = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-view-context-map-page", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-view-context-map-page");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "sync"));
-        _roots.Add(root);
 
-        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
+        File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), withModel ? ContextMap + Languages : ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), TasksContext);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "dependencies.md"), TasksDependencies);
         File.WriteAllText(Path.Combine(root, ".domain", "sync", "context.md"), SyncContext);
+        if (withModel)
+        {
+            File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), TasksDomain);
+            File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.md"), TasksModel);
+        }
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -225,10 +329,9 @@ public sealed class DomainViewContextMapPageTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

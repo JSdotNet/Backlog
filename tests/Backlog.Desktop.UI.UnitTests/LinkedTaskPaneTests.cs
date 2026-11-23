@@ -151,6 +151,50 @@ public sealed class LinkedTaskPaneTests
         Assert.Equal(4, host.State.FilteredRows.Count);
     }
 
+    /// <summary>A source with nothing left to do narrows the list to finished work
+    /// only, so it has no chip — installed or not — unless it is the pressed one.</summary>
+    [Fact]
+    public async Task A_source_with_nothing_open_has_no_chip()
+    {
+        var (host, _, _, unknown, _) = await FourAsync();
+        using var _host = host;
+
+        await host.State.ToggleCompletedAsync(unknown, Today);
+
+        Assert.Equal(["local", FakeConnector.Id], host.State.SourceFilters.Select(option => option.Value));
+        Assert.Equal(["Local1", "Fake2"], host.Render().FindAll(SourceChip).Select(chip => chip.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task A_pressed_source_keeps_its_chip_and_its_press_when_its_last_open_task_is_ticked_off()
+    {
+        var (host, _, _, unknown, _) = await FourAsync();
+        using var _host = host;
+
+        host.State.SetSourceFilter("jira");
+        await host.State.ToggleCompletedAsync(unknown, Today);
+
+        Assert.Equal("jira", host.State.SelectedSource);
+        Assert.Contains(("jira", 0, 1), host.State.SourceFilters.Select(option => (option.Value, option.OpenCount, option.CompletedCount)));
+        Assert.Equal("true", host.Render().Find($"{SourceChip}[data-source='jira']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>An installed connector with no task through it leaves Local alone on
+    /// the group, and one chip narrows nothing.</summary>
+    [Fact]
+    public async Task A_source_group_left_with_only_local_work_is_not_drawn()
+    {
+        var sources = new LinkedTaskSources([new FakeConnector()], new InMemoryTargets());
+        using var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], linkedSources: sources);
+        await host.WriteEntryAsync("# Water the plants\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Empty(host.State.SourceFilters);
+        Assert.Empty(host.Render().FindAll(".filter-group--source"));
+    }
+
+    private static readonly DateOnly Today = new(2026, 11, 11);
+
     [Fact]
     public async Task A_backlog_with_no_connector_and_no_linked_task_has_no_source_group()
     {

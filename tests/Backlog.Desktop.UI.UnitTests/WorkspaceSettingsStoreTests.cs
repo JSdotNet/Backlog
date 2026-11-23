@@ -12,13 +12,15 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class WorkspaceSettingsStoreTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
 
+    /// <summary>A folder that does not exist yet, in a temp folder of the test's own:
+    /// the store is the one that creates it.</summary>
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("backlog-store-tests");
+        _tempDirs.Add(temp);
+        return temp.Combine("root");
     }
 
     private WorkspaceSettingsStore Store()
@@ -33,9 +35,9 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         // databases, and a pooled handle is a folder Windows will not delete.
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            dir.Dispose();
         }
     }
 

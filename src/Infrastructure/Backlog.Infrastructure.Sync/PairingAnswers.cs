@@ -16,6 +16,8 @@ namespace Backlog.Infrastructure.Sync;
 /// source key, not from memory, so an answer replayed after a restart revokes the same
 /// device, and a device already gone counts as revoked. A revocation that fails for any
 /// other reason throws, so the answer stays undelivered and is replayed on the next start.
+/// Refusing asks for no Windows Hello (<see cref="IDeviceRoster.RefuseDeviceAsync"/>): it shuts
+/// out a device nobody has trusted yet, and a prompt here would hold every other answer back.
 /// </para>
 /// </summary>
 public sealed class PairingAnswers : INotificationAnswerHandler
@@ -56,7 +58,7 @@ public sealed class PairingAnswers : INotificationAnswerHandler
         if (answer.ChoiceIds.Contains(SyncNotificationSubjects.RefuseChoice, StringComparer.Ordinal))
         {
             var roster = _roster() ?? throw new InvalidOperationException("No sync client is composed to revoke the refused device with.");
-            var revoked = await roster.RevokeDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
+            var revoked = await roster.RefuseDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
 
             if (revoked.IsFailure && revoked.Error.Code != SyncErrorCodes.DeviceNotFound)
             {

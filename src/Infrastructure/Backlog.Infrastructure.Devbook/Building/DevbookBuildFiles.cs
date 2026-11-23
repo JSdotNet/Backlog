@@ -15,7 +15,9 @@ namespace Backlog.Infrastructure.Devbook.Building;
 internal static class DevbookBuildFiles
 {
     /// <summary>Generated output and vendored trees: they hold no authored
-    /// Markdown, and the chapter walk skips them.</summary>
+    /// Markdown, and the chapter walk skips them. <c>_archify</c> stays although
+    /// this repository has none left: other repositories may still carry the
+    /// folder (local ADR 0057 §4).</summary>
     private static readonly HashSet<string> SkippedDirectories = new(StringComparer.Ordinal) { "_meta", "_archify", "node_modules", ".git" };
 
     /// <summary>
@@ -71,28 +73,6 @@ internal static class DevbookBuildFiles
                 {
                     found.Add(child);
                 }
-            }
-        }
-    }
-
-    /// <summary>Every <c>_archify/index.json</c> under <paramref name="folder"/>,
-    /// whether or not the file is there — a folder with an <c>_archify</c>
-    /// directory and no readable index is a problem to record, not to skip.</summary>
-    public static IReadOnlyList<string> ArchifyIndexes(string repositoryRoot, string folder, bool placeholders = false)
-    {
-        var found = new List<string>();
-        Walk(folder);
-        found.Sort(StringComparer.Ordinal);
-        return found;
-
-        void Walk(string relative)
-        {
-            foreach (var (name, isDirectory) in Entries(repositoryRoot, relative, placeholders))
-            {
-                if (!isDirectory) continue;
-                var child = $"{relative}/{name}";
-                if (name == "_archify") found.Add($"{child}/index.json");
-                else if (!SkippedDirectories.Contains(name)) Walk(child);
             }
         }
     }

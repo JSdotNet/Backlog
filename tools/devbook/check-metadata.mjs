@@ -39,9 +39,9 @@ export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 export { DEVBOOK_FOLDERS };
 
 /** Generated output and vendored trees hold no authored `meta` blocks. `_meta`
- *  is JSON rather than Markdown and `_archify` holds specifications and rendered
- *  artifacts, but both are skipped by name so a future `.md` in either cannot
- *  quietly join the corpus. */
+ *  is JSON rather than Markdown and `_archify` is another repository's leftover
+ *  Archify renders (local ADR 0057 §4), but both are skipped by name so a future
+ *  `.md` in either cannot quietly join the corpus. */
 const SKIPPED_DIRECTORIES = new Set(['_meta', '_archify', 'node_modules', '.git']);
 
 /** A field the folder's schema does not list.

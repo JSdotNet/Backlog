@@ -698,33 +698,6 @@ public class DevToolApplicationTests
 /// </summary>
 public class DevToolRefreshPlanTests
 {
-    /// <summary>Every configured marketplace is pulled before Claude is asked what
-    /// it has installed. Claude answers that question out of its own marketplace
-    /// clone, so asking first is asking about the last refresh somebody else
-    /// happened to run.</summary>
-    [Fact]
-    public void A_claude_refresh_pulls_every_marketplace_before_asking_what_is_installed()
-    {
-        var steps = DevToolRefresh.ClaudePlugins("claude", ["jsdotnet-copilot", "anthropic-skills"]);
-
-        Assert.Equal(
-            [
-                "claude plugin marketplace list --json",
-                "claude plugin marketplace update jsdotnet-copilot",
-                "claude plugin marketplace update anthropic-skills",
-                "claude plugin list --json"
-            ],
-            steps.Select(Line));
-    }
-
-    /// <summary>A machine with no marketplace configured still reads what Claude
-    /// has, and still spends no call refreshing nothing.</summary>
-    [Fact]
-    public void A_claude_refresh_with_no_marketplaces_still_reads_what_is_installed() =>
-        Assert.Equal(
-            ["claude plugin marketplace list --json", "claude plugin list --json"],
-            DevToolRefresh.ClaudePlugins("claude", []).Select(Line));
-
     /// <summary>
     /// The source is updated before either listing is read. Both listings answer
     /// out of the local source index, so a stale index reports a stale Available
@@ -813,8 +786,7 @@ public class DevToolRefreshPlanTests
     [Fact]
     public void Every_refresh_step_is_a_loggable_command_spec()
     {
-        var steps = DevToolRefresh.ClaudePlugins("claude", ["jsdotnet-copilot"])
-            .Concat(DevToolRefresh.WingetInventory())
+        var steps = DevToolRefresh.WingetInventory()
             .Concat(DevToolRefresh.Repository(@"C:\repos\copilot", "plugins"))
             .ToArray();
 

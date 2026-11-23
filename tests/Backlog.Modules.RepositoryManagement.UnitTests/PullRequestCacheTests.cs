@@ -20,7 +20,7 @@ public sealed class PullRequestCacheTests
     private readonly CountingPullRequestSource _github = new();
     private readonly InMemorySettledStore _settled = new();
 
-    private IPullRequests Module() => new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, ArchifyRepository), _settled, _clock);
+    private IPullRequests Module() => new PullRequests(_github, new FakeRegisteredRepositories(BacklogRepository, AlmanacRepository), _settled, _clock);
 
     private static readonly PullRequestReadOptions Minute = PullRequestReadOptions.Default;
 
@@ -139,12 +139,12 @@ public sealed class PullRequestCacheTests
         _github.Holds(Pull(1477, PullRequestState.Merged));
         var module = Module();
 
-        await module.ReadAsync([Ref(1477), Ref(1477, ArchifyRepository)], Minute, TestContext.Current.CancellationToken);
-        var alone = await module.ReadAsync([Ref(1477, ArchifyRepository)], Minute, TestContext.Current.CancellationToken);
+        await module.ReadAsync([Ref(1477), Ref(1477, AlmanacRepository)], Minute, TestContext.Current.CancellationToken);
+        var alone = await module.ReadAsync([Ref(1477, AlmanacRepository)], Minute, TestContext.Current.CancellationToken);
 
         Assert.Empty(alone.PullRequests);
         Assert.Empty(alone.Failures);
-        Assert.Equal([$"read {ArchifyRepository} 1477", $"read {BacklogRepository} 1477"], _github.Calls.Order());
+        Assert.Equal([$"read {AlmanacRepository} 1477", $"read {BacklogRepository} 1477"], _github.Calls.Order());
     }
 
     /// <summary>Refresh asks GitHub again for everything but a merged pull request, which

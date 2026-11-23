@@ -32,13 +32,11 @@ public static class IterationReplicaDocuments
     /// </summary>
     public static readonly Guid SettingsId = Guid.Parse("7c3e1f5a-9d2b-4a6e-b8f0-3e5d7a9c1b36");
 
+    private static readonly WholeDocumentKind Kind = new(SettingsType, Title);
+
     /// <summary>Whether a document is the settings'. Ordinal, as every token on the
     /// feed is compared.</summary>
-    public static bool Is(TaskChange change)
-    {
-        ArgumentNullException.ThrowIfNull(change);
-        return string.Equals(change.Task.Type, SettingsType, StringComparison.Ordinal);
-    }
+    public static bool Is(TaskChange change) => Kind.Is(change);
 
     /// <summary>The settings as a task-shaped change, the shape
     /// <see cref="WholeDocumentChange"/> describes: the constant id, the file's stamp,
@@ -47,7 +45,7 @@ public static class IterationReplicaDocuments
     {
         ArgumentNullException.ThrowIfNull(copy);
 
-        return WholeDocumentChange.Of(SettingsId, Title, SettingsType, copy.Content, copy.UpdatedAt);
+        return Kind.ToChange(SettingsId, Title, copy.Content, copy.UpdatedAt);
     }
 
     /// <summary>The copy a pulled document carries: its text verbatim and its
@@ -56,6 +54,6 @@ public static class IterationReplicaDocuments
     {
         ArgumentNullException.ThrowIfNull(change);
 
-        return new IterationSettingsCopyDto(change.Task.ContentMd ?? string.Empty, change.UpdatedAt);
+        return new IterationSettingsCopyDto(WholeDocumentKind.ContentOf(change), change.UpdatedAt);
     }
 }

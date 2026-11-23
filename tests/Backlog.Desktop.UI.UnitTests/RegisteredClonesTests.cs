@@ -9,12 +9,12 @@ public sealed class RegisteredClonesTests
 {
     private static readonly RegisteredClone Backlog = new("JSdotNet/Backlog", @"D:\Repos\Backlog");
 
-    private static readonly RegisteredClone Archify = new("JSdotNet/Archify", @"D:\Repos\Archify");
+    private static readonly RegisteredClone Almanac = new("JSdotNet/Almanac", @"D:\Repos\Almanac");
 
     [Fact]
     public void The_clone_root_itself_is_inside_the_clone() =>
         // A session opened at the root is the common case, not an edge.
-        Assert.Equal("JSdotNet/Backlog", RegisteredClones.RepositoryContaining(@"D:\Repos\Backlog", [Backlog, Archify]));
+        Assert.Equal("JSdotNet/Backlog", RegisteredClones.RepositoryContaining(@"D:\Repos\Backlog", [Backlog, Almanac]));
 
     [Fact]
     public void A_worktree_under_the_clone_is_inside_the_clone() =>
@@ -22,7 +22,7 @@ public sealed class RegisteredClonesTests
         // the clone they were cut from.
         Assert.Equal(
             "JSdotNet/Backlog",
-            RegisteredClones.RepositoryContaining(@"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", [Backlog, Archify]));
+            RegisteredClones.RepositoryContaining(@"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", [Backlog, Almanac]));
 
     [Fact]
     public void A_sibling_folder_sharing_the_clone_as_a_prefix_is_not_inside_it() =>
@@ -32,7 +32,7 @@ public sealed class RegisteredClonesTests
 
     [Fact]
     public void A_folder_outside_every_clone_resolves_to_nothing() =>
-        Assert.Null(RegisteredClones.RepositoryContaining(@"C:\Users\someone\scratch", [Backlog, Archify]));
+        Assert.Null(RegisteredClones.RepositoryContaining(@"C:\Users\someone\scratch", [Backlog, Almanac]));
 
     [Fact]
     public void The_deepest_containing_clone_wins()

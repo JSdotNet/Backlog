@@ -11,11 +11,8 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// schema is written by <c>tools/devbook/build-database.mjs</c> and read from
 /// C#, so it can drift silently in a way neither side can detect from the inside.
 ///
-/// <para>The treatment is the one the Archify hash rule already gets — pin it from
-/// both sides, and have the two tests name each other.
-/// <c>DiagramSourceHash.Normalize</c> and <c>normalizeDiagramSource</c> are that
-/// pairing; this is the same idea applied to a schema instead of a hash, and
-/// <c>tools/devbook/build-database.test.mjs</c> is its other half.</para>
+/// <para>The treatment is to pin it from both sides, and have the two tests name
+/// each other: <c>tools/devbook/build-database.test.mjs</c> is its other half.</para>
 ///
 /// <para>Every database below is created from the DDL read out of
 /// <c>devbook-schema.mjs</c> at test time, never from a copy in C#. That is the
@@ -143,18 +140,6 @@ public class DevbookSchemaContractTests
 
         // chapter_embedding
         Assert.True(database.HasEmbeddings);
-
-        // archify_artifact
-        var artifact = Assert.Single(database.ArchifyArtifacts(".domain/inbox"));
-        Assert.Equal(DevbookCorpus.FenceHash, artifact.FenceHash);
-        Assert.Equal(3, artifact.Ordinal);
-        Assert.Equal("architecture", artifact.Type);
-        Assert.Equal("showcase", artifact.Quality);
-        Assert.Equal("flowchart", artifact.Kind);
-        Assert.Equal(".domain/inbox/_archify/domain.3.architecture.json", artifact.SpecPath);
-        Assert.Equal(".domain/inbox/_archify/domain.3.architecture.html", artifact.ArtifactPath);
-        Assert.Equal(9, artifact.ChecksPassed);
-        Assert.Equal(9, artifact.CheckCount);
 
         // problem
         var problem = Assert.Single(database.Problems(DevbookCorpus.Scope));

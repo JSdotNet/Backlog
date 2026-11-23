@@ -162,10 +162,10 @@ public static class DevbookSnapshotSelection
 
     public const char ExcludePrefix = '!';
 
-    /// <summary>The folder of rendered diagram artifacts beside a chapter. Hundreds
-    /// of kilobytes each and read only when a rendered diagram is shown, so every
-    /// reader that fetches a folder whole excludes it — the area stores and the
-    /// one-time devbook import alike.</summary>
+    /// <summary>The folder of rendered diagram artifacts another repository may
+    /// still keep beside a chapter (local ADR 0057 §4). Hundreds of kilobytes each
+    /// and never shown, so every reader that fetches a folder whole excludes it —
+    /// the area stores and the one-time devbook import alike.</summary>
     public const string RenderedArtifactsFolder = "_archify";
 
     /// <summary>Repository-relative, <c>/</c>-separated, no leading <c>./</c>

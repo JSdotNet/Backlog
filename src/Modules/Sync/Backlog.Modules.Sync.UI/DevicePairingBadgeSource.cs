@@ -10,10 +10,10 @@ namespace Backlog.Modules.Sync.UI;
 /// <remarks>
 /// <para>
 /// A device is paired while it holds a credential the sync service has not
-/// rejected, the page's own rule; a credential the service refused reads as not
-/// paired. Follows both the credential store and the token provider's rejection,
-/// by passing their events through, so pairing, forgetting the device and a
-/// refused credential all move the badge.
+/// rejected, the page's own rule; a credential the service refused, or a key this
+/// machine cannot use, reads as not paired. Follows both the credential store and
+/// the token provider's two verdicts, by passing their events through, so pairing,
+/// forgetting the device, a refused credential and a lost key all move the badge.
 /// </para>
 /// <para>
 /// A host that keeps no credential draws no badge.
@@ -31,19 +31,25 @@ public sealed class DevicePairingBadgeSource(
 
     public string? Badge => credentials is null
         ? null
-        : credentials.Current is not null && tokens?.CredentialRejected != true ? Paired : NotPaired;
+        : credentials.Current is not null && tokens?.CredentialRejected != true && tokens?.KeyUnavailable != true ? Paired : NotPaired;
 
     public event Action? Changed
     {
         add
         {
             if (credentials is not null) credentials.Changed += value;
-            if (tokens is not null) tokens.CredentialRejectedChanged += value;
+            if (tokens is null) return;
+
+            tokens.CredentialRejectedChanged += value;
+            tokens.KeyUnavailableChanged += value;
         }
         remove
         {
             if (credentials is not null) credentials.Changed -= value;
-            if (tokens is not null) tokens.CredentialRejectedChanged -= value;
+            if (tokens is null) return;
+
+            tokens.CredentialRejectedChanged -= value;
+            tokens.KeyUnavailableChanged -= value;
         }
     }
 }

@@ -126,11 +126,10 @@ token can only be the same or more restrictive than its caller's:
 | Release | `contents: write`, `issues: write`, `id-token: write` | It publishes a GitHub Release, opens an issue when the release fails, and deploys the sync service through Deploy Sync's OIDC sign-in. |
 
 The release and sync jobs pass `secrets: inherit`; Foundry does not. The release needs it for
-the Windows signing certificate, the Android keystore and, through its own call to Deploy
-Sync, `SYNC_TOKEN_SIGNING_KEY`. Sync needs it for
-`SYNC_TOKEN_SIGNING_KEY`, the key the sync service
-signs device tokens with (see [`sync.md`](sync.md#the-device-token-signing-key)) — and
-`inherit` rather than passing it by name because it is an *environment* secret: the calling
-job has no environment to resolve it in, only the called workflow's job does. Foundry reads
+the Windows signing certificate and the Android keystore. Sync carries no secret of its own
+— the key the sync service signs device tokens with is a Key Vault secret (see
+[`sync.md`](sync.md#the-device-token-signing-key)) — and keeps `inherit` so that any
+*environment* secret it ever reads resolves: the calling job has no environment to resolve
+one in, only the called workflow's job does. Foundry reads
 `vars.*` alone and runs on the self-hosted runner, which is the last place to pre-authorise
 the repository's whole secret set against a future `secrets.` reference.

@@ -13,7 +13,9 @@ public sealed class WorkspaceInboxAttachmentFilesTests : IDisposable
 {
     private static readonly Guid Item = Guid.Parse("0199a3f2-7c41-7d1a-9d0f-3d2c5e6f7a8b");
 
-    private readonly string _inbox = Path.Combine(Path.GetTempPath(), "backlog-inbox-files-tests", Guid.NewGuid().ToString("n"), "_inbox");
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-files-tests");
+
+    private string _inbox => _temp.Combine("_inbox");
 
     [Fact]
     public async Task A_file_is_written_into_the_items_folder_and_read_back()
@@ -101,15 +103,5 @@ public sealed class WorkspaceInboxAttachmentFilesTests : IDisposable
         Assert.StartsWith(Path.GetFullPath(current), files.FolderFor(Item), StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            var root = Path.GetDirectoryName(_inbox)!;
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

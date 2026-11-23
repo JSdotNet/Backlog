@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Calendar\Backlog.Modules.Calendar\Backlog.Modules.Calendar.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Calendar\Backlog.Modules.Calendar.Abstractions\Backlog.Modules.Calendar.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AddCalendarModule() is resolved through a real container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+</Project>

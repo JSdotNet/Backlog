@@ -12,13 +12,11 @@ public sealed class DevbookImportLedgerTests : IDisposable
 {
     private const string Repository = "JSdotNet/Backlog";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-import-ledger-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-import-ledger-tests");
+
+    private string _root => _temp.Path;
 
     private readonly DateTimeOffset _at = new(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
-
-    public DevbookImportLedgerTests() => Directory.CreateDirectory(_root);
 
     private DevbookImportLedger Ledger() => new(_root);
 
@@ -80,15 +78,5 @@ public sealed class DevbookImportLedgerTests : IDisposable
         Assert.False(ledger.HasImported(Repository));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is not a test failure.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

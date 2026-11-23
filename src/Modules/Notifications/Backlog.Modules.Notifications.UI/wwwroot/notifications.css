@@ -37,10 +37,6 @@
     font-size: var(--font-size-sm);
 }
 
-.notification-centre__header-actions {
-    margin-left: auto;
-}
-
 .notification-centre__body {
     display: grid;
     grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);

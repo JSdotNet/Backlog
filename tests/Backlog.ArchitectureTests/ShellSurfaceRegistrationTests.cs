@@ -33,7 +33,7 @@ public partial class ShellSurfaceRegistrationTests
         foreach (var expected in new[]
         {
             "DevbookSurface", "TasksSurface", "BoardSurface", "CalendarSurface", "RoadmapSurface", "GoalsSurface",
-            "InboxSurface", "SessionsSurface", "DashboardSurface", "NotificationsSurface", "ToolsSurface", "AtlasSurface",
+            "InboxSurface", "WeeklyReviewSurface", "EventsSurface", "SessionsSurface", "DashboardSurface", "NotificationsSurface", "ToolsSurface", "AtlasSurface",
         })
         {
             Assert.Contains(components, component => component.Name == expected);
@@ -60,9 +60,12 @@ public partial class ShellSurfaceRegistrationTests
     [Theory]
     [InlineData("AddDevbookSurface(")]
     [InlineData("AddTasksSurfaces(")]
+    [InlineData("AddCalendarSurface(")]
     [InlineData("AddRoadmapSurface(")]
     [InlineData("AddGoalsSurface(")]
     [InlineData("AddInboxSurface(")]
+    [InlineData("AddWeeklyReviewSurface(")]
+    [InlineData("AddEventsSurface(")]
     [InlineData("AddSessionsSurface(")]
     [InlineData("AddPullRequestsSurface(")]
     [InlineData("AddDashboardSurface(")]

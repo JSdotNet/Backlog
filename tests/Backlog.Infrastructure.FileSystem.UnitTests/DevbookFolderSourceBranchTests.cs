@@ -11,15 +11,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class DevbookFolderSourceBranchTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "devbook-folder-source-branch-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("devbook-folder-source-branch-tests");
+
+    private string _root => _temp.Path;
 
     private string WorkspaceRoot => Path.Combine(_root, "workspace");
 
     private string AppData => Path.Combine(_root, "appdata");
-
-    public DevbookFolderSourceBranchTests() => Directory.CreateDirectory(_root);
 
     private GitHubSettingsStore Settings()
     {
@@ -654,13 +652,7 @@ public class DevbookFolderSourceBranchTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
 
         GC.SuppressFinalize(this);
     }

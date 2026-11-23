@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class GitHubPushFlowTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
     private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
@@ -31,10 +31,10 @@ public sealed class GitHubPushFlowTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(temp.Path);
+            temp.Dispose();
         }
     }
 
@@ -1822,40 +1822,6 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
 
-    /// <summary>
-    /// Editing one step touches that chapter and nothing around it.
-    /// <para>
-    /// The desktop edits a step in the body's markdown now, so this holds the
-    /// parser's own step rewrites to it, a level down: both end in a
-    /// <c>ReplaceSubItemText</c> against the same index, and an edit that reached
-    /// the wrong chapter would overwrite a neighbour with no error anywhere.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task Editing_a_sub_item_updates_only_that_chapter()
-    {
-        var harness = Build("JSdotNet/Backlog");
-        var row = await WriteEntryAsync(harness.State,
-            "# Parent\n" +
-            "`task` `*medium` `!draft` `repo:backlog`\n\n" +
-            "## First\n" +
-            "Keep this.\n\n" +
-            "### Target\n" +
-            "Old target notes.\n\n" +
-            "## Last\n" +
-            "Keep last.\n");
-
-        var text = EntryTextParser.WithSubItemTitle(row.RawText, 1, "Updated target");
-        text = EntryTextParser.WithSubItemNote(text, 1, "New target notes.");
-
-        Assert.Contains("## First\nKeep this.", text);
-        // Same line break the chapter already had. Writing notes back must not
-        // introduce a blank line the author did not type.
-        Assert.Contains("### Updated target\nNew target notes.", text);
-        Assert.DoesNotContain("Old target notes.", text);
-        Assert.Contains("## Last\nKeep last.", text);
-    }
-
     [Fact]
     public async Task Editing_parent_entry_updates_only_the_parent_chapter()
     {
@@ -2115,8 +2081,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// holds a save on its way.</summary>
     private Harness BuildWatchingStore(TimeProvider? clock, TaskStoreCalls? storeCalls, params string[] repositories)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var root = NewTemporaryRoot();
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(root));
@@ -2126,7 +2091,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         settings.SetRepositories(parsed);
 
         var client = new FakeGitHubClient();
-        var integration = new GitHubIntegration(settings, client, new FakeProbe());
+        var integration = new GitHubIntegration(settings, client, new StubProbe(new GitHubConnection(true, "Connected.")));
         var toasts = new ToastChannel();
 
         return new Harness(StateFor(store, integration, toasts, clock, storeCalls), client, store, integration, new FeedbackReporter(integration), toasts, settings);
@@ -2169,11 +2134,18 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// facts and the task list's settled finishes.</summary>
     private DeviceMemory Memory()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var root = NewTemporaryRoot();
         return new DeviceMemory(
             new SettledPullRequestStore(() => Path.Combine(root, SettledPullRequestStore.FolderName)),
             new PullRequestFinishMemory(() => Path.Combine(root, PullRequestFinishMemory.FolderName)));
+    }
+
+    /// <summary>A folder of the test's own, removed with the test's.</summary>
+    private string NewTemporaryRoot()
+    {
+        var temp = new TemporaryDirectory("backlog-github-flow");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private sealed record DeviceMemory(ISettledPullRequestStore Settled, IPullRequestFinishMemory Finishes);
@@ -2196,6 +2168,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         ToastChannel Toasts,
         GitHubSettingsStore Settings);
 
+    // Differs from StubGitHubClient: scripts issues, pull requests and merge acts, and records each call.
     private sealed class FakeGitHubClient : IGitHubClient
     {
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
@@ -2474,16 +2447,6 @@ public sealed class GitHubPushFlowTests : IDisposable
             UploadedContent = content;
 
             return Task.FromResult(new GitHubUploadedFile(path, UploadedDownloadUrl));
-        }
-    }
-
-    private sealed class FakeProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

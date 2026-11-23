@@ -72,37 +72,12 @@ public sealed class AppFooterVersionTests
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         if (workspace is not null) context.Services.AddSingleton(workspace);
 
         return context;
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

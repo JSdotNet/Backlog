@@ -713,7 +713,7 @@ related: [.devbook/domain/sessions/domain.md#session-view]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 Every narrowing of the session list is applied before the list is grouped, never after, so an environment with nothing left in it loses its section rather than keeping an empty one.
@@ -819,7 +819,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The rules the queue holds every session request to (local ADR 0038). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`.
+> The rules the queue holds every session request to (local ADR 0038). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`. The person orders the Requested requests in the session queue; no tool does. The queue's pause is built: a single-row table beside the requests, read by `SqliteSessionRequestStore.ClaimAsync()` and `NextAsync()`.
 
 ### Invariant: A request carries no entry text
 
@@ -835,7 +835,7 @@ A session request holds these and no field for anything an entry says:
 - a repository and a clone folder;
 - its state, lease and claiming dispatcher;
 - the session id it was answered with;
-- when it was asked.
+- when it was asked, and its place in the queue.
 
 Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
 
@@ -867,13 +867,38 @@ Enforced at: `SessionRequests.OpenDuplicateOf()`, applied by `SqliteSessionReque
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_second_claim_on_a_held_request_is_refused, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_claimed, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Two_dispatchers_claiming_at_once_get_one_claim_between_them]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_second_claim_on_a_held_request_is_refused, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_claimed, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Two_dispatchers_claiming_at_once_get_one_claim_between_them, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_claim_refused_for_its_state_says_so_whether_or_not_the_queue_is_paused]
 ```
 
-A claim succeeds only on a request in Requested, and moves it to Claimed in the same write; a claim on any other state is refused.
+A claim succeeds only on a request in Requested while the queue runs, and moves it to Claimed in the same write; a claim on any other state is refused for that state, paused or not, and a claim on a Requested request while the queue is paused is refused for the pause.
 So two dispatchers waiting at once never both start one request.
 
 Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()` inside one immediate transaction (ADR 0038 §3)
+
+### Invariant: Only a Requested request moves
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Requested_request_moves_and_a_refused_move_changes_nothing, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_reads_as_Requested_and_moves, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_move_of_a_claimed_request_is_refused_and_changes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_move_and_a_claim_at_once_never_leave_the_claimed_request_moved]
+```
+
+A move succeeds only on a request that reads Requested, a lapsed claim included, and places it among the Requested requests alone; a move of a Claimed, Started, Linked or Cancelled request is refused and changes no order.
+A dispatcher already acts on a Claimed or Started request, so moving it would change nothing it does, and a move racing a claim must not reorder what the claim took.
+
+Enforced at: `SessionRequests.Move()`, applied by `SqliteSessionRequestStore.MoveAsync()` inside one immediate transaction (ADR 0038 §4)
+
+### Invariant: A paused queue hands out no request
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Requested_request_cannot_be_claimed_while_the_queue_is_paused, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_cannot_be_claimed_again_while_the_queue_is_paused, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Requested_request_can_be_claimed_once_the_queue_runs_again, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_paused_queue_hands_out_no_next_request_and_resuming_hands_out_the_oldest_again, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_claim_on_a_paused_queue_is_refused_and_the_request_stays_Requested, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_pause_between_two_claims_refuses_the_second, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_pause_does_not_revoke_a_claim_already_held, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_holder_still_reports_late_on_a_paused_queue_but_nobody_reclaims, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_paused_queue_still_takes_a_new_request_and_a_cancel, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_pause_and_a_resume_are_written_and_survive_a_new_store, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_database_written_before_the_pause_existed_reads_as_running]
+```
+
+While the queue is paused, the next request reads as none and every claim on a Requested request, a lapsed one included, is refused with "The session queue is paused." and leaves it Requested; a pause changes no request's state, revokes no held claim, and refuses no request, cancel, report or release.
+A person who pauses the queue must be able to trust that a dispatcher starts nothing new, including one that claims at the moment of the pause.
+A queue never paused, or kept in a database written before the pause existed, runs.
+
+Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()`, which reads the pause inside the claim's immediate transaction, and `SqliteSessionRequestStore.NextAsync()`, which answers none while paused, so `SessionRequestWaitEndpoint` hands out no request (ADR 0038 §3, §4)
 
 ### Invariant: A lapsed claim returns the request to Requested
 
@@ -904,7 +929,7 @@ Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no ex
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_late_link_session_on_a_cancelled_Started_request_links_nothing, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
 ```
 
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
@@ -977,6 +1002,19 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Ans
 A question answered in the session moves to Answered, closes each of its notifications with the answers, and gets no delivery.
 
 Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each notification closed with its answer)
+
+### Invariant: Only a paired device's answer reaches the session
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_reaches_the_hook_and_records_its_device, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_nobody_polls_for_becomes_the_managers_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_device_not_paired_now_is_dropped_and_audited, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.A_device_that_cannot_be_checked_throws_so_the_answer_is_replayed, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_listed_once_and_then_gone_is_revoked, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_never_listed_is_unknown]
+```
+
+An answer reaches the hook or a delivery only when the device it came from is one of the owner's paired devices now, or this desktop.
+An answer from a revoked or unknown device is dropped: the question stays open, and the audit log records the device and the question.
+A device that cannot be checked is never taken as paired; the answer waits for the next start.
+
+Enforced at: `QuestionRelay.HandleAnswerAsync()` (asks `IPairedDevices` before recording), `RosterPairedDevices.StandingOfAsync()` (the owner's device list)
 
 ### Invariant: A delivery carries only the stored question and the accepted answer
 

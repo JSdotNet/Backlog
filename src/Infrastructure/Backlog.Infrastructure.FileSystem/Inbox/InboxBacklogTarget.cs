@@ -4,7 +4,11 @@ using System.Text.RegularExpressions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
@@ -47,7 +51,8 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 internal sealed partial class InboxBacklogTarget(
     ITaskItems tasks,
     IRepositoryDirectory repositories,
-    TimeProvider? clock = null) : IInboxBacklogTarget
+    TimeProvider? clock = null,
+    IRoadmapPlanning? roadmap = null) : IInboxBacklogTarget
 {
     /// <summary>The usage a merge records on the task, beside the MCP
     /// <c>comment</c> tool's own: usage actions are read back as a set, so the
@@ -402,6 +407,19 @@ internal sealed partial class InboxBacklogTarget(
     /// go ahead of the notes, one line each with their title and link, through
     /// Tasks' prose writer as the sibling lines do.
     /// </para>
+    /// <para>
+    /// A due date and a My Day date on the request become the <c>due:</c> and
+    /// <c>myday:</c> tokens, on every entry the request makes; without them the
+    /// metadata line is the plain route's.
+    /// </para>
+    /// <para>
+    /// A completed date on the request — Done now — makes the entry <c>!done</c>
+    /// and writes the tick as <c>completed:</c>, instead of <c>!draft</c>.
+    /// </para>
+    /// <para>
+    /// A waiting-for on the request — Waiting for — becomes the
+    /// <c>waiting:</c> and <c>followup:</c> tokens on every entry it makes.
+    /// </para>
     /// </summary>
     internal static string Compose(
         InboxRouteRequestDto request,
@@ -416,7 +434,9 @@ internal sealed partial class InboxBacklogTarget(
         var siblings = Siblings(request, repo);
 
         text.Append("# ").Append(title).Append('\n');
-        text.Append('`').Append(TypeWord(request.EntryType)).Append("` `!draft`");
+        // Done now's entry is born over and ticked, the way the Tasks pane's
+        // checkbox leaves one: `!done` and `completed:` the day it was decided.
+        text.Append('`').Append(TypeWord(request.EntryType)).Append(request.CompletedOn is null ? "` `!draft`" : "` `!done`");
 
         IEnumerable<string> tags = request.Tags;
         if (siblings.Count > 0) tags = tags.Append(SiblingTag(request.InboxItemId));
@@ -435,6 +455,19 @@ internal sealed partial class InboxBacklogTarget(
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
         foreach (var value in after ?? []) text.Append(" `after:").Append(value).Append('`');
+
+        // A single route's schedule, in the grammar's own date spelling: the
+        // due date, and the day the entry was picked for in My Day.
+        if (request.DueOn is { } dueOn) text.Append(" `due:").Append(EntryTextParser.DateToken(dueOn)).Append('`');
+        if (request.InMyDayOn is { } inMyDayOn) text.Append(" `myday:").Append(EntryTextParser.DateToken(inMyDayOn)).Append('`');
+        if (request.CompletedOn is { } completedOn) text.Append(" `completed:").Append(EntryTextParser.DateToken(completedOn)).Append('`');
+
+        // Waiting for: who the entry waits on and the follow-up day, through
+        // Tasks' own token writer so the spelling is the one its parser reads.
+        if (request.WaitingFor is { } waitingFor && WaitingFor.From(waitingFor.Who, waitingFor.FollowUpOn) is { } waiting)
+        {
+            foreach (var token in EntryTextParser.WaitingForTokens(waiting)) text.Append(" `").Append(token).Append('`');
+        }
 
         text.Append('\n');
 
@@ -523,25 +556,119 @@ internal sealed partial class InboxBacklogTarget(
     /// backlog has moved on with it, and the undo is not the place to discard
     /// that. An id the backlog no longer lists is already deleted.
     /// </summary>
-    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default)
+    public Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default) =>
+        DeleteRoutedTasksAsync(taskIds, madeDone: false, cancellationToken);
+
+    /// <summary>
+    /// The undo's delete, as above. With <paramref name="madeDone"/> — undoing
+    /// Done now, whose entry was born Done — Done is the state the route left it
+    /// in, so it is deleted too; archived is still the backlog having moved on.
+    /// </summary>
+    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(taskIds);
         if (taskIds.Count == 0) return Result.Success();
 
+        var present = await DeletableTasksAsync(taskIds, madeDone, cancellationToken).ConfigureAwait(false);
+        if (present.IsFailure) return present;
+
+        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Undoing Create plan with a project note: the entries, as
+    /// <see cref="DeleteRoutedTasksAsync(IReadOnlyList{Guid}, CancellationToken)"/>
+    /// deletes them, and the Roadmap Item the plan's <c>plan</c> entry laid out under
+    /// its tag — every check made before anything goes, so a refusal leaves both.
+    /// Untouched means the item still reads as that entry laid it out: its title and
+    /// repositories, medium priority, its one Knowledge Ref, no lane, link, notes or
+    /// dependency, its window still the importer's and neither pinned nor complete,
+    /// and no other node waiting on it. The keep-up projection moving an import's
+    /// window is not a person's edit; a person moving it clears the import's mark.
+    /// The project note is the person's file in their Brain and is never touched.
+    /// </summary>
+    public async Task<Result> DeleteRoutedPlanAsync(IReadOnlyList<Guid> taskIds, InboxLaidOutPlanDto plan, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskIds);
+        ArgumentNullException.ThrowIfNull(plan);
+
+        var present = await DeletableTasksAsync(taskIds, madeDone: false, cancellationToken).ConfigureAwait(false);
+        if (present.IsFailure) return present;
+
+        IReadOnlyList<RoadmapItemDto> laidOut = [];
+        if (roadmap is not null)
+        {
+            var current = await roadmap.GetPlanAsync(cancellationToken).ConfigureAwait(false);
+            laidOut = [.. current.Items.Where(item => string.Equals(item.Tag, plan.PlanTag, StringComparison.OrdinalIgnoreCase))];
+
+            if (laidOut.FirstOrDefault(item => !AsLaidOut(item, plan, current)) is { } edited)
+            {
+                return Result.Failure(InboxErrors.UndoPlanEdited(WhitespaceRun().Replace(edited.Title.Trim(), " ")));
+            }
+        }
+
+        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+
+        foreach (var item in laidOut)
+        {
+            var removed = await roadmap!.RemoveItemAsync(item.Id, cancellationToken).ConfigureAwait(false);
+            if (removed.IsFailure) return removed;
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>Whether a Roadmap Item still reads as Create plan's <c>plan</c>
+    /// entry laid it out — see <see cref="DeleteRoutedPlanAsync"/>. The title is
+    /// compared as <c>WithPlanEntry</c> writes the heading: whitespace runs as one
+    /// space, the tag standing in for a blank one.</summary>
+    internal static bool AsLaidOut(RoadmapItemDto item, InboxLaidOutPlanDto plan, RoadmapPlanDto current)
+    {
+        var heading = WhitespaceRun().Replace(plan.Title.Trim(), " ");
+        if (heading.Length == 0) heading = plan.PlanTag;
+
+        var repos = plan.RepoIds.Where(repo => !string.IsNullOrWhiteSpace(repo)).Select(repo => repo.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return string.Equals(WhitespaceRun().Replace(item.Title.Trim(), " "), heading, StringComparison.Ordinal)
+            && item.Priority == PlanningPriority.Medium
+            && repos.SetEquals(item.RepositoryAliases)
+            && item.Knowledge.Count == 1
+            && string.IsNullOrWhiteSpace(item.Lane)
+            && item.TaskId is null
+            && string.IsNullOrWhiteSpace(item.Notes)
+            && item.DependsOn.Count == 0
+            && item.PlacedByImport is not null
+            && !item.EndPinned
+            && item.CompletedOn is null
+            && !current.Items.Any(other => other.DependsOn.Contains(item.Id))
+            && !current.Milestones.Any(milestone => milestone.DependsOn.Contains(item.Id));
+    }
+
+    /// <summary>The entries an undo may delete — those the backlog still lists —
+    /// or the refusal naming the first that has started.</summary>
+    private async Task<Result<List<TaskItemDto>>> DeletableTasksAsync(IReadOnlyList<Guid> taskIds, bool madeDone, CancellationToken cancellationToken)
+    {
+        if (taskIds.Count == 0) return new List<TaskItemDto>();
+
         var byId = (await tasks.ListAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(task => task.Id);
         var present = taskIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
 
-        if (present.FirstOrDefault(task => task.Status is not (EntryStatus.Draft or EntryStatus.Ready)) is { } started)
+        if (present.FirstOrDefault(task => !(task.Status is EntryStatus.Draft or EntryStatus.Ready || (madeDone && task.Status is EntryStatus.Done))) is { } started)
         {
-            return Result.Failure(InboxErrors.UndoTaskStarted(WhitespaceRun().Replace(started.Title.Trim(), " ")));
+            return Result.Failure<List<TaskItemDto>>(InboxErrors.UndoTaskStarted(WhitespaceRun().Replace(started.Title.Trim(), " ")));
         }
 
+        return present;
+    }
+
+    private async Task DeleteAsync(List<TaskItemDto> present, CancellationToken cancellationToken)
+    {
         foreach (var task in present)
         {
             await tasks.DeleteAsync(task.Id, cancellationToken).ConfigureAwait(false);
         }
-
-        return Result.Success();
     }
 
     /// <summary>

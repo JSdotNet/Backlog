@@ -1,0 +1,50 @@
+@*
+    The pane's list: the events grouped by state in the order IEventsPane answers them —
+    Going, Considering, Spotted, Attended, Harvested, Skipped, upcoming first within each —
+    with a tally per group. An empty group is never handed in, so none is drawn.
+
+    A row is a library AppButton wearing this list's class, as the notification centre's
+    rows are: pressing it opens the event in the editor beside the list. The list holds no
+    state of its own beyond what it is handed.
+*@
+
+<nav class="events-list" aria-label="Events" data-testid="events-list">
+    @foreach (var group in Groups)
+    {
+        var label = EventPresentation.StateLabel(group.State);
+        <section class="events-list__group" data-testid="events-group" data-state="@group.State">
+            <h3 class="events-list__heading">@label <span class="events-list__tally" data-testid="events-group-tally">@group.Events.Count</span></h3>
+            <ul class="events-list__rows">
+                @foreach (var summary in group.Events)
+                {
+                    var selected = summary.Id == SelectedId;
+                    <li>
+                        <AppButton BaseClass="events-list__row"
+                                   Variant="ButtonVariant.None"
+                                   CssClass="@(selected ? "events-list__row--selected" : null)"
+                                   TestId="@($"events-row-{summary.Id:N}")"
+                                   aria-current="@(selected ? "true" : null)"
+                                   OnClick="@(() => OnSelect.InvokeAsync(summary.Id))">
+                            <span class="events-list__title">@summary.Title</span>
+                            <span class="events-list__line" data-testid="events-row-line">@EventPresentation.RowLine(summary)</span>
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+</nav>
+
+@code {
+    /// <summary>The groups to draw, in order, none of them empty.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<KnowledgeEventGroupDto> Groups { get; set; } = [];
+
+    /// <summary>The event the editor shows.</summary>
+    [Parameter]
+    public Guid? SelectedId { get; set; }
+
+    /// <summary>Raised with the event a row was pressed for.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnSelect { get; set; }
+}

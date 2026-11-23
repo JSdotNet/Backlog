@@ -84,9 +84,6 @@ public sealed record DashboardMoney(decimal Amount, string Currency)
 /// <summary>One bucket of a series — a week, a day, or a month — and its value.</summary>
 public sealed record InsightPoint(string Label, decimal Value);
 
-/// <summary>One named series over the same buckets as its neighbours.</summary>
-public sealed record InsightSeries(string Name, IReadOnlyList<InsightPoint> Points, string? Detail = null);
-
 /// <summary>One row of a breakdown — a model, a provider — with whatever
 /// measures the source reported. A null is "not reported", which is a different
 /// fact from zero and is displayed differently.</summary>

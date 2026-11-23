@@ -1,4 +1,3 @@
-using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,8 +5,7 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 
 /// <summary>
 /// Puts the Dashboard in the shell as a takeover-group <see cref="ShellSurface"/>
-/// (local ADR 0043 §1), offered behind <see cref="DashboardFeatures.Dashboard"/>, the
-/// flag its header option has always gated on. On the precedent of
+/// (local ADR 0043 §1), always offered. On the precedent of
 /// <c>AddDevbookSurface</c>; safe to call twice.
 /// </summary>
 public static class DashboardSurfaceRegistration
@@ -35,7 +33,8 @@ public static class DashboardSurfaceRegistration
             ShellSurfaceGroup.Takeover,
             Order,
             typeof(DashboardSurface),
-            DashboardFeatures.Dashboard));
+            null,
+            QueryKeys: [DashboardSurface.TabKey]));
 
         return services;
     }

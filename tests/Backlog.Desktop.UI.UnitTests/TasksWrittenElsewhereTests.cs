@@ -23,7 +23,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksWrittenElsewhereTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -140,14 +140,15 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
     /// process, and a list and use cases per window.</summary>
     private async Task<(TasksDesktopState First, TasksDesktopState Second)> BuildTwoWindowsAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-written-elsewhere", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-written-elsewhere");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
+        var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
 
         var signal = new TaskChangeSignal();
         var repository = TasksTestHost.RepositoryFor(store, signal);
@@ -171,14 +172,15 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
 
     private async Task<(TasksDesktopState State, ITaskItems Entries, TaskChangeSignal Signal)> BuildAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-written-elsewhere", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-written-elsewhere");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
+        var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
 
         var signal = new TaskChangeSignal();
         var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store, signal));
@@ -210,37 +212,10 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
-    }
-
-    /// <summary>Nothing here goes near GitHub; the integration only exists because
-    /// the state takes one.</summary>
-    private sealed class UnusedGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class UnusedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 }

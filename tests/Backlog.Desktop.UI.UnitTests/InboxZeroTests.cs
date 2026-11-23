@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,14 +22,14 @@ public sealed class InboxZeroTests : IDisposable
 
     private static readonly DateOnly Today = DateOnly.FromDateTime(Now.Date);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-zero-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-zero-tests");
     private readonly BunitContext _context = new();
     private readonly FakeInboxItems _inbox;
 
     public InboxZeroTests()
     {
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
-        _context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        _context.Services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github.json")));
         var clock = new FakeTimeProvider(Now);
         clock.SetLocalTimeZone(TimeZoneInfo.Utc);
         _context.Services.AddSingleton<TimeProvider>(clock);
@@ -190,6 +191,32 @@ public sealed class InboxZeroTests : IDisposable
     }
 
     [Fact]
+    public async Task Notes_still_to_file_in_the_Brain_keep_the_inbox_from_reading_clear()
+    {
+        var item = _inbox.Seed("Old newsletter");
+        _inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 2);
+
+        var pane = _context.Render<InboxPane>();
+        await pane.InvokeAsync(State.InitializeAsync);
+        await pane.InvokeAsync(async () =>
+        {
+            State.SelectItem(item.Id);
+            await State.ArchiveAsync();
+        });
+
+        // The Inbox is empty, but the Brain's inbox area is not: no "Inbox is clear".
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-pane-empty']")));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-zero']"));
+        Assert.Equal("2 notes to file in the Brain", pane.Find("[data-testid='inbox-queue-health-brain']").TextContent.Trim());
+
+        // Filed away in the Brain, the next reload finds both empty.
+        _inbox.BrainUnfiled = new InboxBrainUnfiledDto("_inbox", 0);
+        await pane.InvokeAsync(State.ReloadAsync);
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-zero']")));
+    }
+
+    [Fact]
     public async Task Another_slice_never_shows_the_summary()
     {
         var list = _inbox.SeedList("Errands");
@@ -211,13 +238,6 @@ public sealed class InboxZeroTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

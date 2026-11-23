@@ -28,7 +28,7 @@ public sealed class QuestionRelayTests : IDisposable
 
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly RecordingNotifications _notifications = new();
-    private readonly InMemoryWaitingQuestionStore _store = new();
+    private readonly HeldWaitingQuestions _store = new();
     private readonly FakePresence _presence = new();
     private readonly QuestionRelay _relay;
 
@@ -157,7 +157,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_known_session_titles_its_question_with_repository_change_and_header()
     {
-        var source = new FixedSource(Known("session-1"));
+        var source = new StubSessionSource(Known("session-1"));
         _presence.IsAway = true;
 
         await Relay(source).AskAsync("session-1", "toolu_1", [Pick], Ct);
@@ -172,7 +172,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        await Relay(new FixedSource(Known("session-1"))).AskAsync("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], Ct);
+        await Relay(new StubSessionSource(Known("session-1"))).AskAsync("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], Ct);
 
         Assert.Equal("Backlog · Notification titles · Answer the question", Assert.Single(_notifications.Published).Draft.Title);
     }
@@ -182,7 +182,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task A_known_session_titles_each_of_several_questions_by_its_place_in_the_dialog()
     {
         var bare = new RelayQuestion("Which tags apply?", Options: [new RelayOption("ui"), new RelayOption("api")]);
-        var source = new FixedSource(Known("session-1"));
+        var source = new StubSessionSource(Known("session-1"));
         _presence.IsAway = true;
 
         await Relay(source).AskAsync("session-1", "toolu_1", [Pick, bare], Ct);
@@ -198,7 +198,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        await Relay(new FixedSource(Known("SESSION-1"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
+        await Relay(new StubSessionSource(Known("SESSION-1"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
 
         Assert.Equal("Backlog · Notification titles · Answer: Database", Assert.Single(_notifications.Published).Draft.Title);
     }
@@ -263,7 +263,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        await Relay(new FixedSource(Known("session-2"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
+        await Relay(new StubSessionSource(Known("session-2"))).AskAsync("session-1", "toolu_1", [Pick], Ct);
 
         Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
     }
@@ -519,7 +519,7 @@ public sealed class QuestionRelayTests : IDisposable
         await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct);
         var running = Session("session-1", AgentSessionState.Running);
         var other = Session("session-2", AgentSessionState.Running);
-        var source = new WaitingSessionSource(new FixedSource(running, other), () => _relay);
+        var source = new WaitingSessionSource(new StubSessionSource(running, other), () => _relay);
 
         var catalog = await source.GetSessionsAsync(Ct);
 
@@ -531,7 +531,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task A_finished_idle_session_keeps_its_question_open()
     {
         var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Merge it?")], Ct)).Value;
-        var idle = new WaitingSessionSource(new FixedSource(Session("session-1", AgentSessionState.Finished)), () => _relay);
+        var idle = new WaitingSessionSource(new StubSessionSource(Session("session-1", AgentSessionState.Finished)), () => _relay);
 
         Assert.Equal(AgentSessionState.Finished, (await idle.GetSessionsAsync(Ct)).Sessions[0].State);
         Assert.True((await _relay.GetAsync(asked.Id, Ct))!.IsOpen);
@@ -543,7 +543,7 @@ public sealed class QuestionRelayTests : IDisposable
         _presence.IsAway = true;
         var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
         var open = Session("session-1", AgentSessionState.Running) with { Archived = false };
-        var watching = new FixedSource(open);
+        var watching = new StubSessionSource(open);
         var source = new SessionEndWatchingSource(watching, () => _notifications, relay: () => _relay);
 
         await source.GetSessionsAsync(Ct);
@@ -720,6 +720,7 @@ public sealed class QuestionRelayTests : IDisposable
         public DateTimeOffset? LastPromptAt(string sessionId) => null;
     }
 
+    // Differs from StubSessionSource: never answers.
     private sealed class HangingSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
@@ -729,22 +730,7 @@ public sealed class QuestionRelayTests : IDisposable
             new TaskCompletionSource<AgentSessionCatalog>().Task;
     }
 
-    private sealed class FixedSource(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public AgentSession[] Sessions { get; set; } = sessions;
-
-        public int Reads { get; private set; }
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
-        {
-            Reads++;
-            return Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Length));
-        }
-    }
-
+    // Differs from StubSessionSource: throws, the way an unreadable profile does.
     private sealed class ThrowingSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
@@ -756,6 +742,7 @@ public sealed class QuestionRelayTests : IDisposable
 
     /// <summary>Notifications whose publish holds until <see cref="Release"/>, so a test can
     /// race a second publisher against one still publishing.</summary>
+    // Differs from RecordingNotifications: holds each publish until the test releases it.
     private sealed class GatedNotifications : INotifications
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -786,6 +773,7 @@ public sealed class QuestionRelayTests : IDisposable
             Task.FromResult(Backlog.SharedKernel.Results.Result.Success<NotificationAnswer?>(null));
     }
 
+    // Differs from RecordingNotifications: refuses every publish and counts the attempts.
     private sealed class RefusingNotifications : INotifications
     {
         public int Attempts { get; private set; }
@@ -805,51 +793,5 @@ public sealed class QuestionRelayTests : IDisposable
 
         public Task<Backlog.SharedKernel.Results.Result<NotificationAnswer?>> GetAnswerAsync(Guid notificationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Backlog.SharedKernel.Results.Result.Success<NotificationAnswer?>(null));
-    }
-}
-
-/// <summary>An <see cref="IWaitingQuestionStore"/> in memory, applying the same
-/// idempotent registering and one-write transitions the SQLite store does.</summary>
-internal sealed class InMemoryWaitingQuestionStore : IWaitingQuestionStore
-{
-    private readonly Dictionary<Guid, WaitingQuestion> _held = [];
-    private readonly Lock _gate = new();
-
-    public Task<WaitingQuestion> RegisterAsync(WaitingQuestion candidate, CancellationToken cancellationToken = default)
-    {
-        lock (_gate)
-        {
-            if (WaitingQuestions.DuplicateOf(candidate, _held.Values) is { } registered) return Task.FromResult(registered);
-
-            _held[candidate.Id] = candidate;
-            return Task.FromResult(candidate);
-        }
-    }
-
-    public Task<WaitingQuestion?> GetAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        lock (_gate) return Task.FromResult(_held.GetValueOrDefault(id));
-    }
-
-    public Task<IReadOnlyList<WaitingQuestion>> ListAsync(bool openOnly = false, CancellationToken cancellationToken = default)
-    {
-        lock (_gate)
-        {
-            return Task.FromResult<IReadOnlyList<WaitingQuestion>>(
-                [.. _held.Values.Where(question => !openOnly || question.IsOpen).OrderBy(question => question.AskedAt)]);
-        }
-    }
-
-    public Task<WaitingQuestionOutcome> ChangeAsync(Guid id, Func<WaitingQuestion, WaitingQuestionOutcome> transition, CancellationToken cancellationToken = default)
-    {
-        lock (_gate)
-        {
-            if (!_held.TryGetValue(id, out var question)) return Task.FromResult(WaitingQuestionOutcome.Refused(null, "unknown"));
-
-            var outcome = transition(question);
-            if (outcome is { Succeeded: true, Question: { } changed }) _held[id] = changed;
-
-            return Task.FromResult(outcome);
-        }
     }
 }

@@ -1,11 +1,14 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
+using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.EditCapture;
 using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
+using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
 using Backlog.Modules.Sync.Features.ListNotificationReplies;
@@ -13,11 +16,13 @@ using Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
 using Backlog.Modules.Sync.Features.PostNotificationReply;
 using Backlog.Modules.Sync.Features.PullAnnotations;
 using Backlog.Modules.Sync.Features.PullDevbookSubjects;
+using Backlog.Modules.Sync.Features.PullKnowledgeEvents;
 using Backlog.Modules.Sync.Features.PullNotifications;
 using Backlog.Modules.Sync.Features.PullSessions;
 using Backlog.Modules.Sync.Features.PullTasks;
 using Backlog.Modules.Sync.Features.PushAnnotations;
 using Backlog.Modules.Sync.Features.PushDevbookSubjects;
+using Backlog.Modules.Sync.Features.PushKnowledgeEvents;
 using Backlog.Modules.Sync.Features.PushNotifications;
 using Backlog.Modules.Sync.Features.PushSessions;
 using Backlog.Modules.Sync.Features.PushTasks;
@@ -54,6 +59,8 @@ public static class SyncModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<ICommandHandler<RegisterFirstDeviceCommand, Result<DeviceRegistrationResponse>>, RegisterFirstDeviceCommandHandler>();
+        services.AddScoped<ICommandHandler<StartEnrolmentCommand, Result<EnrolmentStartResponse>>, StartEnrolmentCommandHandler>();
+        services.AddScoped<ICommandHandler<CompleteOwnerSignInCommand, Result<Uri>>, CompleteOwnerSignInCommandHandler>();
         services.AddScoped<ICommandHandler<IssuePairingCodeCommand, Result<PairingCodeResponse>>, IssuePairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<RedeemPairingCodeCommand, Result<DeviceRegistrationResponse>>, RedeemPairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<IssueDeviceTokenCommand, Result<DeviceTokenResponse>>, IssueDeviceTokenCommandHandler>();
@@ -69,6 +76,8 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<PullAnnotationsQuery, Result<PullAnnotationsResponse>>, PullAnnotationsQueryHandler>();
         services.AddScoped<ICommandHandler<PushDevbookSubjectsCommand, Result<PushDevbookSubjectsResponse>>, PushDevbookSubjectsCommandHandler>();
         services.AddScoped<IQueryHandler<PullDevbookSubjectsQuery, Result<PullDevbookSubjectsResponse>>, PullDevbookSubjectsQueryHandler>();
+        services.AddScoped<ICommandHandler<PushKnowledgeEventsCommand, Result<PushKnowledgeEventsResponse>>, PushKnowledgeEventsCommandHandler>();
+        services.AddScoped<IQueryHandler<PullKnowledgeEventsQuery, Result<PullKnowledgeEventsResponse>>, PullKnowledgeEventsQueryHandler>();
         services.AddScoped<ICommandHandler<PushNotificationsCommand, Result<PushNotificationsResponse>>, PushNotificationsCommandHandler>();
         services.AddScoped<IQueryHandler<PullNotificationsQuery, Result<PullNotificationsResponse>>, PullNotificationsQueryHandler>();
         services.AddScoped<ICommandHandler<PostNotificationReplyCommand, Result<PostNotificationReplyResponse>>, PostNotificationReplyCommandHandler>();
@@ -79,15 +88,45 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
+        services.AddScoped<ICommandHandler<EditCaptureCommand, Result<InboxItem>>, EditCaptureCommandHandler>();
         services.AddScoped<ICommandHandler<StoreAttachmentCommand, Result<StoreAttachmentOutcome>>, StoreAttachmentCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<AttachmentContent>>, ReadAttachmentQueryHandler>();
         services.AddScoped<ICommandHandler<TranscribeDictationCommand, Result<TranscriptionResponse>>, TranscribeDictationCommandHandler>();
         services.AddScoped<CaptureAttachmentRelease>();
 
+        // The remote connector's authorization server (local ADR 0058 §8).
+        services.AddScoped<ICommandHandler<StartConnectorAuthorizationCommand, Result<Uri>>, StartConnectorAuthorizationCommandHandler>();
+        services.AddScoped<ICommandHandler<CompleteConnectorSignInCommand, Result<ConnectorSignInOutcome>>, CompleteConnectorSignInCommandHandler>();
+        services.AddScoped<IQueryHandler<DescribeConnectorConsentQuery, Result<ConnectorConsentPrompt>>, DescribeConnectorConsentQueryHandler>();
+        services.AddScoped<ICommandHandler<DecideConnectorConsentCommand, Result<Uri>>, DecideConnectorConsentCommandHandler>();
+        services.AddScoped<ICommandHandler<ExchangeAuthorizationCodeCommand, Result<ConnectorTokenResponse>>, ExchangeAuthorizationCodeCommandHandler>();
+        services.AddScoped<ICommandHandler<RefreshConnectorTokenCommand, Result<ConnectorTokenResponse>>, RefreshConnectorTokenCommandHandler>();
+        services.AddScoped<IQueryHandler<DescribeConnectorQuery, Result<ConnectorStatusResponse>>, DescribeConnectorQueryHandler>();
+        services.AddScoped<ICommandHandler<CreateConnectorSecretCommand, Result<ConnectorSecretResponse>>, CreateConnectorSecretCommandHandler>();
+        services.AddScoped<ICommandHandler<RevokeConnectorSecretCommand, Result>, RevokeConnectorSecretCommandHandler>();
+
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
         services.TryAddSingleton<IRegistrationCredentialGenerator, RandomRegistrationCredentialGenerator>();
+        services.TryAddSingleton<IDeviceAssertionVerifier, EcdsaDeviceAssertionVerifier>();
         services.TryAddSingleton(TimeProvider.System);
+
+        // Who may enrol (local ADR 0058 §1). The host registers the configured owner
+        // and its GitHub sign-in first; without them enrolment signs nobody in, which
+        // the host allows in Development only.
+        services.TryAddSingleton(OwnerEnrolment.Open);
+        services.TryAddSingleton<IGitHubOwnerSignIn, NoGitHubOwnerSignIn>();
+        services.TryAddSingleton<IEnrolmentTicketStore, InMemoryEnrolmentTicketStore>();
+
+        // The remote connector (local ADR 0058 §8). The host registers its configured
+        // settings and token issuer first; without them nothing is authorized. The
+        // short-lived steps stay in memory in a deployment too, as enrolment tickets do; the
+        // client and its refresh tokens must outlive a restart, so a deployed host registers
+        // durable stores before this call.
+        services.TryAddSingleton(ConnectorSettings.Unconfigured);
+        services.TryAddSingleton<IConnectorAuthorizationStore, InMemoryConnectorAuthorizationStore>();
+        services.TryAddSingleton<IConnectorClientStore, InMemoryConnectorClientStore>();
+        services.TryAddSingleton<IConnectorRefreshTokenStore, InMemoryConnectorRefreshTokenStore>();
 
         // Singletons because the in-memory adapters are the store: a scoped
         // registration would give every request an empty one. TryAdd rather
@@ -96,10 +135,17 @@ public static class SyncModuleRegistration
         // meant to be one line rather than a fork of this method.
         services.TryAddSingleton<IDeviceRegistry, InMemoryDeviceRegistry>();
         services.TryAddSingleton<IPairingCodeStore, InMemoryPairingCodeStore>();
+
+        // The spent assertion ids (local ADR 0058 §2). In memory while the service
+        // runs one replica; a restart forgets them, bounded by an assertion's five
+        // minutes.
+        services.TryAddSingleton<IAssertionReplayCache, InMemoryAssertionReplayCache>();
+
         services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
         services.TryAddSingleton<IDevbookSubjectReplica, InMemoryDevbookSubjectReplica>();
+        services.TryAddSingleton<IKnowledgeEventReplica, InMemoryKnowledgeEventReplica>();
         services.TryAddSingleton<INotificationReplica, InMemoryNotificationReplica>();
         services.TryAddSingleton<INotificationNudgeChannel, NoNotificationNudgeChannel>();
         services.TryAddSingleton<INotificationPushChannel, NoNotificationPushChannel>();

@@ -28,7 +28,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     private const string ContextMapWithDiagram =
         "# Context Map\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n## Boundaries\n\nWhat divides the contexts.\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>
     /// A pull announces the folder change off the renderer's thread, and the
@@ -91,7 +91,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Contains("Orders prose.", component.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Original prose.", component.Markup, StringComparison.Ordinal);
 
-        await component.InvokeAsync(() => component.Find("[data-testid='domain-chapter-file-edit']").Click());
+        await component.ClickAsync("[data-testid='domain-chapter-file-edit']");
         component.WaitForAssertion(() => Assert.Equal(
             "# Orders\n\nOrders prose.\n",
             component.Find("[data-testid='devbook-chapter-surface'] textarea").GetAttribute("value")));
@@ -118,7 +118,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
-        await component.InvokeAsync(() => component.Find("[data-testid='domain-chapter-file-edit']").Click());
+        await component.ClickAsync("[data-testid='domain-chapter-file-edit']");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface'] textarea")));
 
         component.Render(parameters => parameters
@@ -168,7 +168,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
 
-        component.Find("[data-testid='domain-chapter-file-edit']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-edit']");
 
         // Inside the file view's body rather than merely somewhere on the panel.
         // The header is what keeps the identity on screen while the chapter
@@ -370,7 +370,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
 
-        component.Find("[data-testid='domain-chapter-file-edit']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-edit']");
 
         // The record is in the file view's header, and the header is what stays on
         // screen while the body is being typed into — so the document's state is
@@ -428,10 +428,10 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(Path.Combine(harness.Root, ".domain", "context-map.md"), Assert.Single(history.Reads)));
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
 
-        component.Find("[data-testid='domain-chapter-file-compare']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-compare']");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare-view']")));
 
-        component.Find("[data-testid='domain-chapter-file-baseline-committed']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-baseline-committed']");
 
         // And one read, still: the answer is kept for as long as the chapter is
         // open, so pressing through the modes does not spend a git process each
@@ -498,7 +498,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The context states nothing but its type, which the header draws as a
         // mark — and its headline is still there, because it takes a direction.
         // The pad's right key states push.
-        component.Find(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right").Click();
+        await component.ClickAsync(".file-view__header [role='group'][aria-label='Sync direction'] .sync-pad__key--right");
 
         component.WaitForAssertion(() => Assert.Equal("push", ((IDevbookSyncDirectionStore)directions).Get(harness.RepositoryAlias, "domain/inbox/context.md")));
         component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitPadValue(component)));
@@ -517,7 +517,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']"));
 
-        ChangeTheChapter(component, harness.Root);
+        await ChangeTheChapterAsync(component, harness.Root);
 
         // "As opened" is now a different text from the one on screen, and that is a
         // comparison worth offering however the commit answered.
@@ -538,17 +538,17 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // has changed something and then asks what the commit said.
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
-        ChangeTheChapter(component, harness.Root);
+        await ChangeTheChapterAsync(component, harness.Root);
 
         // Back to reading first: the three modes are one at a time, and comparing is
         // what a reader does to a file they have stopped typing into.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-done']")));
-        component.Find("[data-testid='domain-chapter-file-done']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-done']");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
-        component.Find("[data-testid='domain-chapter-file-compare']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-compare']");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-baseline-committed']")));
-        component.Find("[data-testid='domain-chapter-file-baseline-committed']").Click();
+        await component.ClickAsync("[data-testid='domain-chapter-file-baseline-committed']");
 
         // "Never committed" is an ordinary state for a chapter written this
         // morning, and it is not the same state as an empty file — which is what a
@@ -566,10 +566,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// a domain file any more, so typing is the way. The caller is left in the
     /// editing mode it entered.
     /// </summary>
-    private static void ChangeTheChapter(IRenderedComponent<DomainDevbookPanel> component, string root)
+    private static async Task ChangeTheChapterAsync(IRenderedComponent<DomainDevbookPanel> component, string root)
     {
-        component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForElement("textarea").Input(ContextMap.Replace("Original prose.", "Typed prose.", StringComparison.Ordinal));
+        await component.ClickAsync("[data-testid='domain-chapter-file-edit']");
+        component.WaitForElement("textarea");
+        await component.InputAsync("textarea", ContextMap.Replace("Original prose.", "Typed prose.", StringComparison.Ordinal));
         component.WaitForAssertion(
             () => Assert.Contains("Typed prose.", File.ReadAllText(Path.Combine(root, ".domain", "context-map.md")), StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
@@ -584,7 +585,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.RenderView(RelatedView(), ContextMapPath, followed.Add);
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".domain-metadata__link").Count));
 
-        component.FindAll(".domain-metadata__link")[0].Click();
+        await component.ClickAsync(".domain-metadata__link");
 
         // The whole target, not the folder it starts with: which file is what the
         // reader pressed, and the heading slug is the part of it the old handler
@@ -609,7 +610,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.RenderView(CrossAreaView(), ContextMapPath, followed.Add);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-metadata__link")));
 
-        component.Find(".domain-metadata__link").Click();
+        await component.ClickAsync(".domain-metadata__link");
 
         var target = Assert.Single(followed);
         Assert.Equal("arc42", target.AreaKey);
@@ -674,9 +675,8 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
         Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment__actions"));
 
-        var textarea = component.Find(".md-comment__edit textarea");
-        textarea.Input("Worth flagging before this ships.");
-        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        await component.InputAsync(".md-comment__edit textarea", "Worth flagging before this ships.");
+        await component.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-save-']");
 
         component.WaitForAssertion(() =>
             Assert.Contains("Worth flagging before this ships.", component.Find(".md-block-row[data-block='2'] .md-comment__body").TextContent, StringComparison.Ordinal));
@@ -693,7 +693,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         await OpenRemarkOnBlockTwoAsync(component);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']")));
 
-        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']").Click();
+        await component.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']");
 
         component.WaitForAssertion(() => Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
     }
@@ -708,11 +708,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         await OpenRemarkOnBlockTwoAsync(component);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
-        component.Find(".md-comment__edit textarea").Input("Say which team owns this.");
-        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        await component.InputAsync(".md-comment__edit textarea", "Say which team owns this.");
+        await component.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-save-']");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-block-row[data-block='2'] [data-testid^='markdown-comment-delete-']")));
 
-        component.Find(".md-block-row[data-block='2'] [data-testid^='markdown-comment-delete-']").Click();
+        await component.ClickAsync(".md-block-row[data-block='2'] [data-testid^='markdown-comment-delete-']");
 
         component.WaitForAssertion(() => Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
     }
@@ -734,8 +734,8 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         await OpenRemarkOnBlockTwoAsync(first);
         first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(".md-comment__edit textarea")));
-        first.Find(".md-comment__edit textarea").Input("Still here after Settings.");
-        first.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        await first.InputAsync(".md-comment__edit textarea", "Still here after Settings.");
+        await first.ClickAsync(".md-comment__edit-actions [data-testid^='markdown-comment-save-']");
         first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(".md-block-row[data-block='2'] .md-comment__body")));
 
         // The Router remounting the pane: this panel is gone, a new one is drawn.
@@ -801,10 +801,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// </summary>
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 
@@ -1465,13 +1464,14 @@ public sealed class DomainDevbookPanelTests : IDisposable
     }
 
     private static Task OpenRemarkOnBlockTwoAsync(IRenderedComponent<DomainDevbookPanel> component) =>
-        component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-2']").ClickAsync(new()));
+        component.ClickAsync("[data-testid='markdown-comment-2']");
 
     private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false, IDevbookAnnotationStore? annotations = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-domain-panel-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
-        _roots.Add(root);
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), diagramChapter ? ContextMapWithDiagram : ContextMap);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

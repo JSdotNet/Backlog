@@ -284,8 +284,11 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Equal(".devbook/arc42/01-introduction.md", opened.Reference);
     }
 
+    /// <summary>The card raises the host's callback; the atlas draws no close of its
+    /// own even with a way back handed (interaction-guidelines.md#shell-header, "A
+    /// surface draws no close of its own"): its option or Escape is the way back.</summary>
     [Fact]
-    public void The_close_button_and_the_card_raise_the_hosts_callbacks()
+    public void The_card_raises_the_hosts_callback_and_the_atlas_draws_no_close_of_its_own()
     {
         var closed = 0;
         string? openedScope = null;
@@ -298,10 +301,37 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.Find("[data-testid='lobes-atlas-card-action']").Click();
         component.WaitForAssertion(() => Assert.Equal("backlog", openedScope));
 
-        var close = component.Find("[data-testid='lobes-atlas-close']");
-        Assert.Equal("Close the atlas", close.GetAttribute("aria-label"));
-        close.Click();
-        Assert.Equal(1, closed);
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-close']"));
+        Assert.Empty(component.FindAll("[aria-label='Close the atlas']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-back']"));
+        Assert.Equal(0, closed);
+    }
+
+    /// <summary>In a window of its own the host hands no way back, and an atlas with
+    /// nothing to draw offers no dead Back: the OS close closes the window.</summary>
+    [Fact]
+    public void A_read_that_failed_offers_no_back_where_the_host_hands_no_way_back()
+    {
+        _lobes.Graph = DevbookLobesGraph.Unavailable(BrainAtlas.NoBrainFolder);
+        var component = _context.Render<LobesAtlasTakeover>();
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("No Brain folder is set", component.Find("[data-testid='lobes-atlas-unavailable']").TextContent, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-back']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-unavailable'] button"));
+    }
+
+    /// <summary>With no Brain index and no way back handed, the empty state still
+    /// offers to build the index, and offers no Back to notes.</summary>
+    [Fact]
+    public void With_no_brain_index_and_no_way_back_the_empty_state_still_offers_to_build_it_and_no_back()
+    {
+        _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
+        var component = _context.Render<LobesAtlasTakeover>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-empty']")));
+        AssertRealButton(component.Find("[data-testid='lobes-atlas-build']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-back']"));
     }
 
     [Fact]
@@ -392,7 +422,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     {
         _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
         _lobes.CanBuildBrainIndex = false;
-        var component = _context.Render<LobesAtlasTakeover>();
+        // In the main window, which hands the atlas its way back.
+        var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => { }));
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-back']")));
         Assert.Empty(component.FindAll("[data-testid='lobes-atlas-build']"));
@@ -489,7 +520,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         // Ghosts too, since the graph holds a ghost: it widens the map to All.
         var tools = component.Find(".lobes-atlas__tools");
-        Assert.Equal(["Labels", "Pause", "Ghosts", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        // No ✕ after them: the atlas draws no close of its own.
+        Assert.Equal(["Labels", "Pause", "Ghosts", "All", "None"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         // None is named by its own word; what it does is the title.
         Assert.Null(component.Find("[data-testid='lobes-atlas-show-none']").GetAttribute("aria-label"));
         Assert.Equal("Show every region", component.Find("[data-testid='lobes-atlas-show-all']").GetAttribute("title"));
@@ -822,7 +854,7 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var component = Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-tech']")));
 
-        Assert.Equal(["Labels", "Pause", "Tech", "Ghosts", "✕"],
+        Assert.Equal(["Labels", "Pause", "Tech", "Ghosts"],
             component.Find(".lobes-atlas__tools").QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         var tech = component.Find("[data-testid='lobes-atlas-tech']");
         AssertRealButton(tech);
@@ -1020,11 +1052,13 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
     public void Every_control_of_the_empty_state_is_a_real_button()
     {
         _lobes.Graph = DevbookLobesGraph.MissingBrainIndex(BrainAtlas.BrainIndexMissing);
-        var component = _context.Render<LobesAtlasTakeover>();
+        // In the main window, which hands the atlas its way back.
+        var component = _context.Render<LobesAtlasTakeover>(parameters => parameters.Add(atlas => atlas.OnClose, () => { }));
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-empty']")));
 
+        // Build the index now and Back to notes; no ✕ in the header.
         var controls = component.FindAll("[data-testid='lobes-atlas'] button, [data-testid='lobes-atlas'] a");
-        Assert.Equal(3, controls.Count);
+        Assert.Equal(2, controls.Count);
         AssertEveryControlIsANamedButton(controls);
     }
 

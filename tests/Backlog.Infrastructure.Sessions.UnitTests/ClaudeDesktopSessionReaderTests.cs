@@ -21,10 +21,8 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
     private const string Account = "76e40352-1b9a-468f-8ef7-caaf76d5103c";
     private const string Org = "6a29ea76-8694-4b36-aea5-a4d4b0f03805";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-claude-desktop-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-claude-desktop-tests");
+    private string _root => _temp.Path;
 
     private int _opens;
 
@@ -82,6 +80,27 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
         Assert.Equal("Pull latest version", sessions.For("cli-b")!.Title);
         Assert.Null(sessions.For("cli-c")!.Title);
         Assert.Null(sessions.For("cli-d")!.Title);
+    }
+
+    /// <summary>
+    /// <c>spawnedFrom</c> names the session that started this one by its desktop id; the
+    /// fields after it are still read, and a record that names none, or names it in a
+    /// shape that is not an object, states nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_session_that_started_one_is_read_from_spawned_from()
+    {
+        GivenRecord(Account, Org, "local_a", """{"sessionId":"local_a","cliSessionId":"cli-a","spawnedFrom":{"taskId":"task_1","nested":{"sessionId":"no"},"sessionId":"local_run"},"title":"13 - Move"}""");
+        GivenRecord(Account, Org, "local_b", """{"sessionId":"local_b","cliSessionId":"cli-b","spawnedFrom":"local_run","title":"b"}""");
+        GivenRecord(Account, Org, "local_run", """{"sessionId":"local_run","cliSessionId":"cli-run","title":"+tag:execute-plan"}""");
+
+        var sessions = await ReadAsync();
+
+        Assert.Equal(("local_run", "13 - Move"), (sessions.For("cli-a")!.SpawnedFrom, sessions.For("cli-a")!.Title));
+        Assert.Equal((null, "b"), (sessions.For("cli-b")!.SpawnedFrom, sessions.For("cli-b")!.Title));
+        Assert.Null(sessions.For("cli-run")!.SpawnedFrom);
+        Assert.Equal("+tag:execute-plan", sessions.ByDesktopId("LOCAL_RUN")!.Title);
+        Assert.Null(sessions.ByDesktopId(null));
     }
 
     [Fact]
@@ -284,14 +303,5 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
         return path;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

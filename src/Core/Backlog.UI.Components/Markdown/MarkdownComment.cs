@@ -16,16 +16,24 @@ namespace Backlog.UI.Components.Markdown;
 /// here, because this is the only place that holds the blocks to check it
 /// against. That is not the view guessing: the digest either matches a block or
 /// it does not, and a comment without one keeps the old rule exactly — rendered
-/// against the index it was told, and shown at the end when that index is out
+/// against the index it was told, and shown as orphaned when that index is out
 /// of range.
+/// </para>
+/// <para>
+/// An orphan is never dropped and its anchor is never written back. Inline, it
+/// shows in the labelled orphan group after the last block; in the margin, it
+/// sits level with the block at its stored index, clamped into range, and is
+/// marked approximate.
 /// </para>
 /// </summary>
 /// <param name="Id">Unique within the view, and what a callback reports.</param>
 /// <param name="BlockIndex">Which block of the rendered list it hangs off, from
 /// zero. Where it goes when that is no longer true depends on
 /// <paramref name="BlockHash"/>: without one, out of range means the block went
-/// away and the view shows the comment at the end rather than dropping it,
-/// because a lost comment is worse than a stray one.</param>
+/// away and the view shows the comment as orphaned rather than dropping it,
+/// because a lost comment is worse than a stray one — inline in the labelled
+/// end group, in the margin level with the block at this index clamped into
+/// range and marked approximate. The index is never rewritten.</param>
 /// <param name="Body">What was said.</param>
 /// <param name="Author">Who said it. Null for a note to self.</param>
 /// <param name="Timestamp">When, already formatted — what "2 hours ago" is, and
@@ -58,13 +66,25 @@ public enum MarkdownCommentLayout
     Inline,
 
     /// <summary>In a column beside the body, each one level with the block it
-    /// belongs to. The prose stays continuous and the remarks stay findable,
-    /// which is what you want when reviewing rather than when reading.
+    /// belongs to where there is room. The prose stays continuous and the remarks
+    /// stay findable, which is what you want when reviewing rather than when
+    /// reading. With the margin script attached, a block's row never grows to the
+    /// height of its remarks: a long stack runs on down the column beside the
+    /// blocks after it, the next block's remarks start below it, and a chapter
+    /// insert under a heading is pushed below it. Without the script the rows
+    /// stretch.
     /// <para>
-    /// Needs the room. Below the narrow breakpoint it falls back to
-    /// <see cref="Inline"/> on its own rather than squeezing two columns into
-    /// one — a margin note in a phone-width column is an inline note that has
-    /// been made harder to read.
+    /// Orphans stay in the column too, remarks and AI proposals alike: each is
+    /// placed level with the block at its stored index, clamped into range — a
+    /// proposal that names no block beside the last one — and marked
+    /// approximate. That is presentation only; the anchor is never written back.
+    /// </para>
+    /// <para>
+    /// Needs the room. Below the narrow breakpoint the column is not drawn: each
+    /// block's remarks stack under it, ruled as inline remarks are, and each
+    /// orphan stacks under the block it is placed beside, keeping its label and
+    /// its dashed rule. It is not <see cref="Inline"/>: no orphan goes to a group
+    /// at the end.
     /// </para></summary>
     Margin
 }

@@ -29,11 +29,10 @@ public sealed class DevbookImportWorkerTests : IDisposable
     private readonly MemoryLedger _ledger = new();
     private readonly SessionDevbookSubjectStateStore _subjects;
     private readonly SessionDevbookAnnotationStore _remarks;
-    private readonly DevbookFlag _features = new(on: true);
-    private readonly ChangingFolders _folders = new();
+    private readonly StubFolderSource _folders = new(DevbookFolderSetting.Defaults());
     private readonly List<GitHubRepositoryRef> _repositories = [new(Alias, "JSdotNet", "Shop")];
     private readonly List<DevbookImportWorker> _workers = [];
-    private readonly List<string> _temporary = [];
+    private readonly List<TemporaryDirectory> _temporary = [];
 
     public DevbookImportWorkerTests()
     {
@@ -56,7 +55,6 @@ public sealed class DevbookImportWorkerTests : IDisposable
             ledger ?? _ledger,
             _subjects,
             _remarks,
-            _features,
             _time);
 
         _workers.Add(worker);
@@ -216,31 +214,10 @@ public sealed class DevbookImportWorkerTests : IDisposable
         Assert.True(_ledger.HasImported(Alias));
 
         _repositories.Add(new GitHubRepositoryRef("tower", "JSdotNet", "Tower"));
-        _folders.Raise();
+        _folders.RaiseChanged();
         await worker.Running;
 
         Assert.True(_ledger.HasImported("tower"));
-    }
-
-    [Fact]
-    public async Task Nothing_is_read_while_the_devbook_is_switched_off()
-    {
-        _features.On = false;
-        var worker = Worker();
-
-        _time.Advance(DevbookImportWorker.FirstRunDelay);
-        await worker.Running;
-        _folders.Raise();
-        await worker.Running;
-
-        Assert.Empty(_snapshots.Asked);
-        Assert.Empty(await worker.RunOnceAsync(TestContext.Current.CancellationToken));
-
-        _features.On = true;
-        _features.Raise();
-        await worker.Running;
-
-        Assert.True(_ledger.HasImported(Alias));
     }
 
     /// <summary>The snapshot on disk may be one a panel fetched weeks ago. The
@@ -299,11 +276,12 @@ public sealed class DevbookImportWorkerTests : IDisposable
     /// record still <c>identified</c>.</summary>
     private string StaleTree()
     {
-        var root = Path.Combine(Path.GetTempPath(), "devbook-import-stale-" + Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("devbook-import-stale");
+        _temporary.Add(temp);
+        var root = temp.Path;
         var debt = Path.Combine(root, ".devbook", "arc42", "tdr");
         Directory.CreateDirectory(debt);
         File.WriteAllText(Path.Combine(debt, "0001-paging.md"), "# TDR 0001: Orders are not paged\n\n```meta\nstatus: identified\n```\n");
-        _temporary.Add(root);
 
         return root;
     }
@@ -312,17 +290,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
     {
         foreach (var worker in _workers) worker.Dispose();
 
-        foreach (var root in _temporary)
-        {
-            try
-            {
-                Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder left behind is not a test failure.
-            }
-        }
+        foreach (var temp in _temporary) temp.Dispose();
     }
 
     /// <summary>The default branch: a head, an index on disk that may lag it, and
@@ -388,6 +356,7 @@ public sealed class DevbookImportWorkerTests : IDisposable
 
     /// <summary>GitHub's answer per path: an addition, or a refusal; any other path
     /// has no history.</summary>
+    // Differs from StubGitHubClient: answers each path's addition history from the test.
     private sealed class FakeGitHub : IGitHubClient
     {
         private readonly Dictionary<string, GitHubPathAdditionRead> _answers = new(StringComparer.Ordinal);
@@ -427,46 +396,5 @@ public sealed class DevbookImportWorkerTests : IDisposable
         {
             lock (_marked) _marked.Add(repositoryAlias);
         }
-    }
-
-    /// <summary>The <c>repository-devbook</c> switch, and true for every other
-    /// key.</summary>
-    private sealed class DevbookFlag(bool on) : IAppFeatureSettings
-    {
-        private bool _on = on;
-
-        public event Action? Changed;
-
-        public bool On
-        {
-            get => Volatile.Read(ref _on);
-            set => Volatile.Write(ref _on, value);
-        }
-
-        public AppFeatureSettings Current { get; } = new();
-
-        public string SettingsPath => "(in memory)";
-
-        public bool IsEnabled(string key) => !string.Equals(key, DevbookFeatures.RepositoryDevbook, StringComparison.Ordinal) || On;
-
-        public string? SetEnabled(string key, bool enabled) => null;
-
-        public void Raise() => Changed?.Invoke();
-    }
-
-    /// <summary>A folder source whose only use here is the news that something
-    /// moved.</summary>
-    private sealed class ChangingFolders : IDevbookFolderSource
-    {
-        public event Action? Changed;
-
-        public void Raise() => Changed?.Invoke();
-
-        public void NotifyContentChanged() => Changed?.Invoke();
-
-        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => DevbookFolderSetting.Defaults();
-
-        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) =>
-            DevbookFolderLocation.Unavailable(key, "Not resolved here.");
     }
 }

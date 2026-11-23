@@ -151,14 +151,6 @@ public sealed partial class GitHubIntegration(
         CancellationToken cancellationToken = default) =>
         client.GetPullRequestAsync(RepositoryForFullName(repoFullName), number, cancellationToken);
 
-    /// <summary>Reads one recorded pull request's state, check roll-up and
-    /// auto-merge request. See <see cref="IGitHubClient.GetPullRequestStatusAsync"/>.</summary>
-    public Task<GitHubPullRequestStatus> ReadPullRequestStatusAsync(
-        string repoFullName,
-        int number,
-        CancellationToken cancellationToken = default) =>
-        client.GetPullRequestStatusAsync(RepositoryForFullName(repoFullName), number, cancellationToken);
-
     /// <summary>
     /// Hands the pull request to GitHub's native auto-merge, with the method the
     /// repository allows. GitHub does the waiting: nothing here polls, and nothing

@@ -61,7 +61,7 @@ public sealed class SecureValueDeviceCredentialStoreTests
 
         var (key, value) = Assert.Single(secure.Values);
         Assert.Equal(SecureValueDeviceCredentialStore.Key, key);
-        Assert.Contains(Paired.Credential, value);
+        Assert.Contains(Paired.Credential!, value);
         Assert.Contains(Paired.OwnerId.ToString("D"), value);
     }
 

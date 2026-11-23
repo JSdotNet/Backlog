@@ -52,7 +52,7 @@ public sealed class TaskLookupTests
     [Fact]
     public void An_issue_with_the_same_number_in_another_repository_is_not_a_match()
     {
-        var lookup = Lookup(Candidate(Issue, linkedIssue: new("JSdotNet/Archify", 42)));
+        var lookup = Lookup(Candidate(Issue, linkedIssue: new("JSdotNet/Almanac", 42)));
 
         Assert.Null(lookup.TaskForPullRequest(Question(closing: [new TaskIssueReference("JSdotNet/Backlog", 42)])));
     }
@@ -193,11 +193,11 @@ public sealed class TaskLookupTests
     {
         var lookup = Lookup(
             Candidate(Recorded, pullRequests: [new("JSdotNet/Backlog", 655), new("JSdotNet/Backlog", 700)]),
-            Candidate(Keyed, pullRequests: [new("jsdotnet/backlog", 655), new("JSdotNet/Archify", 655)]),
+            Candidate(Keyed, pullRequests: [new("jsdotnet/backlog", 655), new("JSdotNet/Almanac", 655)]),
             Candidate(Session));
 
         Assert.Equal(
-            [new TaskPullRequestLink("JSdotNet/Backlog", 655), new TaskPullRequestLink("JSdotNet/Backlog", 700), new TaskPullRequestLink("JSdotNet/Archify", 655)],
+            [new TaskPullRequestLink("JSdotNet/Backlog", 655), new TaskPullRequestLink("JSdotNet/Backlog", 700), new TaskPullRequestLink("JSdotNet/Almanac", 655)],
             lookup.LinkedPullRequests());
     }
 

@@ -385,7 +385,7 @@ internal sealed class ClaudeSessionReader
 
                 // Read off this machine's own disk, which is the only kind of record
                 // this reader can produce.
-                Origin: AgentSessionOrigin.Local), record);
+                Origin: AgentSessionOrigin.Local), record, desktop);
         }
     }
 
@@ -436,19 +436,27 @@ internal sealed class ClaudeSessionReader
                 // stalled means still registered as running, and nothing here is.
                 State: AgentSessionState.Finished,
                 TurnCount: turns,
-                Origin: AgentSessionOrigin.Local), facts), desktop.For(id)));
+                Origin: AgentSessionOrigin.Local), facts), desktop.For(id), desktop));
         }
 
         return sessions;
     }
 
     /// <summary>The session with what its desktop record says — whether the desktop app
-    /// archived it, the scheduled task it is a run of, the name its sidebar shows — or as
-    /// read where there is no record, all left null: unknown, never "not archived".</summary>
-    private static AgentSession Stamped(AgentSession session, ClaudeDesktopSession? record) =>
+    /// archived it, the scheduled task it is a run of, the name its sidebar shows, the name
+    /// of the session that started it — or as read where there is no record, all left
+    /// null: unknown, never "not archived".</summary>
+    private static AgentSession Stamped(AgentSession session, ClaudeDesktopSession? record, ClaudeDesktopSessions desktop) =>
         record is null
             ? session
-            : session with { Archived = record.Archived, ScheduledTask = record.ScheduledTask, DesktopTitle = record.Title, DesktopSessionId = record.DesktopId };
+            : session with
+            {
+                Archived = record.Archived,
+                ScheduledTask = record.ScheduledTask,
+                DesktopTitle = record.Title,
+                DesktopSessionId = record.DesktopId,
+                ParentDesktopTitle = desktop.ByDesktopId(record.SpawnedFrom)?.Title
+            };
 
     /// <summary>The session with what its transcript says about its work. A pass that
     /// did not finish leaves the lists null — not read — rather than empty.</summary>

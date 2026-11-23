@@ -37,7 +37,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
         "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on, " +
-        "devbook_refs, blocked_since, source_ref, agenda_at, agenda_minutes, planned_hours, source_notification_id";
+        "devbook_refs, blocked_since, source_ref, agenda_at, agenda_minutes, planned_hours, source_notification_id, " +
+        "waiting_for, follow_up_on";
 
     private readonly string _databasePath;
 
@@ -107,7 +108,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
                 $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref, $agenda_at, $agenda_minutes, $planned_hours,
-                $source_notification_id)
+                $source_notification_id, $waiting_for, $follow_up_on)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -144,7 +145,9 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 agenda_at = excluded.agenda_at,
                 agenda_minutes = excluded.agenda_minutes,
                 planned_hours = excluded.planned_hours,
-                source_notification_id = excluded.source_notification_id;
+                source_notification_id = excluded.source_notification_id,
+                waiting_for = excluded.waiting_for,
+                follow_up_on = excluded.follow_up_on;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -172,6 +175,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         command.Parameters.AddWithValue("$completed_on", Nullable(WriteDate(task.CompletedOn)));
         command.Parameters.AddWithValue("$started_on", Nullable(WriteDate(task.StartedOn)));
         command.Parameters.AddWithValue("$blocked_since", Nullable(WriteDate(task.BlockedSince)));
+        command.Parameters.AddWithValue("$waiting_for", Nullable(task.WaitingFor?.Who));
+        command.Parameters.AddWithValue("$follow_up_on", Nullable(WriteDate(task.WaitingFor?.FollowUpOn)));
         command.Parameters.AddWithValue(
             "$view",
             Nullable(task.View is { } view ? EntryTextParser.ViewToken(view) : null));
@@ -401,7 +406,9 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 agenda_at            TEXT NULL,
                 agenda_minutes       INTEGER NULL,
                 planned_hours        TEXT NOT NULL DEFAULT '[]',
-                source_notification_id TEXT NULL
+                source_notification_id TEXT NULL,
+                waiting_for          TEXT NULL,
+                follow_up_on         TEXT NULL
             );
 
             CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
@@ -459,6 +466,12 @@ public sealed class SqliteTaskRepository : ITaskRepository
             // recurrence_source_id holds its source: a GUID as text. Null on a row from
             // before the column, which no answer filed.
             new("tasks", "source_notification_id", "TEXT NULL"),
+
+            // Who the task waits on and the day to follow up (local ADR 0054 §4): free
+            // text and a date like completed_on. Null on a row from before the
+            // columns, which waited on nobody.
+            new("tasks", "waiting_for", "TEXT NULL"),
+            new("tasks", "follow_up_on", "TEXT NULL"),
         ],
         afterColumns:
         [
@@ -538,6 +551,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int AgendaAt = 33, AgendaMinutes = 34;
         public const int PlannedHours = 35;
         public const int SourceNotificationId = 36;
+        public const int WaitingFor = 37, FollowUpOn = 38;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -566,6 +580,9 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetCompletedOn(ParseDate(Text(row, Col.CompletedOn)));
         task.SetStartedOn(ParseDate(Text(row, Col.StartedOn)));
         task.SetBlockedSince(ParseDate(Text(row, Col.BlockedSince)));
+        // Through From, so a blank name in a hand-edited file reads as waiting on
+        // nobody rather than failing the read.
+        task.SetWaitingFor(WaitingFor.From(Text(row, Col.WaitingFor), ParseDate(Text(row, Col.FollowUpOn))));
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
         // Filtered rather than handed over whole: the aggregate refuses a value that

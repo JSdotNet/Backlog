@@ -19,14 +19,14 @@ public sealed class ArchivedRepositoryTests
 {
     private readonly FakeTimeProvider _clock = new(Noon);
     private readonly CountingPullRequestSource _github = new();
-    private readonly FakeRegisteredRepositories _registry = new(BacklogRepository, ArchifyRepository);
+    private readonly FakeRegisteredRepositories _registry = new(BacklogRepository, AlmanacRepository);
 
     private IPullRequests Module() => new PullRequests(_github, _registry, new InMemorySettledStore(), _clock);
 
     [Fact]
     public async Task The_lists_skip_an_archived_repository_with_no_failure()
     {
-        _github.Holds(Pull(1), Pull(2, repository: ArchifyRepository));
+        _github.Holds(Pull(1), Pull(2, repository: AlmanacRepository));
         _registry.Archive(BacklogRepository);
         var module = Module();
 

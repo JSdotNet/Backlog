@@ -15,10 +15,8 @@ namespace Backlog.Infrastructure.Sessions.UnitTests;
 /// </summary>
 public sealed class DeliveryRunStageResolutionTests : IDisposable
 {
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-stage-resolution-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-stage-resolution-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public async Task A_run_that_ran_as_configured_shows_no_difference()
@@ -467,17 +465,5 @@ public sealed class DeliveryRunStageResolutionTests : IDisposable
         return Assert.Single(catalog.Runs);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

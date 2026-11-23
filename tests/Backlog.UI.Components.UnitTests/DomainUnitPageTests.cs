@@ -544,6 +544,34 @@ public sealed class DomainUnitPageTests
     }
 
     [Fact]
+    public void A_lifecycle_the_host_asks_for_takes_focus_on_About()
+    {
+        // The place Model's Events hands over for a move: the lifecycle's index
+        // among the diagrams the unit's chapter draws.
+        var task = DomainUnits.Of(DomainUnits.Parse(Tasks, TasksPath)).Single(unit => unit.Key == "task");
+        var flows = DomainFlows.InChapter(task.Chapter);
+        var lifecycle = Enumerable.Range(0, flows.Count).First(i => flows[i].Figure is DomainFlowDiagram);
+
+        using var unasked = new BunitContext();
+        RenderTasks(unasked, more: parameters => parameters.Add(p => p.ActiveUnit, "task"));
+        Assert.Empty(Focused(unasked));
+
+        using var context = new BunitContext();
+        var page = RenderTasks(context, more: parameters =>
+        {
+            parameters.Add(p => p.ActiveUnit, "task");
+            parameters.Add(p => p.ActiveFlow, lifecycle);
+        });
+
+        Assert.Equal("true", page.Find("[data-testid='domain-unit-about-tab']").GetAttribute("aria-selected"));
+        page.WaitForAssertion(() => Assert.IsType<ElementReference>(Assert.Single(Focused(context)).Arguments[0]));
+
+        // Focused once per ask: a re-render does not pull the reader back.
+        page.Render();
+        Assert.Single(Focused(context));
+    }
+
+    [Fact]
     public void About_links_to_how_the_aggregate_moves_and_how_it_is_built()
     {
         using var context = new BunitContext();
@@ -558,7 +586,7 @@ public sealed class DomainUnitPageTests
             ["What is always true · 1 →", "How it moves →", "How it is built →", "Glossary →"],
             page.FindAll("[data-testid='domain-unit-links'] button").Select(link => link.TextContent));
 
-        // With no flow file, how it moves is the lifecycle on this page.
+        // How it moves is the lifecycle on this page.
         page.Find("[data-testid='domain-unit-link-flow']").Click();
         Assert.Null(followed);
         page.WaitForAssertion(() => Assert.IsType<ElementReference>(Assert.Single(Focused(context)).Arguments[0]));

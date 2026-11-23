@@ -10,11 +10,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class BrainSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "brain-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-settings-store-tests");
 
-    public BrainSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "app-data", BrainSettingsStore.FileName);
 
@@ -155,27 +153,5 @@ public sealed class BrainSettingsStoreTests : IDisposable
         Assert.Null(Store().BrainFolder);
     }
 
-    [Fact]
-    public void The_chip_reads_set_up_your_brain_until_a_folder_is_set()
-    {
-        var store = Store();
-
-        Assert.Equal("Set up your Brain", BrainSetup.ChipLabel(store));
-
-        _ = store.TrySetBrainFolder(Path.Combine(_root, "Brain"));
-
-        Assert.Equal("Brain", BrainSetup.ChipLabel(store));
-        Assert.Equal("settings/storage#brain-folder", BrainSetup.SettingsHref);
-    }
-
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

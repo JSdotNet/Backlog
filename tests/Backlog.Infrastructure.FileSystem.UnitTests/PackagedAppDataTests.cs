@@ -22,10 +22,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class PackagedAppDataTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-packaged-appdata-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-packaged-appdata-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string Redirected => Path.Combine(_root, "Packages", "LocalCache", "Local", "Backlog");
 
@@ -34,7 +33,7 @@ public sealed class PackagedAppDataTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        _temp.Dispose();
     }
 
     [Fact]

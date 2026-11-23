@@ -71,14 +71,14 @@ public sealed record DomainFlowNote(string State, string Text);
 /// <param name="From">The states it leaves, in row order.</param>
 public sealed record DomainFlowDrop(string To, IReadOnlyList<string> From, string Label);
 
-/// <summary>A Mermaid diagram of a flow chapter the Flow page draws itself, in
+/// <summary>A Mermaid diagram of a domain chapter the view draws itself, in
 /// the lifecycle's cards, lines and type: a state row
 /// (<see cref="DomainFlowDiagram"/>), a flowchart
 /// (<see cref="DomainFlowchartDiagram"/>) or a sequence
 /// (<see cref="DomainSequenceDiagram"/>).</summary>
 public abstract record DomainFlowFigure
 {
-    // Closed to this assembly: the Flow page draws exactly these three.
+    // Closed to this assembly: the view draws exactly these three.
     private protected DomainFlowFigure()
     {
     }
@@ -140,27 +140,6 @@ public sealed record DomainFlowLayout(double Width, double Height, IReadOnlyList
     public IReadOnlyList<DomainFlowMark> Marks { get; init; } = [];
 }
 
-/// <summary>A sub-chapter of a flow chapter that draws no diagram, read as a card:
-/// facts that sit beside a lifecycle rather than in it.</summary>
-/// <param name="Tag">The first paragraph when it is only code spans or emphasis —
-/// the field or phrase the card is about — else empty.</param>
-/// <param name="Body">The card's markdown between its tag and its footer.</param>
-/// <param name="Footer">The last paragraph when it is a lone link, else empty.</param>
-public sealed record DomainFlowCard(string Title, string Anchor, string Tag, string Body, string Footer);
-
-/// <summary>A flow chapter's prose split around its diagrams: the diagrams the
-/// page draws itself, in source order, and the rest of the chapter's markdown.</summary>
-public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<DomainFlowFigure> Diagrams, string Prose)
-{
-    /// <summary>The markdown before the first drawn diagram — or before the first
-    /// card — which the page sets as the chapter's lead.</summary>
-    public string Lead { get; init; } = string.Empty;
-
-    /// <summary>The chapter's sub-chapters as cards, when it draws no diagram and
-    /// every one of them is untyped.</summary>
-    public IReadOnlyList<DomainFlowCard> Cards { get; init; } = [];
-}
-
 /// <summary>A diagram a domain chapter opens with, as devbook contract 37 places a
 /// lifecycle or a process: under the chapter's <c>meta</c> block, headed by a bold
 /// line naming it, ahead of the prose.</summary>
@@ -172,7 +151,7 @@ public sealed record DomainChapterFlow(string Title, string Lead, DomainFlowFigu
 
 /// <summary>
 /// Reads a flow's <c>stateDiagram-v2</c> into one row of states and lays it out
-/// (local ADR 0047, the Flow page): each state a box with its description, the
+/// (local ADR 0047), as a unit's Domain page draws it: each state a box with its description, the
 /// moves between neighbours straight along the row — forward on top, the way
 /// back underneath — every other forward arc above the row, every other way back
 /// below it, and the restore loop — the way from the last state back to the
@@ -214,73 +193,14 @@ public static partial class DomainFlows
     private const double PortInset = 10;
     private const int MaxLabel = 36;
 
-    /// <summary>The section a flow chapter reads as: each diagram it holds that
-    /// the page can draw — a state row, a flowchart or a sequence — its markdown
-    /// with those fences taken out, the markdown before the first of them as its
-    /// lead, and — for a chapter drawing nothing whose sub-chapters are all
-    /// untyped — those sub-chapters as cards. A fence none of them can read stays
-    /// in the markdown, for Mermaid.</summary>
-    public static DomainFlowSection Section(DomainChapter chapter)
-    {
-        var diagrams = new List<DomainFlowFigure>();
-        var prose = new StringBuilder();
-        var lead = string.Empty;
-        var lines = chapter.Prose.Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var trimmed = lines[i].Trim();
-            if (trimmed.StartsWith("```", StringComparison.Ordinal)
-                && string.Equals(trimmed[3..].Trim(), "mermaid", StringComparison.OrdinalIgnoreCase))
-            {
-                var end = i + 1;
-                while (end < lines.Length && !lines[end].Trim().StartsWith("```", StringComparison.Ordinal)) end++;
-                var source = string.Join('\n', lines[(i + 1)..Math.Min(end, lines.Length)]);
-                if (Figure(source) is { } diagram)
-                {
-                    if (diagrams.Count == 0)
-                    {
-                        lead = prose.ToString().Trim();
-                        prose.Clear();
-                    }
-                    diagrams.Add(diagram);
-                    i = end;
-                    continue;
-                }
-            }
-            prose.Append(lines[i]).Append('\n');
-        }
-
-        if (diagrams.Count == 0
-            && chapter.Children.Count > 0
-            && chapter.Children.All(child => child.Type is null))
-        {
-            // The first sub-heading outside a fence: a `###` in a code block is code.
-            var fenced = false;
-            var heading = Array.FindIndex(lines, line =>
-            {
-                if (line.TrimStart().StartsWith("```", StringComparison.Ordinal)) fenced = !fenced;
-                return !fenced && SubHeading().IsMatch(line);
-            });
-            var before = heading < 0 ? chapter.Prose : string.Join('\n', lines[..heading]);
-            return new DomainFlowSection(chapter, diagrams, string.Empty)
-            {
-                Lead = before.Trim(),
-                Cards = [.. chapter.Children.Select(Card)]
-            };
-        }
-
-        return new DomainFlowSection(chapter, diagrams, prose.ToString().Trim()) { Lead = lead };
-    }
-
     /// <summary>
     /// The diagrams a unit's chapter draws, where devbook contract 37 puts every
-    /// lifecycle and process that used to sit on a <c>flow.md</c>: in the chapter
-    /// itself and in each typed chapter inside it, in source order. Each is titled
-    /// by the bold line above its fence — <c>**Task lifecycle**</c> — or by its
-    /// chapter's heading, with the markdown between the two as its lead. Only the
-    /// diagrams the Flow page draws itself are read — a state row, a flowchart, a
-    /// sequence — so none is left to Mermaid; a fence none of them reads is not
-    /// one of these.
+    /// lifecycle and process: in the chapter itself and in each typed chapter
+    /// inside it, in source order. Each is titled by the bold line above its
+    /// fence — <c>**Task lifecycle**</c> — or by its chapter's heading, with the
+    /// markdown between the two as its lead. Only the diagrams the view draws
+    /// itself are read — a state row, a flowchart, a sequence — so none is left
+    /// to Mermaid; a fence none of them reads is not one of these.
     /// </summary>
     public static IReadOnlyList<DomainChapterFlow> InChapter(DomainChapter chapter)
     {
@@ -366,21 +286,6 @@ public static partial class DomainFlows
         }
         if (text.ToString().Trim().Length > 0) pieces.Add((text.ToString().Trim(), null));
         return pieces;
-    }
-
-    /// <summary>A sub-chapter read as a card: a first paragraph of nothing but code
-    /// spans or emphasis is its tag, a last paragraph of one link its footer.</summary>
-    private static DomainFlowCard Card(DomainChapter chapter)
-    {
-        var paragraphs = Regex.Split(chapter.Prose.Replace("\r\n", "\n").Trim(), @"\n\s*\n")
-            .Select(paragraph => paragraph.Trim())
-            .Where(paragraph => paragraph.Length > 0)
-            .ToList();
-        var tag = paragraphs.Count > 0 && CardTag().IsMatch(paragraphs[0]) ? paragraphs[0] : string.Empty;
-        if (tag.Length > 0) paragraphs.RemoveAt(0);
-        var footer = paragraphs.Count > 0 && LoneLink().IsMatch(paragraphs[^1]) ? paragraphs[^1] : string.Empty;
-        if (footer.Length > 0) paragraphs.RemoveAt(paragraphs.Count - 1);
-        return new DomainFlowCard(chapter.Title, chapter.Anchor, tag, string.Join("\n\n", paragraphs), footer);
     }
 
     /// <summary>Reads a Mermaid source as whichever figure the page draws, or
@@ -961,12 +866,6 @@ public static partial class DomainFlows
     /// <summary>A paragraph that is one bold run: <c>**Task lifecycle**</c>.</summary>
     [GeneratedRegex(@"^\*\*([^*]+)\*\*$")]
     private static partial Regex BoldLine();
-
-    [GeneratedRegex(@"^(?:`[^`]+`|_[^_]+_|\*[^*]+\*)(?:\s*·\s*(?:`[^`]+`|_[^_]+_|\*[^*]+\*))*$")]
-    private static partial Regex CardTag();
-
-    [GeneratedRegex(@"^\[[^\]]+\]\([^)\s]+\)$")]
-    private static partial Regex LoneLink();
 
     [GeneratedRegex(@"^class\s+(\S+)\s+([A-Za-z0-9_-]+)$")]
     private static partial Regex ClassLine();

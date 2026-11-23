@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -468,5 +470,5 @@ public sealed class DomainUnitsTests
     [InlineData("Sub-Item", "sub-item")]
     [InlineData("Unlinking leaves the task's repositories", "unlinking-leaves-the-tasks-repositories")]
     public void Anchors_follow_githubs_rule(string heading, string anchor) =>
-        Assert.Equal(anchor, DomainUnits.Slug(heading));
+        Assert.Equal(anchor, HeadingAnchor.Of(heading));
 }

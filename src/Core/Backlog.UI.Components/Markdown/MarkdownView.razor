@@ -1,4 +1,5 @@
-﻿@inject IJSRuntime Js
+﻿@implements IAsyncDisposable
+@inject IJSRuntime Js
 @*
     The read view of an entry's body: what markdown looks like when you are not
     editing it. Sub-items are not here — a `##` heading is an item in its own
@@ -26,7 +27,7 @@
     </div>
 }
 
-<div class="@ViewClass">
+<div class="@ViewClass" data-md-margin="@(DrawsMargin ? _marginNotesId : null)">
 @foreach (var (block, index) in Blocks.Select((block, index) => (block, index)))
 {
     @* A `meta` fence describes the heading it sits under, so where it can be it
@@ -43,7 +44,7 @@
            every block changes what a stylesheet sees, and a read view nobody
            annotates should render exactly what it rendered before. *@
         <div class="md-block-row" data-block="@index">
-            <div class="md-block @(NotesOn(index).Count > 0 ? "md-block--commented" : string.Empty) @AffordanceClass">
+            <div class="md-block @(RemarkCountOn(index) > 0 ? "md-block--commented" : string.Empty) @AffordanceClass">
                 @RenderContent(block, index)
                 @if ((CanComment || CanRewrite) && !IsReviewNote(index))
                 {
@@ -62,9 +63,9 @@
                                     data-testid="@($"markdown-comment-{index}")"
                                     @onclick="() => OnAddComment.InvokeAsync(index)">
                                 <span aria-hidden="true">💬</span>
-                                @if (NotesOn(index).Count > 0)
+                                @if (RemarkCountOn(index) > 0)
                                 {
-                                    <span class="md-block__count">@NotesOn(index).Count</span>
+                                    <span class="md-block__count">@RemarkCountOn(index)</span>
                                 }
                             </button>
                         }
@@ -92,10 +93,35 @@
                block; inline it simply follows. One markup, two layouts, so the
                two cannot drift apart. Proposals land in the same cell as the
                comments, so the margin layout works for them for free and there is
-               no second layout to keep in step. *@
+               no second layout to keep in step.
+
+               In margin mode a remark or a proposal whose passage changed is
+               drawn here too, level with the block it last named — see
+               ApproximatesOn and ApproximateProposalsOn. The card's own class is
+               what the stylesheet reads to highlight the block with a dashed
+               "about here" rather than the solid edge an anchored remark gives
+               it.
+
+               The stack is what the margin script lifts out of the row's height
+               (backlogMarginNotes): positioned in the cell, it overflows down
+               into the rows below instead of stretching this one, and is pushed
+               below the stack before it when the two would meet. Without the
+               script it is an ordinary box and the row grows as it always did.
+
+               Only drawn when there is something in it. A positioned box takes
+               the pointer even when it is empty, and an empty stack sat on top of
+               the earlier stack overflowing past it, so the Edit or the textarea
+               under it took no click. *@
             <div class="md-block-row__notes">
-                @RenderComments(NotesOn(index))
-                @RenderProposals(SuggestionsOn(index))
+                @if (HasNotesBeside(index))
+                {
+                    <div class="md-block-row__notes-stack">
+                        @RenderComments(NotesOn(index))
+                        @RenderComments(ApproximatesOn(index), $"{_orphanLabelId}-{index}")
+                        @RenderProposals(SuggestionsOn(index))
+                        @RenderApproximateProposals(ApproximateProposalsOn(index), $"{_orphanLabelId}-{index}-proposal")
+                    </div>
+                }
             </div>
         </div>
         @RenderChapterInsert(index)
@@ -113,12 +139,28 @@
 
    A proposal has the same problem — blocks are deleted while suggestions are
    open — and takes the same answer rather than a region of its own, for the
-   reason already recorded here: a lost proposal is worse than a stray one. *@
-@if (Orphans.Count > 0 || OrphanProposals.Count > 0)
+   reason already recorded here: a lost proposal is worse than a stray one.
+
+   Labelled, because a dashed rule alone said "adrift" only to someone who
+   already knew the convention. The line under the label names what the reader
+   can do with the tools on each remark; there is no Re-attach here, since the
+   store has no verb that moves a remark's anchor (local ADR 0011).
+
+   In margin mode nothing is here: each remark and each proposal is in the
+   margin, level with the block it last named, and a proposal that names no
+   block stands beside the last one (see ApproximatesOn and
+   ApproximateProposalsOn). Only a margin with no block to stand beside still
+   falls back to this group. *@
+@if (GroupedOrphans.Count > 0 || GroupedOrphanProposals.Count > 0)
 {
-    <div class="md-comments md-comments--orphaned" data-testid="markdown-orphaned-comments">
-        @RenderComments(Orphans)
-        @RenderProposals(OrphanProposals)
+    <div class="md-comments md-comments--orphaned"
+         role="group"
+         aria-labelledby="@_orphanLabelId"
+         data-testid="markdown-orphaned-comments">
+        <p class="md-comments__orphaned-label" id="@_orphanLabelId">Passage changed</p>
+        <p class="md-comments__orphaned-hint">@OrphanHint</p>
+        @RenderComments(GroupedOrphans)
+        @RenderProposals(GroupedOrphanProposals)
     </div>
 }
 
@@ -329,7 +371,85 @@
     private bool Annotated => CanComment || CanRewrite || Comments.Count > 0 || Proposals.Count > 0;
 
     private string ViewClass =>
-        $"md-view{(Layout is MarkdownCommentLayout.Margin && Annotated ? " md-view--margin" : string.Empty)}{(DrawsDevbookStatus ? " md-view--status-column" : string.Empty)}";
+        $"md-view{(DrawsMargin ? " md-view--margin" : string.Empty)}{(DrawsDevbookStatus ? " md-view--status-column" : string.Empty)}";
+
+    /// <summary>Whether the remarks are drawn in a column beside the body.</summary>
+    private bool DrawsMargin => Layout is MarkdownCommentLayout.Margin && Annotated;
+
+    /// <summary>The margin script's handle on this view, per instance: a page
+    /// can hold several. Worn as <c>data-md-margin</c> by a margin view only, and
+    /// found by it rather than passed as an element reference, so a view drawn
+    /// any other way renders exactly the markup it always did.</summary>
+    private readonly string _marginNotesId = $"md-margin-{Guid.NewGuid():N}";
+
+    private bool _marginNotesAttached;
+
+    /// <summary>Set once the margin script has failed to attach — a host that
+    /// does not load components.js — so it is not asked again on every render.
+    /// The margin then lays out as plain grid rows.</summary>
+    private bool _marginNotesUnavailable;
+
+    /// <summary>
+    /// Hands the margin to <c>backlogMarginNotes</c> while it is drawn, and takes
+    /// it back when it is not.
+    /// <para>
+    /// The script is what keeps a row from growing to the height of its remarks:
+    /// it lifts each row's stack out of the row's height, lets it overflow into
+    /// the rows below, pushes a stack below the one before it where the two would
+    /// meet, and grows the body by whatever the last one runs past the end. A
+    /// grid cannot say "level with my block unless the cell above is still
+    /// using the space", and floats that try push the next block down instead —
+    /// so this is measured. It watches the view itself (a resize, a remark
+    /// added), so it is attached once rather than told about every render.
+    /// Without it the rows stretch, which is the layout this view always had.
+    /// </para>
+    /// </summary>
+    private async Task SyncMarginNotesAsync()
+    {
+        if (_marginNotesUnavailable || DrawsMargin == _marginNotesAttached) return;
+
+        // Recorded before the call, so a render landing while it is in flight
+        // does not ask a second time.
+        _marginNotesAttached = DrawsMargin;
+
+        try
+        {
+            await Js.InvokeVoidAsync(
+                _marginNotesAttached ? "backlogMarginNotes.attach" : "backlogMarginNotes.detach",
+                _marginNotesId);
+        }
+        catch (Exception ex) when (IsInteropFailure(ex))
+        {
+            _marginNotesAttached = false;
+            _marginNotesUnavailable = true;
+        }
+    }
+
+    /// <summary>The ways a call to the margin script fails without it being this
+    /// view's fault — no script (<see cref="JSException"/>), a circuit gone or
+    /// going (<see cref="JSDisconnectedException"/>, and
+    /// <see cref="InvalidOperationException"/> where there is no JS runtime to
+    /// call, as <c>DiagramView</c> catches), or a call that timed out
+    /// (<see cref="TaskCanceledException"/>, the Blazor Server harness's interop
+    /// timeout). Each leaves the rows stretching; none may escape the render and
+    /// take the focus step queued behind it with it.</summary>
+    private static bool IsInteropFailure(Exception ex) =>
+        ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_marginNotesAttached) return;
+
+        _marginNotesAttached = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogMarginNotes.detach", _marginNotesId);
+        }
+        catch (Exception ex) when (IsInteropFailure(ex))
+        {
+        }
+    }
 
     /// <summary>Whether this document draws chapter status, and so owes the
     /// column down its right that the status is read in.
@@ -428,10 +548,146 @@
     private IReadOnlyList<MarkdownComment> CommentsOn(int index) =>
         [.. Comments.Where(comment => AnchorOf(comment) == index)];
 
-    /// <summary>Comments whose block is no longer there. Shown at the end rather
-    /// than dropped: a lost comment is worse than a stray one.</summary>
+    /// <summary>Comments whose block is no longer there. Shown — at the end
+    /// inline, near their last block in the margin — rather than dropped: a lost
+    /// comment is worse than a stray one.</summary>
     private IReadOnlyList<MarkdownComment> Orphans =>
         [.. Comments.Where(comment => AnchorOf(comment) < 0)];
+
+    /// <summary>The orphan group's label id, per view: a page can hold several
+    /// views, and an <c>aria-labelledby</c> that matched another view's label
+    /// would name the wrong group.</summary>
+    private readonly string _orphanLabelId =$"md-orphans-{Guid.NewGuid():N}";
+
+    /// <summary>What the orphan group says under its label. A group holding any
+    /// remark names the reader's ways out — but only those the view offers: Resolve
+    /// when a host listens for it and some orphan is still open (a resolved one
+    /// offers Reopen), Delete when a host listens for it, a new remark when the
+    /// reader can add one. An archived chapter binds none, and then the group says
+    /// only what happened. A group of proposals alone has only Accept and Reject on
+    /// each card, which say themselves.</summary>
+    private string OrphanHint =>
+        GroupedOrphans.Count == 0
+            ? "These proposals were made on text that has since been reworded or removed."
+            : WaysOut(
+                "These remarks were left on text that has since been reworded or removed.",
+                GroupedOrphans.Any(comment => !comment.Resolved),
+                "each one");
+
+    /// <summary>What one margin-placed orphan says under its own label: the same
+    /// rule as <see cref="OrphanHint"/>, said of the one remark, and saying that
+    /// where it is drawn is a guess.</summary>
+    private string ApproximateHint(MarkdownComment comment) =>
+        WaysOut(
+            "This remark was left on text that has since been reworded or removed; it is shown near where that text was.",
+            !comment.Resolved,
+            "it");
+
+    /// <summary>A hint's first sentence, then the ways out the view offers.
+    /// <paramref name="open"/> is whether anything it speaks of is unresolved —
+    /// a resolved card offers Reopen, not Resolve.</summary>
+    private string WaysOut(string happened, bool open, string target)
+    {
+        const string LeaveNew = "leave a new remark where it belongs now";
+
+        var resolve = OnResolveComment.HasDelegate && open;
+        var delete = OnDeleteComment.HasDelegate;
+        var verbs = (resolve, delete) switch
+        {
+            (true, true) => "Resolve or delete",
+            (true, false) => "Resolve",
+            (false, true) => "Delete",
+            _ => null,
+        };
+
+        return (verbs, CanComment) switch
+        {
+            (null, false) => happened,
+            (null, true) => $"{happened} Leave a new remark where it belongs now.",
+            (_, false) => $"{happened} {verbs} {target}.",
+            (_, true) => $"{happened} {verbs} {target}, or {LeaveNew}.",
+        };
+    }
+
+    /// <summary>Whether orphaned remarks and proposals are drawn beside a block
+    /// rather than in the group at the end: in the margin layout, and only with a
+    /// block to stand beside. Not inline, where a guess drawn under a paragraph
+    /// reads as being about it with nothing to say otherwise. The margin layout
+    /// keeps that placement below its breakpoint too — a narrow side pane, where
+    /// the column stacks under its block — and what keeps the guess honest there
+    /// is the card itself: its "Passage changed" label, its hint and its dashed
+    /// rule travel with it, so it never reads as a remark on that block.</summary>
+    private bool PlacesOrphansInMargin => Layout is MarkdownCommentLayout.Margin && Blocks.Count > 0;
+
+    /// <summary>The orphans the end group holds: all of them inline, none of
+    /// them in the margin.</summary>
+    private IReadOnlyList<MarkdownComment> GroupedOrphans => PlacesOrphansInMargin ? [] : Orphans;
+
+    /// <summary>The orphaned proposals the end group holds, by the same rule as
+    /// <see cref="GroupedOrphans"/>.</summary>
+    private IReadOnlyList<AiProposal> GroupedOrphanProposals => PlacesOrphansInMargin ? [] : OrphanProposals;
+
+    /// <summary>The block a margin-placed guess stands beside: the index it
+    /// was stored with, clamped into the chapter, or the last block when it
+    /// names none.</summary>
+    private int PlaceOf(int? stored) =>
+        stored is { } index ? Math.Clamp(index, 0, Blocks.Count - 1) : Blocks.Count - 1;
+
+    /// <summary>
+    /// The orphaned proposals drawn in one row's margin cell, in margin mode.
+    /// <para>
+    /// Placed as <see cref="ApproximatesOn"/> places a remark: by the block index
+    /// the proposal carries, clamped. One that carries none — a resolution whose
+    /// remark was deleted, say — has no stored place to guess from and stands
+    /// beside the last block, which is where the end group it used to join was.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<AiProposal> ApproximateProposalsOn(int index)
+    {
+        if (!PlacesOrphansInMargin) return [];
+
+        var orphans = OrphanProposals;
+        if (orphans.Count == 0) return [];
+
+        return AbsorbsNextBlock(index)
+            ? [.. orphans.Where(proposal => PlaceOf(proposal.BlockIndex) is var at && (at == index || at == index + 1))]
+            : [.. orphans.Where(proposal => PlaceOf(proposal.BlockIndex) == index)];
+    }
+
+    /// <summary>How many remarks a block's counter shows: its own, and in the
+    /// margin the orphans placed beside it, since those are drawn there too and a
+    /// count that left them out would disagree with the column.</summary>
+    private int RemarkCountOn(int index) => NotesOn(index).Count + ApproximatesOn(index).Count;
+
+    /// <summary>Whether a row's cell has a stack to draw: a remark or a
+    /// proposal, anchored or placed beside it by guess.</summary>
+    private bool HasNotesBeside(int index) =>
+        RemarkCountOn(index) > 0 || SuggestionsOn(index).Count > 0 || ApproximateProposalsOn(index).Count > 0;
+
+    /// <summary>
+    /// The orphaned remarks drawn in one row's margin cell, in margin mode.
+    /// <para>
+    /// Placed by the index the remark was stored with, clamped into the chapter:
+    /// the store keeps no quote of the passage, only its index and digest, so the
+    /// index it last named is the best guess at where it was. Presentation only
+    /// — the remark's anchor is never rewritten from here; the store has no verb
+    /// that moves one (local ADR 0011). A row that stands in for the block after
+    /// it takes that block's guesses too, as <see cref="NotesOn"/> does.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MarkdownComment> ApproximatesOn(int index)
+    {
+        if (!PlacesOrphansInMargin) return [];
+
+        var orphans = Orphans;
+        if (orphans.Count == 0) return [];
+
+        bool PlacedAt(MarkdownComment comment, int at) => PlaceOf(comment.BlockIndex) == at;
+
+        return AbsorbsNextBlock(index)
+            ? [.. orphans.Where(comment => PlacedAt(comment, index) || PlacedAt(comment, index + 1))]
+            : [.. orphans.Where(comment => PlacedAt(comment, index))];
+    }
 
     /// <summary>
     /// Which block a comment actually belongs to, or -1 when its block is gone.
@@ -562,24 +818,77 @@
             }
         </text>;
 
-    private RenderFragment RenderComments(IReadOnlyList<MarkdownComment> comments) =>
+    /// <summary>Orphaned proposals placed in the margin by guess. Each card sits
+    /// in a group of its own carrying the "Passage changed" label and the
+    /// proposal wording of the end group's hint, said of the one card; ids are
+    /// built from the prefix and the card's place, so several never share one.
+    /// The card itself is <see cref="RenderProposals"/>'s, Accept and Reject
+    /// included.</summary>
+    private RenderFragment RenderApproximateProposals(IReadOnlyList<AiProposal> proposals, string ids) =>
+        @<text>
+            @if (proposals.Count > 0)
+            {
+                <div class="md-proposals--approximate">
+                    @foreach (var (proposal, position) in proposals.Select((proposal, position) => (proposal, position)))
+                    {
+                        var labelId = $"{ids}-{position}-label";
+                        var hintId = $"{ids}-{position}-hint";
+
+                        <div class="md-approximate-proposal"
+                             role="group"
+                             aria-labelledby="@labelId"
+                             aria-describedby="@hintId"
+                             data-testid="@($"markdown-approximate-proposal-{proposal.Id}")">
+                            <p class="md-comment__orphaned-label" id="@labelId">Passage changed</p>
+                            <p class="md-comment__orphaned-hint" id="@hintId">This proposal was made on text that has since been reworded or removed; it is shown near where that text was.</p>
+                            @RenderProposals([proposal])
+                        </div>
+                    }
+                </div>
+            }
+        </text>;
+
+    /// <summary>A remark card's classes. Unresolved and anchored, exactly the
+    /// string it always was.</summary>
+    private static string CommentClass(MarkdownComment comment, bool approximate) =>
+        $"md-comment {(comment.Resolved ? "md-comment--resolved" : string.Empty)}{(approximate ? " md-comment--approximate" : string.Empty)}";
+
+    /// <summary>A list of remark cards. With <paramref name="approximateIds"/>
+    /// the remarks are orphans placed in the margin by guess: each card then
+    /// carries its own "Passage changed" label and hint, described by both
+    /// through ids built from the prefix and the card's place in the list, so
+    /// several orphans never share an id.</summary>
+    private RenderFragment RenderComments(IReadOnlyList<MarkdownComment> comments, string? approximateIds = null) =>
         @<text>
             @if (comments.Count > 0)
             {
-                <ul class="md-comments">
-                    @foreach (var comment in comments)
+                <ul class="@(approximateIds is null ? "md-comments" : "md-comments md-comments--approximate")">
+                    @foreach (var (comment, position) in comments.Select((comment, position) => (comment, position)))
                     {
+                        var labelId = approximateIds is null ? null : $"{approximateIds}-{position}-label";
+                        var hintId = approximateIds is null ? null : $"{approximateIds}-{position}-hint";
+
                         @* Resolved stays visible and quiet. The reason a
                            paragraph reads the way it does is usually in the
                            comment that got it there. *@
-                        <li class="md-comment @(comment.Resolved ? "md-comment--resolved" : string.Empty)"
+                        <li class="@CommentClass(comment, approximateIds is not null)"
+                            aria-describedby="@(approximateIds is null ? null : $"{labelId} {hintId}")"
                             data-testid="@($"markdown-comment-body-{comment.Id}")">
+                            @if (approximateIds is not null)
+                            {
+                                <p class="md-comment__orphaned-label" id="@labelId">Passage changed</p>
+                                <p class="md-comment__orphaned-hint" id="@hintId">@ApproximateHint(comment)</p>
+                            }
                             @if (!string.IsNullOrWhiteSpace(comment.Author) || !string.IsNullOrWhiteSpace(comment.Timestamp))
                             {
                                 <p class="md-comment__who">
                                     @if (!string.IsNullOrWhiteSpace(comment.Author))
                                     {
-                                        <span class="md-comment__author">@comment.Author</span>
+                                        @* A tool's slug reads as a name; the slug
+                                           itself stays on the title, so who exactly
+                                           left it is one hover away. *@
+                                        <span class="md-comment__author"
+                                              title="@(MarkdownCommentAuthor.IsSlug(comment.Author) ? comment.Author : null)">@MarkdownCommentAuthor.Display(comment.Author ?? string.Empty)</span>
                                     }
                                     @if (!string.IsNullOrWhiteSpace(comment.Timestamp))
                                     {
@@ -626,7 +935,11 @@
                             }
                             else
                             {
-                                <p class="md-comment__body">@comment.Body</p>
+                                @* Inline Markdown, through the renderer and the
+                                   inline target the view's own blocks use, so a
+                                   link in a remark on a chapter goes where the
+                                   chapter's identical link goes. See RemarkBody. *@
+                                <p class="md-comment__body">@RemarkBody(comment.Body)</p>
 
                                 @* A resolution proposal renders inside the
                                    comment it answers rather than against the
@@ -737,8 +1050,13 @@
     [Parameter]
     public bool AllowChapterCopy { get; set; }
 
-    /// <summary>Comments against blocks of this view. Anchored by block index,
-    /// and re-anchoring when blocks move is the host's — see MarkdownComment.</summary>
+    /// <summary>Comments against blocks of this view. Anchored by block index; a
+    /// comment that carries a <see cref="MarkdownComment.BlockHash"/> is re-anchored
+    /// here to the block that still matches it. One whose block is gone is never
+    /// dropped and its anchor is never written back: inline it shows in the
+    /// labelled orphan group after the last block; in the margin it sits level
+    /// with the block at its stored index, clamped into range, marked
+    /// approximate — see MarkdownComment.</summary>
     [Parameter]
     public IReadOnlyList<MarkdownComment> Comments { get; set; } = [];
 
@@ -1033,6 +1351,8 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await SyncMarginNotesAsync();
+
         if (!_focusEditor) return;
 
         _focusEditor = false;
@@ -1248,6 +1568,44 @@
             (var host, null) => host,
             (var host, var knowledge) => (target, text, kind) => host(target, text, kind) ?? knowledge(target, text, kind),
         };
+
+    /// <summary>
+    /// A remark's body as inline Markdown: links, code spans, emphasis, strong and
+    /// struck text, through <see cref="MarkdownRender.Inlines(IReadOnlyList{MdInline}, MarkdownRender.MarkdownInlineTarget?)"/>
+    /// and <see cref="InlineTarget"/>, so nothing typed into a remark can emit
+    /// markup and a link resolves exactly as the document's own does.
+    /// <para>
+    /// Inline only: a remark is a sentence or two in a margin, and promoting a
+    /// <c>-</c> to a list there would make it a second document. Each line is
+    /// parsed on its own and the line break kept as text, which the body's
+    /// <c>white-space: pre-line</c> draws as a break — so a plain body reads, and
+    /// its text is, exactly what was typed. An image shows as its alt text: a
+    /// remark never embeds a picture. A <c>#word</c> stays the text it was rather
+    /// than a tag chip — in a margin note it is a word, not a filter. A bare
+    /// <c>https://…</c> becomes a link, opening in a new tab like any other.
+    /// </para>
+    /// </summary>
+    private RenderFragment RemarkBody(string body) => builder =>
+    {
+        var lines = body.ReplaceLineEndings("\n").Split('\n');
+        var target = InlineTarget;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (i > 0) builder.AddContent(0, "\n");
+
+            IReadOnlyList<MdInline> parts =
+            [
+                .. MarkdownPreview.ParseInlines(lines[i]).Select(part => part switch
+                {
+                    MdImage image => new MdText(image.Alt),
+                    MdTag tag => new MdText($"#{tag.Tag}"),
+                    _ => part,
+                })
+            ];
+            builder.AddContent(1, MarkdownRender.Inlines(parts, target));
+        }
+    };
 
     /// <summary>
     /// The one thing a cascaded image source changes outside a knowledge document:

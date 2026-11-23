@@ -9,6 +9,115 @@ type: requirements
 > chapter says what the capability is and why it exists; this file says what it
 > promises.
 
+## Re-read on request
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#re-read-on-request]
+```
+
+### Requirement: A run recorded here shows in an open list without Refresh
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_shows_a_new_run_and_a_stage_change_without_reading_the_sessions_again, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_burst_of_raises_while_a_run_read_is_out_folds_into_one_follow_up_read, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_after_the_pane_is_gone_reads_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.A_run_written_outside_the_window_shows_in_its_sessions_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.A_closed_sessions_window_no_longer_reads_for_a_run_written_outside_it, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Starting_a_new_run_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_session_resuming_the_run_raises_once_for_the_session_it_adds, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Recording_a_prompt_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Setting_the_run_context_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Updating_a_stage_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Finishing_the_run_raises_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_recorded_answer_raises_the_run_change_signal_once_and_a_replay_raises_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.An_answer_recorded_after_its_follow_up_raises_the_run_change_signal_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.Reading_and_opening_the_dashboard_raise_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_refused_write_raises_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunChangeSignalTests.A_resume_that_changes_nothing_raises_nothing]
+```
+
+The system SHALL read the runs again in every open session list after a run recorded
+here is started, resumed by a session it adds, given its prompt or context, moved a
+stage, finished, or answered at its Personal Validation.
+
+#### Scenario: A run starts while the list is open in a separate window
+
+- **Given** the session list open in its own window
+- **When** a session starts a delivery run
+- **Then** the run's row appears in that window without Refresh
+
+#### Scenario: Several stages move during one reading
+
+- **Given** an open session list reading its runs
+- **When** three stage updates arrive before the reading ends
+- **Then** the runs are read once more after it, and never twice at once
+
+#### Scenario: A call that writes nothing
+
+- **Given** an open session list
+- **When** a session lists the runs, resumes a run without adding to it, or names a run that does not exist
+- **Then** the runs are not read again
+
+#### Scenario: Telemetry alone
+
+- **Given** an open session list and a run whose session reports telemetry
+- **When** a tool call's figures are added to the run
+- **Then** the list is not read again, and the figures show at the run's next recorded change
+
+#### Scenario: The list was closed
+
+- **Given** a session list window the reader closed
+- **When** a session moves a stage of a run
+- **Then** nothing is read for that window
+
+### Requirement: A run read again leaves the sessions unread
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_shows_a_new_run_and_a_stage_change_without_reading_the_sessions_again
+```
+
+The system SHALL read only the runs, and not the sessions or the records from other
+machines, when it reads an open list again for a run recorded here.
+
+#### Scenario: A stage moves while the list is open
+
+- **Given** an open session list
+- **When** a session moves a stage of a run recorded here
+- **Then** the runs are read again and the sessions are not
+
+### Requirement: A run read in the background moves nothing the reader holds
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_keeps_the_selected_row_an_unfolded_earlier_run_and_an_open_stage, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_that_brings_a_new_row_to_the_top_leaves_an_unclicked_panel_on_its_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.Raises_during_a_refresh_fold_into_one_run_read_after_it, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.Refresh_pressed_during_a_run_read_becomes_a_full_read_after_it]
+```
+
+The system SHALL keep the shown row, the open run card and stage, the filters, the
+"read at" time and the scroll position when it reads the runs again without the
+reader asking.
+
+#### Scenario: A new run's row lands above the one on screen
+
+- **Given** the detail panel showing a row the reader never pressed, with a stage open
+- **When** a run from another worktree starts and its row is drawn first
+- **Then** the panel, its highlight and the open stage stay on the row that was shown
+
+#### Scenario: No busy state
+
+- **Given** an open session list
+- **When** a run's stage moves
+- **Then** no loading placeholder or busy Refresh button is shown
+
+### Requirement: Refresh hands an unpressed panel back to the first row
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_refresh_after_a_raise_returns_an_unpressed_panel_to_the_first_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_raise_during_a_refresh_leaves_an_unpressed_panel_on_the_refreshs_first_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneRunRefreshTests.A_refresh_after_a_raise_keeps_a_pressed_row]
+```
+
+The system SHALL show the first row drawn in the detail panel after Refresh when the
+reader has pressed no row, even when a background run read held the panel on another.
+
+#### Scenario: Refresh after a run held the panel
+
+- **Given** the detail panel held on an unpressed row while a newer run's row is drawn first
+- **When** the reader presses Refresh
+- **Then** the panel shows the first row drawn
+
+#### Scenario: A pressed row survives Refresh
+
+- **Given** the detail panel on a row the reader pressed, after a run read
+- **When** the reader presses Refresh
+- **Then** the panel stays on the pressed row
+
 ## Name the source that could not be read
 
 ```meta
@@ -182,8 +291,8 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 
 > Local ADR 0038 decides these requirements. Both sides are built. The queue icons
 > create a request on an entry, on a plan's roadmap item, and beside a selected plan
-> filter chip. The filter bar's session queue lists every open request and warns when
-> no dispatcher has been heard. The dispatcher side is the wait route and the claim,
+> filter chip. The filter bar's session queue lists every open request, lets the person
+> order the Requested ones, warns when no dispatcher has been heard, and pauses and resumes the queue. The dispatcher side is the wait route and the claim,
 > mark and list tools a Manager session uses.
 
 ### Requirement: Only a click in the app requests a session
@@ -220,19 +329,26 @@ The system SHALL hand a dispatcher a request's kind, entry id or plan tag, repos
 - **When** a dispatcher waiting on the listener receives the request
 - **Then** the request it receives names the entry id, the repository and the clone folder and holds no text of the entry
 
-### Requirement: A waiting dispatcher gets the oldest request first
+### Requirement: A waiting dispatcher gets the request at the head of the queue
 
 ```meta
 type: requirement
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.The_request_the_person_moved_to_the_top_is_handed_out_before_an_older_one]
 ```
 
-The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` with the oldest Requested request as soon as one exists.
+The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` with the Requested request at the head of the person's queue order as soon as one exists.
 
 #### Scenario: A request arrives while a dispatcher waits
 
 - **Given** a dispatcher waiting on the route and no request Requested
 - **When** the person presses the queue icon on an entry
 - **Then** the waiting call answers with that request
+
+#### Scenario: The person moved a later request to the top
+
+- **Given** two requests are Requested and the person moved the later one to the top of the session queue
+- **When** a dispatcher waits on the route
+- **Then** the call answers with the request the person moved, not the older one
 
 #### Scenario: Nothing arrives
 
@@ -333,22 +449,106 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_every_open_request_oldest_first_with_its_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_clears_a_Started_request_whose_session_never_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_request_whose_session_never_linked_can_be_cancelled, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_Started_request_is_cancelled_and_leaves_the_open_ones]
 ```
 
-The system SHALL list every open entry and plan request, oldest first, in the filter bar's session queue, and mark each unpressed plan chip whose plan has one.
+The system SHALL list every open entry and plan request in the filter bar's session queue, the Claimed and Started ones first and then the Requested ones in queue order, and mark each unpressed plan chip whose plan has one.
 
 #### Scenario: A plan waits while its chip is let go
 
 - **Given** a plan request is Requested and the plan's chip on the Tasks filter bar is not pressed
 - **When** the person looks at the filter bar and opens the session queue
-- **Then** the chip carries the waiting mark and the queue lists the plan's `+tag` among the entry requests, oldest first
+- **Then** the chip carries the waiting mark and the queue lists the plan's `+tag` among the entry requests, in queue order
 
 #### Scenario: The person cancels from the queue
 
 - **Given** an entry request is Requested
 - **When** the person presses Cancel on its row in the session queue
 - **Then** the request is Cancelled and its row leaves the queue
+
+#### Scenario: The person clears a request whose session never linked
+
+- **Given** a request has read Started for days and its session never called `link_session`
+- **When** the person presses Cancel on its row in the session queue
+- **Then** the request is Cancelled and its row leaves the queue
+
+### Requirement: The person orders the waiting requests
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Move_up_reorders_the_queue_announces_the_new_place_and_keeps_the_focus_on_the_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Alt_arrow_keys_move_the_focused_row, integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.The_order_the_person_set_survives_a_new_store, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_interleave_by_queue_position_and_a_plan_moves_above_an_entry]
+```
+
+The system SHALL let the person move a Requested request up, down or to the top of the session queue, and keep that order until the person moves a request again.
+
+#### Scenario: The person moves a request up
+
+- **Given** three requests are Requested and the session queue is open
+- **When** the person presses Move up on the third row, or presses Alt+ArrowUp on it
+- **Then** it lists second, the move is announced as "Moved to position 2 of 3.", and the row keeps focus
+
+#### Scenario: The order survives a restart
+
+- **Given** the person moved a request to the top of the queue
+- **When** the app restarts
+- **Then** the session queue still lists that request first among the Requested ones
+
+#### Scenario: Entry and plan requests share one order
+
+- **Given** an entry request and a later plan request are Requested
+- **When** the person moves the plan request to the top
+- **Then** the queue lists the plan's `+tag` before the entry, and a waiting dispatcher receives the plan request first
+
+### Requirement: Only a waiting request moves
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Requested_rows_carry_move_controls_and_claimed_and_started_rows_list_first_without_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_move_is_drawn_at_once_and_a_refused_one_reverts_with_a_toast]
+```
+
+The system SHALL move only a Requested request, a lapsed claim included, and SHALL refuse the move of any other request and leave the order as it was.
+
+#### Scenario: A started request has no move controls
+
+- **Given** a request is Started and another is Requested
+- **When** the person opens the session queue
+- **Then** the Started row offers no move control and lists above the Requested one
+
+#### Scenario: A dispatcher claims the request while the person moves it
+
+- **Given** the session queue shows a request as Requested
+- **When** a dispatcher claims it and then the person presses Move to top on its row
+- **Then** the move is refused with a toast, the queue shows its previous order again, and the request stays Claimed
+
+### Requirement: A new request joins the end of the queue
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_request_queued_after_a_move_joins_the_end]
+```
+
+The system SHALL place a new request after every request already Requested.
+
+#### Scenario: A request is queued after the person reordered
+
+- **Given** the person moved the newest of two Requested requests to the top
+- **When** the person queues a session on a third entry
+- **Then** the queue lists the moved request first, the other second and the new request last
+
+### Requirement: A dispatcher lists the requests in queue order
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_requested_list_follows_the_order_the_person_set]
+```
+
+The system SHALL answer `list_session_requests` with the Requested requests in the person's queue order.
+
+#### Scenario: A restarted dispatcher lists the queue
+
+- **Given** the person moved a later request above an older one, both Requested
+- **When** a dispatcher calls `list_session_requests` with `state: requested`
+- **Then** the moved request is listed first
 
 ### Requirement: A dispatcher's wait is recorded as contact
 
@@ -398,6 +598,39 @@ The system SHALL warn in the session queue while a request is Requested and no d
 - **When** the person opens the session queue
 - **Then** the queue shows no warning
 
+### Requirement: A paused queue starts no new session
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_running_queue_offers_Pause_and_pausing_it_says_so_on_the_panel_and_the_trigger, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Resuming_a_paused_queue_takes_the_callout_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.A_paused_queue_with_a_silent_dispatcher_shows_both_the_pause_and_the_warning, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_hands_out_no_request_and_answers_no_content_when_the_hold_ends, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_paused_queue_still_hands_out_a_due_delivery, integration:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_held_call_hands_out_the_waiting_request_once_the_queue_is_resumed, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.A_claim_on_a_paused_queue_is_refused_naming_the_pause_and_leaves_the_request_Requested, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_holder_reclaiming_on_a_paused_queue_still_holds_its_claim, integration:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.The_list_says_whether_the_queue_is_paused]
+```
+
+The system SHALL hand out no request on the wait route and refuse every claim while the person has paused the session queue, and SHALL keep handing out answer deliveries, accepting a held claim's report and release, and taking new requests and cancels.
+
+#### Scenario: The person pauses the queue
+
+- **Given** the session queue runs and a request is Requested
+- **When** the person presses Pause queue in the session queue
+- **Then** the control reads Resume queue, a "Queue paused" callout says nothing new will start, the trigger reads "Session queue, paused, 1 waiting", `list_session_requests` says the queue is paused, and the request stays Requested
+
+#### Scenario: A dispatcher claims while the queue is paused
+
+- **Given** the queue is paused and a request is Requested
+- **When** a dispatcher calls `claim_session_request` on it
+- **Then** the claim is refused with "The session queue is paused." and the request stays Requested
+
+#### Scenario: A dispatcher waits while the queue is paused
+
+- **Given** the queue is paused, a request is Requested and an answer delivery is due
+- **When** a dispatcher calls `GET /session-requests/wait`
+- **Then** it receives the delivery, and once no delivery is due its next call is held and answered `204` with no request
+
+#### Scenario: The person resumes the queue
+
+- **Given** the queue is paused and a dispatcher's wait is held while a request is Requested
+- **When** the person presses Resume queue
+- **Then** the callout goes and the held call hands out the Requested request at the head of the queue
+
 ### Requirement: The flag off offers no session requests
 
 ```meta
@@ -420,7 +653,8 @@ type: requirements
 related: [.devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/sessions/domain.md#question-relay, .devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
 ```
 
-> Local ADR 0041 decides these requirements. None of them is built yet.
+> Local ADR 0041 decides these requirements, and local ADR 0051 §6 the question on a Waiting
+> row. They are built.
 
 ### Requirement: A question asked while the person is away is notified at once
 
@@ -544,6 +778,28 @@ The system SHALL count a session with an open question as waiting, not working, 
 - **When** a Manager checks its capacity
 - **Then** none of the three counts as working, and it may start the next session request
 
+### Requirement: A Waiting row shows the question its session asks
+
+```meta
+type: requirement
+related: [.devbook/domain/sessions/features.md#a-waiting-row-shows-its-question]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.A_dialog_of_several_questions_shows_the_first_and_how_many_more, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.Answer_opens_the_questions_notification_in_the_notification_centre, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.A_question_still_in_the_session_shows_without_an_Answer, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneAsksTests.Only_a_row_that_reads_Waiting_shows_a_strip]
+```
+
+The system SHALL show on a Waiting session's row the question it asked, as Asks, with an Answer link to its notification once the question is published.
+
+#### Scenario: A session waits on a published question
+
+- **Given** a session that reads Waiting on a dialog of two questions, published as a notification
+- **When** the person opens the Sessions list
+- **Then** its row shows the first open question as Asks with "+1 more", and Answer opens that notification in the centre
+
+#### Scenario: The question is not published yet
+
+- **Given** a session that reads Waiting on a question kept in the session
+- **When** the person opens the Sessions list
+- **Then** its row shows the question as Asks with no Answer link
+
 ### Requirement: The relay sits behind the notifications flag
 
 ```meta
@@ -557,3 +813,282 @@ The system SHALL register no question and publish nothing for a session while th
 - **Given** the `notifications` flag is off
 - **When** a session's hook calls `ask` with its session id
 - **Then** `ask` answers that notifications are not available, and the session asks in place
+
+## Schedules and their runs
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/domain.md#schedule-register]
+```
+
+> Local ADR 0051 decides these requirements. They are built, and the harness validation of
+> 2026-11-11 exercised each state on the Schedules page and each alert in the notification centre.
+
+### Requirement: A schedule is known only from its runs' reports
+
+```meta
+type: requirement
+```
+
+The system SHALL learn of a schedule and its runs only from the start and finish reports its runs send over MCP, and SHALL read no file Claude Desktop keeps for its schedules or runs.
+
+#### Scenario: A schedule's first run
+
+- **Given** a schedule Backlog has no report of
+- **When** its first run reports its start with the schedule's id, title, repository and cron
+- **Then** the schedule appears on the Schedules page with that run reading No summary yet
+
+#### Scenario: A schedule that never ran
+
+- **Given** a schedule in Claude Desktop that has not fired yet
+- **When** the person opens the Schedules page
+- **Then** the schedule is not listed
+
+### Requirement: A run reads the state its reports and its session give it
+
+```meta
+type: requirement
+```
+
+The system SHALL read a run as Needs you, Held, Failed, Review ready or No summary yet from its reports while its session is not archived, and as Handled once its session is archived or, for a Failed run, once a later run of its schedule finishes Review ready.
+
+#### Scenario: A run that needs the person
+
+- **Given** a weekly update run that reported two Needs-you lines
+- **When** the person opens the Schedules page
+- **Then** the schedule reads Needs you and its card shows the two lines
+
+#### Scenario: A held schedule
+
+- **Given** an issue sweep whose Friday run is not archived
+- **When** Monday's run reports that it skipped itself for that reason
+- **Then** the schedule reads Held, and Monday's run is a Skipped line under it
+
+#### Scenario: A run that ends on an error
+
+- **Given** a weekly update run whose turn ends on an API error
+- **When** the person opens the Schedules page
+- **Then** the schedule reads Failed and its latest run shows the error line
+
+#### Scenario: The person archives the run
+
+- **Given** a schedule that reads Needs you
+- **When** the person archives the run's session in Claude Desktop
+- **Then** the run reads Handled at the next reading of the session records
+
+#### Scenario: A later run recovers the schedule
+
+- **Given** a weekly update whose Tuesday run failed
+- **When** its Wednesday run finishes Review ready
+- **Then** the Tuesday run reads Handled, and the schedule reads Review ready
+
+#### Scenario: A recovered run still holds the next one
+
+- **Given** an issue sweep whose failed Friday run a later run recovered, with the Friday session not archived
+- **When** Monday's run skips itself for the Friday run
+- **Then** the schedule reads Held
+
+### Requirement: A schedule that does not start in time reads Missed
+
+```meta
+type: requirement
+```
+
+The system SHALL read a schedule as Missed when 30 minutes have passed since its cron's due time and no run reported its start.
+
+#### Scenario: The machine was asleep
+
+- **Given** a schedule due at 05:30 whose runs have reported before
+- **When** it is 06:01 and no run has reported its start since 05:30
+- **Then** the schedule reads Missed
+
+### Requirement: A schedule that needs the person raises one alert per cause
+
+```meta
+type: requirement
+```
+
+The system SHALL raise one Alert, with its Windows notification, when a schedule turns Needs you, Held, Failed or Missed, and SHALL close it when its cause clears.
+
+#### Scenario: A held sweep skips again
+
+- **Given** an issue sweep that reads Held and has raised its alert
+- **When** its next run skips itself too
+- **Then** no second alert is raised
+
+#### Scenario: The cause clears
+
+- **Given** an Open alert that a weekly update needs the person
+- **When** the person archives that run's session
+- **Then** the alert closes
+
+#### Scenario: The schedule recovers
+
+- **Given** an Open Failed alert for a weekly update's Tuesday run
+- **When** its run that began on Wednesday 11 November at 05:40 finishes Review ready
+- **Then** the alert closes with the reason "Handled: the Wed 11 Nov 05:40 run finished Review ready"
+
+#### Scenario: Archived and recovered
+
+- **Given** a failed run whose session the person archived, and a later run that finished Review ready
+- **When** Backlog reads the schedule
+- **Then** the run's Failed alert closes with the reason "Run archived"
+
+#### Scenario: Another schedule's run
+
+- **Given** an Open Failed alert for one schedule
+- **When** another schedule's run finishes Review ready
+- **Then** the alert stays open
+
+#### Scenario: Another alert kind
+
+- **Given** an Open Needs you alert for a schedule's run
+- **When** a later run of that schedule finishes Review ready
+- **Then** the Needs you alert stays open
+
+#### Scenario: The next run fails too
+
+- **Given** an Open Failed alert for a schedule's run
+- **When** its next run fails as well
+- **Then** the first alert stays open, and the second run raises its own
+
+#### Scenario: Ready for review
+
+- **Given** a run that reported work ready for review
+- **When** the schedule reads Review ready
+- **Then** the row shows it and no alert is raised
+
+## Loop sessions
+
+```meta
+type: requirements
+related: [.devbook/domain/sessions/features.md#loop-sessions, .devbook/domain/sessions/domain.md#loop-register]
+```
+
+> Local ADR 0051 decides these requirements. They are built, and the harness validation of
+> 2026-11-11 exercised Listening, Holding and Stalled rows, Pause, Resume and Stop, and the loop
+> alerts.
+
+### Requirement: A loop session's state is read from its check-ins
+
+```meta
+type: requirement
+```
+
+The system SHALL read a loop session as Listening when it checks in and nothing holds it, Holding when it checks in while work waits and a capacity limit is reached, as Backlog's reading at the check-in finds it or, where that reading cannot decide, as the loop says it, until that check-in's own heartbeat has passed, Stalled when its process is alive with no check-in past its heartbeat plus 10 minutes, and Not running when it has no process or its session is archived.
+
+#### Scenario: A Manager waits for requests
+
+- **Given** a Manager whose wait call reached Backlog 40 seconds ago
+- **When** the person opens the Sessions list
+- **Then** its row in the Agents section reads Listening
+
+#### Scenario: Usage is over the limit
+
+- **Given** a Manager with a usage limit of 80% and three requests waiting
+- **When** plan usage reads 84% at its check-in
+- **Then** it reads Holding and names the usage limit
+
+#### Scenario: A reading that cannot decide
+
+- **Given** a Manager whose CPU reads unavailable and whose other figures have room
+- **When** it checks in saying it holds
+- **Then** it reads Holding
+
+#### Scenario: A reading with room
+
+- **Given** a Manager whose four figures all read within its limits
+- **When** it checks in saying it holds, with requests waiting
+- **Then** it reads Listening
+
+#### Scenario: A Manager that only waits after a hold
+
+- **Given** a Manager with a 5-minute heartbeat that checked in Holding at noon
+- **When** its wait call reaches Backlog at 12:06 and it sends no `check_in`
+- **Then** it reads Listening
+
+#### Scenario: A hung loop
+
+- **Given** a Manager with a 30-minute heartbeat whose session still has a process
+- **When** 41 minutes pass with no check-in
+- **Then** it reads Stalled
+
+### Requirement: The check-in answer carries the person's wish and the work waiting
+
+```meta
+type: requirement
+```
+
+The system SHALL answer every `check_in` with the `pause`, `resume` or `stop` the person last set on the loop, and a dispatcher's with the work waiting for it and the room Backlog measured against the limits that check-in sent.
+
+#### Scenario: The person pauses the Manager
+
+- **Given** a Listening Manager
+- **When** the person pauses it and it next checks in
+- **Then** the answer carries `pause`, and the Manager starts no request until an answer carries `resume`
+
+#### Scenario: Own limits
+
+- **Given** a Manager that checks in with a usage limit of 50%
+- **When** plan usage reads 60%
+- **Then** the answer says there is no room and names the usage limit
+
+#### Scenario: The person pauses the queue
+
+- **Given** a Manager at its usage limit, and two session requests in a paused queue
+- **When** it checks in
+- **Then** the answer carries no session request waiting, and the Manager reads Listening
+
+### Requirement: The app measures capacity for a loop
+
+```meta
+type: requirement
+```
+
+The system SHALL measure the dispatched sessions working, plan usage from its own weekly usage estimate, CPU and free memory, and SHALL count no Waiting session as working.
+
+#### Scenario: Sessions waiting on questions
+
+- **Given** a Manager with a limit of three sessions, and three dispatched sessions all Waiting
+- **When** it checks in with a request waiting
+- **Then** the answer says there is room
+
+### Requirement: A loop that stops raises one alert
+
+```meta
+type: requirement
+```
+
+The system SHALL raise one Alert, with its Windows notification, when a loop turns Stalled, or Not running while work waits for it, and SHALL close it when the loop checks in again.
+
+#### Scenario: The Manager stops with requests waiting
+
+- **Given** a Manager with three session requests waiting
+- **When** its session is archived
+- **Then** one alert says the dispatcher stopped and how many requests wait
+
+#### Scenario: The Brain tender stops with nothing waiting
+
+- **Given** a Brain tender with no work waiting
+- **When** its process ends
+- **Then** it reads Not running and no alert is raised
+
+### Requirement: Schedules and loop sessions leave with the Sessions area
+
+```meta
+type: requirement
+```
+
+The system SHALL offer no Schedules page, Agents section, run report tool or `check_in` tool, and raise no schedule or loop alert, while the `sessions` flag is off.
+
+#### Scenario: The flag is off
+
+- **Given** the `sessions` flag is off
+- **When** a scheduled run's hook reports its start
+- **Then** the report tool is not on the MCP endpoint, and nothing is recorded
+
+#### Scenario: The flag is turned on again
+
+- **Given** a schedule that reads Needs you, whose alert closed when the `sessions` flag was turned off
+- **When** the person turns the flag on again
+- **Then** one alert that the schedule needs the person is raised again

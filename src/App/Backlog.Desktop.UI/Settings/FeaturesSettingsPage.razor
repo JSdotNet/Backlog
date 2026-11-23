@@ -9,7 +9,7 @@
     gives.
 
     The page is the design canvas's Features board: a headline sentence that
-    counts what is on, three figure tiles, a filter over the rows, and one card
+    counts what is on, two figure tiles, a filter over the rows, and one card
     per section of the catalog. Every count is read from the store on each
     render, so a switch moves the headline, the tiles and its card's count in the
     same render that moves the switch.
@@ -32,10 +32,6 @@
                     Value="@UnfinishedOnCount.ToString(System.Globalization.CultureInfo.CurrentCulture)"
                     Footnote="in development or beta"
                     TestId="feature-tile-unfinished" />
-        <MetricTile Label="Always available"
-                    Value="@AlwaysAvailableNames"
-                    CssClass="feature-board__names"
-                    TestId="feature-tile-always" />
     </div>
 
     @* A view of the rows, not a setting: nothing persists the choice, so the
@@ -77,11 +73,9 @@
                                button with role="switch", named by the feature's title
                                through aria-labelledby, so Space and Enter flip it like
                                any button. The row's stylesheet draws the switch on the
-                               trailing edge at 44 × 26. A locked feature's switch is
-                               disabled and stays on. *@
+                               trailing edge at 44 × 26. *@
                             <Toggle @key="feature.Key"
                                     BaseClass="feature-flag"
-                                    CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
                                     TextCssClass="feature-flag__content"
                                     LabelCssClass="feature-flag__title"
                                     DescriptionCssClass="feature-flag__description"
@@ -89,7 +83,6 @@
                                     Description="@feature.Description"
                                     Checked="@IsOn(feature)"
                                     CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
-                                    Disabled="@feature.AlwaysEnabled"
                                     data-feature="@feature.Key"
                                     role="listitem">
                                 @* The maturity flag qualifies the name of the thing, so it
@@ -101,16 +94,11 @@
 
                                    Unconditional on the switch, unlike everywhere else this
                                    badge appears — this row *is* the switch, so it describes
-                                   the feature whether or not it is currently on. "Always
-                                   available" sits on the same line for the same reason. *@
+                                   the feature whether or not it is currently on. *@
                                 <LabelSuffix>
                                     <FeatureStatusBadge Status="@AppFeatureStatusBadge.Slug(feature.Status)"
                                                         Title="@AppFeatureStatusBadge.Title(feature.Status)"
                                                         TestId="@($"feature-status-{feature.Key}")" />
-                                    @if (feature.AlwaysEnabled)
-                                    {
-                                        <span class="feature-flag__status">Always available</span>
-                                    }
                                 </LabelSuffix>
                             </Toggle>
 
@@ -158,9 +146,6 @@
 
     private int UnfinishedOnCount => AppFeatures.All.Count(feature => IsUnfinished(feature) && IsOn(feature));
 
-    private static string AlwaysAvailableNames =>
-        string.Join(", ", AppFeatures.All.Where(feature => feature.AlwaysEnabled).Select(feature => feature.Name));
-
     private static string FilterLabel(FeatureFilter filter) => filter.ToString();
 
     private bool IsOn(AppFeatureDefinition feature) => Features.IsEnabled(feature.Key);
@@ -182,9 +167,7 @@
     private void SetFeatureEnabled(AppFeatureDefinition feature, bool enabled)
     {
         var error = Features.SetEnabled(feature.Key, enabled);
-        _featureMessage = error ?? (feature.AlwaysEnabled
-            ? $"{feature.Name} is always available."
-            : $"{feature.Name} is now {(enabled ? "enabled" : "disabled")}.");
+        _featureMessage = error ?? $"{feature.Name} is now {(enabled ? "enabled" : "disabled")}.";
         Screen.NotifyFeaturesChanged();
     }
 }

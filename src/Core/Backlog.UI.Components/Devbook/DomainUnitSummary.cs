@@ -140,14 +140,84 @@ public static partial class DomainUnits
     /// <summary>The unit's <c>related</c> entries as repository-relative
     /// references, read against <paramref name="filePath"/>.</summary>
     public static IReadOnlyList<string> RelatedOf(DomainUnit unit, string filePath) =>
-        [.. unit.Chapter.Related.Select(related => RepositoryRelative(related, filePath)).Where(reference => reference.Length > 0)];
+        RelatedOf(unit.Chapter.Related, filePath);
 
-    /// <summary>Whether a reference names a flow file — <c>flow.md</c> or a split
-    /// <c>flow.&lt;name&gt;.md</c>.</summary>
-    public static bool IsFlowReference(string reference) => FileNameStarts(reference, "flow");
+    /// <summary><c>related</c> entries as written in <paramref name="filePath"/>,
+    /// as repository-relative references — for a reader that holds the entries
+    /// without the unit, as Model's domain-service chapters do.</summary>
+    public static IReadOnlyList<string> RelatedOf(IEnumerable<string> related, string filePath) =>
+        [.. related.Select(entry => RepositoryRelative(entry, filePath)).Where(reference => reference.Length > 0)];
 
     /// <summary>Whether a reference names a requirements file.</summary>
     public static bool IsRequirementsReference(string reference) => FileNameStarts(reference, "requirements");
+
+    /// <summary>A unit's first sentence as markdown, its links and code spans
+    /// kept and its lines run together, or the empty string: what
+    /// <see cref="FirstSentence"/> reads, before <see cref="Plain"/> flattens it.</summary>
+    public static string FirstSentenceMarkdown(string? markdown)
+    {
+        var paragraph = FirstParagraph(markdown);
+        return paragraph.Length == 0 ? string.Empty : Whitespace().Replace(SentenceOf(paragraph), " ").Trim();
+    }
+
+    /// <summary>Whether a <c>related</c> entry written in
+    /// <paramref name="fromDocument"/> names the file at <paramref name="path"/>,
+    /// with or without an anchor, whichever root either side spells.</summary>
+    public static bool NamesFile(string related, string fromDocument, string path)
+    {
+        ArgumentNullException.ThrowIfNull(related);
+        ArgumentNullException.ThrowIfNull(fromDocument);
+        ArgumentNullException.ThrowIfNull(path);
+        return related.Trim().Length > 0
+            && string.Equals(PathOf(Resolve(related, fromDocument)), Normalize(path), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Model file a domain file is built in, of <paramref name="modelPaths"/>.
+    /// By name first: for a split <c>domain.&lt;name&gt;.md</c> the
+    /// <c>model.&lt;name&gt;.md</c>, for <c>domain.md</c> the <c>model.md</c>. When
+    /// no name matches, the file's <c>related</c> decides — its title's entries,
+    /// then each chapter's at every level, depth first in file order — by the
+    /// first that names one of the Model files, as <c>BoekingsService</c> names
+    /// <c>model.domain-services.md</c>. Only then <c>model.md</c>, else the first.
+    /// <see langword="null"/> when there is no Model file.
+    /// </summary>
+    /// <param name="domainPath">The domain file, as the host spells it.</param>
+    /// <param name="modelPaths">The context's Model files.</param>
+    /// <param name="parsed">The domain file as read, whose <c>related</c> entries
+    /// decide when no name matches. Unset, they are not consulted.</param>
+    public static string? ModelFileFor(string domainPath, IReadOnlyList<string> modelPaths, DomainChapterFile? parsed = null)
+    {
+        ArgumentNullException.ThrowIfNull(domainPath);
+        ArgumentNullException.ThrowIfNull(modelPaths);
+
+        var name = FileNameOf(domainPath);
+        var counterpart = string.Equals(name, "domain.md", StringComparison.OrdinalIgnoreCase)
+            ? "model.md"
+            : name.StartsWith("domain.", StringComparison.OrdinalIgnoreCase) ? "model." + name["domain.".Length..] : null;
+        if (counterpart is not null
+            && modelPaths.FirstOrDefault(model => string.Equals(FileNameOf(model), counterpart, StringComparison.OrdinalIgnoreCase)) is { } named)
+        {
+            return named;
+        }
+
+        if (parsed is not null)
+        {
+            foreach (var entry in parsed.Related.Concat(parsed.AllChapters().SelectMany(chapter => chapter.Related)))
+            {
+                if (modelPaths.FirstOrDefault(model => NamesFile(entry, domainPath, model)) is { } linked) return linked;
+            }
+        }
+
+        return modelPaths.FirstOrDefault(model => string.Equals(FileNameOf(model), "model.md", StringComparison.OrdinalIgnoreCase))
+            ?? modelPaths.FirstOrDefault();
+    }
+
+    private static string FileNameOf(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized[(normalized.LastIndexOf('/') + 1)..];
+    }
 
     private static bool FileNameStarts(string reference, string kind)
     {

@@ -27,11 +27,17 @@ public enum ContentKind
     Voice,
     ClaudeArtifact,
 
-    /// <summary>A note the person keeps and edits — the one kind that syncs both
-    /// ways with the phone (<c>.devbook/domain/inbox/domain.md#note</c>). Never
-    /// inferred from the text: an item is a note because it was created as one.
-    /// Declared last so no stored ordinal moves, though none is stored.</summary>
-    Note
+    /// <summary>A note the person keeps and edits, which syncs both ways with the
+    /// phone (<c>.devbook/domain/inbox/domain.md#note</c>). Never inferred from the
+    /// text: an item is a note because it was created as one. Declared after the
+    /// rest so no stored ordinal moves, though none is stored.</summary>
+    Note,
+
+    /// <summary>A note the phone started with a meeting recording running
+    /// (<c>.devbook/domain/inbox/domain.md#meeting</c>). It syncs, edits and is
+    /// triaged as a <see cref="Note"/> does, and is a meeting only because it was
+    /// created as one. Appended, for the reason <see cref="Note"/> was.</summary>
+    Meeting
 }
 
 /// <summary>Where a triaged item was sent. <see cref="Devbook"/> is declared
@@ -41,5 +47,10 @@ public enum RoutingDomain
 {
     Tasks,
     Devbook,
-    Archive
+    Archive,
+
+    /// <summary>To Event: the item became a Spotted knowledge event in Events
+    /// (<c>.devbook/domain/inbox/features.md#route-to-event</c>). Declared last so no
+    /// stored ordinal moves, though none is stored.</summary>
+    Events
 }

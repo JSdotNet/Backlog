@@ -12,13 +12,13 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class FoundryDevbookEmbedderTests : IDisposable
 {
-    private readonly string _folder = Path.Combine(Path.GetTempPath(), "backlog-foundry-embedder", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-embedder");
     private readonly AzureFoundrySettingsStore _settings;
     private readonly RecordingClient _client = new();
 
     public FoundryDevbookEmbedderTests()
     {
-        _settings = new AzureFoundrySettingsStore(Path.Combine(_folder, "azure-foundry.json"));
+        _settings = new AzureFoundrySettingsStore(_temp.Combine("azure-foundry.json"));
     }
 
     private FoundryDevbookEmbedder Embedder() => new(() => _client, _settings);
@@ -106,17 +106,7 @@ public sealed class FoundryDevbookEmbedderTests : IDisposable
         Assert.NotNull(await embedder.EmbedAsync(["chapter"], TestContext.Current.CancellationToken));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_folder)) Directory.Delete(_folder, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is harmless.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private sealed class RecordingClient : IAzureFoundryEmbeddingsClient
     {

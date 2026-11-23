@@ -1,4 +1,5 @@
 ﻿@page "/menus"
+@inject IJSRuntime Js
 
 <PageTitle>Menus — Backlog UI Storybook</PageTitle>
 
@@ -112,6 +113,29 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
                      AriaLabel="Entry actions"
                      TestId="context-menu"
                      OnItemSelected="OnContextItemSelected" />
+    </Story>
+
+    <Story Name="ContextMenu under a button at the end"
+           Description="A menu opened from a button at the end of a row, as the phone Inbox's + is: placed under the button by its bounding box (backlogAnchorBelow) rather than at the pointer, so a key's click opens it in the same place, and AlignEnd lines its end edge up with the button's, so it opens inward and stays on a narrow screen."
+           Code="@AnchoredCode">
+        <div class="sb-row" style="justify-content: flex-end">
+            <IconButton AriaLabel="New" Title="New" id="story-menu-anchor" aria-haspopup="menu"
+                        aria-expanded="@(_anchoredOpen ? "true" : "false")" OnClick="OpenAnchoredAsync"
+                        TestId="story-menu-anchor">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4"
+                     stroke-linecap="round" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+            </IconButton>
+        </div>
+        <ContextMenu Open="_anchoredOpen"
+                     OpenChanged="v => _anchoredOpen = v"
+                     X="_anchoredX"
+                     Y="_anchoredY"
+                     AlignEnd="true"
+                     Items="AnchoredItems"
+                     AriaLabel="New"
+                     TestId="story-anchored-menu" />
     </Story>
 
     <Story Name="NavList"
@@ -262,6 +286,46 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
 
         _selectedId = node.Id;
         _lastAction = $"Tree: {node.Label}";
+    }
+
+    private bool _anchoredOpen;
+    private double _anchoredX;
+    private double _anchoredY;
+
+    private static readonly IReadOnlyList<MenuItem> AnchoredItems = [new("note", "Note"), new("meeting", "Meeting")];
+
+    private const string AnchoredCode = """
+        <IconButton AriaLabel="New" id="plus" aria-haspopup="menu" OnClick="OpenAsync">…</IconButton>
+        <ContextMenu Open="_open" OpenChanged="v => _open = v" X="_x" Y="_y" AlignEnd="true" Items="Items" />
+
+        @code {
+            private async Task OpenAsync(MouseEventArgs e)
+            {
+                (_x, _y) = (e.ClientX, e.ClientY);
+                if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", "plus", true) is [var x, var y]) (_x, _y) = (x, y);
+                _open = true;
+            }
+        }
+        """;
+
+    /// <summary>Under the button's end edge; the pointer stands in only where the page
+    /// cannot say where the button is.</summary>
+    private async Task OpenAnchoredAsync(MouseEventArgs e)
+    {
+        (_anchoredX, _anchoredY) = (e.ClientX, e.ClientY);
+
+        try
+        {
+            if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", "story-menu-anchor", true) is [var x, var y])
+            {
+                (_anchoredX, _anchoredY) = (x, y);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+
+        _anchoredOpen = true;
     }
 
     private void OpenContextMenu(MouseEventArgs e)

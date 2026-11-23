@@ -70,7 +70,7 @@ public sealed class PhoneProgressSyncTests
     {
         var tasks = new InMemoryTaskStore();
         var edits = new RecordingImpedimentEdits();
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var activity = new SyncActivityLog();
         var change = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit(), "Bank sample files missing");
 
@@ -94,7 +94,7 @@ public sealed class PhoneProgressSyncTests
     [InlineData(ImpedimentEditOutcome.Refused)]
     public async Task An_edit_progress_did_not_apply_is_retired_all_the_same(ImpedimentEditOutcome answer)
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
 
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), impedimentEdits: new RecordingImpedimentEdits { Answer = answer }, retirements: retirements)
             .ApplyAsync([TaskChanges.Record(ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit()), Phone, 100)], Cancellation);
@@ -106,7 +106,7 @@ public sealed class PhoneProgressSyncTests
     [Fact]
     public async Task An_edit_for_an_impediment_this_desktop_lacks_a_retired_edit_or_one_without_progress_stays_on_the_replica()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var unknown = new RecordingImpedimentEdits { Answer = ImpedimentEditOutcome.Unknown };
         var change = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit());
         var tasks = new InMemoryTaskStore();
@@ -126,21 +126,21 @@ public sealed class PhoneProgressSyncTests
     [Fact]
     public async Task An_edit_met_before_its_impediment_is_offered_again_once_the_pull_is_done()
     {
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var edits = new RecordingImpedimentEdits { Answer = ImpedimentEditOutcome.Unknown };
         var merge = new TaskReplicaMerge(new InMemoryTaskStore(), impedimentEdits: edits, retirements: retirements);
         var change = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit());
 
         await merge.ApplyAsync([TaskChanges.Record(change, Phone, 100)], Cancellation);
-        Assert.Equal(0, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
         Assert.Empty(retirements.Waiting());
 
         edits.Answer = ImpedimentEditOutcome.Applied;
-        Assert.Equal(1, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(1, await merge.RetryDeferredRequestsAsync(Cancellation));
 
         Assert.Equal(3, edits.Offered.Count);
         Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
-        Assert.Equal(0, await merge.RetryDeferredEditsAsync(Cancellation));
+        Assert.Equal(0, await merge.RetryDeferredRequestsAsync(Cancellation));
     }
 
     /// <summary>
@@ -155,7 +155,7 @@ public sealed class PhoneProgressSyncTests
     {
         var impediments = new RecordingImpedimentReplication();
         var edits = new OrderedImpedimentEdits(impediments) { Answer = ImpedimentEditOutcome.Stale };
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var edit = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit(ImpedimentEditKind.State));
         var changedSince = ImpedimentReplicaDocuments.ToChange(
             new ImpedimentReplicaCopyDto(ImpedimentId, "Bank sample files missing", """{"version":1,"title":"Bank sample files missing","history":[]}""", Morning.AddHours(2)));
@@ -176,7 +176,7 @@ public sealed class PhoneProgressSyncTests
     public async Task Two_edits_of_one_field_from_a_restarted_phone_are_offered_in_the_order_asked()
     {
         var edits = new RecordingImpedimentEdits();
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var first = Edit(ImpedimentEditKind.State) with { WasState = ImpedimentState.New };
         var second = first with { State = ImpedimentState.Escalated, WasState = ImpedimentState.Reported, AskedAt = Morning.AddMinutes(1) };
         var firstChange = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), first);
@@ -212,7 +212,7 @@ public sealed class PhoneProgressSyncTests
                 ProgressDocuments.WriteContext(new StandUpContextDto(Morning, [], 18m, null, IterationLength.Week, null)),
                 Morning)
         };
-        var retirements = new ImpedimentEditRetirements();
+        var retirements = new PhoneRequestRetirements();
         var tombstone = ImpedimentEditReplicaDocuments.Retire(ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit()), Morning.AddMinutes(1));
         retirements.Add(tombstone);
         var bodies = new List<string>();
@@ -258,7 +258,7 @@ public sealed class PhoneProgressSyncTests
     private static (TaskSyncSession Session, InMemoryTaskSyncStateStore State) Session(
         List<string> bodies,
         IStandUpContextSource context,
-        ImpedimentEditRetirements retirements)
+        PhoneRequestRetirements retirements)
     {
         var state = new InMemoryTaskSyncStateStore();
         var tasks = new InMemoryTaskStore();

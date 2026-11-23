@@ -5,6 +5,8 @@ using System.Text.Json;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.KnowledgeEvents;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
@@ -155,6 +157,64 @@ public sealed class AppFooterSyncTests
         footer.WaitForAssertion(() => Assert.True(context.Service.Paths.Count > before));
     }
 
+    /// <summary>The same press asks the knowledge event loop for a cycle, so an event edited
+    /// here reaches the phone now rather than on that loop's tick.</summary>
+    [Fact]
+    public async Task Sync_now_also_runs_the_knowledge_event_loop()
+    {
+        using var context = Context(withSync: true);
+        using var temp = new TemporaryDirectory("backlog-footer-sync");
+        var root = temp.Path;
+        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
+        _ = features.SetEnabled(SyncFeatures.Sync, true);
+        _ = features.SetEnabled(EventsFeatures.Events, true);
+        var sessions = new CountingSessionProvider();
+        using var knowledgeEvents = new KnowledgeEventSyncWorker(
+            sessions,
+            features,
+            new InMemoryDeviceCredentialStore(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential")),
+            new FileKnowledgeEventSyncStateStore(Path.Combine(root, "knowledge-event-sync-state.json")),
+            new FakeTimeProvider());
+        context.Bunit.Services.AddSingleton(knowledgeEvents);
+        var footer = context.Render();
+
+        // The window is reachable only once there is a phrase, so the first task cycle is
+        // asked for directly — and waited out: a busy button ignores the press.
+        context.Worker!.RequestSync();
+        footer.WaitForAssertion(() => Assert.NotNull(context.Worker.LastSummary));
+        OpenWindow(footer);
+        footer.WaitForAssertion(() => Assert.Null(footer.Find("[data-testid='sync-activity-sync-now']").GetAttribute("aria-busy")));
+        Assert.Equal(0, sessions.Resolved);
+
+        footer.Find("[data-testid='sync-activity-sync-now']").Click();
+
+        // Awaited on the loop rather than through WaitForAssertion: the footer does not render
+        // when this loop finishes, and bUnit re-checks only on a render.
+        await sessions.FirstResolve.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(1, sessions.Resolved);
+    }
+
+    /// <summary>A host that composed the loop and no exchange: the loop asks for its session,
+    /// which is all this footer test needs to see.</summary>
+    private sealed class CountingSessionProvider : IServiceProvider
+    {
+        private readonly TaskCompletionSource _first = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _resolved;
+
+        public int Resolved => Volatile.Read(ref _resolved);
+
+        public Task FirstResolve => _first.Task;
+
+        public object? GetService(Type serviceType)
+        {
+            if (serviceType != typeof(KnowledgeEventSyncSession)) return null;
+
+            Interlocked.Increment(ref _resolved);
+            _first.TrySetResult();
+            return null;
+        }
+    }
+
     /// <summary>
     /// Clicks the phrase and waits for the window. Waits, because the render the
     /// click asks for can land a beat after the click returns: the cycle that
@@ -190,8 +250,8 @@ public sealed class AppFooterSyncTests
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         // The one task this machine has to send, shared with the wire so the
@@ -304,6 +364,7 @@ public sealed class AppFooterSyncTests
     /// <summary>One task, stamped now, so a push has exactly one thing to send —
     /// and so the echo of it on the pulled page is held rather than applied,
     /// because the merge finds the same document, same stamp, already here.</summary>
+    // Differs from InMemoryTaskRepository: holds one task the test stamped, so a pull's echo of it is held.
     private sealed class OneTaskRepository(TaskItem mine) : ITaskRepository
     {
         private readonly Dictionary<Guid, TaskItem> _tasks = new() { [mine.Id] = mine };
@@ -336,31 +397,6 @@ public sealed class AppFooterSyncTests
                 return Task.FromResult<IReadOnlyList<TaskItem>>(
                     [.. _tasks.Values.Where(task => task.UpdatedAt > since).OrderBy(task => task.UpdatedAt)]);
             }
-        }
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
         }
     }
 }

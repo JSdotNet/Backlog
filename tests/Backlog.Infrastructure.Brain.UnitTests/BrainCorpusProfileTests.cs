@@ -9,9 +9,7 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 /// </summary>
 public class BrainCorpusProfileTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-brain-profile", Guid.NewGuid().ToString("N"));
-
-    public BrainCorpusProfileTests() => Directory.CreateDirectory(_root);
+    private readonly TemporaryDirectory _temp = new("backlog-brain-profile");
 
     [Fact]
     public void A_file_node_gets_its_folder_as_its_para()
@@ -72,6 +70,35 @@ public class BrainCorpusProfileTests : IDisposable
     }
 
     [Fact]
+    public void A_files_review_is_kept_as_written_after_the_other_fields()
+    {
+        var dated = new FakeNode { ["review"] = "2026-11-20", Lists = { ["tasks"] = ["t-1"] } };
+        var unreadable = new FakeNode { ["review"] = "next week" };
+
+        BrainCorpusProfile.Instance.ApplyNodeFields(dated, "areas");
+        BrainCorpusProfile.Instance.ApplyNodeFields(unreadable, "areas");
+
+        Assert.Equal(["para", "tasks", "review"], dated.Added.Keys);
+        Assert.Equal(["2026-11-20"], dated.Added["review"]);
+
+        // Kept, not refused: the reader reports it as a warning.
+        Assert.Equal(["next week"], unreadable.Added["review"]);
+    }
+
+    [Fact]
+    public void A_headings_review_or_an_empty_one_is_not_kept()
+    {
+        var heading = new FakeNode { IsFile = false, ["review"] = "2026-11-20" };
+        var empty = new FakeNode { ["review"] = "" };
+
+        BrainCorpusProfile.Instance.ApplyNodeFields(heading, folder: null);
+        BrainCorpusProfile.Instance.ApplyNodeFields(empty, "areas");
+
+        Assert.False(heading.Added.ContainsKey("review"));
+        Assert.False(empty.Added.ContainsKey("review"));
+    }
+
+    [Fact]
     public void The_folders_are_the_declared_ones_first_then_the_discovered_ones()
     {
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n| Area | Folder |\n|---|---|\n| Work | work |\n| Design | design |\n");
@@ -79,7 +106,7 @@ public class BrainCorpusProfileTests : IDisposable
         Write("design/palette.md", "# Palette\n");
         Write("archive/old.md", "# Old\n");
 
-        Assert.Equal(["work", "design", "archive"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work", "design", "archive"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
@@ -90,7 +117,7 @@ public class BrainCorpusProfileTests : IDisposable
         Write("_templates/note.md", "# Template\n");
         Write(".obsidian/workspace.md", "# Workspace\n");
 
-        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
@@ -99,13 +126,13 @@ public class BrainCorpusProfileTests : IDisposable
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n- `work`\n- `journal`\n");
         Write("work/standup.md", "# Standup\n");
 
-        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_root));
+        Assert.Equal(["work"], BrainCorpusProfile.Instance.Folders(_temp.Path));
     }
 
     [Fact]
     public void Its_extra_input_is_the_conventions_file_and_its_tag_is_brain()
     {
-        Assert.Equal(["CONVENTIONS.md"], BrainCorpusProfile.Instance.ExtraInputs(_root));
+        Assert.Equal(["CONVENTIONS.md"], BrainCorpusProfile.Instance.ExtraInputs(_temp.Path));
         Assert.Equal("brain", BrainCorpusProfile.Instance.FingerprintTag);
         Assert.True(BrainCorpusProfile.Instance.ReadsCloudPlaceholders);
         Assert.True(BrainCorpusProfile.Instance.ReadsCrossCorpusLinks);
@@ -114,21 +141,13 @@ public class BrainCorpusProfileTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A scratch folder left behind costs disk, not correctness.
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 
     private void Write(string relativePath, string text)
     {
-        var path = Path.Combine(_root, relativePath);
+        var path = _temp.Combine(relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
     }
@@ -138,6 +157,8 @@ public class BrainCorpusProfileTests : IDisposable
     private sealed class FakeNode : IDevbookNodeFields
     {
         private readonly Dictionary<string, string> _scalars = new(StringComparer.Ordinal);
+
+        public bool IsFile { get; init; } = true;
 
         public Dictionary<string, IReadOnlyList<string>> Lists { get; } = new(StringComparer.Ordinal);
 

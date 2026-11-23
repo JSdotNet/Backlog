@@ -4,7 +4,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class InstructionSourceDiscoveryTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-instructions-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-instructions-tests");
+
+    private string _root => _temp.Path;
 
     [Fact]
     public void Finds_copilot_claude_and_agents_instruction_sources()
@@ -189,6 +191,7 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
 
     /// <summary>The folder port answering the instructions area from the clone of an
     /// archived repository, the way <c>DevbookFolderSource</c> marks it.</summary>
+    // Differs from StubFolderSource: answers the instructions area from an archived clone.
     private sealed class ArchivedCloneSource(string root) : IDevbookFolderSource
     {
         public event Action? Changed
@@ -210,13 +213,7 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
                 DevbookSourceKind.LocalFolder, RepositoryArchived: true);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private void Write(string relativePath, string content)
     {

@@ -133,13 +133,3 @@ public sealed class AzureFoundryEmbeddingsClient(HttpClient httpClient, AzureFou
         [property: JsonPropertyName("index")] int Index,
         [property: JsonPropertyName("embedding")] float[]? Embedding);
 }
-
-/// <summary>What a host registers where the embedding deployment is not
-/// available, matching <see cref="UnavailableAzureFoundryChatClient"/>: a caller
-/// gets the same exception type it would get from a misconfiguration rather than
-/// a missing service.</summary>
-public sealed class UnavailableAzureFoundryEmbeddingsClient : IAzureFoundryEmbeddingsClient
-{
-    public Task<AzureFoundryEmbeddingResponse> EmbedAsync(AzureFoundryEmbeddingRequest request, CancellationToken cancellationToken = default) =>
-        throw new AzureFoundryException("Azure Foundry embedding support is not registered in this build.");
-}

@@ -7,10 +7,16 @@
            Guidelines="@Rules">
 
     <Story Name="Glossary"
-           Description="Terms and model chapters together, A–Z. Each row is led by its type marker and names its kind in words; its aliases are code chips; its summary is its first sentence. `Basket` is `status: deprecated`, so it is struck through and a screen reader hears “deprecated”. A row the invariants are about counts its rules — Order, Order Line, Money — and the count opens them in place under the row."
+           Description="Terms and model chapters together, A–Z. Each row is led by its type marker and names its kind in words; its aliases are code chips; its summary is its first sentence, its links kept — Customer's `order` follows to the Order chapter. `Basket` is `status: deprecated`, so it is struck through and a screen reader hears “deprecated”. A row the invariants are about counts its rules — Order, Order Line, Money — and the count opens them in place under the row.
+
+A model chapter's sentence ends on “Open the model”, to the Model file its own domain file pairs with — `domain.md` with `model.md`, a split `domain.<name>.md` with its `model.<name>.md`, else the one its `related` names: an aggregate, an entity, a value object or an enum opens Model on Fields, a domain event opens Events on its contract, and a domain service opens the diagram. A term has no model to open."
            Code="@GlossaryCode"
            Source="@Domain">
-        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" DebounceMilliseconds="0" RulesAbout="@Catalog.About" />
+        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" ModelPaths="@ModelPaths" DebounceMilliseconds="0" RulesAbout="@Catalog.About" OnNavigate="@(reference => _followed = reference.Raw)" />
+        @if (_followed is { } followed)
+        {
+            <p>Followed <code>@followed</code>.</p>
+        }
     </Story>
 
     <Story Name="Filtered"
@@ -36,6 +42,10 @@
     ];
 
     private const string DomainPath = ".devbook/domain/ordering/domain.md";
+
+    private static readonly IReadOnlyList<string> ModelPaths = [".devbook/domain/ordering/model.md"];
+
+    private string? _followed;
 
     private const string Domain = """
         # Ordering
@@ -101,7 +111,7 @@
         aliases: [Buyer Line, Client]
         ```
 
-        Whoever places the order.
+        Whoever places the [order](#order).
 
         ### Basket
 
@@ -196,6 +206,7 @@
         <DomainGlossary Chapter="@glossary.Chapter"
                         Files="@contextDomainFiles"
                         DocumentPath="@path"
+                        ModelPaths="@contextModelFiles"
                         RulesAbout="@DomainRuleCatalog.Of(contextDomainFiles, invariantFiles).About"
                         OnOpenRule="OpenAlwaysTrueAsync"
                         OnNavigate="OpenAsync" />

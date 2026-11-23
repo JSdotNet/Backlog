@@ -1,38 +1,20 @@
 // What wait-requests.mjs decides, kept free of Node imports so the plugin's tests, which run in
-// a sandbox that loads relative files only, can drive it.
+// a sandbox that loads relative files only, can drive it. Where the route is and the Manager
+// grant's token come from ../../../hooks/backlog-grant.mjs.
 
-export const DEFAULT_PORT = 5757;
 export const ROUTE = "/session-requests/wait";
 
-// Where the app keeps settings.json: .NET's LocalApplicationData, then the Backlog folder —
-// the same place hooks/telemetry-forwarder.mjs reads.
-export function settingsPath(env, platform, home) {
-    const sep = platform === "win32" ? "\\" : "/";
-    const join = (...parts) => parts.map((part, i) => (i === 0 ? part.replace(/[\\/]+$/, "") : part)).join(sep);
-    const localData =
-        platform === "win32"
-            ? env.LOCALAPPDATA || join(home, "AppData", "Local")
-            : platform === "darwin"
-              ? join(home, "Library", "Application Support")
-              : env.XDG_DATA_HOME || join(home, ".local", "share");
-    return join(localData, "Backlog", "settings.json");
+// The route with the Manager's own session id as `sessionId`, so the app counts each wait as that
+// loop's check-in (local ADR 0051 §3); without one, the bare route, which checks nothing in.
+export function waitRoute(sessionId) {
+    const session = String(sessionId ?? "").trim();
+    return session ? `${ROUTE}?sessionId=${encodeURIComponent(session)}` : ROUTE;
 }
 
-// BACKLOG_MCP_PORT / BACKLOG_MCP_TOKEN first, then the app's settings.json text (null when it
-// could not be read), then the app's default port.
-export function endpointFrom(env, settingsText) {
-    let port = Number(env.BACKLOG_MCP_PORT) || null;
-    let token = env.BACKLOG_MCP_TOKEN || null;
-    if ((!port || !token) && settingsText) {
-        try {
-            const mcp = JSON.parse(settingsText).mcpServer || {};
-            port ||= Number(mcp.port) || null;
-            token ||= mcp.token || null;
-        } catch {
-            // A half-written settings.json reads as none.
-        }
-    }
-    return { url: `http://127.0.0.1:${port || DEFAULT_PORT}${ROUTE}`, token };
+// What a call that could not get the Manager grant's token means: said once, like a refusal,
+// and asked for again after retryMs. `reason` is the sentence backlog-grant.mjs gave.
+export function noToken(reason, { retryMs }) {
+    return { line: `no-token ${reason}`, state: "no-token", waitMs: retryMs };
 }
 
 // The dispatcher name a restarted Manager on this machine claims with again.

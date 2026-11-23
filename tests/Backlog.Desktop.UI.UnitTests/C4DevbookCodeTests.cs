@@ -109,14 +109,15 @@ public sealed class C4DevbookCodeTests : IDisposable
         }
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The fixture repository: the devbook, and the source its building block
     /// names.</summary>
     private string CreateRepository(bool withBuildingBlock = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-code-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-code");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".devbook", "arc42");
         Write(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
@@ -139,12 +140,11 @@ public sealed class C4DevbookCodeTests : IDisposable
 
     private (AppFeatureSettingsStore Features, GitHubSettingsStore GitHub, DevbookFolderSource Folders, WorkspaceSettingsStore Workspace, string Alias) Sources(string clone)
     {
-        var scratch = Path.Combine(Path.GetTempPath(), "backlog-c4-code-settings-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(scratch);
+        var scratchTemp = new TemporaryDirectory("backlog-c4-code-settings");
+        _temps.Add(scratchTemp);
+        var scratch = scratchTemp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(scratch, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -159,7 +159,7 @@ public sealed class C4DevbookCodeTests : IDisposable
     private async Task<C4Catalog> LoadAsync(string clone)
     {
         var (features, _, folders, _, alias) = Sources(clone);
-        using var store = new C4DevbookStore(features, folders);
+        using var store = new C4DevbookStore(folders);
         return await store.LoadAsync(alias);
     }
 
@@ -293,7 +293,7 @@ public sealed class C4DevbookCodeTests : IDisposable
     {
         var (features, _, folders, _, repositoryAlias) = Sources(clone);
         alias = repositoryAlias;
-        var store = new C4DevbookStore(features, folders);
+        var store = new C4DevbookStore(folders);
         _stores.Add(store);
         return store;
     }
@@ -479,16 +479,6 @@ public sealed class C4DevbookCodeTests : IDisposable
     {
         foreach (var store in _stores) store.Dispose();
 
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

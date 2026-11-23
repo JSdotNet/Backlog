@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Cosmos.Devices;
 
 /// <summary>
 /// One registered device as it sits in the <c>devices</c> container: the domain
-/// record's five fields, plus the two Cosmos maintains.
+/// record's fields, plus the two Cosmos maintains.
 /// <para>
 /// <see cref="Id"/> is the partition key, and that is the one place this
 /// container departs from the two replicas beside it. They partition on the
@@ -51,8 +51,8 @@ internal sealed class DeviceDocument
 
     /// <summary>SHA-256 of the registration credential, hex. The credential
     /// itself is on the device and nowhere else; a copy of this document is
-    /// not a copy of the secret.</summary>
-    public string CredentialHash { get; set; } = string.Empty;
+    /// not a copy of the secret. Null once the device is bound to a key.</summary>
+    public string? CredentialHash { get; set; }
 
     /// <summary>When the device first came in — first registration or pairing,
     /// the record does not distinguish.</summary>
@@ -63,14 +63,20 @@ internal sealed class DeviceDocument
     /// written before the field existed.</summary>
     public string? PairedBy { get; set; }
 
+    /// <summary>The device's P-256 public key, base64url SubjectPublicKeyInfo
+    /// (local ADR 0058 §2); null, or absent on an older document, for a device
+    /// still on a credential.</summary>
+    public string? PublicKey { get; set; }
+
     /// <summary>Cosmos's own write stamp, in unix seconds. Read-only and set by
     /// the store; mapped so it round-trips rather than being dropped.</summary>
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }
 
-    /// <summary>Cosmos's version tag. Not used for concurrency — a device is
-    /// written once, on registration, and never replaced. Mapped so it
-    /// round-trips rather than being rewritten as null.</summary>
+    /// <summary>Cosmos's version tag. A device is written on registration and
+    /// replaced once at most, when it binds a key in place of its credential;
+    /// that replace is conditional on this tag, so of two bindings racing on one
+    /// device only the first lands.</summary>
     [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
 }

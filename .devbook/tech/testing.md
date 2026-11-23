@@ -13,7 +13,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requir
 ```meta
 rating: adopted
 type: framework
-version: "4.0.1"
+version: "4.0.2"
 depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/testing.md#microsofttestingplatform"]
 ```
@@ -59,7 +59,7 @@ The test host that replaces VSTest for this solution.
 ```meta
 rating: adopted
 type: package
-version: "18.9.0"
+version: "18.11.0"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
 ```
 
@@ -74,7 +74,7 @@ The MSBuild targets that make a project a test project.
 ```meta
 rating: adopted
 type: package
-version: "4.0.0"
+version: "4.0.1"
 depends-on: [".devbook/tech/testing.md#xunit-v3"]
 ```
 
@@ -89,7 +89,7 @@ The test adapter that surfaces xUnit tests to IDE test explorers.
 ```meta
 rating: adopted
 type: package
-version: "2.4.1"
+version: "2.5.2"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
 related: [".devbook/tech/tooling.md#github-actions"]
 ```
@@ -105,7 +105,7 @@ The TRX report writer.
 ```meta
 rating: adopted
 type: package
-version: "18.11.2"
+version: "18.12.0"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
 related: [".devbook/tech/tooling.md#github-actions"]
 ```
@@ -124,7 +124,7 @@ The code-coverage collector, referenced from `tests/Directory.Build.props`.
 ```meta
 rating: adopted
 type: framework
-version: "2.11.3"
+version: "2.14.0"
 depends-on: [".devbook/tech/shared.md#razor-components", ".devbook/tech/testing.md#xunit-v3"]
 related: [".devbook/design/component-libraries.md"]
 ```
@@ -142,7 +142,7 @@ The Razor component test framework.
 ```meta
 rating: adopted
 type: package
-version: "10.0.11"
+version: "10.0.14"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xunit-v3"]
 ```
 
@@ -159,7 +159,7 @@ In-memory hosting of an ASP.NET Core app under test.
 ```meta
 rating: adopted
 type: package
-version: "10.10.0"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 

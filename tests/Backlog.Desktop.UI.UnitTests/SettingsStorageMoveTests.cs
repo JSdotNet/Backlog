@@ -321,7 +321,8 @@ public sealed class SettingsStorageMoveTests
     /// that finds nothing, for the reason SettingsStorageCopyTests gives.</summary>
     private static SettingsRenderContext RenderSettings(IBrainFolderPicker? picker = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-move-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-storage-move-tests");
+        var root = temp.Path;
 
         var storeAppData = Path.Combine(root, "store");
         var store = new WorkspaceSettingsStore(
@@ -346,14 +347,14 @@ public sealed class SettingsStorageMoveTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         if (picker is not null) context.Services.AddSingleton(picker);
 
-        return new SettingsRenderContext(root, store, context, context.Render<Settings>());
+        return new SettingsRenderContext(temp, store, context, context.Render<Settings>());
     }
 
     private sealed class FixedPicker : IBrainFolderPicker
@@ -364,50 +365,14 @@ public sealed class SettingsStorageMoveTests
             Task.FromResult(Folder);
     }
 
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         WorkspaceSettingsStore Store,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
@@ -416,13 +381,7 @@ public sealed class SettingsStorageMoveTests
             // databases, and a pooled handle is a folder Windows will not delete.
             SqliteConnection.ClearAllPools();
 
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

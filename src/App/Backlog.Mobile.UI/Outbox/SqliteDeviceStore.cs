@@ -126,7 +126,8 @@ public sealed class SqliteDeviceStore : IDeviceStore
         await using var connection = Open();
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "UPDATE outbox SET attempts = $attempts, last_error = $lastError, refused = $refused WHERE id = $id";
+        command.CommandText = "UPDATE outbox SET payload = $payload, attempts = $attempts, last_error = $lastError, refused = $refused WHERE id = $id";
+        command.Parameters.AddWithValue("$payload", entry.PayloadJson);
         command.Parameters.AddWithValue("$refused", entry.Refused ? 1 : 0);
         command.Parameters.AddWithValue("$id", entry.Id.ToString());
         command.Parameters.AddWithValue("$attempts", entry.Attempts);

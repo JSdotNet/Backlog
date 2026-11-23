@@ -113,6 +113,20 @@ Its link is an absolute `http` or `https` address.
 
 Enforced at: constructor
 
+### Invariant: Only an alert carries actions, each a backlog window link
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.A_question_with_actions_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.More_than_three_actions_are_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.A_link_that_is_no_backlog_window_link_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.A_link_past_2048_characters_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.A_blank_or_multi_line_label_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationActionTests.A_label_past_forty_characters_is_refused]
+```
+
+A question carries no [action](domain.md#alert-action), and an alert at most
+three (`notification.action_invalid`). Each label is one line of plain text of at
+most 40 characters (`notification.content_too_long`). Each link is a
+`backlog://window/…` link that names a surface, of at most 2,048 characters.
+
+Enforced at: `Publish()` on the Notification
+
 ## Reply
 
 ```meta

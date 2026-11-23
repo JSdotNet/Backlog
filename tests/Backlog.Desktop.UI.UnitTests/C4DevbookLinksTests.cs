@@ -88,7 +88,7 @@ public sealed class C4DevbookLinksTests : IDisposable
         A section about one element.
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task An_element_lists_the_records_that_name_it_by_kind()
@@ -320,8 +320,9 @@ public sealed class C4DevbookLinksTests : IDisposable
 
     private (C4DevbookStore Store, string Alias, string Devbook) CreateStore(Dictionary<string, string> files, bool writeWorkspace = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-links-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-links");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var devbook = Path.Combine(root, ".devbook");
         Directory.CreateDirectory(Path.Combine(devbook, "arc42"));
@@ -350,11 +351,11 @@ public sealed class C4DevbookLinksTests : IDisposable
 
     private (C4DevbookStore Store, string Alias) CreateStoreOver(string clone)
     {
-        var scratch = Path.Combine(Path.GetTempPath(), "backlog-c4-links-settings-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(scratch);
+        var scratchTemp = new TemporaryDirectory("backlog-c4-links-settings");
+        _temps.Add(scratchTemp);
+        var scratch = scratchTemp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(scratch, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -363,7 +364,7 @@ public sealed class C4DevbookLinksTests : IDisposable
         Assert.Null(gitHub.SetRepositories([repository]));
 
         var folders = new DevbookFolderSource(gitHub, new WorkspaceSettingsStore(Path.Combine(scratch, "store")));
-        return (new C4DevbookStore(features, folders), repository.Alias);
+        return (new C4DevbookStore(folders), repository.Alias);
     }
 
     private static string RepositoryRoot()
@@ -378,16 +379,6 @@ public sealed class C4DevbookLinksTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

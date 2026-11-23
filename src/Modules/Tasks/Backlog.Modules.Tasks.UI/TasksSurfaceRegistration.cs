@@ -5,9 +5,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// Puts the Tasks module's three views in the shell as view-group
-/// <see cref="ShellSurface"/>s (local ADR 0043 §1): Tasks, Board and Calendar, the
-/// one task list read three ways. On the precedent of <c>AddDevbookSurface</c>.
+/// Puts the Tasks module's two views in the shell as view-group
+/// <see cref="ShellSurface"/>s (local ADR 0043 §1): Tasks and Board, the one task list
+/// read two ways. On the precedent of <c>AddDevbookSurface</c>. The Calendar is its own
+/// module's surface and draws its own grid (local ADR 0056); it reads the tasks through
+/// its own port, which an adapter answers over Tasks' published <c>ITaskItems</c>, so
+/// Tasks registers nothing for it.
 /// </summary>
 /// <remarks>
 /// Always offered: Tasks is always on. Safe to call twice — a second call adds
@@ -17,11 +20,10 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </remarks>
 public static class TasksSurfaceRegistration
 {
-    /// <summary>The views' places in the header, lowest first: Tasks, then Board, then
-    /// Calendar; the Roadmap registers after them and Goals last.</summary>
+    /// <summary>The views' places in the header, lowest first: Tasks, then Board; the
+    /// Calendar registers after them, then the Roadmap, and Goals last.</summary>
     public const int TasksOrder = 10;
     public const int BoardOrder = 20;
-    public const int CalendarOrder = 30;
 
     public static IServiceCollection AddTasksSurfaces(this IServiceCollection services)
     {
@@ -47,12 +49,6 @@ public static class TasksSurfaceRegistration
             BoardOrder,
             typeof(BoardSurface),
             QueryKeys: TasksSurfaceQuery.BoardKeys));
-        services.AddSingleton(new ShellSurface(
-            TasksSurfaceQuery.CalendarId,
-            "Calendar",
-            ShellSurfaceGroup.View,
-            CalendarOrder,
-            typeof(CalendarSurface)));
 
         services.TryAddScoped<TasksViewWiring>();
 

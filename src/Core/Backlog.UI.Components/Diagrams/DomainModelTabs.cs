@@ -1,5 +1,6 @@
 using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.UI.Components.Diagrams;
 
@@ -31,7 +32,7 @@ public static class DomainModelTabs
         var asked = (anchor ?? string.Empty).Trim().TrimStart('#').ToLowerInvariant();
         if (asked.Length == 0) return new(Diagram, null);
 
-        if (events.FirstOrDefault(e => DomainUnits.Slug(e.Title) == asked) is { } picked) return new(Events, DomainUnits.Slug(picked.Title));
+        if (events.FirstOrDefault(e => HeadingAnchor.Of(e.Title) == asked) is { } picked) return new(Events, HeadingAnchor.Of(picked.Title));
         if (asked == Events) return new(Events, null);
         if (asked == Fields && HasFieldsChapter(markdown)) return new(Fields, null);
         return new(Diagram, null);

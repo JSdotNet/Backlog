@@ -19,14 +19,14 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class InboxUndoRouteTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-undo", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-undo");
+
+    private string _root => _temp.Path;
 
     private readonly ServiceProvider _provider;
 
     public InboxUndoRouteTests()
     {
-        Directory.CreateDirectory(_root);
-
         _provider = new ServiceCollection()
             .AddSingleton<ITaskRepository>(new RootedSqliteTaskRepository(() => _root))
             .AddSingleton<IRepositoryDirectory, NoRepositories>()
@@ -79,6 +79,23 @@ public sealed class InboxUndoRouteTests : IDisposable
         Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
     }
 
+    /// <summary>Done now's undo: the entry it made was born Done and ticked, so
+    /// Done is no reason to refuse — archived still is.</summary>
+    [Fact]
+    public async Task Done_nows_undo_deletes_the_done_entry_it_made_but_not_an_archived_one()
+    {
+        var done = await TaskAsync("# Reply to Sam\n`task` `!done` `completed:2026-11-11`\n");
+        var archived = await TaskAsync("# Reply to Ann\n`task` `!archived` `completed:2026-11-11`\n");
+
+        var refused = await Target.DeleteRoutedTasksAsync([archived.Id], madeDone: true, TestContext.Current.CancellationToken);
+        var deleted = await Target.DeleteRoutedTasksAsync([done.Id], madeDone: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, refused.Error.Code);
+        Assert.True(deleted.IsSuccess);
+        var left = await Tasks.ListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal([archived.Id], left.Select(task => task.Id));
+    }
+
     private async Task<TaskItemDto> TaskAsync(string text)
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);
@@ -89,15 +106,7 @@ public sealed class InboxUndoRouteTests : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // SQLite's pool can hold the file a moment past the last call; the
-            // folder is under the temp directory and harmless if it stays.
-        }
+        _temp.Dispose();
     }
 
     private sealed class NoRepositories : IRepositoryDirectory

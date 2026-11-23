@@ -19,7 +19,8 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     private static readonly DateTimeOffset Now = new(2026, 10, 22, 9, 41, 0, TimeSpan.Zero);
     private static readonly NotificationSubject Session = new("sessions", "session", "sess-91");
 
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "notification-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("notification-tests");
+    private string _dir => _temp.Path;
     private readonly SqliteNotificationRepository _repository;
 
     public SqliteNotificationRepositoryTests() => _repository = new SqliteNotificationRepository(_dir);
@@ -94,6 +95,33 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         await _repository.SaveAsync(alert, Cancellation);
 
         Assert.Equal(origin, (await _repository.GetAsync(alert.Id, Cancellation))!.Origin);
+    }
+
+    [Fact]
+    public async Task An_alerts_stored_actions_read_back_in_order()
+    {
+        NotificationAction[] actions =
+        [
+            new("Open run", "backlog://window/sessions?session=run-1"),
+            new("Open Schedules", "backlog://window/sessions?page=schedules")
+        ];
+        var alert = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(new NotificationSource("sessions", "held:schedule:sweep:run-1"), null, NotificationKind.Alert, NotificationSeverity.Warning, "Issue sweep is held", "", "", Actions: actions),
+            Now).Value;
+
+        await _repository.SaveAsync(alert, Cancellation);
+
+        Assert.Equal(actions, (await _repository.GetAsync(alert.Id, Cancellation))!.Actions);
+        Assert.Empty((await _repository.GetAsync((await SavedQuestionIdAsync()), Cancellation))!.Actions);
+    }
+
+    private async Task<Guid> SavedQuestionIdAsync()
+    {
+        var question = Question();
+        await _repository.SaveAsync(question, Cancellation);
+        return question.Id;
     }
 
     [Fact]
@@ -210,6 +238,36 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
 
         Assert.All(read!.AnswerSpec!.Choices, choice => Assert.False(choice.TakesText));
         Assert.All(read.AnswerSpec.Choices, choice => Assert.Null(choice.Placeholder));
+        Assert.All(read.AnswerSpec.Choices, choice => Assert.False(choice.Quiet));
+    }
+
+    [Fact]
+    public async Task A_quiet_choice_reads_back_quiet()
+    {
+        var question = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(
+                new NotificationSource("sessions", "run-58"),
+                Session,
+                NotificationKind.Question,
+                NotificationSeverity.Info,
+                "Approve the validation of run-58?",
+                "Personal Validation",
+                "Check the toast.",
+                new AnswerSpec(
+                [
+                    new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+                    new AnswerChoice("dismiss", "Dismiss", Quiet: true)
+                ])),
+            Now).Value;
+
+        await _repository.SaveAsync(question, Cancellation);
+        var read = await _repository.GetAsync(question.Id, Cancellation);
+
+        Assert.Equal(
+            [("approve", false), ("dismiss", true)],
+            read!.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.Quiet)));
     }
 
     [Fact]
@@ -256,12 +314,13 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     [Fact]
     public async Task The_rooted_store_follows_the_storage_folder()
     {
+        using var moved = new TemporaryDirectory("notification-tests");
         var root = _dir;
         var rooted = new RootedSqliteNotificationRepository(() => root);
         var question = Question();
         await rooted.SaveAsync(question, Cancellation);
 
-        root = _dir + "-moved";
+        root = moved.Path;
         try
         {
             Assert.Null(await rooted.GetAsync(question.Id, Cancellation));
@@ -269,7 +328,6 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         finally
         {
             SqliteConnection.ClearAllPools();
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -277,7 +335,6 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_dir)) return;
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

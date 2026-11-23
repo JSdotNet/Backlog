@@ -7,7 +7,9 @@
     landscape table's reading order, Core first and Supporting after, each card its
     "Why" cell; then the published languages as a table under the chapter's own
     headings, naming each contract short (an event as code, a term in words, never
-    its path); then each strategic rule
+    its path), the Owner opening that context's Model › Events where the contract
+    names an event its model documents (EventsOf), else the context's page; then
+    each strategic rule
     as a card titled by its first sentence. A chapter List cannot read that way is
     shown as context-map.md writes it. A card on either tab hands its context to
     OnOpen, which opens the context on its neighbours; with a host that opens
@@ -22,11 +24,11 @@
             <p class="context-map-page__intro" data-testid="context-map-page-intro">
                 @if (_tab == "list")
                 {
-                    @($"{Contexts(Map.Contexts.Count)} and {Relationships(Map.Lines.Count)}. Each card says why the context exists and how many relationships touch it.{(OnOpen.HasDelegate ? " Pick one to open it on its neighbours." : string.Empty)}")
+                    @($"{Parts(Map.Contexts.Count)} and {Relationships(Map.Lines.Count)}. Each card says why the part exists and how many relationships touch it.{(OnOpen.HasDelegate ? " Pick one to open it on its neighbours." : string.Empty)}")
                 }
                 else
                 {
-                    @($"{Contexts(Map.Contexts.Count)} and how they rely on each other. Point at a line to read it{(OnOpen.HasDelegate ? "; pick a context to zoom in" : string.Empty)}.")
+                    @($"{Parts(Map.Contexts.Count)} and how they rely on each other. Point at a line to read it{(OnOpen.HasDelegate ? "; pick a part to zoom in" : string.Empty)}.")
                 }
             </p>
         }
@@ -105,7 +107,32 @@
                                     @foreach (var contract in Map.Contracts)
                                     {
                                         <tr data-testid="context-map-contract-row">
-                                            <td>@contract.Owner</td>
+                                            <td>
+                                                @{
+                                                    var owner = OwnerOf(contract);
+                                                }
+                                                @if (owner is not null && EventsOfOwner(owner, contract) is { } events)
+                                                {
+                                                    <DevbookReferenceLink Reference="@events"
+                                                                          Text="@contract.Owner"
+                                                                          OnNavigate="OnNavigate"
+                                                                          TestId="context-map-contract-owner"
+                                                                          data-opens="events"
+                                                                          aria-label="@($"{contract.Owner}: {EventName(contract, events)} on Model")" />
+                                                }
+                                                else if (owner is not null && OnOpen.HasDelegate && owner.Slug is not null)
+                                                {
+                                                    <AppButton Variant="ButtonVariant.None"
+                                                               BaseClass="devbook-ref--action context-map-contracts__owner"
+                                                               TestId="context-map-contract-owner"
+                                                               OnClick="@(() => OpenAsync(owner))"
+                                                               data-opens="context">@contract.Owner</AppButton>
+                                                }
+                                                else
+                                                {
+                                                    <span data-testid="context-map-contract-owner">@contract.Owner</span>
+                                                }
+                                            </td>
                                             <td class="context-map-contracts__names">
                                                 @for (var i = 0; i < contract.Names.Count; i++)
                                                 {
@@ -232,6 +259,17 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
+    /// <summary>
+    /// The owner's Model page on its Events tab, for a contract that names an
+    /// event the owner's model documents — its Model file at that event's slug
+    /// (<see cref="DomainModelTabs.For"/>) — or <see langword="null"/> when it
+    /// names none. The Owner cell links there through <see cref="OnNavigate"/>;
+    /// otherwise it opens the owner's context page through <see cref="OnOpen"/>,
+    /// and for an owner the map does not know it is its words alone.
+    /// </summary>
+    [Parameter]
+    public Func<ContextMapContext, ContextMapContract, DevbookReference?>? EventsOf { get; set; }
+
     [Parameter]
     public string? TestId { get; set; } = "context-map-page";
 
@@ -265,10 +303,40 @@
     private DevbookReference? Follow(ContextMapContractName name) =>
         OnNavigate.HasDelegate ? DevbookReference.ParseDevbookPath(name.Reference) : null;
 
+    /// <summary>The context a published language's Owner cell names, by its name
+    /// or its id, or <see langword="null"/> for an owner the map does not know.</summary>
+    private ContextMapContext? OwnerOf(ContextMapContract contract)
+    {
+        var owner = contract.Owner.Trim();
+        return Map.Contexts.FirstOrDefault(c => string.Equals(c.Name, owner, StringComparison.OrdinalIgnoreCase))
+            ?? Map.Contexts.FirstOrDefault(c => string.Equals(c.Id, owner, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Where the owner of a contract that names one of its events is
+    /// followed to: that event on its Model's Events tab, as <see cref="EventsOf"/>
+    /// answers. <see langword="null"/> when the contract names no event the
+    /// owner's model documents.</summary>
+    private DevbookReference? EventsOfOwner(ContextMapContext owner, ContextMapContract contract) =>
+        EventsOf is not null && OnNavigate.HasDelegate && owner.Slug is not null ? EventsOf(owner, contract) : null;
+
+    /// <summary>The contract's name for the event <paramref name="events"/> opens
+    /// on, as the row shows it — <c>TaskCompleted</c> — matched by the anchor its
+    /// path names or by its words' slug; the anchor itself when none matches.</summary>
+    private static string EventName(ContextMapContract contract, DevbookReference events)
+    {
+        var slug = events.Slug ?? string.Empty;
+        return contract.Names.FirstOrDefault(name =>
+                (name.Reference is { } reference && reference.EndsWith($"#{slug}", StringComparison.OrdinalIgnoreCase))
+                || string.Equals(HeadingAnchor.Of(name.Name), slug, StringComparison.OrdinalIgnoreCase))?.Name
+            ?? slug;
+    }
+
     private string LanguagesTitle => Map.LanguagesTitle.Length > 0 ? Map.LanguagesTitle : "Published languages";
 
-    private static string Contexts(int count) =>
-        count == 1 ? "1 bounded context" : $"{count.ToString(CultureInfo.InvariantCulture)} bounded contexts";
+    /// <summary>The page's word for the contexts: parts of the product, as the
+    /// board reads them to someone who has not met the term.</summary>
+    private static string Parts(int count) =>
+        count == 1 ? "1 part of the product" : $"{count.ToString(CultureInfo.InvariantCulture)} parts of the product";
 
     private static string Relationships(int count) =>
         count == 1 ? "1 relationship" : $"{count.ToString(CultureInfo.InvariantCulture)} relationships";

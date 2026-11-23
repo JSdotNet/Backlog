@@ -589,6 +589,18 @@
     justify-content: center;
 }
 
+/*
+  An IconButton with an Href whose page is on screen (the phone's Notifications
+  bell). Lit by more than colour: a primary bar on the edge that faces the page,
+  as a lit tab carries one on its top edge, and the ink goes full strength. An
+  inset shadow rather than a border, so the mark adds no height and the target
+  keeps its size.
+*/
+.btn--icon-current {
+    color: var(--color-text-primary);
+    box-shadow: inset 0 calc(-1 * var(--border-width-2)) 0 var(--color-primary);
+}
+
 /* AppButton with an Href: an anchor wearing the button's classes. It loses the
    underline and the link colour a bare anchor would bring, and sits in a line the
    way a button does. A disabled one has no href, so the pointer goes with it. */
@@ -3146,6 +3158,79 @@ button.devbook-chip__label:focus-visible {
     background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
 }
 
+/* A Brain note something holds — a roadmap item gathering it (local ADR 0053) — as a
+   chip: the DevbookReferenceChip shape with the Brain badge in front, so the word
+   Brain is printed and the band-2 teal never says it alone
+   (color-scheme.md#the-brains-accent). Unresolved — no Brain on this device, or the
+   note is not in it — the edge is dashed, the label is the address in the secondary
+   ink, and a mark carries the reason. */
+.brain-note-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs) 0 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    vertical-align: baseline;
+}
+
+.brain-note-chip--unresolved {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+/* The badge sits inside the chip's edge: as tall as one line of chip text, its
+   left band the chip's leading edge. */
+.brain-note-chip > .brain-note-chip__badge {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full) 0 0 var(--border-radius-full);
+    line-height: inherit;
+}
+
+.brain-note-chip__label {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.brain-note-chip__label {
+    cursor: pointer;
+}
+
+button.brain-note-chip__label:hover:not(:disabled) {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
+button.brain-note-chip__label:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.brain-note-chip--unresolved .brain-note-chip__label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.brain-note-chip__unresolved {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+    cursor: help;
+}
+
 /* The Domain view's Brain and task links (local ADR 0026 §3, ADR 0027 §6). The
    notes badge on a model part or a glossary term and the From your Brain box
    under a unit, feature or term are the Brain's own teal; the task chips on a
@@ -4884,6 +4969,8 @@ button.devbook-chip__label:focus-visible {
 */
 .md-block {
     position: relative;
+    border-radius: var(--border-radius-sm);
+    transition: background-color var(--transition-fast), outline-color var(--transition-fast);
 }
 
 /*
@@ -5086,9 +5173,14 @@ button.devbook-chip__label:focus-visible {
     color: var(--color-text-disabled);
 }
 
+/* pre-line: the body is inline Markdown parsed line by line, with each line
+   break kept as text — this is what draws it as a break. Its code spans and
+   links size from the remark's own small text (both are em-relative). */
 .md-comment__body {
     margin: 0;
     color: var(--color-text-secondary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
 }
 
 .md-comment__action {
@@ -5136,6 +5228,81 @@ button.devbook-chip__label:focus-visible {
 .md-comments--orphaned {
     margin-top: var(--spacing-md);
     border-left-style: dashed;
+}
+
+/* Bounded to a reading measure, in both layouts: the orphan group spans the
+   whole pane, and an unbounded row pushed each remark's Delete to the pane's far
+   edge, away from the remark it removes. 36rem keeps Edit, Resolve and Delete in
+   one row beside a long remark (no measure token exists to reuse); the hint
+   below shares the cap.
+   The group's own rule is the one that says "adrift"; the list inside it
+   carries the ordinary remark rule, and two dashed-and-solid lines side by side
+   read as a rule around a rule. */
+.md-comments--orphaned > .md-comments {
+    max-inline-size: 36rem;
+    margin: 0;
+    padding: 0;
+    border-left: none;
+}
+
+.md-comments__orphaned-label,
+.md-comment__orphaned-label {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.md-comments__orphaned-hint,
+.md-comment__orphaned-hint {
+    max-inline-size: 36rem;
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/*
+   A remark and its passage, read together. Hovering or focusing a remark marks
+   the block it belongs to: a filled, solid edge where the remark is anchored, a
+   dashed edge and no fill where it is an orphan placed by guess, remark or AI
+   proposal (see .md-comments--approximate) — "about here", not "this". The mark is drawn on
+   the block itself, never on the row: in the margin the row stretches to the
+   height of its stacked remarks, and a highlight on it would cover empty space
+   below the text (the block is held to its own height there, see
+   .md-view--margin .md-block-row > .md-block). The other way round, pointing at a
+   block brings its anchored remarks forward — the text lifts and each card gets
+   the strong edge — while orphans stay as they are, since the block is not
+   theirs. :has() on the row, so no script has to pair a block with its cell;
+   :focus-within, so a keyboard gets the same answer as a pointer. Tokens only:
+   the fill is the hover ground the block's own controls already use, the edge is
+   the strong border.
+*/
+.md-block-row:has(.md-comment:not(.md-comment--approximate):is(:hover, :focus-within)) > .md-block {
+    background-color: var(--color-background-alt);
+    outline: var(--border-width) solid var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+.md-block-row:has(:is(.md-comment--approximate, .md-approximate-proposal):is(:hover, :focus-within)) > .md-block {
+    outline: var(--border-width) dashed var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+.md-block-row:has(> .md-block:is(:hover, :focus-within)) .md-comment:not(.md-comment--approximate) .md-comment__body {
+    color: var(--color-text-primary);
+}
+
+/* An outline rather than a border, so the cue never moves the card's text. */
+.md-block-row:has(> .md-block:is(:hover, :focus-within)) .md-comment:not(.md-comment--approximate) {
+    border-radius: var(--border-radius-sm);
+    outline: var(--border-width) solid var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .md-block {
+        transition: none;
+    }
 }
 
 /* Full width so Delete's own auto margin has a row to push against — see
@@ -5197,6 +5364,14 @@ button.devbook-chip__label:focus-visible {
     align-items: stretch;
 }
 
+/* The block keeps its own height rather than the row's. The notes cell still
+   stretches, which is what the column rule needs; the block does not, so when
+   its remarks stack taller than its text the highlight a remark draws on it
+   (see "A remark and its passage") hugs the text instead of filling the row. */
+.md-view--margin .md-block-row > .md-block {
+    align-self: start;
+}
+
 /*
    What makes the column read as a margin rather than as a second column of the
    document.
@@ -5211,13 +5386,60 @@ button.devbook-chip__label:focus-visible {
    is positioned for its corner controls and the cell was not, so wherever the
    block overflowed its track — its affordance padding cannot shrink — the block
    was drawn over the remark's Save and Delete and swallowed their clicks. A
-   positioned cell later in the row wins that by source order, with no z-index to
-   keep in step.
+   positioned cell later in the row wins that by source order. Raised as well,
+   because once remarks overflow their row (see "Rows that do not stretch") a
+   stack sits beside the blocks of later rows, and a later block, positioned and
+   later in the source, would win that same contest against it.
 */
 .md-view--margin .md-block-row__notes {
     position: relative;
+    z-index: 1;
     padding-inline: var(--spacing-md);
     border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+/*
+   Rows that do not stretch. A row was as tall as its tallest cell, so a short
+   block with three remarks beside it pushed the next block a screen down. With
+   the margin script attached (backlogMarginNotes in components.js, which sets
+   data-md-margin-measured) the stack inside each cell is taken out of the row's
+   height: it starts level with its block, runs on down beside the blocks below,
+   and the script moves it down by --md-notes-offset where the stack above still
+   occupies the space, then grows the body by --md-notes-tail for whatever the
+   last one runs past the end. The cell itself still stretches to its block, so
+   the column's rule stays one line.
+
+   The cells let the pointer through and only the stacks take it: a later row's
+   cell lies over an earlier row's overflowing stack, and an empty box on top
+   still takes the click meant for the Edit or Delete under it. A row with
+   nothing beside it draws no stack at all, for the same reason.
+
+   Whatever else the view holds between its rows — a chapter insert, the C4 view
+   an arc42 heading carries — spans the notes column too, so a stack must not run
+   on over it: the script pushes it down by --md-notes-clearance, as padding
+   above it, wherever the stacks before it reach past its top.
+
+   Without the script none of this applies and the rows stretch, as they did.
+*/
+.md-view--margin[data-md-margin-measured] {
+    padding-block-end: var(--md-notes-tail, 0px);
+}
+
+.md-view--margin[data-md-margin-measured] > :not(.md-block-row) {
+    padding-block-start: var(--md-notes-clearance, 0px);
+}
+
+.md-view--margin[data-md-margin-measured] .md-block-row__notes {
+    pointer-events: none;
+}
+
+.md-view--margin[data-md-margin-measured] .md-block-row__notes-stack {
+    position: absolute;
+    inset-block-start: var(--md-notes-offset, 0px);
+    inset-inline: var(--spacing-md);
+    /* The space kept between this stack and one pushed below it. */
+    padding-block-end: var(--spacing-sm);
+    pointer-events: auto;
 }
 
 /* Level with the block it belongs to, and no rule down its left — the column's
@@ -5242,6 +5464,30 @@ button.devbook-chip__label:focus-visible {
 /* Which puts the spacing back where the inline layout keeps it: between one
    remark and the next, rather than as the gap between two boxes. */
 .md-view--margin .md-comment + .md-comment {
+    margin-top: var(--spacing-sm);
+}
+
+/* An orphan placed beside the block it last named. Its dashed edge is the one
+   the end group uses to say "adrift", here inside the column: the column's own
+   rule says "aside", this one says "and only roughly here". */
+.md-view--margin .md-block-row__notes .md-comments--approximate {
+    padding-inline-start: var(--spacing-sm);
+    border-left: var(--border-width-2) dashed var(--color-border);
+}
+
+.md-view--margin .md-block-row__notes .md-comments + .md-comments--approximate {
+    margin-top: var(--spacing-sm);
+}
+
+/* An AI proposal placed the same way takes the same edge: the column says
+   "aside", the dashed rule "only roughly here", and its own label says why. */
+.md-view--margin .md-block-row__notes .md-proposals--approximate {
+    padding-inline-start: var(--spacing-sm);
+    border-left: var(--border-width-2) dashed var(--color-border);
+}
+
+.md-view--margin .md-block-row__notes .md-proposals--approximate:not(:first-child),
+.md-approximate-proposal + .md-approximate-proposal {
     margin-top: var(--spacing-sm);
 }
 
@@ -5282,6 +5528,24 @@ button.devbook-chip__label:focus-visible {
         margin: 0 0 var(--spacing-sm) var(--spacing-md);
         padding-left: var(--spacing-md);
         border-left: var(--border-width-2) solid var(--color-border);
+    }
+
+    /* Stacked, an orphan keeps the dashed rule the end group draws. */
+    .md-view--margin .md-block-row__notes .md-comments--approximate {
+        border-left-style: dashed;
+    }
+
+    .md-view--margin .md-block-row__notes .md-proposals--approximate {
+        margin: 0 0 var(--spacing-sm) var(--spacing-md);
+        padding-left: var(--spacing-md);
+    }
+
+    /* And the stack goes back into its row: stacked under its block there is
+       nothing beside it to overflow into, so the row grows as an inline one
+       does. The script reads this as "not positioned" and clears its offsets. */
+    .md-view--margin[data-md-margin-measured] .md-block-row__notes-stack {
+        position: static;
+        padding-block-end: 0;
     }
 
     /* The gutter's own spacing goes with it too. Stacked, a remark is spaced by
@@ -5452,6 +5716,16 @@ button.devbook-chip__label:focus-visible {
     padding: var(--spacing-md);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* A group heading among the open rows (TaskListView.SectionOf): quiet, the size
+   and colour of the Completed fold's header, so it reads as a label on the rows
+   under it rather than as a row. */
+.task-list__section {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
 }
 
 /* Fixed targets at either end and a middle that takes what is left, so only the
@@ -7393,6 +7667,19 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-xs);
 }
 
+/* A date that has passed while the work is still open — a waiting-for's follow-up
+   day. The label says "overdue" in words; the value takes the fault ink so the
+   row is found by colour too, never by colour alone. */
+.task-action--overdue .task-action__value {
+    color: var(--color-error-text);
+}
+
+/* The row's waiting badge once its follow-up day has passed: the fault ink, beside
+   the word "overdue" the badge already prints. */
+.badge--waiting-overdue {
+    color: var(--color-error-text);
+}
+
 /* Icon-only, for an act that shares a line with a row that needs the width —
    "Create follow-up" beside "Waiting for" is the case this was built for. The
    grid the full-size row uses is a label column and a clear column, and a compact
@@ -8391,21 +8678,9 @@ button.task-panel__check:focus-visible {
     font-family: var(--font-family-mono);
 }
 
-/* Which renderer drew the picture, next to what the fence is written in — and,
-   where there are two to choose between, the control that chooses. Not mono: it
-   names a tool rather than quoting a language, and the difference in face is what
-   keeps it from reading as one thing with the language beside it. */
-/* Two badges side by side, spaced like the badges they sit beside. It was a
-   segmented pill first — one background with the inner corners squared off — and
-   that made it the loudest thing in a header whose whole job is to be quiet. A
-   badge is already the vocabulary for "a small fact about this block"; which
-   renderer drew the picture is exactly that, and being able to press it does not
-   make it a different kind of thing. */
-.diagram-view__renderers {
-    display: inline-flex;
-    gap: var(--spacing-xs);
-}
-
+/* A badge-shaped button — a click demo's places. A badge is already the
+   vocabulary for "a small fact about this block", and being able to press it
+   does not make it a different kind of thing. */
 /* Everything else is .language-badge's. Only what a button adds over a span is
    taken back off. */
 .diagram-view__renderer {
@@ -8432,58 +8707,20 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
-/* An Archify artifact is a whole document with its own layout, so it gets height
-   rather than the width-fitting a drawn SVG gets. No frame, matching
-   .diagram-view__rendered: the artifact paints its own background and a border
-   here would draw a box around a box.
-
-   The height here is only the opening bid. What an artifact is actually worth is
-   a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1392x3496 — so the document measures itself and components.js writes
-   the answer back as an inline height. This is what it looks like until that
-   arrives, and what it stays at if the frame never reports: `height` rather than
-   `min-height` precisely so the measured value can go under it as well as over,
-   and a small diagram is not left sitting in 28rem of empty panel.
-
-   Transparent, and it takes both sides to be so: components.js clears the
-   artifact's own background inside the frame, and this clears the background the
-   frame element itself paints behind that. Either one left opaque and the diagram
-   still sits on a navy card in the middle of a chapter. */
-.diagram-view__artifact {
-    display: block;
-    width: 100%;
-    height: 28rem;
-    border: 0;
-    border-radius: var(--border-radius-md);
-    background: transparent;
-}
-
-/* Scenery in a chapter and the screen itself in fullscreen. The stage exists
-   for one reason: fullscreen is requested on it rather than on the frame, because
-   only the element in the top layer and its descendants are painted, and an
-   artifact frame is sandboxed into an opaque origin and can carry nothing of
-   ours. Wrapping the frame is what gives the way back out somewhere to live.
-
-   A positioning context and nothing else while it is in the chapter — the frame
-   is still the whole of what a reader sees there, at the height it measured for
-   itself. */
+/* Scenery in a chapter and the screen itself in fullscreen. Fullscreen is
+   requested on the stage rather than on the frame, because only the element in
+   the top layer and its descendants are painted, and a frame sandboxed into an
+   opaque origin can carry nothing of ours. Wrapping the frame is what gives the
+   way back out somewhere to live. */
 .diagram-view__stage {
     position: relative;
     display: block;
 }
 
 /* On the screen it is the app's own surface rather than the browser's black
-   backdrop, and the frame takes all of it: the measured inline height has just
-   been removed by components.js, and the 28rem opening bid above would otherwise
-   leave a fullscreen diagram sitting in a letterbox. The radius goes with it —
-   there is no card here to round off, only screen. */
+   backdrop. */
 .diagram-view__stage:fullscreen {
     background: var(--color-background);
-}
-
-.diagram-view__stage:fullscreen .diagram-view__artifact {
-    height: 100%;
-    border-radius: 0;
 }
 
 /* The way out. Off screen in a chapter, where the header already carries the
@@ -8497,18 +8734,8 @@ button.task-panel__check:focus-visible {
     display: none;
 }
 
-/* Bottom left, which is the one corner the artifact does not use. Its own
-   chrome is fixed in the other three — the title top left, `Classic | Live |
-   Export` top right, and the zoom and lens controls bottom right — and this
-   started out over the toolbar, where it did not merely look crowded: being
-   above the frame, it won the hit test and made Export unreachable for as long
-   as the diagram was full screen. That is the same menu `allow-downloads` was
-   granted for.
-
-   A raised surface and a shadow because it is laid over a drawing rather than
-   sat on a panel. The button's own background is transparent, and a transparent
-   control over a diagram is exactly as findable as the one this whole change
-   exists to provide. */
+/* Bottom left, on a raised surface and a shadow because it is laid over the
+   frame rather than sat on a panel. */
 .diagram-view__stage:fullscreen .diagram-view__exit {
     display: inline-flex;
     position: absolute;
@@ -8519,11 +8746,10 @@ button.task-panel__check:focus-visible {
     box-shadow: var(--shadow-md);
 }
 
-/* A click demo's frame. Unlike an artifact it does not measure itself: a demo is
-   an application with its own scrolling, so it gets a screen's worth of height and
-   keeps it. The background is the demo's own — it is a picture of the product and
-   paints itself — and the frame is bordered because, unlike a drawing, it is a
-   working surface whose edge a reader needs to see. */
+/* A click demo's frame. A demo is an application with its own scrolling, so it
+   gets a screen's worth of height and keeps it. The background is the demo's own
+   — it is a picture of the product and paints itself — and the frame is bordered
+   because it is a working surface whose edge a reader needs to see. */
 .demo-view__frame {
     display: block;
     width: 100%;
@@ -8545,25 +8771,6 @@ button.task-panel__check:focus-visible {
 }
 
 .demo-view__path {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-/* The offers, under the diagram rather than in the header: they are about what
-   is missing, which is not something to read before the picture. */
-.diagram-view__footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-/* An explanation, not a failure — the diagram above is correct and current, and
-   the notice only says why it is the mermaid one. Secondary text rather than the
-   error colouring .app-error-message carries. */
-.diagram-view__notice {
-    flex-basis: 100%;
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -9583,7 +9790,9 @@ button.tag-chip__label {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    max-width: 26rem;
+    max-width: min(26rem, calc(100vw - 2 * var(--spacing-lg)));
+    /* Never wider than the viewport leaves beside the host's two edge gaps, so a
+       toast on a 390px phone keeps both edges on screen. */
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -9606,6 +9815,41 @@ button.tag-chip__label {
     margin-left: auto;
 }
 
+/* An offer's one button sits right after the words; the dismiss control's auto
+   margin keeps it alone at the trailing edge. */
+.toast__action {
+    flex-shrink: 0;
+}
+
+/* An offer stacks: title, sentence, then its button, each a full row of the first
+   column, with the dismiss control alone in the second column's first row. Its
+   button names its act in words, and a label that long beside the words in one row
+   squeezed them into columns a word or two wide (ToastTray marks the offer). */
+.toast--offer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--spacing-sm);
+    row-gap: var(--spacing-xs);
+}
+
+.toast--offer > .toast__title,
+.toast--offer > .toast__message {
+    grid-column: 1;
+}
+
+.toast--offer > .toast__action {
+    grid-column: 1;
+    justify-self: start;
+    margin-top: var(--spacing-xs);
+}
+
+.toast--offer > .toast__dismiss {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
+}
+
 .toast--success { background: var(--color-success); border-color: var(--color-border-strong); }
 .toast--warning { border-color: var(--color-primary-dark); }
 .toast--error { background: var(--color-error); border-color: var(--color-border-strong); }
@@ -9624,10 +9868,7 @@ button.tag-chip__label {
    fields showed a near-black clock on a near-black field. Every rule below sets
    the field's own surface and text; none of them can reach the glyph.
 
-   On the elements rather than on `:root`, which is where a one-theme product
-   would naturally say it: the Archify artifact frame is a transparent iframe
-   pinned to `normal` (see renderArtifact in components.js), and a browser paints
-   an opaque canvas behind any frame whose scheme differs from its embedder's.
+   On the elements rather than on `:root`.
    By element rather than by class for the reason `select option` gives — a host
    may replace `field__input` outright, and the settings screen does.
 */
@@ -10479,9 +10720,15 @@ select.field__input {
     box-shadow: var(--shadow-lg);
 }
 
-/* PopoverButton: a trigger with a small panel of the host's controls under it,
-   lined up with the trigger's start edge, or with its end edge (AlignEnd) so it
-   opens inward from the end of a row. The
+/* AlignEnd: the x the host passed is the menu's end edge, the opening button's
+   right, so a menu from a button at the window's end opens inward. */
+.context-menu--end {
+    transform: translateX(-100%);
+}
+
+/* PopoverButton: a trigger with a small panel of the host's controls under it
+   (over it with OpenUpward), lined up with the trigger's start edge, or with its
+   end edge (AlignEnd) so it opens inward from the end of a row. The
    backdrop is the context menu's, for the same reason: it catches the closing
    click, and it covers the trigger so a second press closes the panel too. */
 .popover-button {
@@ -10518,6 +10765,14 @@ select.field__input {
 .popover-button__panel--end {
     right: 0;
     left: auto;
+}
+
+/* OpenUpward: the panel's bottom edge on the trigger's top, for a trigger on the
+   window's bottom edge — the footer band's gear — where opening down runs off
+   the screen. */
+.popover-button__panel--up {
+    top: auto;
+    bottom: calc(100% + var(--spacing-xs));
 }
 
 .nav-list__items {
@@ -18030,6 +18285,12 @@ select.field__input {
 
    Width is clamped rather than a share of the viewport: a drawer belongs
    between about 320 and 480px, and a third of a wide monitor is well past that.
+   On a phone the clamp's floor is most of the screen and would leave a strip of
+   the list showing beside it, so at 600px and under the sheet is the screen.
+
+   The header clears the status bar: a fixed panel at the top edge sits under it
+   on a phone with no safe-area inset of its own, and the inset is zero
+   everywhere else, so desktop widths draw exactly as before.
    ========================================================================== */
 
 .detail-sheet-backdrop {
@@ -18077,8 +18338,32 @@ select.field__input {
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-sm);
-    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    padding: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px)) var(--spacing-lg) var(--spacing-md);
     border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The library's icon button, held to the 44px target accessibility.md asks of
+   anything tapped, and kept from shrinking beside a long title. */
+.detail-sheet__close {
+    flex: none;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    font-size: var(--font-size-xl);
+    color: var(--color-text-secondary);
+}
+
+.detail-sheet__close:hover:not(:disabled) {
+    color: var(--color-text-primary);
+}
+
+/* Anchored to both edges rather than sized to the viewport: 100vw counts a
+   classic scrollbar too, and would push the sheet's left edge off the screen. */
+@media (max-width: 37.5rem) {
+    .detail-sheet {
+        left: 0;
+        width: auto;
+        border-left: 0;
+    }
 }
 
 .detail-sheet__heading {
@@ -18216,183 +18501,6 @@ select.field__input {
     .detail-sheet[data-open="true"] {
         opacity: 1;
     }
-}
-
-/* ---------------------------------------------------------------------------
-   The C4 explorer.
-
-   A three-part frame: a bar of controls, a body of Views panel / stage /
-   Highlighter, and a foot of drill targets and references. Presentation mode is
-   one class on the root that takes everything except the stage off screen, which
-   is why the parts are siblings rather than nested.
-
-   Every colour and space is a token (guideline 0011). The one place a raw value
-   appears is the minimap's size, which is a deliberate physical dimension rather
-   than a spacing step.
-   --------------------------------------------------------------------------- */
-
-.c4-explorer {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: var(--spacing-sm);
-    min-height: 0;
-}
-
-.c4-explorer__bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-}
-
-.c4-explorer__tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.c4-explorer__body {
-    display: grid;
-    grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
-    gap: var(--spacing-sm);
-    min-height: 0;
-}
-
-/* Presentation mode: the picture, and nothing else. Panels are hidden rather
-   than collapsed so the stage takes the whole width in one step. */
-.c4-explorer--presenting .c4-explorer__body {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.c4-explorer--presenting .c4-views,
-.c4-explorer--presenting .c4-highlighter,
-.c4-explorer--presenting .c4-explorer__foot,
-.c4-explorer--presenting .c4-breadcrumb {
-    display: none;
-}
-
-/* ---- views panel ---- */
-
-.c4-views {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-    align-content: start;
-    overflow-y: auto;
-    min-height: 0;
-}
-
-.c4-views__level {
-    margin: var(--spacing-xs) 0 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.c4-views__item {
-    display: block;
-    width: 100%;
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
-    background: none;
-    color: var(--color-text-link);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    text-align: left;
-    cursor: pointer;
-}
-
-.c4-views__item:hover,
-.c4-views__item:focus-visible,
-.c4-views__item--active {
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-    background: var(--color-background-raised);
-}
-
-/* ---- breadcrumb ---- */
-
-.c4-breadcrumb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    font-size: var(--font-size-sm);
-}
-
-.c4-breadcrumb__step {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--color-text-link);
-    font: inherit;
-    cursor: pointer;
-}
-
-.c4-breadcrumb__step:hover,
-.c4-breadcrumb__step:focus-visible {
-    text-decoration: underline;
-}
-
-/* The trail's separator is drawn rather than written, so it is never read out as
-   content by a screen reader walking the buttons. */
-.c4-breadcrumb__step + .c4-breadcrumb__step::before {
-    content: "›";
-    margin-right: var(--spacing-2xs);
-    color: var(--color-text-secondary);
-}
-
-.c4-breadcrumb__step[disabled] {
-    color: var(--color-text-primary);
-    cursor: default;
-}
-
-.c4-breadcrumb__step[disabled]:hover {
-    text-decoration: none;
-}
-
-/* ---- stage ---- */
-
-.c4-explorer__stage {
-    position: relative;
-    min-height: 24rem;
-    min-width: 0;
-}
-
-.c4-explorer__frame {
-    height: 100%;
-    min-height: 0;
-}
-
-/* The diagram fills the stage and stops scrolling: panning replaced the
-   scrollbars, and leaving both would fight for the same drag. */
-.c4-explorer__frame .c4-diagram-host {
-    height: 100%;
-    overflow: hidden;
-    cursor: grab;
-    touch-action: none;
-}
-
-.c4-explorer__frame .c4-diagram-host.is-panning {
-    cursor: grabbing;
-}
-
-/* A node that can be drilled into says so, and one that cannot says nothing.
-   The hand cursor is an offer, and most elements have nothing below them — a
-   component is a leaf, and a container with no component view has nothing
-   declared — so offering on all of them made the gesture read as broken. */
-.c4-explorer__frame g.node.c4-drillable {
-    cursor: pointer;
-}
-
-.c4-explorer__frame g.node.c4-drillable:hover rect,
-.c4-explorer__frame g.node.c4-drillable:hover path {
-    stroke: var(--color-primary);
-    stroke-width: 2px;
 }
 
 /* ---- the C4 diagram ------------------------------------------------------
@@ -18600,232 +18708,11 @@ select.field__input {
     opacity: 0.75;
 }
 
-.c4-diagram__edge-order {
-    fill: var(--color-primary);
-    font-weight: 700;
-}
+/* ---- the C4 zoom navigation ----------------------------------------------
 
-/* The Highlighter's answer. Dimmed rather than hidden, so the shape of the
-   diagram is still readable and the match reads as an emphasis rather than as a
-   different picture. */
-.c4-explorer__frame g.node.c4-dimmed {
-    opacity: 0.18;
-}
-
-.c4-explorer__frame g.node.c4-focused rect,
-.c4-explorer__frame g.node.c4-focused path {
-    stroke: var(--color-primary);
-    stroke-width: 3px;
-}
-
-/* ---- minimap ---- */
-
-.c4-minimap {
-    position: absolute;
-    right: var(--spacing-xs);
-    bottom: var(--spacing-xs);
-    width: 9rem;
-    height: 6rem;
-    overflow: hidden;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-alt);
-    opacity: 0.85;
-    pointer-events: none;
-}
-
-.c4-minimap svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-}
-
-.c4-minimap__lens {
-    fill: var(--color-primary);
-    fill-opacity: 0.15;
-    stroke: var(--color-primary);
-    stroke-width: 4px;
-    vector-effect: non-scaling-stroke;
-}
-
-/* ---- zoom ---- */
-
-.c4-zoom {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-}
-
-.c4-zoom__level {
-    min-width: 3.5rem;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-}
-
-/* ---- search ---- */
-
-.c4-search {
-    position: relative;
-    min-width: 14rem;
-}
-
-.c4-search__hits {
-    position: absolute;
-    z-index: 5;
-    left: 0;
-    right: 0;
-    margin: var(--spacing-2xs) 0 0;
-    padding: var(--spacing-2xs);
-    list-style: none;
-    max-height: 16rem;
-    overflow-y: auto;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-raised);
-}
-
-.c4-search__hits--empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.c4-search__hit {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: 0;
-    border-radius: var(--border-radius-sm);
-    background: none;
-    color: var(--color-text-primary);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.c4-search__hit:hover,
-.c4-search__hit:focus-visible {
-    background: var(--color-background-alt);
-}
-
-.c4-search__hit-detail {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-/* ---- highlighter ---- */
-
-/* A bar under the diagram rather than a column beside it, which is where c4hero
-   puts the same four facets. It reads better here too: the picture keeps the
-   full width, and four short rows of chips are easier to scan across than down a
-   narrow rail. */
-.c4-highlighter {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm);
-    max-height: 9rem;
-    overflow-y: auto;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-}
-
-.c4-facet {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    max-width: 100%;
-}
-
-.c4-facet__label {
-    margin: 0 var(--spacing-2xs) 0 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-}
-
-.c4-facet__value {
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-full);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    font: inherit;
-    font-size: var(--font-size-xs);
-    cursor: pointer;
-}
-
-.c4-facet__value--on {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-}
-
-/* ---- foot ---- */
-
-.c4-explorer__foot {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.c4-drill {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.c4-drill__label {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.c4-drill__item {
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-    color: var(--color-text-link);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-}
-
-.c4-drill__item:hover,
-.c4-drill__item:focus-visible {
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-}
-
-.c4-problems {
-    margin: 0;
-    padding-left: var(--spacing-lg);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.c4-problems li + li {
-    margin-top: var(--spacing-2xs);
-}
-
-/* ---- the C4 zoom tab ------------------------------------------------------
-
-   One model zoomed a level at a time, beside the C4 tab rather than inside it
-   (local ADR 0046). The zoom bar heads it: the current step ringed in the primary
-   colour, a step that jumps drawn plain, a step still waiting on a selection
-   drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
-   exactly as before.                                                           */
+   One model zoomed a level at a time, the only reading of the C4 model (local ADR
+   0046). The zoom bar heads it: the current step ringed in the primary colour, a
+   step that jumps drawn plain, a step still waiting on a selection drawn grey.  */
 
 /* A column whose frame keeps the height it asks for, so a host that gives the tab
    less room scrolls the tab rather than squeezing the picture out of its frame. */
@@ -19030,7 +18917,7 @@ select.field__input {
     stroke-width: 2.5px;
 }
 
-/* The Zoom in chip: drawn only when the zoom tab asks C4SvgWriter for it. */
+/* The Zoom in chip: drawn only when the zoom navigation asks C4SvgWriter for it. */
 .c4-diagram__zoom-in {
     cursor: pointer;
 }
@@ -19057,8 +18944,8 @@ select.field__input {
 }
 
 /* ---- the record overlay ----
-   Drawn only when the zoom tab's overlay asks C4SvgWriter for record chips, so
-   nothing here reaches the C4 tab. A decision chip is the warning surface with the
+   Drawn only when the zoom navigation's overlay asks C4SvgWriter for record chips.
+   A decision chip is the warning surface with the
    primary ink, as the design's Containers screen draws it; a debt chip is the error
    surface with its own ink (color-scheme.md: color-error-text is the legible
    foreground for color-error, and never a fill). A card carrying open debt takes
@@ -19238,8 +19125,8 @@ select.field__input {
 /* ---- a dynamic view played step by step ----
    The picture and the steps panel side by side; every other part of the tab spans
    both columns. The current step — its arrow, its badge, its row — is drawn in the
-   primary colour and every other step stays grey. Drawn only when the zoom tab asks
-   C4SvgWriter for step badges, so nothing here reaches the C4 tab. */
+   primary colour and every other step stays grey. A chapter's embed of a dynamic
+   view draws the same badges, with no step current. */
 .c4-zoom-explorer--dynamic {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
@@ -19395,9 +19282,9 @@ select.field__input {
     list-style: none;
 }
 
-/* ---- the zoom tab's deployment view ---- */
+/* ---- the zoom navigation's deployment view ---- */
 
-/* A deployment node drawn as a frame is selectable on the zoom tab: solid, because a
+/* A deployment node drawn as a frame is selectable in the zoom navigation: solid, because a
    frame here is a node and not a boundary, and filled with nothing that still takes a
    press, so its empty inside selects it. The ring of a selected or focused frame is the
    card's, so it is restated after the frame's own stroke, which would otherwise win at
@@ -19694,14 +19581,40 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
-/* The surface's top row: the overlay switch, at the end, as the design's header
-   carries it. */
-.c4-zoom-explorer__top {
+/* The surface's view heading ends on its tools: the overlay switch, then the
+   − / Fit / +. The switch used to be a row of its own over the zoom bar; here it
+   costs the picture no height. Its choices come down to the scale buttons' size. */
+.c4-zoom-explorer__tools {
     display: flex;
+    flex: 0 1 auto;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.c4-zoom-explorer__tools > .c4-zoom-explorer__overlay {
+    margin-left: 0;
+    padding: 2px;
+}
+
+.c4-zoom-explorer__tools .c4-zoom-explorer__overlay-choice {
+    min-height: 26px;
+}
+
+/* Under the picture, one line: the legend at the start and a problem notice at the
+   end, wrapping only when the column is too narrow for both. */
+.c4-zoom-explorer__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-md);
+}
+
+.c4-zoom-explorer__foot > .app-error-message {
+    padding: 2px var(--spacing-sm);
 }
 
 @media (max-width: 60rem) {
@@ -20141,7 +20054,7 @@ select.field__input {
     text-decoration: underline;
 }
 
-/* ---- the Code level of the C4 zoom tab ----
+/* ---- the Code level of the C4 zoom navigation ----
    A component's types drawn from the source: class boxes laid out by
    C4LayoutEngine, an arrow per use, and the selected type's panel beside them. */
 .c4-code {
@@ -20414,28 +20327,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     }
 }
 
-/* Narrow: the panels stack above the stage rather than squeezing it. */
-@media (max-width: 60rem) {
-    .c4-explorer__body {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .c4-views {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-}
-
-/* Motion is not used here, but the focus ring is: a reduced-motion reader still
-   needs to see which box the search found. */
-@media (prefers-reduced-motion: reduce) {
-    .c4-explorer__frame g.node.c4-dimmed {
-        opacity: 0.3;
-    }
-}
-
 /* --- Shell: tab bar ------------------------------------------------------ */
 /*
   The row of destinations along the bottom of a phone screen. Equal columns, so
@@ -20481,6 +20372,28 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .tab-bar__icon {
     display: inline-flex;
     line-height: 0;
+}
+
+/*
+  An icon-only tab (NavItem.IconOnly) shows its glyph alone; its word is in the
+  link as .sr-only text. It is positioned, as every .sr-only host in this file
+  is, so the hidden word resolves against the tab rather than a far-off
+  containing block.
+*/
+.tab-bar__tab--icon {
+    position: relative;
+}
+
+/*
+  Centred, the lone glyph would sit lower than its siblings' glyphs, which
+  share their column with a word - and a word that wraps in a narrow column
+  (Stand-up at its hyphen) moves its own glyph again. So a bar holding an
+  icon-only tab starts every tab's content at the top: the tabs share padding
+  and border, so every glyph sits on one line whatever its word does. A bar
+  without one keeps its centred tabs.
+*/
+.tab-bar:has(.tab-bar__tab--icon) .tab-bar__tab {
+    justify-content: flex-start;
 }
 
 /* Weight and a bar, not colour alone, say which tab is current. */
@@ -21013,6 +20926,10 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+.capture-row__kind {
+    display: inline-flex;
 }
 
 .capture-row__state {
@@ -21973,6 +21890,24 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     min-height: 2.75rem;
 }
 
+/* A recording plays on its own tile, under its name: the browser's player at the
+   tile's full width, tall enough for the 44px touch minimum. */
+.attachment-tile__player {
+    width: 100%;
+    margin-top: var(--spacing-xs);
+}
+
+.audio-player {
+    display: block;
+    max-width: 100%;
+    min-height: 2.75rem;
+}
+
+.audio-player__missing {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 
 /* ===== Slider (per-lane pace) =============================================== */
 
@@ -22122,12 +22057,26 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     pointer-events: none;
 }
 
-/* --- TaskCalendar ---------------------------------------------------------
-   The month of tasks placed by due date, with the tray of tasks without one.
+/* --- CalendarGrid ---------------------------------------------------------
+   The Calendar module's grid (Backlog.Modules.Calendar.UI), styled here as every
+   screen is; the task-calendar class names are the ones it always wore.
+   The month of tasks placed by due date, with the shelf of plans beside it.
    Every colour is a palette token or a mix of two: the day shades are the
    background stepped toward its neighbours, so the grid adds no hue of its own.
    The status dots differ in shape as well as colour — a hollow ring for a draft —
    so they still read apart without the colour. */
+
+/* The Calendar's own region (local ADR 0056 §1), in the workspace's main column where
+   the Tasks pane used to hold the grid. It owns the scrollbar, so a tall month scrolls
+   under the header, and it is what a drag's edge-scroll walks up to. */
+.calendar-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
 .task-calendar {
     display: flex;
     flex-direction: column;
@@ -22287,7 +22236,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background));
 }
 
-/* Wraps, so a narrow column puts today's My Day count under the number rather
+/* Wraps, so a narrow column puts the day's hours total under the number rather
    than over the next day. */
 .task-calendar__day-head {
     display: flex;
@@ -22322,17 +22271,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: var(--color-primary);
     color: var(--color-text-inverse);
     font-weight: var(--font-weight-semibold);
-}
-
-.task-calendar__my-day {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    max-width: 100%;
-    overflow: hidden;
-    color: var(--color-primary-light);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .task-calendar__chip {
@@ -22384,11 +22322,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     text-decoration: line-through;
 }
 
-.task-calendar__chip--selected {
-    outline: var(--border-width) solid var(--color-border-strong);
-    outline-offset: calc(-1 * var(--border-width));
-}
-
 .task-calendar__chip:focus-visible,
 .task-calendar__more:focus-visible,
 .task-calendar__tray-item:focus-visible {
@@ -22433,11 +22366,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .task-calendar__dot--in-progress { background: var(--color-primary); }
 .task-calendar__dot--done { background: var(--color-success-text); }
 .task-calendar__dot--overdue { background: var(--color-error-text); }
-
-.task-calendar__dot--archived {
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
-}
 
 .task-calendar__tray {
     flex: 1 1 16rem;
@@ -22517,10 +22445,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.625rem + var(--border-width-4));
 }
 
-.task-calendar__tray-item--selected {
-    border-color: var(--color-border-strong);
-}
-
 .task-calendar__tray-text {
     flex: 1;
     min-width: 0;
@@ -22553,12 +22477,27 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-left: auto;
 }
 
+/* Show tasks leads the layer boxes (local ADR 0056 §4): it takes the push to the end
+   of the bar, and the boxes after it sit a gap apart as Show events does after Show
+   plans. */
+.task-calendar__show-tasks {
+    margin-left: auto;
+}
+
+.task-calendar__show-tasks + .task-calendar__show-plans,
+.task-calendar__show-tasks + .task-calendar__show-events {
+    margin-left: var(--spacing-md);
+}
+
 /* Below the day head: the day's top padding, the head's height and the day's gap. A
-   head that wraps — today's My Day count on a narrow column — grows past that height,
-   so the head holds its count to one line while the week carries plans. */
+   head that wraps — the day's hours total on a narrow column — grows past that height,
+   so the head holds its total to one line while the week carries bars — plans or
+   events. */
 .task-calendar__plans {
     position: absolute;
-    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    /* Under the week's event lanes too, which sit first (--task-calendar-event-lanes). */
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap)
+        + var(--task-calendar-event-lanes, 0) * (var(--task-calendar-plan-height) + var(--task-calendar-plan-gap)));
     right: 0;
     left: 0;
     display: grid;
@@ -22571,7 +22510,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     pointer-events: none;
 }
 
-.task-calendar__week--plans .task-calendar__day-head {
+.task-calendar__week--bars .task-calendar__day-head {
     flex-wrap: nowrap;
     overflow: hidden;
 }
@@ -22650,10 +22589,88 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     white-space: nowrap;
 }
 
-.task-calendar__tray-head--plans {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-background-raised);
+/* ----- Events on the calendar --------------------------------------------
+   Knowledge events as bars in lanes of their own above the plans, placed as the
+   plans are; the week reserves room under the day numbers for both layers through
+   --task-calendar-lanes, and moves the plans below the event lanes through
+   --task-calendar-event-lanes. A decided event is solid brand colour with inverse
+   text, apart from a plan's tint at a glance; one still being weighed up is a dashed
+   brand border with no fill and brand text. Bars take no drag. A key date is a
+   hollow brand diamond, where a roadmap milestone is a filled one. */
+.task-calendar__show-events {
+    margin-left: auto;
+}
+
+.task-calendar__show-plans + .task-calendar__show-events {
+    margin-left: var(--spacing-md);
+}
+
+.task-calendar__events {
+    position: absolute;
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: var(--task-calendar-plan-height);
+    row-gap: var(--task-calendar-plan-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.task-calendar__event {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0 var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    pointer-events: auto;
+}
+
+.task-calendar__event--filled {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-calendar__event--tentative {
+    border-style: dashed;
+    background: transparent;
+    color: var(--color-primary);
+}
+
+.task-calendar__event--continues-before {
+    margin-left: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.task-calendar__event--continues-after {
+    margin-right: 0;
+    border-right-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.task-calendar__event-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-calendar__milestone--key-date .task-calendar__diamond {
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--color-primary);
+    background: transparent;
 }
 
 /* A plan's tag is often one long word, so its card keeps the title to one line and
@@ -22737,7 +22754,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.375rem + var(--border-width-4));
 }
 
-.task-calendar__block--selected,
 .task-calendar__block[aria-expanded='true'] {
     border-style: solid;
 }
@@ -24123,7 +24139,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 /* Where a host draws the list: under a field's row, a part's card, a member's
-   card, a Glossary row, a flow card, a lifecycle and a feature's promises. */
+   card, a Glossary row and a feature's promises. */
 .domain-field-row__rules {
     flex: 1 1 100%;
 }
@@ -24134,24 +24150,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-top: var(--spacing-xs);
 }
 
-.domain-flows__rules {
-    display: grid;
-    gap: var(--spacing-xs);
-}
-
-.domain-flows__rules-title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
 .domain-feature-detail__rules-label {
     margin-top: var(--spacing-md);
 }
 
 /* A rule count that opens the rules in place: a link, as the boards draw it. */
 .domain-glossary__rules,
-.domain-flow-card__rules,
 .domain-model__rules {
     align-self: flex-start;
     padding: 0;
@@ -24165,13 +24169,11 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .domain-glossary__rules:hover,
-.domain-flow-card__rules:hover,
 .domain-model__rules:hover {
     color: var(--color-primary-light);
 }
 
 .domain-glossary__rules:focus-visible,
-.domain-flow-card__rules:focus-visible,
 .domain-model__rules:focus-visible,
 .domain-field-rules:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
@@ -24343,6 +24345,13 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xs);
 }
 
+/* A first sentence's own links and its "Open the model" read as words of the
+   sentence, not as the record's monospace references. */
+.domain-glossary__summary .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
 .domain-glossary__aliases {
     display: flex;
     flex-wrap: wrap;
@@ -24505,9 +24514,9 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-sm);
 }
 
-/* --- Domain view: Flow ----------------------------------------------------- */
+/* --- Domain view: flows ---------------------------------------------------- */
 /*
-  The Flow page of the Domain view (local ADR 0047): a stateDiagram-v2 drawn as
+  A unit's lifecycles on its Domain page (local ADR 0047): a stateDiagram-v2 drawn as
   one row of states, each a box with its description. A move to the next state
   runs straight to it on top, a move back underneath in a dimmer tone; other
   forward arcs run in lanes above, other ways back in lanes below, the restore
@@ -24543,11 +24552,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
-}
-
-/* The board's page title: the scale's H3, as every Domain view page title. */
-.domain-flows__title--page {
-    font-size: var(--font-size-3xl);
 }
 
 /* A unit's own flows on its Domain page, below its About card: the
@@ -24789,60 +24793,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-primary);
 }
 
-/* What sits beside the status rather than in it: one card per sub-chapter. */
-.domain-flows__cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
-    gap: var(--spacing-lg);
-}
-
-.domain-flow-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    min-width: 0;
-    padding: var(--spacing-md) var(--spacing-lg);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-}
-
-.domain-flow-card__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-.domain-flow-card__title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-flow-card__tag {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__tag p,
-.domain-flow-card__footer p {
-    margin: 0;
-}
-
-.domain-flow-card__body {
-    font-size: var(--font-size-sm);
-}
-
-.domain-flow-card__footer {
-    margin-top: auto;
-    padding-top: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-}
-
 /*
-  A flowchart and a sequence on the Flow page wear the row's cards, lines,
+  A flowchart and a sequence wear the row's cards, lines,
   arrowhead and labels; a dotted link and a reply are dashed.
 */
 
@@ -25386,6 +25338,24 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     border-top: 3px solid var(--color-domain-requirement);
 }
 
+/* What is always true · n rules · on Domain, when it opens the Domain page on
+   its Always true tab: dashed, as the board draws a card that leads elsewhere. */
+.domain-requirements__card--link {
+    border-style: dashed;
+    background: var(--color-background);
+    cursor: pointer;
+}
+
+.domain-requirements__card--link:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+.domain-requirements__card--link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* What is always true under a feature's heading: the rules its requirements
    lean on, shown in place as a list of their own. */
 .domain-requirements__rules {
@@ -25816,6 +25786,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     overflow-wrap: anywhere;
 }
 
+.note-row__meta {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.note-row__kind {
+    display: inline-flex;
+}
+
 .note-row__when {
     flex: none;
     color: var(--color-text-secondary);
@@ -25920,11 +25902,177 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     outline: none;
 }
 
+/*
+  The tools: one row of equal tiles pinned along the bottom of the note, each a
+  glyph above a short word — the tab bar's idiom, because five labelled buttons
+  side by side need about 470px and a phone has 320 inside its gutters. Pinned the
+  way .task-detail__footer is: sticky, opaque and full bleed, so the body scrolling
+  under it never shows at the edges. bottom: 0 is right with no bar below the page;
+  a host whose tab bar is pinned there raises it.
+
+  The z-index keeps the row over any part of what scrolls under it that sets a
+  stacking order of its own. 10 is the scale's z-index-raised, the step
+  typography-and-layout.md#z-index-scale gives a sticky row; the stylesheet
+  declares no custom property for it, so the value is written out.
+
+  The top padding is the focus ring's room: the clip-path cuts at the row's own
+  edge, and a ring drawn 2px outside a tile needs 4px above it.
+*/
 .note-editor__tools {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    box-shadow: 0 0 0 100vmax var(--color-background);
+    clip-path: inset(0 -100vmax);
+}
+
+/*
+  A tile is a block, not a flex column: the word is then a line of the button's own,
+  so a word too wide for a larger text scale ends in an ellipsis rather than spilling
+  into the next tile. The button keeps its whole name — the tools pass the long one as
+  aria-label — and only the ink is cut. At 14px every word fits whole at 360px.
+
+  At least 48px tall and about 62px wide at 360px: past the 44px target
+  (accessibility.md#target-sizes-and-text). The glyph is drawn at icon-md by the host.
+*/
+.note-editor__tools > .btn {
+    display: block;
+    min-width: 0;
+    min-height: 3rem;
+    padding: var(--spacing-xs) var(--spacing-2xs);
+    line-height: var(--line-height-normal);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-editor__tools > .btn .btn__icon {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 var(--spacing-2xs);
+}
+
+/* A glyph written straight into the tile, as a toggle's is, centres the same way.
+   Block is stated here rather than left to `.btn svg`: the tile's word only falls
+   onto a line of its own under a block glyph, and auto margins centre nothing inline. */
+.note-editor__tools > .btn > svg {
+    display: block;
+    margin: 0 auto var(--spacing-2xs);
+}
+
+/* Busy swaps the glyph for the spinner; held to the glyph's 20px so the tile keeps its height. */
+.note-editor__tools > .btn > .spinner {
+    display: flex;
+    justify-content: center;
+    height: 1.25rem;
+    margin: 0 0 var(--spacing-2xs);
+}
+
+/* RecordingBar: a meeting being recorded into the note. The band sits on a soft
+   semantic surface — error while live, warning while paused — with the text on it
+   in text-primary, as the palette's surfaces ask; the one foreground colour is the
+   sanctioned error-text, on the dot and the level while capturing. No new colour. */
+.recording-bar {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+    color: var(--color-text-primary);
+}
+
+.recording-bar--paused {
+    background: var(--color-warning);
+}
+
+.recording-bar__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The active tone's ring goes on the live and stopping dots, which are red here.
+   Only on those: the paused dot is StatusDot's pending ring, drawn by that very
+   box-shadow, and the failed dot is its blocked square. */
+.recording-bar--stopping .recording-bar__dot {
+    background: var(--color-error-text);
+    box-shadow: none;
+}
+
+.recording-bar--recording .recording-bar__dot {
+    background: var(--color-error-text);
+    box-shadow: none;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.recording-bar__label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.recording-bar__timer {
+    margin-left: auto;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xl);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--line-height-tight);
+}
+
+.recording-bar__meter {
+    overflow: hidden;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+/* Scaled rather than sized, so the meter moves on transform alone. */
+.recording-bar__level {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--color-error-text);
+    transform-origin: left center;
+    transition: transform var(--transition-fast);
+}
+
+.recording-bar__actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
     gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.recording-bar__error {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+/* What has the microphone away from a live recording. Semibold on the band's own
+   surface rather than a colour of its own: the band already says live or paused. */
+.recording-bar__notice {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recording-bar--recording .recording-bar__dot {
+        animation: none;
+    }
+
+    .recording-bar__level {
+        transition: none;
+    }
 }
 
 /* --- Settings frame ------------------------------------------------------ */
@@ -26518,6 +26666,177 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     display: grid;
     gap: var(--spacing-sm);
     min-width: 0;
+}
+
+/* --- Agents (MCP server page, local ADR 0058 §3) ------------------------- */
+
+/* One row per agent: who it is and its scopes on the left, its actions on the
+   right, and its switches under both while Edit scopes is open. Rows are divided
+   by a hairline; the actions wrap under the name in a narrow card rather than
+   squeeze it. */
+.agent-list {
+    container: agent-list / inline-size;
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: start;
+    padding-block: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.agent-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-row__who {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.agent-row__name {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__scopes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-2xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    max-width: 22rem;
+}
+
+.agent-row__confirm {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    text-align: end;
+}
+
+.agent-row__editor {
+    grid-column: 1 / -1;
+    padding-top: var(--spacing-xs);
+}
+
+/* A grant another agent made, under its granter (local ADR 0058 §5): indented, with
+   a rule down its leading edge that ties it to the row above. */
+.agent-row--delegated {
+    margin-inline-start: var(--spacing-lg);
+    padding-inline-start: var(--spacing-sm);
+    border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+@container agent-list (max-width: 30rem) {
+    .agent-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .agent-row__actions {
+        justify-content: flex-start;
+        max-width: none;
+    }
+
+    .agent-row__confirm {
+        text-align: start;
+    }
+}
+
+/* The scope switches: as many columns as the card has room for, each switch
+   with its one-line description. A locked scope is dimmed as well as disabled,
+   so the boundary reads at a glance. */
+.agent-scopes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.agent-scopes__switch--locked {
+    opacity: 0.65;
+}
+
+/* The second step of Add agent: the registration to paste, then the copies. */
+.agent-registration {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.agent-registration__title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-registration__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.agent-registration__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* An agent's request for access (local ADR 0058 §5): an agent row with Decline and
+   Allow with Hello. In the request window the switches are its content, so the row
+   gives its whole width to them under the name. */
+.agent-request--window {
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-request--window .agent-row__actions {
+    order: 3;
+    max-width: none;
+}
+
+.agent-request--window .agent-row__editor {
+    order: 2;
+}
+
+.agent-request__status {
+    grid-column: 1 / -1;
+    order: 4;
+}
+
+.agent-request__status--error {
+    color: var(--color-error-text);
+}
+
+/* The card that holds the requests waiting for the person: the warning ink on its
+   border, so a request reads as needing an answer before the agents below it. */
+.settings-card--pending {
+    border-color: var(--color-warning);
 }
 
 /*
@@ -28944,6 +29263,15 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     color: var(--color-text-secondary);
 }
 
+/* An Owner reads as the context's name: devbook-ref--action's link in the
+   table's own type, not a monospace reference — whether it opens the events
+   (a .devbook-ref) or the context (.context-map-contracts__owner). */
+.context-map-contracts__table .devbook-ref,
+.context-map-contracts__owner {
+    font-family: inherit;
+    font-size: inherit;
+}
+
 /* The strategic rules: a card each, its first sentence the title. */
 .context-map-rules {
     display: grid;
@@ -29533,6 +29861,20 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     font-weight: var(--font-weight-semibold);
 }
 
+/* The name, and what calls the service beside it, from its Invocation
+   semantics: a caption, so secondary and small. */
+.domain-model__service-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-sm);
+}
+
+.domain-model__service-caption {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 .domain-model__service-summary {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -29779,6 +30121,51 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .domain-services__invocation {
     min-width: 0;
     font-size: var(--font-size-sm);
+}
+
+/* A row per fact the chapters give — Invocation, Why a service, Raises,
+   Relies on — its label in a column of its own that wraps above the value on a
+   narrow card, the rows divided as the board draws them. */
+.domain-services__facts {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+.domain-services__fact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+}
+
+.domain-services__fact + .domain-services__fact {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-services__label {
+    flex: 0 0 9rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-services__value {
+    flex: 1 1 18rem;
+    min-width: 0;
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-services__event {
+    color: var(--color-domain-event);
+}
+
+.domain-services__reliances {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
 }
 
 .domain-event__fact {
@@ -30343,6 +30730,19 @@ button.domain-field-rules[aria-expanded="true"] {
     color: var(--color-text-primary);
 }
 
+/* A move that opens its lifecycle on the Domain page: the devbook-ref--action
+   link-button, set in the move's own face and size rather than a reference's
+   mono. */
+.domain-event__move-link {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* A raiser's kind after its name — "Projection service". */
+.domain-event__raiser-kind {
+    color: var(--color-text-secondary);
+}
+
 .domain-event__payload {
     width: 100%;
     border: var(--border-width) solid var(--color-border);
@@ -30437,11 +30837,11 @@ button.domain-field-rules[aria-expanded="true"] {
 
 /* ---- the C4 zoom explorer as the architecture surface ----
 
-   Navigation set (plan c4-zoom-navigation): the bar across the top, then three
+   Navigation set (local ADR 0046): the bar across the top, then three
    columns — the host's navigation, the picture, the inspector — as the design draws
    every screen. A document the host opens in place of the picture takes the picture's
-   and the inspector's room. Nothing here reaches the explorer without Navigation, so
-   the C4 zoom tab draws as before. One column under 60rem of surface width.
+   and the inspector's room. Nothing here reaches the explorer without Navigation.
+   One column under 60rem of surface width.
 
    A host that gives the surface a height gets three columns that each scroll on
    their own, as the design's do: the row is that height and no more, so a long
@@ -30459,7 +30859,7 @@ button.domain-field-rules[aria-expanded="true"] {
 .c4-zoom-explorer__surface {
     display: grid;
     flex: 1 1 auto;
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr) minmax(15rem, 18rem);
     grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
     align-items: stretch;
@@ -30471,7 +30871,7 @@ button.domain-field-rules[aria-expanded="true"] {
    level's type panel is its own right-hand column, so the explorer draws no aside. */
 .c4-zoom-explorer__surface--document,
 .c4-zoom-explorer__surface--code {
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
 }
 
 .c4-zoom-explorer__nav {
@@ -30627,6 +31027,15 @@ button.domain-field-rules[aria-expanded="true"] {
 .notification-card__actions--many .btn {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+/* A quiet choice — withdrawing the question, say — sits on its own short line after
+   the buttons, right-aligned and small, so it takes little room beside them. */
+.notification-card__quiet {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
 }
 
 .notification-card__note {
@@ -31187,9 +31596,62 @@ button.domain-field-rules[aria-expanded="true"] {
     flex: 0 0 auto;
 }
 
+/* On the surface the picture takes the height the main column has left after the
+   hint, the heading, the doors and the footer, rather than a height of its own:
+   the column is one scroller, and it scrolls only below the frame's floor.
+
+   The body carries the frame's old height as its flex basis, so a host that gives
+   the column no height (the storybook's stage, the stacked layout under 60rem)
+   draws the picture exactly as tall as before. The frame grows from nothing to fill
+   the body, and its floor is its own min-height. The body and the stage keep their
+   automatic minimum, which is that floor (and the environment tabs over it): a zero
+   minimum would let them shrink under the floor and the frame spill over the footer.
+   With more than one environment the open panel takes the stage's height; the
+   hidden ones keep display: none from the rule above. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > :not(.c4-zoom-explorer__body) {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__main > .c4-zoom-explorer__body {
+    flex: 1 1 clamp(24rem, 60vh, 44rem);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environments {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__environment:not([hidden]) {
+    flex: 1 1 0;
+}
+
 .c4-zoom-explorer--surface .c4-zoom-explorer__frame {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 20rem;
     overflow: auto;
     border: var(--border-width) solid var(--color-border);
+}
+
+/* The hint over the picture, kept short so the picture has the room: the four ways
+   to move in two columns, at the small size, inside a tighter edge. */
+.c4-zoom-explorer--surface .c4-zoom-explorer__hint {
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--spacing-lg);
+    font-size: var(--font-size-sm);
 }
 
 .c4-zoom-explorer__canvas {
@@ -31218,6 +31680,10 @@ button.domain-field-rules[aria-expanded="true"] {
         max-height: none;
         overflow: visible;
     }
+
+    .c4-zoom-explorer--surface .c4-zoom-explorer__moves {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* ---- the selected card's relationships (C4 zoom) ----
@@ -31225,9 +31691,8 @@ button.domain-field-rules[aria-expanded="true"] {
    While a card is selected, the lines into and out of it — and their labels — are
    drawn in the primary colour, heavier, with an arrowhead of their own, and every
    other line is dimmed so the selected card's connections read at a glance. The
-   viewer (markRelated in components.js) sets the classes, and only on a picture
-   written with C4SvgOptions.EdgeEnds, which the C4 tab never asks for. Nothing
-   selected, nothing changes.                                                     */
+   viewer (markRelated in components.js) sets the classes from the ends every
+   relationship names. Nothing selected, nothing changes.                         */
 .c4-diagram--focused g.c4-diagram__edge,
 .c4-diagram--focused g.c4-diagram__edge-label {
     opacity: 0.35;

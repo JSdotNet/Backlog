@@ -6,6 +6,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
@@ -16,8 +17,8 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// of the pull requests a task links to and the row's merge acts
 /// (<see cref="ILinkedPullRequestStates"/>), through Repository Management's contract
 /// (local ADR 0042 §4); and the queue icons that queue an entry session or a plan session
-/// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its
-/// request queue.
+/// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>) and the
+/// queue's order (<see cref="ISessionQueueOrder"/>), over its request queue.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -55,8 +56,26 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<ISessionRequestStore>() is { } queue
                 ? new SessionRequestActions(queue, sp.GetService<IAppFeatureSettings>(), sp.GetService<TimeProvider>(), sp.GetService<DispatcherContact>())
                 : SessionRequestActions.NotOffered);
+        // Resolved once at startup by each head, the way its sync workers are: a
+        // singleton nobody asks for never hears a task write.
+        services.AddSingleton(sp => new SessionRequestCompletion(
+            sp.GetService<ISessionRequestStore>(),
+            async cancellationToken =>
+            {
+                var scope = sp.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
+                await using var disposing = scope.ConfigureAwait(false);
+
+                return await scope.ServiceProvider.GetRequiredService<ITaskItems>().ListAsync(cancellationToken).ConfigureAwait(false);
+            },
+            sp.GetService<ITaskChangeSignal>(),
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetService<ILogger<SessionRequestCompletion>>()));
         services.AddSingleton<IEntrySessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
         services.AddSingleton<IPlanSessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
+
+        // The queue's order is one across both kinds, so the session queue's Move
+        // controls ask the same instance (local ADR 0038 §4, amended).
+        services.AddSingleton<ISessionQueueOrder>(sp => sp.GetRequiredService<SessionRequestActions>());
 
         return services;
     }

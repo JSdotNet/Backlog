@@ -1,8 +1,7 @@
-// setup.mjs — what runs before a journey's first part, without a
-// browser: the effective configuration (the profile, then the journey's `flags`
-// and `settings` on top) and the order the repository's setup hook is called
-// in. `setup.ts` binds it to Playwright; keeping the logic here keeps it
-// testable with plain `node --test`.
+// setup.mjs — a journey's setup as data: the effective configuration (the
+// profile, then the journey's `flags` and `settings` on top) the reporter
+// records in run.json. Applying it is the repository's: its specs set up the
+// tenant, data, flags, settings, and sign-in however its suite does.
 
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -107,54 +106,6 @@ export function effectiveConfig(journey, profiles, { override } = {}) {
 /** The part of the effective configuration `run.json` records: no URLs, nothing resolved from the environment. */
 export function recordedConfig(config) {
     return { tenant: config.tenant, flags: config.flags, settings: config.settings, data: config.data };
-}
-
-/**
- * Call the repository's setup hook in order: apply the tenant, import each
- * data set, set each flag and setting, then sign in once per portal an actor
- * names. `open(portal)` returns the signed-in page for a portal — one browser
- * context each, kept for the whole journey. `dataFolder(name)` is where a data
- * set lives. A hook method the journey needs and the hook lacks is an error; one
- * the journey does not need may be absent.
- *
- * The parameter type is written out because a consumer's `tsc` reads this
- * file through `setup.ts`, and would otherwise infer `dataFolder` as `() => null`.
- *
- * @param {{
- *   hook: any,
- *   config: any,
- *   open: (portal: string) => Promise<any>,
- *   dataFolder?: (name: string) => string | null,
- *   env?: Record<string, string | undefined>,
- * }} options
- * @returns {Promise<void>}
- */
-export async function runSetup({ hook, config, open, dataFolder = () => null, env = process.env }) {
-    const need = (method, why) => {
-        if (typeof hook?.[method] !== "function") throw new Error(`the scenario setup hook has no ${method}(), which ${why}`);
-        return hook[method].bind(hook);
-    };
-    const tenant = resolveEnv(config.tenant, env);
-    if (tenant !== null) await need("applyTenant", `tenant "${tenant}" needs`)(tenant);
-    for (const name of config.data) await need("importData", `data set "${name}" needs`)(name, tenant, dataFolder(name));
-    for (const [flag, on] of Object.entries(config.flags)) await need("setFlag", `flag "${flag}" needs`)(tenant, flag, on);
-    for (const [setting, value] of Object.entries(config.settings)) await need("setSetting", `setting "${setting}" needs`)(tenant, setting, value);
-    for (const [portal, actor] of Object.entries(config.actors)) {
-        const signIn = need("signIn", `actor "${actor}" on portal "${portal}" needs`);
-        await signIn(await open(portal), portal, actor);
-    }
-}
-
-/**
- * The spec file a test or hook belongs to. Not `info.file`: that is where the
- * test or hook is declared, which for a spec built by `scenario()` is setup.ts.
- * The first entry of `titlePath` is the spec, relative to `config.rootDir` — the
- * top-level testDir, else the config's folder — never to the project's testDir,
- * which may lie below it.
- */
-export function specFile({ titlePath, config }) {
-    if (!titlePath?.[0]) throw new Error("the test has no title path to find its spec file by");
-    return path.resolve(config.rootDir, titlePath[0]);
 }
 
 /** The repository root: the nearest folder from `start` upward that holds `.devbook/`. */

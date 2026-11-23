@@ -33,6 +33,12 @@ public static class SyncErrorCodes
     /// them apart in a list.</summary>
     public const string DeviceNameRequired = "device.name_required";
 
+    /// <summary>A public key offered on registration, pairing or a key migration
+    /// that is not a base64url SubjectPublicKeyInfo of a P-256 key (local ADR 0058
+    /// §2). Mapped to 400: the device has to send its key, not the same body
+    /// again.</summary>
+    public const string DevicePublicKeyInvalid = "device.public_key_invalid";
+
     /// <summary>The calling owner has no device with that id: never theirs, or
     /// already revoked. Somebody else's device reads the same way.</summary>
     public const string DeviceNotFound = "device.not_found";
@@ -205,6 +211,19 @@ public static class SyncErrorCodes
     /// Mapped to 413 for the reason <see cref="TaskTooLarge"/> is.</summary>
     public const string DevbookSubjectTooLarge = "sync.devbook_subject_too_large";
 
+    /// <summary>More knowledge event changes in one push than the service will take.</summary>
+    public const string KnowledgeEventBatchTooLarge = "sync.knowledge_event_batch_too_large";
+
+    /// <summary>A knowledge event change the service will not store — no id, a kind the feed
+    /// does not carry, a document that is not a JSON object or is past its bound. Refused at
+    /// the edge and for the whole batch, so the device's watermark never moves past an event
+    /// nobody stored.</summary>
+    public const string KnowledgeEventInvalid = "sync.knowledge_event_invalid";
+
+    /// <summary>One knowledge event document is larger than the store will take. Mapped to
+    /// 413 for the reason <see cref="TaskTooLarge"/> is.</summary>
+    public const string KnowledgeEventTooLarge = "sync.knowledge_event_too_large";
+
     /// <summary>More notifications in one push than the service will take.</summary>
     public const string NotificationBatchTooLarge = "sync.notification_batch_too_large";
 
@@ -272,4 +291,41 @@ public static class SyncErrorCodes
     /// leaves the device, so every screen that reads a sync failure reads this one
     /// the same way.</summary>
     public const string ClientOutdated = "sync.client_outdated";
+
+    /// <summary>A first device asked to register without the one-time enrolment
+    /// code and the PKCE verifier its owner sign-in hands back (local ADR 0058 §1).
+    /// Nobody creates an owner without signing in.</summary>
+    public const string EnrolmentCodeRequired = "enrolment.code_required";
+
+    /// <summary>No live enrolment code hashes to what was sent: never issued, or
+    /// already reaped. The service cannot tell the two apart.</summary>
+    public const string EnrolmentCodeNotFound = "enrolment.code_not_found";
+
+    /// <summary>The enrolment code existed and its minutes are up.</summary>
+    public const string EnrolmentCodeExpired = "enrolment.code_expired";
+
+    /// <summary>The enrolment code has already registered a device. It is single-use.</summary>
+    public const string EnrolmentCodeUsed = "enrolment.code_used";
+
+    /// <summary>The PKCE verifier does not hash to the challenge the enrolment
+    /// started with: the code reached somebody who did not start the sign-in.</summary>
+    public const string EnrolmentVerifierMismatch = "enrolment.verifier_mismatch";
+
+    /// <summary>An enrolment start whose redirect is not an <c>http</c> loopback
+    /// address with a port (RFC 8252 §7.3), whose challenge is not an S256
+    /// challenge, or which carries no state.</summary>
+    public const string EnrolmentRequestInvalid = "enrolment.request_invalid";
+
+    /// <summary>A GitHub callback whose state names no sign-in this service started,
+    /// or one that already came back or ran out of time. There is no loopback to
+    /// send the answer to, so it is answered in place.</summary>
+    public const string EnrolmentSignInUnknown = "enrolment.sign_in_unknown";
+
+    /// <summary>A device of some owner other than the configured one asked about the
+    /// remote connector, or no owner is configured at all. Only the owner manages it.</summary>
+    public const string ConnectorNotOwner = "connector.not_owner";
+
+    /// <summary>A GitHub callback whose state names no connector sign-in. Not an answer a
+    /// client sees: the callback then tries the state as an enrolment sign-in.</summary>
+    public const string ConnectorSignInUnknown = "connector.sign_in_unknown";
 }

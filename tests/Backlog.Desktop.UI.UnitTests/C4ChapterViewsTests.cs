@@ -8,12 +8,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// An arc42 chapter drawing the C4 views it documents, under the sections
 /// <c>_c4/references.json</c> names, and flagging where its own C4 fence and the model
-/// part ways (plan c4-zoom-navigation, entry chapter-views).
+/// part ways (local ADR 0046).
 /// <para>
-/// Pinned for both states of <c>c4-zoom</c>: on, the view is drawn with its Model /
-/// Chapter fence toggle and the way into the zoom tab; off, the chapter is the chapter
-/// it was. A harness of its own rather than a share of <c>C4DevbookPanelTests</c>',
-/// which sibling entries of the same plan are editing at the same time.
+/// The view is drawn with its Model / Chapter fence toggle
+/// and the way into the zoom navigation. A harness of its own rather than a share of
+/// <c>C4DevbookPanelTests</c>'.
 /// </para>
 /// </summary>
 public sealed class C4ChapterViewsTests : IDisposable
@@ -81,14 +80,14 @@ public sealed class C4ChapterViewsTests : IDisposable
         "## Container View\n\nThe deployable split.\n\n```mermaid\n" + fence + "\n```\n\n" +
         "## Desktop App\n\nThe desktop's components.\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
-    // ---- c4-zoom on ------------------------------------------------------------
+    // ---- the views a chapter documents ----------------------------------------
 
     [Fact]
-    public async Task With_the_zoom_key_on_the_view_is_drawn_under_the_section_that_names_it()
+    public async Task The_view_is_drawn_under_the_section_that_names_it()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence));
+        await using var harness = CreateHarness(chapter: Chapter(MatchingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -111,7 +110,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     [Fact]
     public async Task A_fence_that_matches_the_model_shows_no_drift_note()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence));
+        await using var harness = CreateHarness(chapter: Chapter(MatchingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -123,7 +122,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     [Fact]
     public async Task A_fence_that_disagrees_with_the_model_lists_what_each_has_alone()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(DriftingFence));
+        await using var harness = CreateHarness(chapter: Chapter(DriftingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -142,7 +141,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     [Fact]
     public async Task The_toggle_draws_the_chapter_fence_in_place_of_the_model()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(DriftingFence));
+        await using var harness = CreateHarness(chapter: Chapter(DriftingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -163,7 +162,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     [Fact]
     public async Task Open_in_C4_zoom_opens_the_picture_at_that_view_in_place_of_the_chapter()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence));
+        await using var harness = CreateHarness(chapter: Chapter(MatchingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -177,11 +176,11 @@ public sealed class C4ChapterViewsTests : IDisposable
     }
 
     /// <summary>Asking again for the view after the reader zoomed elsewhere opens it
-    /// again: each "Open in C4 zoom" is a request of its own.</summary>
+    /// again: each "Open in the C4 model" is a request of its own.</summary>
     [Fact]
     public async Task Open_in_C4_zoom_a_second_time_reopens_the_view()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence));
+        await using var harness = CreateHarness(chapter: Chapter(MatchingFence));
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -196,8 +195,11 @@ public sealed class C4ChapterViewsTests : IDisposable
         component.WaitForAssertion(() =>
             Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent));
 
-        // Back to the chapter through the left navigation's way to every chapter.
+        // Back to the chapter through the left navigation's arc42 group, folded open.
         await component.Find("[data-testid='arc42-surface-all-chapters']").ClickAsync(new());
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='arc42-surface-all-chapters']").GetAttribute("aria-expanded")));
+        await component.FindAll("[data-testid='arc42-surface-chapter']").Single(line => line.TextContent.Contains("05", StringComparison.Ordinal)).ClickAsync(new());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-open-zoom']")));
         await component.Find("[data-testid='arc42-chapter-c4-open-zoom']").ClickAsync(new());
 
@@ -211,7 +213,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     public async Task A_title_used_twice_draws_the_view_once()
     {
         var chapter = Chapter(MatchingFence) + "\n## Container View\n\nA second section of the same name.\n";
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: chapter);
+        await using var harness = CreateHarness(chapter: chapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -236,7 +238,7 @@ public sealed class C4ChapterViewsTests : IDisposable
                 System(other, "Something else entirely")
                 Rel(me, other, "Uses")
             """;
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(contextFence), references: wholeChapter);
+        await using var harness = CreateHarness(chapter: Chapter(contextFence), references: wholeChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -255,7 +257,7 @@ public sealed class C4ChapterViewsTests : IDisposable
         const string wholeChapter = """
             { "views": { "containers-backlog": [".arc42/05-building-block-view.md"] } }
             """;
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence), references: wholeChapter);
+        await using var harness = CreateHarness(chapter: Chapter(MatchingFence), references: wholeChapter);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -271,7 +273,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     [Fact]
     public async Task A_model_drawn_from_the_chapters_is_not_embedded()
     {
-        await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(DriftingFence), writeWorkspace: false, references: null);
+        await using var harness = CreateHarness(chapter: Chapter(DriftingFence), writeWorkspace: false, references: null);
 
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
@@ -281,48 +283,16 @@ public sealed class C4ChapterViewsTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-c4-embed']"));
     }
 
-    // ---- c4-zoom off -------------------------------------------------------------
-
-    [Fact]
-    public async Task With_the_zoom_key_off_the_chapter_renders_as_before()
-    {
-        await using var harness = CreateHarness(c4ZoomEnabled: false, chapter: Chapter(DriftingFence));
-
-        var component = harness.Render(ChapterPath);
-        harness.Settle(component);
-
-        // The chapter's own views list is the C4 key's, and it is what tells the
-        // chapter has been read with the model beside it.
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-view']")));
-        component.WaitForAssertion(() => Assert.Contains("Container View", component.Find("[data-testid='arc42-chapter-file']").TextContent, StringComparison.Ordinal));
-
-        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-c4-embed']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-c4-drift']"));
-        Assert.Empty(component.FindAll("[data-testid^='markdown-chapter-insert-']"));
-    }
-
-    [Fact]
-    public async Task With_the_zoom_key_off_a_matching_fence_is_not_embedded_either()
-    {
-        await using var harness = CreateHarness(c4ZoomEnabled: false, chapter: Chapter(MatchingFence));
-
-        var component = harness.Render(ChapterPath);
-        harness.Settle(component);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-view']")));
-        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-c4-embed']"));
-    }
-
     // ---- harness -----------------------------------------------------------------
 
     private Harness CreateHarness(
-        bool c4ZoomEnabled,
         string chapter,
         string? references = Documented,
         bool writeWorkspace = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-chapter-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-chapter");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".arc42");
         var c4 = Path.Combine(arc42, C4DevbookStore.ReferenceDirectory);
@@ -334,8 +304,6 @@ public sealed class C4ChapterViewsTests : IDisposable
 
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
-        if (c4ZoomEnabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -386,16 +354,6 @@ public sealed class C4ChapterViewsTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

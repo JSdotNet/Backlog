@@ -1,12 +1,11 @@
-using System.Buffers.Text;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -56,20 +55,14 @@ public sealed class WorkspaceSettingsStore
     /// running the app — or the desktop web harness Aspire drives for the same
     /// purpose — always lands in a private, isolated workspace instead of quietly
     /// sharing whatever real backlog is configured on that machine.</summary>
-#if DEBUG
-    public const string DefaultAppDataFolderName = "Backlog.Debug";
-#else
-    public const string DefaultAppDataFolderName = "Backlog";
-#endif
+    public const string DefaultAppDataFolderName = AppDataPaths.HeadFolderName;
 
     /// <summary>The per-user folder <see cref="DefaultAppDataFolderName"/> names
     /// under LocalApplicationData. Where a host composes the per-machine files
     /// whose stores cannot see this one — the sync credential, the sync URL,
     /// each replica's progress — so a Debug head never reads the installed
     /// app's.</summary>
-    public static string DefaultAppDataDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        DefaultAppDataFolderName);
+    public static string DefaultAppDataDirectory => AppDataPaths.Head();
 
     public WorkspaceSettingsStore()
         : this(null)
@@ -79,11 +72,11 @@ public sealed class WorkspaceSettingsStore
     public WorkspaceSettingsStore(string? appDataDirectory)
         : this(
             string.IsNullOrWhiteSpace(appDataDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
+                ? DefaultAppDataDirectory
                 : appDataDirectory,
             Path.Combine(
                 string.IsNullOrWhiteSpace(appDataDirectory)
-                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
+                    ? DefaultAppDataDirectory
                     : appDataDirectory,
                 "settings.json"))
     {
@@ -118,11 +111,13 @@ public sealed class WorkspaceSettingsStore
         RootRepository = settings?.RootRepository?.ToRepository();
         BackupSchedule = settings?.BackupSchedule?.ToSchedule() ?? BackupSchedule.Off;
 
-        // Absent reads as the default port and no token yet. No token is
-        // generated here: see EnsureMcpServerToken for why the first need rather
-        // than construction is the moment.
+        // Absent reads as the default port. The shared tokens an earlier build kept here
+        // are read only to be retired (local ADR 0058, Phase 1): the listener accepts none
+        // of them, and the save after the migration has run drops them.
         McpServerPort = settings?.McpServer?.ToPort() ?? DefaultMcpServerPort;
-        McpServerToken = Clean(settings?.McpServer?.Token);
+        _retiredMcpTokenFields = (Clean(settings?.McpServer?.Token), Clean(settings?.McpServer?.HookToken), Clean(settings?.McpServer?.TelemetryToken));
+        McpServerGrants = settings?.McpServer?.Grants?.ToGrants();
+        McpServerAcceptsEnvironmentToken = settings?.McpServer?.AcceptEnvironmentToken == true;
 
         // The legacy name is consulted only when the current one is absent, so a
         // file written before the context was renamed reads as the same choice
@@ -231,26 +226,55 @@ public sealed class WorkspaceSettingsStore
     public int McpServerPort { get; private set; }
 
     /// <summary>
-    /// The bearer token the MCP server requires, or null while nothing has
-    /// needed one yet.
-    /// <para>
-    /// Read-only, and deliberately not the thing that creates it:
-    /// <see cref="EnsureMcpServerToken"/> is. A property that wrote a file the
-    /// first time it was read would generate a token for a settings screen that
-    /// merely drew a blank field.
-    /// </para>
-    /// <para>
-    /// Plaintext, on local ADR 0012's own terms: "A token in a settings file.
-    /// Bearer over loopback is as strong as the user account is; it is not a
-    /// defence against a process already running as that user, and does not
-    /// claim to be." It is the one stated exception to local ADR 0030, which
-    /// seals every other stored credential.
-    /// </para>
+    /// The shared tokens an earlier build kept in <c>settings.json</c> — <c>mcpServer.token</c>,
+    /// <c>hookToken</c> and <c>telemetryToken</c> — read so the migration can recognise the
+    /// registrations that still carry one (local ADR 0058, Phase 1). Empty once
+    /// <see cref="ForgetRetiredMcpTokens"/> has run, or in a file that never had one. The
+    /// listener accepts none of them: they are kept only until what names them has been
+    /// rewritten, then dropped from the file.
     /// </summary>
-    public string? McpServerToken { get; private set; }
+    public IReadOnlyList<string> RetiredMcpTokens =>
+        [.. new[] { _retiredMcpTokenFields.Token, _retiredMcpTokenFields.Hook, _retiredMcpTokenFields.Telemetry }.OfType<string>().Distinct(StringComparer.Ordinal)];
 
-    /// <summary>Raised when the MCP port or token changes, for the worker that
-    /// has to rebind or start demanding a different token. Separate from
+    /// <summary>The retired tokens as the file held them, field by field, so a save before the
+    /// migration writes each back where it was.</summary>
+    private (string? Token, string? Hook, string? Telemetry) _retiredMcpTokenFields;
+
+    /// <summary>
+    /// The grants the app made for what it installs itself (local ADR 0058, Phase 1): the
+    /// delivery registration, the question hook, the telemetry exporter and the dispatch-sessions
+    /// Manager. Null until the
+    /// first start after the upgrade has made them. Ids only — a grant id is a label, not a
+    /// password — so <c>settings.json</c> holds no MCP secret.
+    /// </summary>
+    public McpInstalledGrants? McpServerGrants { get; private set; }
+
+    /// <summary>
+    /// The debug setting behind the <c>BACKLOG_MCP_TOKEN</c> escape hatch: whether the listener
+    /// accepts the token in this process's <c>BACKLOG_MCP_TOKEN</c> environment variable beside
+    /// the grants, for a dev or CI run with no broker. Off unless <c>settings.json</c> says
+    /// <c>"mcpServer": { "acceptEnvironmentToken": true }</c>, which only a hand edit writes.
+    /// </summary>
+    public bool McpServerAcceptsEnvironmentToken { get; private set; }
+
+    /// <summary>The escape hatch's environment variable.</summary>
+    public const string EnvironmentTokenVariable = "BACKLOG_MCP_TOKEN";
+
+    /// <summary>Reads an environment variable: this process's by default, a test's own in a
+    /// test, so no test has to set a variable every other test in the process would see.</summary>
+    public Func<string, string?> ReadEnvironment { get; init; } = Environment.GetEnvironmentVariable;
+
+    /// <summary>
+    /// The token the escape hatch accepts: <c>BACKLOG_MCP_TOKEN</c> when
+    /// <see cref="McpServerAcceptsEnvironmentToken"/> is on and the variable holds one, else
+    /// null — which is what the listener sees on every machine nobody switched it on for.
+    /// Never written to a file.
+    /// </summary>
+    public string? EnvironmentMcpToken =>
+        McpServerAcceptsEnvironmentToken ? Clean(ReadEnvironment(EnvironmentTokenVariable)) : null;
+
+    /// <summary>Raised when the MCP port or the recorded grants change, for the worker that
+    /// has to rebind and the pages that show them. Separate from
     /// <see cref="BackupChanged"/> and <see cref="RootChanged"/> for the reason
     /// those are separate from each other: a listener rebinding is not a reason
     /// for a backup timer to re-arm or for every open view to reload.</summary>
@@ -992,60 +1016,36 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
-    /// The bearer token the MCP server requires, generating and keeping one the
-    /// first time anything asks.
-    /// <para>
-    /// On first need rather than at construction, because construction happens
-    /// on every launch of every head — including the ones that will never listen
-    /// — and a secret written to disk for a feature nobody switched on is a
-    /// secret with no reason to exist. Once written it is kept: the token is
-    /// named by every registration that talks to this server, so rotating it
-    /// silently would break them all with nothing on screen to say why.
-    /// </para>
-    /// <para>
-    /// 256 bits from the OS random source, Base64Url-encoded — the same
-    /// construction and the same reasoning as
-    /// <c>IRegistrationCredentialGenerator.Next</c>, which is the product's
-    /// existing answer to "an opaque credential nobody guesses". Not
-    /// <see cref="Guid"/> and not <see cref="Random"/>: neither is a
-    /// cryptographic source, and a token is exactly the case where that is the
-    /// whole of the requirement.
-    /// </para>
-    /// <para>
-    /// <b>A corrupt settings file rotates it.</b> <see cref="ReadSettings"/>
-    /// answers null for a file it cannot parse as well as for one that is not
-    /// there — by design, so that a broken file never stops the app opening —
-    /// and this store cannot tell those two apart. A hand-edited file that no
-    /// longer parses therefore comes back as "no token yet" and the next need
-    /// writes a fresh one, which every existing registration then fails to
-    /// authenticate with. <see cref="McpChanged"/> firing is what keeps it from
-    /// being silent to the app; to the registrations it is not, and re-copying
-    /// the token is the repair.
-    /// </para>
+    /// Records the grants the migration made (local ADR 0058, Phase 1). Answers null, or
+    /// the sentence saying they hold for this run but could not be saved for next time — the
+    /// next start then makes them again, and the ones made now stay on the Agents card.
     /// </summary>
-    public string EnsureMcpServerToken()
+    public string? SetMcpServerGrants(McpInstalledGrants grants)
     {
-        if (McpServerToken is { } existing) return existing;
+        ArgumentNullException.ThrowIfNull(grants);
 
-        McpServerToken = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(McpServerTokenBytes));
-
-        // The save failure is deliberately dropped rather than returned. The
-        // caller is the listener asking what token to demand, and a token it
-        // holds but could not persist still works for this run - which is a
-        // better answer than refusing to start. The next launch generates
-        // another one and the registration is re-pointed, exactly as for a
-        // corrupt file above.
-        _ = SaveSettings("MCP token created, but it couldn't be saved for next time.");
+        McpServerGrants = grants;
+        var error = SaveSettings("The MCP grants were made, but couldn't be recorded for next time.");
         McpChanged?.Invoke();
-
-        return McpServerToken;
+        return error;
     }
 
-    /// <summary>256 bits, which is what
-    /// <c>IRegistrationCredentialGenerator</c> uses and for the same reason: no
-    /// dictionary to price, and 43 Base64Url characters is still short enough to
-    /// paste.</summary>
-    private const int McpServerTokenBytes = 32;
+    /// <summary>
+    /// Drops the retired shared tokens from <c>settings.json</c>, once what named them has been
+    /// rewritten (local ADR 0058, Phase 1). Answers null, or the sentence saying the file still
+    /// carries them, in which case they are kept so the next start can try again.
+    /// </summary>
+    public string? ForgetRetiredMcpTokens()
+    {
+        if (RetiredMcpTokens.Count == 0) return null;
+
+        var kept = _retiredMcpTokenFields;
+        _retiredMcpTokenFields = default;
+        var error = SaveSettings("The retired MCP token couldn't be removed from settings.json.");
+
+        if (error is not null) _retiredMcpTokenFields = kept;
+        return error;
+    }
 
     /// <summary>
     /// Points branch snapshots at a different folder, or — with a blank path —
@@ -1142,11 +1142,11 @@ public sealed class WorkspaceSettingsStore
                 // switch it back on.
                 BackupSchedule = StoreBackupScheduleSettings.From(BackupSchedule),
 
-                // Written as null until there is something to say - neither a
-                // token generated nor a port chosen - so a workspace that has
+                // Written as null until there is something to say - no grants
+                // recorded, no port chosen, no retired token - so a workspace that has
                 // never switched the MCP server on keeps producing the file it
                 // always did.
-                McpServer = StoreMcpServerSettings.From(McpServerPort, McpServerToken),
+                McpServer = StoreMcpServerSettings.From(McpServerPort, _retiredMcpTokenFields, McpServerGrants, McpServerAcceptsEnvironmentToken),
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
@@ -1200,9 +1200,9 @@ public sealed class WorkspaceSettingsStore
         /// before there was a schedule to write. Absent reads as off.</summary>
         public StoreBackupScheduleSettings? BackupSchedule { get; init; }
 
-        /// <summary>The MCP server's port and bearer token, or null in a file
+        /// <summary>The MCP server's port and the grants the app made, or null in a file
         /// written before there was a server to write them for. Absent reads as
-        /// the default port and no token yet.</summary>
+        /// the default port and no grants yet.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public StoreMcpServerSettings? McpServer { get; init; }
 
@@ -1330,26 +1330,38 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
-    /// The MCP server's row in the settings file: which loopback port it listens
-    /// on and the bearer token it demands.
-    /// <para>
-    /// One row rather than two fields for the reason the whole file is one file:
-    /// they are one decision — this port, with this token — and a registration
-    /// that has one and not the other cannot reach the server at all.
-    /// </para>
+    /// The MCP server's row in the settings file: which loopback port it listens on, the
+    /// grants the app made for what it installs, and the escape hatch's debug setting. No
+    /// secret: since local ADR 0058, Phase 1, a grant's secret is sealed in
+    /// <c>mcp-grants.json</c> and this row names grants by id only.
     /// </summary>
     private sealed record StoreMcpServerSettings
     {
-        /// <summary>The bearer token, in plaintext. Local ADR 0012 accepts that
-        /// as a stated negative consequence rather than an oversight: this file
-        /// is machine-local by construction and never travels with synced
-        /// content, and a token encrypted against the same user account the
-        /// server already trusts would defend against nothing.</summary>
+        /// <summary>FROZEN LEGACY FIELD: the shared bearer token an earlier build kept here in
+        /// plaintext. Read to be retired, written back only until the migration has rewritten
+        /// what names it, never accepted by the listener.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Token { get; init; }
+
+        /// <summary>FROZEN LEGACY FIELD: the question hook's token, on the same terms.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? HookToken { get; init; }
+
+        /// <summary>FROZEN LEGACY FIELD: the telemetry exporter's token, on the same terms.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? TelemetryToken { get; init; }
 
         /// <summary>The chosen port, or null for
         /// <see cref="DefaultMcpServerPort"/>.</summary>
         public int? Port { get; init; }
+
+        /// <summary>The grants the migration made, by id, or null before it has run.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public StoreMcpGrantIds? Grants { get; init; }
+
+        /// <summary>The escape hatch's debug setting, written only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? AcceptEnvironmentToken { get; init; }
 
         /// <summary>The stored port as a port, or null when it does not read as
         /// one — a hand-edited file is a file like any other here, and a number
@@ -1359,22 +1371,48 @@ public sealed class WorkspaceSettingsStore
         public int? ToPort() =>
             Port is int port && port >= LowestAllowedMcpServerPort && port <= 65535 ? port : null;
 
-        /// <summary>The row to write, or null when there is nothing yet to say.
-        /// <para>
-        /// The default port with no token is the state every workspace starts
-        /// in, and writing it would put a row into the settings file of every
-        /// person who has never heard of this feature. A token on its own is
-        /// worth writing even at the default port — it is the part that cannot
-        /// be recomputed.
-        /// </para></summary>
-        public static StoreMcpServerSettings? From(int port, string? token) =>
-            token is null && port == DefaultMcpServerPort
+        /// <summary>The row to write, or null when there is nothing yet to say: the default
+        /// port with no grants, no retired token and the escape hatch off, which is the state
+        /// every workspace starts in.</summary>
+        public static StoreMcpServerSettings? From(
+            int port,
+            (string? Token, string? Hook, string? Telemetry) retired,
+            McpInstalledGrants? grants,
+            bool acceptEnvironmentToken) =>
+            retired == default && grants is null && !acceptEnvironmentToken && port == DefaultMcpServerPort
                 ? null
                 : new StoreMcpServerSettings
                 {
-                    Token = token,
-                    Port = port == DefaultMcpServerPort ? null : port
+                    Token = retired.Token,
+                    HookToken = retired.Hook,
+                    TelemetryToken = retired.Telemetry,
+                    Port = port == DefaultMcpServerPort ? null : port,
+                    Grants = grants is null ? null : new StoreMcpGrantIds { Delivery = grants.Delivery, QuestionHook = grants.QuestionHook, Telemetry = grants.Telemetry, Manager = grants.Manager },
+                    AcceptEnvironmentToken = acceptEnvironmentToken ? true : null
                 };
+    }
+
+    /// <summary>The <c>mcpServer.grants</c> row: the ids the migration made. The ask-backlog
+    /// hook reads <c>questionHook</c> from it and the headers helper <c>delivery</c>;
+    /// <c>manager</c> is the dispatch-sessions Manager's.</summary>
+    private sealed record StoreMcpGrantIds
+    {
+        public string? Delivery { get; init; }
+
+        public string? QuestionHook { get; init; }
+
+        public string? Telemetry { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Manager { get; init; }
+
+        /// <summary>The ids, or null when any of the first three is missing: a row the migration
+        /// did not write whole reads as no migration yet. <c>manager</c> may be missing — a row
+        /// recorded before the Manager grant existed — and the next start then adds it.</summary>
+        public McpInstalledGrants? ToGrants() =>
+            Clean(Delivery) is { } delivery && Clean(QuestionHook) is { } hook && Clean(Telemetry) is { } telemetry
+                ? new McpInstalledGrants(delivery, hook, telemetry, Clean(Manager))
+                : null;
     }
 
     private sealed record StoreRepositorySettings

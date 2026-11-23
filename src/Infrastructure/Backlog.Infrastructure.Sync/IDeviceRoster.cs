@@ -13,6 +13,13 @@ public interface IDeviceRoster
     /// <summary>Every device of this device's owner, and which one is this device.</summary>
     Task<Result<DeviceListResponse>> ListDevicesAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Revokes another device of this owner.</summary>
+    /// <summary>Revokes another device of this owner. Where the host composed a step-up, the
+    /// person confirms with Windows Hello first (local ADR 0058 §6).</summary>
     Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default);
+
+    /// <summary>Revokes the device that just redeemed this device's pairing code, because the
+    /// person answered Refuse to "Pair it?". Asks for no step-up: refusing a pairing shuts out a
+    /// device nobody has trusted yet, the safe direction, and the answer may arrive from the
+    /// phone while nobody is at this desktop to confirm.</summary>
+    Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default);
 }

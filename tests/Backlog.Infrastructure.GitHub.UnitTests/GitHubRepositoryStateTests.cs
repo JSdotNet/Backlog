@@ -11,19 +11,13 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubRepositoryStateTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-repository-state-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-repository-state-tests");
 
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
     private static readonly GitHubRepositoryRef Budgetbeheer = new("budgetbeheer", "innovadis-dev", "Budgetbeheer");
     private static readonly GitHubRepositoryRef Gone = new("gone", "octo", "gone");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_repository_github_reports_archived_reads_archived_and_stays_active_here()
@@ -109,22 +103,11 @@ public sealed class GitHubRepositoryStateTests : IDisposable
 
     private GitHubIntegration Integration(RoutingTransport transport, params GitHubRepositoryRef[] configured)
     {
-        Directory.CreateDirectory(_root);
         var integration = new GitHubIntegration(
-            new GitHubSettingsStore(Path.Combine(_root, "github.json")),
+            new GitHubSettingsStore(_temp.Combine("github.json")),
             new GitHubClient(transport),
-            new NoProbe());
+            new StubProbe(new GitHubConnection(true, "Connected.")));
         Assert.Null(integration.Settings.SetRepositories(configured));
         return integration;
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

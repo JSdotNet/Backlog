@@ -1,6 +1,7 @@
 extern alias DesktopHarness;
 
 using Backlog.Infrastructure.Mcp;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -91,6 +92,34 @@ public class McpServerCompositionTests
     }
 
     /// <summary>
+    /// An event added over MCP reaches an Events pane open in another scope of the harness.
+    /// <para>
+    /// The MCP call and a window are two scopes of one container, and the pane is Scoped, so
+    /// the only way the window hears the call is the module's singleton notice its
+    /// <c>Changed</c> is held on. Built the way the SDK builds the tool, out of the request's
+    /// scope, so a pane resolved there that announced into a notice of its own would fail here.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_event_added_over_mcp_reaches_an_events_pane_open_in_another_scope()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var window = harness.Services.CreateScope();
+        using var request = harness.Services.CreateScope();
+        var pane = window.ServiceProvider.GetRequiredService<IEventsPane>();
+        var heard = 0;
+        pane.Changed += () => Interlocked.Increment(ref heard);
+
+        var tools = ActivatorUtilities.CreateInstance<EventTools>(request.ServiceProvider);
+        var added = await tools.AddAsync("dotNET Friday, 27 November", start: "2026-11-27T16:30+01:00", cancellationToken: ct);
+
+        Assert.Equal(1, Volatile.Read(ref heard));
+        Assert.Equal(("Spotted", "2026-11-27T16:30+01:00"), (added.State, added.Start));
+        Assert.Contains((await pane.ListAsync(ct)).SelectMany(group => group.Events), listed => listed.Id == added.Id);
+    }
+
+    /// <summary>
     /// The feature switches resolve from a request scope too.
     /// <para>
     /// A separate assertion from the one above because it is a separate path:
@@ -126,13 +155,10 @@ public class McpServerCompositionTests
             BacklogMcpTools.Groups,
             group =>
             {
-                // The one group no flag gates — open_window, local ADR 0043 §7 — has
-                // no key to ask about.
-                if (ReferenceEquals(group, BacklogMcpTools.Windows))
-                {
-                    Assert.Null(group.FeatureKey);
-                    return;
-                }
+                // A group no flag gates — open_window (local ADR 0043 §7), request_access
+                // and the granting tools (local ADR 0058 §5), and the permanent areas: the
+                // backlog, the roadmap, the devbook, Progress — has no key to ask about.
+                if (group.FeatureKey is null) return;
 
                 Assert.False(string.IsNullOrWhiteSpace(group.FeatureKey));
 
@@ -140,7 +166,7 @@ public class McpServerCompositionTests
                 // being asserted is that asking does not throw, not which answer
                 // comes back — the answer is whatever this machine's settings
                 // file says, and a test that demanded one would fail for whoever
-                // had switched the roadmap off. Written as a statement so it
+                // had switched a feature off. Written as a statement so it
                 // cannot be read as an assertion whose result was dropped, which
                 // is what `group => features.IsEnabled(group.FeatureKey)` was:
                 // Assert.All binds an Action<T> and discards a bool silently.

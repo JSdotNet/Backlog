@@ -10,7 +10,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 // is the emulator, so the sync path builds and runs with no Azure account and no
 // subscription cost.
 //
-// The database and all four containers are declared so the local shape matches
+// The database and all of its containers are declared so the local shape matches
 // the deployed one: one database; `tasks` and `sessions` partitioned on /ownerId;
 // `devices` and `pairingCodes` partitioned on /id, because their one hot read has
 // only the document's own id in hand (see DeviceDocument). The TTLs and the
@@ -37,6 +37,9 @@ cosmosDatabase.AddContainer("annotations", "/ownerId");
 // Devbook subject state — a change proposal's, a decision record's, a debt record's —
 // partitioned on the owner like the other replicas, with no TTL: a state is never deleted.
 cosmosDatabase.AddContainer("devbookSubjects", "/ownerId");
+// Knowledge events and event series (local ADR 0050 §2), partitioned on the owner like the
+// other replicas, with no TTL: an event is never deleted on the feed.
+cosmosDatabase.AddContainer("knowledgeEvents", "/ownerId");
 // Notifications and the replies to them (local ADR 0039), partitioned on the owner like
 // the other replicas. Their TTLs — 30 days after a notification settles, and the reply
 // backstop — are stamped per document and live only in the bicep, as the others do.
@@ -44,6 +47,11 @@ cosmosDatabase.AddContainer("notifications", "/ownerId");
 cosmosDatabase.AddContainer("notificationReplies", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
+// The remote connector's credentials (local ADR 0058 §8): its client's secret hash, its
+// refresh tokens and a marker per revoked token family, partitioned on /id for the reason
+// `pairingCodes` is. The tokens' and markers' TTLs are stamped per document and the
+// indexing policy lives only in the bicep.
+cosmosDatabase.AddContainer("connectorCredentials", "/id");
 
 // Azure Storage — the attachment store beside the replica (local ADR 0014). Deployed
 // it is a storage account provisioned by infra/sync/main.bicep; here it is Azurite,
@@ -88,6 +96,12 @@ var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sy
     .WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
     .WithEnvironment("Modules__Sync__Transcription__Credential", "None")
     .WaitFor(azureFoundryTest);
+
+// The connector's authorization server says who it is and which resource its tokens are for
+// (local ADR 0058 §8). Ports are dynamic, so both come from the service's own endpoint rather
+// than the Development default of http://localhost, which nothing would answer on.
+sync.WithEnvironment("Modules__Sync__Connector__Issuer", sync.GetEndpoint("http"))
+    .WithEnvironment("Modules__Sync__Connector__Resource", ReferenceExpression.Create($"{sync.GetEndpoint("http")}/mcp"));
 
 // --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts

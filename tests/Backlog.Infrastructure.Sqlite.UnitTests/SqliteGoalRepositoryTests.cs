@@ -19,14 +19,16 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     private static readonly DateOnly Due = new(2026, 10, 31);
     private static readonly DateOnly Today = new(2026, 10, 17);
 
+    private readonly TemporaryDirectory _temp = new("goal-tests");
+    private readonly TemporaryDirectory _otherTemp = new("goal-tests");
     private readonly string _dir;
     private readonly string _other;
     private readonly SqliteGoalRepository _repository;
 
     public SqliteGoalRepositoryTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "goal-tests-" + Guid.NewGuid().ToString("N"));
-        _other = Path.Combine(Path.GetTempPath(), "goal-tests-" + Guid.NewGuid().ToString("N"));
+        _dir = _temp.Path;
+        _other = _otherTemp.Path;
         _repository = new SqliteGoalRepository(_dir);
     }
 
@@ -107,8 +109,12 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
 
         Assert.Equal(1234, (await _repository.GetAsync(placed.Id, Cancellation))!.Rank);
         Assert.Null((await _repository.GetAsync(unplaced.Id, Cancellation))!.Rank);
-        Assert.Contains("\"rank\":1234", (await _repository.ReadAsync(placed.Id, Cancellation))!.Content, StringComparison.Ordinal);
+        var placedContent = (await _repository.ReadAsync(placed.Id, Cancellation))!.Content;
+        Assert.Contains("\"rank\":1234", placedContent, StringComparison.Ordinal);
         Assert.DoesNotContain("rank", (await _repository.ReadAsync(unplaced.Id, Cancellation))!.Content, StringComparison.Ordinal);
+
+        // And the phone, which reads the same document, reads the same rank.
+        Assert.Equal(1234, Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(placedContent, placed.Id)!.Rank);
     }
 
     /// <summary>Goals list in the person's order: by rank where placed, by when they were set
@@ -191,17 +197,6 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         var stored = (await _repository.ReadAsync(id, Cancellation))!.Content;
         Assert.Contains("\"laterField\":{\"x\":1}", stored, StringComparison.Ordinal);
         Assert.Contains("Edited here", stored, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task The_phone_reads_the_rank_the_desktop_stored()
-    {
-        var goal = Placed("Placed", Eight, 99);
-        await _repository.SaveAsync(goal, Cancellation);
-
-        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadGoal((await _repository.ReadAsync(goal.Id, Cancellation))!.Content, goal.Id);
-
-        Assert.Equal(99, read!.Rank);
     }
 
     [Fact]
@@ -447,10 +442,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        foreach (var dir in new[] { _dir, _other })
-        {
-            if (!Directory.Exists(dir)) continue;
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        _temp.Dispose();
+        _otherTemp.Dispose();
     }
 }

@@ -11,6 +11,8 @@ using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Tasks;
 using Bunit;
+using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Components.Sections;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -397,6 +399,32 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal(["backlog"], component.FindComponent<NotificationCentrePane>().Instance.RepositoryScope));
     }
 
+    /// <summary>The notification centre draws no close of its own
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its
+    /// own"): its option pressed again is the way back to the workspace.</summary>
+    [Fact]
+    public void The_notification_centre_draws_no_close_and_its_option_pressed_again_returns_to_the_workspace()
+    {
+        using var harness = CreateHarness();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+        _ = features.SetEnabled(NotificationsFeatures.Notifications, true);
+        var component = Render(harness);
+
+        component.WaitForElement("[data-testid='notifications-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='notifications-surface'] [data-testid='notification-centre']")));
+
+        Assert.Empty(component.FindAll("[data-testid='notification-centre-close']"));
+        Assert.Empty(component.FindAll("[data-testid='notifications-surface'] [aria-label='Close notifications']"));
+
+        component.Find("[data-testid='notifications-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='notifications-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
     [Fact]
     public void The_anchor_is_marked_only_once_there_is_a_second_chip_to_tell_it_from()
     {
@@ -565,7 +593,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Empty(component.FindAll("[data-testid='repository-filter-option']"));
         Assert.Empty(component.FindAll("[data-testid='brain-scope-divider']"));
         OpenDisplayOptions(component);
-        Assert.Empty(component.FindAll("[data-testid='repository-colours-toggle']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='repository-colours-toggle']"));
         Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
     }
 
@@ -676,36 +704,30 @@ public sealed class HomeRepositoryScopeTests
     [Fact]
     public void Without_a_remembered_scope_the_devbook_option_offers_the_brain()
     {
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"), "Brain");
+        using var temp = new TemporaryDirectory("backlog-repository-scope-tests");
+        var brainFolder = temp.Combine("Brain");
         Directory.CreateDirectory(Path.Combine(brainFolder, "projects"));
         File.WriteAllText(Path.Combine(brainFolder, "projects", "plan.md"), "# Plan\n\nThe plan.\n");
 
-        try
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component);
+        Assert.Empty(state.SelectedRepositoryAliases);
+
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
         {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+            Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Equal("Brain", component.Find("[data-testid='devbook-brain-badge']").TextContent.Trim());
+            Assert.Equal(brainFolder, component.Find("[data-testid='devbook-brain-path']").TextContent.Trim());
+            Assert.Contains("Projects", component.FindAll(".devbook-stack__nav-item").Select(tab => tab.TextContent.Trim()));
+        });
 
-            Chips(component);
-            Assert.Empty(state.SelectedRepositoryAliases);
-
-            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal(string.Empty, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
-                Assert.Equal("Brain", component.Find("[data-testid='devbook-brain-badge']").TextContent.Trim());
-                Assert.Equal(brainFolder, component.Find("[data-testid='devbook-brain-path']").TextContent.Trim());
-                Assert.Contains("Projects", component.FindAll(".devbook-stack__nav-item").Select(tab => tab.TextContent.Trim()));
-            });
-
-            // Opening the pane changed what it reads and nothing about the scope.
-            Assert.Empty(state.SelectedRepositoryAliases);
-        }
-        finally
-        {
-            Directory.Delete(Path.GetDirectoryName(brainFolder)!, recursive: true);
-        }
+        // Opening the pane changed what it reads and nothing about the scope.
+        Assert.Empty(state.SelectedRepositoryAliases);
     }
 
     /// <summary>A host that composes no Brain has nothing to show with nothing
@@ -744,9 +766,15 @@ public sealed class HomeRepositoryScopeTests
             Assert.False(setUp.HasAttribute("target"));
             Assert.Empty(component.FindAll(".devbook-stack__nav-item"));
 
-            // With no tabs at all the way back is still on the header row.
-            Assert.Equal("Close the Brain", component.Find("[data-testid='devbook-close']").GetAttribute("aria-label"));
+            // With no tabs at all the way back is still the header's option, pressed:
+            // the pane draws no close of its own.
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-close']"));
         });
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-surface']")));
     }
 
     // --- Links that opened the side pane open the Devbook surface ---------------------
@@ -781,46 +809,6 @@ public sealed class HomeRepositoryScopeTests
         component.Find("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-    }
-
-    /// <summary>
-    /// The badges are read whatever the Devbook's flag says. With the flag off a
-    /// press says so on a toast, and neither opens nor remembers the Devbook: the
-    /// flag coming back later does not put the reader in it unasked.
-    /// </summary>
-    [Fact]
-    public async Task A_brain_badge_with_the_devbook_switched_off_says_so_and_opens_nothing()
-    {
-        using var harness = CreateHarness(brain: new FakeBrainSettings(null), composeBrain: true);
-        var component = Render(harness);
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-        var shellNavigation = harness.Context.Services.GetRequiredService<ShellNavigationStore>();
-        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
-
-        Chips(component)[0].Click();
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']")));
-        var tasks = component.FindComponent<TasksPane>();
-
-        await component.InvokeAsync(() =>
-            tasks.Instance.OnOpenBrainNote.InvokeAsync(new Backlog.UI.Components.Brain.BrainNoteLink("work/plan.md", "Plan")));
-
-        component.WaitForAssertion(() =>
-        {
-            var toast = Assert.Single(toasts.Visible);
-            Assert.Equal("tasks-devbook-unavailable", toast.TestId);
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-        Assert.NotEqual("devbook", shellNavigation.LastSurface);
-
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
@@ -959,38 +947,26 @@ public sealed class HomeRepositoryScopeTests
     public void Following_a_repo_link_opens_the_repository_chapter_and_keeps_the_scope()
     {
         const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-repo-link-brain");
+        var brainFolder = temp.Path;
         Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
         File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
         File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:backlog/{Adr}).\n");
 
-        try
-        {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
-            BrainChip(component).Click();
-            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
-            component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
+        BrainChip(component).Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
 
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
-                Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
-            });
-            Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
-        }
-        finally
+        component.WaitForAssertion(() =>
         {
-            try
-            {
-                Directory.Delete(brainFolder, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
+        });
+        Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
     }
 
     /// <summary>With the anchor repository and the Brain both pressed and the switch
@@ -1001,40 +977,28 @@ public sealed class HomeRepositoryScopeTests
     public void Following_a_repo_link_to_the_anchor_from_the_switch_leaves_the_brain()
     {
         const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-repo-link-brain");
+        var brainFolder = temp.Path;
         Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
         File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
         File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:Backlog/{Adr}).\n");
 
-        try
-        {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
-            Chips(component)[0].Click();
-            BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
-            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
-            component.WaitForElement("[data-testid='devbook-brain-switch-brain']").Click();
-            component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
+        Chips(component)[0].Click();
+        BrainChip(component).Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='devbook-brain-switch-brain']").Click();
+        component.WaitForElement("[data-testid='brain-repo-link'] button").Click();
 
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
-                Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
-            });
-            Assert.Equal(["backlog", BrainScope.Value], state.SelectedRepositoryAliases);
-        }
-        finally
+        component.WaitForAssertion(() =>
         {
-            try
-            {
-                Directory.Delete(brainFolder, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
+        });
+        Assert.Equal(["backlog", BrainScope.Value], state.SelectedRepositoryAliases);
     }
 
     /// <summary>A followed <c>repo:</c> link holds the pane on the repository only
@@ -1094,26 +1058,14 @@ public sealed class HomeRepositoryScopeTests
     private void WithRepoLinkBrain(Action<IRenderedComponent<Home>> act)
     {
         const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-repo-link-brain", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-repo-link-brain");
+        var brainFolder = temp.Path;
         Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
         File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
         File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), $"# Plan\n\nSee [the scope decision](repo:backlog/{Adr}).\n");
 
-        try
-        {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            act(Render(harness));
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(brainFolder, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        act(Render(harness));
     }
 
     /// <summary>Opens the Devbook pane on the Brain and follows the note's gold chip
@@ -1134,42 +1086,30 @@ public sealed class HomeRepositoryScopeTests
     public async Task A_repository_search_result_opened_on_the_brain_opens_the_chapter_and_keeps_the_scope()
     {
         const string Adr = ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md";
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-search-result-brain", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-search-result-brain");
+        var brainFolder = temp.Path;
         Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
         File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
         File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), "# Plan\n\nToday.\n");
 
-        try
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        BrainChip(component).Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<DevbookPane>()));
+        var pane = component.FindComponent<DevbookPane>();
+
+        await component.InvokeAsync(() => pane.Instance.OpenSearchResultElsewhere.InvokeAsync(
+            new DevbookSearchOpen(DevbookSearchSource.Repository("Backlog"), Adr)));
+
+        component.WaitForAssertion(() =>
         {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
-
-            BrainChip(component).Click();
-            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<DevbookPane>()));
-            var pane = component.FindComponent<DevbookPane>();
-
-            await component.InvokeAsync(() => pane.Instance.OpenSearchResultElsewhere.InvokeAsync(
-                new DevbookSearchOpen(DevbookSearchSource.Repository("Backlog"), Adr)));
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
-                Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
-            });
-            Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(brainFolder, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+            Assert.Equal("backlog", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Contains("Links run from the Brain into a repository, never back", component.Markup, StringComparison.Ordinal);
+        });
+        Assert.Equal([BrainScope.Value], state.SelectedRepositoryAliases);
     }
 
     /// <summary>A Brain search result, opened while the pane shows the anchor
@@ -1178,43 +1118,31 @@ public sealed class HomeRepositoryScopeTests
     [Fact]
     public async Task A_brain_search_result_opened_on_a_repository_opens_the_note_and_keeps_the_scope()
     {
-        var brainFolder = Path.Combine(Path.GetTempPath(), "backlog-search-result-brain", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-search-result-brain");
+        var brainFolder = temp.Path;
         Directory.CreateDirectory(Path.Combine(brainFolder, "work"));
         File.WriteAllText(Path.Combine(brainFolder, BrainConventions.FileName), "## Areas\n\n- Work — `work`\n");
         File.WriteAllText(Path.Combine(brainFolder, "work", "plan.md"), "# Plan\n\nThe note the search found.\n");
 
-        try
+        using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<DevbookPane>()));
+        var pane = component.FindComponent<DevbookPane>();
+        var scope = state.SelectedRepositoryAliases.ToList();
+
+        await component.InvokeAsync(() => pane.Instance.OpenSearchResultElsewhere.InvokeAsync(
+            new DevbookSearchOpen(DevbookSearchSource.Brain, "work/plan.md")));
+
+        component.WaitForAssertion(() =>
         {
-            using var harness = CreateHarness(brain: new FakeBrainSettings(brainFolder), composeBrain: true);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
-
-            Chips(component)[0].Click();
-            component.WaitForElement("[data-testid='devbook-pane-option']").Click();
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<DevbookPane>()));
-            var pane = component.FindComponent<DevbookPane>();
-            var scope = state.SelectedRepositoryAliases.ToList();
-
-            await component.InvokeAsync(() => pane.Instance.OpenSearchResultElsewhere.InvokeAsync(
-                new DevbookSearchOpen(DevbookSearchSource.Brain, "work/plan.md")));
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
-                Assert.Contains("The note the search found.", component.Markup, StringComparison.Ordinal);
-            });
-            Assert.Equal(scope, state.SelectedRepositoryAliases);
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(brainFolder, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-        }
+            Assert.Equal(BrainScope.Value, component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
+            Assert.Contains("The note the search found.", component.Markup, StringComparison.Ordinal);
+        });
+        Assert.Equal(scope, state.SelectedRepositoryAliases);
     }
 
     /// <summary>The switch's choice is the scope's while it stands: any chip press
@@ -1471,12 +1399,12 @@ public sealed class HomeRepositoryScopeTests
     private static void DocsArchived(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
 
-    /// <summary>The Show archived switch, inside the header's gear menu — which is
+    /// <summary>The Show archived switch, inside the footer's gear menu — which is
     /// opened first, the way anybody reaching for it has to.</summary>
     private static IElement ShowArchivedToggle(IRenderedComponent<Home> component)
     {
         OpenDisplayOptions(component);
-        return component.WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
+        return Gear(component).WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
     }
 
     /// <summary>Scenario "The repository scope": the Brain chip and backlog, no chip
@@ -1496,7 +1424,7 @@ public sealed class HomeRepositoryScopeTests
     }
 
     /// <summary>
-    /// Show archived sits with Colors in the header's gear menu, not in the row: both
+    /// Show archived sits with Colors in the footer's gear menu, not in the header row: both
     /// are occasional choices. Inside, it is the shared switch named by the
     /// words beside it, outside the scope group where it would read as one more
     /// repository, and flipping it leaves the panel open.
@@ -1508,23 +1436,23 @@ public sealed class HomeRepositoryScopeTests
         var component = Render(harness);
 
         Chips(component);
-        Assert.Empty(component.FindAll("[data-testid='show-archived-toggle']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='show-archived-toggle']"));
 
         var toggle = ShowArchivedToggle(component);
 
         Assert.Equal("switch", toggle.GetAttribute("role"));
         Assert.Equal("false", toggle.GetAttribute("aria-checked"));
         Assert.Null(toggle.GetAttribute("aria-label"));
-        Assert.Equal("Show archived", component.Find("#" + toggle.GetAttribute("aria-labelledby")).TextContent.Trim());
-        Assert.NotNull(toggle.Closest("[data-testid='settings-menu-panel'][role='group']"));
+        Assert.Equal("Show archived", Gear(component).Find("#" + toggle.GetAttribute("aria-labelledby")).TextContent.Trim());
+        Assert.NotNull(toggle.Closest("[data-testid='app-settings-menu-panel'][role='group']"));
         Assert.Null(toggle.Closest(".app-header__repository-scope"));
 
         toggle.Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("true", component.Find("[data-testid='show-archived-toggle'] [role='switch']").GetAttribute("aria-checked"));
-            Assert.NotNull(component.Find("[data-testid='settings-menu-panel']"));
+            Assert.Equal("true", Gear(component).Find("[data-testid='show-archived-toggle'] [role='switch']").GetAttribute("aria-checked"));
+            Assert.NotNull(Gear(component).Find("[data-testid='app-settings-menu-panel']"));
         });
     }
 
@@ -1540,28 +1468,28 @@ public sealed class HomeRepositoryScopeTests
         var trigger = DisplayOptionsTrigger(component);
         Assert.Equal("Settings", trigger.GetAttribute("aria-label"));
         Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
-        Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+        Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']"));
 
         trigger.Click();
         component.WaitForAssertion(() =>
             Assert.Equal("true", DisplayOptionsTrigger(component).GetAttribute("aria-expanded")));
         Assert.Equal(
             DisplayOptionsTrigger(component).GetAttribute("aria-controls"),
-            component.Find("[data-testid='settings-menu-panel']").Id);
-        var settings = component.Find("[data-testid='settings-menu-panel'] a[data-testid='settings-link']");
+            Gear(component).Find("[data-testid='app-settings-menu-panel']").Id);
+        var settings = Gear(component).Find("[data-testid='app-settings-menu-panel'] a[data-testid='settings-link']");
         Assert.Equal("settings", settings.GetAttribute("href"));
         Assert.Equal("Settings", settings.TextContent.Trim());
 
-        component.Find("[data-testid='repository-colours-toggle'] [role='switch']")
+        Gear(component).Find("[data-testid='repository-colours-toggle'] [role='switch']")
             .KeyDown(new KeyboardEventArgs { Key = "Escape" });
         component.WaitForAssertion(() =>
-            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']")));
+            Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']")));
 
         DisplayOptionsTrigger(component).Click();
-        component.Find("[data-testid='settings-menu-backdrop']").Click();
+        Gear(component).Find("[data-testid='app-settings-menu-backdrop']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='settings-menu-panel']"));
+            Assert.Empty(Gear(component).FindAll("[data-testid='app-settings-menu-panel']"));
             Assert.Equal("false", DisplayOptionsTrigger(component).GetAttribute("aria-expanded"));
         });
     }
@@ -1578,7 +1506,7 @@ public sealed class HomeRepositoryScopeTests
         var toggle = ShowArchivedToggle(component);
 
         Assert.True(toggle.HasAttribute("disabled"));
-        Assert.Contains("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
+        Assert.Contains("No archived repositories", Gear(component).Find("[data-testid='show-archived-toggle']").TextContent);
     }
 
     [Fact]
@@ -1590,7 +1518,7 @@ public sealed class HomeRepositoryScopeTests
         var toggle = ShowArchivedToggle(component);
 
         Assert.False(toggle.HasAttribute("disabled"));
-        Assert.DoesNotContain("No archived repositories", component.Find("[data-testid='show-archived-toggle']").TextContent);
+        Assert.DoesNotContain("No archived repositories", Gear(component).Find("[data-testid='show-archived-toggle']").TextContent);
     }
 
     /// <summary>Scenarios "Show archived is on" and "A restart": the chip comes back
@@ -1695,7 +1623,7 @@ public sealed class HomeRepositoryScopeTests
 
     // --- The repository colour visualization ----------------------------------
     //
-    // The switch is here, on the main page, in the header's gear menu rather than
+    // The switch is here, on the main page, in the footer's gear menu rather than
     // in the Settings page.
     // What it flips is not a shell concern though — it is the settings store's answer to
     // "which hue", which is why turning it off has to empty every surface at once rather
@@ -1707,14 +1635,14 @@ public sealed class HomeRepositoryScopeTests
     // alone would name only half of it.
 
     [Fact]
-    public void The_header_offers_the_colour_visualization_switch_in_its_gear_menu()
+    public void The_main_page_offers_the_colour_visualization_switch_in_its_gear_menu()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         var switchElement = ColourSwitch(component);
-        var control = component.Find("[data-testid='repository-colours-toggle']");
-        Assert.NotNull(control.Closest("[data-testid='settings-menu-panel']"));
+        var control = Gear(component).Find("[data-testid='repository-colours-toggle']");
+        Assert.NotNull(control.Closest("[data-testid='app-settings-menu-panel']"));
 
         // A switch and not a disclosure or a selection: nothing opens, nothing is picked
         // out of a set, a fact about the whole workspace changes. So role=switch with
@@ -1728,7 +1656,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Null(switchElement.GetAttribute("aria-label"));
         var labelId = switchElement.GetAttribute("aria-labelledby");
         Assert.False(string.IsNullOrWhiteSpace(labelId));
-        Assert.Equal("Colors", component.Find("#" + labelId).TextContent.Trim());
+        Assert.Equal("Colors", Gear(component).Find("#" + labelId).TextContent.Trim());
         Assert.Contains("Colors", control.TextContent);
     }
 
@@ -1897,19 +1825,19 @@ public sealed class HomeRepositoryScopeTests
             component.FindComponent<SessionsPane>().Instance.RepositoryColour!("JSdotNet/Backlog")));
     }
 
-    /// <summary>The switch inside the header's colour control. Found through the
+    /// <summary>The switch inside the gear menu's colour control. Found through the
     /// control's test id rather than by its own, because that is where the shared Toggle
     /// puts one — see the section comment above.</summary>
     private static IElement ColourSwitch(IRenderedComponent<Home> component)
     {
         OpenDisplayOptions(component);
-        return component.WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
+        return Gear(component).WaitForElement("[data-testid='repository-colours-toggle'] [role='switch']");
     }
 
     private static IElement DisplayOptionsTrigger(IRenderedComponent<Home> component) =>
-        component.WaitForElement("button[data-testid='settings-menu-button']");
+        Gear(component).WaitForElement("button[data-testid='app-settings-menu-button']");
 
-    /// <summary>Opens the header's gear menu, where Colors and Show archived live,
+    /// <summary>Opens the footer's gear menu, where Colors and Show archived live,
     /// unless it is already open.</summary>
     private static void OpenDisplayOptions(IRenderedComponent<Home> component)
     {
@@ -1917,18 +1845,57 @@ public sealed class HomeRepositoryScopeTests
         if (trigger.GetAttribute("aria-expanded") == "true") return;
 
         trigger.Click();
-        component.WaitForElement("[data-testid='settings-menu-panel']");
+        Gear(component).WaitForElement("[data-testid='app-settings-menu-panel']");
     }
 
     /// <summary>Turns the identity-hue visualization on, the way somebody using the
-    /// header switch would have before this screen was opened.</summary>
+    /// gear menu's switch would have before this screen was opened.</summary>
     private static void ShowingColours(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetShowRepositoryColours(true));
 
     private static IRenderedComponent<Home> Render(Harness harness)
     {
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
-        return harness.Context.Render<Home>();
+
+        // The footer band's end, where Home draws its Settings gear. Rendered beside
+        // Home as MainLayout renders the footer beside the page, so the gear's
+        // markup is found here and never in Home's own.
+        var footerEnd = harness.Context.Render<SectionOutlet>(parameters => parameters.Add(outlet => outlet.SectionName, AppFooter.EndSection));
+        var home = harness.Context.Render<Home>();
+        FooterEnds.Add(home, footerEnd);
+        return home;
+    }
+
+    private static readonly ConditionalWeakTable<IRenderedComponent<Home>, IRenderedComponent<SectionOutlet>> FooterEnds = new();
+
+    /// <summary>The footer band's end the rendered Home fills: where the Settings
+    /// gear, its panel and its switches are drawn.</summary>
+    private static IRenderedComponent<SectionOutlet> Gear(IRenderedComponent<Home> component) =>
+        FooterEnds.TryGetValue(component, out var footerEnd)
+            ? footerEnd
+            : throw new InvalidOperationException("Render Home through Render(harness), which draws the footer end beside it.");
+
+    /// <summary>The gear has left the header for the footer band: Home's own markup
+    /// holds no Settings menu, and the band's end holds it, last, opening upward.</summary>
+    [Fact]
+    public void The_settings_gear_is_drawn_at_the_footer_end_and_not_in_the_header()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component);
+        Assert.Empty(component.FindAll("[data-testid='app-settings-menu']"));
+        Assert.Empty(component.FindAll(".app-header [data-testid='settings-link']"));
+
+        var trigger = DisplayOptionsTrigger(component);
+        Assert.Equal("Settings", trigger.GetAttribute("aria-label"));
+        Assert.Contains("header-util", trigger.ClassList);
+
+        OpenDisplayOptions(component);
+        var panel = Gear(component).Find("[data-testid='app-settings-menu-panel']");
+        Assert.Contains("popover-button__panel--up", panel.ClassList);
+        Assert.Contains("popover-button__panel--end", panel.ClassList);
+        Assert.Equal("app-settings-menu-panel", panel.Id);
     }
 
     private static Harness CreateHarness(
@@ -1938,7 +1905,8 @@ public sealed class HomeRepositoryScopeTests
         IBrainSettings? brain = null,
         bool composeBrain = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-repository-scope-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-repository-scope-tests");
+        var root = temp.Path;
 
         // What an earlier run of the shell left in the file, written through a store
         // of its own so the shell under test reads it fresh, as after a relaunch.
@@ -1947,16 +1915,12 @@ public sealed class HomeRepositoryScopeTests
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        // The three surfaces under test are on; everything that would put extra
+        // The switchable surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var (repositories, errors) = GitHubSettings.ParseText(
@@ -2008,7 +1972,7 @@ public sealed class HomeRepositoryScopeTests
         // asking whether the takeover replaced the panes should not also be reading
         // whatever the person running it had been doing that morning — and a pane that
         // only worked with rows in it would fail here, which is the point.
-        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         // And no delivery runs behind it, for the same reason.
         context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
         // An empty notification centre, offered only where a test turns its flag on.
@@ -2075,23 +2039,18 @@ public sealed class HomeRepositoryScopeTests
         // module, the same terms as the Tasks state above.
         _ = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context, gitHubSettings);
+        return new Harness(temp, context, gitHubSettings);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, GitHubSettingsStore GitHubSettings) : IDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context, GitHubSettingsStore GitHubSettings) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             Context.Dispose();
             TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 
@@ -2109,15 +2068,6 @@ public sealed class HomeRepositoryScopeTests
         }
 
         public event Action? Changed;
-    }
-
-    private sealed class EmptySessionSource : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(AgentSessionCatalog.Empty);
     }
 
     /// <summary>An owner's centre holding nothing, so the notification centre can open.</summary>

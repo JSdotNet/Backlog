@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookPaneAtlasTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task The_all_knowledge_button_is_not_offered_before_the_atlas_is_open()
@@ -32,6 +32,23 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
         // The picker this button replaces is gone too.
         Assert.Empty(component.FindAll("[data-testid='devbook-atlas-scope']"));
+    }
+
+    /// <summary>No ✕ after the Atlas button: no surface draws a close of its own
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its own").
+    /// The Devbook option or Escape is the way back in the main window, the OS close
+    /// in a window of its own.</summary>
+    [Fact]
+    public async Task The_pane_draws_no_close_of_its_own_after_the_atlas_button()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+
+        Assert.Empty(component.FindAll("[data-testid='devbook-close']"));
+        Assert.Empty(component.FindAll("[aria-label='Close the Devbook']"));
+        Assert.Empty(component.FindAll("[aria-label='Close the Brain']"));
     }
 
     [Fact]
@@ -194,7 +211,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
         ```meta
         status: accepted
-        kind: layer
+        type: layer
         ```
 
         Shared platform choices.
@@ -203,7 +220,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
         ```meta
         status: accepted
-        kind: runtime
+        type: runtime
         ```
 
         The runtime everything is built on.
@@ -222,10 +239,11 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
     private Harness CreateHarness(bool lobesAtlas = false, bool withTechnology = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-atlas", Guid.NewGuid().ToString("N"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-atlas");
+        _temps.Add(temp);
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".domain", "_meta"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-        _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "_meta", "graph.json"), Graph);
@@ -240,7 +258,6 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = features.SetEnabled(DevbookFeatures.LobesAtlas, lobesAtlas);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -286,11 +303,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable

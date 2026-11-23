@@ -42,6 +42,8 @@ sequenceDiagram
             A-->>I: bytes
             I->>I: check sha256, write into the item's folder — Downloaded, or Failed with the reason
         end
+    else known id, live, later stamp, new words, still open
+        I->>I: take the copy's title and body (Updated)
     else known id, live
         I->>I: record attachments it lacks, fetch waiting ones (AlreadyKnown)
     else known id, tombstoned, still open
@@ -72,13 +74,15 @@ sequenceDiagram
   reaches the phone on the first push that succeeds.
 - A deleted item's acknowledgement is kept beside the item store and is all
   that is left of the item. Until it is sent, a replay of the capture is
-  `AlreadyKnown` rather than a new item.
+  `AlreadyKnown` rather than a new item. A copy the phone reworded, stamped at
+  or after the deletion, owes the tombstone again under a later stamp.
 - The desktop's own tombstone, its [sync echo](domain.md#sync-echo), comes back
   on the next pull as a known id it has already decided on: `AlreadyKnown`,
   nothing written. A second desktop still holding the item open archives it
   instead.
-- The phone's own "Triage" acknowledges the same way: the service tombstones the
-  capture document.
+- The phone's own Delete acknowledges the same way: the service tombstones the
+  capture document. The tombstone wins over any live copy whatever their stamps,
+  so an edit landing while the desktop decides cannot bring the capture back.
 
 Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are read newest first by capture
@@ -138,7 +142,8 @@ field to try again.
 The result is a [Capture (manual)](domain.md#capture-manual), captured and
 received at the same instant. It lands unfiled in the queue and opens in the
 detail beside it. It needs no paired device, which makes it the offline path and
-the way an inbox is seeded without a phone.
+the way an inbox is seeded without a phone. An assistant captures the same way
+over MCP ([Work the queue over MCP](#work-the-queue-over-mcp)).
 
 ### Capture attachments
 
@@ -214,16 +219,39 @@ Review unprocessed items one by one or in batch and take an action per item.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#columns]
+related: [.devbook/domain/inbox/requirements.md#columns, .devbook/domain/inbox/requirements.md#clarify-outcomes, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 The reader routes an item to Tasks or To Brain, defers, archives or deletes
 it. Along the way the reader may tag it, assign repositories and annotate it.
 The original source link and capture timestamp are kept whatever is decided.
 
+Each decision is one outcome of the GTD clarify step, and each item ends in one
+home (local ADR 0054): the Inbox lets it go, the Brain keeps what is not
+actionable, and the backlog holds every commitment.
+
+| Decision | Key | Outcome |
+| --- | --- | --- |
+| Archive | **a** | Trash, kept findable |
+| Delete | — | Trash |
+| To Brain | **b** | Reference, filed where the destination picker points |
+| To Event | **e** | A Spotted [knowledge event](../events/domain.md#knowledge-event), while the Events area is on |
+| Defer | **d** | The tickler: back on its review date |
+| Someday | **s** | A note in the Brain's `someday` area |
+| Done now | **n** | A task created already ticked |
+| Waiting for | **w** | A task with a [waiting-for](../tasks/domain.md#waiting-for) |
+| Move to backlog | **r** | A task, optionally with a due date or in My Day |
+| Create plan | — | A plan |
+| Merge | — | A comment on a task already tracked |
+
+Someday, Done now, Waiting for, the destination picker, and the due date or My
+Day on Move to backlog are built ([Route to Brain](#route-to-brain),
+[Route to Tasks](#route-to-tasks)).
+
 The decisions sit in a bar fixed at the foot of the detail, each naming its
-key: **Move to backlog**, **To Brain**, **Move to list**, **Defer** and
-**Archive**. The bar stays in place while the detail scrolls. Delete, tags and
+key: **Move to backlog**, **To Brain**, **Someday**, **Done now**, **Waiting
+for**, **Move to list**, **Defer** and **Archive**, with **To Event** after To Brain while the
+[Events area](../events/context.md#events-area) is on. The bar stays in place while the detail scrolls. Delete, tags and
 repositories stay in the detail itself, because they are not the decision the
 item is waiting for.
 
@@ -267,9 +295,9 @@ Picking a set is separate from choosing the item the detail shows.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation]
+related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation, .devbook/domain/inbox/requirements.md#clarify-outcomes]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests]
 ```
 
 With the Inbox pane in use, a triage session runs from the keyboard:
@@ -282,6 +310,10 @@ With the Inbox pane in use, a triage session runs from the keyboard:
 | **l** | Open Move to list |
 | **r** | Move the item to the backlog |
 | **b** | Route it [To Brain](#route-to-brain) |
+| **e** | Route it [To Event](#route-to-event), while the Events area is on |
+| **s** | Route it [Someday](#route-to-brain), into the Brain's `someday` area |
+| **n** | Done now: route it to a task created already ticked |
+| **w** | Waiting for: ask who it waits on, then route it to a task that waits on them |
 | **g** | Go to its tags |
 | **x** | Pick it for an [act on several at once](#act-on-several-at-once) |
 | **t** | Start [triage mode](#triage-mode), as the header's **Start triage** button does |
@@ -338,7 +370,7 @@ From the top down the screen holds:
   after those rows. Previous (**k**) and **Skip** (**j**) step without deciding.
 - **The item**: its kind, its source and when it was captured, then its title,
   notes and tags. The tags are the field **g** goes to.
-- **AI cards**, up to two, numbered **1** and **2** — see [AI triage
+- **AI cards**, up to three, numbered from **1** — see [AI triage
   cards](#ai-triage-cards). The rule-based suggestions follow, numbered after
   them. With no AI card shown, the suggestions are numbered from 1.
 - **Move to backlog in**: a repository picker with one box per configured
@@ -350,14 +382,18 @@ From the top down the screen holds:
   repository ticked, the pickers read **Brain**, where the entry is filed.
   More than one makes one linked task per repository ([Route to Tasks](#route-to-tasks)).
 - **The decisions** as large buttons, each naming its key: Move to
-  backlog (**r**), To Brain (**b**), Move to list (**l**), Defer (**d**) and Archive (**a**).
+  backlog (**r**), To Brain (**b**), Someday (**s**), Done now (**n**), Waiting
+  for (**w**), Move to list (**l**), Defer (**d**) and Archive (**a**).
+- **Due** and **Add to My Day**, under the repository picker, beside Move to
+  backlog: the date and the My Day choice **r** gives every task it makes
+  ([Route to Tasks](#route-to-tasks)).
 
 Beside the item an **Up next** list shows the next four items in the order
 triage will show them. Under it, **Just decided** shows the session's last
 decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 The decisions that move on are archive, defer, move to a list, move to the
-backlog and merge into a task. A reader who skipped items with **j** finds them
+backlog, To Brain, Someday, Done now, Waiting for and merge into a task. A reader who skipped items with **j** finds them
 again past the last row, and [Inbox zero](#inbox-zero) follows when none is left.
 Tags and repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
@@ -367,14 +403,14 @@ Tags and repositories are not decisions and leave the reader where they are. Esc
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#triage-mode]
-related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
+related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundryInboxTriageAdvisorTests]
 ```
 
 When the reader opens an item in triage, the Azure Foundry model reads it
 against the open backlog and the rest of the inbox. Triage shows what it
-noticed as at most two cards, under the heading **AI noticed**.
+noticed as at most three cards, under the heading **AI noticed**.
 `.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`
 settles what is sent, and when.
 
@@ -393,13 +429,24 @@ settles what is sent, and when.
   not yet built, and shows disabled until Tasks lists its plans to the Inbox
   through a port. Picking one will tag the item and those captures with that
   plan's `+tag`.
+- **Someday, not now** or **Done in two minutes.** The clarify outcome the
+  model reads the item as (local ADR 0054), with the reason. Its main act,
+  **Keep for someday** or **Record as done**, takes [Someday](#route-to-brain)
+  or [Done now](#route-to-tasks) as the decision bar does; Keep for someday is
+  disabled, with the reason, while Someday is. **Dismiss** turns the card down.
+- **Waiting on *who*.** The model reads the item as Waiting for and names who
+  has the next step, with the reason; a reading that names no one shows no
+  card. Its main act, **Set up waiting for**, opens the Waiting for dialog
+  filled with that name and no follow-up date. The reader confirms or edits
+  it, and confirming routes the item as **w** does. **Dismiss** turns the card
+  down.
 
 The model is asked once per item per app session. **Ask again**, in the AI
 section, would ask again for the item shown and replace the cards; it is
 planned, not yet built.
 
-A card shown is numbered **1**, or **2** when both are, and is taken with its
-number key, as a suggestion is. The rule-based suggestions are numbered after
+The cards shown are numbered from **1** in that order, and each is taken with
+its number key, as a suggestion is. The rule-based suggestions are numbered after
 the cards. A card the model has nothing to say about is not shown.
 
 When Foundry is not configured or the call fails, no card is shown.
@@ -426,7 +473,7 @@ decision](#undo-a-decision)).
 type: sub-feature
 related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxUndoRouteTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.CreatePlanUndoAcrossRoadmapTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Undoing_a_plan_with_a_project_note_takes_its_roadmap_item_back_too]
 ```
 
 ```mermaid
@@ -444,14 +491,27 @@ app closes:
 - defer;
 - move to a list;
 - move to the backlog;
+- Create plan;
 - merge into a task;
-- To Brain.
+- To Brain and Someday;
+- Done now;
+- Waiting for, which is undone as Move to backlog is.
 
-Two decisions reach outside the Inbox, and undoing them is bounded by that:
+Four decisions reach outside the Inbox, and undoing them is bounded by that:
 
 - **Move to backlog.** Undo deletes the tasks the move made, but only while
   none of them has started. Once one has, the undo is refused with a sentence
   that names the started task, and nothing changes.
+- **Done now.** Undo deletes the ticked task it made while that task is still
+  Done; once it is archived, the undo is refused the same way. To Brain and
+  Someday leave the note they wrote, which is the person's file by then.
+- **Create plan.** Undo deletes the tasks the plan made, as Move to backlog
+  does. With a project note, the Roadmap Item the plan's `plan` entry laid out
+  goes too, while nobody has changed it: its title, repositories, priority,
+  Knowledge Ref, notes, lane and window are still the import's, and nothing
+  waits on it. Once a task has started or the item was changed, the undo is
+  refused with a sentence that names it, and nothing changes. The project note
+  stays in the Brain, as To Brain's does.
 - **Merge into a task.** Undo restores the capture as it was. The comment stays
   on the task, because by then it may have been read or answered.
 
@@ -482,7 +542,8 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
 The pane reports the session when nothing in the unfiled Inbox is still
-waiting and this session has decided something. It says the inbox is clear and
+waiting, the Brain's inbox area holds no note to file
+([Queue health bar](#queue-health-bar)), and this session has decided something. It says the inbox is clear and
 shows what the session did in place of the list and the detail; the side menu
 stays. The report holds:
 
@@ -551,8 +612,12 @@ The screen groups the proposals:
   one as its duplicate, or keep both.
 - **Move to backlog on their own**: single routes, each with the entry type the
   model reads it as and its repositories.
-- **The rest**: items to file, one row per list, and items to archive. Each row
-  is accepted as a whole, and **Show** opens it to accept them one by one. The
+- **The rest**: items to file, one row per list, items to archive, and items to
+  take [Someday](#route-to-brain) or [Done now](#route-to-tasks), one row each.
+  Each row is accepted as a whole, and **Show** opens it to accept them one by
+  one. Items to take **Waiting for** are one row per item, with who it waits
+  on in a field the reader may change; a row whose name is blank or holds a
+  backtick is left out of Apply until it is fixed. The
   items the model could not place are **Left for you**, with **Triage them**.
 
 Every proposal carries its reason, and a toggle accepts it or not. A duplicate
@@ -572,7 +637,10 @@ the screen lists them:
 - a duplicate, through merge into a task or archive as a duplicate;
 - a single route, by writing its repositories to the item and moving it to the
   backlog;
-- a filing or an archive, through its own act.
+- a filing or an archive, through its own act;
+- a Someday or a Done now, through the act its decision-bar button takes;
+- a Waiting for, through the route **w** takes, with the name on its row and
+  no follow-up date, due date or My Day.
 
 [AI triage pass Apply](features.md#ai-triage-pass) shows what happens when a
 decision is refused. Each decision lands as one step of the
@@ -710,8 +778,8 @@ Routing is the terminal outcome of triage and happens exactly once.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
+related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests]
 ```
 
 Create one draft task per repository assigned to the item, or a single
@@ -729,13 +797,78 @@ task needs neither. The lines come before the item's notes, so notes ending in a
 chapter or an open code block cannot take them in. A batch links the siblings of
 each of its items the same way.
 
+Beside **Move to backlog**, in the item's detail and in triage mode, two optional
+choices go with the route. **Due** gives every task it makes a
+[due date](../tasks/domain.md#due-date): today, tomorrow, next week (seven days
+on) or a date typed in. **Add to My Day** puts every task in today's
+[My Day](../tasks/domain.md#my-day), dated by the reader's own calendar when the
+route runs. The choice is held per item until it routes, so **r** takes it too.
+Without either, the route makes exactly the tasks it always did. A
+[batch route](#route-a-batch-to-tasks) offers neither.
+
+Local ADR 0054 adds two more variants of this route. Each routes the item once,
+and a failure on the Tasks side leaves it open:
+
+- **Done now (n).** One task is created already ticked, Done and `completed:`
+  today: the two-minute rule. It carries the item's id as its provenance and
+  its attachment folder, in the item's first repository or none; the other
+  repositories get no sibling, because nothing is left to do there. A due date
+  or My Day chosen beside Move to backlog does not go with it.
+- **Waiting for (w).** A dialog asks who the work waits on, free text and
+  required, and an optional follow-up date. The item then routes as Move to
+  backlog routes it, with the repositories, due date and My Day chosen beside
+  it, and every task it makes carries that
+  [waiting-for](../tasks/domain.md#waiting-for) as `waiting:` and
+  `followup:`. A name holding a backtick, which a token cannot carry, keeps
+  the dialog's button off.
+
+### Route to Event
+
+```meta
+type: sub-feature
+aliases: [To Event]
+feature-flag: [.devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/events/context.md#events-area]
+related: [.devbook/domain/inbox/requirements.md#route-to-event, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/domain.md#knowledge-event, .devbook/domain/events/domain.md#event-series, .devbook/domain/capture/features.md#event-page-monitor, .devbook/domain/inbox/domain.md#event-facts]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToEventTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxEventTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToEventTests]
+```
+
+```mermaid
+flowchart TD
+    Item[Item routed To Event] --> Match{A Series whose page is the item's watched page?}
+    Match -- yes --> Same[Spotted event in that Series]
+    Match -- no --> New[New Series named after the page's title]
+    New --> NewEvent[Spotted event in the new Series]
+```
+
+**To Event** makes the item a [Knowledge Event](../events/domain.md#knowledge-event)
+at Spotted, from its title, link, dates and place. It is the route for an edition
+the [event page monitor](../capture/features.md#event-page-monitor) brought in, and
+it takes any other item the person wants to track as an event. It shows only while
+the [Events area](../events/context.md#events-area) is on.
+
+The event joins the [Event Series](../events/domain.md#event-series) whose page is
+the page the item was watched from, compared without regard to case or a trailing
+slash. When no Series has that page, Events starts one named after the page's title,
+or after its host when the page gave none, with the page as its link. An item that came from no
+watched page starts no Series, and the person names one on the event.
+
+It ends the item's triage as Route to Tasks does: the item is routed, once, and
+leaves the queue. Events is asked first, and the item is routed only once the event
+exists. A failure on the Events side leaves it unrouted, and a toast says the event
+was not made. Undo returns the item to the queue and leaves the event in Events, as
+To Brain leaves its note. What Events makes of the
+dates is [the To Event route](../events/features.md#to-event-route) in Events.
+
+**To Event** sits beside Move to backlog and To Brain in triage and in the item's
+detail, and **e** takes it.
+
 ### Create plan from an item
 
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks]
-related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests]
+related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/roadmap/domain.md#knowledge-ref]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanProjectNoteTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Create_plan_starts_a_project_note_only_when_the_option_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain]
 ```
 
 Ask an AI drafter for an import plan about the item and bring it into the
@@ -747,6 +880,19 @@ name only the repositories the item was assigned, and a plan that names another
 is refused whole. The item is routed to the entries the import created, the same
 outcome as Route to Tasks. When no drafter is configured the action stays
 visible, disabled, with its reason.
+
+Beside it, **Also start a project note** is off by default and off again after
+each plan. Ticked, Create plan also writes a new note into the Brain's projects
+area through the one Brain writer
+([Capture into the Brain](../brain/features.md#capture-into-the-brain)). The note
+is titled as the plan, and its body is the item's notes with the source link as
+the last line. Its `roadmap` field names the plan's tag, the
+[Roadmap Tag](../tasks/domain.md#roadmap-tag) the import gives the plan. The plan
+gains a `plan` entry with that tag, the item's repositories, and the note's
+address as a [Knowledge Ref](../roadmap/domain.md#knowledge-ref). The note is
+written only once the drafter has answered with a plan. If the import then
+refuses, the note stays in the Brain and the refusal is shown. With no Brain set
+the option is disabled, and hovering it gives the Brain's own reason.
 
 ### Route a batch to Tasks
 
@@ -857,16 +1003,16 @@ without the ask.
 ```meta
 type: sub-feature
 aliases: [Route to Devbook, To Brain]
-related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
+related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.Routing_the_same_item_again_reuses_the_untouched_note_it_wrote, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.Routing_the_same_item_again_reuses_the_untouched_note_it_wrote, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainNoteDestinationsTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set]
 ```
 
 **To Brain** writes the item into the person's
-[Brain](../brain/domain.md#brain) as a new note in the Brain's inbox area,
-keeping its title and its body. Under the default
-[PARA](../brain/domain.md#para-category) areas that area is the `_inbox`
-folder. It is the route for [collected material](domain.md#collected-material),
+[Brain](../brain/domain.md#brain) as a new note in the area its destination
+picker names, keeping its title and its body. The picker starts on the Brain's
+inbox area, under the default [PARA](../brain/domain.md#para-category) areas
+the `_inbox` folder. It is the route for [collected material](domain.md#collected-material),
 a capture the reader wants to keep rather than act on. It also takes an Inbox
 [note](domain.md#note) the reader has finished with on the phone.
 
@@ -879,18 +1025,35 @@ line. With no Brain folder set up the route says so, in the Brain's own words,
 and routes nothing.
 
 **To Brain** sits beside Move to backlog in triage and in the item's detail,
-and **b** takes it. Taking the *Keep as knowledge* suggestion does the same.
+and **b** takes it. Taking the *Keep as knowledge* suggestion files the item
+into the inbox area at once, without the picker.
+
+The button and **b** open the destination picker (local ADR 0054). It lists the
+Brain's [areas](../brain/domain.md#para-category) in tab order, and after the
+`projects` area each note under it. The inbox area is first and has the focus.
+**Enter** takes the row under the cursor, and **b** again takes the inbox area,
+so **b b** files the item where To Brain always did. A note filed into a project
+goes beside the project's note: `projects/` for `projects/sync-rewrite.md`,
+`projects/launch/` for `projects/launch/brief.md`.
 
 The Brain may be unable to take a note: no folder is set, the folder is
 missing, or the host has no Brain. Then the button is shown disabled and the
 *Keep as knowledge* chip is offered but cannot be taken. Each gives the Brain's
 own reason instead of being refused once pressed.
 
-The toast names the note it wrote. Undo returns the item to the queue and
+The toast names the area and the note it wrote. Undo returns the item to the queue and
 leaves the note where it is, as the person's file by then. Routing the same item
 To Brain again reuses that note, instead of writing a `-2` copy, while the file
 still holds exactly the text the route would write. A note somebody has edited is theirs, and a second route writes a new one.
 Only a route reuses: two captures in the Brain with the same words are two notes.
+
+**Someday (s)** (local ADR 0054) is To Brain with the `someday` area chosen, in
+one press, beside To Brain in triage and in the item's detail. Its toast and
+its undo are To Brain's. A Brain that declares its own areas has no `someday` area, so it offers Someday
+disabled, with the reason, as it does while the Brain cannot take a note.
+
+An item is still routed once whichever destination is chosen, and the Inbox
+keeps nothing of it but the record.
 
 ### Defer
 
@@ -948,22 +1111,36 @@ folder to the task.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#archive]
-related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments]
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests]
+related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/inbox/features.md#capture-attachments, .devbook/domain/inbox/requirements.md#capture-to-inbox-over-mcp, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.InboxToolsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxMcpToolsOverSqliteTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.An_item_captured_and_archived_over_mcp_reaches_the_open_inbox_without_moving_the_selection, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxDesktopStateTests.A_write_outside_the_pane_is_announced_only_while_a_loaded_state_listens, unit:dotnet:Backlog.Desktop.UI.UnitTests.SurfaceWindowTests.An_inbox_capture_made_outside_the_window_reloads_its_inbox]
 ```
 
 Let an assistant file captures elsewhere, such as conference notes into the Brain,
-without opening the pane or the database. The app's MCP server carries three tools,
-behind the Inbox pane's switch:
+without opening the pane or the database, and capture an action it hears so it
+reaches clarify (local ADR 0054). The app's MCP server carries four tools, behind
+the Inbox pane's switch:
 
 | Tool | Does |
 | --- | --- |
-| `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview and an attachment count. |
-| `read_inbox_item` | Answers one capture whole: body, source URL, tags, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
+| `list_inbox_items` | Lists captures newest first, unprocessed unless `status` names another or `all`. Filters by `channel`, `kind` and a `from`–`to` range of capture days, in UTC. Each row has a body length, a short preview, an attachment count and, on a deferred item, its review day (`deferredUntil`, empty when it was deferred with no date). |
+| `read_inbox_item` | Answers one capture whole: body, source URL, tags, a deferred item's review day, and each attachment's name, type, size and file path on this machine. The path is empty until the file is downloaded. |
 | `archive_inbox_item` | Archives a capture once it is filed, through the same act as [Archive](#archive). The phone stops offering it, and it stays restorable. |
+| `capture_to_inbox` | Captures a title, optional Markdown notes and an optional source link as a new unprocessed item, through the same act as [Add by hand](#add-by-hand). Answers the new item, its id first. |
 
-No tool deletes. An unknown id, an unknown status and a reversed range are each
-refused with a code.
+`capture_to_inbox` files under source `manual` and meets Add by hand's guard on the
+text: the title becomes one line, and the notes are kept as text. A source
+link must be an `http` or `https` address. Calling it twice captures twice.
+`capture_note` stays the Brain's tool for a note already judged worth keeping
+([MCP Brain scope](../brain/features.md#mcp-brain-scope)), and each tool's
+description tells an assistant which to call.
+
+No tool deletes. An unknown id, an unknown status, a reversed range, a blank
+title and a source link that is no web address are each refused with a code.
+
+A capture or an archive made over MCP shows in an open Inbox at once, with its
+queue health counts, without a reload by hand, in the main window and in a
+popped-out one. The row being read stays chosen, the archived one included, and
+focus stays where it was.
 
 ## Queue health
 
@@ -979,9 +1156,9 @@ long, and raise configurable alerts when the queue exceeds a threshold.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health]
+related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health, .devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests]
 ```
 
 The Inbox half of queue health sits at the foot of the side menu. It shows how
@@ -999,6 +1176,15 @@ oldest d days".
 It reads the whole queue, whichever list is open. The dashboard half, and the
 configurable alerts, are Monitoring's.
 
+Under the lines, the Brain's inbox area is counted too: "n notes to file in the
+Brain", in the Brain's teal. It counts every note in the area a route
+[To Brain](#route-to-brain) lands in, its sub-folders included and its dot-folders
+left out. Pressing it opens the Devbook on the Brain at that area's tab
+([Brain mode of the Devbook pane](../brain/features.md#brain-mode-of-the-devbook-pane)).
+With no Brain set, a Brain folder that is missing, or nothing in the area, the line
+is not shown. The count is read with the queue, so a note filed away in the Brain
+shows on the Inbox's next reload.
+
 ## Notes
 
 ```meta
@@ -1008,7 +1194,7 @@ related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#
 
 **A note on the phone**
 
-How a note saves in the phone's Notes tab
+How a note saves on the phone
 ([Notes on the phone](features.md#notes-on-the-phone)).
 
 ```mermaid
@@ -1033,8 +1219,8 @@ stateDiagram-v2
 Keep and edit [notes](domain.md#note) on the phone and the desktop. Every note
 reaches the phone, whichever device made it, and an edit on either side
 reaches the other. The later edit wins, by the rule the
-[Inbox Item](domain.md#inbox-item) sets out. Both sync directions, the desktop
-half and the phone's Notes tab are built.
+[Inbox Item](domain.md#inbox-item) sets out. A [meeting](domain.md#meeting) is a
+note in all of this.
 
 An Inbox note rides the task feed between the desktop and the phone and waits
 for triage (local ADR 0025). [Route to Brain](#route-to-brain) turns it into a
@@ -1045,20 +1231,39 @@ two differ.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/inbox/requirements.md#notes-on-the-phone]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#meeting, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/inbox/requirements.md#notes-on-the-phone]
 ```
 
-The phone's Notes tab lists every note, newest change first. Each row shows:
+The phone has no Notes tab. Its tab bar is Today, Inbox, then Stand-up and
+Events where those areas are on. The phone Inbox is one list of two parts:
+
+| Part | Leaves the phone |
+| --- | --- |
+| The captures this phone made | Once the desktop takes them in |
+| Every note and meeting, whichever device made it | Never: they sync both ways |
+
+Filter chips **All**, **Captures**, **Notes** and **Meetings** narrow the list.
+Every row leads with its content kind's mark, the kind's name its tooltip and
+accessible text: a capture's kind is what it holds, such as Text or Link. A note
+or meeting row also shows:
 
 - the title;
-- when the note last changed: the time for today, "Yesterday", the weekday
+- when it last changed: the time for today, "Yesterday", the weekday
   within the week, then the date;
 - the opening of its body, as two lines of plain text.
 
 A search field narrows the list on the phone itself. A note stays when every
-word typed is in its title or its body. With no notes the tab says how to start
-one, and with no match it repeats the words searched for. **New note** opens an
-empty editor, and a tap on a note opens it in the same editor.
+word typed is in its title or its body. With nothing to show the list says how
+to start, and with no match it repeats the words searched for.
+
+The Inbox has one **+**, beside the quick one-line field. With words in the
+field, **+** or Enter adds them as a capture. With the field empty, **+** opens a
+menu of **Note**, which opens an empty editor, and **Meeting**, which opens a
+new [meeting](domain.md#meeting) already recording. A tap on a note or meeting
+opens it in the same editor. Sharing from another app still makes a capture.
+
+The old `/notes` address opens the Inbox filtered to notes. `/notes/new` and
+`/notes/{id}` still open the editor.
 
 The editor holds a title, a Markdown body that dictation appends to, and
 attached photos and files, the [talk note's](../capture/features.md#talk-note)
@@ -1074,23 +1279,25 @@ These save at once:
   is up.
 
 Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
-item are not part of the phone's Notes tab.
+item are not part of the phone's note editor.
 
 ### Notes on the desktop
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/requirements.md#notes-on-the-desktop]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#meeting, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/requirements.md#notes-on-the-desktop]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-A note shows its kind on its row, with a mark of its own, and the kind chips
-filter it like any kind. The reader may edit its title and body in place in the
+A note and a meeting each show their kind on their row, with a mark of their
+own, and the Notes and Meetings kind chips filter them like any kind. A meeting
+is a note in everything below. The reader may edit its title and body in place in the
 detail column with **Edit note**, and the edit reaches the phone on the next
 sync. An archived note offers no edit, because it has left the phone. Routing,
 deferring and archiving work as for any item, and [To Brain](#route-to-brain)
 files it among the reader's own notes. Routing a note leaves it on the phone.
-Archiving or deleting it removes it from the phone.
+Archiving or deleting it removes it from the phone. A note an event links opens
+from the event's chip: the Inbox opens on it, in the list it is filed in.
 
 ### Triage stays on the desktop
 
@@ -1099,8 +1306,49 @@ type: sub-feature
 related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/features.md#offline-first-sync, .devbook/domain/inbox/requirements.md#triage-stays-on-the-desktop]
 ```
 
-The phone does not route, defer, accept or archive any Inbox item, notes
-included, and offers no button that would. The phone's Inbox tab
-shows only the captures the phone made itself, each with its sync state, until
-the desktop takes them in. The desktop decides what an item becomes, because the
-backlog and the repositories are there.
+The phone does not route, defer, accept or archive any Inbox item, notes and
+meetings included, and offers no button that would. Of the other captures, the
+phone's Inbox shows only those the phone made itself, each with its sync state,
+until the desktop decides them. Until then the phone may
+[edit or delete](#edit-and-delete-a-capture-on-the-phone) each one. The desktop
+decides what an item becomes, because the backlog and the repositories are there.
+
+### Edit and delete a capture on the phone
+
+```meta
+type: sub-feature
+related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop, .devbook/domain/capture/features.md#offline-first-sync, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync, .devbook/domain/inbox/requirements.md#edit-and-delete-a-capture-on-the-phone]
+```
+
+The capture sheet of the phone's Inbox tab offers **Edit** and **Delete** on
+every capture the tab lists.
+
+- **Edit** changes the title and body. Like the
+  [Notes editor](#notes-on-the-phone) it has no save button: it saves a second
+  after typing stops, and at once on leaving a field, closing the sheet, the app
+  going to the background, or leaving the page. The row shows the edit at once.
+  A sheet whose edit cannot be kept, such as one with a blank title, stays open
+  with the reason and offers **Discard changes**.
+- **Delete** asks first: "Removes it from this phone and archives it on the
+  desktop."
+
+A capture still waiting in the outbox, and not being sent, is rewritten or taken
+out where it waits, so a deleted one never reaches the service. On the desktop
+an edit replaces the open item's title and body, and the activity log records
+"edited". A delete archives the open item, and the archive can be undone. When
+the desktop decided first, the phone says in one calm line that the desktop
+already dealt with it.
+
+### Meetings
+
+```meta
+type: sub-feature
+related: [.devbook/domain/inbox/domain.md#meeting, .devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/requirements.md#meetings-on-the-phone]
+```
+
+**Meeting** in the phone Inbox's **+** menu opens a new
+[meeting](domain.md#meeting) with the
+[recording](../capture/features.md#meeting-recording) already running. The
+reader types notes beside it in the note editor. The desktop shows it with the
+meeting mark and writes the transcript into it. A plain note that later gets a
+recording stays a note.

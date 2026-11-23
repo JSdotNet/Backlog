@@ -8,11 +8,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class WorkspaceTraySettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "workspace-tray-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("workspace-tray-settings-tests");
 
-    public WorkspaceTraySettingsTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "settings.json");
 
@@ -103,14 +101,5 @@ public sealed class WorkspaceTraySettingsTests : IDisposable
         Assert.False(written.RootElement.TryGetProperty("tray", out _));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

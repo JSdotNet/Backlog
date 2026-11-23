@@ -40,8 +40,8 @@ else
     public string? AriaLabel { get; set; }
 
     /// <summary>What to draw beyond the view itself — see <see cref="C4SvgOptions"/>.
-    /// Null, the default, draws the picture exactly as it was drawn before options
-    /// existed, which is what the C4 tab's explorer relies on.</summary>
+    /// Null, the default, draws the view alone, which is what a chapter's embed
+    /// relies on.</summary>
     [Parameter]
     public C4SvgOptions? Options { get; set; }
 

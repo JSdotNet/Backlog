@@ -8,7 +8,9 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -160,6 +162,16 @@ public sealed class McpServerWorker : IDisposable
     /// return without waiting on the head's container.</summary>
     private volatile WindowLinkTokens? _windowLinkTokens;
 
+    /// <summary>The grant tokens the broker mints (local ADR 0058 §3), or null in a container
+    /// that composed none — the web harness — whose listener then has no grant path. The head's
+    /// own instance, never a second one: a token is signed with a key that instance alone holds.
+    /// Resolved where the listener is built, as <see cref="_windowLinkTokens"/> is.</summary>
+    private volatile McpGrantTokens? _grantTokens;
+
+    /// <summary>The limit on failed bearer attempts, kept by the worker rather than a
+    /// listener so a port change does not reset a lockout under way.</summary>
+    private readonly McpBearerLimiter _bearerLimiter;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
@@ -170,13 +182,15 @@ public sealed class McpServerWorker : IDisposable
 
     /// <summary>The worker with the pop-out pages' files read through
     /// <paramref name="staticWebAssetsManifest"/> when it is given — for a test,
-    /// which has no head output to serve them from. Internal, so the container
+    /// which has no head output to serve them from — and the bearer limit's clock
+    /// <paramref name="time"/>, the system's when null. Internal, so the container
     /// never picks it.</summary>
     internal McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log,
-        string? staticWebAssetsManifest)
+        string? staticWebAssetsManifest,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(settings);
@@ -185,6 +199,7 @@ public sealed class McpServerWorker : IDisposable
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
         _staticWebAssetsManifest = staticWebAssetsManifest;
+        _bearerLimiter = new McpBearerLimiter(time);
 
         // The port can move while the app is running, and somebody changing it
         // is watching to see whether the listener followed.
@@ -583,7 +598,10 @@ public sealed class McpServerWorker : IDisposable
             if (Socket.OSSupportsIPv6) options.Listen(IPAddress.IPv6Loopback, port);
         });
 
-        builder.Services.AddBacklogMcpServer().WithHttpTransport();
+        // The audit names the caller the guard's principal carries — a grant by its name and
+        // id, or the escape hatch's fixed caller — and that fixed name only for a call whose
+        // principal names nobody (ADR 0058 §3).
+        builder.Services.AddBacklogMcpServer(McpAudit.SharedTokenCaller).WithHttpTransport();
 
         // The pop-out pages' own services, before the bridge: what the listener
         // composes itself is never forwarded, so a page's IShellWindows is a
@@ -599,6 +617,7 @@ public sealed class McpServerWorker : IDisposable
         BridgeToDesktopContainer(builder.Services);
 
         _windowLinkTokens ??= _services.GetService<WindowLinkTokens>();
+        _grantTokens ??= _services.GetService<McpGrantTokens>();
 
         var app = builder.Build();
 
@@ -666,6 +685,8 @@ public sealed class McpServerWorker : IDisposable
                     context.RequestAborted,
                     questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
                     sessions: context.RequestServices.GetService<IAgentSessionSource>(),
+                    sessionId: context.Request.Query["sessionId"].ToString(),
+                    loops: context.RequestServices.GetService<ILoopRegister>(),
                     contact: context.RequestServices.GetService<DispatcherContact>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
@@ -675,11 +696,34 @@ public sealed class McpServerWorker : IDisposable
             }
 
             context.Response.StatusCode = reply.StatusCode;
-            if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            if (reply.Failure is not null && reply.StatusCode == 503) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            else if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length == 0) return;
 
             context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+            await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
+        // And the report a scheduled run's hook posts (local ADR 0051 §1), behind the
+        // same guard and bearer token. It answers 404 while the sessions flag is off.
+        app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
+        {
+            var reply = await ScheduleRunReportEndpoint.AcceptAsync(
+                context.Request.Body,
+                context.Request.ContentLength,
+                context.RequestServices.GetRequiredService<IScheduleRegister>(),
+                context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+                context.RequestServices.GetService<IAgentSessionSource>(),
+                TimeProvider.System,
+                context.RequestAborted).ConfigureAwait(false);
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length == 0) return;
+
+            context.Response.ContentType = ScheduleRunReportEndpoint.Reply.ContentType;
             await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
@@ -703,13 +747,8 @@ public sealed class McpServerWorker : IDisposable
 
         try
         {
-            // Before the bind, so the token exists the moment the server does.
-            // Leaving it to the first request would be a chicken-and-egg: the
-            // token has to be in a registration before a client can make one,
-            // and there would be nothing for the Settings screen to show until
-            // somebody had already connected without it.
-            _ = _settings.EnsureMcpServerToken();
-
+            // No token to mint first: since the shared token was retired (local ADR 0058,
+            // Phase 1) every client presents a grant token the broker mints on demand.
             await listener.StartAsync(_lifetime.Token).ConfigureAwait(false);
 
             lock (_gate)
@@ -804,7 +843,7 @@ public sealed class McpServerWorker : IDisposable
                 return;
             }
 
-            if (!SurfaceWindowPages.Admit(context, _windowLinkTokens))
+            if (!await SurfaceWindowPages.AdmitAsync(context, _windowLinkTokens).ConfigureAwait(false))
             {
                 if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
                 {
@@ -818,20 +857,144 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
-        var authorization = context.Request.Headers.Authorization;
-
-        if (authorization.Count > 1
-            || !McpLoopbackGuard.IsAuthorized(
-                authorization.Count == 0 ? null : authorization[0],
-                _settings.EnsureMcpServerToken()))
+        // Locked out after too many failed attempts: every bearer request is refused,
+        // the right token included, before the token is even compared (local ADR 0058,
+        // Phase 0).
+        if (_bearerLimiter.RetryAfter() is { } wait)
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.Headers.WWWAuthenticate = "Bearer";
-            _log.LogWarning("An MCP request was refused: no valid bearer token.");
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // Debug, not Warning: the trip was the warning, and a minute of every
+            // session's retries would bury it.
+            _log.LogDebug("An MCP request was refused with 429: failed bearer attempts locked the listener out.");
             return;
         }
 
+        var authorization = context.Request.Headers.Authorization;
+
+        // A grant token (local ADR 0058 §3), or the BACKLOG_MCP_TOKEN escape hatch where a debug
+        // setting switched it on. No token kept in settings.json is accepted: the shared token
+        // and the hook and telemetry tokens beside it were retired with Phase 1.
+        var environmentToken = _settings.EnvironmentMcpToken;
+        var credential = authorization.Count > 1
+            ? McpCredential.None
+            : McpLoopbackGuard.Identify(authorization.Count == 0 ? null : authorization[0], environmentToken);
+
+        // A grant token only when the escape hatch did not match, so its fixed-time comparison
+        // runs first and a static token is never parsed as a JWT.
+        McpGrantValidation? grant = null;
+
+        if (credential == McpCredential.None
+            && authorization.Count == 1
+            && _grantTokens is { } grantTokens
+            && McpLoopbackGuard.GrantTokenCandidate(authorization[0]) is { } candidate)
+        {
+            grant = await grantTokens.ValidateAsync(candidate, context.RequestAborted).ConfigureAwait(false);
+
+            if (grant.Principal is not null) credential = McpCredential.Grant;
+        }
+
+        if (credential == McpCredential.None)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.Headers.WWWAuthenticate = "Bearer";
+
+            if (grant is { Refusal: { } refusal })
+            {
+                // The refusal and nothing else: the token is a credential, and a refused one
+                // names no grant this listener has checked.
+                _log.LogWarning("An MCP request was refused: its grant token was refused ({Refusal}).", refusal);
+
+                // A token this listener never signed is a guess and counts towards the
+                // lockout. An expired, revoked or superseded one was signed here, so its
+                // client is real and the headersHelper's next mint is the fix.
+                if (refusal == McpGrantRefusal.BadToken
+                    && _bearerLimiter.Fail(authorization[0]) is { } trippedByGrant)
+                {
+                    await RecordLockoutAsync(trippedByGrant).ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            if (McpLoopbackGuard.GrantTokenCandidate(authorization.Count == 1 ? authorization[0] : null) is null
+                && authorization.Count == 1)
+            {
+                // A bearer that is no grant token: most likely a registration still carrying the
+                // retired shared token. The log says what fixes it.
+                _log.LogWarning("An MCP request was refused: it carries a static bearer token, and since the shared token was retired only grant tokens are accepted. Register it with headersHelper --grant <id> from Settings, MCP server.");
+            }
+            else
+            {
+                _log.LogWarning("An MCP request was refused: no valid bearer token.");
+            }
+
+            // Counted towards the lockout only while a static token is accepted at all: with the
+            // escape hatch off there is no static secret to guess, a JWT's signature is not one
+            // a guesser reaches, and a session still sending the retired token would otherwise
+            // lock every other session out the moment it restarted against this build.
+            if (environmentToken is not null
+                && _bearerLimiter.Fail(authorization.Count == 0 ? null : authorization[0]) is { } tripped)
+            {
+                await RecordLockoutAsync(tripped).ConfigureAwait(false);
+            }
+            return;
+        }
+
+        // Who the call is: a grant's own principal, or the fixed one of the static token it
+        // matched. The route's named policy is asked of it here, and each tool's by the call
+        // filter after it; the audit names its caller (local ADR 0058 §3, §4).
+        var principal = credential switch
+        {
+            McpCredential.Grant => grant!.Principal!,
+            McpCredential.Mcp => McpScopePolicies.SharedTokenCaller,
+            _ => throw new InvalidOperationException($"No principal is defined for the credential {credential}.")
+        };
+
+        var policies = context.RequestServices.GetRequiredService<IAuthorizationService>();
+
+        if (!await McpScopePolicies.AuthorizeRouteAsync(policies, principal, context.Request.Path.Value).ConfigureAwait(false))
+        {
+            // Forbidden with insufficient_scope, as RFC 6750 §3.1 words it: the token is good,
+            // and a new one for the same grant would be refused the same way.
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
+            _log.LogWarning(
+                "An MCP request from {Caller} was refused: its scopes do not reach {Path}.",
+                McpScopePolicies.CallerOf(principal),
+                context.Request.Path.Value);
+            return;
+        }
+
+        context.User = principal;
+
         await next(context).ConfigureAwait(false);
+    }
+
+    /// <summary>Says a lockout started, in the log and in the audit log. A write the
+    /// audit log refuses goes to the log instead: the lockout holds either way.</summary>
+    private async Task RecordLockoutAsync(McpAuditRecord record)
+    {
+        _log.LogWarning(
+            "{Failures} failed bearer attempts within {Window}s: every bearer request is refused for {Lockout}s.",
+            McpBearerLimiter.MaxFailures,
+            McpBearerLimiter.Window.TotalSeconds,
+            McpBearerLimiter.Lockout.TotalSeconds);
+
+        try
+        {
+            if (_services.GetService<IMcpAuditLog>() is { } audit)
+            {
+                await audit.AppendAsync(record, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+#pragma warning disable CA1031 // The audit write must never be the reason the guard fails.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _log.LogError(ex, "The bearer lockout could not be written to the audit log.");
+        }
     }
 
     /// <summary>
@@ -952,7 +1115,10 @@ public sealed class McpServerWorker : IDisposable
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
     /// dispatcher tools would carry across anyway but the route must not depend on, and
     /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
-    /// for the answer deliveries the same route hands out, on the same grounds, and
+    /// for the answer deliveries the same route hands out, on the same grounds;
+    /// <see cref="IMcpAuditLog"/>, which the audit call filter resolves per request and
+    /// no tool constructs;
+    /// <see cref="ILoopRegister"/> for the check-in a Manager's wait records (local ADR 0051 §3), and
     /// <see cref="DispatcherContact"/>, which the route records into and the Tasks pane
     /// reads, so the two must be the app's one instance.
     /// </para>
@@ -977,7 +1143,15 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(ISessionRequestStore))
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
+            .Append(typeof(IMcpAuditLog))
+            // Windows Hello for a tasks:admin tool (local ADR 0058 §6), which the step-up filter
+            // reads from this container: missing, every such call would be refused unlogged.
+            .Append(typeof(Backlog.SharedKernel.IUserConsent))
+            .Append(typeof(ILoopRegister))
             .Append(typeof(DispatcherContact))
+            // The caller of one request, which the listener's own container scopes per request
+            // (AddBacklogMcpServer): forwarded from the head it would be one for every call.
+            .Where(port => port != typeof(McpCallContext))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

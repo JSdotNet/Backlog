@@ -602,6 +602,31 @@ public sealed class InboxTriageModeTests
         pane.WaitForAssertion(() => Assert.Equal(["acme/sync"], harness.Inbox.Find(item.Id)!.RepoIds));
     }
 
+    /// <summary>Triage offers the due date and Add to My Day beside Move to
+    /// backlog, and r routes with what was chosen; the choice is per item, so
+    /// the next item starts with neither.</summary>
+    [Fact]
+    public async Task R_routes_with_the_due_date_and_my_day_chosen_in_triage_and_the_next_item_starts_clear()
+    {
+        using var harness = Harness.Create();
+        harness.SeedNewestFirst("One", "Two");
+        var pane = await harness.StartTriageAsync();
+
+        await pane.Find("[data-testid='inbox-triage-route-schedule-due'] select").ChangeAsync(new ChangeEventArgs { Value = "next-week" });
+        await pane.Find("[data-testid='inbox-triage-route-schedule-my-day'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+        await PressAsync(pane, "r");
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            new InboxRouteScheduleDto(harness.State.Today.AddDays(7), AddToMyDay: true),
+            Assert.Single(harness.Inbox.SingleRouteSchedules)));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(string.Empty, pane.Find("[data-testid='inbox-triage-route-schedule-due'] select").GetAttribute("value") ?? string.Empty);
+            Assert.False(pane.Find("[data-testid='inbox-triage-route-schedule-my-day'] input").HasAttribute("checked"));
+        });
+    }
+
     [Fact]
     public async Task Two_ticked_repositories_and_r_make_one_task_in_each()
     {
@@ -838,8 +863,11 @@ public sealed class InboxTriageModeTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox, GitHubSettingsStore settings)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore settings)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
             Settings = settings;
@@ -855,11 +883,11 @@ public sealed class InboxTriageModeTests
 
         public static Harness Create(bool repositories = false, bool colours = false)
         {
+            var temp = new TemporaryDirectory("backlog-inbox-triage-mode-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-            var settings = new GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-triage-mode-tests", Guid.NewGuid().ToString("n"), "github.json"));
+            var settings = new GitHubSettingsStore(temp.Combine("github.json"));
             if (repositories)
             {
                 Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("web", "acme", "web"), new GitHubRepositoryRef("sync", "acme", "sync")]));
@@ -871,7 +899,7 @@ public sealed class InboxTriageModeTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox, settings);
+            return new Harness(temp, context, inbox, settings);
         }
 
         public IReadOnlyList<InboxItemDto> SeedNewestFirst(params string[] titles) =>
@@ -896,6 +924,10 @@ public sealed class InboxTriageModeTests
             return pane;
         }
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

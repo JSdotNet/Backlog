@@ -1,7 +1,6 @@
 @implements IDisposable
 @inject IJSRuntime JS
 @inject FeedbackReporter Feedback
-@inject IAppFeatureSettings Features
 @inject FeedbackReportChannel Reports
 
 @*
@@ -20,135 +19,129 @@
     rather than a header-only class, and it is unchanged by the move.
 *@
 
-@if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
-{
-    <AppButton BaseClass="header-util"
-               Variant="ButtonVariant.None"
-               id="feedback-button"
-               TestId="feedback-button"
-               aria-haspopup="dialog"
-               OnClick="OpenFeedbackDialog">
-        Report issue
-        <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.FeedbackReporting)"
-                             Title="@FeatureStatusTitle(AppFeatures.FeedbackReporting)"
-                             TestId="feedback-feature-status" />
-    </AppButton>
+<AppButton BaseClass="header-util"
+           Variant="ButtonVariant.None"
+           id="feedback-button"
+           TestId="feedback-button"
+           aria-haspopup="dialog"
+           OnClick="OpenFeedbackDialog">
+    Report issue
+</AppButton>
 
-    <Modal Open="_feedbackOpen"
-           OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
-           Element="section"
-           BaseClass="feedback-dialog"
-           BackdropCssClass="feedback-backdrop"
-           BackdropRole="presentation"
-           UseBodyWrapper="false"
-           CloseOnBackdropClick="false"
-           CloseOnEscape="@(!_feedbackSubmitting)"
-           TestId="feedback-dialog"
-           FooterCssClass="feedback-dialog__actions"
-           aria-labelledby="feedback-title"
-           aria-describedby="feedback-description">
-        <Header>
-            @* The library's section header, dressed as this dialog — the same
-               arrangement the update dialog uses, so the two keep one shape. *@
-            <SectionHeader BaseClass="feedback-dialog__header"
-                           TextCssClass=""
-                           EyebrowCssClass="feedback-dialog__eyebrow"
-                           TitleCssClass=""
-                           ActionsCssClass=""
-                           Eyebrow="GitHub feedback"
-                           TitleId="feedback-title"
-                           Title="Report an issue">
-                <Actions>
-                    <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
-                </Actions>
-            </SectionHeader>
-        </Header>
-        <ChildContent>
-            <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Attach a screenshot if it helps show what's wrong.</p>
+<Modal Open="_feedbackOpen"
+       OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
+       Element="section"
+       BaseClass="feedback-dialog"
+       BackdropCssClass="feedback-backdrop"
+       BackdropRole="presentation"
+       UseBodyWrapper="false"
+       CloseOnBackdropClick="false"
+       CloseOnEscape="@(!_feedbackSubmitting)"
+       TestId="feedback-dialog"
+       FooterCssClass="feedback-dialog__actions"
+       aria-labelledby="feedback-title"
+       aria-describedby="feedback-description">
+    <Header>
+        @* The library's section header, dressed as this dialog — the same
+           arrangement the update dialog uses, so the two keep one shape. *@
+        <SectionHeader BaseClass="feedback-dialog__header"
+                       TextCssClass=""
+                       EyebrowCssClass="feedback-dialog__eyebrow"
+                       TitleCssClass=""
+                       ActionsCssClass=""
+                       Eyebrow="GitHub feedback"
+                       TitleId="feedback-title"
+                       Title="Report an issue">
+            <Actions>
+                <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
+            </Actions>
+        </SectionHeader>
+    </Header>
+    <ChildContent>
+        <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Attach a screenshot if it helps show what's wrong.</p>
 
-            <TextField Label="Title"
-                       Id="feedback-title-input"
-                       data-testid="feedback-title-input"
-                       Value="@_feedbackTitle"
-                       ValueChanged="OnFeedbackTitleInput"
-                       maxlength="120"
-                       Disabled="@_feedbackSubmitting" />
+        <TextField Label="Title"
+                   Id="feedback-title-input"
+                   data-testid="feedback-title-input"
+                   Value="@_feedbackTitle"
+                   ValueChanged="OnFeedbackTitleInput"
+                   maxlength="120"
+                   Disabled="@_feedbackSubmitting" />
 
-            <TextArea Label="Details"
-                      Id="feedback-details-input"
-                      data-testid="feedback-details-input"
-                      Value="@_feedbackDetails"
-                      ValueChanged="OnFeedbackDetailsInput"
-                      Rows="6"
-                      Disabled="@_feedbackSubmitting" />
+        <TextArea Label="Details"
+                  Id="feedback-details-input"
+                  data-testid="feedback-details-input"
+                  Value="@_feedbackDetails"
+                  ValueChanged="OnFeedbackDetailsInput"
+                  Rows="6"
+                  Disabled="@_feedbackSubmitting" />
 
-            <div class="feedback-dialog__screenshot">
-                @if (_feedbackScreenshot is not null)
-                {
-                    @* "Attached" rather than "Captured": the same preview holds a
-                       pasted image as well as a captured one. *@
-                    <img class="feedback-dialog__screenshot-preview"
-                         data-testid="feedback-screenshot-preview"
-                         src="@_feedbackScreenshot.DataUrl"
-                         alt="Attached screenshot preview" />
-                    <div class="feedback-dialog__screenshot-actions">
-                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-retake" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
-                            @(_feedbackCapturing ? "Capturing..." : "Retake screenshot")
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
-                            @(_feedbackPasting ? "Pasting..." : "Paste image")
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Ghost" data-testid="feedback-screenshot-remove" Disabled="@ScreenshotBusy" OnClick="RemoveScreenshot">
-                            Remove
-                        </AppButton>
-                    </div>
-                }
-                else
-                {
-                    @* Both origins side by side rather than one under the other:
-                       capturing and pasting are the same offer, and a reader who
-                       has already copied the picture should not have to read past
-                       the capture to find that out. *@
-                    <div class="feedback-dialog__screenshot-actions">
-                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-attach" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
-                            @(_feedbackCapturing ? "Capturing..." : "Attach screenshot")
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
-                            @(_feedbackPasting ? "Pasting..." : "Paste image")
-                        </AppButton>
-                    </div>
-                }
-            </div>
+        <div class="feedback-dialog__screenshot">
+            @if (_feedbackScreenshot is not null)
+            {
+                @* "Attached" rather than "Captured": the same preview holds a
+                   pasted image as well as a captured one. *@
+                <img class="feedback-dialog__screenshot-preview"
+                     data-testid="feedback-screenshot-preview"
+                     src="@_feedbackScreenshot.DataUrl"
+                     alt="Attached screenshot preview" />
+                <div class="feedback-dialog__screenshot-actions">
+                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-retake" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
+                        @(_feedbackCapturing ? "Capturing..." : "Retake screenshot")
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
+                        @(_feedbackPasting ? "Pasting..." : "Paste image")
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" data-testid="feedback-screenshot-remove" Disabled="@ScreenshotBusy" OnClick="RemoveScreenshot">
+                        Remove
+                    </AppButton>
+                </div>
+            }
+            else
+            {
+                @* Both origins side by side rather than one under the other:
+                   capturing and pasting are the same offer, and a reader who
+                   has already copied the picture should not have to read past
+                   the capture to find that out. *@
+                <div class="feedback-dialog__screenshot-actions">
+                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-attach" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
+                        @(_feedbackCapturing ? "Capturing..." : "Attach screenshot")
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
+                        @(_feedbackPasting ? "Pasting..." : "Paste image")
+                    </AppButton>
+                </div>
+            }
+        </div>
 
-            @* The link goes inside the status line rather than beside it: the
-               line is the live region, and a way back to the issue announced
-               separately from the sentence saying it exists is either read
-               twice or not at all. The library ships no link component — see the
-               `md-link` entry in SharedControlAdoptionTests — so the anchor is
-               written here, in Alert's own slot. *@
-            <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole">
-                @if (_feedbackIssueLink is { } issue)
-                {
-                    @* The gap is written here rather than left to CSS: the line is
-                       read out and copied as text, and a margin is neither. *@
-                    <text>&nbsp;</text>
-                    <a class="feedback-status__link"
-                       data-testid="feedback-issue-link"
-                       href="@issue.Url"
-                       target="_blank"
-                       rel="noopener"
-                       aria-label="@($"Open issue {issue.RepoFullName}{issue.Label} on GitHub")">@($"{issue.RepoFullName}{issue.Label}")</a>
-                }
-            </Alert>
-        </ChildContent>
-        <Footer>
-            <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
-            <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
-                @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
-            </AppButton>
-        </Footer>
-    </Modal>
-}
+        @* The link goes inside the status line rather than beside it: the
+           line is the live region, and a way back to the issue announced
+           separately from the sentence saying it exists is either read
+           twice or not at all. The library ships no link component — see the
+           `md-link` entry in SharedControlAdoptionTests — so the anchor is
+           written here, in Alert's own slot. *@
+        <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole">
+            @if (_feedbackIssueLink is { } issue)
+            {
+                @* The gap is written here rather than left to CSS: the line is
+                   read out and copied as text, and a margin is neither. *@
+                <text>&nbsp;</text>
+                <a class="feedback-status__link"
+                   data-testid="feedback-issue-link"
+                   href="@issue.Url"
+                   target="_blank"
+                   rel="noopener"
+                   aria-label="@($"Open issue {issue.RepoFullName}{issue.Label} on GitHub")">@($"{issue.RepoFullName}{issue.Label}")</a>
+            }
+        </Alert>
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
+            @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
+        </AppButton>
+    </Footer>
+</Modal>
 
 @code {
     private bool _feedbackOpen;
@@ -165,25 +158,13 @@
 
     protected override void OnInitialized()
     {
-        Features.Changed += HandleFeaturesChanged;
         Reports.Requested += HandleReportRequested;
     }
 
     public void Dispose()
     {
-        Features.Changed -= HandleFeaturesChanged;
         Reports.Requested -= HandleReportRequested;
     }
-
-    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
-
-    private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
-
-    private string FeatureStatusSlug(string featureKey) =>
-        AppFeatureStatusBadge.SlugFor(AppFeatures.All, Features, featureKey);
-
-    private string? FeatureStatusTitle(string featureKey) =>
-        AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
 
     /// <summary>
     /// How the status line announces itself. Three tones rather than the
@@ -242,7 +223,7 @@
     /// </summary>
     private void HandleReportRequested(FeedbackReportDraft draft) => _ = InvokeAsync(() =>
     {
-        if (!IsFeatureEnabled(AppFeatures.FeedbackReporting) || _feedbackSubmitting) return;
+        if (_feedbackSubmitting) return;
 
         _feedbackTitle = draft.Title;
         _feedbackDetails = draft.Details;

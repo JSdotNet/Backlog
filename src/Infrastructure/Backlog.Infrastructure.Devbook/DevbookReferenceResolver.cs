@@ -4,6 +4,8 @@ using Backlog.Infrastructure.Devbook.Building;
 using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Devbook;
 
@@ -14,7 +16,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// <para><b>Why here.</b> The port is Tasks' and the devbook is Devbook's, and a
 /// Tasks screen may ask only its own module. This project already reads both the
 /// database and the folder port, and the slug a heading is addressed by
-/// (<see cref="DevbookMarkdown.Slugify"/>) is the generator's rule ported here —
+/// (<see cref="HeadingAnchor"/>) is the generator's rule ported here —
 /// a second copy anywhere else would be a second opinion about which anchor a
 /// heading has.</para>
 ///
@@ -158,6 +160,15 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
         DevbookDatabase? database,
         CancellationToken cancellationToken)
     {
+        // A note in the owner's Brain (local ADR 0053 §1 and §3) is never looked up
+        // in a repository's devbook: this resolver cannot read a Brain, so nobody
+        // looked. A host that composes a Brain answers it with an adapter of its
+        // own, around this one.
+        if (BrainNoteAddress.Is(reference))
+        {
+            return ResolvedDevbookReference.BrainNote(reference, DevbookReferenceState.Unverified);
+        }
+
         if (Parse(reference) is not { } parsed)
         {
             return new ResolvedDevbookReference(reference, reference, null, DevbookReferenceState.UnknownPage, reference, null, null);
@@ -409,10 +420,7 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
         var root = read.Location.RootPath!;
         var tree = _folders.FileTree(read.Location);
-        var scenarioFolder = tree.DirectoryExists(Path.Combine(root, ScenarioPageParser.ScenarioFolder))
-            || !tree.DirectoryExists(Path.Combine(root, ScenarioPageParser.LegacyScenarioFolder))
-                ? ScenarioPageParser.ScenarioFolder
-                : ScenarioPageParser.LegacyScenarioFolder;
+        const string scenarioFolder = ScenarioPageParser.ScenarioFolder;
         var runFolder = Path.Combine(root, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
 
         if (read.Location.Source is DevbookSourceKind.Branch)
@@ -529,7 +537,7 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
     /// </summary>
     private static Heading? FindHeading(IReadOnlyList<Heading> headings, string anchor)
     {
-        var slugged = DevbookMarkdown.Slugify(anchor);
+        var slugged = HeadingAnchor.Of(anchor);
 
         return headings.FirstOrDefault(heading => string.Equals(heading.Slug, anchor, StringComparison.Ordinal))
             ?? headings.FirstOrDefault(heading => string.Equals(heading.Slug, anchor, StringComparison.OrdinalIgnoreCase))

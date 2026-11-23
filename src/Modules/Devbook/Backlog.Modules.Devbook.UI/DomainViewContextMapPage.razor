@@ -7,7 +7,9 @@
     library's ContextMapView: Map draws the contexts on an ellipse with a line per
     pair, each line worded by the source context's dependency row; List names them
     in reading order. A card opens its context's page, by following that
-    context's dependencies.md, which the pane opens on the context's row.
+    context's dependencies.md, which the pane opens on the context's row. A
+    published language's owner opens that context's Model on the event the
+    contract names, when its domain files document it, and its page otherwise.
 *@
 
 @if (_read is { Problem: null } read)
@@ -17,7 +19,8 @@
                     Layout="@read.Layout"
                     DocumentPath="@read.DocumentPath"
                     OnOpen="OpenAsync"
-                    OnNavigate="NavigateAsync" />
+                    OnNavigate="NavigateAsync"
+                    EventsOf="@((context, contract) => EventsOf(read, context, contract))" />
 }
 else if (_read?.Problem is { } problem)
 {
@@ -98,6 +101,38 @@ else if (_read?.Problem is { } problem)
     internal sealed record ContextMapReading(ContextMap Map, ContextMapLayout? Layout, string? DocumentPath, string? Problem)
     {
         public static ContextMapReading Failed(string problem) => new(ContextMap.Empty, null, null, problem);
+
+        /// <summary>Each context's Model file by its folder — <c>model.md</c>, else
+        /// its first — which a published language's owner opens on Events.</summary>
+        public IReadOnlyDictionary<string, string> Models { get; init; } = new Dictionary<string, string>();
+
+        /// <summary>The slugs of the domain events each context's domain files
+        /// document, by its folder: what its Model's Events tab lists.</summary>
+        public IReadOnlyDictionary<string, IReadOnlySet<string>> Events { get; init; } = new Dictionary<string, IReadOnlySet<string>>();
+    }
+
+    /// <summary>
+    /// Where a published language's owner opens: its Model file at the first event
+    /// the contract names that the owner's domain files document, which
+    /// <see cref="DomainModelTabs.For"/> opens on Events at that event's contract.
+    /// <see langword="null"/> when the owner has no Model file or the contract
+    /// names no event of its own — the cell then opens the owner's context page.
+    /// </summary>
+    internal static DevbookReference? EventsOf(ContextMapReading read, ContextMapContext context, ContextMapContract contract)
+    {
+        if (context.Slug is not { } slug || !read.Models.TryGetValue(slug, out var model) || !read.Events.TryGetValue(slug, out var events)) return null;
+
+        foreach (var name in contract.Names)
+        {
+            var reference = name.Reference ?? string.Empty;
+            var hash = reference.IndexOf('#');
+            var anchor = hash < 0 ? null : reference[(hash + 1)..].ToLowerInvariant();
+            var named = anchor is not null && events.Contains(anchor) ? anchor
+                : events.Contains(HeadingAnchor.Of(name.Name)) ? HeadingAnchor.Of(name.Name)
+                : null;
+            if (named is not null) return DevbookReference.Parse($"{model}#{named}");
+        }
+        return null;
     }
 
     /// <summary>The domain folder's context map, its lines worded from each
@@ -112,8 +147,17 @@ else if (_read?.Problem is { } problem)
         if (markdown is null) return ContextMapReading.Failed("The domain folder has no context-map.md.");
 
         var sources = new List<ContextMapSource>();
+        var models = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var events = new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var context in view.Contexts)
         {
+            var modelFiles = context.Documents.Where(d => d.Kind == DomainDevbookDocumentKind.Model).ToList();
+            if ((modelFiles.FirstOrDefault(d => d.Path.EndsWith("/model.md", StringComparison.OrdinalIgnoreCase)) ?? modelFiles.FirstOrDefault()) is { } model)
+            {
+                models.TryAdd(context.Slug, model.Path);
+                events.TryAdd(context.Slug, EventSlugs(view, context));
+            }
+
             var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
             var root = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Context);
             if (dependencies is not null)
@@ -133,8 +177,20 @@ else if (_read?.Problem is { } problem)
 
         // Laid out here, on the pool with the reading, rather than on the render.
         var map = ContextMaps.Read(markdown, sources);
-        return new ContextMapReading(map, ContextMapLayout.Arrange(map), mapPath, null);
+        return new ContextMapReading(map, ContextMapLayout.Arrange(map), mapPath, null) { Models = models, Events = events };
     }
+
+    /// <summary>The slug of every <c>domain-event</c> chapter's heading in a
+    /// context's domain files — <see cref="HeadingAnchor.Of"/> of its title, the
+    /// one rule <see cref="DomainModelTabs.For"/> matches an event by.</summary>
+    private static IReadOnlySet<string> EventSlugs(DomainDevbookView view, DomainDevbookContext context) =>
+        context.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
+            .SelectMany(d => DomainUnits.Parse(DomainDevbookStore.ReadText(view, d), d.Path).AllChapters())
+            .Where(chapter => chapter.Type == "domain-event")
+            .Select(chapter => HeadingAnchor.Of(chapter.Title))
+            .Where(slug => slug.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The reference a card follows: its context's <c>dependencies.md</c>,
     /// which has no menu row and so opens the context's row — the page that opens

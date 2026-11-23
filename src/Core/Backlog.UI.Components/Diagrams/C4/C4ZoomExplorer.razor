@@ -2,16 +2,12 @@
 @inject IJSRuntime Js
 
 @*
-    The C4 zoom tab: one model a reader zooms through a level at a time, where the C4
-    tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
-    switch until the zoom tab is validated (local ADR 0046), so this shares the
-    renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
-    how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
-    selectable deployment-node frame and the overlay's record chips, are options only
-    this component sets, as are
-    the layout's group bands, nested frames and wider gaps (C4LayoutOptions). (The one
-    shared change both tabs see is a layout fix: a deployment instance is drawn inside
-    the deployment node that runs it, where the node used to be dropped.)
+    The C4 zoom navigation: one model a reader zooms through a level at a time, and
+    the only reading of the C4 model since it replaced the C4 tab (local ADR 0046). It
+    draws through the shared renderer — C4LayoutEngine, C4SvgWriter, C4Exploration —
+    and hands the writer what is particular to one render: the cards with a Zoom in
+    chip, the current step, the selectable deployment-node frames and the overlay's
+    record chips (C4SvgOptions).
 
     It holds two things, the open view and the selected element. Everything the zoom
     bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
@@ -36,12 +32,13 @@
 *@
 
 @*
-    The surface (Navigation set — the architecture surface, plan c4-zoom-navigation):
+    The surface (Navigation set — the architecture surface, local ADR 0046):
     the bar across the top, and under it three columns — the host's navigation, the
     picture, the inspector. A host Document stands in for the picture and the inspector
     while it is open; the bar stays, drawn with no step current, and any press on it
     hands the reader back to the model through OnNavigate. Without Navigation the
-    explorer draws exactly what the C4 zoom tab always drew.
+    explorer draws the picture with its bar, title and inspector alone, as the
+    storybook shows it.
 *@
 @*
     Escape with an element selected is the explorer's: it clears the selection and
@@ -64,16 +61,6 @@
     }
     else if (Surface)
     {
-        @* The surface's top row, as the design's header carries it: the overlay switch,
-           offered while the picture is up — a document or the Code level draws no
-           cards to put records on. *@
-        @if (RecordsFor is not null && Document is null && _codeFor is null)
-        {
-            <div class="c4-zoom-explorer__top" data-testid="c4-zoom-top">
-                @OverlaySwitch
-            </div>
-        }
-
         <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
 
         <div class="@SurfaceClass" data-testid="c4-zoom-surface">
@@ -130,7 +117,7 @@
 @code {
     /// <summary>The open view: the bar (off the surface), the hint, and either the Code
     /// level or the picture with everything under it. Off the surface the inspector is
-    /// drawn beside the picture, as the C4 zoom tab always drew it; on the surface it is
+    /// drawn beside the picture; on the surface it is
     /// the right-hand column instead.</summary>
     private void RenderPicture(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
     {
@@ -176,7 +163,11 @@
             @if (Surface)
             {
                 @* The surface's view heading: its title, where it is read from and
-                   what documents it, and the − / Fit / + that size the picture. *@
+                   what documents it, then the overlay switch and the − / Fit / + that
+                   size the picture. The switch sits here rather than in a row of its
+                   own over the zoom bar, so the picture keeps that row's height; it
+                   goes with the picture, as a document or the Code level draws no
+                   cards to put records on. *@
                 <div class="c4-zoom-explorer__heading">
                     <h2 class="c4-zoom-explorer__title c4-zoom-explorer__title--surface" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</h2>
                     <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key-line">
@@ -188,7 +179,21 @@
                     </p>
                 </div>
 
-                <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
+                <div class="c4-zoom-explorer__tools" data-testid="c4-zoom-tools">
+                    @* On the surface the environments are a switch here rather than
+                       a tab strip over the picture, so the picture keeps its height. *@
+                    @if (_environments.Count > 1)
+                    {
+                        @EnvironmentSwitch
+                    }
+
+                    @if (RecordsFor is not null)
+                    {
+                        @OverlaySwitch
+                    }
+
+                    <C4ZoomScale @bind-Index="_scaleIndex" CssClass="c4-zoom-explorer__scale" />
+                </div>
             }
             else
             {
@@ -198,7 +203,7 @@
 
             @* The overlay switch: which records the cards carry. Offered only by a
                host with records to count, as the inspector's record sections are. On
-               the surface it is the top row's, not the view heading's. *@
+               the surface it sits beside the − / Fit / + above. *@
             @if (RecordsFor is not null && !Surface)
             {
                 @OverlaySwitch
@@ -231,7 +236,7 @@
         @* The picture, and beside it the inspector of the element selected on it. *@
         <div class="c4-zoom-explorer__body">
         <div class="c4-zoom-explorer__stage">
-        @if (_environments.Count > 1)
+        @if (_environments.Count > 1 && !Surface)
         {
             <Tabs Bare="true"
                   ActiveId="@EnvironmentTabId(_environments.First(environment => environment.Current))"
@@ -356,6 +361,28 @@
         </ButtonGroup>
     </div>;
 
+    /// <summary>On the surface, the deployment environments as one switch in the view
+    /// heading, drawn as the overlay switch is; off it they stay a tab strip over the
+    /// picture.</summary>
+    private RenderFragment EnvironmentSwitch => @<div class="c4-zoom-explorer__overlay">
+        @* Read out, not shown: the environment names say what the switch is. *@
+        <span class="sr-only" id="@($"{_frameId}-environment")">Environment</span>
+        <ButtonGroup Radio="true"
+                     CssClass="c4-zoom-explorer__overlay-choices"
+                     aria-labelledby="@($"{_frameId}-environment")"
+                     TestId="c4-zoom-environment-switch">
+            @foreach (var environment in _environments)
+            {
+                <ToggleButton @key="environment.ViewKey"
+                              Pressed="@environment.Current"
+                              PressedChanged="@(pressed => pressed ? OpenEnvironmentAsync(environment) : Task.CompletedTask)"
+                              BaseClass="c4-zoom-explorer__overlay-choice"
+                              PressedCssClass="c4-zoom-explorer__overlay-choice--active"
+                              TestId="c4-zoom-environment-choice">@environment.Name</ToggleButton>
+            }
+        </ButtonGroup>
+    </div>;
+
     /// <summary>The selected element, as the inspector shows it.</summary>
     private RenderFragment Inspector => @<C4ElementInspector @ref="_inspector"
                                                             Element="@_inspected"
@@ -406,20 +433,6 @@
     /// next picture takes the keyboard focus back. A move from the bar leaves the focus
     /// on the bar. Cleared on the attach that honours it.</summary>
     private bool _refocus;
-
-    /// <summary>The layout this tab asks for. Outside systems a <c>group</c> block
-    /// gathered are kept together in a labelled band, in one column beside the system,
-    /// as the design's landscape draws them. Every deployment node is framed, however
-    /// deep, so a node that holds only other nodes can be selected too. And the gaps
-    /// are wider, so the labels on a larger view have room. The C4 tab asks for none
-    /// and draws what it always drew.</summary>
-    internal static readonly C4LayoutOptions Layout = new(GroupBands: true)
-    {
-        BandsBeside = true,
-        NestedDeploymentNodes = true,
-        ColumnGap = 80,
-        RowGap = 144
-    };
 
     private C4Diagram? _diagram;
     private C4Workspace? _diagramWorkspace;
@@ -480,7 +493,7 @@
     public TimeSpan PlayInterval { get; set; } = TimeSpan.FromSeconds(1.6);
 
     /// <summary>
-    /// A view the host asks to have opened — an arc42 chapter's "Open in C4 zoom".
+    /// A view the host asks to have opened — an arc42 chapter's "Open in the C4 model".
     /// <para>
     /// A request rather than a bound view key: the reader moves on from it by zooming,
     /// and asking for the same view again has to open it again. So each request is a
@@ -514,7 +527,7 @@
     /// <summary>
     /// The architecture surface's left navigation. Set, the explorer draws as the
     /// surface: the bar across the top, then this, the picture and the inspector as
-    /// three columns. Null — the C4 zoom tab — draws the explorer as it always was.
+    /// three columns. Null draws the bar, the picture and the inspector beside it.
     /// </summary>
     [Parameter]
     public RenderFragment? Navigation { get; set; }
@@ -636,7 +649,7 @@
 
     protected override void OnParametersSet()
     {
-        // Keyed on the workspace's identity, as the C4 tab's explorer is: a reload
+        // Keyed on the workspace's identity: a reload
         // hands over a fresh record, and re-deriving is cheaper than diffing it.
         var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
         if (string.Equals(_loadedFor, key, StringComparison.Ordinal) && _view is not null && Workspace.View(_view.Key) is not null)
@@ -685,8 +698,7 @@
 
         RefreshPlayback();
 
-        var numberSteps = _playback.Count > 0;
-        int? currentStep = numberSteps ? _playback[_stepIndex].Order : null;
+        int? currentStep = _playback.Count > 0 ? _playback[_stepIndex].Order : null;
 
         // A deployment node that runs something is drawn as a frame; on a deployment
         // view the frame is selectable, because the node is what a reader asks about.
@@ -699,11 +711,10 @@
         if (_options.ZoomInAliases is null
             || !_options.ZoomInAliases.SetEquals(zoomable)
             || !SameSet(_options.SelectableBoundaryAliases, frames)
-            || _options.NumberSteps != numberSteps
             || _options.CurrentStep != currentStep
             || !SameChips(_options.RecordChips, chips))
         {
-            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips, EdgeEnds = true };
+            _options = new C4SvgOptions(zoomable, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips };
         }
 
         _environments = C4ZoomDeployment.Environments(Workspace, _view);
@@ -1295,7 +1306,7 @@
             || !ReferenceEquals(_diagramWorkspace, Workspace)
             || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
         {
-            _diagram = C4LayoutEngine.Build(Workspace, view, Layout);
+            _diagram = C4LayoutEngine.Build(Workspace, view);
             _diagramWorkspace = Workspace;
             _diagramViewKey = view.Key;
         }

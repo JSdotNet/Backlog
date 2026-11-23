@@ -78,7 +78,8 @@ public sealed record NotificationView(
     DateTimeOffset? SettledAt,
     string? CloseReason,
     NotificationAnswer? Answer,
-    NotificationOrigin? Origin = null)
+    NotificationOrigin? Origin = null,
+    IReadOnlyList<NotificationAction>? Actions = null)
 {
     /// <summary>How long a settled notification stays in the centre.</summary>
     public static readonly TimeSpan SettledWindow = TimeSpan.FromDays(7);

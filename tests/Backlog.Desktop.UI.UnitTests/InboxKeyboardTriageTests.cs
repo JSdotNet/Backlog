@@ -200,10 +200,10 @@ public sealed class InboxKeyboardTriageTests
         await PressAsync(pane, "t");
 
         Assert.Equal(
-            ["R", "B", "L", "D", "A"],
+            ["R", "B", "S", "N", "W", "L", "D", "A"],
             pane.FindAll("[data-testid='inbox-triage-decisions'] kbd").Select(key => key.TextContent.Trim()));
         Assert.Equal(
-            ["Move to backlog", "To Brain", "Move to list", "Defer", "Archive"],
+            ["Move to backlog", "To Brain", "Someday", "Done now", "Waiting for", "Move to list", "Defer", "Archive"],
             pane.FindAll("[data-testid='inbox-triage-decisions'] .inbox-triage__decision-label").Select(label => label.TextContent.Trim()));
 
         await PressAsync(pane, "g");
@@ -238,7 +238,7 @@ public sealed class InboxKeyboardTriageTests
 
         await pane.Find("[data-testid='inbox-pane-shortcuts']").ClickAsync(new());
         var keys = pane.FindAll("[data-testid='inbox-shortcuts-list'] kbd").Select(key => key.TextContent).ToList();
-        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "b", "g", "1–9", "x", "u", "Esc", "?"], keys);
+        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "b", "s", "n", "w", "g", "1–9", "x", "u", "Esc", "?"], keys);
         Assert.Equal(
             ["Start triage", "Tags"],
             pane.FindAll("[data-testid='inbox-shortcuts-list'] .inbox-pane__shortcut")
@@ -420,8 +420,11 @@ public sealed class InboxKeyboardTriageTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
         }
@@ -434,14 +437,15 @@ public sealed class InboxKeyboardTriageTests
 
         public static Harness Create()
         {
+            var temp = new TemporaryDirectory("backlog-inbox-keys-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
             context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-keys-tests", Guid.NewGuid().ToString("n"), "github.json")));
+                temp.Combine("github.json")));
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox);
+            return new Harness(temp, context, inbox);
         }
 
         public async Task<IRenderedComponent<InboxPane>> RenderAsync(bool withSources = false)
@@ -457,6 +461,10 @@ public sealed class InboxKeyboardTriageTests
         public Task SelectAsync(IRenderedComponent<InboxPane> pane, Guid id) =>
             pane.Find($"[data-testid='inbox-item-{id:D}']").ClickAsync(new());
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

@@ -112,17 +112,19 @@ public sealed class InboxItem
 
         // A note made on this desktop has a phone that has not heard of it yet.
         // One that arrived from the replica is already there.
-        NotePushPending = kind is ContentKind.Note && !replicaBacked;
+        NotePushPending = IsNote && !replicaBacked;
     }
 
     public Guid Id { get; }
 
-    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
-    /// whose title the person may change with <see cref="EditNote"/>.</summary>
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
+    /// whose title the person may change with <see cref="EditNote"/> — except that
+    /// the phone may reword an open replica capture it still offers
+    /// (<see cref="ApplyCaptureEdit"/>).</summary>
     public string Title { get; private set; }
 
-    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
-    /// as <see cref="Title"/> is.</summary>
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/> and <see cref="ContentKind.Meeting"/>,
+    /// as <see cref="Title"/> is, with the same exception.</summary>
     public string BodyMd { get; private set; }
 
     /// <summary>Invariant: preserved unchanged from capture.</summary>
@@ -165,6 +167,12 @@ public sealed class InboxItem
 
     public RoutingTarget? Routing { get; private set; }
 
+    /// <summary>What an event page capture found — dates, place, the watched page —
+    /// or null for an item from any other source. Provenance, like
+    /// <see cref="SourceUrl"/>: set when the item is made and never edited
+    /// (<c>.devbook/domain/inbox/domain.md#event-facts</c>).</summary>
+    public InboxEventFacts? EventFacts { get; private set; }
+
     /// <summary>True when <see cref="Id"/> is a replica capture id — the item
     /// arrived through sync, and the replica will want to hear what became of it.</summary>
     public bool ReplicaBacked { get; }
@@ -204,19 +212,25 @@ public sealed class InboxItem
     public bool DuplicateOfTask { get; private set; }
 
     /// <summary>
-    /// The note's own last-write-wins stamp: when its title, body or files last
-    /// changed, or when it was archived or deleted. It is the <c>updated_at</c> a
-    /// note document carries on the task feed
-    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>). Kept apart from
-    /// <see cref="UpdatedAt"/>, which every mutator restamps (filing, tagging, a
-    /// file arriving): a note pushed for such a change would carry a stamp later
-    /// than an edit the phone made meanwhile, and overwrite it with the old text.
-    /// Kept on every item; only a note's is read.
+    /// When the item's title or body last changed, as the replica orders versions —
+    /// the stamp a phone's copy is compared against. For a note it is the note's own
+    /// last-write-wins stamp, moved by an edit, a file change, an archive or a
+    /// delete: the <c>updated_at</c> a note document carries on the task feed
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>). For a replica
+    /// capture it is the stamp of the copy last taken, on the service's clock, which
+    /// <see cref="ApplyCaptureEdit"/> compares a phone's rewording against.
+    /// Kept apart from <see cref="UpdatedAt"/>, which every mutator restamps
+    /// (filing, tagging, a file arriving): a stamp moved by such a change would hide
+    /// a phone edit made before it, or push a note over the phone's later text. So
+    /// no mutator but those named here may move it. Kept on every item; a note's
+    /// and a replica capture's are read.
     /// </summary>
     public DateTimeOffset EditedAt { get; private set; }
 
-    /// <summary>A note: the one kind that syncs both ways with the phone.</summary>
-    public bool IsNote => Kind is ContentKind.Note;
+    /// <summary>A note or a meeting: the kinds that change after they are captured
+    /// and sync both ways with the phone. A meeting is a note in everything but its
+    /// kind (<c>.devbook/domain/inbox/domain.md#meeting</c>).</summary>
+    public bool IsNote => Kind is ContentKind.Note or ContentKind.Meeting;
 
     /// <summary>
     /// True between this desktop changing a live note and the replica taking the
@@ -626,6 +640,27 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Records that the item became a Spotted knowledge event — To Event
+    /// (<c>.devbook/domain/inbox/features.md#route-to-event</c>). The same terminal
+    /// step <see cref="RouteToBrain"/> is, exactly once and only from an item not
+    /// archived, with <see cref="RoutingDomain.Events"/> as its domain, the event's
+    /// id, and no repository or task.
+    /// </summary>
+    public void RouteToEvent(Guid eventId, DateTimeOffset now)
+    {
+        if (eventId == Guid.Empty) throw new ArgumentException("An event id is required.", nameof(eventId));
+        if (IsRouted) throw new InvalidInboxTransitionException(Status, "routed again");
+        if (Status is InboxStatus.Archived) throw new InvalidInboxTransitionException(Status, "routed");
+
+        Routing = new RoutingTarget(RoutingDomain.Events, [], [], now, eventId);
+        Status = InboxStatus.Triaged;
+        DeferredUntil = null;
+
+        if (ReplicaBacked && !IsNote) ReplicaAckPending = true;
+        Touch(now);
+    }
+
+    /// <summary>
     /// Records that the item is already a task the backlog has — "Link to
     /// task…" — rather than making it one. The same routing a route records,
     /// naming that one task, so the item leaves the queue as decided and says
@@ -734,7 +769,7 @@ public sealed class InboxItem
 
     /// <summary>
     /// Changes a note's title and body: the reader editing it on the desktop.
-    /// Only a <see cref="ContentKind.Note"/> changes after it is captured
+    /// Only a <see cref="ContentKind.Note"/> or a <see cref="ContentKind.Meeting"/> changes after it is captured
     /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>), and only while it
     /// still syncs: an archived note has left the phone and is not edited back
     /// onto it. A routed note may be edited, because routing does not end its
@@ -754,6 +789,45 @@ public sealed class InboxItem
     }
 
     /// <summary>
+    /// Writes a meeting recording's transcript onto the note and takes the recording off it,
+    /// in one change (local ADR 0049 §5, §6): <paramref name="sectionsMd"/> is appended to
+    /// the end of the body unless the body already holds it, and the file is removed from
+    /// the note's files when it is still there. Never replaces the body. Answers whether
+    /// anything changed; a change is stamped after the copy it replaces and pushed, so the
+    /// replica releases the file's blob and the phone drops it.
+    /// <para>
+    /// The same call repairs a phone edit that dropped the sections or named the file again:
+    /// whatever is already as it should be is left alone, so a second call changes nothing.
+    /// </para>
+    /// </summary>
+    public bool AppendTranscript(Guid attachmentId, string sectionsMd, DateTimeOffset now)
+    {
+        if (!IsNote) throw new InvalidInboxTransitionException(Status, "given a transcript");
+        ArgumentException.ThrowIfNullOrWhiteSpace(sectionsMd);
+        if (Status is InboxStatus.Archived) return false;
+
+        var sections = sectionsMd.Trim();
+        var changed = false;
+
+        // Compared with line endings set aside: a phone that saved the body with CRLF still
+        // holds the sections, and appending them again would write them twice.
+        if (!BodyMd.ReplaceLineEndings("\n").Contains(sections.ReplaceLineEndings("\n"), StringComparison.Ordinal))
+        {
+            BodyMd = BodyMd.Length == 0 ? sections : BodyMd.TrimEnd() + "\n\n" + sections;
+            changed = true;
+        }
+
+        if (_attachments.RemoveAll(attachment => attachment.Id == attachmentId) > 0) changed = true;
+
+        if (!changed) return false;
+
+        EditedAt = NextEdit(now);
+        NotePushPending = true;
+        Touch(now);
+        return true;
+    }
+
+    /// <summary>
     /// Takes the phone's copy of a note, pulled from the replica, when it is the
     /// later one: its stamp after <see cref="EditedAt"/>. Answers whether it
     /// changed anything. The stamp is the note's, not this machine's clock, so
@@ -769,6 +843,44 @@ public sealed class InboxItem
 
         Title = Collapse(title);
         BodyMd = bodyMd?.Trim() ?? string.Empty;
+        EditedAt = editedAt;
+        Touch();
+        return true;
+    }
+
+    /// <summary>
+    /// Takes the phone's rewording of a capture it still offers, pulled from the
+    /// replica, when it is the later copy: its stamp after <see cref="EditedAt"/>.
+    /// Answers whether it changed anything: a later copy with the same words —
+    /// the service restamped it without a rewording, a retried push, a file added —
+    /// changes nothing and answers false, so no edit is reported that the person
+    /// never made.
+    /// <para>
+    /// Only the title and body move. What the capture was —
+    /// <see cref="CapturedAt"/>, <see cref="SourceUrl"/> — never changes, and what
+    /// this desktop set on the item — kind, tags, list — is the desktop's, so the
+    /// phone's copy does not reach it. Only while the item is open and replica
+    /// backed: a decided item has had its decision, and its tombstone settles the
+    /// phone's copy on the replica; an item with no replica behind it has no phone
+    /// that could have edited it. The stamp is the service's, and this desktop
+    /// pushes nothing back, so nothing is owed.
+    /// </para>
+    /// <para>
+    /// A note or a meeting is refused: each syncs both ways through <see cref="ApplyNote"/>.
+    /// </para>
+    /// </summary>
+    public bool ApplyCaptureEdit(string title, string? bodyMd, DateTimeOffset editedAt)
+    {
+        if (IsNote) throw new InvalidInboxTransitionException(Status, "edited as a capture");
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title is required.", nameof(title));
+        if (!ReplicaBacked || !IsOpen || editedAt <= EditedAt) return false;
+
+        var collapsed = Collapse(title);
+        var body = bodyMd?.Trim() ?? string.Empty;
+        if (collapsed == Title && body == BodyMd) return false;
+
+        Title = collapsed;
+        BodyMd = body;
         EditedAt = editedAt;
         Touch();
         return true;
@@ -800,10 +912,11 @@ public sealed class InboxItem
         Touch();
     }
 
-    /// <summary>Stamps a note that arrived from the phone with the phone's own
-    /// stamp rather than the moment it landed here, so the copy is pushed back
-    /// under the stamp the replica already holds. Called once, right after
-    /// <see cref="FromCapture"/>.</summary>
+    /// <summary>Stamps an item that arrived from the replica — a note, or a phone
+    /// capture — with its document's stamp rather than the moment it landed here:
+    /// a note's copy is then pushed back under the stamp the replica already holds,
+    /// and a capture's later rewording is compared on the same clock. Called once,
+    /// right after <see cref="FromCapture"/>.</summary>
     public void StampEdited(DateTimeOffset editedAt) => EditedAt = editedAt;
 
     /// <summary>The outbox drained: the replica has the tombstone.</summary>
@@ -848,6 +961,12 @@ public sealed class InboxItem
     public bool Deleted { get; private set; }
 
     // --- Rehydration --------------------------------------------------------
+
+    /// <summary>Keeps what an event page capture found, on intake or on load. Empty
+    /// facts are kept as none. Not an edit: the facts are what the capture was,
+    /// so nothing is stamped.</summary>
+    public void LoadEventFacts(InboxEventFacts? facts) =>
+        EventFacts = facts is null || facts.IsEmpty ? null : facts;
 
     /// <summary>
     /// Restores the tags a persisted item was written with, as they are. No
@@ -913,7 +1032,7 @@ public sealed class InboxItem
     /// behind the phone's would otherwise stamp the edit, or the archive's
     /// tombstone, older than what the replica holds, and the replica would refuse it.
     /// </summary>
-    private DateTimeOffset NextEdit(DateTimeOffset now) => now > EditedAt ? now : EditedAt.AddTicks(1);
+    private DateTimeOffset NextEdit(DateTimeOffset now) => InboxStamps.After(now, EditedAt);
 
     /// <summary>A title is one line: runs of whitespace collapse to a space.</summary>
     private static string Collapse(string title) =>

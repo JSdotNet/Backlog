@@ -14,15 +14,15 @@ public sealed class CSharpCodeReaderTests : IDisposable
 {
     private const string Folder = "src/Shop";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-code-reader-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-code-reader-tests");
 
     public CSharpCodeReaderTests() =>
-        CopyDirectory(Path.Combine(AppContext.BaseDirectory, "Fixtures", "CodeReader"), Path.Combine(_root, "src", "Shop"));
+        CopyDirectory(Path.Combine(AppContext.BaseDirectory, "Fixtures", "CodeReader"), _temp.Combine("src", "Shop"));
 
     [Fact]
     public void Every_type_in_the_folder_is_read_with_its_repository_relative_file()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
 
         Assert.Equal(Folder, model.Folder);
         Assert.Equal(
@@ -51,7 +51,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
         Write("src/Shop/Orders/obj/Nested.cs", "namespace Shop; public class FromNestedObj { }");
         Write("src/Shop/Orders/Notes.txt", "public class FromText { }");
 
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
 
         Assert.DoesNotContain(model.Types, type => type.Name.StartsWith("From", StringComparison.Ordinal));
     }
@@ -59,7 +59,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void A_partial_type_is_one_type_with_the_files_modifiers_bases_and_members_of_every_part()
     {
-        var order = Type(new CSharpCodeReader().Read(_root, Folder), "Shop.Orders.Order");
+        var order = Type(new CSharpCodeReader().Read(_temp.Path, Folder), "Shop.Orders.Order");
 
         Assert.Equal(CodeTypeKind.Class, order.Kind);
         Assert.Equal("Order", order.Name);
@@ -75,7 +75,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void The_public_view_keeps_the_public_members_and_the_all_view_keeps_every_member()
     {
-        var order = Type(new CSharpCodeReader().Read(_root, Folder), "Shop.Orders.Order");
+        var order = Type(new CSharpCodeReader().Read(_temp.Path, Folder), "Shop.Orders.Order");
 
         Assert.Equal(["Id", "Modified", "Add", "Total"], order.PublicMembers.Select(member => member.Name));
         Assert.Equal(["_lines", "Id", "Modified", "Add", "Count", "OnChanged", "Total", "Sum"], order.Members.Select(member => member.Name));
@@ -89,7 +89,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void Members_carry_their_kind_and_a_signature_as_written()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
         var order = Type(model, "Shop.Orders.Order");
         var service = Type(model, "Shop.Orders.OrderService");
         var entity = Type(model, "Shop.Shared.EntityBase");
@@ -105,7 +105,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void A_positional_record_lists_its_parameters_as_public_properties()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
         var line = Type(model, "Shop.Orders.OrderLine");
         var money = Type(model, "Shop.Shared.Money");
 
@@ -122,7 +122,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void Interface_and_enum_members_are_public_without_saying_so_and_types_default_to_internal()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
         var status = Type(model, "Shop.Shared.Status");
 
         Assert.Equal(["Modified"], Type(model, "Shop.Shared.IAuditable").PublicMembers.Select(member => member.Name));
@@ -136,7 +136,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void A_nested_type_names_its_container_and_a_generic_type_its_parameters()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
         var cache = Type(model, "Shop.Orders.OrderService.Cache");
         var repository = Type(model, "Shop.Shared.Repository<T>");
 
@@ -152,7 +152,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void The_uses_between_types_are_the_ones_it_can_see_by_name()
     {
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
 
         Assert.Equal(
             [
@@ -178,7 +178,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
         Write("src/Shop/Reports/Report.cs", "using Shop.Shared; namespace Shop.Reports; public sealed class Report { public Money Sum; }");
         Write("src/Shop/Reports/Guess.cs", "namespace Shop.Reports; public sealed class Guess { public Money Sum; }");
 
-        var uses = new CSharpCodeReader().Read(_root, Folder).Uses;
+        var uses = new CSharpCodeReader().Read(_temp.Path, Folder).Uses;
 
         Assert.Contains(uses, use => use is { From: "Shop.Billing.Invoice", To: "Shop.Billing.Money" });
         Assert.Contains(uses, use => use is { From: "Shop.Reports.Report", To: "Shop.Shared.Money" });
@@ -192,7 +192,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
         Write("src/Shop/Reports/Ledger.cs", "namespace Shop.Reports; public sealed class Ledger { public Billing.Money Due; }");
         Write("src/Shop/Reports/Book.cs", "namespace Shop { using Shared; namespace Reports { public sealed class Book { public Money Sum; } } }");
 
-        var uses = new CSharpCodeReader().Read(_root, Folder).Uses;
+        var uses = new CSharpCodeReader().Read(_temp.Path, Folder).Uses;
 
         Assert.Contains(uses, use => use is { From: "Shop.Reports.Ledger", To: "Shop.Billing.Money" });
         Assert.Contains(uses, use => use is { From: "Shop.Reports.Book", To: "Shop.Shared.Money" });
@@ -203,7 +203,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     {
         Write("src/Shop/Shared/Price.cs", "namespace Shop.Shared; public sealed class Price : IEquatable<Money>, IAuditable { }");
 
-        var uses = new CSharpCodeReader().Read(_root, Folder).Uses.Where(use => use.From == "Shop.Shared.Price");
+        var uses = new CSharpCodeReader().Read(_temp.Path, Folder).Uses.Where(use => use.From == "Shop.Shared.Price");
 
         Assert.Equal(
             [("Shop.Shared.IAuditable", CodeUseKind.Inherits), ("Shop.Shared.Money", CodeUseKind.References)],
@@ -215,7 +215,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     {
         Write("src/Shop/Shared/Stamp.cs", "namespace Shop.Shared; public sealed class Stamp : IAuditable { DateTimeOffset IAuditable.Modified => default; private int Modified; }");
 
-        var stamp = Type(new CSharpCodeReader().Read(_root, Folder), "Shop.Shared.Stamp");
+        var stamp = Type(new CSharpCodeReader().Read(_temp.Path, Folder), "Shop.Shared.Stamp");
 
         Assert.Equal(["IAuditable.Modified", "Modified"], stamp.Members.Select(member => member.Name));
         Assert.Equal("IAuditable.Modified : DateTimeOffset", stamp.Members[0].Signature);
@@ -228,7 +228,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
             "src/Shop/Shared/Extensions.cs",
             "namespace Shop.Shared; public interface IHolder { class Slot { } } public static class MoneyExtensions { extension(Money money) { public bool IsZero => money.Amount == 0; } public static Money Twice(this Money money) => money + money; }");
 
-        var model = new CSharpCodeReader().Read(_root, Folder);
+        var model = new CSharpCodeReader().Read(_temp.Path, Folder);
 
         Assert.Equal(CodeAccessibility.Public, Type(model, "Shop.Shared.IHolder.Slot").Accessibility);
         Assert.Equal(["Twice"], Type(model, "Shop.Shared.MoneyExtensions").Members.Select(member => member.Name));
@@ -245,12 +245,12 @@ public sealed class CSharpCodeReaderTests : IDisposable
         Write("src/Shop/Orders/Refund.cs", "namespace Shop.Orders; public sealed class Refund { }");
         var reader = new CSharpCodeReader();
 
-        using (new FileStream(Path.Combine(_root, "src", "Shop", "Orders", "Refund.cs"), FileMode.Open, FileAccess.Read, FileShare.None))
+        using (new FileStream(_temp.Combine("src", "Shop", "Orders", "Refund.cs"), FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            Assert.DoesNotContain(reader.Read(_root, Folder).Types, type => type.Id == "Shop.Orders.Refund");
+            Assert.DoesNotContain(reader.Read(_temp.Path, Folder).Types, type => type.Id == "Shop.Orders.Refund");
         }
 
-        Assert.Contains(reader.Read(_root, Folder).Types, type => type.Id == "Shop.Orders.Refund");
+        Assert.Contains(reader.Read(_temp.Path, Folder).Types, type => type.Id == "Shop.Orders.Refund");
     }
 
     [Fact]
@@ -258,8 +258,8 @@ public sealed class CSharpCodeReaderTests : IDisposable
     {
         var reader = new CSharpCodeReader();
 
-        var first = reader.Read(_root, Folder);
-        var second = reader.Read(_root, Folder);
+        var first = reader.Read(_temp.Path, Folder);
+        var second = reader.Read(_temp.Path, Folder);
 
         Assert.Same(first, second);
     }
@@ -268,20 +268,20 @@ public sealed class CSharpCodeReaderTests : IDisposable
     public void A_file_added_changed_or_removed_is_read_again()
     {
         var reader = new CSharpCodeReader();
-        var first = reader.Read(_root, Folder);
+        var first = reader.Read(_temp.Path, Folder);
 
         Write("src/Shop/Orders/Refund.cs", "namespace Shop.Orders; public sealed class Refund { }");
-        var added = reader.Read(_root, Folder);
+        var added = reader.Read(_temp.Path, Folder);
         Assert.NotSame(first, added);
         Assert.Contains(added.Types, type => type.Id == "Shop.Orders.Refund");
 
         // A different length is a different stamp whatever the clock did.
         Write("src/Shop/Orders/Refund.cs", "namespace Shop.Orders; public sealed class Refund { public int Amount; }");
-        var changed = reader.Read(_root, Folder);
+        var changed = reader.Read(_temp.Path, Folder);
         Assert.Equal(["Amount"], Type(changed, "Shop.Orders.Refund").Members.Select(member => member.Name));
 
-        File.Delete(Path.Combine(_root, "src", "Shop", "Orders", "Refund.cs"));
-        Assert.DoesNotContain(reader.Read(_root, Folder).Types, type => type.Id == "Shop.Orders.Refund");
+        File.Delete(_temp.Combine("src", "Shop", "Orders", "Refund.cs"));
+        Assert.DoesNotContain(reader.Read(_temp.Path, Folder).Types, type => type.Id == "Shop.Orders.Refund");
     }
 
     /// <summary>The requirement's own scenario: the Devbook component's code is
@@ -300,7 +300,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [Fact]
     public void A_folder_that_is_not_there_reads_as_no_types()
     {
-        var model = new CSharpCodeReader().Read(_root, "src/Missing");
+        var model = new CSharpCodeReader().Read(_temp.Path, "src/Missing");
 
         Assert.Empty(model.Types);
         Assert.Empty(model.Uses);
@@ -310,29 +310,19 @@ public sealed class CSharpCodeReaderTests : IDisposable
     [InlineData("../outside")]
     [InlineData("src/../../outside")]
     public void A_folder_outside_the_repository_is_refused(string folder) =>
-        Assert.Throws<ArgumentException>(() => new CSharpCodeReader().Read(_root, folder));
+        Assert.Throws<ArgumentException>(() => new CSharpCodeReader().Read(_temp.Path, folder));
 
     [Fact]
     public void Source_that_does_not_parse_cleanly_still_yields_what_the_tree_holds()
     {
         Write("src/Shop/Broken.cs", "namespace Shop; public class Half { public int Value { get; ");
 
-        var half = Type(new CSharpCodeReader().Read(_root, Folder), "Shop.Half");
+        var half = Type(new CSharpCodeReader().Read(_temp.Path, Folder), "Shop.Half");
 
         Assert.Equal(["Value"], half.Members.Select(member => member.Name));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind is harmless.
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CodeType Type(CodeModel model, string id) =>
         Assert.Single(model.Types, type => type.Id == id);
@@ -344,7 +334,7 @@ public sealed class CSharpCodeReaderTests : IDisposable
 
     private void Write(string relativePath, string content)
     {
-        var path = Path.Combine(_root, relativePath);
+        var path = _temp.Combine(relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
     }

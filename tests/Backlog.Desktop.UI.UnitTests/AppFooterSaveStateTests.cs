@@ -1,6 +1,8 @@
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Sections;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -90,6 +92,31 @@ public sealed class AppFooterSaveStateTests
         Assert.Empty(footer.FindAll("[data-testid='save-state-indicator']"));
     }
 
+    /// <summary>The band's end is the page's to fill — Home draws its Settings gear
+    /// there — so what a page puts in it lands last on the band, after Report issue,
+    /// and a route whose page puts nothing there (Settings, a popped-out window)
+    /// draws no gear.</summary>
+    [Fact]
+    public void A_page_fills_the_end_of_the_band_and_no_page_leaves_it_empty()
+    {
+        using var context = Context(status: null);
+
+        var footer = context.Render<AppFooter>();
+        Assert.Empty(footer.FindAll("[data-testid='app-settings-menu']"));
+
+        context.Render<SectionContent>(parameters => parameters
+            .Add(content => content.SectionName, AppFooter.EndSection)
+            .Add(content => content.ChildContent, (RenderFragment)(builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "data-testid", "page-end-control");
+                builder.CloseElement();
+            })));
+
+        footer.WaitForAssertion(() =>
+            Assert.Equal("page-end-control", footer.Find("[data-testid='app-footer']").LastElementChild?.GetAttribute("data-testid")));
+    }
+
     private static BunitContext Context(ISaveStatusSource? status)
     {
         var context = new BunitContext();
@@ -106,8 +133,8 @@ public sealed class AppFooterSaveStateTests
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         if (status is not null) context.Services.AddSingleton(status);
@@ -127,30 +154,6 @@ public sealed class AppFooterSaveStateTests
         {
             Current = state;
             Changed?.Invoke();
-        }
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
         }
     }
 }

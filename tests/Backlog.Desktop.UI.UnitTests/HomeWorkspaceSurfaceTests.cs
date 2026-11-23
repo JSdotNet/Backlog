@@ -1,4 +1,6 @@
 ﻿using AngleSharp.Dom;
+using Backlog.Modules.Calendar.Abstractions.Services;
+using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
@@ -12,6 +14,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
@@ -590,42 +593,36 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Devbook closes on its own close button, as every takeover does
-    /// (interaction-guidelines.md, "Every way back works"): the ✕ on its header row
-    /// returns to the view underneath, and that is remembered.
+    /// The Devbook draws no close of its own (interaction-guidelines.md#shell-header,
+    /// "A surface draws no close of its own"): its option pressed again is the way
+    /// back to the view underneath, and that is remembered.
     /// </summary>
     [Fact]
-    public void The_devbooks_close_button_returns_to_the_view_underneath()
+    public void The_devbook_draws_no_close_and_its_option_pressed_again_returns_to_the_view_underneath()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
+        component.Find("[data-testid='calendar-view-option']").Click();
+        OpenTheDevbook(component);
+
+        Assert.Empty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-close']"));
+        Assert.Empty(component.FindAll("[data-testid='devbook-surface'] [aria-label^='Close the']"));
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
-            component.Find("[data-testid='calendar-view-option']").Click();
-            OpenTheDevbook(component);
-
-            var close = component.Find("[data-testid='devbook-surface'] [data-testid='devbook-close']");
-            Assert.Equal("Close the Devbook", close.GetAttribute("aria-label"));
-            close.Click();
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
-                Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Null(shellNavigation.LastSurface);
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='calendar-view']"));
+            Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Null(shellNavigation.LastSurface);
+        });
     }
 
     /// <summary>
@@ -678,14 +675,15 @@ public sealed class HomeWorkspaceSurfaceTests
                 .Select(child => child.GetAttribute("data-testid")).ToList();
             // Each option stands in its header item, beside its ⧉ where the host
             // opens windows (local ADR 0043 §4).
-            Assert.Equal(["inbox-header-item", "view-switch", "devbook-header-item"], workspace);
+            // The Calendar tab stands alone right after the switch (local ADR 0056 §7).
+            Assert.Equal(["inbox-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
             Assert.Equal("inbox-pane-option",
                 component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
             Assert.Equal("devbook-pane-option",
                 component.Find("[data-testid='devbook-header-item']").FirstElementChild?.GetAttribute("data-testid"));
 
             Assert.Equal(
-                ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
+                ["tasks-view-option", "board-view-option", "roadmap-view-option"],
                 GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
@@ -963,26 +961,20 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Opening_a_surface_remembers_it_for_next_launch()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
+        var shellNavigation = new ShellNavigationStore(path);
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
 
-            component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
 
-            // The name the sessions list has always been remembered by, so a file
-            // written while it was a Dashboard tab reopens on it too.
-            component.Find("[data-testid='sessions-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("sessions", shellNavigation.LastSurface));
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        // The name the sessions list has always been remembered by, so a file
+        // written while it was a Dashboard tab reopens on it too.
+        component.Find("[data-testid='sessions-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("sessions", shellNavigation.LastSurface));
     }
 
     /// <summary>
@@ -993,25 +985,19 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Closing_a_surface_remembers_the_workspace_instead()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
+        var shellNavigation = new ShellNavigationStore(path);
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
 
-            component.Find("[data-testid='tools-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("tools", shellNavigation.LastSurface));
+        component.Find("[data-testid='tools-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("tools", shellNavigation.LastSurface));
 
-            component.Find("[data-testid='tools-toggle-button']").Click();
+        component.Find("[data-testid='tools-toggle-button']").Click();
 
-            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
     }
 
     /// <summary>
@@ -1021,27 +1007,21 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_shell_reopens_on_the_surface_that_was_last_open()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("Sessions");
+
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("Sessions");
-
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface'] [data-testid='sessions-panel']"));
-                Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='workspace']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface'] [data-testid='sessions-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+        });
     }
 
     /// <summary>
@@ -1051,22 +1031,16 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void An_unrecognised_remembered_surface_falls_back_to_the_workspace()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("SomeFutureSurface");
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("SomeFutureSurface");
 
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
 
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace']")));
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace']")));
     }
 
     /// <summary>
@@ -1078,43 +1052,35 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Opening_the_devbook_reopens_it_after_a_restart()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation))
-            {
-                var component = Render(harness);
-                OpenTheRoadmap(component);
-                OpenTheDevbook(component);
-                component.WaitForAssertion(() => Assert.Equal("devbook", shellNavigation.LastSurface));
-            }
-
-            Assert.DoesNotContain("lastEnabledPanes", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
-
-            var restarted = new ShellNavigationStore(path);
-            using var again = CreateHarness(shellNavigation: restarted);
-            var reopened = Render(again);
-
-            reopened.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(reopened.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
-                Assert.Empty(reopened.FindAll("[data-testid='workspace']"));
-                Assert.Equal("true", reopened.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-            });
-
-            reopened.Find("[data-testid='devbook-pane-option']").Click();
-            reopened.WaitForAssertion(() =>
-            {
-                Assert.Null(restarted.LastSurface);
-                Assert.NotEmpty(reopened.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
-            });
+            var component = Render(harness);
+            OpenTheRoadmap(component);
+            OpenTheDevbook(component);
+            component.WaitForAssertion(() => Assert.Equal("devbook", shellNavigation.LastSurface));
         }
-        finally
+
+        var restarted = new ShellNavigationStore(path);
+        using var again = CreateHarness(shellNavigation: restarted);
+        var reopened = Render(again);
+
+        reopened.WaitForAssertion(() =>
         {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(reopened.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
+            Assert.Empty(reopened.FindAll("[data-testid='workspace']"));
+            Assert.Equal("true", reopened.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+        });
+
+        reopened.Find("[data-testid='devbook-pane-option']").Click();
+        reopened.WaitForAssertion(() =>
+        {
+            Assert.Null(restarted.LastSurface);
+            Assert.NotEmpty(reopened.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
+        });
     }
 
     /// <summary>
@@ -1125,200 +1091,31 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Opening_the_inbox_reopens_it_after_a_restart()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.InboxPane, true),
+            shellNavigation: shellNavigation))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(
-                features => features.SetEnabled(AppFeatures.InboxPane, true),
-                shellNavigation: shellNavigation))
-            {
-                var component = Render(harness);
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
-                component.Find("[data-testid='inbox-pane-option']").Click();
-                component.WaitForAssertion(() => Assert.Equal("inbox", shellNavigation.LastSurface));
-            }
-
-            var restarted = new ShellNavigationStore(path);
-            using var again = CreateHarness(
-                features => features.SetEnabled(AppFeatures.InboxPane, true),
-                shellNavigation: restarted);
-            var reopened = Render(again);
-
-            reopened.WaitForAssertion(() =>
-                Assert.NotEmpty(reopened.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']")));
-
-            reopened.Find("[data-testid='inbox-pane-option']").Click();
-            reopened.WaitForAssertion(() => Assert.Null(restarted.LastSurface));
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// The Devbook was a side pane before it took the screen: a file that left it
-    /// open over the workspace — as <c>Devbook</c>, or <c>Knowledge</c> from before
-    /// the rename — reopens on the Devbook surface over the remembered view, with no
-    /// pane row anywhere, and leaving it shows that view.
-    /// </summary>
-    [Theory]
-    [InlineData("Devbook")]
-    [InlineData("Knowledge")]
-    public void A_devbook_pane_from_before_the_devbook_took_the_screen_reopens_as_the_devbook_surface(string pane)
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            WriteShellNavigation(path, $$"""
-                { "lastSurface": "Workspace", "lastView": "Calendar", "lastEnabledPanes": ["{{pane}}"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
-
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
-                Assert.Empty(component.FindAll("[data-testid='workspace']"));
-                Assert.Single(component.FindAll("main"));
-            });
-
-            component.Find("[data-testid='devbook-pane-option']").Click();
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Null(shellNavigation.LastSurface);
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>A Devbook pane hidden under a stored takeover was not what the reader
-    /// saw: the takeover reopens, and leaving it shows the view with nothing beside
-    /// it.</summary>
-    [Fact]
-    public void A_devbook_pane_under_another_takeover_reopens_on_that_takeover()
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            WriteShellNavigation(path, """
-                { "lastSurface": "Dashboard", "lastEnabledPanes": ["Devbook"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
-
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-            });
-
-            component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// A file from before the view switch lists the task list among its panes —
-    /// "Tasks", or "Backlog" before that. It names no pane now and is ignored: the
-    /// Tasks view is under the Inbox, which was open over the workspace and so
-    /// reopens as its surface — over the Devbook beside it, which the Inbox covered
-    /// from the day it took the screen. Leaving the Inbox shows the Tasks view alone.
-    /// </summary>
-    [Theory]
-    [InlineData("Backlog")]
-    [InlineData("Tasks")]
-    public void A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens(string legacyTasks)
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            WriteShellNavigation(path, $$"""
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["{{legacyTasks}}", "Inbox", "Devbook"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
-
-            using var harness = CreateHarness(
-                features => features.SetEnabled(AppFeatures.InboxPane, true),
-                shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
-                Assert.Equal("true", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
-            });
-
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
             component.Find("[data-testid='inbox-pane-option']").Click();
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Null(shellNavigation.LastSurface);
-            });
+            component.WaitForAssertion(() => Assert.Equal("inbox", shellNavigation.LastSurface));
         }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
 
-    /// <summary>
-    /// The Inbox was a side pane before it took the screen: a file that left it open
-    /// over the workspace reopens on the Inbox surface, with no pane row beside it.
-    /// </summary>
-    [Fact]
-    public void An_inbox_pane_from_before_the_inbox_took_the_screen_reopens_as_the_inbox_surface()
-    {
-        var path = NewShellNavigationPath();
+        var restarted = new ShellNavigationStore(path);
+        using var again = CreateHarness(
+            features => features.SetEnabled(AppFeatures.InboxPane, true),
+            shellNavigation: restarted);
+        var reopened = Render(again);
 
-        try
-        {
-            WriteShellNavigation(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["Inbox"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
+        reopened.WaitForAssertion(() =>
+            Assert.NotEmpty(reopened.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']")));
 
-            using var harness = CreateHarness(
-                features => features.SetEnabled(AppFeatures.InboxPane, true),
-                shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
-                Assert.Empty(component.FindAll("[data-testid='workspace']"));
-                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        reopened.Find("[data-testid='inbox-pane-option']").Click();
+        reopened.WaitForAssertion(() => Assert.Null(restarted.LastSurface));
     }
 
     /// <summary>
@@ -1330,38 +1127,32 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        WriteShellNavigation(path, """
+            { "lastSurface": "Roadmap", "lastEnabledPanes": ["Devbook"] }
+            """);
+        var shellNavigation = new ShellNavigationStore(path);
+
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            WriteShellNavigation(path, """
-                { "lastSurface": "Roadmap", "lastEnabledPanes": ["Devbook"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-view'] [data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        });
 
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
 
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-view'] [data-testid='roadmap-band']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-            });
-
-            component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
-            component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
-
-            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
-            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
+        Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
     }
 
     /// <summary>Picking a view is remembered by its name, and a fresh shell instance
@@ -1369,58 +1160,25 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation))
-            {
-                var component = Render(harness);
-                OpenTheRoadmap(component);
-                component.WaitForAssertion(() => Assert.Equal("roadmap", shellNavigation.LastView));
-            }
-
-            using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
-            var again = Render(reopened);
-
-            again.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(again.FindAll("[data-testid='roadmap-band']"));
-                Assert.Equal("true", again.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// A pane name the current build does not recognise must never stop the app from
-    /// opening, the same guarantee the surface gets.
-    /// </summary>
-    [Fact]
-    public void An_unrecognised_remembered_pane_falls_back_to_the_default()
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            WriteShellNavigation(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["SomeFuturePane"] }
-                """);
-            var shellNavigation = new ShellNavigationStore(path);
-
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
+            OpenTheRoadmap(component);
+            component.WaitForAssertion(() => Assert.Equal("roadmap", shellNavigation.LastView));
+        }
 
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']")));
-        }
-        finally
+        using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+        var again = Render(reopened);
+
+        again.WaitForAssertion(() =>
         {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(again.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", again.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        });
     }
 
     /// <summary>
@@ -1446,8 +1204,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         });
 
-        // The in-surface ✕ and the header toggle both close it; this is the ✕.
-        component.Find("[data-testid='tools-panel'] button.btn--ghost").Click();
+        // The header toggle pressed again closes it; the surface draws no ✕ of its own.
+        component.Find("[data-testid='tools-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -1466,107 +1224,210 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            var component = Render(harness);
+
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+            component.Find("[data-testid='board-view-option']").Click();
+
+            component.WaitForAssertion(() =>
             {
-                var component = Render(harness);
-
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
-                component.Find("[data-testid='board-view-option']").Click();
-
-                component.WaitForAssertion(() =>
-                {
-                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
-                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-board']"));
-                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
-                    Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("board", shellNavigation.LastView);
-                    Assert.Equal("Status", shellNavigation.BoardColumns);
-                });
-
-                component.Find("#board-columns").Change("Priority");
-                component.WaitForAssertion(() =>
-                {
-                    Assert.Equal("Priority", shellNavigation.BoardColumns);
-                    Assert.Equal("Critical", component.Find("[data-testid='board-column-title']").TextContent);
-                });
-
-                component.Find("[data-testid='tasks-view-option']").Click();
-                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-board']")));
-            }
-
-            var reopenedNavigation = new ShellNavigationStore(path);
-            reopenedNavigation.SetLastView("Board");
-            using var reopened = CreateHarness(shellNavigation: reopenedNavigation);
-            var again = Render(reopened);
-
-            again.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(again.FindAll("[data-testid='task-board']"));
-                Assert.Equal("true", again.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Priority", again.Find("#board-columns").GetAttribute("value"));
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-board']"));
+                Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("board", shellNavigation.LastView);
+                Assert.Equal("Status", shellNavigation.BoardColumns);
             });
+
+            component.Find("#board-columns").Change("Priority");
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("Priority", shellNavigation.BoardColumns);
+                Assert.Equal("Critical", component.Find("[data-testid='board-column-title']").TextContent);
+            });
+
+            component.Find("[data-testid='tasks-view-option']").Click();
+            component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-board']")));
         }
-        finally
+
+        var reopenedNavigation = new ShellNavigationStore(path);
+        reopenedNavigation.SetLastView("Board");
+        using var reopened = CreateHarness(shellNavigation: reopenedNavigation);
+        var again = Render(reopened);
+
+        again.WaitForAssertion(() =>
         {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(again.FindAll("[data-testid='task-board']"));
+            Assert.Equal("true", again.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("Priority", again.Find("#board-columns").GetAttribute("value"));
+        });
     }
 
     /// <summary>
-    /// The Calendar is a main view over the same Tasks pane: the filter bar stays,
-    /// the list gives way to the month, and the switch reads Calendar pressed. Its
-    /// name is what the shell remembers, and a fresh shell reopens on it.
+    /// The Calendar is a view of its own (local ADR 0056 §1, §7): its tab shows the grid in
+    /// the Calendar's own region, with no Tasks filter bar and no list, and the tab reads
+    /// pressed. Its name is what the shell remembers, and a fresh shell reopens on it.
     /// </summary>
     [Fact]
-    public void The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered()
+    public void The_calendar_tab_shows_the_grid_in_its_own_region_and_is_remembered()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation, configureServices: AddCalendarTasks))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            var component = Render(harness);
+
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+            component.Find("[data-testid='calendar-view-option']").Click();
+
+            component.WaitForAssertion(() =>
             {
-                var component = Render(harness);
-
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
-                component.Find("[data-testid='calendar-view-option']").Click();
-
-                component.WaitForAssertion(() =>
-                {
-                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
-                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-calendar']"));
-                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
-                    Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("calendar", shellNavigation.LastView);
-                });
-
-                component.Find("[data-testid='tasks-view-option']").Click();
-                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-calendar']")));
-                component.Find("[data-testid='calendar-view-option']").Click();
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']")));
-            }
-
-            using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
-            var again = Render(reopened);
-
-            again.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(again.FindAll("[data-testid='task-calendar']"));
-                Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='calendar-view'] [data-testid='task-calendar']"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.Empty(component.FindAll(".filter-bar"));
+                Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("calendar-view", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-controls"));
+                Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("calendar", shellNavigation.LastView);
             });
+
+            // Pressed again, it changes nothing: a view is never closed.
+            component.Find("[data-testid='calendar-view-option']").Click();
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
+
+            component.Find("[data-testid='tasks-view-option']").Click();
+            component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-calendar']")));
+            component.Find("[data-testid='calendar-view-option']").Click();
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']")));
         }
-        finally
+
+        using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path), configureServices: AddCalendarTasks);
+        var again = Render(reopened);
+
+        again.WaitForAssertion(() =>
         {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(again.FindAll("[data-testid='calendar-view'] [data-testid='task-calendar']"));
+            Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>The Calendar is not the task list: while it shows there is no GitHub check
+    /// and no Ask AI with a Tasks area (local ADR 0056 §7).</summary>
+    [Fact]
+    public void While_the_calendar_shows_there_is_no_github_check_and_no_ask_ai()
+    {
+        using var harness = CreateHarness(
+            features =>
+            {
+                features.SetEnabled(AppFeatures.AiAssistant, true);
+                features.SetEnabled(TasksFeatures.GitHubIntegration, true);
+            },
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='github-sync-button']"));
+        });
+    }
+
+    /// <summary>The scope narrows the Calendar's Tasks layer, so it stays plural there: the
+    /// Calendar does not narrow it to its anchor, and Ctrl on a chip adds a member.</summary>
+    [Fact]
+    public void The_calendar_keeps_a_plural_scope_and_ctrl_on_a_chip_adds_to_it()
+    {
+        using var harness = CreateHarness(configureServices: AddCalendarTasks);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Equal(2, state.SelectedRepositoryAliases.Count);
+        });
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(["backlog"], state.SelectedRepositoryAliases));
+
+        component.Find("[data-testid='brain-scope-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() => Assert.Equal(2, state.SelectedRepositoryAliases.Count));
+    }
+
+    /// <summary>Pressing a chip shows the task in Tasks, through this window's navigator:
+    /// the Tasks view on screen with that row selected and its detail open (local ADR 0056
+    /// §2, Verification 8).</summary>
+    [Fact]
+    public void Pressing_a_calendar_chip_shows_the_task_in_tasks_selected_and_open()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        using var harness = CreateHarness(
+            seed: $"# Ship the calendar\n`task` `!ready` `due:{today:yyyy-MM-dd}`\n",
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
+        component.Find("[data-testid='calendar-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar'] [data-calendar-task]")));
+        Assert.Null(state.SelectedRow);
+
+        component.Find("[data-testid='task-calendar'] [data-calendar-task]").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='task-calendar']"));
+            Assert.Equal("Ship the calendar", state.SelectedRow?.PreviewTitle);
+            Assert.Contains("Ship the calendar", Assert.Single(component.FindAll("[data-testid='entry-detail']")).TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A Tasks type filter narrows the list, never the Calendar (local ADR 0056
+    /// §4, Verification 7).</summary>
+    [Fact]
+    public void A_tasks_type_filter_does_not_narrow_the_calendar()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        using var harness = CreateHarness(
+            seed: $"# A prompt\n`prompt` `due:{today:yyyy-MM-dd}`\n",
+            moreSeeds: [$"# A task\n`task` `due:{today:yyyy-MM-dd}`\n"],
+            configureServices: AddCalendarTasks);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='type-filter-option'][data-type='prompt']")));
+        component.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+        component.WaitForAssertion(() => Assert.DoesNotContain("A task", component.Find("[data-testid='entry-list']").TextContent, StringComparison.Ordinal));
+
+        component.Find("[data-testid='calendar-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var day = component.Find($"[data-testid='task-calendar'] [data-calendar-day='{today:yyyy-MM-dd}']");
+            Assert.Contains("A task", day.TextContent, StringComparison.Ordinal);
+            Assert.Contains("A prompt", day.TextContent, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>
@@ -1577,53 +1438,98 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation))
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            var component = Render(harness);
+
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
+            component.Find("[data-testid='calendar-view-option']").Click();
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar-range-week']")));
+            Assert.Equal(ShellNavigationStore.DefaultCalendarRange, shellNavigation.CalendarRange);
+
+            component.Find("[data-testid='task-calendar-range-week']").Click();
+            component.WaitForAssertion(() =>
             {
-                var component = Render(harness);
-
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='calendar-view-option']")));
-                component.Find("[data-testid='calendar-view-option']").Click();
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar-range-week']")));
-                Assert.Equal(ShellNavigationStore.DefaultCalendarRange, shellNavigation.CalendarRange);
-
-                component.Find("[data-testid='task-calendar-range-week']").Click();
-                component.WaitForAssertion(() =>
-                {
-                    Assert.Equal("Week", shellNavigation.CalendarRange);
-                    Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
-                });
-            }
-
-            var today = DateOnly.FromDateTime(DateTime.Now);
-            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
-            var reopenedNavigation = new ShellNavigationStore(path);
-            using (var reopened = CreateHarness(shellNavigation: reopenedNavigation))
-            {
-                var again = Render(reopened);
-
-                again.WaitForAssertion(() =>
-                {
-                    Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("true", again.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
-                    Assert.Equal(7, again.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
-                    Assert.NotEmpty(again.FindAll($"[data-calendar-day='{monday:yyyy-MM-dd}']"));
-                });
-
-                again.Find("[data-testid='task-calendar-range-month']").Click();
-                again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
-            }
-
-            Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
+                Assert.Equal("Week", shellNavigation.CalendarRange);
+                Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+            });
         }
-        finally
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var reopenedNavigation = new ShellNavigationStore(path);
+        using (var reopened = CreateHarness(shellNavigation: reopenedNavigation))
         {
-            DeleteShellNavigationDirectory(path);
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", again.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+                Assert.Equal(7, again.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+                Assert.NotEmpty(again.FindAll($"[data-calendar-day='{monday:yyyy-MM-dd}']"));
+            });
+
+            again.Find("[data-testid='task-calendar-range-month']").Click();
+            again.WaitForAssertion(() => Assert.Equal(ShellNavigationStore.DefaultCalendarRange, reopenedNavigation.CalendarRange));
         }
+
+        Assert.DoesNotContain("calendarRange", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A navigation file written while the Calendar was a layout of the Tasks pane reopens
+    /// on the Calendar, now its own module's view (local ADR 0055 §4: every stored name
+    /// stays): on its Week range, with Show plans and Show events ticked as they were, and
+    /// the file still saying all of it under the same names.
+    /// </summary>
+    [Fact]
+    public void A_shell_navigation_file_written_before_the_calendar_module_reopens_the_calendar_on_its_range_and_choices()
+    {
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
+
+        WriteShellNavigation(path, """
+            {"lastSurface":"Workspace","lastView":"calendar","calendarRange":"Week","calendarPlansShown":true,"calendarEventsShown":true}
+            """);
+        var shellNavigation = new ShellNavigationStore(path);
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        using var harness = CreateHarness(
+            shellNavigation: shellNavigation,
+            seed: $"# Ship the calendar\n`task` `!ready` `due:{today:yyyy-MM-dd}`\n",
+            configureServices: services =>
+            {
+                AddCalendarTasks(services);
+                services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(today));
+                services.AddSingleton<Backlog.Modules.Calendar.Abstractions.Services.ICalendarEvents>(
+                    new FakeCalendarEvents(today));
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+            Assert.Equal(7, component.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+            Assert.True(component.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+            Assert.NotEmpty(component.FindAll($"[data-testid='task-calendar-plan-{FakeCalendarPlans.PlanId:N}']"));
+            Assert.True(component.Find("[data-testid='task-calendar-show-events'] input").HasAttribute("checked"));
+            // No calendarTasksShown in the file: the tasks are drawn (local ADR 0056 §4).
+            Assert.True(component.Find("[data-testid='task-calendar-show-tasks'] input").HasAttribute("checked"));
+            Assert.Contains("Ship the calendar", component.Find($"[data-calendar-day='{today:yyyy-MM-dd}']").TextContent, StringComparison.Ordinal);
+        });
+
+        using var written = System.Text.Json.JsonDocument.Parse(ShellNavigationStoreTests.Written(path));
+        Assert.Equal("calendar", written.RootElement.GetProperty("lastView").GetString());
+        Assert.Equal("Week", written.RootElement.GetProperty("calendarRange").GetString());
+        Assert.True(written.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+        Assert.True(written.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+        Assert.False(written.RootElement.TryGetProperty("calendarTasksShown", out _));
     }
 
     /// <summary>
@@ -1813,38 +1719,17 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     [Fact]
-    public void The_roadmap_is_absent_when_its_feature_is_off()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(RoadmapFeatures.Roadmap, false));
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            // No option offering it: the flag decides whether the option exists. The
-            // switch stays, with Tasks, the Board and the Calendar as its options.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-
-            Assert.Equal(
-                ["tasks-view-option", "board-view-option", "calendar-view-option"],
-                GroupOptionIds(component, "view-switch"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-        });
-    }
-
-    [Fact]
     public void A_surface_whose_feature_is_switched_off_falls_back_to_the_workspace()
     {
         using var harness = CreateHarness(features =>
         {
-            features.SetEnabled(DashboardFeatures.Dashboard, false);
             features.SetEnabled(SessionFeatures.Sessions, false);
         });
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-toggle-button']"));
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
@@ -1857,98 +1742,25 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_stored_inbox_surface_with_its_feature_off_shows_the_workspace()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("Inbox");
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("Inbox");
 
-            using var harness = CreateHarness(
-                features => features.SetEnabled(AppFeatures.InboxPane, false),
-                shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
-                Assert.Empty(component.FindAll("[data-testid='inbox-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='inbox-pane-option']"));
-                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-            });
-            Assert.Equal("inbox", shellNavigation.LastSurface);
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// Turning the Devbook's flag off while it has the screen returns the reader to
-    /// the view underneath, with no Devbook option left to press; it is remembered
-    /// so, as the side pane closed for the same reason, and the flag coming back
-    /// offers the option without taking the screen by itself.
-    /// </summary>
-    [Fact]
-    public void Turning_the_devbook_flag_off_while_it_has_the_screen_returns_to_the_workspace()
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-            var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-            OpenTheRoadmap(component);
-            OpenTheDevbook(component);
-
-            _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
-                Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-                Assert.Null(shellNavigation.LastSurface);
-            });
-
-            _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// Each segment is gated on its own feature: with the Dashboard off, Sessions
-    /// is still offered and still opens its list.
-    /// </summary>
-    [Fact]
-    public void With_only_the_dashboard_feature_off_sessions_is_still_offered()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(DashboardFeatures.Dashboard, false));
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.InboxPane, false),
+            shellNavigation: shellNavigation);
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='inbox-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='inbox-pane-option']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
         });
-
-        OpenSessions(component);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
+        Assert.Equal("inbox", shellNavigation.LastSurface);
     }
 
     /// <summary>
@@ -1983,33 +1795,27 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_remembered_sessions_surface_falls_back_to_the_workspace_when_its_feature_is_off()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("Sessions");
+
+        using var harness = CreateHarness(
+            features => features.SetEnabled(SessionFeatures.Sessions, false),
+            shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("Sessions");
-
-            using var harness = CreateHarness(
-                features => features.SetEnabled(SessionFeatures.Sessions, false),
-                shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
-                Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+        });
     }
 
     /// <summary>
-    /// Closing is the ✕ inside the pane as well as the header's takeover group and
-    /// pane strip, which is what keeps the header on screen while a takeover is open.
+    /// Closing is the header's takeover option pressed again — the pane draws no ✕ of
+    /// its own — which is what keeps the header on screen while a takeover is open.
     /// </summary>
     [Fact]
     public void The_sessions_pane_closes_back_to_the_workspace()
@@ -2019,7 +1825,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         OpenSessions(component);
 
-        component.Find("[data-testid='sessions-panel'] button.btn--ghost").Click();
+        component.Find("[data-testid='sessions-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -2126,40 +1932,6 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The feature and the chosen view are independent: turning the feature off
-    /// shows the Tasks view and takes the option away, and turning it back on
-    /// returns the reader to the roadmap they were on, because the choice was
-    /// never reset.
-    /// </summary>
-    [Fact]
-    public void The_roadmap_survives_its_feature_going_off_and_back_on()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-        OpenTheRoadmap(component);
-
-        _ = features.SetEnabled(RoadmapFeatures.Roadmap, false);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-        });
-
-        _ = features.SetEnabled(RoadmapFeatures.Roadmap, true);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
-        });
-    }
-
-    /// <summary>
     /// The maturity flag follows an unfinished feature out of the settings screen
     /// and onto the control that leads to it.
     ///
@@ -2187,12 +1959,108 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>A released feature is the ordinary case and the header stays quiet
-    /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Devbook, Roadmap and Dashboard are the released ones of the four enabled
-    /// here; Tools is Dev and is the control group.</summary>
+    /// <summary>
+    /// The weekly review is offered only behind its own flag, which is off until asked
+    /// for (.devbook/domain/progress/features.md#the-weekly-review).
+    /// </summary>
     [Fact]
-    public void A_released_feature_adds_no_flag_to_the_header()
+    public void The_weekly_review_option_is_absent_while_its_flag_is_off()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-option']"));
+        });
+        Assert.False(AppFeatures.All.Single(feature => feature.Key == ProgressFeatures.WeeklyReview).EnabledByDefault);
+    }
+
+    /// <summary>
+    /// Switched on, the option stands right after the Inbox's, before the view switch,
+    /// and wears the DEV flag on the control itself.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_option_follows_the_inbox_and_carries_its_dev_flag()
+    {
+        using var harness = CreateHarness(features =>
+        {
+            features.SetEnabled(AppFeatures.InboxPane, true);
+            features.SetEnabled(ProgressFeatures.WeeklyReview, true);
+        });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var workspace = component.Find("[data-testid='workspace-navigation']").Children
+                .Select(child => child.GetAttribute("data-testid")).ToList();
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
+
+            var badge = component.Find("[data-testid='weekly-review-feature-status']");
+            Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
+            Assert.Equal(component.Find("[data-testid='weekly-review-option']"), badge.ParentElement);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='weekly-review-option']").ClassName);
+        });
+    }
+
+    /// <summary>
+    /// A press gives the review the whole screen in place of the view, as the Inbox's
+    /// does; a second press returns to the view, kept underneath.
+    /// </summary>
+    [Fact]
+    public void The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-surface'] [data-testid='weekly-review']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Equal("true", component.Find("[data-testid='weekly-review-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("Back to Roadmap", component.Find("[data-testid='weekly-review-option']").GetAttribute("title"));
+        });
+
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+    }
+
+    /// <summary>The review keeps no key of its own, so Escape heard at the document
+    /// closes it, as it closes every takeover but the Inbox.</summary>
+    [Fact]
+    public async Task Escape_heard_at_the_document_closes_the_weekly_review()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-option']")));
+        component.Find("[data-testid='weekly-review-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.True(component.Find("[data-testid='weekly-review-surface']").HasAttribute("data-escape-closes")));
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='weekly-review-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
+    /// <summary>A permanent area is the ordinary case and the header stays quiet
+    /// about it — otherwise the flag would be wallpaper rather than a warning.
+    /// Devbook, Roadmap and Dashboard carry no switch and so no mark; Tools is Dev
+    /// and is the control group.</summary>
+    [Fact]
+    public void A_permanent_area_adds_no_flag_to_the_header()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -2201,11 +2069,11 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             // Present and unflagged.
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option'] [data-testid$='-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option'] [data-testid$='-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-feature-status']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button'] [data-testid$='-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
@@ -2318,11 +2186,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The pull requests list is a takeover of its own, with its own segment right
-    /// after Sessions, and the way back is the pane's ✕ as much as the header's
-    /// pane options.
+    /// after Sessions, and the way back is its option pressed again — the pane draws
+    /// no ✕ of its own.
     /// </summary>
     [Fact]
-    public void Opening_pull_requests_replaces_every_pane_and_its_close_returns_to_them()
+    public void Opening_pull_requests_replaces_every_pane_and_its_option_returns_to_them()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -2342,7 +2210,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
-        component.Find("[data-testid='pull-requests-panel'] button.btn--ghost").Click();
+        component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -2356,61 +2224,49 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void With_the_pull_requests_feature_off_there_is_no_segment_and_no_list()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("PullRequests");
+
+        using var harness = CreateHarness(
+            features => features.SetEnabled(RepositoryManagementFeatures.PullRequests, false),
+            shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("PullRequests");
-
-            using var harness = CreateHarness(
-                features => features.SetEnabled(RepositoryManagementFeatures.PullRequests, false),
-                shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']"));
-                Assert.Empty(component.FindAll("[data-testid='pull-requests-toggle-button']"));
-                Assert.Empty(component.FindAll("[data-testid='pull-requests-panel']"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='pull-requests-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='pull-requests-panel']"));
+        });
     }
 
     [Fact]
     public void The_shell_reopens_on_a_remembered_pull_requests_surface()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("PullRequests");
+
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("PullRequests");
+            Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-surface'] [data-testid='pull-requests-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+        });
 
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
+        component.Find("[data-testid='tasks-view-option']").Click();
+        component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
+        component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-surface'] [data-testid='pull-requests-panel']"));
-                Assert.Empty(component.FindAll("[data-testid='workspace']"));
-            });
-
-            component.Find("[data-testid='tasks-view-option']").Click();
-            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
-            component.Find("[data-testid='pull-requests-toggle-button']").Click();
-
-            component.WaitForAssertion(() => Assert.Equal("pull-requests", shellNavigation.LastSurface));
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+        component.WaitForAssertion(() => Assert.Equal("pull-requests", shellNavigation.LastSurface));
     }
 
     /// <summary>
@@ -2444,7 +2300,7 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal("Read delivery run files", task.Label);
 
         Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 713), false));
-        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Archify", 712), false));
+        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Almanac", 712), false));
 
         // An open local entry is one of mine, so Mine asks of it too.
         Assert.Equal(row.Id, pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 712), true)?.EntryId);
@@ -2842,6 +2698,36 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// No takeover draws a close of its own in the main window either
+    /// (interaction-guidelines.md#shell-header, "A surface draws no close of its own"):
+    /// the ✕ each one drew is gone, and its option pressed again is the way back.
+    /// </summary>
+    [Theory]
+    [InlineData("tools-toggle-button", "tools-surface", "Close tools pane")]
+    [InlineData("dashboard-toggle-button", "dashboard-surface", "Close dashboard")]
+    [InlineData("sessions-toggle-button", "sessions-surface", "Close sessions pane")]
+    [InlineData("pull-requests-toggle-button", "pull-requests-surface", "Close pull requests pane")]
+    public void A_takeover_draws_no_close_and_its_option_pressed_again_returns_to_the_workspace(string toggle, string surface, string formerClose)
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{toggle}']")));
+        component.Find($"[data-testid='{toggle}']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{surface}']")));
+
+        Assert.Empty(component.FindAll($"[data-testid='{surface}'] [aria-label='{formerClose}']"));
+
+        component.Find($"[data-testid='{toggle}']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll($"[data-testid='{surface}']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
     /// <summary>The Roadmap is a view, not a takeover, and keeps Escape for its own
     /// grabbed bars and dialogs: nothing on it carries the marker for the document
     /// listener, and the callback leaves it on screen.</summary>
@@ -2991,26 +2877,20 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_stored_in_progress_view_reopens_on_goals()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastView("InProgress");
+
+        using var harness = CreateHarness(shellNavigation: shellNavigation);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastView("InProgress");
-
-            using var harness = CreateHarness(shellNavigation: shellNavigation);
-            var component = Render(harness);
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.NotEmpty(component.FindAll("[data-testid='goals-view']"));
-                Assert.Equal("true", component.Find("[data-testid='goals-view-option']").GetAttribute("aria-pressed"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.NotEmpty(component.FindAll("[data-testid='goals-view']"));
+            Assert.Equal("true", component.Find("[data-testid='goals-view-option']").GetAttribute("aria-pressed"));
+        });
     }
 
     /// <summary>Ask AI follows the Goals view as it follows every area: on screen, a
@@ -3109,8 +2989,8 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public async Task Open_in_tasks_from_a_roadmap_item_shows_its_plan_in_the_task_list()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
-        var navigation = new ShellNavigationStore(Path.Combine(root, "shell-navigation.json"));
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var navigation = new ShellNavigationStore(temp.Combine("shell-navigation.json"));
         using var harness = CreateHarness(
             shellNavigation: navigation,
             seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n",
@@ -3166,8 +3046,8 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public async Task Open_in_tasks_from_a_roadmap_bar_shows_its_plan_in_the_task_list()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
-        var navigation = new ShellNavigationStore(Path.Combine(root, "shell-navigation.json"));
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var navigation = new ShellNavigationStore(temp.Combine("shell-navigation.json"));
         using var harness = CreateHarness(
             shellNavigation: navigation,
             seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
@@ -3222,9 +3102,10 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>With the flag on, the header's Atlas gives the atlas the whole
-    /// screen in place of the view, and its close button returns to that view.</summary>
+    /// screen in place of the view. It draws no close of its own: its option pressed
+    /// again returns to that view.</summary>
     [Fact]
-    public void With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view()
+    public void With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_option_returns_to_the_view()
     {
         using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
         var component = Render(harness);
@@ -3252,7 +3133,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("false", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
         });
 
-        component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas-close']").Click();
+        Assert.Empty(component.FindAll("[data-testid='atlas-surface'] [data-testid='lobes-atlas-close']"));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -3264,11 +3146,10 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas over the
-    /// Devbook on the shell's repository scope — the one the Devbook reads; its close,
-    /// Escape and its option pressed again return to the Devbook rather than the view
-    /// under it — where the person was.</summary>
+    /// Devbook on the shell's repository scope — the one the Devbook reads; Escape and
+    /// its option pressed again return to the Devbook rather than the view under it —
+    /// where the person was.</summary>
     [Theory]
-    [InlineData("close")]
     [InlineData("escape")]
     [InlineData("option")]
     public async Task The_devbooks_atlas_button_opens_the_atlas_on_the_shells_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
@@ -3292,9 +3173,6 @@ public sealed class HomeWorkspaceSurfaceTests
 
         switch (wayBack)
         {
-            case "close":
-                component.Find("[data-testid='lobes-atlas-close']").Click();
-                break;
             case "escape":
                 await component.Find("[data-testid='atlas-surface']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
                 break;
@@ -3452,53 +3330,47 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Register_repository_and_back_reopens_the_atlas_on_the_ghost_with_its_way_back()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+
+        using (var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes))
         {
-            var shellNavigation = new ShellNavigationStore(path);
+            var component = Render(harness);
 
-            using (var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes))
-            {
-                var component = Render(harness);
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+            component.Find("[data-testid='dashboard-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+            component.Find("[data-testid='atlas-toggle-button']").Click();
+            component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
 
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-                component.Find("[data-testid='dashboard-toggle-button']").Click();
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
-                component.Find("[data-testid='atlas-toggle-button']").Click();
-                component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
+            component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click();
+            component.WaitForAssertion(() =>
+                Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
+            component.Find("[data-testid='lobes-atlas-card-action']").Click();
 
-                component.Find("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']").Click();
-                component.WaitForAssertion(() =>
-                    Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
-                component.Find("[data-testid='lobes-atlas-card-action']").Click();
-
-                Assert.EndsWith("/settings/repositories", harness.Context.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri, StringComparison.Ordinal);
-            }
-
-            // Settings and back: a fresh shell instance over the same navigation file.
-            using var back = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), new ShellNavigationStore(path), configureServices: AddLobes);
-            var reopened = Render(back);
-
-            reopened.WaitForAssertion(() =>
-            {
-                Assert.Equal("ghost:devbook-stack", reopened.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
-                Assert.Equal("Back to Dashboard", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
-            });
-
-            reopened.Find("[data-testid='lobes-atlas-close']").Click();
-
-            reopened.WaitForAssertion(() =>
-            {
-                Assert.Empty(reopened.FindAll("[data-testid='atlas-surface']"));
-                Assert.NotEmpty(reopened.FindAll("[data-testid='dashboard-surface']"));
-            });
+            Assert.EndsWith("/settings/repositories", harness.Context.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri, StringComparison.Ordinal);
         }
-        finally
+
+        // Settings and back: a fresh shell instance over the same navigation file.
+        using var back = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), new ShellNavigationStore(path), configureServices: AddLobes);
+        var reopened = Render(back);
+
+        reopened.WaitForAssertion(() =>
         {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.Equal("ghost:devbook-stack", reopened.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+            Assert.Equal("Back to Dashboard", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+        });
+
+        reopened.Find("[data-testid='atlas-toggle-button']").Click();
+
+        reopened.WaitForAssertion(() =>
+        {
+            Assert.Empty(reopened.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(reopened.FindAll("[data-testid='dashboard-surface']"));
+        });
     }
 
     /// <summary>
@@ -3509,37 +3381,32 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Back_from_registering_the_ghosts_alias_scopes_the_shell_to_it_and_the_atlas_follows()
     {
-        var path = NewShellNavigationPath();
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
 
-        try
+        var shellNavigation = new ShellNavigationStore(path);
+        shellNavigation.SetLastSurface("Atlas");
+        shellNavigation.SetAtlasPlace("Devbook", "ghost:backlog");
+
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() =>
         {
-            var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastSurface("Atlas");
-            shellNavigation.SetAtlasPlace("Devbook", "ghost:backlog");
-
-            using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes);
-            var component = Render(harness);
-            var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
-
-            component.WaitForAssertion(() =>
-            {
-                Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
-                Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
-                Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
-            });
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
+            Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+            Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+            Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+        });
     }
 
     /// <summary>
     /// The surface the atlas opened over switched off since: the tooltip names
-    /// the view the close will really land on, and the close lands there.
+    /// the view the way back will really land on, and its option pressed again lands
+    /// there.
     /// </summary>
     [Fact]
-    public void The_atlas_names_the_view_its_close_lands_on_once_the_surface_it_opened_over_is_off()
+    public void The_atlas_names_the_view_its_way_back_lands_on_once_the_surface_it_opened_over_is_off()
     {
         AppFeatureSettingsStore? features = null;
         using var harness = CreateHarness(
@@ -3551,19 +3418,19 @@ public sealed class HomeWorkspaceSurfaceTests
             configureServices: AddLobes);
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']")));
+        component.Find("[data-testid='sessions-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
         component.Find("[data-testid='atlas-toggle-button']").Click();
         component.WaitForAssertion(() =>
-            Assert.Equal("Back to Dashboard", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
+            Assert.Equal("Back to Sessions", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
 
-        _ = features!.SetEnabled(DashboardFeatures.Dashboard, false);
+        _ = features!.SetEnabled(SessionFeatures.Sessions, false);
 
         component.WaitForAssertion(() =>
             Assert.Equal("Back to Tasks", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
 
-        component.Find("[data-testid='lobes-atlas-close']").Click();
+        component.Find("[data-testid='atlas-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -3571,12 +3438,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
 
-        // The dashboard back on does not put a takeover the reader left back on screen.
-        _ = features.SetEnabled(DashboardFeatures.Dashboard, true);
+        // Sessions back on does not put a takeover the reader left back on screen.
+        _ = features.SetEnabled(SessionFeatures.Sessions, true);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
         });
     }
@@ -3703,17 +3570,6 @@ public sealed class HomeWorkspaceSurfaceTests
         File.WriteAllText(path, json);
     }
 
-    private static string NewShellNavigationPath() =>
-        Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"), "shell", "shell-navigation.json");
-
-    private static void DeleteShellNavigationDirectory(string path)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (directory is null) return;
-
-        try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-    }
-
     private static IRenderedComponent<Home> Render(Harness harness)
     {
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -3834,35 +3690,6 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A Devbook the reader pressed open is the catalog's: switching its flag off
-    /// takes it out of the catalog, the header loses its option, and the surface
-    /// leaves the screen for the workspace.
-    /// </summary>
-    [Fact]
-    public void The_devbook_option_and_surface_follow_its_catalog_entry()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-        var catalog = harness.Context.Services.GetRequiredService<ISurfaceCatalog>();
-        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
-
-        Assert.True(catalog.TryGet("devbook", out var devbook));
-        Assert.Equal(ShellSurfaceGroup.Takeover, devbook.Group);
-
-        OpenTheDevbook(component);
-        Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-
-        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.False(catalog.TryGet("devbook", out _));
-            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-        });
-    }
-
-    /// <summary>
     /// A run started from an entry copied out of the app names it by its stored id and
     /// nothing else, and that id is what the shell opens it by.
     /// </summary>
@@ -3959,6 +3786,19 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>The Calendar's layers and its Tasks port over the harness's own store,
+    /// composed as the hosts compose them (local ADR 0056 §2): the adapter over the module's
+    /// <c>ITaskItems</c>, so a chip is a stored entry.</summary>
+    private static void AddCalendarTasks(IServiceCollection services)
+    {
+        services.AddCalendarModule();
+        services.AddScoped<ICalendarTasks>(sp =>
+            new Backlog.Infrastructure.FileSystem.Calendar.TasksCalendarTasks(
+                TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                null,
+                null));
+    }
+
     private static Harness CreateHarness(
         Action<AppFeatureSettingsStore>? configureFeatures = null,
         ShellNavigationStore? shellNavigation = null,
@@ -3967,7 +3807,8 @@ public sealed class HomeWorkspaceSurfaceTests
         string[]? moreSeeds = null,
         TimeProvider? clock = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
 
         string[] seeds = [.. seed is null ? [] : new[] { seed }, .. moreSeeds ?? []];
@@ -3984,17 +3825,13 @@ public sealed class HomeWorkspaceSurfaceTests
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         shellNavigation ??= new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
 
-        // The three surfaces under test are on; everything that would put extra
+        // The switchable surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
         _ = featureSettings.SetEnabled(RepositoryManagementFeatures.PullRequests, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         configureFeatures?.Invoke(featureSettings);
@@ -4037,7 +3874,7 @@ public sealed class HomeWorkspaceSurfaceTests
         // asking whether the takeover replaced the panes should not also be reading
         // whatever the person running it had been doing that morning — and a pane that
         // only worked with rows in it would fail here, which is the point.
-        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         // And no delivery runs behind it, for the same reason.
         context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
@@ -4136,33 +3973,17 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddScoped<IAiContentSource, SessionsAiContentSource>();
         context.Services.AddToolsAiContentSource();
 
-        return new Harness(root, context, foundryChat);
+        return new Harness(temp, context, foundryChat);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, StubAzureFoundryChatClient FoundryChat) : IDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context, StubAzureFoundryChatClient FoundryChat) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
-    }
-
-    private sealed class EmptySessionSource : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(AgentSessionCatalog.Empty);
     }
 
     private sealed class EmptyRunSource : IDeliveryRunSource

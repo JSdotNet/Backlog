@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>One class box, placed.</summary>
@@ -27,7 +29,7 @@ public sealed record C4CodeDiagram(
 
 /// <summary>
 /// Lays the Code level out with <see cref="C4LayoutEngine"/>, the layout every other
-/// level of the zoom tab is drawn by, so a use reads top to bottom the way a
+/// level of the zoom navigation is drawn by, so a use reads top to bottom the way a
 /// relationship does one level up.
 /// <para>
 /// The engine lays out a C4 view, so each type is handed to it as a software system of

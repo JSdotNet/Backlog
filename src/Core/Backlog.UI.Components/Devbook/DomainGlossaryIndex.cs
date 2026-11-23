@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>One row of a context's Glossary: a term or a model chapter, as the
@@ -30,6 +32,30 @@ public sealed record DomainGlossaryEntry(
     /// <summary>Whether this is a word of the ubiquitous language rather than a
     /// model chapter.</summary>
     public bool IsTerm => Kind == "term";
+
+    /// <summary>The first sentence as markdown, its links kept, which the row
+    /// renders; <see cref="Summary"/> is the same sentence as plain text. Empty
+    /// for a row built without it, which then shows <see cref="Summary"/>.</summary>
+    public string SummaryMarkdown { get; init; } = string.Empty;
+
+    /// <summary>The file the chapter is in, which a relative link in its first
+    /// sentence resolves against.</summary>
+    public string DocumentPath => DomainUnits.PathOf(Reference);
+
+    /// <summary>
+    /// Where a model chapter opens on the Model page, as the anchor
+    /// <see cref="Diagrams.DomainModelTabs.For"/> reads: Fields for an aggregate,
+    /// an entity, a value object or an enum; Events on its contract for a domain
+    /// event; the empty string — Diagram — for a domain service; and
+    /// <see langword="null"/> for a term, which Model does not draw.
+    /// </summary>
+    public string? ModelAnchor => Kind switch
+    {
+        "aggregate" or "entity" or "value-object" or "enum" => Diagrams.DomainModelTabs.Fields,
+        "domain-event" => HeadingAnchor.Of(Title),
+        "term" => null,
+        _ => string.Empty
+    };
 
     /// <summary>Whether <paramref name="filter"/> is in the heading or in one of
     /// the aliases, ignoring case. A blank filter matches every row.</summary>
@@ -155,7 +181,10 @@ public static class DomainGlossaryIndex
             string.Equals(chapter.Status, "deprecated", StringComparison.OrdinalIgnoreCase),
             file.ReferenceTo(chapter),
             string.Equals(chapter.Status, "proposed", StringComparison.OrdinalIgnoreCase),
-            kind == "term" ? BorrowedFrom(file, chapter) : null);
+            kind == "term" ? BorrowedFrom(file, chapter) : null)
+        {
+            SummaryMarkdown = DomainUnits.FirstSentenceMarkdown(chapter.Prose)
+        };
 
     /// <summary>
     /// The chapter a term borrows: the first of its <c>related</c> entries that

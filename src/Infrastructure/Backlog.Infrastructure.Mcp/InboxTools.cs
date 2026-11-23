@@ -13,22 +13,31 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The Inbox's captures — from the phone, the website, a YouTube share — for an agent that
 /// files them elsewhere: list them, read one with its attachments' files, and archive it once
-/// it is filed.
+/// it is filed. And the one of the four that writes a capture: an action the assistant
+/// heard, so it reaches clarify (local ADR 0054).
 /// <para>
 /// <b>Through <see cref="IInboxItems"/>, never the database.</b> The archive is the module's
 /// own <c>ArchiveAsync</c>, so it meets the same transition rule and the same save — and with
-/// it the same replica outbox — as the pane's Archive. Nothing here deletes.
+/// it the same replica outbox — as the pane's Archive. The capture is the module's own
+/// <c>CaptureAsync</c>, Add by hand's path, so it meets the same guard on the text. Nothing
+/// here deletes.
+/// </para>
+/// <para>
+/// Each write is announced on <see cref="IInboxChangeSignal"/> once it lands, so an open
+/// Inbox pane reloads and shows it without the person reopening the pane. The signal is
+/// optional only so a host composing none still serves the tools.
 /// </para>
 /// <para>
 /// Its own group behind the Inbox pane's key: switching the pane off withdraws these too.
 /// </para>
 /// </summary>
 [McpServerToolType]
-public sealed class InboxTools(IInboxItems inbox)
+public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = null)
 {
     internal const string ListInboxItems = "list_inbox_items";
     internal const string ReadInboxItem = "read_inbox_item";
     internal const string ArchiveInboxItem = "archive_inbox_item";
+    internal const string CaptureToInbox = "capture_to_inbox";
 
     /// <summary>How much of a body a listed item previews.</summary>
     internal const int PreviewLength = 160;
@@ -36,7 +45,8 @@ public sealed class InboxTools(IInboxItems inbox)
     [McpServerTool(Name = ListInboxItems, Title = "List the Inbox's captures", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "The Inbox's captures, newest first: id, title, kind, channel, captured_at, status, the body's length and a "
-        + "short preview, and how many attachments each holds. Unprocessed only unless status says otherwise. "
+        + "short preview, how many attachments each holds, and a deferred item's review day (deferredUntil, "
+        + "yyyy-MM-dd; null for any other item and for a deferral with no date). Unprocessed only unless status says otherwise. "
         + "Read one in full with read_inbox_item. Read-only.")]
     public async Task<InboxItemsPayload> ListAsync(
         [Description("Optional. unprocessed (the default), triaged, deferred, archived, or all.")]
@@ -75,7 +85,8 @@ public sealed class InboxTools(IInboxItems inbox)
 
     [McpServerTool(Name = ReadInboxItem, Title = "Read an Inbox capture", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "One capture in full: its Markdown body, source URL, tags and status, and each attachment's name, "
+        "One capture in full: its Markdown body, source URL, tags and status, a deferred item's review day "
+        + "(deferredUntil; null when it has none), and each attachment's name, "
         + "content type, size and the file's path on this machine (null while it is not downloaded), so its "
         + "images can be read or copied. Refused for an unknown id (inbox.item.not_found). Read-only.")]
     public async Task<InboxItemPayload> ReadAsync(
@@ -101,7 +112,45 @@ public sealed class InboxTools(IInboxItems inbox)
         var archived = await inbox.ArchiveAsync(id, cancellationToken).ConfigureAwait(false);
         if (archived.IsFailure) throw RepositoryScope.Failure(archived.Error);
 
+        changes?.Raise();
+
         return InboxItemSummaryPayload.From(await FindAsync(id, cancellationToken).ConfigureAwait(false));
+    }
+
+    // Not idempotent: Add by hand keeps no key a second call could match on, so the
+    // same title sent twice is two captures — a client must not retry one that may have
+    // landed. Not destructive: nothing that was there changes. Closed: the Inbox is this
+    // machine's, and a capture reaches the phone only through the sync it already has.
+    [McpServerTool(Name = CaptureToInbox, Title = "Capture into the Inbox", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
+    [Description(
+        "Captures something the person wants to act on — a reminder, a to-do, a thing to look into — into the "
+        + "Inbox as a new unprocessed item, as the Inbox's own Add by hand does, so the person clarifies it later: "
+        + "what it is, and where it goes. Use capture_note instead for a note already judged worth keeping as "
+        + "knowledge; that one goes straight into the Brain. Calling this twice captures twice. Answers the new "
+        + "item, its id first. Refused for a blank title (inbox.item.needs_title) or a source link that is no "
+        + "http or https address (inbox.capture.source_not_a_link).")]
+    public async Task<InboxItemSummaryPayload> CaptureAsync(
+        [Description("The capture's title: one line, as the person would say it. Line breaks become spaces.")]
+        string title,
+        [Description("Optional. Notes under the title, in Markdown, kept as the item's body as text, trimmed.")]
+        string? body = null,
+        [Description("Optional. The link the capture is about, an absolute http or https address.")]
+        string? sourceUrl = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Manual: the domain's word for "by hand" — somebody deciding to capture, which an
+        // assistant asked to remember something is, rather than a capture arriving from a
+        // device or a feed. The title is the module's to trim and collapse, so the guard is
+        // the one the capture field meets.
+        var captured = await inbox
+            .CaptureAsync(title, body, InboxEnumMap.ManualChannel, sourceUrl, cancellationToken)
+            .ConfigureAwait(false);
+        if (captured.IsFailure) throw RepositoryScope.Failure(captured.Error);
+
+        // Heard by an open Inbox, which reloads; the pane learns of no other way.
+        changes?.Raise();
+
+        return InboxItemSummaryPayload.From(captured.Value);
     }
 
     private async Task<InboxItemDto> FindAsync(Guid id, CancellationToken cancellationToken)
@@ -138,7 +187,8 @@ public sealed record InboxItemSummaryPayload(
     string Status,
     int BodyLength,
     string Preview,
-    int AttachmentCount)
+    int AttachmentCount,
+    DateOnly? DeferredUntil)
 {
     internal static InboxItemSummaryPayload From(InboxItemDto item) => new(
         item.Id,
@@ -149,7 +199,13 @@ public sealed record InboxItemSummaryPayload(
         StatusSlug(item.Status),
         item.BodyMd.Length,
         PreviewOf(item.BodyMd),
-        item.Attachments.Count);
+        item.Attachments.Count,
+        ReviewDay(item));
+
+    /// <summary>The day a deferred item comes up for review again, or null: only a deferred
+    /// item has one, and a deferral without a date has none.</summary>
+    internal static DateOnly? ReviewDay(InboxItemDto item) =>
+        item.Status == InboxStatus.Deferred ? item.DeferredUntil : null;
 
     internal static string StatusSlug(InboxStatus status) => status.ToString().ToLowerInvariant();
 
@@ -171,7 +227,8 @@ public sealed record InboxItemPayload(
     string BodyMd,
     string? SourceUrl,
     IReadOnlyList<string> Tags,
-    IReadOnlyList<InboxAttachmentPayload> Attachments)
+    IReadOnlyList<InboxAttachmentPayload> Attachments,
+    DateOnly? DeferredUntil)
 {
     internal static InboxItemPayload From(InboxItemDto item) => new(
         item.Id,
@@ -188,7 +245,8 @@ public sealed record InboxItemPayload(
             attachment.Name,
             attachment.ContentType,
             attachment.SizeBytes,
-            attachment.LocalPath))]);
+            attachment.LocalPath))],
+        InboxItemSummaryPayload.ReviewDay(item));
 }
 
 public sealed record InboxAttachmentPayload(Guid Id, string Name, string ContentType, long SizeBytes, string? LocalPath);

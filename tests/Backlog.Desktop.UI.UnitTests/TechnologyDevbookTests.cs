@@ -73,7 +73,7 @@ public sealed class TechnologyDevbookReaderTests
             # Shared Technologies
             ```meta
             status: accepted
-            kind: layer
+            type: layer
             ```
 
             Shared platform choices.
@@ -81,7 +81,7 @@ public sealed class TechnologyDevbookReaderTests
             ## .NET
             ```meta
             status: accepted
-            kind: runtime
+            type: runtime
             version: 10.0
             depends-on: [".tech/desktop.md#blazor"]
             related: [".arc42/04-solution-strategy.md"]
@@ -94,7 +94,7 @@ public sealed class TechnologyDevbookReaderTests
             # Desktop Stack
             ```meta
             status: proposed
-            kind: layer
+            type: layer
             ```
 
             Desktop UI choices.
@@ -102,7 +102,7 @@ public sealed class TechnologyDevbookReaderTests
             ## Blazor
             ```meta
             status: accepted
-            kind: ui-framework
+            type: ui-framework
             ```
 
             Component model.
@@ -137,69 +137,6 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Contains(view.Graph.Edges, edge => edge.Source == ".tech/shared.md#net" && edge.Target == ".tech/desktop.md#blazor" && edge.Label == "depends on");
     }
 
-    [Fact]
-    public void A_nodes_kind_is_read_from_type_first_and_from_the_legacy_kind_second()
-    {
-        // The corpus writes `type`, the field contract 16 names; `kind` is the old
-        // `.tech` spelling the convention still parses. Reading only `kind` left
-        // every current chapter a generic "technology".
-        using var workspace = TestWorkspace.Create();
-        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
-        Directory.CreateDirectory(techPath);
-        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
-            # Technology graph
-            ```meta
-            status: adopted
-            ```
-            """);
-        File.WriteAllText(Path.Combine(techPath, "shared.md"), """
-            # Shared Technologies
-            ```meta
-            status: adopted
-            ```
-
-            ## Markdig
-            ```meta
-            status: adopted
-            type: library
-            ```
-
-            Markdown parser.
-
-            ## .NET
-            ```meta
-            status: adopted
-            kind: runtime
-            ```
-
-            Cross-platform runtime.
-
-            ## Both
-            ```meta
-            status: adopted
-            type: tool
-            kind: runtime
-            ```
-
-            Written mid-rename.
-
-            ## Neither
-            ```meta
-            status: adopted
-            ```
-
-            Not classified.
-            """);
-
-        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
-
-        var kinds = view.Layers.Single().Nodes.ToDictionary(node => node.Label, node => node.Kind);
-        Assert.Equal("library", kinds["Markdig"]);
-        Assert.Equal("runtime", kinds[".NET"]);
-        Assert.Equal("tool", kinds["Both"]);
-        Assert.Equal("technology", kinds["Neither"]);
-    }
-
 
     [Fact]
     public async Task Updates_layer_and_node_status_metadata()
@@ -217,13 +154,13 @@ public sealed class TechnologyDevbookReaderTests
             # Shared Technologies
             ```meta
             status: accepted
-            kind: layer
+            type: layer
             ```
 
             ## .NET
             ```meta
             status: accepted
-            kind: runtime
+            type: runtime
             ```
 
             Cross-platform runtime.
@@ -323,7 +260,7 @@ public sealed class TechnologyDevbookReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = WriteAtlasFolder(workspace.RepositoryPath);
         File.WriteAllText(Path.Combine(techPath, "shared.md"),
-            "# Shared Technologies\n\n## .NET\n```meta\nrating: trial\nkind: runtime\n```\n\nCross-platform runtime.\n");
+            "# Shared Technologies\n\n## .NET\n```meta\nrating: trial\ntype: runtime\n```\n\nCross-platform runtime.\n");
 
         var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
 
@@ -434,8 +371,8 @@ public sealed class TechnologyDevbookReaderTests
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
         File.WriteAllText(Path.Combine(techPath, "cloud.md"),
             "# Cloud Stack\n\n"
-            + "## ASP.NET Core Minimal APIs\n```meta\nstatus: candidate\nkind: framework\n```\n\nThe HTTP surface.\n\n"
-            + "## Azure Container Apps\n```meta\nstatus: candidate\nkind: hosting\ndepends-on: [\".tech/cloud.md#aspnet-core-minimal-apis\"]\n```\n\nWhere it runs.\n");
+            + "## ASP.NET Core Minimal APIs\n```meta\nstatus: candidate\ntype: framework\n```\n\nThe HTTP surface.\n\n"
+            + "## Azure Container Apps\n```meta\nstatus: candidate\ntype: hosting\ndepends-on: [\".tech/cloud.md#aspnet-core-minimal-apis\"]\n```\n\nWhere it runs.\n");
 
         var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
 
@@ -465,8 +402,8 @@ public sealed class TechnologyDevbookReaderTests
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
         File.WriteAllText(Path.Combine(techPath, "desktop.md"),
             "# Desktop Stack\n\n"
-            + "## App Installer (`.appinstaller`)\n```meta\nstatus: adopt\nkind: format\n```\n\nThe update feed.\n\n"
-            + "## MSIX packaging\n```meta\nstatus: adopt\nkind: tool\ndepends-on: [\".tech/desktop.md#app-installer-appinstaller\"]\n```\n\nThe package.\n");
+            + "## App Installer (`.appinstaller`)\n```meta\nstatus: adopt\ntype: format\n```\n\nThe update feed.\n\n"
+            + "## MSIX packaging\n```meta\nstatus: adopt\ntype: tool\ndepends-on: [\".tech/desktop.md#app-installer-appinstaller\"]\n```\n\nThe package.\n");
 
         var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
 
@@ -521,12 +458,12 @@ public sealed class TechnologyDevbookReaderTests
         var outside = dependsOnOutside ? ", \".arc42/04-solution-strategy.md#technology-choices\"" : string.Empty;
 
         File.WriteAllText(Path.Combine(techPath, "shared.md"),
-            "# Shared Technologies\n\n## .NET\n```meta\nstatus: " + sharedStatus + "\nkind: runtime\n```\n\nCross-platform runtime.\n");
+            "# Shared Technologies\n\n## .NET\n```meta\nstatus: " + sharedStatus + "\ntype: runtime\n```\n\nCross-platform runtime.\n");
 
         File.WriteAllText(Path.Combine(techPath, "desktop.md"),
             "# Desktop Stack\n\n"
-            + "## Blazor\n```meta\nstatus: candidate\nkind: ui-framework\ndepends-on: [\".tech/shared.md#net\"" + outside + "]\n```\n\nComponent model.\n\n"
-            + "## WinUI\n```meta\nstatus: adopted\nkind: ui-framework\ndepends-on: [\".tech/shared.md#net\"]\n```\n\nThe window it all sits in.\n");
+            + "## Blazor\n```meta\nstatus: candidate\ntype: ui-framework\ndepends-on: [\".tech/shared.md#net\"" + outside + "]\n```\n\nComponent model.\n\n"
+            + "## WinUI\n```meta\nstatus: adopted\ntype: ui-framework\ndepends-on: [\".tech/shared.md#net\"]\n```\n\nThe window it all sits in.\n");
 
         if (writeGraphIndex)
         {
@@ -575,7 +512,7 @@ public sealed class TechnologyDevbookReaderTests
         foreach (var (file, title) in new[] { ("tooling.md", "Tooling"), ("desktop.md", "Desktop"), ("shared.md", "Shared"), ("cloud.md", "Cloud") })
         {
             File.WriteAllText(Path.Combine(techPath, file),
-                $"# {title}\n\n## {title} thing\n```meta\nstatus: adopted\nkind: tool\n```\n\nWhat it is.\n");
+                $"# {title}\n\n## {title} thing\n```meta\nstatus: adopted\ntype: tool\n```\n\nWhat it is.\n");
         }
 
         var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
@@ -943,21 +880,20 @@ public sealed class TechnologyGraphMeasuresTests : IDisposable
 
 file sealed class TestWorkspace : IDisposable
 {
-    private TestWorkspace(string root)
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-tests");
+
+    private TestWorkspace()
     {
-        Root = root;
-        RepositoryPath = Path.Combine(root, "repo");
-        SettingsPath = Path.Combine(root, "github.json");
+        RepositoryPath = _temp.Combine("repo");
+        SettingsPath = _temp.Combine("github.json");
         Directory.CreateDirectory(RepositoryPath);
     }
-
-    public string Root { get; }
 
     public string RepositoryPath { get; }
 
     public string SettingsPath { get; }
 
-    public static TestWorkspace Create() => new(Path.Combine(Path.GetTempPath(), "backlog-devbook-tests", Guid.NewGuid().ToString("n")));
+    public static TestWorkspace Create() => new();
 
     public GitHubSettingsStore CreateStore()
     {
@@ -969,10 +905,7 @@ file sealed class TestWorkspace : IDisposable
         return store;
     }
 
-    public void Dispose()
-    {
-        try { Directory.Delete(Root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
 }
 

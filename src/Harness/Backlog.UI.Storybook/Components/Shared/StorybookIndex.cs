@@ -102,10 +102,16 @@ internal static class StorybookIndex
             // bargain with the host and the only reason the component exists.
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
+            // Ahead of Attachment strip, which plays a recording on its tile with
+            // it: nothing is shown before its parts. Its own page because playing
+            // a file the host holds — read once, released when it goes — is a
+            // bargain with the host no other control here makes.
+            new("audio-player", "Audio player", "AudioPlayer: a recording the host holds, played in place with the browser's own controls, named for its file."),
+
             // After File field, and its own page for the same reason: it is what
             // a host shows once files are picked, and a refusal it draws on a
-            // tile is a convention of its own. It draws only an IconButton, which
-            // Buttons introduced above.
+            // tile is a convention of its own. It draws an IconButton, which
+            // Buttons introduced above, and an AudioPlayer, introduced just above.
             new("attachment-strip", "Attachment strip", "AttachmentStrip: the files on something being written, with their name, type and size — and why, on a tile the host refused."),
 
             // Badges before Selects, and by the rule: BadgeSelect draws its
@@ -380,10 +386,10 @@ internal static class StorybookIndex
             // whole, with its filters and its Easily confused pairs.
             new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a find box that matches aliases too, All / Model / Terms / Borrowed pills with counts, proposed and deprecated badges, and Easily confused beside the list for terms that name each other."),
 
-            // The Domain view's Flow page (local ADR 0047): a lifecycle drawn as one
+            // The Domain view's drawings (local ADR 0047): a lifecycle drawn as one
             // row of states, flowcharts and sequences in the same style; a diagram
             // none of them reads keeps DiagramView's rendering.
-            new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycle a domain chapter opens with, drawn below its unit's About card, and a legacy `flow.md`, whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
+            new("devbook/domain-flows", "Domain flows", "DomainChapterFlows, DomainFlowFigures, DomainFlowRow, DomainFlowchart and DomainSequence: the lifecycles and processes a domain chapter opens with, drawn below its unit's About card — a `stateDiagram-v2` as one row of states, forward transitions above, the ways back below, the restore loop round the outside — with flowcharts and sequences in the same cards and lines."),
 
             // After the kinds' own pages: any other file of a context opens as
             // written (domain/devbook requirement "Any other file opens as written").
@@ -507,10 +513,7 @@ internal static class StorybookIndex
             // After the card it lays out: a board is columns of them.
             new("task-list/board", "Task board", "TaskBoard: tasks in columns of cards, each column headed by its count, its summed points and how many are not estimated — and a card dragged between status columns only where the host's rule allows, the refused columns saying why."),
             new("task-list/panel", "Task side panel", "TaskPanel, TaskActionPane and TaskAction: the whole of one task beside its list — a title you can tick and retitle, tags, the detail rows in two columns, then its sub-items or its markdown."),
-            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
-            // Last in the group: a second layout of the tasks the pages above
-            // introduce, read once a task and its states are known.
-            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day.")
+            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one
@@ -553,12 +556,15 @@ internal static class StorybookIndex
         // A subject of its own after Dashboard, and after it by the rule: a settings
         // card shows a figure in the MetricTile Dashboard introduces, and the frame
         // is the Dashboard's panel. Read card, then menu, then the frame that holds
-        // both - nothing is shown before its parts.
+        // both - nothing is shown before its parts. Agents comes last: its rows sit
+        // inside a SettingsCard, and they draw the Toggle, Badge, buttons and
+        // CodeView the parts groups introduced.
         new("Settings",
         [
             new("settings-card", "Settings card", "SettingsCard: one card on a settings page — a heading, a sentence saying what it is for, an action in its corner, and the controls."),
             new("settings-menu", "Settings menu", "SettingsMenuGroup: one group of the settings menu — a small uppercase label and a link per page, the page on screen marked current."),
-            new("settings-frame", "Settings frame", "SettingsFrame and SettingsHeadline: the panel, the way back, the group and the one-sentence headline a page writes, Saved as you go, and the menu beside the page.")
+            new("settings-frame", "Settings frame", "SettingsFrame and SettingsHeadline: the panel, the way back, the group and the one-sentence headline a page writes, Saved as you go, and the menu beside the page."),
+            new("settings-agents", "Agents", "AgentGrantRow, AgentScopeSwitches, AgentRegistration and AgentAccessRequest: the MCP server page's agents, each with its scopes, switches opened in place, Revoke confirmed in place, the registration a new agent is given, and a request waiting for the person.")
         ]),
 
         // Last, and last by the rule rather than by convention: every page here
@@ -589,7 +595,13 @@ internal static class StorybookIndex
             // EmptyState, SaveIndicator, ToggleButton, AppButton and
             // AttachmentStrip pages above introduce — which is why it is here and
             // not beside Today, above Feedback.
-            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
+            // A recorded bend: RecordingBar carries conventions of its own — its
+            // state said three ways, a timer that is no live region, a level in
+            // words — which would earn it a page. It stays here because it has
+            // one host, the note being written, and its four states read against
+            // the NoteEditor stories above them; a page of its own would draw that
+            // editor a second time or show the bar out of the place it lives.
+            new("notes", "Notes", "NoteRow, NoteEditor and RecordingBar: a list of notes newest first that a search narrows, one note being written that saves on its own, and a meeting recorded into it."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
 

@@ -17,14 +17,28 @@ internal sealed partial class DesktopHarness
     /// <summary>The Architecture chapter the Devbook shows.</summary>
     public ILocator ArchitectureChapter => Page.GetByTestId("arc42-chapter-file");
 
-    /// <summary>Opens one Architecture chapter of the scoped repository from the
-    /// pane's menu, by the title the menu lists it under.</summary>
+    /// <summary>Opens one Architecture chapter of the scoped repository the way a
+    /// reader does: from the architecture surface's left navigation, by the title it
+    /// lists the chapter under. The surface owns the navigation for this section, so
+    /// the pane draws no menu of its own there (local ADR 0046). On a repository with a
+    /// model the navigation opens with its arc42 group folded, and its trigger folds the
+    /// chapter list open in place; without one the list is open already. The trigger
+    /// toggles, so it is pressed only while it says it is folded.</summary>
     public async Task OpenArchitectureChapterAsync(Regex title)
     {
         await OpenAreaAsync("Architecture");
-        await Interactive.ClickAsync(
-            DevbookPane.Locator(".devbook-menu__item--file").Filter(new LocatorFilterOptions { HasTextRegex = title }).First,
-            ArchitectureChapter.Filter(new LocatorFilterOptions { HasTextRegex = title }));
+
+        var chapter = DevbookPane.GetByTestId("arc42-surface-chapter").Filter(new LocatorFilterOptions { HasTextRegex = title }).First;
+        var allChapters = DevbookPane.GetByTestId("arc42-surface-all-chapters");
+        await Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await allChapters.IsVisibleAsync() && await allChapters.GetAttributeAsync("aria-expanded") != "true") await allChapters.ClickAsync();
+            },
+            () => chapter.IsVisibleAsync(),
+            "the architecture surface's chapter list");
+
+        await Interactive.ClickAsync(chapter, ArchitectureChapter.Filter(new LocatorFilterOptions { HasTextRegex = title }));
     }
 
     /// <summary>The ids of the remarks drawn on the open chapter.</summary>

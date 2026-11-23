@@ -160,17 +160,18 @@ public sealed class CompositeAgentSessionSourceTests
                 [
                     Session("both") with { Origin = AgentSessionOrigin.Recorded, Archived = true },
                     Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_2" },
-                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_3" }
+                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name", DesktopSessionId = "local_3" },
+                    Session("parented") with { Origin = AgentSessionOrigin.Recorded, ParentDesktopTitle = "+tag:execute-plan" }
                 ],
                 [],
-                3))
+                4))
         ]);
 
         var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            ["both False nightly-sweep Sidebar name local_1", "recorded    ", "replicated    "],
-            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask} {session.DesktopTitle} {session.DesktopSessionId}"));
+            ["both False nightly-sweep Sidebar name local_1 ", "recorded     ", "replicated     ", "parented     "],
+            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask} {session.DesktopTitle} {session.DesktopSessionId} {session.ParentDesktopTitle}"));
     }
 
     /// <summary>The local reading's count of open sessions listed past its cap reaches
@@ -269,6 +270,7 @@ public sealed class CompositeAgentSessionSourceTests
             null,
             AgentSessionOrigin.Local);
 
+    // Differs from StubSessionSource: answers a whole catalog as given, capped or not.
     private sealed class StubSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {
         public List<AgentSessionQuery> Queries { get; } = [];

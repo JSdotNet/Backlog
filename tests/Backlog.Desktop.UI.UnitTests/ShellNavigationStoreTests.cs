@@ -16,20 +16,14 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Nothing_is_remembered_before_anything_is_set()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Null(store.LastSurface);
-            Assert.Equal("tasks", store.LastView);
-            Assert.Equal(path, store.SettingsPath);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Null(store.LastSurface);
+        Assert.Equal("tasks", store.LastView);
+        Assert.Equal(path, store.SettingsPath);
     }
 
     /// <summary>
@@ -43,33 +37,25 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_file_from_before_pins_left_still_reads_and_is_rewritten_without_them()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Workspace",
-                  "lastEnabledPanes": ["Backlog", "Devbook"],
-                  "lastPinnedPanes": ["Backlog"]
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "lastSurface": "Workspace",
+              "lastPinnedPanes": ["Backlog"]
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal("devbook", store.LastSurface);
+        Assert.Null(store.LastSurface);
 
-            store.SetLastView("Board");
+        store.SetLastView("Board");
 
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        using var document = JsonDocument.Parse(Written(path));
+        Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
     }
 
     /// <summary>
@@ -82,36 +68,30 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Setting_the_surface_does_not_erase_the_remembered_view_or_the_reverse()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastView("Board");
-            store.SetLastSurface("Dashboard");
+        store.SetLastView("Board");
+        store.SetLastSurface("Dashboard");
 
-            Assert.Equal("dashboard", store.LastSurface);
-            Assert.Equal("board", store.LastView);
+        Assert.Equal("dashboard", store.LastSurface);
+        Assert.Equal("board", store.LastView);
 
-            var restarted = new ShellNavigationStore(path);
+        var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal("dashboard", restarted.LastSurface);
-            Assert.Equal("board", restarted.LastView);
+        Assert.Equal("dashboard", restarted.LastSurface);
+        Assert.Equal("board", restarted.LastView);
 
-            restarted.SetLastSurface("Workspace");
+        restarted.SetLastSurface("Workspace");
 
-            Assert.Equal("board", restarted.LastView);
+        Assert.Equal("board", restarted.LastView);
 
-            var restartedAgain = new ShellNavigationStore(path);
+        var restartedAgain = new ShellNavigationStore(path);
 
-            Assert.Null(restartedAgain.LastSurface);
-            Assert.Equal("board", restartedAgain.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Null(restartedAgain.LastSurface);
+        Assert.Equal("board", restartedAgain.LastView);
     }
 
     /// <summary>The C4 zoom tab's hint, once dismissed, stays dismissed on this device —
@@ -120,26 +100,20 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_dismissed_C4_zoom_hint_survives_a_restart_and_writes_its_key_only_then()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            store.SetLastSurface("Sessions");
+        var store = new ShellNavigationStore(path);
+        store.SetLastSurface("Sessions");
 
-            Assert.False(store.C4ZoomHintDismissed);
-            Assert.DoesNotContain("c4ZoomHintDismissed", Written(path), StringComparison.Ordinal);
+        Assert.False(store.C4ZoomHintDismissed);
+        Assert.DoesNotContain("c4ZoomHintDismissed", Written(path), StringComparison.Ordinal);
 
-            var preferences = new DevbookViewPreferences(store);
-            preferences.DismissC4ZoomHint();
+        var preferences = new DevbookViewPreferences(store);
+        preferences.DismissC4ZoomHint();
 
-            Assert.Contains("\"c4ZoomHintDismissed\": true", Written(path), StringComparison.Ordinal);
-            Assert.True(new DevbookViewPreferences(new ShellNavigationStore(path)).C4ZoomHintDismissed);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Contains("\"c4ZoomHintDismissed\": true", Written(path), StringComparison.Ordinal);
+        Assert.True(new DevbookViewPreferences(new ShellNavigationStore(path)).C4ZoomHintDismissed);
     }
 
     [Fact]
@@ -155,66 +129,48 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_last_surface_survives_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastSurface("Sessions");
+        store.SetLastSurface("Sessions");
 
-            var restarted = new ShellNavigationStore(path);
+        var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal("sessions", restarted.LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("sessions", restarted.LastSurface);
     }
 
     [Fact]
     public void Setting_the_same_surface_again_is_a_no_op()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            store.SetLastSurface("Tools");
+        var store = new ShellNavigationStore(path);
+        store.SetLastSurface("Tools");
 
-            var changes = 0;
-            store.Changed += () => changes++;
-            store.SetLastSurface("Tools");
+        var changes = 0;
+        store.Changed += () => changes++;
+        store.SetLastSurface("Tools");
 
-            Assert.Equal(0, changes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal(0, changes);
     }
 
     [Fact]
     public void Changing_the_surface_says_so()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            var changes = 0;
-            store.Changed += () => changes++;
+        var store = new ShellNavigationStore(path);
+        var changes = 0;
+        store.Changed += () => changes++;
 
-            store.SetLastSurface("Dashboard");
-            store.SetLastSurface("Workspace");
+        store.SetLastSurface("Dashboard");
+        store.SetLastSurface("Workspace");
 
-            Assert.Equal(2, changes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal(2, changes);
     }
 
     /// <summary>A file nobody can read must never stop the app from opening, and
@@ -223,59 +179,40 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_corrupt_file_falls_back_to_nothing_remembered()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, "{ this is not json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "{ this is not json");
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Null(store.LastSurface);
-            Assert.Equal("tasks", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Null(store.LastSurface);
+        Assert.Equal("tasks", store.LastView);
     }
 
     [Fact]
     public void A_missing_file_is_read_back_as_nothing_remembered()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Assert.False(File.Exists(path));
-            Assert.Null(new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.False(File.Exists(path));
+        Assert.Null(new ShellNavigationStore(path).LastSurface);
     }
 
     [Fact]
-    public void The_file_holds_the_surface_under_its_own_key_and_no_pane_list()
+    public void The_file_holds_the_surface_under_its_own_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            store.SetLastSurface("Tools");
+        var store = new ShellNavigationStore(path);
+        store.SetLastSurface("Tools");
 
-            using var document = JsonDocument.Parse(Written(path));
+        using var document = JsonDocument.Parse(Written(path));
 
-            Assert.Equal("tools", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("tools", document.RootElement.GetProperty("lastSurface").GetString());
     }
 
     /// <summary>
@@ -286,32 +223,26 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_roadmap_hours_switch_is_on_until_turned_off_and_off_survives_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.True(store.RoadmapHoursShown);
+
+        store.SetLastSurface("Tools");
+        using (var on = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.True(store.RoadmapHoursShown);
-
-            store.SetLastSurface("Tools");
-            using (var on = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
-            }
-
-            store.SetRoadmapHoursShown(false);
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.False(restarted.RoadmapHoursShown);
-            Assert.Equal("tools", restarted.LastSurface);
-
-            restarted.SetRoadmapHoursShown(true);
-            Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
+            Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetRoadmapHoursShown(false);
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.False(restarted.RoadmapHoursShown);
+        Assert.Equal("tools", restarted.LastSurface);
+
+        restarted.SetRoadmapHoursShown(true);
+        Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
     }
 
     /// <summary>
@@ -321,29 +252,23 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_roadmap_completed_switch_is_on_until_turned_off_and_off_survives_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.True(store.RoadmapCompletedShown);
+
+        store.SetLastSurface("Tools");
+        using (var on = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.True(store.RoadmapCompletedShown);
-
-            store.SetLastSurface("Tools");
-            using (var on = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(on.RootElement.TryGetProperty("roadmapCompletedShown", out _));
-            }
-
-            store.SetRoadmapCompletedShown(false);
-            Assert.False(new ShellNavigationStore(path).RoadmapCompletedShown);
-
-            store.SetRoadmapCompletedShown(true);
-            Assert.True(new ShellNavigationStore(path).RoadmapCompletedShown);
+            Assert.False(on.RootElement.TryGetProperty("roadmapCompletedShown", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetRoadmapCompletedShown(false);
+        Assert.False(new ShellNavigationStore(path).RoadmapCompletedShown);
+
+        store.SetRoadmapCompletedShown(true);
+        Assert.True(new ShellNavigationStore(path).RoadmapCompletedShown);
     }
 
     /// <summary>
@@ -353,36 +278,139 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Calendar_plans_are_off_until_turned_on_and_only_on_writes_a_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.False(store.CalendarPlansShown);
+
+        store.SetLastSurface("Tools");
+        using (var off = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.False(store.CalendarPlansShown);
-
-            store.SetLastSurface("Tools");
-            using (var off = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(off.RootElement.TryGetProperty("calendarPlansShown", out _));
-            }
-
-            store.SetCalendarPlansShown(true);
-            using (var on = JsonDocument.Parse(Written(path)))
-            {
-                Assert.True(on.RootElement.GetProperty("calendarPlansShown").GetBoolean());
-            }
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.True(restarted.CalendarPlansShown);
-            Assert.Equal("tools", restarted.LastSurface);
-
-            restarted.SetCalendarPlansShown(false);
-            Assert.False(new ShellNavigationStore(path).CalendarPlansShown);
+            Assert.False(off.RootElement.TryGetProperty("calendarPlansShown", out _));
         }
-        finally
+
+        store.SetCalendarPlansShown(true);
+        using (var on = JsonDocument.Parse(Written(path)))
         {
-            DeleteSettingsDirectory(path);
+            Assert.True(on.RootElement.GetProperty("calendarPlansShown").GetBoolean());
         }
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.True(restarted.CalendarPlansShown);
+        Assert.Equal("tools", restarted.LastSurface);
+
+        restarted.SetCalendarPlansShown(false);
+        Assert.False(new ShellNavigationStore(path).CalendarPlansShown);
+    }
+
+    /// <summary>
+    /// The Calendar's "Show events" box is off on a device that never chose, and the key
+    /// is written only while it is on — so a missing setting reads as off, and turning it
+    /// off takes the key out again.
+    /// </summary>
+    [Fact]
+    public void Calendar_events_are_off_until_turned_on_and_only_on_writes_a_key()
+    {
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+
+        var store = new ShellNavigationStore(path);
+        Assert.False(store.CalendarEventsShown);
+
+        store.SetLastSurface("Tools");
+        using (var off = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(off.RootElement.TryGetProperty("calendarEventsShown", out _));
+        }
+
+        store.SetCalendarEventsShown(true);
+        using (var on = JsonDocument.Parse(Written(path)))
+        {
+            Assert.True(on.RootElement.GetProperty("calendarEventsShown").GetBoolean());
+        }
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.True(restarted.CalendarEventsShown);
+        Assert.Equal("tools", restarted.LastSurface);
+
+        restarted.SetCalendarEventsShown(false);
+        using (var removed = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(removed.RootElement.TryGetProperty("calendarEventsShown", out _));
+        }
+
+        Assert.False(new ShellNavigationStore(path).CalendarEventsShown);
+    }
+
+    /// <summary>
+    /// The Calendar's Show tasks box (local ADR 0056 §4) is on until turned off, and its
+    /// key is written only while it is off — so a file from before the box, which carries
+    /// none, reads as on, and turning it back on takes the key out again. The other keys
+    /// are left as they were.
+    /// </summary>
+    [Fact]
+    public void Calendar_tasks_are_on_until_turned_off_and_only_off_writes_a_key()
+    {
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+
+        var store = new ShellNavigationStore(path);
+        Assert.True(store.CalendarTasksShown);
+
+        store.SetCalendarPlansShown(true);
+        using (var on = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(on.RootElement.TryGetProperty("calendarTasksShown", out _));
+        }
+
+        store.SetCalendarTasksShown(false);
+        using (var off = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(off.RootElement.GetProperty("calendarTasksShown").GetBoolean());
+            Assert.True(off.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+        }
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.False(restarted.CalendarTasksShown);
+        Assert.True(restarted.CalendarPlansShown);
+
+        restarted.SetCalendarTasksShown(true);
+        using (var removed = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(removed.RootElement.TryGetProperty("calendarTasksShown", out _));
+            Assert.True(removed.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+        }
+
+        Assert.True(new ShellNavigationStore(path).CalendarTasksShown);
+    }
+
+    /// <summary>
+    /// "Show events" and "Show plans" are two boxes: ticking one leaves the other as it was,
+    /// in the file and after a restart.
+    /// </summary>
+    [Fact]
+    public void Calendar_events_and_calendar_plans_are_kept_apart()
+    {
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+
+        var store = new ShellNavigationStore(path);
+
+        store.SetCalendarEventsShown(true);
+        using (var events = JsonDocument.Parse(Written(path)))
+        {
+            Assert.False(events.RootElement.TryGetProperty("calendarPlansShown", out _));
+        }
+
+        Assert.False(store.CalendarPlansShown);
+
+        store.SetCalendarPlansShown(true);
+        store.SetCalendarEventsShown(false);
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.True(restarted.CalendarPlansShown);
+        Assert.False(restarted.CalendarEventsShown);
     }
 
     /// <summary>
@@ -392,22 +420,16 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_stored_calendar_plans_off_from_the_old_default_stays_off()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """{"lastView":"Calendar","calendarPlansShown":false}""");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{"lastView":"Calendar","calendarPlansShown":false}""");
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.False(store.CalendarPlansShown);
-            Assert.Equal("calendar", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.False(store.CalendarPlansShown);
+        Assert.Equal("calendar", store.LastView);
     }
 
     /// <summary>
@@ -417,55 +439,43 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Folded_roadmap_bands_survive_a_restart_and_none_folded_writes_no_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Empty(store.RoadmapCollapsedGroups);
+
+        store.SetLastSurface("Tools");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Empty(store.RoadmapCollapsedGroups);
-
-            store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
-            }
-
-            store.SetRoadmapCollapsedGroups(["JSdotNet/Backlog", "docs"]);
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal(["JSdotNet/Backlog", "docs"], restarted.RoadmapCollapsedGroups);
-            Assert.Equal("tools", restarted.LastSurface);
-
-            restarted.SetRoadmapCollapsedGroups([]);
-            Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
+            Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetRoadmapCollapsedGroups(["JSdotNet/Backlog", "docs"]);
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal(["JSdotNet/Backlog", "docs"], restarted.RoadmapCollapsedGroups);
+        Assert.Equal("tools", restarted.LastSurface);
+
+        restarted.SetRoadmapCollapsedGroups([]);
+        Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
+        using var cleared = JsonDocument.Parse(Written(path));
+        Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
     }
 
     [Fact]
     public void The_last_view_survives_a_restart_under_its_own_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastView("Roadmap");
+        store.SetLastView("Roadmap");
 
-            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
+        using var document = JsonDocument.Parse(Written(path));
+        Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
     }
 
     /// <summary>
@@ -476,34 +486,28 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_board_columns_survive_a_restart_and_the_default_writes_no_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Equal("Status", store.BoardColumns);
+
+        store.SetLastView("Board");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Equal("Status", store.BoardColumns);
-
-            store.SetLastView("Board");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("boardColumns", out _));
-            }
-
-            store.SetBoardColumns("Plan");
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal("Plan", restarted.BoardColumns);
-            Assert.Equal("board", restarted.LastView);
-
-            restarted.SetBoardColumns("Status");
-            Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("boardColumns", out _));
+            Assert.False(none.RootElement.TryGetProperty("boardColumns", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetBoardColumns("Plan");
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal("Plan", restarted.BoardColumns);
+        Assert.Equal("board", restarted.LastView);
+
+        restarted.SetBoardColumns("Status");
+        Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
+        using var cleared = JsonDocument.Parse(Written(path));
+        Assert.False(cleared.RootElement.TryGetProperty("boardColumns", out _));
     }
 
     /// <summary>
@@ -513,38 +517,32 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_calendar_range_survives_a_restart_and_month_writes_no_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Equal("Month", store.CalendarRange);
+
+        store.SetLastView("Calendar");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Equal("Month", store.CalendarRange);
-
-            store.SetLastView("Calendar");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("calendarRange", out _));
-            }
-
-            store.SetCalendarRange("Week");
-            using (var week = JsonDocument.Parse(Written(path)))
-            {
-                Assert.Equal("Week", week.RootElement.GetProperty("calendarRange").GetString());
-            }
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal("Week", restarted.CalendarRange);
-            Assert.Equal("calendar", restarted.LastView);
-
-            restarted.SetCalendarRange("Month");
-            Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("calendarRange", out _));
+            Assert.False(none.RootElement.TryGetProperty("calendarRange", out _));
         }
-        finally
+
+        store.SetCalendarRange("Week");
+        using (var week = JsonDocument.Parse(Written(path)))
         {
-            DeleteSettingsDirectory(path);
+            Assert.Equal("Week", week.RootElement.GetProperty("calendarRange").GetString());
         }
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal("Week", restarted.CalendarRange);
+        Assert.Equal("calendar", restarted.LastView);
+
+        restarted.SetCalendarRange("Month");
+        Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
+        using var cleared = JsonDocument.Parse(Written(path));
+        Assert.False(cleared.RootElement.TryGetProperty("calendarRange", out _));
     }
 
     /// <summary>
@@ -555,39 +553,33 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_repository_scope_survives_a_restart_in_order_and_empty_writes_no_key()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Empty(store.RepositoryScope);
+
+        store.SetLastSurface("Tools");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Empty(store.RepositoryScope);
-
-            store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("repositoryScope", out _));
-            }
-
-            store.SetRepositoryScope(["docs", "backlog"]);
-            using (var scoped = JsonDocument.Parse(Written(path)))
-            {
-                Assert.Equal(
-                    ["docs", "backlog"],
-                    scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
-            }
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal(["docs", "backlog"], restarted.RepositoryScope);
-
-            restarted.SetRepositoryScope([]);
-            Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("repositoryScope", out _));
+            Assert.False(none.RootElement.TryGetProperty("repositoryScope", out _));
         }
-        finally
+
+        store.SetRepositoryScope(["docs", "backlog"]);
+        using (var scoped = JsonDocument.Parse(Written(path)))
         {
-            DeleteSettingsDirectory(path);
+            Assert.Equal(
+                ["docs", "backlog"],
+                scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
         }
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal(["docs", "backlog"], restarted.RepositoryScope);
+
+        restarted.SetRepositoryScope([]);
+        Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
+        using var cleared = JsonDocument.Parse(Written(path));
+        Assert.False(cleared.RootElement.TryGetProperty("repositoryScope", out _));
     }
 
     /// <summary>
@@ -597,80 +589,20 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_brain_survives_a_restart_as_the_empty_value_in_its_place()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        store.SetRepositoryScope([BrainScope.Value, "backlog"]);
+
+        using (var scoped = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            store.SetRepositoryScope([BrainScope.Value, "backlog"]);
-
-            using (var scoped = JsonDocument.Parse(Written(path)))
-            {
-                Assert.Equal(
-                    ["", "backlog"],
-                    scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
-            }
-
-            Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope);
+            Assert.Equal(
+                ["", "backlog"],
+                scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
 
-    /// <summary>
-    /// The retired "No repo" chip's state, under the name it went by, reopens as the
-    /// Brain alone, whatever scope sat beside it — and the next save writes the old key
-    /// no more.
-    /// </summary>
-    [Fact]
-    public void A_remembered_no_repository_only_state_migrates_to_the_brain()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastView": "Tasks",
-                  "repositoryScope": ["backlog"],
-                  "noRepositoryOnly": true
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            Assert.Equal([BrainScope.Value], store.RepositoryScope);
-
-            store.SetLastView("Board");
-
-            Assert.DoesNotContain("noRepositoryOnly", Written(path), StringComparison.Ordinal);
-            Assert.Equal([BrainScope.Value], new ShellNavigationStore(path).RepositoryScope);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The old flag turned off is no scope at all: the scope beside it stands.</summary>
-    [Fact]
-    public void A_remembered_no_repository_state_that_was_off_leaves_the_scope_alone()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """{ "repositoryScope": ["backlog"], "noRepositoryOnly": false }""");
-
-            Assert.Equal(["backlog"], new ShellNavigationStore(path).RepositoryScope);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope);
     }
 
     /// <summary>
@@ -681,37 +613,30 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_file_without_the_new_keys_reads_as_their_defaults_and_is_saved_without_them()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Workspace",
-                  "lastView": "Board",
-                  "lastEnabledPanes": ["Devbook"],
-                  "boardColumns": "Plan"
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "lastSurface": "Workspace",
+              "lastView": "Board",
+              "boardColumns": "Plan"
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Month", store.CalendarRange);
-            Assert.Empty(store.RepositoryScope);
-            Assert.Equal("Plan", store.BoardColumns);
+        Assert.Equal("Month", store.CalendarRange);
+        Assert.Empty(store.RepositoryScope);
+        Assert.Equal("Plan", store.BoardColumns);
 
-            store.SetLastView("Tasks");
+        store.SetLastView("Tasks");
 
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
-            Assert.False(document.RootElement.TryGetProperty("repositoryScope", out _));
-            Assert.Equal("Plan", document.RootElement.GetProperty("boardColumns").GetString());
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        using var document = JsonDocument.Parse(Written(path));
+        Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
+        Assert.False(document.RootElement.TryGetProperty("repositoryScope", out _));
+        Assert.Equal("Plan", document.RootElement.GetProperty("boardColumns").GetString());
     }
 
     /// <summary>A blank stored range is no range at all and reads as Month; a name the
@@ -719,19 +644,13 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_blank_calendar_range_reads_as_month()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """{"calendarRange":"  "}""");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{"calendarRange":"  "}""");
 
-            Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
     }
 
     /// <summary>Each new choice is announced when it changes and is silent when set to
@@ -739,56 +658,44 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Setting_a_new_choice_to_its_current_value_is_a_no_op_and_changing_it_says_so()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            var changes = 0;
-            store.Changed += () => changes++;
+        var store = new ShellNavigationStore(path);
+        var changes = 0;
+        store.Changed += () => changes++;
 
-            store.SetCalendarRange("Month");
-            store.SetRepositoryScope([]);
-            Assert.Equal(0, changes);
-            Assert.False(File.Exists(path));
+        store.SetCalendarRange("Month");
+        store.SetRepositoryScope([]);
+        Assert.Equal(0, changes);
+        Assert.False(File.Exists(path));
 
-            store.SetCalendarRange("Week");
-            store.SetRepositoryScope(["backlog", "docs"]);
-            Assert.Equal(2, changes);
+        store.SetCalendarRange("Week");
+        store.SetRepositoryScope(["backlog", "docs"]);
+        Assert.Equal(2, changes);
 
-            store.SetRepositoryScope(["backlog", "docs"]);
-            Assert.Equal(2, changes);
+        store.SetRepositoryScope(["backlog", "docs"]);
+        Assert.Equal(2, changes);
 
-            // The order is the anchor, so the same aliases in another order are a change.
-            store.SetRepositoryScope(["docs", "backlog"]);
-            Assert.Equal(3, changes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        // The order is the anchor, so the same aliases in another order are a change.
+        store.SetRepositoryScope(["docs", "backlog"]);
+        Assert.Equal(3, changes);
     }
 
     [Fact]
     public void Setting_the_same_view_again_is_a_no_op()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            store.SetLastView("Roadmap");
+        var store = new ShellNavigationStore(path);
+        store.SetLastView("Roadmap");
 
-            var changes = 0;
-            store.Changed += () => changes++;
-            store.SetLastView("Roadmap");
+        var changes = 0;
+        store.Changed += () => changes++;
+        store.SetLastView("Roadmap");
 
-            Assert.Equal(0, changes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal(0, changes);
     }
 
     /// <summary>
@@ -798,27 +705,20 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_file_without_a_last_view_reads_as_the_tasks_view()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Dashboard",
-                  "lastEnabledPanes": ["Tasks", "Devbook"]
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "lastSurface": "Dashboard"
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal("tasks", store.LastView);
-            Assert.Equal("dashboard", store.LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("tasks", store.LastView);
+        Assert.Equal("dashboard", store.LastSurface);
     }
 
     /// <summary>
@@ -829,36 +729,26 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_roadmap_surface_from_before_the_view_switch_reads_as_the_roadmap_view()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Roadmap",
-                  "lastEnabledPanes": ["Inbox"]
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "lastSurface": "Roadmap"
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal("roadmap", store.LastView);
-            Assert.Null(store.LastSurface);
+        Assert.Equal("roadmap", store.LastView);
+        Assert.Null(store.LastSurface);
 
-            // The roadmap takeover covered the Inbox pane, so the Inbox was not on
-            // screen: it does not become the surface, and leaves the pane list.
-            store.SetBoardColumns("Plan");
+        store.SetBoardColumns("Plan");
 
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
-            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        using var document = JsonDocument.Parse(Written(path));
+        Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
+        Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
     }
 
     /// <summary>Roadmap stays readable as a surface name and is never written as one:
@@ -866,257 +756,43 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Roadmap_handed_over_as_a_surface_is_remembered_as_the_view()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastSurface("Roadmap");
+        store.SetLastSurface("Roadmap");
 
-            Assert.Null(store.LastSurface);
-            Assert.Equal("roadmap", store.LastView);
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// The Inbox was a side pane beside the main view before it took the whole
-    /// screen. A file from then with it open over the workspace reopens on the Inbox
-    /// surface, with the view underneath kept, and the pane list loses the name. A
-    /// Devbook open beside it does not win the screen: from when the Inbox took the
-    /// screen until the Devbook did, the Inbox surface covered the Devbook pane.
-    /// </summary>
-    [Theory]
-    [InlineData("\"lastSurface\": \"Workspace\",")]
-    [InlineData("")]
-    public void An_inbox_pane_open_over_the_workspace_reads_as_the_inbox_surface(string surfaceLine)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  {{surfaceLine}}
-                  "lastView": "Board",
-                  "lastEnabledPanes": ["Inbox", "Devbook"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("inbox", store.LastSurface);
-            Assert.Equal("board", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>A takeover stored over the Inbox pane was what the reader saw, so it
-    /// stays the surface; the Inbox name is dropped and nothing else changes.</summary>
-    [Fact]
-    public void An_inbox_pane_under_another_surface_is_dropped_and_the_surface_kept()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                {
-                  "lastSurface": "Dashboard",
-                  "lastEnabledPanes": ["Inbox"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("dashboard", store.LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The migration is what the next save writes: the Inbox as the surface,
-    /// and never again among the panes.</summary>
-    [Fact]
-    public void A_migrated_inbox_pane_is_written_back_as_the_surface()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["Inbox", "Devbook"] }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            store.SetLastView("Calendar");
-
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("inbox", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Null(store.LastSurface);
+        Assert.Equal("roadmap", store.LastView);
+        using var document = JsonDocument.Parse(Written(path));
+        Assert.False(document.RootElement.TryGetProperty("lastSurface", out var lastSurface) && lastSurface.ValueKind != JsonValueKind.Null);
     }
 
     [Fact]
     public void The_inbox_surface_survives_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastSurface("Inbox");
+        store.SetLastSurface("Inbox");
 
-            Assert.Equal("inbox", new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
-    /// The Devbook was a side pane beside the main view before it took the whole
-    /// screen (local ADR 0022, amendment of 2026-10-15), stored as <c>Devbook</c> or,
-    /// before the context was renamed, <c>Knowledge</c>. A file from then with it
-    /// open over the workspace reopens on the Devbook surface, the view underneath
-    /// kept.
-    /// </summary>
-    [Theory]
-    [InlineData("Devbook", "\"lastSurface\": \"Workspace\",")]
-    [InlineData("Devbook", "")]
-    [InlineData("Knowledge", "\"lastSurface\": \"Workspace\",")]
-    [InlineData("Knowledge", "")]
-    public void A_devbook_pane_open_over_the_workspace_reads_as_the_devbook_surface(string pane, string surfaceLine)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  {{surfaceLine}}
-                  "lastView": "Board",
-                  "lastEnabledPanes": ["{{pane}}"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal("devbook", store.LastSurface);
-            Assert.Equal("board", store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>A takeover stored over the Devbook pane was what the reader saw, so it
-    /// stays the surface — the roadmap takeover as the Roadmap view, as ever.</summary>
-    [Theory]
-    [InlineData("Devbook", "Dashboard", "dashboard", "calendar")]
-    [InlineData("Knowledge", "Sessions", "sessions", "calendar")]
-    [InlineData("Devbook", "Tools", "tools", "calendar")]
-    [InlineData("Knowledge", "Roadmap", null, "roadmap")]
-    public void A_devbook_pane_under_another_surface_leaves_that_surface(
-        string pane, string storedSurface, string? surface, string view)
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  "lastSurface": "{{storedSurface}}",
-                  "lastView": "Calendar",
-                  "lastEnabledPanes": ["{{pane}}"]
-                }
-                """);
-
-            var store = new ShellNavigationStore(path);
-
-            Assert.Equal(surface, store.LastSurface);
-            Assert.Equal(view, store.LastView);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>The migration is what the next save writes: the Devbook as the
-    /// surface, and no pane list at all — that key is never written again.</summary>
-    [Fact]
-    public void A_migrated_devbook_pane_is_written_back_as_the_surface_and_the_pane_list_never_again()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """
-                { "lastSurface": "Workspace", "lastEnabledPanes": ["Tasks", "Knowledge"] }
-                """);
-
-            var store = new ShellNavigationStore(path);
-            store.SetLastView("Calendar");
-
-            using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("devbook", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
-
-            store.SetLastSurface("Workspace");
-
-            using var after = JsonDocument.Parse(Written(path));
-            Assert.False(after.RootElement.TryGetProperty("lastSurface", out var written) && written.ValueKind != JsonValueKind.Null);
-            Assert.False(after.RootElement.TryGetProperty("lastEnabledPanes", out _));
-            Assert.Null(new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("inbox", new ShellNavigationStore(path).LastSurface);
     }
 
     [Fact]
     public void The_devbook_surface_survives_a_restart()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            store.SetLastSurface("Devbook");
+        store.SetLastSurface("Devbook");
 
-            Assert.Equal("devbook", new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("devbook", new ShellNavigationStore(path).LastSurface);
     }
 
     /// <summary>
@@ -1127,33 +803,27 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_tools_tab_and_host_filter_survive_a_restart_and_write_no_key_until_chosen()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Null(store.ToolsTab);
+        Assert.Null(store.ToolsHostFilter);
+
+        store.SetLastSurface("Tools");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Null(store.ToolsTab);
-            Assert.Null(store.ToolsHostFilter);
-
-            store.SetLastSurface("Tools");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("toolsTab", out _));
-                Assert.False(none.RootElement.TryGetProperty("toolsHostFilter", out _));
-            }
-
-            store.SetToolsTab("checklist");
-            store.SetToolsHostFilter("claude");
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal("checklist", restarted.ToolsTab);
-            Assert.Equal("claude", restarted.ToolsHostFilter);
-            Assert.Equal("tools", restarted.LastSurface);
+            Assert.False(none.RootElement.TryGetProperty("toolsTab", out _));
+            Assert.False(none.RootElement.TryGetProperty("toolsHostFilter", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetToolsTab("checklist");
+        store.SetToolsHostFilter("claude");
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal("checklist", restarted.ToolsTab);
+        Assert.Equal("claude", restarted.ToolsHostFilter);
+        Assert.Equal("tools", restarted.LastSurface);
     }
 
     /// <summary>
@@ -1164,37 +834,31 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_notification_centre_choices_survive_a_restart_and_write_no_key_until_chosen()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var preferences = new ShellNotificationCentrePreferences(new ShellNavigationStore(path));
+        Assert.Equal(new NotificationCentreChoices(), preferences.Choices);
+
+        new ShellNavigationStore(path).SetLastSurface("notifications");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var preferences = new ShellNotificationCentrePreferences(new ShellNavigationStore(path));
-            Assert.Equal(new NotificationCentreChoices(), preferences.Choices);
-
-            new ShellNavigationStore(path).SetLastSurface("notifications");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("notificationsGroupBy", out _));
-                Assert.False(none.RootElement.TryGetProperty("notificationsFrom", out _));
-            }
-
-            var store = new ShellNavigationStore(path);
-            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"));
-            store.Flush();
-
-            Assert.Equal(
-                new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"),
-                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
-
-            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by"));
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("notificationsFrom", out _));
-            Assert.Equal("asked-by", cleared.RootElement.GetProperty("notificationsGroupBy").GetString());
+            Assert.False(none.RootElement.TryGetProperty("notificationsGroupBy", out _));
+            Assert.False(none.RootElement.TryGetProperty("notificationsFrom", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        var store = new ShellNavigationStore(path);
+        new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"));
+        store.Flush();
+
+        Assert.Equal(
+            new NotificationCentreChoices("asked-by", "ai-agent", "questions", "Claude Code"),
+            new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
+
+        new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices("asked-by"));
+        using var cleared = JsonDocument.Parse(Written(path));
+        Assert.False(cleared.RootElement.TryGetProperty("notificationsFrom", out _));
+        Assert.Equal("asked-by", cleared.RootElement.GetProperty("notificationsGroupBy").GetString());
     }
 
     /// <summary>
@@ -1205,32 +869,26 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_notification_centre_show_settled_survives_a_restart_and_writes_no_key_while_off()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "lastSurface": "notifications", "notificationsKind": "alerts" }""");
+        var store = new ShellNavigationStore(path);
+        Assert.False(store.NotificationsShowSettled);
+
+        store.SetNotificationsView(null, null, "alerts", null, showSettled: true);
+        using (var shown = JsonDocument.Parse(Written(path)))
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, """{ "lastSurface": "notifications", "notificationsKind": "alerts" }""");
-            var store = new ShellNavigationStore(path);
-            Assert.False(store.NotificationsShowSettled);
-
-            store.SetNotificationsView(null, null, "alerts", null, showSettled: true);
-            using (var shown = JsonDocument.Parse(Written(path)))
-            {
-                Assert.True(shown.RootElement.GetProperty("notificationsShowSettled").GetBoolean());
-            }
-
-            Assert.True(new ShellNavigationStore(path).NotificationsShowSettled);
-
-            store.SetNotificationsView(null, null, "alerts", null, showSettled: false);
-            using var hidden = JsonDocument.Parse(Written(path));
-            Assert.False(hidden.RootElement.TryGetProperty("notificationsShowSettled", out _));
-            Assert.False(new ShellNavigationStore(path).NotificationsShowSettled);
+            Assert.True(shown.RootElement.GetProperty("notificationsShowSettled").GetBoolean());
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        Assert.True(new ShellNavigationStore(path).NotificationsShowSettled);
+
+        store.SetNotificationsView(null, null, "alerts", null, showSettled: false);
+        using var hidden = JsonDocument.Parse(Written(path));
+        Assert.False(hidden.RootElement.TryGetProperty("notificationsShowSettled", out _));
+        Assert.False(new ShellNavigationStore(path).NotificationsShowSettled);
     }
 
     /// <summary>Setting the centre's view to what it already is, show settled included,
@@ -1238,28 +896,22 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void Setting_the_notification_centre_view_to_its_current_value_is_a_no_op()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            var changes = 0;
-            store.Changed += () => changes++;
+        var store = new ShellNavigationStore(path);
+        var changes = 0;
+        store.Changed += () => changes++;
 
-            store.SetNotificationsView(null, null, null, null, showSettled: false);
-            Assert.Equal(0, changes);
-            Assert.False(File.Exists(path));
+        store.SetNotificationsView(null, null, null, null, showSettled: false);
+        Assert.Equal(0, changes);
+        Assert.False(File.Exists(path));
 
-            store.SetNotificationsView(null, null, null, null, showSettled: true);
-            Assert.Equal(1, changes);
+        store.SetNotificationsView(null, null, null, null, showSettled: true);
+        Assert.Equal(1, changes);
 
-            store.SetNotificationsView(null, null, null, null, showSettled: true);
-            Assert.Equal(1, changes);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        store.SetNotificationsView(null, null, null, null, showSettled: true);
+        Assert.Equal(1, changes);
     }
 
     /// <summary>The centre's port carries show settled both ways: shown is remembered as
@@ -1267,29 +919,23 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_notification_centre_preferences_carry_show_settled_both_ways()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: true));
-            store.Flush();
+        var store = new ShellNavigationStore(path);
+        new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: true));
+        store.Flush();
 
-            Assert.Equal(
-                new NotificationCentreChoices(Kind: "questions", ShowSettled: true),
-                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
+        Assert.Equal(
+            new NotificationCentreChoices(Kind: "questions", ShowSettled: true),
+            new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
 
-            new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: false));
-            store.Flush();
+        new ShellNotificationCentrePreferences(store).Remember(new NotificationCentreChoices(Kind: "questions", ShowSettled: false));
+        store.Flush();
 
-            Assert.Equal(
-                new NotificationCentreChoices(Kind: "questions"),
-                new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal(
+            new NotificationCentreChoices(Kind: "questions"),
+            new ShellNotificationCentrePreferences(new ShellNavigationStore(path)).Choices);
     }
 
     /// <summary>
@@ -1301,39 +947,33 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_atlas_place_survives_a_restart_and_writes_no_key_until_the_atlas_opens()
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
+        var store = new ShellNavigationStore(path);
+        Assert.Null(store.AtlasReturnSurface);
+        Assert.Null(store.AtlasScope);
+
+        store.SetLastSurface("Dashboard");
+        using (var none = JsonDocument.Parse(Written(path)))
         {
-            var store = new ShellNavigationStore(path);
-            Assert.Null(store.AtlasReturnSurface);
-            Assert.Null(store.AtlasScope);
-
-            store.SetLastSurface("Dashboard");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("atlasReturnSurface", out _));
-                Assert.False(none.RootElement.TryGetProperty("atlasScope", out _));
-            }
-
-            store.SetLastSurface("atlas");
-            store.SetAtlasPlace("dashboard", "ghost:devbook-stack");
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.Equal("atlas", restarted.LastSurface);
-            Assert.Equal("dashboard", restarted.AtlasReturnSurface);
-            Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
-
-            // All, from the header, is no scope at all; the workspace is no takeover.
-            restarted.SetAtlasPlace(null, null);
-            var again = new ShellNavigationStore(path);
-            Assert.Null(again.AtlasReturnSurface);
-            Assert.Null(again.AtlasScope);
+            Assert.False(none.RootElement.TryGetProperty("atlasReturnSurface", out _));
+            Assert.False(none.RootElement.TryGetProperty("atlasScope", out _));
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.SetLastSurface("atlas");
+        store.SetAtlasPlace("dashboard", "ghost:devbook-stack");
+
+        var restarted = new ShellNavigationStore(path);
+        Assert.Equal("atlas", restarted.LastSurface);
+        Assert.Equal("dashboard", restarted.AtlasReturnSurface);
+        Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
+
+        // All, from the header, is no scope at all; the workspace is no takeover.
+        restarted.SetAtlasPlace(null, null);
+        var again = new ShellNavigationStore(path);
+        Assert.Null(again.AtlasReturnSurface);
+        Assert.Null(again.AtlasScope);
     }
 
     /// <summary>
@@ -1348,29 +988,23 @@ public sealed class ShellNavigationStoreTests
     [InlineData("Roadmap", null)]
     public void A_retired_atlas_place_reads_as_surface_ids(string storedReturn, string? returnId)
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  "lastSurface": "Atlas",
-                  "atlasReturnSurface": "{{storedReturn}}",
-                  "atlasScope": "repo:backlog"
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, $$"""
+            {
+              "lastSurface": "Atlas",
+              "atlasReturnSurface": "{{storedReturn}}",
+              "atlasScope": "repo:backlog"
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal("atlas", store.LastSurface);
-            Assert.Equal(returnId, store.AtlasReturnSurface);
-            Assert.Equal("repo:backlog", store.AtlasScope);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        Assert.Equal("atlas", store.LastSurface);
+        Assert.Equal(returnId, store.AtlasReturnSurface);
+        Assert.Equal("repo:backlog", store.AtlasScope);
     }
 
     /// <summary>
@@ -1381,28 +1015,22 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_burst_of_choices_leaves_the_last_one_written()
     {
-        var path = NewSettingsPath();
-        try
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+        var store = new ShellNavigationStore(path);
+        string[] views = ["board", "calendar", "roadmap", "goals", "tasks", "board", "calendar"];
+
+        foreach (var view in views)
         {
-            var store = new ShellNavigationStore(path);
-            string[] views = ["board", "calendar", "roadmap", "goals", "tasks", "board", "calendar"];
-
-            foreach (var view in views)
-            {
-                store.SetLastView(view);
-                Assert.Equal(view, store.LastView);
-            }
-
-            store.Flush();
-
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            Assert.Equal("calendar", document.RootElement.GetProperty("lastView").GetString());
-            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
+            store.SetLastView(view);
+            Assert.Equal(view, store.LastView);
         }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+
+        store.Flush();
+
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        Assert.Equal("calendar", document.RootElement.GetProperty("lastView").GetString());
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
     }
 
     /// <summary>A shell that remounts — Settings and back — or a second store on
@@ -1411,22 +1039,16 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void A_store_opened_on_the_path_reads_the_choice_just_made()
     {
-        var path = NewSettingsPath();
-        try
-        {
-            var store = new ShellNavigationStore(path);
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+        var store = new ShellNavigationStore(path);
 
-            for (var press = 0; press < 20; press++)
-            {
-                var surface = press % 2 == 0 ? "sessions" : "dashboard";
-                store.SetLastSurface(surface);
-
-                Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
-            }
-        }
-        finally
+        for (var press = 0; press < 20; press++)
         {
-            DeleteSettingsDirectory(path);
+            var surface = press % 2 == 0 ? "sessions" : "dashboard";
+            store.SetLastSurface(surface);
+
+            Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
         }
     }
 
@@ -1437,17 +1059,6 @@ public sealed class ShellNavigationStoreTests
     {
         ShellNavigationStore.WaitForPendingWrites(path);
         return File.ReadAllText(path);
-    }
-
-    private static string NewSettingsPath() =>
-        Path.Combine(Path.GetTempPath(), "backlog-shell-navigation-tests", Guid.NewGuid().ToString("n"), "shell-navigation.json");
-
-    private static void DeleteSettingsDirectory(string path)
-    {
-        var directory = Path.GetDirectoryName(path);
-        if (directory is null) return;
-
-        try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
     }
 
     /// <summary>
@@ -1469,32 +1080,26 @@ public sealed class ShellNavigationStoreTests
     [InlineData("Atlas", "atlas", "tasks")]
     public void Every_retired_surface_name_restores_as_its_surface_id(string storedSurface, string? surface, string view)
     {
-        var path = NewSettingsPath();
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $$"""
-                {
-                  "lastSurface": "{{storedSurface}}",
-                  "lastView": "Tasks"
-                }
-                """);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, $$"""
+            {
+              "lastSurface": "{{storedSurface}}",
+              "lastView": "Tasks"
+            }
+            """);
 
-            var store = new ShellNavigationStore(path);
+        var store = new ShellNavigationStore(path);
 
-            Assert.Equal(surface, store.LastSurface);
-            Assert.Equal(view, store.LastView);
+        Assert.Equal(surface, store.LastSurface);
+        Assert.Equal(view, store.LastView);
 
-            // The next save writes the id, never the old name back.
-            store.SetRepositoryScope(["backlog"]);
-            store.Flush();
-            Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
+        // The next save writes the id, never the old name back.
+        store.SetRepositoryScope(["backlog"]);
+        store.Flush();
+        Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
     }
 
     /// <summary>The map names exactly the retired enum's members but <c>Roadmap</c>,

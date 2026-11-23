@@ -75,7 +75,8 @@ public class ToolsAiContentSourceTests
     [Fact]
     public async Task An_http_row_shares_its_url_and_none_of_its_headers()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tools-ai-tests", Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("backlog-tools-ai-tests");
+        var root = temp.Path;
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         File.WriteAllText(
             Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),

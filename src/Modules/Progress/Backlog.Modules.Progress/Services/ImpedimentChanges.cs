@@ -10,12 +10,7 @@ namespace Backlog.Modules.Progress.Services;
 /// gives a goal: every change that saves one raises it once the gate is let go, and a
 /// pulled copy raises it too. A singleton, because the commands run in scopes of their own.
 /// </summary>
-public sealed class ImpedimentSaved
-{
-    public event Action? Changed;
-
-    public void Raise() => Changed?.Invoke();
-}
+public sealed class ImpedimentSaved : DocumentSaved;
 
 /// <summary>From the aggregate to what a caller receives.</summary>
 public static class ImpedimentMapper

@@ -3,6 +3,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
+using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -39,7 +40,8 @@ public sealed class ReceiveNoteCommandHandler(
     TimeProvider clock,
     IInboxAttachmentSource? attachmentSource = null,
     IInboxAttachmentFiles? attachmentFiles = null,
-    ILogger<ReceiveNoteCommandHandler>? logger = null)
+    ILogger<ReceiveNoteCommandHandler>? logger = null,
+    IInboxRecordingQueue? recordings = null)
     : ICommandHandler<ReceiveNoteCommand, Result<InboxIntakeOutcome>>
 {
     private readonly ILogger _logger = logger ?? NullLogger<ReceiveNoteCommandHandler>.Instance;
@@ -108,7 +110,7 @@ public sealed class ReceiveNoteCommandHandler(
                         note.Id,
                         string.IsNullOrWhiteSpace(note.Title) ? deleted?.Title ?? "Note" : note.Title,
                         note.CapturedAt,
-                        now > note.UpdatedAt ? now : note.UpdatedAt.AddTicks(1),
+                        InboxStamps.After(now, note.UpdatedAt),
                         InboxEnumMap.NoteKind),
                     cancellationToken).ConfigureAwait(false);
             }
@@ -123,7 +125,7 @@ public sealed class ReceiveNoteCommandHandler(
             note.Title,
             new InboxSource(InboxEnumMap.NormalizeChannel(note.Channel), Person: null),
             sourceUrl: null,
-            ContentKind.Note,
+            KindOf(note),
             note.CapturedAt,
             clock.GetUtcNow(),
             string.IsNullOrWhiteSpace(note.BodyMd) ? null : note.BodyMd.Trim(),
@@ -149,6 +151,11 @@ public sealed class ReceiveNoteCommandHandler(
 
         return InboxIntakeOutcome.Received;
     }
+
+    /// <summary>The kind a new item takes from the document: a meeting when it says
+    /// so, a note otherwise — a note document never makes an item of any other kind.</summary>
+    private static ContentKind KindOf(InboxNoteDto note) =>
+        string.Equals(note.Kind, InboxEnumMap.MeetingKind, StringComparison.Ordinal) ? ContentKind.Meeting : ContentKind.Note;
 
     private async Task<InboxIntakeOutcome> WithdrawAsync(InboxItem existing, InboxNoteDto note, CancellationToken cancellationToken)
     {
@@ -178,6 +185,21 @@ public sealed class ReceiveNoteCommandHandler(
     /// save of the copy read before would put the old text back.
     /// </summary>
     private async Task FetchAndKeepAsync(InboxItem item, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await FetchAsync(item, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Every pulled note with a recording is handed on (local ADR 0049): a downloaded
+            // one is transcribed, and one already transcribed is checked for a phone edit
+            // that named it again or dropped its sections.
+            if (recordings is not null && item.Attachments.Any(attachment => attachment.IsRecording)) recordings.Request(item.Id);
+        }
+    }
+
+    private async Task FetchAsync(InboxItem item, CancellationToken cancellationToken)
     {
         if (!await ReceiveCaptureCommandHandler
                 .FetchWaitingAsync(item, attachmentSource, attachmentFiles, clock, _logger, cancellationToken)

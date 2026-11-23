@@ -1,6 +1,6 @@
 // Loading the tools from a suite that is its own npm package: `@playwright/test`
 // resolved from where Playwright runs rather than from this folder, and the
-// folder's package.json, which makes Playwright load setup.ts and shot.ts as
+// folder's package.json, which makes Playwright load shot.ts as
 // ES modules.
 //
 // Run: `node --test playwright.test.mjs`
@@ -48,10 +48,10 @@ test("a suite with its own node_modules resolves its copy, which the tools folde
     }
 });
 
-test("the folder is an ES module package, so Playwright loads setup.ts and its .mjs imports as ESM", async () => {
+test("the folder is an ES module package, so Playwright loads shot.ts and its .mjs imports as ESM", async () => {
     const manifest = JSON.parse(await readFile(path.join(HERE, "package.json"), "utf8"));
     assert.equal(manifest.type, "module");
-    for (const file of ["setup.ts", "shot.ts"]) {
+    for (const file of ["shot.ts"]) {
         const source = await readFile(path.join(HERE, file), "utf8");
         assert.doesNotMatch(source, /^import (?!type )[^;]*from '@playwright\/test'/m, `${file} imports @playwright/test only as a type`);
         assert.match(source, /playwrightTest\(\)/, `${file} takes Playwright from playwright.mjs`);

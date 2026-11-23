@@ -40,7 +40,11 @@ internal static class Projections
         entry.DependsOn ?? [],
         entry.ImportPlanId,
         entry.ImportItemId,
-        entry.CreatedAt);
+        entry.CreatedAt)
+    {
+        WaitingFor = entry.WaitingFor?.Who,
+        FollowUpOn = entry.WaitingFor?.FollowUpOn
+    };
 
     internal static DevbookReferencePayload DevbookReference(ResolvedDevbookReference reference) => new(
         reference.Reference,
@@ -51,7 +55,8 @@ internal static class Projections
         reference.Status,
         reference.Folder)
     {
-        Parts = reference.ScenarioParts.Count == 0 ? null : [.. reference.ScenarioParts.Select(ScenarioPart)]
+        Parts = reference.ScenarioParts.Count == 0 ? null : [.. reference.ScenarioParts.Select(ScenarioPart)],
+        Scope = reference.IsBrainNote ? BrainMcpScope.Value : null
     };
 
     internal static ScenarioPartPayload ScenarioPart(ScenarioPartEvidence part) => new(

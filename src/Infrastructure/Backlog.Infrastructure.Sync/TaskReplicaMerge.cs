@@ -1,4 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Events.Abstractions;
+using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Progress.Abstractions.Services;
@@ -11,6 +13,8 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel;
+using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -145,6 +149,12 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// Progress's iteration settings port on the same terms (local ADR 0036, §4), and is
 /// Skipped on a head without the port.
 /// </para>
+/// <para>
+/// <b>Nor is an attachment request.</b> An <c>event-attachment-request</c> the phone wrote goes
+/// to Events' attachment port (<c>.devbook/domain/events/domain.md#attachment-request</c>) and is
+/// retired like an impediment edit once Events has answered it. A head without the port, or with
+/// the <c>events</c> area off, holds it on the replica for a desktop that applies it.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -159,9 +169,11 @@ public sealed class TaskReplicaMerge(
     IGoalReplication? goals = null,
     IImpedimentReplication? impediments = null,
     IImpedimentEditIntake? impedimentEdits = null,
-    ImpedimentEditRetirements? retirements = null,
+    PhoneRequestRetirements? retirements = null,
     TimeProvider? time = null,
-    IIterationSettingsReplication? iteration = null)
+    IIterationSettingsReplication? iteration = null,
+    IEventAttachmentRequests? eventAttachments = null,
+    IAppFeatureSettings? features = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -214,7 +226,15 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where the tombstone of an edit Progress answered waits for the push, or null
     /// on a head that sends none — the edit then stays on the replica, and the next desktop
     /// refuses it as stale.</summary>
-    private readonly ImpedimentEditRetirements? _retirements = retirements;
+    private readonly PhoneRequestRetirements? _retirements = retirements;
+
+    /// <summary>Where an attachment request the phone wrote is applied, or null on a head
+    /// without Events, which leaves the request on the replica for one that has it.</summary>
+    private readonly IEventAttachmentRequests? _eventAttachments = eventAttachments;
+
+    /// <summary>The switches the <c>events</c> area answers to. A head that keeps none applies
+    /// no attachment request, since it cannot say the area is on.</summary>
+    private readonly IAppFeatureSettings? _features = features;
 
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
@@ -406,7 +426,9 @@ public sealed class TaskReplicaMerge(
             PlannedHours: task.PlannedHours.Count == 0
                 ? null
                 : [.. task.PlannedHours.Select(block => new PlannedHoursPayload(block.On, block.Hours))],
-            SourceNotificationId: task.SourceNotificationId);
+            SourceNotificationId: task.SourceNotificationId,
+            WaitingFor: task.WaitingFor?.Who,
+            FollowUpOn: task.WaitingFor?.FollowUpOn);
     }
 
     /// <summary>The source reference a document carries, or null. One that names no
@@ -482,6 +504,7 @@ public sealed class TaskReplicaMerge(
         task.SetCompletedOn(payload.CompletedOn);
         task.SetStartedOn(payload.StartedOn);
         task.SetBlockedSince(payload.BlockedSince);
+        task.SetWaitingFor(WaitingFor.From(payload.WaitingFor, payload.FollowUpOn));
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
         // Filtered for the reason the local store filters them: one value the
@@ -624,7 +647,7 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Unreadable;
             }
 
-            // Received and Withdrawn wrote something; AlreadyKnown and Ignored
+            // Received, Withdrawn and Updated wrote something; AlreadyKnown and Ignored
             // are the capture's echo or replay, and a replayed page writes
             // nothing — the same idempotency the task path keeps below.
             switch (outcome)
@@ -637,6 +660,12 @@ public sealed class TaskReplicaMerge(
                 case InboxIntakeOutcome.Withdrawn:
                     Moved(
                         moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    return ApplyOutcome.Written;
+
+                // The phone reworded a capture still open here.
+                case InboxIntakeOutcome.Updated:
+                    Moved(
+                        moved, SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "edited");
                     return ApplyOutcome.Written;
 
                 default:
@@ -696,6 +725,11 @@ public sealed class TaskReplicaMerge(
         if (ImpedimentEditReplicaDocuments.Is(record.Change))
         {
             return await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (EventAttachmentReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyEventAttachmentAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
         var local = await _tasks
@@ -810,25 +844,7 @@ public sealed class TaskReplicaMerge(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case RoadmapReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case RoadmapReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Roadmap, "that document");
     }
 
     /// <summary>
@@ -905,24 +921,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(GoalReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case GoalReplicaOutcome.Taken:
-                Moved(moved, SyncDirection.Received, SyncItemKind.Goal, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case GoalReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that goal. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Goal, "that goal");
     }
 
     /// <summary>
@@ -948,32 +947,20 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(ImpedimentReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case ImpedimentReplicaOutcome.Taken:
-                Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case ImpedimentReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that impediment. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.Impediment, "that impediment");
     }
 
     /// <summary>
     /// Offers again every impediment edit a pull deferred because this desktop did not hold
     /// its impediment yet — the session calls it once a pull has finished, when the
     /// impediment may have arrived. One still unknown is deferred again, for the life of the
-    /// process; one Progress answers is retired as any other.
+    /// process; one Progress answers is retired as any other. An attachment request deferred
+    /// for an event this desktop did not hold yet, or met while the <c>events</c> area was off,
+    /// is offered again the same way: the event arrives on its own feed and the area may be
+    /// switched on later, so a later cycle's retry is the one that finds it — in a later run
+    /// too, since an attachment request is held durably.
     /// </summary>
-    public async Task<int> RetryDeferredEditsAsync(CancellationToken cancellationToken = default)
+    public async Task<int> RetryDeferredRequestsAsync(CancellationToken cancellationToken = default)
     {
         if (_retirements?.TakeDeferred() is not { Count: > 0 } deferred) return 0;
 
@@ -985,7 +972,11 @@ public sealed class TaskReplicaMerge(
             foreach (var change in deferred)
             {
                 var record = new TaskChangeRecord(change, Guid.Empty, 0);
-                if (await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false) == ApplyOutcome.Written) applied++;
+                var outcome = EventAttachmentReplicaDocuments.Is(change)
+                    ? await ApplyEventAttachmentAsync(record, moved, cancellationToken).ConfigureAwait(false)
+                    : await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
+
+                if (outcome == ApplyOutcome.Written) applied++;
             }
         }
         finally
@@ -1024,7 +1015,7 @@ public sealed class TaskReplicaMerge(
         var outcome = await _impedimentEdits.ApplyAsync(edit, cancellationToken).ConfigureAwait(false);
 
         // An impediment this desktop has not got yet may arrive later in the same pull: the
-        // edit is kept and offered again once the pull is done (RetryDeferredEditsAsync).
+        // edit is kept and offered again once the pull is done (RetryDeferredRequestsAsync).
         if (outcome == ImpedimentEditOutcome.Unknown)
         {
             _log.LogInformation(
@@ -1053,6 +1044,82 @@ public sealed class TaskReplicaMerge(
     }
 
     /// <summary>
+    /// Hands an attachment request the phone wrote to Events, which links the Talk note to the
+    /// event, and queues the request's tombstone once Events has answered it — attached, already
+    /// attached, incomplete or for an event removed here alike, since none of those answers
+    /// changes on a second asking
+    /// (<c>.devbook/domain/events/domain.md#attachment-request</c>). A retired request and one on
+    /// a head without Events are left alone: another desktop may still apply them, and a retired
+    /// one this desktop holds is let go. One met while the <c>events</c> area is off is deferred,
+    /// since the task cursor moves past it and the area may be switched on again — after a
+    /// restart too, because <see cref="PhoneRequestRetirements"/> keeps it durably.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyEventAttachmentAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (record.Change.DeletedAt is not null)
+        {
+            // Another desktop answered it, or this one did and the tombstone echoed back.
+            _retirements?.Release(record.Change.Id);
+            return ApplyOutcome.Held;
+        }
+
+        if (_eventAttachments is null) return ApplyOutcome.Held;
+
+        if (_features?.IsEnabled(EventsFeatures.Events) != true)
+        {
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        if (EventAttachmentReplicaDocuments.ToRequest(record.Change) is not { } request)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the request. "
+                + "It is left on the replica.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            // Held while the area was off, it reads no better on the next retry: let it go, so
+            // it is not offered on every cycle. The replica still has it for a newer build.
+            _retirements?.Release(record.Change.Id);
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _eventAttachments.ApplyAsync(request, cancellationToken).ConfigureAwait(false);
+
+        // The event may reach this desktop on its own feed later: the request is kept and
+        // offered again after each pull (RetryDeferredRequestsAsync).
+        if (outcome == EventAttachmentOutcome.UnknownEvent)
+        {
+            _log.LogInformation(
+                "Deferring attachment request {DocumentId}: this desktop holds no knowledge event {EventId} yet.",
+                record.Change.Id,
+                request.EventId);
+
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        _retirements?.Add(EventAttachmentReplicaDocuments.Retire(record.Change, _time.GetUtcNow()));
+
+        if (outcome != EventAttachmentOutcome.Attached)
+        {
+            _log.LogInformation(
+                "Attachment request {DocumentId} from the phone attached nothing ({Outcome}).",
+                record.Change.Id,
+                outcome);
+
+            return ApplyOutcome.Held;
+        }
+
+        Moved(moved, SyncDirection.Received, SyncItemKind.Note, request.NoteId.ToString("D"), record.Change.Task.Title, "attached to an event");
+        return ApplyOutcome.Written;
+    }
+
+    /// <summary>
     /// Hands the My Day preferences document to its port and counts what it answered,
     /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
     /// </summary>
@@ -1077,25 +1144,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(MyDayReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case MyDayPreferencesReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.MyDayPreferences, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case MyDayPreferencesReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the My Day preferences. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.MyDayPreferences, "the My Day preferences");
     }
 
     /// <summary>
@@ -1124,25 +1173,7 @@ public sealed class TaskReplicaMerge(
             .ApplyAsync(IterationReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
-        switch (outcome)
-        {
-            case IterationSettingsReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.IterationSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
-                return ApplyOutcome.Written;
-
-            case IterationSettingsReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the iteration settings. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id);
-                return ApplyOutcome.Unreadable;
-
-            // An echo or an older copy: the local one stands, as it does for a task.
-            default:
-                return ApplyOutcome.Held;
-        }
+        return Counted(outcome, record, moved, SyncItemKind.IterationSettings, "the iteration settings");
     }
 
     /// <summary>
@@ -1172,19 +1203,36 @@ public sealed class TaskReplicaMerge(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        return Counted(outcome, record, moved, SyncItemKind.GitHubSettings, "that document");
+    }
+
+    /// <summary>
+    /// Counts what a whole-document port answered, the one rule every such document keeps:
+    /// a taken copy is work applied, an unreadable one is skipped with the local copy left
+    /// as it is, and an echo or an older copy is held — the local one stands, as it does
+    /// for a task.
+    /// </summary>
+    /// <param name="readsAs">What the document should have read as, for the log.</param>
+    private ApplyOutcome Counted(
+        ReplicaOutcome outcome,
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        SyncItemKind kind,
+        string readsAs)
+    {
         switch (outcome)
         {
-            case GitHubReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+            case ReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, kind, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
-            case GitHubReplicaOutcome.Unreadable:
+            case ReplicaOutcome.Unreadable:
                 _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as {ReadsAs}. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
-                    record.Change.Id);
+                    record.Change.Id,
+                    readsAs);
                 return ApplyOutcome.Unreadable;
 
             default:

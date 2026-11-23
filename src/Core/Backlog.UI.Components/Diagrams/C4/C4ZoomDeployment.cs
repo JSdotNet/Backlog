@@ -1,7 +1,9 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
-/// One deployment environment of a scope, as the zoom tab's environment tab list and
+/// One deployment environment of a scope, as the zoom navigation's environment tab list and
 /// its doors offer it.
 /// </summary>
 /// <param name="Name">The <c>deploymentEnvironment</c> name — "Local machine",
@@ -19,7 +21,7 @@ public sealed record C4DeploymentEnvironment(
 
 /// <summary>
 /// One container instance a deployment node runs: the container it is an instance of,
-/// and where the zoom tab shows that container.
+/// and where the zoom navigation shows that container.
 /// </summary>
 /// <param name="ContainerId">The container, by its model identifier. Left selected on
 /// arriving at <paramref name="ContainersViewKey"/>.</param>
@@ -43,7 +45,7 @@ public sealed record C4DeploymentNodeDetails(
     IReadOnlyList<C4DeploymentInstance> Runs);
 
 /// <summary>
-/// The deployment views of the C4 zoom tab: which environments a deployment view can
+/// The deployment views of the C4 zoom navigation: which environments a deployment view can
 /// switch between, and what a selected deployment node runs.
 /// <para>
 /// Pure and derived from the workspace each time, by the rule
@@ -135,7 +137,7 @@ public static class C4ZoomDeployment
 
     /// <summary>
     /// The aliases of the deployment nodes the open view draws as frames, which the
-    /// zoom tab asks <see cref="C4SvgWriter"/> to make selectable. A deployment node
+    /// zoom navigation asks <see cref="C4SvgWriter"/> to make selectable. A deployment node
     /// that runs nothing is already a card and is selectable as one.
     /// </summary>
     public static IReadOnlySet<string> SelectableFrames(C4Diagram diagram)

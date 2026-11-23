@@ -86,7 +86,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_relayed_session_question_resolves_through_the_sessions_resolved_repository()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1", resolved: "JSdotNet/Fincent")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1", resolved: "JSdotNet/Fincent")));
 
         Assert.Equal("fincent", await ResolveOne(resolver, Session("sess-1")));
     }
@@ -94,7 +94,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_question_falls_back_to_the_repository_the_session_recorded()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1", recorded: "JSdotNet/Backlog")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1", recorded: "JSdotNet/Backlog")));
 
         Assert.Equal("backlog", await ResolveOne(resolver, Session("sess-1")));
     }
@@ -102,9 +102,39 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_worked_against_no_repository_is_the_brains()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-1")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-1")));
 
         Assert.Null(await ResolveOne(resolver, Session("sess-1")));
+    }
+
+    [Fact]
+    public async Task A_schedule_alert_resolves_through_the_repository_its_place_leads_with()
+    {
+        var resolver = new NotificationRepositories(AliasOf);
+        var key = "needs-you:schedule:issue-sweep:run-1";
+        var view = View(
+            new NotificationSource(SessionNotificationSubjects.Context, key),
+            new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Alert, key),
+            NotificationOrigin.Fit(NotificationOrigins.Backlog, SessionAlerts.SchedulePlace("JSdotNet/Fincent")));
+
+        Assert.Equal("fincent", await ResolveOne(resolver, view));
+    }
+
+    [Theory]
+    [InlineData(SessionAlerts.SchedulesPlace)]
+    [InlineData(SessionAlerts.SessionsPlace)]
+    public async Task A_schedule_alert_with_no_repository_and_a_loops_alert_are_the_brains(string place)
+    {
+        // An alias that spells the bare place must not claim it: only a place with a repository
+        // ahead of it names one.
+        var resolver = new NotificationRepositories(repository => repository is "Schedules" or "Sessions" ? "decoy" : AliasOf(repository));
+        var key = "stalled:loop:loop-1:2026-11-04T09:00:00.0000000Z";
+        var view = View(
+            new NotificationSource(SessionNotificationSubjects.Context, key),
+            new NotificationSubject(SessionNotificationSubjects.Context, SessionNotificationSubjects.Alert, key),
+            NotificationOrigin.Fit(NotificationOrigins.Backlog, place));
+
+        Assert.Null(await ResolveOne(resolver, view));
     }
 
     [Fact]
@@ -121,7 +151,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task An_mcp_ask_from_a_session_resolves_as_the_session_does()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions(AgentSession("sess-2", resolved: "JSdotNet/Backlog")));
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource(AgentSession("sess-2", resolved: "JSdotNet/Backlog")));
         var view = View(
             new NotificationSource("mcp", "k"),
             new NotificationSubject("sessions", "session", "sess-2"),
@@ -133,7 +163,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task An_mcp_ask_from_no_session_is_the_brains()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions());
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource());
         var view = View(new NotificationSource("mcp", "k"), new NotificationSubject("mcp", "ask", "k"), new NotificationOrigin("An MCP client", Via: "MCP ask"));
 
         Assert.Null(await ResolveOne(resolver, view));
@@ -341,7 +371,7 @@ public sealed class NotificationRepositoriesTests
     [Fact]
     public async Task A_session_the_catalog_does_not_hold_is_left_unresolved()
     {
-        var resolver = new NotificationRepositories(AliasOf, sessions: new Sessions());
+        var resolver = new NotificationRepositories(AliasOf, sessions: new StubSessionSource());
         var session = Session("sess-gone");
 
         Assert.False((await resolver.ResolveAsync([session], Ct)).ContainsKey(session.Id));
@@ -353,15 +383,7 @@ public sealed class NotificationRepositoriesTests
             string.Equals(workingFolder, folder, StringComparison.OrdinalIgnoreCase) ? repository : null;
     }
 
-    private sealed class Sessions(params AgentSession[] sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-    }
-
+    // Differs from StubSessionSource: holds every reading until the test releases it.
     private sealed class HeldSessions : IAgentSessionSource
     {
         private readonly TaskCompletionSource<AgentSessionCatalog> _catalog = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -375,6 +397,7 @@ public sealed class NotificationRepositoriesTests
             GetSessionsAsync(cancellationToken);
     }
 
+    // Differs from StubSessionSource: throws, the way an unreadable session store does.
     private sealed class UnreadableSessions : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
