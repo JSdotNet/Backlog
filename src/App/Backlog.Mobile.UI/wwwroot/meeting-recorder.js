@@ -15,7 +15,9 @@
 // name; `stop` resolves once the last slice has reached .NET. `abort` ends a
 // recording without handing anything more over, for a circuit going away.
 
-const recordingType = 'audio/mp4';
+// AAC named outright: for a bare 'audio/mp4' Chromium records Opus, which the
+// desktop's MP4 demuxer cannot cut into parts (local ADR 0049 §3).
+const recordingType = 'audio/mp4;codecs=mp4a.40.2';
 const levelEveryMs = 200;
 
 let current = null;

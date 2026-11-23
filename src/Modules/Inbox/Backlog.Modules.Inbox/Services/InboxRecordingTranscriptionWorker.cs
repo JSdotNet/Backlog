@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Features.TranscribeRecordings;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -90,6 +91,11 @@ public sealed partial class InboxRecordingTranscriptionWorker(
         {
             var handler = services.GetRequiredService<ICommandHandler<TranscribeRecordingsCommand, Result<int>>>();
             await handler.Handle(new TranscribeRecordingsCommand(noteId), cancellationToken).ConfigureAwait(false);
+
+            // A transcript written, or a third failure recorded, lands after the pull or the Retry
+            // that asked for it has reloaded the pane: say so, or an open note goes on showing the
+            // recording until the next reload.
+            services.GetService<IInboxChangeSignal>()?.Raise();
         }
         catch (Exception failure) when (!cancellationToken.IsCancellationRequested)
         {
