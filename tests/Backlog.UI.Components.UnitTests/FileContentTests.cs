@@ -207,6 +207,7 @@ public sealed class FileContentTests
         // of those reserves the column, so a file nobody has remarked on would give
         // up its width to hold nothing.
         using var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogMarginNotes.attach", _ => true).SetVoidResult();
 
         var empty = Render(context, parameters => parameters
             .Add(content => content.RendersMarkdown, true)

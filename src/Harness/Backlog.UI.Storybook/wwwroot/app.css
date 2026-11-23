@@ -310,6 +310,30 @@ html, body {
     border-radius: var(--border-radius-md);
 }
 
+/* The figure the crowded margin story inserts after a heading, standing in for
+   an arc42 chapter's C4 view: the full width of the view, notes column
+   included, with its control at the right edge where a remark would cover it. */
+.sb-chapter-insert {
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sb-chapter-insert__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.sb-chapter-insert__body {
+    margin: 0;
+    padding: var(--spacing-md);
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;
