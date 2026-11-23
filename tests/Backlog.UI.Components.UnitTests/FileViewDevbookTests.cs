@@ -32,8 +32,13 @@ public sealed class FileViewDevbookTests
     private static IRenderedComponent<FileView> Render(
         BunitContext context,
         Action<ComponentParameterCollectionBuilder<FileView>> extra,
-        string body = Chaptered) =>
-        context.Render<FileView>(parameters =>
+        string body = Chaptered)
+    {
+        // A file view draws its remarks in the margin, which hands the rows to
+        // the margin script (see MarkdownMarginNotesInteropTests).
+        context.JSInterop.SetupVoid("backlogMarginNotes.attach", _ => true).SetVoidResult();
+
+        return context.Render<FileView>(parameters =>
         {
             parameters
                 .Add(v => v.Name, "shared-technologies.md")
@@ -41,6 +46,7 @@ public sealed class FileViewDevbookTests
                 .Add(v => v.TestId, "file");
             extra(parameters);
         });
+    }
 
     [Fact]
     public void The_files_own_status_is_drawn_in_the_header_beside_its_name()

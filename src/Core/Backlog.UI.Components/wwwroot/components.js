@@ -7258,6 +7258,218 @@
         }
     };
 
+    // ----- The margin layout's remarks, kept from stretching their rows -----
+    //
+    // MarkdownView draws each block and its remarks as one grid row, so a block
+    // with three remarks beside it grew to their height and pushed the next block
+    // down. Here each row's stack (.md-block-row__notes-stack) is taken out of the
+    // row's height — the stylesheet positions it once the view carries
+    // data-md-margin-measured — and placed: level with its block when there is
+    // room, and otherwise just below the stack before it, so two never overlap.
+    // Whatever the last stack runs past the end of the body is added to the body
+    // as --md-notes-tail.
+    //
+    // Anything else the view holds between its rows — a chapter insert, the C4
+    // view an arc42 heading carries — runs the full width, notes column included,
+    // so a stack must not run on over it. The view's children are walked in order:
+    // where the stacks above an insert reach past its top, the insert is pushed
+    // down by the difference (--md-notes-clearance), and the stacks after it
+    // start below it, as the rows after it already do.
+    //
+    // Measured because a stylesheet cannot say it. A grid row is as tall as its
+    // tallest cell; floats stack without overlapping, but a float may not sit
+    // higher than one before it, so a pushed-down stack pushes every block after
+    // it down too — the stretching again, a row later.
+    //
+    // Reads, then writes, once a frame at most: every position is read before
+    // any is set, and a pass is worked out from where things would be with none
+    // of its own earlier writes, so reading its own result gives the same answer
+    // and writes nothing (every write is skipped when the value is unchanged). A
+    // ResizeObserver on the view and each stack, and a MutationObserver for rows
+    // and remarks coming and going, so the component attaches once and never has
+    // to report a render. Below the margin's breakpoint the stylesheet puts the
+    // stack back in flow; that is read here as "not positioned", and every
+    // offset, clearance and the tail are cleared.
+    //
+    // Without this file the attribute is never set and the rows stretch as they
+    // always did.
+    //
+    // Above the calendar's section on purpose: that section is held to running
+    // no frame loop of its own, and a test reads it from its first line to the
+    // end of the file.
+    (() => {
+        const views = new Map();
+
+        const rowStackSelector = ':scope > .md-block-row__notes > .md-block-row__notes-stack';
+        const stackSelector = ':scope > .md-block-row > .md-block-row__notes > .md-block-row__notes-stack';
+
+        const OFFSET = '--md-notes-offset';
+        const CLEARANCE = '--md-notes-clearance';
+        const TAIL = '--md-notes-tail';
+
+        const rounded = (px) => (px > 0.5 ? Math.round(px * 100) / 100 : 0);
+
+        const setLength = (element, name, px) => {
+            const value = rounded(px) ? `${rounded(px)}px` : '';
+            if (element.style.getPropertyValue(name) === value) return;
+
+            if (value) element.style.setProperty(name, value);
+            else element.style.removeProperty(name);
+        };
+
+        // The length this script last wrote, read back off the element, so a
+        // pass can take its own earlier writes out of what it measures.
+        const written = (element, name) => parseFloat(element.style.getPropertyValue(name)) || 0;
+
+        const isRow = (child) => child.classList.contains('md-block-row');
+
+        const place = (state) => {
+            state.frame = 0;
+            const { view, resizes, observed } = state;
+            if (!view.isConnected) return;
+
+            const stacks = Array.from(view.querySelectorAll(stackSelector));
+
+            // Watch the stacks that are new and let go of the ones that went.
+            // Only the new: observing an element again reports it again, and
+            // that report would schedule this again.
+            const current = new Set(stacks);
+            for (const stack of observed) {
+                if (!current.has(stack)) {
+                    resizes?.unobserve(stack);
+                    observed.delete(stack);
+                }
+            }
+            for (const stack of stacks) {
+                if (!observed.has(stack)) {
+                    resizes?.observe(stack);
+                    observed.add(stack);
+                }
+            }
+
+            const children = Array.from(view.children);
+            const offsets = new Map();
+            const clearances = new Map();
+            let tail = 0;
+
+            const positioned = stacks.length > 0 && getComputedStyle(stacks[0]).position === 'absolute';
+
+            if (positioned) {
+                const box = view.getBoundingClientRect();
+                const tailWas = written(view, TAIL);
+
+                // `before` is how far this script's own clearances above a child
+                // have already moved it; `after` is how far this pass's will.
+                let before = 0;
+                let after = 0;
+                let reached = -Infinity;
+
+                for (const child of children) {
+                    if (isRow(child)) {
+                        const stack = child.querySelector(rowStackSelector);
+                        // A row with nothing beside it draws no stack, and an
+                        // empty one takes no room: neither moves nor is moved.
+                        if (!stack || stack.childElementCount === 0) continue;
+
+                        const natural = stack.parentElement.getBoundingClientRect().top - box.top - before + after;
+                        const top = Math.max(natural, reached);
+                        offsets.set(stack, top - natural);
+                        reached = top + stack.offsetHeight;
+                    } else {
+                        const rect = child.getBoundingClientRect();
+                        const was = written(child, CLEARANCE);
+                        const top = rect.top - box.top - before + after;
+                        const clearance = Math.max(0, reached - top);
+
+                        clearances.set(child, clearance);
+                        reached = top + clearance + (rect.height - was);
+                        before += was;
+                        after += clearance;
+                    }
+                }
+
+                const body = box.height - tailWas - before + after;
+                tail = Math.max(0, reached - body);
+            }
+
+            for (const stack of stacks) setLength(stack, OFFSET, offsets.get(stack) ?? 0);
+            for (const child of children) {
+                if (!isRow(child)) setLength(child, CLEARANCE, clearances.get(child) ?? 0);
+            }
+            setLength(view, TAIL, tail);
+        };
+
+        const schedule = (state) => {
+            if (!state.frame) state.frame = requestAnimationFrame(() => place(state));
+        };
+
+        // The view is found by the id it wears (data-md-margin), and waited for
+        // a few frames, for the reason backlogFocus waits: the desktop head's
+        // WebView does not promise the render has been applied before the call
+        // arrives.
+        const findFrames = 10;
+        const pending = new Map();
+
+        const find = (id) => document.querySelector(`[data-md-margin="${CSS.escape(id)}"]`);
+
+        const observe = (id, view) => {
+            const state = { view, frame: 0, observed: new Set(), resizes: null, mutations: null };
+            const changed = () => schedule(state);
+
+            state.resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(changed) : null;
+            state.resizes?.observe(view);
+            state.mutations = typeof MutationObserver === 'function' ? new MutationObserver(changed) : null;
+            state.mutations?.observe(view, { childList: true, subtree: true });
+
+            view.setAttribute('data-md-margin-measured', '');
+            views.set(id, state);
+            schedule(state);
+        };
+
+        window.backlogMarginNotes = {
+            attach(id) {
+                this.detach(id);
+
+                const attempt = (framesLeft) => {
+                    pending.delete(id);
+                    const view = find(id);
+                    if (view) {
+                        observe(id, view);
+                    } else if (framesLeft > 0) {
+                        pending.set(id, requestAnimationFrame(() => attempt(framesLeft - 1)));
+                    }
+                };
+
+                attempt(findFrames);
+            },
+
+            detach(id) {
+                if (pending.has(id)) {
+                    cancelAnimationFrame(pending.get(id));
+                    pending.delete(id);
+                }
+
+                const state = views.get(id);
+                if (!state) return;
+
+                views.delete(id);
+                if (state.frame) cancelAnimationFrame(state.frame);
+                state.resizes?.disconnect();
+                state.mutations?.disconnect();
+
+                const { view } = state;
+                view.removeAttribute('data-md-margin-measured');
+                view.style.removeProperty(TAIL);
+                for (const stack of view.querySelectorAll(stackSelector)) {
+                    stack.style.removeProperty(OFFSET);
+                }
+                for (const child of view.children) {
+                    if (!isRow(child)) child.style.removeProperty(CLEARANCE);
+                }
+            }
+        };
+    })();
+
     // ----- Moving a task between days on the month calendar ---------------
     //
     // The same pointer gesture `taskListDrag` above is, for the same reason: the

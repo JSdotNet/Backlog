@@ -67,7 +67,9 @@ All four are read-mode only. Press **Edit**: the author of a chapter is looking 
     </Story>
 
     <Story Name="Commenting on a section"
-           Description="`Comments` are anchored to a block index — not to a character range, which nothing survives — so the record is `MarkdownComment(Id, BlockIndex, Body, Author, When, Resolved)`. Re-anchoring when blocks move is the host's; the view renders comments against the blocks it is told and never guesses.
+           Description="`Comments` are anchored to a block index — not to a character range, which nothing survives — so the record is `MarkdownComment(Id, BlockIndex, Body, Author, Timestamp, Resolved, BlockHash)`. Given a `BlockHash`, the view keeps a remark on the block that still matches it when the chapter is edited above it; without one, the index is the anchor.
+
+A remark whose passage has gone lands in the group at the end, labelled *Passage changed* with a line on what to do: resolve or delete it, or leave a new remark where it belongs now. The body renders as inline Markdown — links, code spans, emphasis — and an author written as a tool's slug, such as `claude/chapter-review`, reads as a name with the slug on its title.
 
 `OnAddComment` hands back the block index a reader asked at. The host answers with an empty-bodied comment, and that emptiness is the whole of the trick: the view opens a comment with nothing said yet straight into its own textarea, so a reader who pressed the affordance can start typing immediately rather than pressing Edit on the placeholder it left behind. `OnEditComment` hands back the whole record with the body already replaced, `OnResolveComment` hands back an id to toggle, and `OnDeleteComment` hands back an id to take away outright — including the fresh draft's own id, when Cancel is pressed before anything was typed into it.
 
@@ -87,7 +89,13 @@ Hover a block for the affordance; a block that already has comments keeps it vis
     <Story Name="The same comments, in the margin"
            Description="`Layout=&quot;MarkdownCommentLayout.Margin&quot;` is the only difference: same blocks, same comments, same callbacks. Inline puts a remark next to what it is about and pushes the body apart; margin keeps the prose continuous and the remarks level with their blocks.
 
-One markup, two layouts — the margin cell is always emitted and follows its block until the grid picks it up. Below the narrow breakpoint it falls back to inline on its own, so a caller does not have to notice. Narrow this window and watch it.
+One markup, two layouts — the margin cell is always emitted and follows its block until the grid picks it up. Below the narrow breakpoint the column is not drawn: each block's remarks stack under it, so a caller does not have to notice. Narrow this window and watch it.
+
+A row never grows to the height of its remarks. Block 1 is one line with two remarks beside it: they start level with it and run on down the column beside the blocks below, and the next block's remarks start under them rather than on top of them. Only the end of the document grows, to fit the last of them. The next story packs the column tighter.
+
+Every remark is in the margin here, orphans included: a remark whose passage changed has no group at the end in this layout. It stands level with the block it last named — its stored index, clamped into the chapter — under its own *Passage changed* label and a line on what to do, with a dashed rule saying the place is approximate, and the block's counter counts it. That is only where it is drawn: the remark's anchor is never rewritten. Below the narrow breakpoint it stacks under that block, dashed rule and all.
+
+Hover or focus a remark and its block's own text is highlighted — a filled, solid edge for an anchored remark, a dashed edge and no fill for an orphan, which is only about here. The other way round, hover or focus a block and each of its anchored remarks comes forward with a strong edge; orphans stay as they are. Both are CSS alone, so a keyboard gets the same answer as a pointer.
 
 Editing works the same either way: a fresh remark opens straight into a box with Save and Cancel rather than committing on Enter, because a remark is prose and Enter has to stay a newline. The draft lives in the view until it is saved, so Cancel means something — for an existing remark it puts the wording back, and for a draft nobody has typed into yet it asks the host to drop it, through the same `OnDeleteComment` a saved remark's own Delete button uses."
            Code="@MarginCode"
@@ -100,6 +108,34 @@ Editing works the same either way: a fresh remark opens straight into a box with
                           OnEditComment="EditMarginComment"
                           OnResolveComment="ResolveMarginComment"
                           OnDeleteComment="DeleteMarginComment" />
+        </div>
+    </Story>
+
+    <Story Name="A crowded margin"
+           Description="A release checklist of one-line blocks under two headings, nearly every one remarked on, so the column holds far more than the prose beside it. Each block stays where its text puts it: no row grows to its remarks. Each remark starts level with its block when the column is free there, and otherwise just under the remarks before it, so none overlaps another; only the end of the document grows, to fit the last of them.
+
+An orphan takes its place in the same queue. The remark on *Tell support.* was left on wording that has since changed, so it stands beside that line marked approximate. So do two AI proposals whose passage went: one names block index 99 and is clamped to the last block, the other names no block at all and stands beside the last block too. Each keeps the *Passage changed* label, the proposal wording, and its Accept and Reject; the end group a chapter keeps inline has nothing left in this layout.
+
+The counter on each block counts what is beside it, a placed orphan included. Every Edit, Resolve and Delete in the column takes its click wherever its remark has been pushed to, even beside a later block's text. The highlight still hugs each block's own text: hover a pushed-down remark and the block it belongs to lights, not the one it is next to.
+
+Under *Rollback* the heading carries two remarks and, after it, a figure the host inserts the way an arc42 chapter inserts its C4 view, spanning the column. The remarks never run over it: the figure is pushed down until they have ended, and the remarks after it start below it. Then *Revert the tag* carries three remarks, more than its line, and the two blocks under it carry none: the stack runs on beside them, and its Edit, Resolve and Delete, and the box Edit opens, take their clicks there too.
+
+The spacing is measured: a small script (`backlogMarginNotes`) lifts each row's remarks out of the row's height and places them. Without it the rows stretch, as they used to, and nothing is lost."
+           Code="@CrowdedCode"
+           Source="@CrowdedSample">
+        <div data-testid="markdown-crowded-margin">
+            <MarkdownView Blocks="@CrowdedBlocks"
+                          Source="@CrowdedSample"
+                          ChapterInsert="@CrowdedInsert"
+                          Comments="@_crowdedComments"
+                          Proposals="@_crowdedProposals"
+                          Layout="MarkdownCommentLayout.Margin"
+                          OnAddComment="AddCrowdedComment"
+                          OnEditComment="EditCrowdedComment"
+                          OnResolveComment="ResolveCrowdedComment"
+                          OnDeleteComment="DeleteCrowdedComment"
+                          OnAcceptProposal="SettleCrowdedProposal"
+                          OnRejectProposal="SettleCrowdedProposal" />
         </div>
     </Story>
 
@@ -231,8 +267,9 @@ Editing works the same either way: a fresh remark opens straight into a box with
     [
         new("c1", 1, "Worth saying which token — the PAT or the app installation?", "Reviewer", "2 hours ago"),
         new("c2", 2, "Both bullets are the same point stated twice.", "Reviewer", "yesterday", Resolved: true),
-        // Anchored past the end: the block it was written against has gone.
-        new("c3", 9, "This was against a paragraph that no longer exists.", "Reviewer", "last week")
+        // Anchored past the end: the block it was written against has gone. A tool's
+        // slug author, and a body in inline Markdown, so the orphan group shows both.
+        new("c3", 9, "This was against a paragraph that no longer exists — see [the decision](https://example.com/decisions/0011), the `BlockHash` it carried, and *why* it moved.", "claude/chapter-review", "last week")
     ];
 
     /// <summary>Empty, on purpose: the view reads that as a fresh draft and opens
@@ -262,10 +299,13 @@ Editing works the same either way: a fresh remark opens straight into a box with
     [
         new("m1", 1, "The same remarks, drawn beside the prose instead of through it.", "Reviewer", "2 hours ago"),
         new("m2", 2, "Level with the block it belongs to, so nothing is pushed apart.", "Reviewer", "yesterday"),
-        new("m3", 3, "Resolved, and still here.", "Reviewer", "last week", Resolved: true)
+        new("m3", 3, "Resolved, and still here.", "Reviewer", "last week", Resolved: true),
+        // Its passage was reworded: the digest it carries matches no block, so it is
+        // an orphan, drawn in the margin level with the block it last named (1).
+        new("m4", 1, "Left on a sentence that was reworded — compare [the old wording](https://example.com/history), the `## Sync` heading, and **this** line.", "claude/chapter-review", "last week", BlockHash: "digest-of-the-old-wording")
     ];
 
-    private int _nextMarginComment = 4;
+    private int _nextMarginComment = 5;
 
     private void AddMarginComment(int blockIndex)
     {
@@ -281,6 +321,93 @@ Editing works the same either way: a fresh remark opens straight into a box with
 
     private void DeleteMarginComment(string id) =>
         _marginComments = [.. _marginComments.Where(c => c.Id != id)];
+
+    private const string CrowdedSample = """
+        # Release checklist
+
+        Tag the build.
+
+        Publish the notes.
+
+        Tell support.
+
+        Close the milestone.
+
+        ## Rollback
+
+        Revert the tag.
+
+        Redeploy the previous build.
+
+        Reopen the milestone.
+
+        Tell support it is rolled back.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> CrowdedBlocks = MarkdownPreview.ParseDocument(CrowdedSample);
+
+    private IReadOnlyList<MarkdownComment> _crowdedComments =
+    [
+        new("d1", 1, "Which build — the release candidate or the one after the hotfix?", "Reviewer", "2 hours ago"),
+        new("d2", 1, "And who tags it when the release manager is away?", "Reviewer", "an hour ago"),
+        new("d3", 2, "Notes go to the changelog first; the blog post can wait a day.", "claude/chapter-review", "yesterday"),
+        // Left on wording that has changed: an orphan, placed beside "Tell support." (block index 3).
+        new("d4", 3, "This said `support@` before — is the shared inbox still the right channel?", "Reviewer", "last week", BlockHash: "digest-of-the-old-wording"),
+        new("d5", 4, "Close it only once every issue in it is closed or moved.", "Reviewer", "just now"),
+        // On the Rollback heading, which the figure below follows.
+        new("d6", 5, "Who decides to roll back — the release manager or whoever is on call?", "Reviewer", "today"),
+        new("d7", 5, "Link the runbook here rather than repeating it.", "claude/chapter-review", "today"),
+        // Three on one line, with two remarkless blocks under it to run on beside.
+        new("d8", 6, "Revert it, or tag the previous build again? They are not the same thing.", "Reviewer", "today"),
+        new("d9", 6, "Whichever it is, the tag has to move before anyone redeploys.", "Reviewer", "today"),
+        new("d10", 6, "And say where the reverted tag is recorded, so the next release does not reuse it.", "claude/chapter-review", "today")
+    ];
+
+    private IReadOnlyList<AiProposal> _crowdedProposals =
+    [
+        // Its block went: clamped to the last block.
+        new("dp1", AiProposalKind.Rewrite, "Close the milestone once its last issue is closed or moved on.", IntegrationProvider.Claude, Model: "claude", Timestamp: "today", Original: "Close the milestone after the release.", BlockIndex: 99),
+        // Names no block at all: beside the last block too.
+        new("dp2", AiProposalKind.Answer, "The shared inbox is still monitored; the alias forwards to it.", IntegrationProvider.Claude, Model: "claude", Timestamp: "today")
+    ];
+
+    private int _nextCrowdedComment = 11;
+
+    /// <summary>What the host draws after the Rollback heading's row, standing in
+    /// for the C4 view an arc42 chapter inserts there: full width, with its
+    /// control at the right edge, under the notes column.</summary>
+    private static RenderFragment? CrowdedInsert(int position, string title, int level)
+    {
+        if (title != "Rollback") return null;
+
+        return @<figure class="sb-chapter-insert" data-testid="markdown-crowded-insert">
+                  <figcaption class="sb-chapter-insert__head">
+                      <span>Rollback — deployment view</span>
+                      <AppButton TestId="markdown-crowded-insert-open">Open</AppButton>
+                  </figcaption>
+                  <p class="sb-chapter-insert__body">The release pipeline, the previous build, and the support inbox, as the chapter's C4 view would draw them.</p>
+              </figure>;
+    }
+
+    private void AddCrowdedComment(int blockIndex)
+    {
+        var id = $"d{_nextCrowdedComment++}";
+        _crowdedComments = [.. _crowdedComments, new MarkdownComment(id, blockIndex, string.Empty, "You", "just now")];
+    }
+
+    private void EditCrowdedComment(MarkdownComment edited) =>
+        _crowdedComments = [.. _crowdedComments.Select(c => c.Id == edited.Id ? edited : c)];
+
+    private void ResolveCrowdedComment(string id) =>
+        _crowdedComments = [.. _crowdedComments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
+
+    private void DeleteCrowdedComment(string id) =>
+        _crowdedComments = [.. _crowdedComments.Where(c => c.Id != id)];
+
+    /// <summary>Accepted or rejected, the sample has no document to write to, so
+    /// either takes the card away.</summary>
+    private void SettleCrowdedProposal(AiProposal proposal) =>
+        _crowdedProposals = [.. _crowdedProposals.Where(p => p.Id != proposal.Id)];
 
     private const string DocumentCode = """
         <MarkdownDocument @bind-Value="_source"
@@ -329,8 +456,8 @@ Editing works the same either way: a fresh remark opens straight into a box with
                       OnDeleteComment="Delete" />
 
         @code {
-            // Anchored to a block index. Re-anchoring when blocks move is the
-            // host's — the view renders what it is told and never guesses.
+            // Anchored to a block index; pass the BlockHash the remark was made
+            // against and the view keeps it on the block that still matches.
             //
             // Empty, not a placeholder: an empty body is what tells the view
             // this is a fresh draft, so it opens straight into its own textarea
@@ -359,6 +486,33 @@ Editing works the same either way: a fresh remark opens straight into a box with
             // Reached from a remark's own Delete button, and from Cancel on a
             // draft nobody typed into — see the read view's own notes on that.
             private void Delete(string id) => _comments = [.. _comments.Where(c => c.Id != id)];
+        }
+        """;
+
+    private const string CrowdedCode = """
+        <MarkdownView Blocks="@blocks"
+                      Source="@source"
+                      ChapterInsert="@Insert"
+                      Comments="@comments"
+                      Proposals="@proposals"
+                      Layout="MarkdownCommentLayout.Margin"
+                      OnAddComment="Add"
+                      OnEditComment="Save"
+                      OnResolveComment="Resolve"
+                      OnDeleteComment="Delete"
+                      OnAcceptProposal="Accept"
+                      OnRejectProposal="Reject" />
+
+        @code {
+            // An orphaned proposal is placed like an orphaned remark: at the block
+            // it names, clamped, or beside the last block when it names none.
+            // Accept and Reject reach the host exactly as they do anywhere else.
+            private Task Accept(AiProposal proposal) => _proposals.AcceptAsync(proposal);
+
+            // Drawn after a heading's row, full width; remarks above it never run
+            // over it — it is pushed down until they end.
+            private RenderFragment? Insert(int position, string title, int level) =>
+                title == "Rollback" ? @<DeploymentView Chapter="@title" /> : null;
         }
         """;
 }

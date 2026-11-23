@@ -4969,6 +4969,8 @@ button.brain-note-chip__label:focus-visible {
 */
 .md-block {
     position: relative;
+    border-radius: var(--border-radius-sm);
+    transition: background-color var(--transition-fast), outline-color var(--transition-fast);
 }
 
 /*
@@ -5171,9 +5173,14 @@ button.brain-note-chip__label:focus-visible {
     color: var(--color-text-disabled);
 }
 
+/* pre-line: the body is inline Markdown parsed line by line, with each line
+   break kept as text — this is what draws it as a break. Its code spans and
+   links size from the remark's own small text (both are em-relative). */
 .md-comment__body {
     margin: 0;
     color: var(--color-text-secondary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
 }
 
 .md-comment__action {
@@ -5221,6 +5228,81 @@ button.brain-note-chip__label:focus-visible {
 .md-comments--orphaned {
     margin-top: var(--spacing-md);
     border-left-style: dashed;
+}
+
+/* Bounded to a reading measure, in both layouts: the orphan group spans the
+   whole pane, and an unbounded row pushed each remark's Delete to the pane's far
+   edge, away from the remark it removes. 36rem keeps Edit, Resolve and Delete in
+   one row beside a long remark (no measure token exists to reuse); the hint
+   below shares the cap.
+   The group's own rule is the one that says "adrift"; the list inside it
+   carries the ordinary remark rule, and two dashed-and-solid lines side by side
+   read as a rule around a rule. */
+.md-comments--orphaned > .md-comments {
+    max-inline-size: 36rem;
+    margin: 0;
+    padding: 0;
+    border-left: none;
+}
+
+.md-comments__orphaned-label,
+.md-comment__orphaned-label {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.md-comments__orphaned-hint,
+.md-comment__orphaned-hint {
+    max-inline-size: 36rem;
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/*
+   A remark and its passage, read together. Hovering or focusing a remark marks
+   the block it belongs to: a filled, solid edge where the remark is anchored, a
+   dashed edge and no fill where it is an orphan placed by guess, remark or AI
+   proposal (see .md-comments--approximate) — "about here", not "this". The mark is drawn on
+   the block itself, never on the row: in the margin the row stretches to the
+   height of its stacked remarks, and a highlight on it would cover empty space
+   below the text (the block is held to its own height there, see
+   .md-view--margin .md-block-row > .md-block). The other way round, pointing at a
+   block brings its anchored remarks forward — the text lifts and each card gets
+   the strong edge — while orphans stay as they are, since the block is not
+   theirs. :has() on the row, so no script has to pair a block with its cell;
+   :focus-within, so a keyboard gets the same answer as a pointer. Tokens only:
+   the fill is the hover ground the block's own controls already use, the edge is
+   the strong border.
+*/
+.md-block-row:has(.md-comment:not(.md-comment--approximate):is(:hover, :focus-within)) > .md-block {
+    background-color: var(--color-background-alt);
+    outline: var(--border-width) solid var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+.md-block-row:has(:is(.md-comment--approximate, .md-approximate-proposal):is(:hover, :focus-within)) > .md-block {
+    outline: var(--border-width) dashed var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+.md-block-row:has(> .md-block:is(:hover, :focus-within)) .md-comment:not(.md-comment--approximate) .md-comment__body {
+    color: var(--color-text-primary);
+}
+
+/* An outline rather than a border, so the cue never moves the card's text. */
+.md-block-row:has(> .md-block:is(:hover, :focus-within)) .md-comment:not(.md-comment--approximate) {
+    border-radius: var(--border-radius-sm);
+    outline: var(--border-width) solid var(--color-border-strong);
+    outline-offset: var(--spacing-2xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .md-block {
+        transition: none;
+    }
 }
 
 /* Full width so Delete's own auto margin has a row to push against — see
@@ -5282,6 +5364,14 @@ button.brain-note-chip__label:focus-visible {
     align-items: stretch;
 }
 
+/* The block keeps its own height rather than the row's. The notes cell still
+   stretches, which is what the column rule needs; the block does not, so when
+   its remarks stack taller than its text the highlight a remark draws on it
+   (see "A remark and its passage") hugs the text instead of filling the row. */
+.md-view--margin .md-block-row > .md-block {
+    align-self: start;
+}
+
 /*
    What makes the column read as a margin rather than as a second column of the
    document.
@@ -5296,13 +5386,60 @@ button.brain-note-chip__label:focus-visible {
    is positioned for its corner controls and the cell was not, so wherever the
    block overflowed its track — its affordance padding cannot shrink — the block
    was drawn over the remark's Save and Delete and swallowed their clicks. A
-   positioned cell later in the row wins that by source order, with no z-index to
-   keep in step.
+   positioned cell later in the row wins that by source order. Raised as well,
+   because once remarks overflow their row (see "Rows that do not stretch") a
+   stack sits beside the blocks of later rows, and a later block, positioned and
+   later in the source, would win that same contest against it.
 */
 .md-view--margin .md-block-row__notes {
     position: relative;
+    z-index: 1;
     padding-inline: var(--spacing-md);
     border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+/*
+   Rows that do not stretch. A row was as tall as its tallest cell, so a short
+   block with three remarks beside it pushed the next block a screen down. With
+   the margin script attached (backlogMarginNotes in components.js, which sets
+   data-md-margin-measured) the stack inside each cell is taken out of the row's
+   height: it starts level with its block, runs on down beside the blocks below,
+   and the script moves it down by --md-notes-offset where the stack above still
+   occupies the space, then grows the body by --md-notes-tail for whatever the
+   last one runs past the end. The cell itself still stretches to its block, so
+   the column's rule stays one line.
+
+   The cells let the pointer through and only the stacks take it: a later row's
+   cell lies over an earlier row's overflowing stack, and an empty box on top
+   still takes the click meant for the Edit or Delete under it. A row with
+   nothing beside it draws no stack at all, for the same reason.
+
+   Whatever else the view holds between its rows — a chapter insert, the C4 view
+   an arc42 heading carries — spans the notes column too, so a stack must not run
+   on over it: the script pushes it down by --md-notes-clearance, as padding
+   above it, wherever the stacks before it reach past its top.
+
+   Without the script none of this applies and the rows stretch, as they did.
+*/
+.md-view--margin[data-md-margin-measured] {
+    padding-block-end: var(--md-notes-tail, 0px);
+}
+
+.md-view--margin[data-md-margin-measured] > :not(.md-block-row) {
+    padding-block-start: var(--md-notes-clearance, 0px);
+}
+
+.md-view--margin[data-md-margin-measured] .md-block-row__notes {
+    pointer-events: none;
+}
+
+.md-view--margin[data-md-margin-measured] .md-block-row__notes-stack {
+    position: absolute;
+    inset-block-start: var(--md-notes-offset, 0px);
+    inset-inline: var(--spacing-md);
+    /* The space kept between this stack and one pushed below it. */
+    padding-block-end: var(--spacing-sm);
+    pointer-events: auto;
 }
 
 /* Level with the block it belongs to, and no rule down its left — the column's
@@ -5327,6 +5464,30 @@ button.brain-note-chip__label:focus-visible {
 /* Which puts the spacing back where the inline layout keeps it: between one
    remark and the next, rather than as the gap between two boxes. */
 .md-view--margin .md-comment + .md-comment {
+    margin-top: var(--spacing-sm);
+}
+
+/* An orphan placed beside the block it last named. Its dashed edge is the one
+   the end group uses to say "adrift", here inside the column: the column's own
+   rule says "aside", this one says "and only roughly here". */
+.md-view--margin .md-block-row__notes .md-comments--approximate {
+    padding-inline-start: var(--spacing-sm);
+    border-left: var(--border-width-2) dashed var(--color-border);
+}
+
+.md-view--margin .md-block-row__notes .md-comments + .md-comments--approximate {
+    margin-top: var(--spacing-sm);
+}
+
+/* An AI proposal placed the same way takes the same edge: the column says
+   "aside", the dashed rule "only roughly here", and its own label says why. */
+.md-view--margin .md-block-row__notes .md-proposals--approximate {
+    padding-inline-start: var(--spacing-sm);
+    border-left: var(--border-width-2) dashed var(--color-border);
+}
+
+.md-view--margin .md-block-row__notes .md-proposals--approximate:not(:first-child),
+.md-approximate-proposal + .md-approximate-proposal {
     margin-top: var(--spacing-sm);
 }
 
@@ -5367,6 +5528,24 @@ button.brain-note-chip__label:focus-visible {
         margin: 0 0 var(--spacing-sm) var(--spacing-md);
         padding-left: var(--spacing-md);
         border-left: var(--border-width-2) solid var(--color-border);
+    }
+
+    /* Stacked, an orphan keeps the dashed rule the end group draws. */
+    .md-view--margin .md-block-row__notes .md-comments--approximate {
+        border-left-style: dashed;
+    }
+
+    .md-view--margin .md-block-row__notes .md-proposals--approximate {
+        margin: 0 0 var(--spacing-sm) var(--spacing-md);
+        padding-left: var(--spacing-md);
+    }
+
+    /* And the stack goes back into its row: stacked under its block there is
+       nothing beside it to overflow into, so the row grows as an inline one
+       does. The script reads this as "not positioned" and clears its offsets. */
+    .md-view--margin[data-md-margin-measured] .md-block-row__notes-stack {
+        position: static;
+        padding-block-end: 0;
     }
 
     /* The gutter's own spacing goes with it too. Stacked, a remark is spaced by
