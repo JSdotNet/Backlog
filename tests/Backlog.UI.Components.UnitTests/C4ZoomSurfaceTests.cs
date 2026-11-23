@@ -254,20 +254,20 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         _ => C4ElementRecords.None
     };
 
-    /// <summary>The design's header carries the overlay switch, not the view heading.</summary>
+    /// <summary>The overlay switch sits in the view heading beside − / Fit / +, not in
+    /// a row of its own over the zoom bar, so the picture keeps that row's height.</summary>
     [Fact]
-    public void On_the_surface_the_overlay_switch_is_the_top_rows_not_the_view_headings()
+    public void On_the_surface_the_overlay_switch_sits_beside_the_scale_in_the_view_heading()
     {
         var explorer = Render(recordsFor: Records);
 
-        var top = explorer.Find("[data-testid='c4-zoom-top']");
-        Assert.Single(top.QuerySelectorAll("[data-testid='c4-zoom-overlay']"));
-        Assert.Empty(explorer.Find(".c4-zoom-explorer__head").QuerySelectorAll("[data-testid='c4-zoom-overlay']"));
+        var tools = explorer.Find(".c4-zoom-explorer__head [data-testid='c4-zoom-tools']");
+        Assert.Single(tools.QuerySelectorAll("[data-testid='c4-zoom-overlay']"));
+        Assert.Single(explorer.FindAll("[data-testid='c4-zoom-overlay']"));
 
-        // The top row comes before the bar.
+        // Nothing stands over the bar: it heads the surface.
         var surface = explorer.Find("[data-testid='c4-zoom-explorer']");
-        var order = surface.Children.Select(child => child.GetAttribute("data-testid")).ToList();
-        Assert.True(order.IndexOf("c4-zoom-top") < order.IndexOf("c4-zoom-bar"));
+        Assert.Equal("c4-zoom-bar", surface.Children[0].GetAttribute("data-testid"));
 
         explorer.Find("[data-testid='c4-zoom-overlay-decisions']").Click();
         Assert.Equal(C4RecordOverlay.Decisions, explorer.Instance.Overlay);
@@ -278,7 +278,7 @@ public sealed class C4ZoomSurfaceTests : IDisposable
     {
         var explorer = Render(document: Doc, recordsFor: Records);
 
-        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-top']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-overlay']"));
     }
 
     /// <summary>The design's Landscape screen: with nothing selected the right-hand
