@@ -312,11 +312,12 @@ public sealed class NotificationCentreScreenTests : IDisposable
 
         var pane = _context.Render<NotificationCentrePane>();
 
-        pane.WaitForAssertion(() => Assert.Equal("Claude Code", pane.Find("[data-testid='notification-card-system']").TextContent));
+        pane.WaitForAssertion(() => Assert.Equal("Claude Code (AI agent)", pane.Find("[data-testid='notification-card-system']").TextContent.Trim()));
         Assert.Equal("JSdotNet/Backlog · Notification origin", pane.Find("[data-testid='notification-card-place']").TextContent);
-        // An agent's question is marked so, and "Agent session" is not said twice beside it.
-        Assert.Equal("agent", pane.Find("[data-testid='notification-card-asker']").GetAttribute("data-asker"));
-        Assert.Contains("AI agent", pane.Find("[data-testid='notification-card-asker']").TextContent, StringComparison.Ordinal);
+        // An agent's question is marked so on its system, once, and "Agent session" is not
+        // said beside it.
+        Assert.Equal("agent", pane.Find("[data-testid='notification-card-system']").GetAttribute("data-asker"));
+        Assert.Empty(pane.FindAll("[data-testid='notification-card-asker']"));
         Assert.Empty(pane.FindAll("[data-testid='notification-card-via']"));
     }
 
