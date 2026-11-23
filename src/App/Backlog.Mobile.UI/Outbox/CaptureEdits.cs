@@ -81,7 +81,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         if (entries.FirstOrDefault(entry => entry.Id == captureId && IsCapture(entry)) is { } waiting
             && await outbox.RemoveAsync(captureId, cancellationToken))
         {
-            ReleaseFiles(waiting);
+            ReleaseFiles(waiting, files);
             return;
         }
 
@@ -139,10 +139,10 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
     private Task RequeueIfSetAsideAsync(OutboxEntry rewritten, CancellationToken cancellationToken) =>
         rewritten.IsParked ? outbox.RequeueAsync(rewritten.Id, cancellationToken) : Task.CompletedTask;
 
-    private static bool IsCapture(OutboxEntry entry) =>
+    internal static bool IsCapture(OutboxEntry entry) =>
         entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token;
 
-    private static string Reworded(OutboxEntry entry, string title, string? bodyMd)
+    internal static string Reworded(OutboxEntry entry, string title, string? bodyMd)
     {
         if (entry.Kind == TalkNoteOutboxKind.Token)
         {
@@ -153,7 +153,9 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         return CaptureOutboxKind.Write(CaptureOutboxKind.Read(entry) with { Title = title, BodyMd = bodyMd });
     }
 
-    private void ReleaseFiles(OutboxEntry entry)
+    /// <summary>A talk note taken out of the outbox unsent has nobody left to upload
+    /// its files for, so they go with it.</summary>
+    internal static void ReleaseFiles(OutboxEntry entry, TalkNoteFiles files)
     {
         if (entry.Kind != TalkNoteOutboxKind.Token) return;
 
@@ -170,7 +172,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         _ => false,
     };
 
-    private static CaptureEdit? ReadEdit(OutboxEntry entry)
+    internal static CaptureEdit? ReadEdit(OutboxEntry entry)
     {
         try
         {
@@ -182,7 +184,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         }
     }
 
-    private static CaptureWithdrawal? ReadWithdrawal(OutboxEntry entry)
+    internal static CaptureWithdrawal? ReadWithdrawal(OutboxEntry entry)
     {
         try
         {

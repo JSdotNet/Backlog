@@ -378,7 +378,7 @@ The ADO.NET provider the SQLite adapter is written against.
 ```meta
 rating: adopted
 type: package
-version: "10.0.14"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -395,7 +395,7 @@ The container abstraction each module registers itself into.
 ```meta
 rating: adopted
 type: package
-version: "10.0.14"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -414,7 +414,7 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```meta
 rating: adopted
 type: package
-version: "10.10.0"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#microsoftextensionshttp"]
 related: [".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md"]
 ```
@@ -460,7 +460,7 @@ The resilience pipeline library under the HTTP resilience handlers.
 ```meta
 rating: adopted
 type: package
-version: "10.10.0"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-aspire"]
 ```
 
@@ -476,7 +476,7 @@ Logical-name resolution for service endpoints.
 ```meta
 rating: adopted
 type: package
-version: "10.0.14"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/tech/shared.md#opentelemetry"]
 ```

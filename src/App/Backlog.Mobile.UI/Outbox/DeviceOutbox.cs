@@ -24,6 +24,10 @@ namespace Backlog.Mobile.UI.Outbox;
 /// <b>Refusal.</b> A 4xx the service will give again for the same entry marks
 /// it <see cref="OutboxEntry.Refused"/>. It is set aside — retrying would only
 /// repeat the answer — and the queue moves past it. It goes again only if tapped.
+/// What waits behind it about it — an edit of a capture the service never got —
+/// is folded into it first (<see cref="IOutboxFold"/>), so the queue moving past
+/// it never sends a change of something the service does not have. A withdrawal
+/// of it takes it out with the withdrawal, neither sent.
 /// </para>
 /// <para>
 /// <b>Resume.</b> Coming back to the app and the network coming back both call
@@ -51,6 +55,7 @@ public sealed class DeviceOutbox : IDisposable
 
     private readonly IDeviceStore _store;
     private readonly IReadOnlyDictionary<string, IOutboxKind> _kinds;
+    private readonly IReadOnlyList<IOutboxFold> _folds;
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
 
@@ -75,10 +80,12 @@ public sealed class DeviceOutbox : IDisposable
         IDeviceStore store,
         IEnumerable<IOutboxKind> kinds,
         TimeProvider clock,
-        ILogger<DeviceOutbox>? logger = null)
+        ILogger<DeviceOutbox>? logger = null,
+        IEnumerable<IOutboxFold>? folds = null)
     {
         _store = store;
         _kinds = kinds.ToDictionary(kind => kind.Kind, StringComparer.Ordinal);
+        _folds = [.. folds ?? []];
         _clock = clock;
         _logger = logger ?? NullLogger<DeviceOutbox>.Instance;
 
@@ -314,6 +321,10 @@ public sealed class DeviceOutbox : IDisposable
 
     private async Task FlushDueAsync(CancellationToken cancellationToken)
     {
+        // A change queued behind an entry while its refusal was being written, or
+        // one a restart found waiting, is folded before anything is sent.
+        if (await FoldIntoSetAsideAsync(cancellationToken)) Changed?.Invoke();
+
         foreach (var entry in Entries)
         {
             if (entry.Refused) continue;
@@ -353,7 +364,7 @@ public sealed class DeviceOutbox : IDisposable
                     case OutboxDeliveryKind.Refused:
                         // Not a network problem, and not one a timer will fix — so it
                         // is set aside rather than holding up the entries behind it.
-                        await UpdateEntryAsync(claimed.Id, current => current with { Refused = true, LastError = delivery.Error }, cancellationToken);
+                        await SetAsideAsync(claimed.Id, delivery.Error, cancellationToken);
                         break;
 
                     case OutboxDeliveryKind.Held:
@@ -414,6 +425,151 @@ public sealed class DeviceOutbox : IDisposable
                     return;
             }
         }
+    }
+
+    /// <summary>
+    /// Sets the refused entry <paramref name="id"/> aside and folds into it what waits
+    /// behind it, in one hold of <see cref="_writes"/>: a reword or a tap landing
+    /// between the two would otherwise take the entry out of the fold's reach and
+    /// let this pass send the change on its own.
+    /// </summary>
+    private async Task SetAsideAsync(Guid id, string? error, CancellationToken cancellationToken)
+    {
+        await _writes.WaitAsync(cancellationToken);
+
+        try
+        {
+            OutboxEntry updated;
+
+            lock (_entriesLock)
+            {
+                var index = _entries.FindIndex(queued => queued.Id == id);
+                if (index < 0) return;
+
+                updated = _entries[index] with { Refused = true, LastError = error };
+                _entries[index] = updated;
+            }
+
+            await _store.UpdateAsync(updated, cancellationToken);
+            await FoldWhileWritingAsync(id, cancellationToken);
+        }
+        finally
+        {
+            _writes.Release();
+        }
+    }
+
+    /// <summary>
+    /// Lets the folds take waiting entries into every set-aside one — a change queued
+    /// behind an entry while it was being refused, or one a restart found waiting.
+    /// Only a flush calls it, holding the gate, so nothing is being sent; answers
+    /// whether anything was folded.
+    /// </summary>
+    private async Task<bool> FoldIntoSetAsideAsync(CancellationToken cancellationToken)
+    {
+        if (_folds.Count == 0) return false;
+
+        var folded = false;
+
+        foreach (var setAside in Entries.Where(entry => entry.Refused))
+        {
+            await _writes.WaitAsync(cancellationToken);
+
+            try
+            {
+                folded |= await FoldWhileWritingAsync(setAside.Id, cancellationToken);
+            }
+            finally
+            {
+                _writes.Release();
+            }
+        }
+
+        return folded;
+    }
+
+    /// <summary>The first fold's answer for the set-aside entry <paramref name="id"/>,
+    /// applied by a caller holding <see cref="_writes"/> — read and written with no
+    /// other change between, so an entry rewritten meanwhile is never folded from its
+    /// old words. The file first, then the list, as <see cref="RemoveAsync"/> does: a
+    /// store that fails part-way leaves what the next pass folds again.
+    /// <para>
+    /// A fold with no payload takes the set-aside entry out too — a capture deleted
+    /// before it ever reached the service. The waiting entries go first and the
+    /// set-aside one last, so a store failing part-way never leaves a withdrawal
+    /// waiting for a capture already gone — sent, it would tell the person the
+    /// desktop had dealt with it. A failure after the withdrawal left keeps the
+    /// capture set aside with nothing naming it: on the phone, where a second
+    /// Delete takes it out. The fold hears of the removal only once the entry is
+    /// off the device.
+    /// </para></summary>
+    private async Task<bool> FoldWhileWritingAsync(Guid id, CancellationToken cancellationToken)
+    {
+        if (_folds.Count == 0) return false;
+
+        OutboxEntry setAside;
+        (IOutboxFold By, OutboxFold Answer)? asked;
+
+        lock (_entriesLock)
+        {
+            if (_entries.Find(queued => queued.Id == id) is not { Refused: true } current) return false;
+
+            setAside = current;
+            asked = AskFolds(setAside, [.. _entries]);
+        }
+
+        if (asked is not { } answered) return false;
+
+        var (by, fold) = answered;
+
+        if (fold.PayloadJson is { } payloadJson)
+        {
+            var updated = setAside with { PayloadJson = payloadJson };
+            await _store.UpdateAsync(updated, cancellationToken);
+            lock (_entriesLock) _entries[_entries.FindIndex(queued => queued.Id == id)] = updated;
+        }
+
+        foreach (var absorbed in fold.Absorbed.Where(absorbed => absorbed != id).Distinct())
+        {
+            await _store.RemoveAsync(absorbed, cancellationToken);
+            lock (_entriesLock) _entries.RemoveAll(queued => queued.Id == absorbed);
+        }
+
+        if (fold.PayloadJson is null)
+        {
+            await _store.RemoveAsync(id, cancellationToken);
+            lock (_entriesLock) _entries.RemoveAll(queued => queued.Id == id);
+
+            try
+            {
+                by.Removed(setAside);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Outbox fold {Fold} could not let go of entry {Id}; it has left the outbox.", by.GetType().Name, id);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The first fold that answers, and its answer. One that throws is logged
+    /// and passed over: an entry it cannot read must not stop every flush after it.</summary>
+    private (IOutboxFold By, OutboxFold Answer)? AskFolds(OutboxEntry setAside, IReadOnlyList<OutboxEntry> waiting)
+    {
+        foreach (var candidate in _folds)
+        {
+            try
+            {
+                if (candidate.Fold(setAside, waiting) is { } fold) return (candidate, fold);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Outbox fold {Fold} could not read entry {Id}; it is left as it is.", candidate.GetType().Name, setAside.Id);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Gives every entry the network parked its attempts back.</summary>

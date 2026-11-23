@@ -159,6 +159,12 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<IOutboxKind, CaptureWithdrawOutboxKind>();
         services.AddSingleton<CaptureEdits>();
 
+        // An edit queued behind a capture that is then refused goes into the capture
+        // rather than to the service, which never received it; a withdrawal takes the
+        // capture out with it. The withdrawal's fold is asked first, so it wins.
+        services.AddSingleton<IOutboxFold, CaptureWithdrawFold>();
+        services.AddSingleton<IOutboxFold, CaptureEditFold>();
+
         // The Tasks tab's fold of the task feed, in the same file: a projection
         // plus the outbox's task kind, never a second task store.
         services.AddSingleton<ITaskViewStore>(_ => new SqliteTaskViewStore(databasePath));

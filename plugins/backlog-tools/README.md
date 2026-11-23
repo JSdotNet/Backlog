@@ -185,7 +185,16 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   memory holds the queue and 1800 otherwise. On restart it releases the request and delivery
   claims its dispatcher still holds. The dispatcher is named for the machine, and the skill runs one Manager per
   machine. A request released after a failed start is skipped for that turn and comes up again
-  on the next tick or re-armed Monitor. It writes no brief — the app builds each from the request's kind and id — so
+  on the next tick or re-armed Monitor. With the queue empty and room left it **mends** (local
+  ADR 0038 §6): for each `mend` clone folder — this session's checkout by default, `off` for none —
+  `assets/red-bot-prs.mjs` lists the open pull requests a bot opened on a branch of the repository
+  itself — never a fork's — whose checks all settled with one or more failed, skipping one an open session is bound to, one a fixer titled
+  `CI fix <owner/name>#<number>` still holds, and one that had two fixers; the Manager starts a
+  fixer for each with the fixed brief the script prints, built from the repository, number and
+  head commit alone, so no pull request text reaches it. The fixer fixes on the pull request's own
+  branch through the gate, binds it with Auto-fix on, pushes and stops at Personal Validation, and
+  never merges. The app counts no fixer, so the Manager adds its running ones to the session count; `mend-logic.mjs` holds the
+  decisions the assets test drives. It writes no brief — the app builds each from the request's kind and id — so
   the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
   gate like any pasted entry: it changes no file, is no flow, and adds no execution path beside
   the gate. It needs the `session-requests` flag on in the app. Started by the person alone,

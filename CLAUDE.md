@@ -79,7 +79,9 @@ and changes no file: started once as
 session request the app queues into a new session whose whole prompt is the app's fixed
 `run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry (local
 ADR 0038). It also hands each answer the app accepted for a waiting session back to that session
-as a message (local ADR 0041), which runs nothing new. It is no flow and adds no execution path
+as a message (local ADR 0041), which runs nothing new. With the queue empty it starts a fixer session, on a fixed
+brief from the repository, number and head commit alone, for each bot-opened pull request whose
+checks failed and that no session watches (local ADR 0038 §6); the fixer meets the gate itself. It is no flow and adds no execution path
 beside the gate.
 `tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
 repository, by the rules that folder carries, plus the Backlog `task` and `plan` entries it files for the

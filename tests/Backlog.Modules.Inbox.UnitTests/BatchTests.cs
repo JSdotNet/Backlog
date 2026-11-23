@@ -195,5 +195,6 @@ public sealed class BatchTests
             adviseTriage: null!,
             proposeTriagePass: null!,
             editNote: null!,
-            routeToEvent: null!);
+            routeToEvent: null!,
+            retryTranscription: null!);
 }

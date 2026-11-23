@@ -75,9 +75,22 @@ public sealed record InboxAttachment
     /// the kind detector ask of a file.</summary>
     public bool IsImage => ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Whether this is a meeting recording: one of the audio types local ADR 0048
-    /// lets a note carry. Only these are transcribed (local ADR 0049 §1).</summary>
-    public bool IsRecording => ContentType.Trim().ToLowerInvariant() is "audio/aac" or "audio/mp4" or "audio/x-m4a";
+    /// <summary>The name the phone's recorder gives a file a killed app left behind.</summary>
+    /// <remarks>Restates <c>RecordingNames.Interrupted</c> in <c>Backlog.Mobile.UI</c>, which
+    /// the Inbox cannot reference; the two must stay equal.</remarks>
+    internal const string InterruptedRecordingName = "Recording (interrupted)";
+
+    /// <summary>How every other name the phone's recorder gives starts: "Recording · 12:34",
+    /// "Recording · part 2 · 1:02:03" (<c>RecordingNames.Part</c>).</summary>
+    internal const string RecordingNamePrefix = "Recording · ";
+
+    /// <summary>Whether this is a meeting recording the app made: a name the recorder gives
+    /// and one of the audio types local ADR 0048 lets a note carry. Only these are
+    /// transcribed and removed (local ADR 0049 §1); an audio file a person picks keeps its
+    /// own name, so it stays on the note as any file does.</summary>
+    public bool IsRecording =>
+        (string.Equals(Name, InterruptedRecordingName, StringComparison.Ordinal) || Name.StartsWith(RecordingNamePrefix, StringComparison.Ordinal))
+        && ContentType.Trim().ToLowerInvariant() is "audio/aac" or "audio/mp4" or "audio/x-m4a";
 
     /// <summary>
     /// The file as a capture names it, waiting for its first fetch. Refuses what
