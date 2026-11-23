@@ -81,7 +81,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         if (entries.FirstOrDefault(entry => entry.Id == captureId && IsCapture(entry)) is { } waiting
             && await outbox.RemoveAsync(captureId, cancellationToken))
         {
-            ReleaseFiles(waiting);
+            ReleaseFiles(waiting, files);
             return;
         }
 
@@ -153,7 +153,9 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         return CaptureOutboxKind.Write(CaptureOutboxKind.Read(entry) with { Title = title, BodyMd = bodyMd });
     }
 
-    private void ReleaseFiles(OutboxEntry entry)
+    /// <summary>A talk note taken out of the outbox unsent has nobody left to upload
+    /// its files for, so they go with it.</summary>
+    internal static void ReleaseFiles(OutboxEntry entry, TalkNoteFiles files)
     {
         if (entry.Kind != TalkNoteOutboxKind.Token) return;
 
@@ -182,7 +184,7 @@ public sealed class CaptureEdits(DeviceOutbox outbox, TalkNoteFiles files)
         }
     }
 
-    private static CaptureWithdrawal? ReadWithdrawal(OutboxEntry entry)
+    internal static CaptureWithdrawal? ReadWithdrawal(OutboxEntry entry)
     {
         try
         {

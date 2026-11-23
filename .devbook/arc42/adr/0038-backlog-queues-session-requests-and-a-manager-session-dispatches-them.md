@@ -1,7 +1,7 @@
 # ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
-date: 2026-11-18
+date: 2026-11-23
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
 ```
 
@@ -21,8 +21,8 @@ sits behind the flag `session-requests`, off by default.
 Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
 `run-mvzp51dk-5wwl1p`, which made the second amendment. Proposed 2026-10-22 by the
 flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
-`session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02, 2026-11-11
-and 2026-11-18 ([History](#history)).
+`session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02, 2026-11-11,
+2026-11-18 and 2026-11-23 ([History](#history)).
 
 Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
 wait route, the dispatcher tools, the Start session and Start plan session actions, and
@@ -93,7 +93,9 @@ the plan tag, the repository as `owner/name`, that repository's clone folder on 
 machine, and nothing else. No title, body or note of the entry is copied into it.
 
 Only a click in the app creates one. No MCP tool, import, sync or capture creates a
-request, so nothing that writes entry text can start a session.
+request, so nothing that writes entry text can start a session. The one session the
+Manager starts without a request is a fixer for a bot's red pull request (§6), whose
+brief no text from the pull request reaches.
 
 **No entry text ever becomes a brief.** The dispatcher builds the brief from the
 request's kind and id alone (§2). The new session reads the entry through
@@ -284,6 +286,36 @@ group. Off, the action is not shown, the route answers `404` and the tools leave
 endpoint. It is off by default while the dispatchers are built
 ([Feature Enablement](../08-crosscutting-concepts.md#feature-enablement)).
 
+### 6. The Manager mends a bot's red pull request
+
+```meta
+```
+
+A pull request a bot opened — Dependabot, Renovate, a workflow — whose checks fail stays
+open until someone fixes it, and no session owns it. After the queue, with room left under
+the same four limits, the Manager lists each clone folder's open pull requests and starts a
+**fixer** session for one that is:
+
+- opened by a bot, on a branch of the repository itself, and not a draft. A fork's is
+  never mended: anyone can open one as a bot, and the fixer would build its code here;
+- red: every check has settled and at least one failed;
+- not watched: no open Claude Desktop session is bound to it, no fixer for it is still
+  open, and it has had fewer than two fixers.
+
+The fixer starts in the clone folder, in its own worktree, titled
+`CI fix <owner/name>#<number>`, which is how a later tick sees it. Its brief is fixed and
+built from the repository, the number and the head commit alone: fix the checks on the
+pull request's own branch through the repository's gate, bind the session to it with
+Auto-fix on, push to that branch and stop at Personal Validation, open no second pull
+request and never merge. The title, body, branch name and check logs never reach the
+brief. A fixer that needs a decision stops and says so.
+
+Session requests keep priority: a fixer starts only once the queue is empty, and a paused
+queue starts none. The person's `/loop` of the Manager is the ask that starts it, as it is
+for a request. The app counts no fixer among the dispatched sessions, so the Manager adds
+its running fixers to the count itself. Merging stays with the repository's own rules,
+such as an auto-merge workflow for a green dependency bump.
+
 ## Consequences
 
 ```meta
@@ -311,6 +343,12 @@ Negative:
   before `start_session` uses it.
 - **Each dispatch adds to the Manager's context.** Compaction covers it, and a
   restart costs nothing.
+
+- **A fixer waits on the person.** It stops at Personal Validation with its fix pushed,
+  and counts against the session limit until the person archives it.
+- **The two-fixer limit reads session titles.** A fixer the person retitles, or one past
+  the 100 newest sessions, no longer counts, so a pull request red for long can get a
+  third.
 
 Neutral:
 
@@ -345,6 +383,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-23 | §6 added, §1 amended: after the queue, the Manager starts one fixer session per bot-opened pull request on the repository's own branch whose settled checks fail and that no session watches, at most two per pull request, with a fixed brief from repository, number and head commit. | Dependency bumps sat open for days on one red check, and no session owned them. |
 | 2026-11-18 | §2 amended: the plan brief is `/backlog-tools:execute-plan +<tag> branch`, and `execute-plan` always runs unattended, with no attended mode, gate relay or per-entry landing; §1 now says the plan's `execute-plan` session dispatches a follow-up entry. Built in PR #1846. | A dispatched plan session stopped on questions nobody answers, and a dispatched plan lands its entries on the plan's integration branch. |
 | 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |
 | 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |

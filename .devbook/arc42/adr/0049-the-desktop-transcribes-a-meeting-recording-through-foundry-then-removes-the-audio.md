@@ -25,7 +25,7 @@ for the kept sha256s, `AdtsRemuxer`, `AzureFoundryInboxRecordingTranscriber` and
 desktop registration of `AzureFoundryTranscriptionClient`, the release in the sync
 service's `PushTasksCommand`, and a transcription stand-in in
 `Backlog.AzureFoundry.TestService`. Amended on 2026-11-18, as **History** says;
-the amendment is still to be built.
+the amendment is built in PR #1930.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline". It amends ADR 0023 and
@@ -339,8 +339,10 @@ Negative, and accepted:
 
 The phone needed no change: it keeps no copy of a delivered file.
 
-The 2026-11-18 amendment is still to be built: the name check, the MP4 cut, the
-failure record with its Retry, and the last failure under the Settings field.
+The 2026-11-18 amendment is built in PR #1930: the name check, the MP4 cut, the
+failure record with its Retry, and the last failure under the Settings field. PR #1941
+has the browser harness record AAC, which the MP4 cut reads, and refreshes an open note
+once a transcription lands.
 
 ## Rejected
 
