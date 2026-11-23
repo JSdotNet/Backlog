@@ -104,6 +104,16 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > The 2026-09-25 note under **What does not change** said a fence is never
 > converted into or out of a remark. That is reversed in one direction only: an
 > open fence becomes a remark once, and Backlog still never writes a fence.
+>
+> **Amended, 2026-11-23 — an orphan in a margin stands beside its remembered
+> block.** Where the read view draws remarks in a margin column (the Devbook read
+> view, whenever a chapter has any), an orphaned remark is no longer gathered at
+> the end. It stands level with the block at its stored index, clamped into
+> range, labelled "Passage changed" and marked approximate, and is counted on
+> that block. An orphaned AI proposal does the same, beside the last block when it
+> names none. Drawn inline, both still gather at the end of the chapter.
+> Placement is presentation only: no verb was added to the port and no anchor is
+> written back. Nothing about the record, the port or the replica changed.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -177,7 +187,11 @@ gives: the index says where to look, the digest says whether the block found
 there is still the one the remark was about. A chapter edited above a remark is
 re-anchored to the block that matches — nearest the remembered index first —
 and only a remark whose block has genuinely gone, or whose wording has been
-rewritten, shows at the end of the chapter rather than vanishing. The digest is
+rewritten, is an orphan: it never vanishes and is labelled as having lost its
+passage. Drawn inline, it shows at the end of the chapter. Drawn in a margin
+column, it stands level with the block at its remembered index, clamped into
+range, and is marked approximate. That placement is a guess the view makes when
+it draws; it never writes the anchor back. The digest is
 taken from the block's text rather than its source lines, so rewrapping or
 re-emphasising a passage does not break the anchor. A remark stored before the
 digest existed carries none, and is anchored by index alone exactly as it
@@ -312,8 +326,11 @@ Negative, and accepted:
   the search in `MarkdownView` close it — see **The record and the port** above.
   What remains accepted is narrower: a passage whose *wording* is rewritten is a
   different block by design, so a remark on it is orphaned rather than carried
-  onto prose it was never about, and two blocks in one chapter that say exactly
-  the same thing are told apart only by which is nearer the remembered index.
+  onto prose it was never about. Its anchor is not moved, and where the margin
+  draws it beside the block at its remembered index it says so ("Passage
+  changed", an approximate marker) rather than presenting itself as about that
+  block. Two blocks in one chapter that say exactly the same thing are told apart
+  only by which is nearer the remembered index.
 - **No settings surface for the third loop.** The Devices tab shows the task
   exchange's summary and offers its two resets; the annotation loop has neither
   a button nor a reset. Whoever adds them must copy the pending-flag mechanism
