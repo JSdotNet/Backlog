@@ -3,16 +3,6 @@ using Backlog.UI.Components.Diagrams.C4;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-/// <summary>Which list the architecture surface's left navigation draws: the model's,
-/// or the chapters', the decision log or the debt beside an open document.</summary>
-public enum Arc42SurfaceMode
-{
-    Model,
-    Chapters,
-    Decisions,
-    Debt
-}
-
 /// <summary>One numbered arc42 chapter on the architecture surface's chapter list, with
 /// the counts its badges carry.</summary>
 /// <param name="Number">The two digits its file name opens with, or null for a file
@@ -25,6 +15,8 @@ public enum Arc42SurfaceMode
 public sealed record Arc42SurfaceChapter(string Path, string? Number, string Title, int Views, int Decisions, int Debt);
 
 /// <summary>One decision or debt record on the surface's lists.</summary>
+/// <param name="Number">The number its file name opens with or, for a file that has
+/// none, the one the log gives it (<see cref="Numbered"/> false).</param>
 /// <param name="Proposed">An ADR whose state, stored or stated by its file, is <c>proposed</c>.</param>
 /// <param name="Guideline">An ADR adopted from elsewhere, under <c>adr/guidelines/</c>.</param>
 /// <param name="Note">What is said on the right: "proposed", a TDR's severity and rung.</param>
@@ -33,6 +25,15 @@ public sealed record Arc42SurfaceRecord(string Path, string Number, string Title
     /// <summary>An ADR in force (<see cref="C4LinkedRecord.IsAcceptedStatus"/>): what the
     /// decision log's Accepted filter keeps. Always false for a TDR.</summary>
     public bool Accepted { get; init; }
+
+    /// <summary>Whether <see cref="Number"/> is the file's own. False for a record whose
+    /// file name carries none — `package-management.md` — which the log numbers after
+    /// the highest number a file carries, so every row has one.</summary>
+    public bool Numbered { get; init; } = true;
+
+    /// <summary>The file name without its extension: the record's identifier where its
+    /// number is the log's.</summary>
+    public string Slug => System.IO.Path.GetFileNameWithoutExtension(Path);
 }
 
 /// <summary>A chapter that documents the open view, by the reference the views map
@@ -139,7 +140,7 @@ public static class Arc42Surface
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
-        return
+        return Numbered(
         [
             .. catalog.Documents
                 .Where(document => Arc42DevbookCatalog.IsArchitectureDecision(document.Path))
@@ -148,7 +149,7 @@ public static class Arc42Surface
                     var proposed = string.Equals(document.Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase);
                     return new Arc42SurfaceRecord(
                         document.Path,
-                        C4ElementInspection.NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
+                        C4ElementInspection.NumberOf(document.Path) ?? string.Empty,
                         C4ElementInspection.WithoutNumber(document.Title),
                         proposed,
                         Arc42DevbookCatalog.IsGuideline(document.Path),
@@ -159,7 +160,7 @@ public static class Arc42Surface
                 })
                 .OrderBy(record => record.Guideline)
                 .ThenBy(record => C4ViewEntry.FileOf(record.Path), StringComparer.OrdinalIgnoreCase)
-        ];
+        ]);
     }
 
     /// <summary>The debt records in number order, each with its severity and rung.</summary>
@@ -167,13 +168,13 @@ public static class Arc42Surface
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
-        return
+        return Numbered(
         [
             .. catalog.Documents
                 .Where(document => Arc42DevbookCatalog.IsDebtRecord(document.Path))
                 .OrderBy(document => C4ViewEntry.FileOf(document.Path), StringComparer.OrdinalIgnoreCase)
                 .Select(DebtRecord)
-        ];
+        ]);
     }
 
     /// <summary>The arc42 chapters the views map lists against a view, each reference
@@ -291,21 +292,58 @@ public static class Arc42Surface
 
         foreach (var record in Decisions(catalog))
         {
-            if (Matches(record.Number, record.Title, needle) || Matches(null, $"ADR {record.Number}", needle))
+            if (MatchesRecord(record, "ADR", needle))
             {
-                hits.Add(new Arc42FindHit(Arc42FindKind.Decision, record.Path, $"ADR {record.Number} {record.Title}", record.Guideline ? "Guideline" : record.Proposed ? "Decision · proposed" : "Decision"));
+                hits.Add(new Arc42FindHit(Arc42FindKind.Decision, record.Path, RecordLabel(record, "ADR"), RecordDetail(record, record.Guideline ? "Guideline" : record.Proposed ? "Decision · proposed" : "Decision")));
             }
         }
 
         foreach (var record in Debt(catalog))
         {
-            if (Matches(record.Number, record.Title, needle) || Matches(null, $"TDR {record.Number}", needle))
+            if (MatchesRecord(record, "TDR", needle))
             {
-                hits.Add(new Arc42FindHit(Arc42FindKind.Debt, record.Path, $"TDR {record.Number} {record.Title}", "Technical debt"));
+                hits.Add(new Arc42FindHit(Arc42FindKind.Debt, record.Path, RecordLabel(record, "TDR"), RecordDetail(record, "Technical debt")));
             }
         }
 
         return [.. hits.Take(limit)];
+    }
+
+    /// <summary>A record is found by what identifies it: its file's number — "0005",
+    /// "ADR 0005" — or, for a file without one, its slug; and by its title. Never by
+    /// the number the log gave an unnumbered file, which no file carries.</summary>
+    private static bool MatchesRecord(Arc42SurfaceRecord record, string kind, string needle) =>
+        record.Numbered
+            ? Matches(record.Number, record.Title, needle) || Matches(null, $"{kind} {record.Number}", needle)
+            : Matches(record.Slug, record.Title, needle) || record.Slug.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    private static string RecordLabel(Arc42SurfaceRecord record, string kind) =>
+        record.Numbered ? $"{kind} {record.Number} {record.Title}" : record.Title;
+
+    /// <summary>An unnumbered record's hit names its file, the identifier it has.</summary>
+    private static string RecordDetail(Arc42SurfaceRecord record, string detail) =>
+        record.Numbered ? detail : $"{detail} · {record.Slug}";
+
+    /// <summary>
+    /// Gives every record whose file carries no number one of the log's own: after the
+    /// highest number a file carries, in the log's order, as wide as the numbered files'
+    /// numbers and at least two digits. Without it such a row showed its whole slug in
+    /// the number column, beside a title that said the same.
+    /// </summary>
+    private static List<Arc42SurfaceRecord> Numbered(List<Arc42SurfaceRecord> records)
+    {
+        var numbered = records.Where(record => record.Number.Length > 0).ToList();
+        if (numbered.Count == records.Count) return records;
+
+        var next = numbered.Select(record => int.TryParse(record.Number, out var value) ? value : 0).DefaultIfEmpty(0).Max();
+        var width = Math.Max(2, numbered.Select(record => record.Number.Length).DefaultIfEmpty(0).Max());
+
+        return
+        [
+            .. records.Select(record => record.Number.Length > 0
+                ? record
+                : record with { Number = (++next).ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(width, '0'), Numbered = false })
+        ];
     }
 
     private static bool Matches(string? number, string title, string needle) =>
@@ -317,7 +355,7 @@ public static class Arc42Surface
         var note = string.Join(" · ", new[] { document.Severity?.ToString(), Lifecycle(document.DebtLifecycle) }.Where(part => part is not null));
         return new Arc42SurfaceRecord(
             document.Path,
-            C4ElementInspection.NumberOf(document.Path) ?? Path.GetFileNameWithoutExtension(document.Path),
+            C4ElementInspection.NumberOf(document.Path) ?? string.Empty,
             C4ElementInspection.WithoutNumber(document.Title),
             false,
             false,

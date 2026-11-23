@@ -12632,25 +12632,90 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
-/* The decision log's status filter: All, Accepted, Proposed, one chosen — the
-   library's radio ButtonGroup at its small size, placed in line with the list
-   under it. The rail is narrower than three labelled counts at the default size,
-   so the group takes the rail's width and its segments share it; a rail too
-   narrow even for that wraps the last segment rather than clipping it. */
+/* A group that folds — arc42, Decisions, Technical debt — is the library's
+   FoldControl: its trigger reads as the heading or the line it stands for, with
+   the count at the far end, and its region holds the lines, nested one step in. */
+.arc42-surface-nav__fold {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.arc42-surface-nav__fold .fold__trigger {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+}
+
+.arc42-surface-nav__fold .fold__trigger:hover {
+    background: var(--color-background-raised);
+}
+
+.arc42-surface-nav__fold .fold__chevron {
+    font-size: var(--font-size-sm);
+}
+
+.arc42-surface-nav__fold .fold__label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.arc42-surface-nav__fold-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The arc42 group's trigger is a group heading, as "C4 views" is: the heading's
+   face, and the padding the trigger brings in place of the heading's own. */
+.arc42-surface-nav__heading--fold {
+    padding: 0;
+}
+
+.arc42-surface-nav__fold-heading {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+}
+
+.arc42-surface-nav__folded {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.arc42-surface-nav__fold--records > .fold__region > .arc42-surface-nav__folded {
+    padding-left: var(--spacing-sm);
+}
+
+/* The decision log's status filter: All, Accepted, Proposed, one chosen, each with
+   its count — the library's radio ButtonGroup, made small enough to sit on one
+   row of a ~240px rail. The segments share the width equally and never wrap; a
+   label that still does not fit is cut, and the full choice is its own text. */
 .arc42-surface-nav__filter {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     max-width: calc(100% - 2 * var(--spacing-sm));
-    margin: 0 var(--spacing-sm) var(--spacing-xs);
+    margin: var(--spacing-2xs) var(--spacing-sm) var(--spacing-xs);
 }
 
 .arc42-surface-nav__filter > .btn {
     flex: 1 1 auto;
     min-width: 0;
+    padding: var(--spacing-2xs) 0.3rem;
+    font-size: var(--font-size-2xs);
     white-space: nowrap;
 }
 
 .arc42-surface-nav__item {
+    position: relative;
     display: flex;
     align-items: baseline;
     gap: var(--spacing-sm);
@@ -12666,9 +12731,21 @@ a.pull-request-detail-checks__name:hover {
     cursor: pointer;
 }
 
-.arc42-surface-nav__item:hover,
+.arc42-surface-nav__item:hover {
+    background: var(--color-background-raised);
+}
+
+/* Focus is drawn for the keyboard only: a line pressed with the mouse is marked
+   open by the bar below, and an outline left on it as well read as a box around
+   the selection. */
+.arc42-surface-nav__item:focus {
+    outline: none;
+}
+
 .arc42-surface-nav__item:focus-visible {
     background: var(--color-background-raised);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 .arc42-surface-nav__item--open {
@@ -12682,24 +12759,23 @@ a.pull-request-detail-checks__name:hover {
 .arc42-surface-nav__item--depth-3 { padding-left: calc(var(--spacing-sm) + 2.25rem); }
 .arc42-surface-nav__item--depth-4 { padding-left: calc(var(--spacing-sm) + 3rem); }
 
+/* Every line of the tree is one line, whatever its name: a view, a chapter or a
+   record. The label is cut with an ellipsis and never broken inside a word — the
+   full name is the line's tooltip — so a ~240px rail reads "09 Architecture
+   Decis…" rather than wrapping a chapter onto two lines. */
 .arc42-surface-nav__label {
     flex: 1 1 auto;
     min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-/* A views-list line is one line, whatever its name: the label is cut with an
-   ellipsis (the full title is the line's tooltip) and the count or tag sits in a
-   right-hand column of one width, so the numbers line up down the list. */
-.arc42-surface-nav__item--line {
-    align-items: center;
-}
-
-.arc42-surface-nav__item--line > .arc42-surface-nav__label {
     overflow: hidden;
     overflow-wrap: normal;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* A views-list line sets its count or tag in a right-hand column of one width, so
+   the numbers line up down the list. */
+.arc42-surface-nav__item--line {
+    align-items: center;
 }
 
 .arc42-surface-nav__detail--column {
@@ -12724,14 +12800,29 @@ a.pull-request-detail-checks__name:hover {
     font-weight: normal;
 }
 
-/* A record's note — "proposed", or a debt's severity and rung — sits on a line
-   of its own under the title, in the title's column, rather than beside it: beside
-   it, the note took the width the title needed and the title wrapped a few letters
-   a line. A grid, so the note lines up with the title whatever the number is. */
+/* A record line: a small number, then the title on one line (the label's rule
+   above) — never broken inside a word; the full title is the line's tooltip — and the
+   note — "proposed", or a debt's severity and rung — on a line of its own under
+   the title, in the title's column. A grid, so the titles line up whatever the
+   numbers are. */
 .arc42-surface-nav__item--record {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    column-gap: var(--spacing-sm);
+    column-gap: var(--spacing-xs);
+}
+
+.arc42-surface-nav__item--record > .arc42-surface-nav__number {
+    font-size: var(--font-size-2xs);
+}
+
+/* A chapter that documents the view the zoom is at. */
+.arc42-surface-nav__mark {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
 }
 
 .arc42-surface-nav__detail--note {
@@ -12772,26 +12863,6 @@ a.pull-request-detail-checks__name:hover {
     padding: var(--spacing-xs) var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-}
-
-.arc42-surface-nav__link {
-    align-self: flex-start;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: 0;
-    background: none;
-    color: var(--color-text-link);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-}
-
-.arc42-surface-nav__link:hover,
-.arc42-surface-nav__link:focus-visible {
-    text-decoration: underline;
-}
-
-.arc42-surface-nav__link--back {
-    margin-top: var(--spacing-sm);
 }
 
 .arc42-chapter-links {

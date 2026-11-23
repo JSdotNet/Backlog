@@ -113,6 +113,12 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Single(component.FindAll("[data-testid='arc42-surface-chapters-only']"));
         Assert.Empty(component.FindAll("[data-testid='c4-zoom-bar']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
+
+        // The same tree without the view groups: the chapters open, no way back.
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-view']"));
+        Assert.Equal("true", component.Find("[data-testid='arc42-surface-all-chapters']").GetAttribute("aria-expanded"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-chapter']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-back']"));
     }
 
     // ---- the architecture surface ----------------------------------------------
@@ -233,7 +239,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         await Harness.OpenViewAsync(component, "containers-backlog");
 
         Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-document']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-chapter'][data-documents]"));
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
     }
 
@@ -327,7 +333,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         harness.Settle(component);
 
         await Harness.OpenViewAsync(component, "containers-backlog");
-        await component.Find("[data-testid='arc42-surface-document']").ClickAsync(new());
+        await component.Find("[data-testid='arc42-surface-chapter'][data-documents]").ClickAsync(new());
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']")));
     }
@@ -450,7 +456,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         await component.FindAll("[data-testid='arc42-surface-view']")[0].ClickAsync(new());
 
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
-        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-document']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-chapter'][data-documents]").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -655,7 +661,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         await Harness.OpenViewAsync(component, "containers-backlog");
 
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-documents-none']"));
-        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-document']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Building Block View", component.Find("[data-testid='arc42-surface-chapter'][data-documents]").TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>The section is the builder's edge source: the innermost heading that is

@@ -21,8 +21,9 @@ internal sealed partial class DesktopHarness
     /// reader does: from the architecture surface's left navigation, by the title it
     /// lists the chapter under. The surface owns the navigation for this section, so
     /// the pane draws no menu of its own there (local ADR 0046). On a repository with a
-    /// model the navigation opens on the C4 views, and "All chapters" turns it to the
-    /// chapter list; without one it is the chapter list already.</summary>
+    /// model the navigation opens with its arc42 group folded, and its trigger folds the
+    /// chapter list open in place; without one the list is open already. The trigger
+    /// toggles, so it is pressed only while it says it is folded.</summary>
     public async Task OpenArchitectureChapterAsync(Regex title)
     {
         await OpenAreaAsync("Architecture");
@@ -32,7 +33,7 @@ internal sealed partial class DesktopHarness
         await Interactive.RepeatAsync(
             async () =>
             {
-                if (await allChapters.IsVisibleAsync()) await allChapters.ClickAsync();
+                if (await allChapters.IsVisibleAsync() && await allChapters.GetAttributeAsync("aria-expanded") != "true") await allChapters.ClickAsync();
             },
             () => chapter.IsVisibleAsync(),
             "the architecture surface's chapter list");
