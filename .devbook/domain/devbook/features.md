@@ -1070,11 +1070,11 @@ title, its sub-feature count, its flag or setting, each led by its kind's glyph,
 *n req · m tested* when it
 has requirements and, past the first column, what it comes after. A proposed
 feature is dashed, and the deprecated ones are gathered, struck through, in one
-box at the end of the last column. Picking a card shows what it builds on, the
-flag it is gated by or the setting it is configured by, with that chapter's scope
-and default where its `context.md` states them, the model chapters its
-`related` names and its sub-features, and the decision records its `related`
-names, each by its number, and beside them what it promises: its
+box at the end of the last column. Picking a card shows what it builds on and the
+flag it is gated by or the setting it is configured by. That chapter's scope and
+default show where its `context.md` states them. The card then shows its
+sub-features, and the model chapters and decision records its `related` names,
+each record by its number. Beside them stands what it promises: its
 requirement count, how many a test proves as a bar, a link to Requirements, and
 what is always true of what it uses — the rules its requirements lean on.
 
@@ -1087,12 +1087,11 @@ true** lists those rules under the feature's heading, counted, instead of a sent
 explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature. The page opens on a card saying what a requirement is, with
-how many are tested, and, where the features lean on rules, a card counting them
-that opens Domain on the first such unit's Always true tab;
-each requirement is a card with a *Test linked* or dashed
-*No test linked* mark and its scenarios on its foot, and a feature with more
-than three requirements opens the first two and lists the rest as rows that
-open in place. A feature's heading shows the flag or setting its feature chapter
+how many are tested. Where the features lean on rules, a second card counts them
+and opens Domain on the first such unit's Always true tab. Each requirement is a
+card with a *Test linked* or dashed *No test linked* mark and its scenarios on
+its foot. A feature with more than three requirements opens the first two and
+lists the rest as rows that open in place. A feature's heading shows the flag or setting its feature chapter
 hangs on.
 
 **The Brain and the tasks show where they link.** Under each unit, feature and

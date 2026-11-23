@@ -137,9 +137,9 @@ person's choice is kept in `features.json` beside the app's other per-device
 choices.
 
 The plan has built every page: the Context map, a context's page with its
-neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
-notes and tasks that link to each, the **Demo** button for a click demo,
-and any other file as written.
+neighbours and its **Overview**, Domain, Features, Requirements, Model, Flow, and
+any other file as written. The pages carry the Brain notes and tasks that link to
+each, and the **Demo** button for a click demo.
 
 Model opens on **Diagram**, headed by the root's name. It draws each `classDiagram`
 of the model file as the aggregate's consistency boundary. The root card sits in the
