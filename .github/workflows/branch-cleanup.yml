@@ -1,0 +1,158 @@
+name: Branch cleanup
+
+# Deletes the head branches of merged pull requests. The repository has
+# "Automatically delete head branches" on, but GitHub skips it for a merge made
+# with the default GITHUB_TOKEN, and auto-merge.yml merges with that token while
+# the AUTO_MERGE_TOKEN secret is absent. An event the token causes starts no
+# workflow either, so a `pull_request: closed` job would never run. Hundreds of
+# merged heads piled up before this ran; it sweeps them on a schedule instead.
+#
+# A branch is deleted only when all of these hold:
+#
+#   - it is not the default branch and not protected;
+#   - no open pull request uses it as its head or as its base (plan/
+#     integration branches and stacked parents are bases);
+#   - a merged pull request from this repository has it as its head, by name,
+#     and that pull request's head commit is the branch's tip now.
+#
+# A branch someone pushed to after the merge is kept, and so is every branch no
+# merged pull request names: data branches like feedback-screenshots stay.
+# A squash-merged head is not reachable from main, but GitHub keeps it under
+# refs/pull/<n>/head, so deleting the branch loses nothing the pull request
+# does not still hold.
+#
+# The delete is a `git push --force-with-lease` against the tip the run read,
+# so a push that lands between the check and the delete makes the delete fail
+# instead of losing the push. A failed delete is a warning; the run goes on. A
+# failure to list branches or pull requests fails the run.
+#
+# Run it by hand with dry_run to see the candidates without deleting any. A
+# scheduled run has no inputs, so it deletes.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List the branches that would be deleted without deleting them'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Delete merged head branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Deleting a branch is a contents write; reading pull requests is all
+      # the selection needs.
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Delete merged head branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+
+          repo="$GITHUB_REPOSITORY"
+          summary="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+          work="$(mktemp -d)"
+
+          # Every listing goes to a file first, so a failed call fails the run
+          # instead of feeding an empty list to the loop below.
+          default="$(gh api "repos/$repo" --jq '.default_branch')"
+          gh api --paginate "repos/$repo/branches?per_page=100" \
+            --jq '.[] | [.name, .commit.sha, .protected] | @tsv' > "$work/branches.tsv"
+          gh api --paginate "repos/$repo/pulls?state=open&per_page=100" \
+            --jq ".[] | [.head.ref, .base.ref, (.head.repo.full_name == \"$repo\")] | @tsv" > "$work/open.tsv"
+          # One pass over the closed pull requests costs a page per hundred,
+          # where a lookup per branch would cost a call per branch.
+          gh api --paginate "repos/$repo/pulls?state=closed&per_page=100" \
+            --jq ".[] | select(.merged_at != null and .head.repo.full_name == \"$repo\") | [.head.ref, .head.sha] | @tsv" > "$work/merged.tsv"
+
+          declare -A in_use=() merged_tip=() merged_name=()
+          while IFS=$'\t' read -r head base same_repo; do
+            # A fork's head lives in the fork; every base is a branch here.
+            if [[ "$same_repo" == "true" ]]; then in_use["$head"]=1; fi
+            in_use["$base"]=1
+          done < "$work/open.tsv"
+          while IFS=$'\t' read -r head sha; do
+            merged_tip["$head"$'\t'"$sha"]=1
+            merged_name["$head"]=1
+          done < "$work/merged.tsv"
+
+          if [[ "$DRY_RUN" != "true" ]]; then
+            git init -q "$work/git"
+            git -C "$work/git" remote add origin "${GITHUB_SERVER_URL:-https://github.com}/$repo.git"
+            auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            echo "::add-mask::$auth"
+            git -C "$work/git" config "http.${GITHUB_SERVER_URL:-https://github.com}/.extraheader" "AUTHORIZATION: basic $auth"
+          fi
+
+          deleted=0 failed=0
+          declare -A kept=()
+          rows=()
+          while IFS=$'\t' read -r name sha protected; do
+            reason=""
+            if [[ "$name" == "$default" ]]; then reason="default branch"
+            elif [[ "$protected" == "true" ]]; then reason="protected"
+            elif [[ -n "${in_use[$name]:-}" ]]; then reason="used by an open pull request"
+            elif [[ -n "${merged_tip[$name$'\t'$sha]:-}" ]]; then reason=""
+            elif [[ -n "${merged_name[$name]:-}" ]]; then reason="commits after merge"
+            else reason="no merged pull request"
+            fi
+
+            if [[ -n "$reason" ]]; then
+              kept["$reason"]=$(( ${kept[$reason]:-0} + 1 ))
+              rows+=("| \`$name\` | kept | $reason |")
+            elif [[ "$DRY_RUN" == "true" ]]; then
+              deleted=$(( deleted + 1 ))
+              rows+=("| \`$name\` | would delete | merged at \`${sha:0:7}\` |")
+            elif output="$(git -C "$work/git" push --quiet --force-with-lease="refs/heads/$name:$sha" origin ":refs/heads/$name" 2>&1 </dev/null)"; then
+              deleted=$(( deleted + 1 ))
+              rows+=("| \`$name\` | deleted | merged at \`${sha:0:7}\` |")
+            else
+              failed=$(( failed + 1 ))
+              echo "::warning title=Branch not deleted::$name: ${output//$'\n'/ }"
+              rows+=("| \`$name\` | failed | see the run's warnings |")
+            fi
+          done < "$work/branches.tsv"
+
+          {
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "## Branch cleanup (dry run: nothing deleted)"
+              echo
+              echo "| Outcome | Branches |"
+              echo "| --- | --- |"
+              echo "| would delete | $deleted |"
+            else
+              echo "## Branch cleanup"
+              echo
+              echo "| Outcome | Branches |"
+              echo "| --- | --- |"
+              echo "| deleted | $deleted |"
+              echo "| failed | $failed |"
+            fi
+            for reason in "default branch" "protected" "used by an open pull request" \
+                          "commits after merge" "no merged pull request"; do
+              if [[ -n "${kept[$reason]:-}" ]]; then
+                echo "| kept: $reason | ${kept[$reason]} |"
+              fi
+            done
+            echo
+            echo "| Branch | Outcome | Why |"
+            echo "| --- | --- | --- |"
+            printf '%s\n' "${rows[@]}"
+          } >> "$summary"
