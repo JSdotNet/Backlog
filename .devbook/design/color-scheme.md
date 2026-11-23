@@ -658,14 +658,17 @@ information about the chapter, so they stay neutral outlines like the badges
 below: *instant* on the raised surface inside its edge, *id* and the status
 dashed.
 
-**Information badges are neutral outlines.** On the Domain view's pages, a
-chapter's date, a chapter's feature switch, a feature's flag or
-setting chip on Features, a feature's
-*Proposed* or *Deprecated* mark on Features, a term's *proposed* or
-*deprecated* mark on the Glossary, a requirement's *Test linked* or
-dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
-Model's Events tab are information about the
-chapter, not something the product acts on. Each is drawn as a neutral
+**Information badges are neutral outlines.** These badges on the Domain view's
+pages are information about the chapter, not something the product acts on:
+
+- a chapter's date and its feature switch
+- a feature's flag or setting chip and its *Proposed* or *Deprecated* mark, on
+  Features
+- a term's *proposed* or *deprecated* mark, on the Glossary
+- a requirement's *Test linked* or dashed *No test linked* mark, on Requirements
+- an event's *Documented* or *Emitted* mark, on Model's Events tab
+
+Each is drawn as a neutral
 outline: a transparent surface inside a 1px `color-border-strong` edge, with
 `color-text-secondary` ink. The rule that filled means the product acts on it
 ([Badge and chip tones](#badge-and-chip-tones)) therefore holds on these pages
