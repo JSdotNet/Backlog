@@ -14,6 +14,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { checkState, fixBrief, fixTitle, redBotPullRequests, skipReason } from "../skills/dispatch-sessions/assets/mend-logic.mjs";
 import { dispatcherName } from "../skills/dispatch-sessions/assets/wait-logic.mjs";
 import { fakeBacklogApp } from "./fake-backlog-app.mjs";
 
@@ -294,4 +295,59 @@ test("the capacity probe reports CPU and free memory against the thresholds", { 
 
     const busy = probe("-MaxCpu", "1", "-MinFreeGb", "0");
     assert.equal(busy.fits, busy.cpuPercent < 1);
+});
+
+// The mend step's decisions (local ADR 0038 §6), from mend-logic.mjs.
+
+const run = (conclusion, status = "COMPLETED") => ({ __typename: "CheckRun", status, conclusion });
+const pr = (number, checks, extra = {}) => ({ number, isDraft: false, isCrossRepository: false, author: { is_bot: true, login: "app/dependabot" }, headRefOid: "a68212eb6a1c", statusCheckRollup: checks, ...extra });
+
+test("a check is red on a failed conclusion, pending until it completes, and a status context by its state", () => {
+    assert.equal(checkState(run("FAILURE")), "red");
+    assert.equal(checkState(run("TIMED_OUT")), "red");
+    assert.equal(checkState(run("NEUTRAL")), "green");
+    assert.equal(checkState(run("SKIPPED")), "green");
+    assert.equal(checkState(run(null, "IN_PROGRESS")), "pending");
+    assert.equal(checkState({ __typename: "StatusContext", state: "PENDING" }), "pending");
+    assert.equal(checkState({ __typename: "StatusContext", state: "ERROR" }), "red");
+});
+
+test("only a bot's settled red pull request on the repository's own branch, no draft, is mended, by number", () => {
+    const person = { is_bot: false, login: "JSdotNet" };
+    const listed = redBotPullRequests([
+        pr(1938, [run("SUCCESS"), run("FAILURE")]),
+        pr(1931, [run("FAILURE")], { author: { login: "renovate[bot]" } }),
+        pr(1937, [run("FAILURE"), run(null, "IN_PROGRESS")]),
+        pr(1936, [run("SUCCESS"), run("NEUTRAL")]),
+        pr(1935, [run("FAILURE")], { isDraft: true }),
+        pr(1940, [run("FAILURE")], { author: person }),
+        pr(1942, [run("FAILURE")], { isCrossRepository: true, author: { login: "someapp[bot]" } }),
+    ]);
+    assert.deepEqual(listed, [{ number: 1931, head: "a68212e" }, { number: 1938, head: "a68212e" }]);
+});
+
+test("a pull request a session watches, a fixer still holds, or two fixers tried gets no fixer", () => {
+    const title = fixTitle("JSdotNet/Backlog", 1938);
+    assert.equal(title, "CI fix JSdotNet/Backlog#1938");
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, []), null);
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title: "x", prNumber: 1938, isArchived: false }]), "watched");
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title: "x", prNumber: 1938, isArchived: true }]), null);
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: false }]), "fixing");
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: true }]), null);
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: true }, { title, isArchived: true }]), "gave-up");
+});
+
+test("the fixer's brief names only the repository, the number and the commit", () => {
+    const brief = fixBrief("JSdotNet/Backlog", 1938, "a68212e");
+    assert.match(brief, /JSdotNet\/Backlog#1938/);
+    assert.match(brief, /a68212e/);
+    assert.match(brief, /never merge/);
+    assert.match(brief, /Keep this session's title/);
+    assert.equal(brief, fixBrief("JSdotNet/Backlog", 1938, "a68212e"));
+});
+
+test("red-bot-prs refuses a --sessions argument that names no JSON array file", () => {
+    const run = spawnSync(process.execPath, [path.join(ASSETS, "red-bot-prs.mjs"), ".", "--sessions", path.join(os.tmpdir(), "no-such-sessions.json")], { encoding: "utf8" });
+    assert.equal(run.status, 2);
+    assert.match(run.stderr, /JSON array/);
 });
