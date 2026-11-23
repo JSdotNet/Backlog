@@ -42,6 +42,7 @@ public class ContinuousIntegrationWorkflowTests
         ["app-insights-exceptions.yml"] = 30,
         [NightlyWorkflow] = 30,
         ["auto-merge.yml"] = 30,
+        ["branch-cleanup.yml"] = 30,
 
         [ReleaseWorkflow] = 60,
         ["deploy-foundry.yml"] = 60,
