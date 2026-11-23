@@ -238,21 +238,43 @@ The read view SHALL show a remark beside the passage it was left on after the ch
 - **When** two paragraphs are added above it and the reader opens the chapter again
 - **Then** the remark shows beside the same passage, now the fourth paragraph
 
-### Requirement: A remark whose passage has gone shows at the end
+### Requirement: A remark whose passage has gone is never dropped
 
 ```meta
 type: requirement
 related: [.devbook/domain/devbook/domain.md#remark]
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_was_deleted_shows_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_changed_wording_shows_at_the_end]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_was_deleted_shows_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentAnchorTests.A_remark_whose_paragraph_changed_wording_shows_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentTests.An_orphan_group_says_the_passage_changed_and_names_itself_by_it, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentTests.An_orphan_group_tells_the_reader_what_they_can_do_with_a_remark, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentMarginOrphanTests.An_orphan_stands_in_the_margin_level_with_the_block_it_last_named, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentMarginOrphanTests.A_margin_orphan_carries_its_own_label_and_hint_and_is_described_by_both, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentMarginOrphanTests.In_the_margin_nothing_is_left_for_the_group_at_the_end, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentMarginOrphanTests.A_blocks_counter_counts_the_orphans_placed_beside_it_in_the_margin]
 ```
 
-The read view SHALL show a remark whose passage has been deleted or reworded at the end of the chapter rather than drop it.
+The read view SHALL show a remark whose passage has been deleted or reworded rather than drop it. It SHALL label the remark "Passage changed", name the actions the reader has on it, and SHALL NOT move its stored anchor. With remarks drawn inline, it SHALL show in a labelled group at the end of the chapter. With remarks drawn in the margin, it SHALL show in the margin level with the block at the index it last named, or the nearest block when that index is out of range. It SHALL be marked approximate there and counted on that block.
 
-#### Scenario: The remarked paragraph is deleted
+#### Scenario: The remarked paragraph is deleted, remarks inline
 
-- **Given** a remark on a paragraph of a chapter
+- **Given** a remark on a paragraph of a chapter read with remarks inline
 - **When** that paragraph is deleted and the reader opens the chapter again
-- **Then** the remark shows at the end of the chapter
+- **Then** the remark shows at the end of the chapter, under "Passage changed"
+
+#### Scenario: The remarked paragraph is reworded, remarks in the margin
+
+- **Given** a remark on the second paragraph of a chapter read with remarks in the margin
+- **When** that paragraph is reworded and the reader opens the chapter again
+- **Then** the remark shows in the margin level with the second paragraph, marked "Passage changed" and approximate, the second paragraph's count includes it, and its stored anchor is unchanged
+
+### Requirement: Remarks in the margin never push the chapter apart
+
+```meta
+type: requirement
+related: [.devbook/domain/devbook/domain.md#remark]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownMarginNotesInteropTests.A_margin_view_is_handed_to_the_script_by_the_id_it_wears, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownMarginNotesInteropTests.Without_the_script_the_margin_still_renders_and_is_not_asked_again, unit:dotnet:Backlog.UI.Components.UnitTests.MarkdownCommentMarginOrphanTests.A_row_with_nothing_beside_it_draws_no_stack_to_take_the_pointer]
+```
+
+With remarks drawn in the margin, the read view SHALL keep each block as tall as its own text. A block's remarks SHALL start level with it when there is room. Otherwise they SHALL run on down the margin beside the blocks after it and never overlap the remarks before them. A chapter insert SHALL move below them. Only the end of the chapter SHALL grow to fit the last remarks. Below the narrow breakpoint, each block's remarks SHALL stack under it.
+
+#### Scenario: A paragraph with more remarks than it has lines
+
+- **Given** a one-line paragraph with three remarks, followed by two paragraphs with none
+- **When** the reader opens the chapter with remarks in the margin
+- **Then** the next paragraph follows the first with no gap, the three remarks run on beside the two paragraphs after it, and each remark's actions can be used there
 
 ### Requirement: Open review notes are imported once as remarks
 

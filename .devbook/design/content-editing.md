@@ -538,7 +538,7 @@ The product may offer to rewrite a passage or to answer a remark. What it may
 | The tint | The tint is a mix of the one brand hue against the card surface. |
 | The product's own AI | An AI act inside the product carries **no vendor mark**; it is attributed to AI alone. |
 | Offline | An AI act offline is unavailable like any other: present, disabled, with a calm sentence. |
-| Lost anchors | A proposal whose block has gone joins the same orphan region a remark does, rather than being dropped. |
+| Lost anchors | A proposal whose block has gone is never dropped: it goes where an orphaned remark goes — the labelled group at the end when remarks are inline; in a margin column, level with the block at its remembered index (the last block when it names none), labelled and marked approximate. |
 
 - **Anchoring:** no edit survives a character range, so "Rewrite part" means
   rewrite this paragraph, and the product MUST NOT offer a finer grain than its
@@ -638,7 +638,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Document surface | `FileView`: a file's header and its body, the body scrolling under a fixed header | Storybook → *File view*; *Markdown document* → **Reading a knowledge chapter** for a chapter's records in the body |
 | What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it | Storybook → *File content* → **What the file says it is for** |
 | Comparison surface | `MarkdownCompare` and `MarkdownCompareView`, aligned by heading and never by line | Storybook → *Section comparison*, and *File view* → **Two versions, aligned by the pane** |
-| Chapter remarks | `MarkdownView` comments, anchored to a block index, drawn inline or in a margin column | Storybook → *Markdown document* → **The same comments, in the margin** |
+| Chapter remarks | `MarkdownView` comments, anchored to a block index, drawn inline or in a margin column. In the margin a block's row never grows to fit its remarks: they run on down the column, the next block's remarks start below them, a chapter insert moves below them, and only the end of the chapter grows; without the margin script, or below the narrow breakpoint, rows stack as before. An orphaned remark or proposal stands beside its remembered block, marked approximate, and a remark is counted there; hovering or focusing a remark highlights its block, and the reverse | Storybook → *Markdown document* → **The same comments, in the margin**; **A crowded margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
