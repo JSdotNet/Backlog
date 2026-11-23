@@ -318,6 +318,124 @@ public sealed class CaptureEditsTests : IDisposable
         gate.Release();
     }
 
+    /// <summary>
+    /// The person deletes a capture while it is being sent, so the withdrawal waits
+    /// behind it — and then the service refuses the capture. Sent on its own, the
+    /// withdrawal would find nothing (404 <c>inbox.item_not_found</c>), read as
+    /// "already dealt with", and leave the deleted capture on the phone, set aside.
+    /// Instead both leave the outbox unsent.
+    /// </summary>
+    [Fact]
+    public async Task A_withdrawal_waiting_behind_a_capture_the_service_refuses_takes_both_out_unsent()
+    {
+        var captures = new GatedRefusingOnceKind();
+        var acknowledgements = 0;
+        var sync = TestCloudSync.Client(_ =>
+        {
+            Interlocked.Increment(ref acknowledgements);
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+            {
+                Content = new StringContent(
+                    $$"""{"status":404,"code":"{{Backlog.Modules.Sync.Abstractions.SyncErrorCodes.InboxItemNotFound}}","detail":"No capture with that id is waiting."}""",
+                    System.Text.Encoding.UTF8,
+                    "application/problem+json"),
+            };
+        });
+        var notices = new CaptureDealtWithNotices();
+        using var outbox = new DeviceOutbox(
+            new InMemoryDeviceStore(),
+            [captures, new CaptureWithdrawOutboxKind(sync, notices)],
+            _clock,
+            folds: [new CaptureWithdrawFold(_files), new CaptureEditFold()]);
+        var capture = CaptureOutboxKind.Create("Call the dentist");
+        var id = capture.Id!.Value;
+        await outbox.EnqueueAsync(CaptureOutboxKind.Token, id, CaptureOutboxKind.Write(capture), Cancellation);
+        Assert.Equal(id, outbox.Sending);
+
+        await new CaptureEdits(outbox, _files).WithdrawAsync(id, Cancellation);
+        Assert.Equal([CaptureOutboxKind.Token, CaptureWithdrawOutboxKind.Token], outbox.Entries.Select(entry => entry.Kind));
+
+        captures.Release();
+        await outbox.FlushAsync(Cancellation);
+        await outbox.WhenIdleAsync();
+
+        Assert.Empty(outbox.Entries);
+        Assert.Equal(0, acknowledgements);
+        Assert.Empty(notices.Captures);
+        Assert.Empty(captures.Delivered);
+    }
+
+    /// <summary>The same for a talk note already in line with an edit and a
+    /// withdrawal behind it — a phone restarted with all three waiting: the
+    /// withdrawal wins over the edit, nothing of it is sent, and its files go.</summary>
+    [Fact]
+    public async Task A_withdrawal_already_behind_a_talk_note_the_service_refuses_wins_over_its_edit_and_releases_its_files()
+    {
+        var file = new AttachmentMetadata(Guid.CreateVersion7(), "note.m4a", "audio/mp4", 10, new string('a', 64));
+        Directory.CreateDirectory(_files.OutboxFolder);
+        await File.WriteAllTextAsync(_files.OutboxPath(file.Id), "audio", Cancellation);
+        var id = Guid.CreateVersion7();
+        var payload = new TalkNotePayload(new CaptureRequest("Standup", CaptureOutboxKind.Source, id, Attachments: [file]), [file.Id]);
+        var store = new InMemoryDeviceStore();
+        await store.AddAsync(new OutboxEntry(id, TalkNoteOutboxKind.Token, TalkNoteOutboxKind.Write(payload), 0, null, Start), Cancellation);
+        await store.AddAsync(Entry(CaptureEditOutboxKind.Token, CaptureEditOutboxKind.Write(new CaptureEdit(id, "Standup notes", null))) with { CreatedAt = Start.AddSeconds(1) }, Cancellation);
+        await store.AddAsync(Entry(CaptureWithdrawOutboxKind.Token, CaptureWithdrawOutboxKind.Write(new CaptureWithdrawal(id))) with { CreatedAt = Start.AddSeconds(2) }, Cancellation);
+        var editKind = new RecordingKind(CaptureEditOutboxKind.Token);
+        var withdrawKind = new RecordingKind(CaptureWithdrawOutboxKind.Token);
+        using var outbox = new DeviceOutbox(
+            store,
+            [new RefusingOnceKind(TalkNoteOutboxKind.Token), editKind, withdrawKind],
+            _clock,
+            folds: [new CaptureWithdrawFold(_files), new CaptureEditFold()]);
+
+        await outbox.FlushAsync(Cancellation);
+
+        Assert.Empty(outbox.Entries);
+        Assert.Empty(store.ReadOutbox());
+        Assert.Empty(editKind.Sent);
+        Assert.Empty(withdrawKind.Sent);
+        Assert.False(File.Exists(_files.OutboxPath(file.Id)));
+    }
+
+    /// <summary>A phone restarted with a capture already set aside and its withdrawal
+    /// behind it takes both out before the pass sends anything.</summary>
+    [Fact]
+    public async Task A_withdrawal_a_restart_finds_behind_a_set_aside_capture_takes_both_out_unsent()
+    {
+        var store = new InMemoryDeviceStore();
+        var id = Guid.CreateVersion7();
+        await store.AddAsync(new OutboxEntry(id, CaptureOutboxKind.Token, CaptureOutboxKind.Write(CaptureOutboxKind.Create("Refused") with { Id = id }), 0, "Too long.", Start) { Refused = true }, Cancellation);
+        await store.AddAsync(Entry(CaptureWithdrawOutboxKind.Token, CaptureWithdrawOutboxKind.Write(new CaptureWithdrawal(id))) with { CreatedAt = Start.AddSeconds(1) }, Cancellation);
+        var captures = new RecordingKind(CaptureOutboxKind.Token);
+        var withdrawKind = new RecordingKind(CaptureWithdrawOutboxKind.Token);
+        using var outbox = new DeviceOutbox(store, [captures, withdrawKind], _clock, folds: [new CaptureWithdrawFold(_files), new CaptureEditFold()]);
+
+        await outbox.FlushAsync(Cancellation);
+
+        Assert.Empty(outbox.Entries);
+        Assert.Empty(store.ReadOutbox());
+        Assert.Empty(captures.Sent);
+        Assert.Empty(withdrawKind.Sent);
+    }
+
+    /// <summary>A withdrawal of another capture, behind a refused one, is sent.</summary>
+    [Fact]
+    public async Task A_withdrawal_of_another_capture_is_not_folded()
+    {
+        var store = new InMemoryDeviceStore();
+        var id = Guid.CreateVersion7();
+        var other = Guid.CreateVersion7();
+        await store.AddAsync(new OutboxEntry(id, CaptureOutboxKind.Token, CaptureOutboxKind.Write(CaptureOutboxKind.Create("Refused") with { Id = id }), 0, null, Start), Cancellation);
+        await store.AddAsync(Entry(CaptureWithdrawOutboxKind.Token, CaptureWithdrawOutboxKind.Write(new CaptureWithdrawal(other))) with { CreatedAt = Start.AddSeconds(1) }, Cancellation);
+        var withdrawKind = new RecordingKind(CaptureWithdrawOutboxKind.Token);
+        using var outbox = new DeviceOutbox(store, [new RefusingOnceKind(CaptureOutboxKind.Token), withdrawKind], _clock, folds: [new CaptureWithdrawFold(_files)]);
+
+        await outbox.FlushAsync(Cancellation);
+
+        Assert.True(Assert.Single(outbox.Entries).Refused);
+        Assert.Equal(new CaptureWithdrawal(other), CaptureWithdrawOutboxKind.Read(Assert.Single(withdrawKind.Sent)));
+    }
+
     // --- The list ------------------------------------------------------------
 
     /// <summary>What the service last said, with the phone's own change laid over
@@ -372,7 +490,11 @@ public sealed class CaptureEditsTests : IDisposable
         Assert.Contains(CaptureEditOutboxKind.Token, kinds);
         Assert.Contains(CaptureWithdrawOutboxKind.Token, kinds);
         Assert.NotNull(provider.GetRequiredService<CaptureEdits>());
-        Assert.Contains(provider.GetServices<IOutboxFold>(), fold => fold is CaptureEditFold);
+        // The withdrawal's fold is asked first, so a withdrawal waiting with edits wins.
+        Assert.Collection(
+            provider.GetServices<IOutboxFold>(),
+            fold => Assert.IsType<CaptureWithdrawFold>(fold),
+            fold => Assert.IsType<CaptureEditFold>(fold));
         Assert.Same(provider.GetRequiredService<CaptureDealtWithNotices>(), provider.GetRequiredService<CaptureDealtWithNotices>());
     }
 
