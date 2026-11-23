@@ -13,8 +13,9 @@ namespace Backlog.Infrastructure.AzureFoundry;
 /// 0049): the recording goes to the transcription deployment in parts, and the joined
 /// transcript to the chat deployment for its summary.
 /// <list type="bullet">
-/// <item><b>Format.</b> AAC in ADTS is remuxed to M4A parts of at most five minutes by
-/// <see cref="AdtsRemuxer"/>; an M4A file is sent as it is, whole.</item>
+/// <item><b>Format.</b> AAC in ADTS (<see cref="AdtsRemuxer"/>) and AAC in an MP4 or M4A
+/// file (<see cref="Mp4AacReader"/>), classic or fragmented, are remuxed alike to M4A parts
+/// of at most five minutes; a file neither can read is refused with a reason, unsent.</item>
 /// <item><b>Each part is headed by its offset</b>, <c>[00:04:59]</c>, because the model
 /// answers <c>json</c> only and gives no timestamps of its own.</item>
 /// <item><b>Each part's prompt is the last words of the one before</b>, so a sentence cut
@@ -43,7 +44,13 @@ public sealed partial class AzureFoundryInboxRecordingTranscriber(
 
         if (!IsAvailable) return InboxErrors.TranscriptionFailed("Azure Foundry is not configured.");
 
-        var parts = Parts(recording);
+        var parts = Parts(recording, out var unreadable);
+        if (unreadable is not null)
+        {
+            LogUnreadable(logger);
+            return InboxErrors.TranscriptionFailed(unreadable);
+        }
+
         if (parts.Count == 0) return InboxErrors.TranscriptionFailed("The recording holds no audio to transcribe.");
 
         var transcript = new StringBuilder();
@@ -84,17 +91,18 @@ public sealed partial class AzureFoundryInboxRecordingTranscriber(
         return new InboxRecordingTranscriptDto(transcript.ToString(), summaryMd);
     }
 
-    private static List<(ReadOnlyMemory<byte> Audio, TimeSpan Offset)> Parts(InboxRecordingDto recording)
+    /// <summary>The recording's parts; a reason instead when the file cannot be read.</summary>
+    private static IReadOnlyList<RemuxedPart> Parts(InboxRecordingDto recording, out string? unreadable)
     {
-        if (AdtsRemuxer.LooksLikeAdts(recording.Audio.Span))
-        {
-            return AdtsRemuxer.Remux(recording.Audio.Span)
-                .Select(part => ((ReadOnlyMemory<byte>)part.M4a, part.Offset))
-                .ToList();
-        }
+        unreadable = null;
+        var audio = recording.Audio.Span;
+        if (audio.IsEmpty) return [];
 
-        // Already a container (audio/mp4, audio/x-m4a): sent as it is, with no remux.
-        return recording.Audio.IsEmpty ? [] : [(recording.Audio, TimeSpan.Zero)];
+        if (AdtsRemuxer.LooksLikeAdts(audio)) return AdtsRemuxer.Remux(audio);
+
+        // Already a container (audio/mp4, audio/x-m4a): its frames go through the same cut.
+        if (!Mp4AacReader.TryRead(audio, out var track, out unreadable)) return [];
+        return AacRemuxer.Remux(audio, track);
     }
 
     /// <summary>The last words of <paramref name="text"/>, cut on a word boundary.</summary>
@@ -110,6 +118,9 @@ public sealed partial class AzureFoundryInboxRecordingTranscriber(
 
     internal static string Stamp(TimeSpan offset) =>
         ((int)offset.TotalHours).ToString("00", CultureInfo.InvariantCulture) + offset.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A recording could not be read as AAC in ADTS or M4A; nothing was sent.")]
+    private static partial void LogUnreadable(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Foundry did not transcribe part {Part} of {Parts} of a recording.")]
     private static partial void LogPartFailed(ILogger logger, int part, int parts);

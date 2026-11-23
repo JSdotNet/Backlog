@@ -465,6 +465,13 @@
                        @onchange="ApplyAzureFoundryTranscriptionDeployment"
                        @onkeydown="OnAzureFoundryTranscriptionKeyDown" />
 
+            @* Under the field it is fixed in: a deployment Foundry does not know shows
+               only as failures (local ADR 0049 §2). *@
+            <Alert BaseClass="setting__status"
+                   Role="status"
+                   Message="@TranscriptionFailureLine"
+                   TestId="azure-foundry-transcription-failure" />
+
             <TextField Bare="true"
                        LabelCssClass="setting__label"
                        InputCssClass="setting__input"
@@ -1065,6 +1072,23 @@
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
     }
+
+    /// <summary>The last recording this desktop failed to transcribe, read once as the page
+    /// opens, where the host keeps transcription records; null when none failed.</summary>
+    private Backlog.Modules.Inbox.Abstractions.Services.InboxTranscriptionFailureDto? _transcriptionFailure;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Services.GetService<Backlog.Modules.Inbox.Abstractions.Services.IInboxTranscriptionRecords>() is { } transcriptions)
+        {
+            _transcriptionFailure = await transcriptions.LatestFailureAsync();
+        }
+    }
+
+    private string? TranscriptionFailureLine =>
+        _transcriptionFailure is { } failure
+            ? $"Last transcription failed {AiProvidersOverview.Ago(failure.At, Now)}: {failure.LastReason}"
+            : null;
 
     public void Dispose()
     {

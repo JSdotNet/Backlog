@@ -160,7 +160,9 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<CaptureEdits>();
 
         // An edit queued behind a capture that is then refused goes into the capture
-        // rather than to the service, which never received it.
+        // rather than to the service, which never received it; a withdrawal takes the
+        // capture out with it. The withdrawal's fold is asked first, so it wins.
+        services.AddSingleton<IOutboxFold, CaptureWithdrawFold>();
         services.AddSingleton<IOutboxFold, CaptureEditFold>();
 
         // The Tasks tab's fold of the task feed, in the same file: a projection

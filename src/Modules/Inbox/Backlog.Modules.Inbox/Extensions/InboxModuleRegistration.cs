@@ -31,6 +31,7 @@ using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
+using Backlog.Modules.Inbox.Features.RetryTranscription;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RestoreItem;
@@ -184,6 +185,7 @@ public static class InboxModuleRegistration
         // handler is transient for the worker, which resolves it from the root provider;
         // the worker is the queue the note pull hands notes to, and the host starts it.
         services.AddTransient<ICommandHandler<TranscribeRecordingsCommand, Result<int>>, TranscribeRecordingsCommandHandler>();
+        services.AddScoped<ICommandHandler<RetryTranscriptionCommand, Result>, RetryTranscriptionCommandHandler>();
         services.TryAddSingleton<InboxRecordingTranscriptionWorker>();
         services.TryAddSingleton<IInboxRecordingQueue>(provider => provider.GetRequiredService<InboxRecordingTranscriptionWorker>());
 

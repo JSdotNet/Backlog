@@ -4,8 +4,9 @@ namespace Backlog.Modules.Inbox.Abstractions.Services;
 /// Says that the Inbox was written on this machine through the MCP server an
 /// assistant drives — a capture or an archive on a request thread — so an open
 /// pane can reload rather than go on showing the queue it read when it opened.
-/// The MCP tools are its only raisers today; another writer outside the pane
-/// that should reach an open Inbox raises it too.
+/// The MCP tools raise it, and so does the recording transcription worker once
+/// it has handled a note (local ADR 0049); another writer outside the pane that
+/// should reach an open Inbox raises it too.
 /// <para>
 /// The Inbox's twin of Tasks' <c>ITaskChangeSignal</c>, kept smaller: a signal
 /// and not an event stream, carrying no item, because a listener reads what

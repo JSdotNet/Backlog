@@ -29,6 +29,7 @@ using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
+using Backlog.Modules.Inbox.Features.RetryTranscription;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RestoreItem;
@@ -95,6 +96,7 @@ internal sealed class InboxItems(
     IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
     ICommandHandler<EditNoteCommand, Result> editNote,
     ICommandHandler<RouteToEventCommand, Result<InboxEventRoutedDto>> routeToEvent,
+    ICommandHandler<RetryTranscriptionCommand, Result> retryTranscription,
     IInboxPlanDrafter? drafter = null,
     IInboxTriageAdvisor? triageAdvisor = null,
     IInboxBrainTarget? brainTarget = null,
@@ -264,6 +266,9 @@ internal sealed class InboxItems(
 
     public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         retryAttachment.Handle(new RetryAttachmentCommand(id, attachmentId), cancellationToken);
+
+    public Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        retryTranscription.Handle(new RetryTranscriptionCommand(id, attachmentId), cancellationToken);
 
     public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         readAttachment.Handle(new ReadAttachmentQuery(id, attachmentId), cancellationToken);
