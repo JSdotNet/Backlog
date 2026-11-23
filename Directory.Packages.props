@@ -156,7 +156,7 @@
       a real builder rather than a stand-in that implements the interface.
     -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.1" />
     <!--
       ILoggingBuilder and its filters, for the file log the installed desktop
       build keeps (Backlog.Infrastructure.FileSystem). The MAUI heads carry the
@@ -174,8 +174,8 @@
       [Required] and [Range] on them would bind and never be checked.
     -->
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.1" />
 
     <!--
       The screen lock and unlock events the desktop head's presence reads (local ADR 0041).
