@@ -21,7 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DocumentDevbookViewRerenderTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task A_parent_render_with_unchanged_parameters_reads_no_chapter()
@@ -188,8 +188,9 @@ public sealed class DocumentDevbookViewRerenderTests : IDisposable
 
     private Harness CreateHarness(TimeProvider? clock = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-document-view-rerender-tests", Guid.NewGuid().ToString("n"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-document-view-rerender-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var backlog = WriteRepository(Path.Combine(root, "backlog"), "The palette and how it is applied.");
         var docs = WriteRepository(Path.Combine(root, "docs"), "The documentation site's palette.");
@@ -226,10 +227,9 @@ public sealed class DocumentDevbookViewRerenderTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            temp.Dispose();
         }
     }
 

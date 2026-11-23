@@ -9,6 +9,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// The composite source the unkeyed registration holds, standing in as one
 /// catalog.
 /// </summary>
+// Differs from StubSessionSource: answers a whole catalog and counts only the newest-first reads.
 internal sealed class FakeAgentSessionSource(AgentSessionCatalog catalog) : IAgentSessionSource
 {
     /// <summary>Which of the two reads the tool made. The horizon read answers a

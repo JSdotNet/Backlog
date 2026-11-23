@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Using Include="Backlog.SharedKernel.Markdown" />
+    <Using Include="Backlog.SharedKernel.C4" />
     <Using Include="Backlog.UI.Components.Markdown" />
     <!-- The library's feedback types. Two of them are contracts the app shell and
          the modules both speak — the toast channel a screen publishes on and the
@@ -160,12 +161,15 @@
     <Compile Include="..\Shared\TestDoubles\InMemoryLoopRegister.cs" Link="Shared\TestDoubles\InMemoryLoopRegister.cs" />
     <Compile Include="..\Shared\TestDoubles\HeldWaitingQuestions.cs" Link="Shared\TestDoubles\HeldWaitingQuestions.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
+    <Compile Include="..\Shared\TestDoubles\FailableMcpGrantStore.cs" Link="Shared\TestDoubles\FailableMcpGrantStore.cs" />
     <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
     <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
   </ItemGroup>

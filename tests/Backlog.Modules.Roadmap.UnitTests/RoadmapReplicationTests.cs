@@ -3,6 +3,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -35,7 +36,7 @@ public sealed class RoadmapReplicationTests
 
         var outcome = await replication.ApplyAsync(RoadmapReplicaDocument.Plan, inbound, Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(inbound, store.Stored);
     }
 
@@ -53,7 +54,7 @@ public sealed class RoadmapReplicationTests
 
         var outcome = await replication.ApplyAsync(RoadmapReplicaDocument.Plan, inbound, Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(inbound, store.Stored);
     }
 
@@ -70,7 +71,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Plan, new RoadmapReplicaCopyDto("remote", Morning.AddMinutes(-1)), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Refused, outcome);
+        Assert.Equal(ReplicaOutcome.Refused, outcome);
         Assert.Equal(0, store.Writes);
         Assert.Equal("local", store.Stored!.Content);
     }
@@ -94,7 +95,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Plan, new RoadmapReplicaCopyDto("mine", Morning), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Echo, outcome);
+        Assert.Equal(ReplicaOutcome.Echo, outcome);
         Assert.Equal(0, store.Writes);
         Assert.Equal(0, local);
         Assert.Equal(0, redraws);
@@ -118,7 +119,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Plan, new RoadmapReplicaCopyDto("not a plan", Morning.AddHours(1)), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Unreadable, outcome);
+        Assert.Equal(ReplicaOutcome.Unreadable, outcome);
         Assert.Equal("local", store.Stored!.Content);
         Assert.Equal(0, redraws);
     }
@@ -131,7 +132,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Pace, new RoadmapReplicaCopyDto("{}", Morning), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Unreadable, outcome);
+        Assert.Equal(ReplicaOutcome.Unreadable, outcome);
         Assert.Null(await replication.ReadAsync(RoadmapReplicaDocument.Pace, Cancellation));
     }
 
@@ -168,7 +169,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Pace, new RoadmapReplicaCopyDto("""{"storyPointsPerWeek":5}""", Morning), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(0, local);
     }
 
@@ -209,7 +210,7 @@ public sealed class RoadmapReplicationTests
 
         writer.Dispose();
 
-        Assert.Equal(RoadmapReplicaOutcome.Taken, await pulled);
+        Assert.Equal(ReplicaOutcome.Taken, await pulled);
         Assert.Equal("remote", store.Stored!.Content);
     }
 
@@ -226,7 +227,7 @@ public sealed class RoadmapReplicationTests
         var outcome = await replication.ApplyAsync(
             RoadmapReplicaDocument.Pace, new RoadmapReplicaCopyDto("""{"storyPointsPerWeek":5}""", Morning), Cancellation);
 
-        Assert.Equal(RoadmapReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
     }
 
     /// <summary>ADR 0018, Consequences: the roadmap's first load follows a pull, so a

@@ -15,9 +15,9 @@ namespace Backlog.Infrastructure.Brain.UnitTests;
 [Collection(CorpusRegistryCollection.Name)]
 public sealed class BrainDevbookReferenceResolverTests : IDisposable
 {
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-task-refs", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-task-refs");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
     public BrainDevbookReferenceResolverTests()
     {
@@ -89,7 +89,7 @@ public sealed class BrainDevbookReferenceResolverTests : IDisposable
     }
 
     private string? DatabaseFor(string root) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root);
 
     private void Build() =>
         Assert.True(DevbookDatabaseBuilder.Build(Brain, DatabaseFor(Brain)!, BrainCorpusProfile.Instance, TestContext.Current.CancellationToken));
@@ -104,17 +104,7 @@ public sealed class BrainDevbookReferenceResolverTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 
     /// <summary>The repository side as the real resolver answers a Brain address —

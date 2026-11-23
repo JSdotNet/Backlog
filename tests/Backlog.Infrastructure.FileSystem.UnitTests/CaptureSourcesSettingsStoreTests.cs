@@ -15,11 +15,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class CaptureSourcesSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "capture-sources-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("capture-sources-settings-store-tests");
 
-    public CaptureSourcesSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "capture-sources.json");
 
@@ -178,12 +176,6 @@ public class CaptureSourcesSettingsStoreTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

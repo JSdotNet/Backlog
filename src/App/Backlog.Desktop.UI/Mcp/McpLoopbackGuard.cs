@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <summary>
 /// The two checks local ADR 0012 §1 puts in front of the desktop MCP listener:
 /// an <c>Origin</c> that must be absent or loopback, and a bearer token that
-/// must match the one the app generated.
+/// must be a grant token the broker minted (local ADR 0058).
 /// <para>
 /// Pure predicates over header values, deliberately. The listener itself lives
 /// in <c>Backlog.Desktop</c>, which is a MAUI <c>WinExe</c> on a platform TFM
@@ -184,14 +184,13 @@ public static class McpLoopbackGuard
     /// <para>
     /// It still reveals whether the two lengths matched, which
     /// <see cref="CryptographicOperations.FixedTimeEquals"/> cannot hide and no
-    /// comparison could. The token is a fixed 43 characters, so there is nothing
-    /// there to learn.
+    /// comparison could. The one static token left is the escape hatch's, set by
+    /// whoever switched it on: a long random one leaves nothing there to learn.
     /// </para>
     /// <para>
-    /// An empty expected token is refused rather than matched. It means the app
-    /// has not generated one, and a server that answered every unauthenticated
-    /// request while it had no secret would be open for exactly as long as it
-    /// took the first caller to arrive.
+    /// An empty expected token is refused rather than matched. It means there is
+    /// no static token — the escape hatch is off — and a server that answered every
+    /// unauthenticated request while it had no secret would be open to anyone.
     /// </para>
     /// </summary>
     public static bool IsAuthorized(string? authorization, string? expected)
@@ -206,4 +205,53 @@ public static class McpLoopbackGuard
             Encoding.UTF8.GetBytes(presented),
             Encoding.UTF8.GetBytes(expected));
     }
+
+    /// <summary>The MCP endpoint path.</summary>
+    public const string McpPath = "/mcp";
+
+    /// <summary>
+    /// Whether the request presented the <c>BACKLOG_MCP_TOKEN</c> escape hatch's token —
+    /// <see cref="McpCredential.Mcp"/> — or not. Compared through <see cref="IsAuthorized"/>, so
+    /// fixed-time; with the escape hatch off <paramref name="environmentToken"/> is null and
+    /// nothing matches. No token kept in <c>settings.json</c> is ever passed here: the shared
+    /// token and the hook and telemetry tokens were retired (local ADR 0058, Phase 1).
+    /// </summary>
+    public static McpCredential Identify(string? authorization, string? environmentToken) =>
+        IsAuthorized(authorization, environmentToken) ? McpCredential.Mcp : McpCredential.None;
+
+    /// <summary>
+    /// The bearer value of <paramref name="authorization"/> when it has the shape of a JWT —
+    /// three base64url segments, the last of which may be empty — or null. The listener asks
+    /// this only after <see cref="Identify"/> matched none of its static tokens, and hands what
+    /// it returns to <see cref="McpGrantTokens.ValidateAsync"/>; a static token, which has no
+    /// dot, is never parsed as a JWT.
+    /// </summary>
+    public static string? GrantTokenCandidate(string? authorization)
+    {
+        if (authorization is null) return null;
+        if (!authorization.StartsWith(BearerScheme, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var presented = authorization[BearerScheme.Length..].Trim();
+        var segments = presented.Split('.');
+
+        return segments.Length == 3 && segments[0].Length > 0 && segments[1].Length > 0 ? presented : null;
+    }
+}
+
+/// <summary>Which of the listener's tokens a request presented. Beside the guard because
+/// its predicates are the only thing that hands one out.</summary>
+public enum McpCredential
+{
+    /// <summary>None of them, or no <c>Authorization</c> at all.</summary>
+    None,
+
+    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch's token, where a debug setting
+    /// switched it on (local ADR 0058, Phase 1).</summary>
+    Mcp,
+
+    /// <summary>A grant token the broker minted (local ADR 0058 §3), validated by
+    /// <see cref="McpGrantTokens"/> rather than by <see cref="McpLoopbackGuard.Identify"/>:
+    /// it is checked only once the escape hatch's token did not match, so a static token
+    /// is never parsed as a JWT and its fixed-time comparison stays as it was.</summary>
+    Grant
 }

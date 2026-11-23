@@ -19,7 +19,8 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     private static readonly DateTimeOffset Now = new(2026, 10, 22, 9, 41, 0, TimeSpan.Zero);
     private static readonly NotificationSubject Session = new("sessions", "session", "sess-91");
 
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "notification-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("notification-tests");
+    private string _dir => _temp.Path;
     private readonly SqliteNotificationRepository _repository;
 
     public SqliteNotificationRepositoryTests() => _repository = new SqliteNotificationRepository(_dir);
@@ -313,12 +314,13 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     [Fact]
     public async Task The_rooted_store_follows_the_storage_folder()
     {
+        using var moved = new TemporaryDirectory("notification-tests");
         var root = _dir;
         var rooted = new RootedSqliteNotificationRepository(() => root);
         var question = Question();
         await rooted.SaveAsync(question, Cancellation);
 
-        root = _dir + "-moved";
+        root = moved.Path;
         try
         {
             Assert.Null(await rooted.GetAsync(question.Id, Cancellation));
@@ -326,7 +328,6 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         finally
         {
             SqliteConnection.ClearAllPools();
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -334,7 +335,6 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_dir)) return;
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

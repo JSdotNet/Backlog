@@ -26,7 +26,8 @@ public sealed class ValidationQuestionTests : IDisposable
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
     private static readonly DeliveryStageLink[] AppLink = [new("App", "http://localhost:5000", "The running application")];
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-validation-question-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-validation-question-tests");
+    private string _home => _temp.Path;
     private readonly RecordingNotifications _notifications = new();
     private readonly FakeTaskFollowUps _followUps = new();
 
@@ -712,6 +713,48 @@ public sealed class ValidationQuestionTests : IDisposable
         Assert.Equal(_followUps.Filed[answer.NotificationId].ToString("D"), approval["followUpEntryId"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// An answer recorded on the run is a run write like any tool call's, so an open
+    /// Sessions pane hears it once — whether it is recorded at once or after its follow-up
+    /// is filed — and a replay that changes nothing raises nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_recorded_answer_raises_the_run_change_signal_once_and_a_replay_raises_nothing()
+    {
+        var signal = new DeliveryRunChangeSignal();
+        var raised = 0;
+        signal.Changed += () => raised++;
+        var surface = Surface(changes: signal);
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        var answers = Answers(surface);
+        var approve = Answer(run, "approve", null);
+        raised = 0;
+
+        await answers.HandleAnswerAsync(approve, Cancellation);
+        Assert.Equal(1, raised);
+
+        await answers.HandleAnswerAsync(approve, Cancellation);
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public async Task An_answer_recorded_after_its_follow_up_raises_the_run_change_signal_once()
+    {
+        var signal = new DeliveryRunChangeSignal();
+        var raised = 0;
+        signal.Changed += () => raised++;
+        var surface = Surface(changes: signal);
+        var run = await Start(surface, prompt: $"/backlog-tools:run-plan-item entry `{GatedEntry}`:\n# Raise notifications");
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+        raised = 0;
+
+        await Answers(surface).HandleAnswerAsync(Answer(run, "approve-follow-up", "Add the screenshot"), Cancellation);
+
+        Assert.Single(_followUps.Requests);
+        Assert.Equal(1, raised);
+    }
+
     [Fact]
     public async Task A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry()
     {
@@ -918,16 +961,14 @@ public sealed class ValidationQuestionTests : IDisposable
         Assert.Null((await File(two))["validationQuestion"]);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private LocalDeliverySurfaceLifecycle Surface(
         ISessionRepositoryResolver? repositories = null,
         ISessionPullRequestStates? pullRequests = null,
-        TimeProvider? clock = null) =>
-        new(_home, "machine", "Workshop PC", notifications: () => _notifications, repositories: repositories, pullRequests: () => pullRequests, clock: clock);
+        TimeProvider? clock = null,
+        IDeliveryRunChangeSignal? changes = null) =>
+        new(_home, "machine", "Workshop PC", notifications: () => _notifications, repositories: repositories, pullRequests: () => pullRequests, clock: clock, changes: changes);
 
     private SessionValidationAnswers Answers(LocalDeliverySurfaceLifecycle surface) =>
         new(surface, followUps: _followUps);

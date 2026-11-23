@@ -29,21 +29,20 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
     private static readonly DateTimeOffset Day1 = new(2026, 10, 27, 9, 0, 0, TimeSpan.Zero);
     private static readonly byte[] Photo = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3];
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "inbox-mcp-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("inbox-mcp");
     private readonly SqliteInboxRepository _store;
     private readonly ServiceProvider _provider;
     private readonly Guid _photoId = Guid.NewGuid();
 
     public InboxMcpToolsOverSqliteTests()
     {
-        Directory.CreateDirectory(_root);
-        _store = new SqliteInboxRepository(_root);
+        _store = new SqliteInboxRepository(_temp.Path);
 
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(new FakeTimeProvider(Day1.AddDays(5)));
         services.AddSingleton<IInboxItemRepository>(_store);
         services.AddSingleton<IInboxOrganizerRepository>(_store);
-        services.AddSingleton<IInboxAttachmentFiles>(new WorkspaceInboxAttachmentFiles(() => Path.Combine(_root, "_inbox")));
+        services.AddSingleton<IInboxAttachmentFiles>(new WorkspaceInboxAttachmentFiles(() => _temp.Combine("_inbox")));
         services.AddSingleton<IInboxAttachmentSource>(new PhotoSource(_photoId));
         services.AddSingleton(Unused<IInboxBacklogTarget>());
         services.AddInboxModule();
@@ -56,7 +55,7 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
     {
         _provider.Dispose();
         SqliteConnection.ClearAllPools();
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     [Fact]

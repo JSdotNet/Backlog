@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.SharedKernel;
@@ -25,9 +24,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// together: which takeover was open and which main view the workspace was
 /// showing under it are both "what the reader was looking at", read back in the
 /// same <c>OnInitializedAsync</c>. The side panes that once sat beside the view
-/// are gone (local ADR 0022, amendment of 2026-10-15); a file that still lists
-/// them is read once, to migrate it — see <see cref="MigrateSidePanes"/> — and
-/// that list is never written again.
+/// are gone (local ADR 0022, amendment of 2026-10-15).
 /// </para>
 /// <para>
 /// The roadmap was a takeover before it was a view, so a file from then names it
@@ -41,7 +38,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
 /// <para>
-/// So do the Calendar's Month | Week range and the
+/// So do the Calendar's Month | Week range, its Show tasks, plans and events boxes, and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
 /// how the reader last had a screen, kept on this device only. So is show archived
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
@@ -125,20 +122,11 @@ public sealed class ShellNavigationStore
     private const string InboxId = "inbox";
     private const string DevbookId = "devbook";
 
-    /// <summary>The pane name the Inbox was stored under while it was a side pane,
-    /// and the surface name the retired enum stored it under.</summary>
+    /// <summary>The surface name the retired enum stored the Inbox under.</summary>
     private const string InboxName = "Inbox";
 
-    /// <summary>The pane name the Devbook was stored under while it was a side pane,
-    /// and the surface name the retired enum stored it under.</summary>
+    /// <summary>The surface name the retired enum stored the Devbook under.</summary>
     private const string DevbookName = "Devbook";
-
-    /// <summary>The pane name the Devbook was stored under before the Knowledge
-    /// bounded context was renamed to Devbook.</summary>
-    private const string LegacyDevbookName = "Knowledge";
-
-    /// <summary>The format <see cref="GoalsTwoWeekStart"/> is stored in.</summary>
-    private const string IsoDate = "yyyy-MM-dd";
 
     /// <summary>The file's name, in the head's own app-data folder.</summary>
     public const string FileName = "shell-navigation.json";
@@ -171,15 +159,15 @@ public sealed class ShellNavigationStore
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
-        LastSurface = MigrateSidePanes(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
+        CalendarTasksShown = dto?.CalendarTasksShown ?? true;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarEventsShown = dto?.CalendarEventsShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
-        RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
+        RepositoryScope = dto?.RepositoryScope ?? Empty;
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
         NotificationsGroupBy = Blank(dto?.NotificationsGroupBy);
@@ -193,10 +181,6 @@ public sealed class ShellNavigationStore
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         RoadmapArchiveOffered = dto?.RoadmapArchiveOffered ?? Empty;
-        GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
-        GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
-            ? start
-            : null;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -238,6 +222,11 @@ public sealed class ShellNavigationStore
     /// </para>
     /// </summary>
     public string BoardColumns { get; private set; }
+
+    /// <summary>Whether the Calendar draws the tasks and their planned hours — its "Show
+    /// tasks" box (local ADR 0056 §4): on until the reader turns it off on this device. A
+    /// file that carries no choice — every file from before the box — reads as on.</summary>
+    public bool CalendarTasksShown { get; private set; }
 
     /// <summary>Whether the Calendar draws the roadmap's plans — its "Show plans"
     /// box: off until the reader turns it on on this device. A file that carries no
@@ -333,17 +322,6 @@ public sealed class ShellNavigationStore
     /// whatever the person did with the offer. Empty until the first offer.</summary>
     public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
 
-    /// <summary>The iteration length an earlier build kept per device, as the setting's
-    /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
-    /// chosen. Legacy: the choice now lives in <c>IterationSettingsStore</c>, which travels
-    /// between desktops and reads this only to seed itself once (local ADR 0036, §5); this
-    /// build never writes it.</summary>
-    public string? GoalsIterationLength { get; private set; }
-
-    /// <summary>The day two-week iterations count from, stored as an ISO date; null until
-    /// two weeks was first chosen, and for a stored value that is no date.</summary>
-    public DateOnly? GoalsTwoWeekStart { get; private set; }
-
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
 
@@ -405,41 +383,6 @@ public sealed class ShellNavigationStore
     private static string ViewId(string view) =>
         RetiredViewNames.TryGetValue(view, out var id) ? id : view;
 
-    /// <summary>
-    /// The Inbox and then the Devbook were side panes beside the main view before
-    /// each took the whole screen as a surface (local ADR 0022, amendments of
-    /// 2026-10-12 and 2026-10-15), so a file from then lists them among the panes —
-    /// the Devbook perhaps as <c>Knowledge</c>, its name before the rename. Where a
-    /// pane was on screen — no takeover stored over the workspace — it reopens as its
-    /// surface; under a takeover it was hidden, so that takeover stays.
-    /// <para>
-    /// With both listed the Inbox wins: from the day the Inbox took the screen until
-    /// the Devbook did, the Inbox surface covered the Devbook pane, and before that
-    /// the two sat side by side, where the Inbox — the queue — is the likelier one
-    /// to have been read. <c>Tasks</c>, or the older <c>Backlog</c>, names the view
-    /// the file reopens on anyway and changes nothing.
-    /// </para>
-    /// <para>
-    /// The list itself is not kept: nothing is a side pane any more, so the next save
-    /// writes the file without it. Decided on the stored surface, before the roadmap
-    /// takeover is read as a view, because that takeover covered the panes too.
-    /// </para>
-    /// </summary>
-    private static string? MigrateSidePanes(string? storedSurface, string? surface, IReadOnlyList<string> panes)
-    {
-        var panesWereOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
-        if (!panesWereOnScreen) return surface;
-
-        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxId;
-
-        if (panes.Contains(DevbookName, StringComparer.Ordinal) || panes.Contains(LegacyDevbookName, StringComparer.Ordinal))
-        {
-            return DevbookId;
-        }
-
-        return surface;
-    }
-
     public void SetRoadmapHoursShown(bool shown)
     {
         if (shown == RoadmapHoursShown) return;
@@ -471,6 +414,14 @@ public sealed class ShellNavigationStore
         if (columns == BoardColumns) return;
 
         BoardColumns = columns;
+        Save();
+    }
+
+    public void SetCalendarTasksShown(bool shown)
+    {
+        if (shown == CalendarTasksShown) return;
+
+        CalendarTasksShown = shown;
         Save();
     }
 
@@ -557,19 +508,6 @@ public sealed class ShellNavigationStore
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Replaces both iteration choices in one save, so a first choice of two weeks
-    /// writes its length and its start together. Kept for the files an earlier build wrote
-    /// and the tests that write one; the app no longer calls it (local ADR 0036, §5).</summary>
-    public void SetGoalsIteration(string length, DateOnly? twoWeekStart)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(length);
-        if (length == GoalsIterationLength && twoWeekStart == GoalsTwoWeekStart) return;
-
-        GoalsIterationLength = length;
-        GoalsTwoWeekStart = twoWeekStart;
-        Save();
-    }
-
     public void SetShowArchivedRepositories(bool shown)
     {
         if (shown == ShowArchivedRepositories) return;
@@ -609,18 +547,6 @@ public sealed class ShellNavigationStore
     }
 
     /// <summary>
-    /// The Tasks filter bar's "No repo" chip, which the Brain replaced (local ADR 0027,
-    /// §5), was never remembered, so no file written by this store carries it. A file
-    /// that does — <c>noRepositoryOnly: true</c>, the name the chip's state went by —
-    /// reopens on the Brain alone: the chip narrowed whatever repositories were scoped
-    /// to the rows filed against none, and "against none" is the Brain. The key is
-    /// never written back, so the next save drops it. A guard, kept so that the old
-    /// name is read as what it meant should it ever turn up.
-    /// </summary>
-    private static IReadOnlyList<string> MigrateNoRepositoryOnly(IReadOnlyList<string> scope, bool? noRepositoryOnly) =>
-        noRepositoryOnly is true ? [BrainScope.Value] : scope;
-
-    /// <summary>
     /// Waits until every choice set on this store so far is on disk. The setters
     /// return before the file is written; this is for whoever must read the file
     /// itself — the app closing, or a test — rather than the properties.
@@ -656,8 +582,6 @@ public sealed class ShellNavigationStore
             {
                 LastSurface = LastSurface,
                 LastView = LastView,
-                // LastEnabledPanes is never set: the side panes are gone, and the
-                // list a file from then held was migrated when it was read.
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
                 RoadmapCompletedShown = RoadmapCompletedShown ? null : false,
@@ -665,6 +589,9 @@ public sealed class ShellNavigationStore
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
+                // Left out while on, the default, so only turning it off writes a key. A
+                // stored name: never rename it without reading the old one.
+                CalendarTasksShown = CalendarTasksShown ? null : false,
                 // Left out while off, the default, so only turning it on writes a key.
                 CalendarPlansShown = CalendarPlansShown ? true : null,
                 // The same for the events box. A stored name: never rename it without
@@ -699,11 +626,7 @@ public sealed class ShellNavigationStore
                 BrainHiddenShown = BrainHiddenShown ? true : null,
                 // Left out until the first offer. A stored name: never rename it
                 // without reading the old one.
-                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered],
-                // Left out until chosen. Both keys are stored names: never rename them
-                // without reading the old ones.
-                GoalsIterationLength = GoalsIterationLength,
-                GoalsTwoWeekStart = GoalsTwoWeekStart?.ToString(IsoDate, CultureInfo.InvariantCulture)
+                RoadmapArchiveOffered = RoadmapArchiveOffered.Count == 0 ? null : [.. RoadmapArchiveOffered]
             }, JsonOptions);
 
     private ShellNavigationDto? Read()
@@ -736,12 +659,6 @@ public sealed class ShellNavigationStore
         /// <summary>Absent from a file written before the view switch.</summary>
         public string? LastView { get; init; }
 
-        /// <summary>The side panes a file from before the Devbook took the screen
-        /// had open, read only to migrate them — see <see cref="MigrateSidePanes"/>.
-        /// Never set on a save, so never written.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string[]? LastEnabledPanes { get; init; }
-
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? RoadmapHoursShown { get; init; }
 
@@ -753,6 +670,9 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? BoardColumns { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarTasksShown { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarPlansShown { get; init; }
@@ -814,20 +734,5 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>roadmapArchiveOffered</c>, and only once a plan was offered.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapArchiveOffered { get; init; }
-
-        /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? GoalsIterationLength { get; init; }
-
-        /// <summary>Written as <c>goalsTwoWeekStart</c>, an ISO date. A string rather than a
-        /// date, so a hand-edited value that is no date reads as none instead of failing
-        /// the whole file.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? GoalsTwoWeekStart { get; init; }
-
-        /// <summary>The retired "No repo" chip's state, read only to migrate it — see
-        /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? NoRepositoryOnly { get; init; }
     }
 }

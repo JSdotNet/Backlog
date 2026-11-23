@@ -7,14 +7,31 @@
     The snippet is the host's to make: the row draws the words it is given and
     knows nothing of Markdown. Left out when empty, so a note that is only a
     title is a one-line row.
+
+    A row given a Kind leads its metadata line with the kind's mark, as every
+    row in a list of kinds does (interaction-guidelines.md#task-rows): the glyph
+    stands alone, and its word is the tooltip and a visually-hidden span. A kind
+    the marker does not know draws nothing.
 *@
 
 <a class="@ClassValue" href="@Href" data-testid="@TestId" @attributes="AdditionalAttributes">
     <span class="note-row__head">
         <span class="note-row__title" data-testid="@PartTestId("title")">@Title</span>
-        @if (!string.IsNullOrWhiteSpace(When))
+        @if (CaptureKinds.IsRecognised(Kind) || !string.IsNullOrWhiteSpace(When))
         {
-            <span class="note-row__when" data-testid="@PartTestId("when")">@When</span>
+            <span class="note-row__meta">
+                @if (CaptureKinds.IsRecognised(Kind))
+                {
+                    <span class="note-row__kind" title="@CaptureKinds.Label(Kind!)" data-testid="@PartTestId("kind")">
+                        <CaptureKindMarker Value="@Kind" />
+                        <span class="sr-only">@CaptureKinds.Label(Kind!)</span>
+                    </span>
+                }
+                @if (!string.IsNullOrWhiteSpace(When))
+                {
+                    <span class="note-row__when" data-testid="@PartTestId("when")">@When</span>
+                }
+            </span>
         }
     </span>
     @if (!string.IsNullOrWhiteSpace(Snippet))
@@ -31,6 +48,12 @@
     [Parameter]
     public string? When { get; set; }
 
+    /// <summary>The kind slug (<see cref="CaptureKinds"/>) whose mark leads the
+    /// metadata line — <c>note</c> or <c>meeting</c> in the phone Inbox. Left out, the
+    /// row draws no mark.</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
     /// <summary>The body as one line of prose. Two lines of it show.</summary>
     [Parameter]
     public string? Snippet { get; set; }
@@ -43,7 +66,7 @@
     public string? CssClass { get; set; }
 
     /// <summary>The test id on the row. Its parts get <c>{TestId}-title</c>,
-    /// <c>-when</c> and <c>-snippet</c>.</summary>
+    /// <c>-kind</c>, <c>-when</c> and <c>-snippet</c>.</summary>
     [Parameter]
     public string? TestId { get; set; }
 

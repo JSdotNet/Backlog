@@ -89,18 +89,19 @@ and the person needs the event most at the venue.
 type: feature-flag
 key: events
 default: off
-related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/features.md#prep-tasks, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/events/features.md#events-on-the-phone, .devbook/domain/inbox/features.md#route-to-event, .devbook/domain/capture/features.md#event-page-monitor, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
+related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/features.md#add-an-event-over-mcp, .devbook/domain/events/features.md#to-event-route, .devbook/domain/events/features.md#prep-tasks, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/events/features.md#events-on-the-phone, .devbook/domain/inbox/features.md#route-to-event, .devbook/domain/capture/features.md#event-page-monitor, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
 ```
 
-Turning it on opens the Events area on five surfaces:
+Turning it on opens the Events area on six surfaces:
 
 - the [Events pane](features.md#events-pane) on the desktop;
+- the [Events tool](features.md#add-an-event-over-mcp) on the app's MCP server;
 - the Inbox's [To Event route](../inbox/features.md#route-to-event) in triage;
 - the [event page capture source](../capture/features.md#event-page-monitor) in Capture;
 - the [events layer](features.md#events-on-the-calendar) on the Calendar;
 - the [Events screen](features.md#events-on-the-phone) on the phone.
 
-Switched off, none of the five shows and the
+Switched off, none of the six shows and the
 [harvest task](features.md#harvest-task) is not filed. Events already stored are
 kept.
 

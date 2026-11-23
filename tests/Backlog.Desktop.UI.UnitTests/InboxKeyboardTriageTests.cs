@@ -420,8 +420,11 @@ public sealed class InboxKeyboardTriageTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
         }
@@ -434,14 +437,15 @@ public sealed class InboxKeyboardTriageTests
 
         public static Harness Create()
         {
+            var temp = new TemporaryDirectory("backlog-inbox-keys-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
             context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-keys-tests", Guid.NewGuid().ToString("n"), "github.json")));
+                temp.Combine("github.json")));
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(context, inbox);
+            return new Harness(temp, context, inbox);
         }
 
         public async Task<IRenderedComponent<InboxPane>> RenderAsync(bool withSources = false)
@@ -457,6 +461,10 @@ public sealed class InboxKeyboardTriageTests
         public Task SelectAsync(IRenderedComponent<InboxPane> pane, Guid id) =>
             pane.Find($"[data-testid='inbox-item-{id:D}']").ClickAsync(new());
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

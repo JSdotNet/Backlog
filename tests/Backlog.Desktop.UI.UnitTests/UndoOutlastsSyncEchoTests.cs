@@ -44,14 +44,14 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
     private static readonly Guid Owner = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static readonly DateTimeOffset Start = new(2026, 10, 7, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "undo-echo-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("undo-echo");
     private readonly FakeTaskReplica _replica = new();
     private readonly FakeTimeProvider _clock = new(Start);
     private readonly Desktop _desktop;
 
     public UndoOutlastsSyncEchoTests()
     {
-        _desktop = new Desktop(Path.Combine(_root, "desktop"), _replica, _clock);
+        _desktop = new Desktop(_temp.Combine("desktop"), _replica, _clock);
     }
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
@@ -60,9 +60,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
     {
         _desktop.Dispose();
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     [Fact]
@@ -160,7 +158,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
     [Fact]
     public async Task A_restored_note_stays_open_through_its_echo_and_the_phone_shows_it_again()
     {
-        using var phone = new Phone(Path.Combine(_root, "phone"), _replica, _clock);
+        using var phone = new Phone(_temp.Combine("phone"), _replica, _clock);
         var made = await phone.Notes.CreateAsync("Standup", "text", cancellationToken: Cancellation);
         await phone.Outbox.FlushAsync(Cancellation);
         await _desktop.SyncAsync();

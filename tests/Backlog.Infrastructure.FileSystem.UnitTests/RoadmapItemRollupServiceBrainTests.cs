@@ -15,15 +15,11 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class RoadmapItemRollupServiceBrainTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "rollup-brain-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("rollup-brain");
 
-    public RoadmapItemRollupServiceBrainTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); }
-        catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task An_item_s_brain_ref_resolves_from_the_brain_port()
@@ -92,6 +88,7 @@ public sealed class RoadmapItemRollupServiceBrainTests : IDisposable
     }
 
     /// <summary>The Tasks facade with an empty backlog: the adapter only ever lists.</summary>
+    // Differs from RecordingTaskItems: answers an empty list and refuses every write.
     private sealed class EmptyTaskItems : ITaskItems
     {
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>

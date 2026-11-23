@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal sealed class TasksPaneHost : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly TemporaryDirectory _temp;
 
     private TasksPaneHost(
         BunitContext context,
@@ -28,7 +28,7 @@ internal sealed class TasksPaneHost : IDisposable
         GitHubIntegration gitHub,
         FakeGitHubClient client,
         MyDayPreferencesStore myDay,
-        string root,
+        TemporaryDirectory temp,
         string storageRoot)
     {
         Context = context;
@@ -39,7 +39,7 @@ internal sealed class TasksPaneHost : IDisposable
         GitHub = gitHub;
         Client = client;
         StorageRoot = storageRoot;
-        _tempDirs.Add(root);
+        _temp = temp;
     }
 
     public BunitContext Context { get; }
@@ -98,7 +98,8 @@ internal sealed class TasksPaneHost : IDisposable
         ILinkedSessionStates? sessionStates = null,
         ITaskChangeSignal? taskWrites = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-pane-host");
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
@@ -112,7 +113,7 @@ internal sealed class TasksPaneHost : IDisposable
         }
 
         var client = new FakeGitHubClient();
-        var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
+        var gitHub = new GitHubIntegration(gitHubSettings, client, new StubProbe(new GitHubConnection(true, "Connected.")));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
         var myDay = new MyDayPreferencesStore(Path.Combine(root, MyDayPreferencesStore.FileName));
@@ -138,7 +139,7 @@ internal sealed class TasksPaneHost : IDisposable
         context.Services.AddSingleton<IToastChannel>(toasts);
         context.Services.AddSingleton<IMyDayPreferences>(myDay);
 
-        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, root, storageRoot);
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, myDay, temp, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();
@@ -221,15 +222,13 @@ internal sealed class TasksPaneHost : IDisposable
         Context.Dispose();
         State.Dispose();
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
     }
 
     /// <summary>A GitHub that answers rather than reaches the network. What it
     /// created is recorded so a test can assert the push actually happened.</summary>
+    // Differs from StubGitHubClient: answers pull request reads and merge acts and records what it created.
     internal sealed class FakeGitHubClient : IGitHubClient
     {
         /// <summary>What the open pull requests read answers, across every repository;
@@ -483,14 +482,6 @@ internal sealed class TasksPaneHost : IDisposable
                 : Task.FromException<GitHubPullRequest>(new GitHubException("Not Found"));
         }
 
-        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            PullRequestStatuses.TryGetValue(number, out var status)
-                ? Task.FromResult(status)
-                : Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
-
         public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
             Act("enable", pullRequestId, status => status with { AutoMergeEnabled = true });
 
@@ -508,16 +499,6 @@ internal sealed class TasksPaneHost : IDisposable
             MergeCalls.Add($"{act} {status.Number}");
             PullRequestStatuses[status.Number] = change(status);
             return Task.CompletedTask;
-        }
-    }
-
-    private sealed class ConnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

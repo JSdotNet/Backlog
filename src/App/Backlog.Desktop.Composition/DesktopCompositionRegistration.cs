@@ -25,8 +25,10 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Mcp;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
@@ -59,6 +61,7 @@ using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
@@ -232,9 +235,9 @@ public static class DesktopCompositionRegistration
         // behind the same feature; it has no settings section or Ask AI source yet.
         services.AddEventsModule();
 
-        // Calendar (local ADR 0055): it owns no data, and its services are the Plans and
-        // Events layers' read policies, one per window. Its view is the surface
-        // AddCalendarSurface registers below, which hosts the Tasks part.
+        // Calendar (local ADR 0055, local ADR 0056): it owns no data, and its services are
+        // the Tasks, Plans and Events layers' read policies, one per window. Its view is
+        // the surface AddCalendarSurface registers below, which draws its own grid.
         services.AddCalendarModule();
 
         // Capture: the module brings the run, and the head decides where the
@@ -250,10 +253,11 @@ public static class DesktopCompositionRegistration
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
 
-        // The Calendar's Plans layer and working week, answered over Roadmap's ports, and its
-        // Events layer over Events' read contract, offering nothing while the `events` area
-        // is off; after the Roadmap module and its adapters, whose ports these resolve. Each
-        // resolves its source's port when first asked, so the Events module above is enough.
+        // The Calendar's Tasks layer over Tasks' published ITaskItems (local ADR 0056 §2), its
+        // Plans layer and working week, answered over Roadmap's ports, and its Events layer
+        // over Events' read contract, offering nothing while the `events` area is off; after
+        // the Roadmap module and its adapters, whose ports these resolve. Each resolves its
+        // source's port when first asked, so the modules above are enough.
         services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
@@ -302,6 +306,7 @@ public static class DesktopCompositionRegistration
         // registers no store of its own, so a head without one would have the
         // session registered and unconstructable.
         services.AddSingleton(options.DeviceCredentialStore);
+        services.AddSingleton(options.DeviceKeyStore);
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
@@ -315,6 +320,9 @@ public static class DesktopCompositionRegistration
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
         services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(options.BackupStatePath));
+        // The MCP audit log (local ADR 0058, Phase 0), per installation like the backup
+        // state: one record per tool call, written by the call filter both hosts install.
+        services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
 
         // Where the sync service is, asked per client rather than fixed here: the URL
@@ -325,6 +333,10 @@ public static class DesktopCompositionRegistration
         services.AddSingleton<SyncServiceEndpoint>();
         services.AddSyncClient(SyncServiceAddress);
         services.AddTaskSyncClient(SyncServiceAddress);
+        // Where the owner signs in to register this desktop as a first device or to
+        // recover (local ADR 0058 §1): the person's own browser, back to a loopback.
+        // A phone composes none and pairs by code.
+        services.AddSingleton<ISystemBrowser, ShellSystemBrowser>();
         // The version compared with the sync service's: the one the update window
         // shows, the MSIX package's on a packaged desktop. A service newer than it
         // stops every sync client and the footer asks for an update.
@@ -403,13 +415,12 @@ public static class DesktopCompositionRegistration
         // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks and Board from
-        // Tasks, the Calendar from its own module, which hosts Tasks' part (local ADR
-        // 0055), the Roadmap, Goals — and the takeovers: the Inbox, the Devbook, Events,
-        // Sessions, the Dashboard, the notification centre, Tools and the Lobes atlas from
-        // their modules, and the pull requests from the shell's own project, which reads
-        // GitHub for them.
+        // Tasks, the Calendar from its own module, which draws its own grid from the
+        // layers it reads (local ADR 0056), the Roadmap, Goals — and the takeovers: the
+        // Inbox, the Devbook, Events, Sessions, the Dashboard, the notification centre,
+        // Tools and the Lobes atlas from their modules, and the pull requests from the
+        // shell's own project, which reads GitHub for them.
         services.AddTasksSurfaces();
-        services.AddTasksCalendarLayer();
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
@@ -423,6 +434,9 @@ public static class DesktopCompositionRegistration
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
+        // The agent request window (local ADR 0058 §5), opened on a request and never offered
+        // in the header. Its desk is the desktop head's; a host without one says so in it.
+        global::Backlog.Desktop.UI.Mcp.AgentRequestSurfaceRegistration.AddAgentRequestSurface(services);
         // What those takeovers read from the window they are shown in — its scope,
         // its entries, the Inbox's Capture — built from the window's own state, so a
         // takeover draws the same in a window of its own.
@@ -474,6 +488,12 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(
             typeof(IDevbookWindowScope),
             sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+        // The window's scope chips and colours, which narrow and mark the Calendar's Tasks
+        // layer and colour its plan bars (local ADR 0056 §2).
+        services.Add(new ServiceDescriptor(
+            typeof(ICalendarWindowScope),
+            sp => new ShellCalendarWindowScope(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
 
         // One window's state, and what reads it. The panes' state captures the
@@ -535,7 +555,11 @@ public static class DesktopCompositionRegistration
                 () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true,
                 // The keyed local reader: a reading of the plain port's decorators can close
                 // questions, which must not happen in the middle of this publish.
-                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey));
+                () => sp.GetKeyedService<IAgentSessionSource>(SessionsAdapterRegistration.LocalSourceKey),
+                // Only an answer from a device paired now reaches the hook or the Manager; one
+                // from a revoked or unknown device is dropped and audited (ADR 0058, Phase 2).
+                sp.GetService<IPairedDevices>,
+                sp.GetService<IMcpAuditLog>);
         });
         // The same relay as the port the MCP ask, get_answer and close tools reach it through.
         services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
@@ -766,7 +790,6 @@ public static class DesktopCompositionRegistration
                 sp.GetRequiredService<IDevbookImportLedger>(),
                 sp.GetRequiredService<IDevbookSubjectStateStore>(),
                 sp.GetRequiredService<IDevbookAnnotationStore>(),
-                sp.GetRequiredService<IAppFeatureSettings>(),
                 sp.GetService<TimeProvider>() ?? TimeProvider.System,
                 sp.GetService<ILogger<Backlog.Desktop.UI.Devbook.DevbookImportWorker>>());
         });

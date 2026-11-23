@@ -109,14 +109,15 @@ public sealed class C4DevbookCodeTests : IDisposable
         }
         """;
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>The fixture repository: the devbook, and the source its building block
     /// names.</summary>
     private string CreateRepository(bool withBuildingBlock = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-code-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4-code");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".devbook", "arc42");
         Write(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
@@ -139,8 +140,9 @@ public sealed class C4DevbookCodeTests : IDisposable
 
     private (AppFeatureSettingsStore Features, GitHubSettingsStore GitHub, DevbookFolderSource Folders, WorkspaceSettingsStore Workspace, string Alias) Sources(string clone)
     {
-        var scratch = Path.Combine(Path.GetTempPath(), "backlog-c4-code-settings-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(scratch);
+        var scratchTemp = new TemporaryDirectory("backlog-c4-code-settings");
+        _temps.Add(scratchTemp);
+        var scratch = scratchTemp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(scratch, "features", "features.json"));
 
@@ -477,16 +479,6 @@ public sealed class C4DevbookCodeTests : IDisposable
     {
         foreach (var store in _stores) store.Dispose();
 
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

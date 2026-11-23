@@ -20,9 +20,9 @@ public sealed class ChapterBlockLinesTests : IDisposable
 
     private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
-    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("backlog-mcp-lines");
+    private readonly TemporaryDirectory _root = new("backlog-mcp-lines");
 
-    public void Dispose() => _root.Delete(recursive: true);
+    public void Dispose() => _root.Dispose();
 
     /// <summary>A block with no lines says so out loud, at both ends.</summary>
     [Fact]
@@ -80,7 +80,7 @@ public sealed class ChapterBlockLinesTests : IDisposable
 
     private async Task<ChapterPayload> Read(string chapter)
     {
-        var folder = Directory.CreateDirectory(Path.Combine(_root.FullName, ".arc42", "adr"));
+        var folder = Directory.CreateDirectory(Path.Combine(_root.Path, ".arc42", "adr"));
 
         await File.WriteAllTextAsync(
             Path.Combine(folder.FullName, "0012-mcp.md"),
@@ -88,7 +88,7 @@ public sealed class ChapterBlockLinesTests : IDisposable
             TestContext.Current.CancellationToken);
 
         var tools = new DevbookTools(
-            new FakeDevbookFolderSource(_root.FullName, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
+            new FakeDevbookFolderSource(_root.Path, new DevbookFolderSetting(".arc42", "Architecture", ".arc42")),
             new FakeDevbookAnnotationStore(),
             new FakeRepositoryDirectory([Backlog]));
 

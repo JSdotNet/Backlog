@@ -598,7 +598,7 @@ public sealed partial record DomainContextOverview(
             if (!heading.Success || heading.Groups[1].Value.Length < 2) continue;
 
             var title = heading.Groups[2].Value.Trim();
-            var anchor = DomainUnits.Slug(title);
+            var anchor = HeadingAnchor.Of(title);
             if (heading.Groups[1].Value.Length == 2) unit = anchor;
 
             var at = i + 1;

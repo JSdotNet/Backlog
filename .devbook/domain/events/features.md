@@ -15,12 +15,16 @@ type: features
 ```meta
 type: feature
 feature-flag: .devbook/domain/events/context.md#events-area
-related: [.devbook/domain/events/requirements.md#events-pane, .devbook/domain/events/domain.md#knowledge-event]
+related: [.devbook/domain/events/requirements.md#events-pane, .devbook/domain/events/domain.md#knowledge-event, .devbook/domain/events/requirements.md#requirement-an-open-pane-shows-a-change-made-elsewhere, .devbook/arc42/08-crosscutting-concepts.md#change-notices]
 ```
 
 The desktop's place to keep track of knowledge events: add one, decide on it, and
 link what it produced. The pane lists the person's events by state, the decided
 ones first, and within a state the upcoming ones soonest first.
+
+An event added or changed elsewhere shows in an open pane at once, without a reload
+by hand, in the main window and in a popped-out one: over MCP, through the To Event
+route, or in another window. A field the person is typing keeps what they typed.
 
 ### Adding an event
 
@@ -32,6 +36,32 @@ The person adds an event by its title alone, and fills in the rest when they kno
 it. A new event starts Spotted. Dates typed here carry the date source Typed. Beside
 the dates the pane shows where they came from, Typed or Event page, because a listing
 and the event's own page can disagree.
+
+### Add an event over MCP
+
+```meta
+type: sub-feature
+depends-on: [.devbook/domain/events/features.md#adding-an-event]
+related: [.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/events/requirements.md#requirement-an-assistant-adds-an-event-in-one-write, .devbook/domain/events/requirements.md#requirement-the-mcp-tool-is-withdrawn-while-the-area-is-off, .devbook/domain/inbox/features.md#work-the-queue-over-mcp]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.EventToolsTests, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneAddTests, integration:dotnet:Backlog.HostComposition.UnitTests.McpServerCompositionTests.An_event_added_over_mcp_reaches_an_events_pane_open_in_another_scope]
+```
+
+Let an assistant add an event it hears of, such as a conference named in a mail,
+without opening the pane. The app's MCP server carries one Events tool,
+`add_knowledge_event`, behind the [Events area](context.md#events-area) flag. It
+does what [Adding an event](#adding-an-event) does, in one write: the event starts
+Spotted, and its dates carry the date source Typed.
+
+Only the title is required. The call may also name the series, the start and end
+in ISO 8601, online or a venue, the link, what to learn, the ticket state and the
+cost. A series name joins the series of that name, whatever its case, and an unknown
+name starts one. The tool answers the new event's id, title, state, series and dates.
+Calling it twice adds two events.
+
+A rule the pane would refuse is refused with its code, and nothing is written: no
+event and no series. So is a name two series share, a date that is not ISO 8601,
+and an unknown ticket word. A time with no offset takes this desktop's offset for
+that day, as the pane does.
 
 ### Deciding on an event
 
@@ -197,7 +227,7 @@ type: sub-feature
 related: [.devbook/domain/capture/features.md#talk-note, .devbook/domain/events/domain.md#attachment-request, .devbook/domain/events/requirements.md#requirement-a-talk-note-is-attached-through-a-desktop]
 ```
 
-From a [Talk note](../capture/features.md#talk-note) in the Notes tab, the person
+From a [Talk note](../capture/features.md#talk-note) on the phone, the person
 picks one event the phone holds and attaches the note to it. The picker offers the
 upcoming events first, then the past ones. Skipped events and events the note is
 already attached to are left off. With no event held, the note shows no event

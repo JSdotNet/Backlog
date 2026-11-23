@@ -3,6 +3,7 @@ using System.Text.Json;
 using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -30,14 +31,10 @@ public sealed class CaptureSourcesSettingsStore : ICaptureSourceSettings
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<CaptureSourcesDto> _file;
 
     public CaptureSourcesSettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "capture-sources.json"))
+        : this(AppDataPaths.Shared("capture-sources.json"))
     {
     }
 
@@ -47,15 +44,7 @@ public sealed class CaptureSourcesSettingsStore : ICaptureSourceSettings
     /// that does not fight over the real per-user file.</summary>
     public CaptureSourcesSettingsStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<CaptureSourcesDto>(path, JsonOptions);
 
         Current = Read();
     }
@@ -64,7 +53,7 @@ public sealed class CaptureSourcesSettingsStore : ICaptureSourceSettings
 
     public CaptureSourceSettings Current { get; private set; }
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public string? SetEnabled(CaptureSourceKind kind, bool enabled)
     {
@@ -95,48 +84,30 @@ public sealed class CaptureSourcesSettingsStore : ICaptureSourceSettings
     {
         Current = Normalize(settings);
 
-        string? error = null;
-        try
+        var saved = _file.TrySave(new CaptureSourcesDto
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new CaptureSourcesDto
+            Sources = [.. Current.Sources.Select(source => new MonitoredSourceDto
             {
-                Sources = [.. Current.Sources.Select(source => new MonitoredSourceDto
-                {
-                    Kind = CaptureSourceKinds.Slug(source.Kind),
-                    Enabled = source.Enabled,
-                    Targets = [.. source.Targets]
-                })]
-            }, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the capture sources couldn't be saved for next time.";
-        }
+                Kind = CaptureSourceKinds.Slug(source.Kind),
+                Enabled = source.Enabled,
+                Targets = [.. source.Targets]
+            })]
+        });
 
         Changed?.Invoke();
-        return error;
+        return saved ? null : "Changed, but the capture sources couldn't be saved for next time.";
     }
 
     private CaptureSourceSettings Read()
     {
-        try
-        {
-            if (!File.Exists(_path)) return new CaptureSourceSettings();
+        // A corrupt or unreachable setting must never stop the app from
+        // opening — fall back to nothing watched.
+        if (_file.Load() is not { } dto) return new CaptureSourceSettings();
 
-            var dto = JsonSerializer.Deserialize<CaptureSourcesDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return new CaptureSourceSettings();
-
-            return Normalize(new CaptureSourceSettings
-            {
-                Sources = [.. dto.Sources.Select(ReadSource).OfType<MonitoredSource>()]
-            });
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        return Normalize(new CaptureSourceSettings
         {
-            // A corrupt or unreachable setting must never stop the app from
-            // opening — fall back to nothing watched.
-            return new CaptureSourceSettings();
-        }
+            Sources = [.. dto.Sources.Select(ReadSource).OfType<MonitoredSource>()]
+        });
     }
 
     /// <summary>A kind nobody can read is dropped rather than guessed at;

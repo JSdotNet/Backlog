@@ -3,7 +3,7 @@
 <PageTitle>Diagrams — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams"
-           Summary="DiagramView renders mermaid in the browser, offers an Archify artifact as a second renderer where the host has one, and shows the source for everything else. DemoView frames a devbook click demo. GraphView hands arbitrary node/edge data to a JS renderer."
+           Summary="DiagramView renders mermaid in the browser and shows the source for everything else. DemoView frames a devbook click demo. GraphView hands arbitrary node/edge data to a JS renderer."
            Guidelines="@Rules">
 
     <Story Name="Flow diagram with decisions"
@@ -24,30 +24,8 @@
         <DiagramView Title="Auto-save" Language="mermaid" Source="@Sequence" />
     </Story>
 
-    <Story Name="With an Archify artifact"
-           Description="Nothing on the call changes. The host registers an IDiagramArtifactSource and DiagramView asks it, per source, whether a picture exists; here the storybook's fixture answers for this one fence with a committed artifact, matched on the normalized source the same way the app matches a chapter's.
-
-The switch in the header appears only when an artifact exists. The artifact shows by default, the reader can switch to Mermaid and back, and Full screen is offered for the artifact only — a drawn mermaid diagram is an SVG in the page and has nothing to go full screen with."
-           Code="@ArtifactCode"
-           Source="@StorybookDiagramArtifacts.ComponentMap"
-           SourceLanguage="mermaid"
-           SourceLabel="slice-flow.mmd">
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@StorybookDiagramArtifacts.ComponentMap" />
-    </Story>
-
-    <Story Name="Artifact out of date"
-           Description="The same fence with one label edited. The fixture still knows an artifact for this diagram, but it was authored from the earlier text, so the lookup by hash misses: the reader sees the mermaid — the rendering that is current — and a notice saying why the picture is not on screen.
-
-Render artifact is what the app would press to re-run the generator over the specification beside the chapter and put the artifact back. The storybook serves a committed file and cannot run it, so the fixture reports that instead."
-           Code="@OutOfDateCode"
-           Source="@StorybookDiagramArtifacts.ComponentMapEdited"
-           SourceLanguage="mermaid"
-           SourceLabel="slice-flow.mmd (edited)">
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@StorybookDiagramArtifacts.ComponentMapEdited" />
-    </Story>
-
     <Story Name="A click demo"
-           Description="DemoView frames a devbook click demo the way the Archify frame above frames an artifact: the document as srcdoc, a stage that goes full screen, and the way out inside it. Two things differ, both from devbook's demo address contract. The sandbox is allow-scripts and nothing else, and the document goes in as it is, with no theme pinned on it, because a demo shows the product the way the product looks.
+           Description="DemoView frames a devbook click demo: the document as srcdoc, a stage that goes full screen, and the way out inside it. Two rules come from devbook's demo address contract. The sandbox is allow-scripts and nothing else, and the document goes in as it is, with no theme pinned on it, because a demo shows the product the way the product looks.
 
 The places a chapter names in the demo are offered above the frame. The first is sent as demo:goto once the demo reports demo:ready, so this one opens on the declined-card walkthrough; picking the other opens that screen. This is devbook's own sample demo."
            Code="@DemoCode">
@@ -83,7 +61,6 @@ The places a chapter names in the demo are offered above the frame. The first is
     private static readonly DesignGuideline[] Rules =
     [
         new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws which kind of picture."),
-        new("component-libraries.md#archify-artifacts", "What a diagram with an artifact carries, and why the fence stays the answer when the artifact is stale."),
         new("color-scheme.md#chart-roles", "The hues a node, an edge and a lane may use."),
         new("interaction-guidelines.md#motion-and-reduced-motion", "Whether a layout may animate as it settles.")
     ];
@@ -161,23 +138,6 @@ The places a chapter names in the demo are offered above the frame. The first is
 
     private const string SequenceCode = """
         <DiagramView Title="Auto-save" Language="mermaid" Source="@source" ShowSource="false" />
-        """;
-
-    // The two artifact stories share their sources with the fixture rather than
-    // declaring copies: DiagramView finds an artifact by the hash of the source,
-    // so a page-side copy that drifted by a character would silently turn the
-    // first story into the second.
-    private const string ArtifactCode = """
-        @* Program.cs — the host answers IDiagramArtifactSource; the call is unchanged. *@
-        builder.Services.AddSingleton<IDiagramArtifactSource, StorybookDiagramArtifacts>();
-
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@source" />
-        """;
-
-    private const string OutOfDateCode = """
-        @* The same call. The source is the fence after an edit, so the artifact
-           the source knows no longer matches it. *@
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@editedSource" />
         """;
 
     private static readonly string[] DemoPlaces = [StorybookDemos.Walkthrough, StorybookDemos.DeclinedScreen];

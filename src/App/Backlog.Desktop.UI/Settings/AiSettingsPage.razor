@@ -15,7 +15,6 @@
 @using Backlog.UI.Components.Metrics
 @using Backlog.Modules.Dashboard.Abstractions.Insights
 @using Backlog.Modules.Dashboard.Abstractions.Services
-@using Backlog.Modules.Inbox.Abstractions.Services
 @implements IDisposable
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
@@ -466,16 +465,12 @@
                        @onchange="ApplyAzureFoundryTranscriptionDeployment"
                        @onkeydown="OnAzureFoundryTranscriptionKeyDown" />
 
-            @* The deployment cannot be checked offline, so the last failure is where a wrong
-               one shows (local ADR 0049 §2). Read from the kept failure records, so it is
-               still here after a restart. *@
-            @if (_lastTranscriptionFailure is { } transcriptionFailure)
-            {
-                <Alert BaseClass="setting__status"
-                       Role="status"
-                       Message="@($"Last transcription failed {AiProvidersOverview.Ago(transcriptionFailure.FailedAt, Now)}: {transcriptionFailure.Reason}")"
-                       TestId="azure-foundry-transcription-failure" />
-            }
+            @* Under the field it is fixed in: a deployment Foundry does not know shows
+               only as failures (local ADR 0049 §2). *@
+            <Alert BaseClass="setting__status"
+                   Role="status"
+                   Message="@TranscriptionFailureLine"
+                   TestId="azure-foundry-transcription-failure" />
 
             <TextField Bare="true"
                        LabelCssClass="setting__label"
@@ -601,7 +596,6 @@
     private string _draftAzureFoundryCostScope = string.Empty;
     private string _draftAzureFoundryTranscriptionDeployment = AzureFoundryTranscriptionOptions.DefaultDeployment;
     private string? _azureFoundryMessage;
-    private InboxTranscriptionFailureDto? _lastTranscriptionFailure;
     private string _draftGitHubUsageEndpoint = string.Empty;
     private string? _gitHubUsageMessage;
 
@@ -1079,36 +1073,22 @@
         SyncUsageEndpointDrafts();
     }
 
-    /// <summary>The most recent transcription failure of a recording still on its note, for
-    /// the line under the Transcription deployment field. A failure whose note or file has
-    /// gone since says nothing about the deployment now, so it is passed over. A host that
-    /// keeps no records shows none, and a lookup that fails leaves the line out rather than
-    /// the page: it is a hint, not a setting.</summary>
+    /// <summary>The last recording this desktop failed to transcribe, read once as the page
+    /// opens, where the host keeps transcription records; null when none failed.</summary>
+    private Backlog.Modules.Inbox.Abstractions.Services.InboxTranscriptionFailureDto? _transcriptionFailure;
+
     protected override async Task OnInitializedAsync()
     {
-        if (Services.GetService<IInboxTranscriptionRecords>() is not { } transcriptions) return;
-
-        try
+        if (Services.GetService<Backlog.Modules.Inbox.Abstractions.Services.IInboxTranscriptionRecords>() is { } transcriptions)
         {
-            var failures = await transcriptions.ListFailuresAsync();
-            if (failures.Count == 0) return;
-
-            if (Services.GetService<IInboxItems>() is { } inbox)
-            {
-                var snapshot = await inbox.GetSnapshotAsync();
-                var onNotes = snapshot.Items
-                    .SelectMany(item => item.Attachments.Select(attachment => (item.Id, attachment.Id)))
-                    .ToHashSet();
-                failures = [.. failures.Where(failure => onNotes.Contains((failure.NoteId, failure.AttachmentId)))];
-            }
-
-            _lastTranscriptionFailure = failures.MaxBy(failure => failure.FailedAt);
-        }
-        catch (Exception failure) when (failure is not OperationCanceledException)
-        {
-            _lastTranscriptionFailure = null;
+            _transcriptionFailure = await transcriptions.LatestFailureAsync();
         }
     }
+
+    private string? TranscriptionFailureLine =>
+        _transcriptionFailure is { } failure
+            ? $"Last transcription failed {AiProvidersOverview.Ago(failure.At, Now)}: {failure.LastReason}"
+            : null;
 
     public void Dispose()
     {

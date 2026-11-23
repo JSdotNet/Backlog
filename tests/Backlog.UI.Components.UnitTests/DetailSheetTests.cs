@@ -197,6 +197,50 @@ public sealed class DetailSheetTests
         Assert.False(open);
     }
 
+    /// <summary>A host with something unsaved can keep the sheet up: asked before
+    /// every way out, a no leaves the sheet open and says nothing to the host's
+    /// open binding; a yes closes it as before.</summary>
+    [Fact]
+    public void A_host_can_keep_the_sheet_open_when_it_is_asked_to_close()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        bool? open = null;
+        var allow = false;
+        var asked = 0;
+
+        var sheet = Render(context, onOpenChanged: value => open = value,
+            extra: parameters => parameters.Add(s => s.BeforeClose, () => { asked++; return Task.FromResult(allow); }));
+
+        sheet.Find(".detail-sheet__close").Click();
+        sheet.Find(".detail-sheet").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        sheet.Find(".detail-sheet-backdrop").Click();
+
+        Assert.Equal(3, asked);
+        Assert.Null(open);
+        Assert.Equal("true", sheet.Find(".detail-sheet").GetAttribute("data-open"));
+
+        allow = true;
+        sheet.Find(".detail-sheet__close").Click();
+
+        Assert.False(open);
+    }
+
+    /// <summary>The close is the library's icon button, dressed by the sheet on top
+    /// of it rather than instead of it — so it is drawn as a button, not as an
+    /// unstyled square.</summary>
+    [Fact]
+    public void The_close_button_is_an_icon_button_the_sheet_dresses()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var close = Render(context).Find(".detail-sheet__close");
+
+        Assert.Contains("btn", close.ClassList);
+        Assert.Contains("btn--icon", close.ClassList);
+    }
+
     /// <summary>A sheet whose work is still running cannot be put away by any of
     /// the three ways out, and its close button shows it.</summary>
     [Fact]

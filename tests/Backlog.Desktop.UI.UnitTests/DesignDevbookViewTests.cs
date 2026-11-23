@@ -32,7 +32,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DesignDevbookViewTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     /// <summary>
     /// A pull announces the folder change off the renderer's thread, and the
@@ -427,26 +427,23 @@ public sealed class DesignDevbookViewTests : IDisposable
     /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
-    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// quiet delete stays as a courtesy for a lock this class does not own — a scanner
     /// or an indexer holding a file open — rather than as the thing keeping the
     /// suite green.
     /// </summary>
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
-        {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-design-view-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-design-view-tests");
+        _temps.Add(temp);
+        var root = temp.Path;
         var repository = Path.Combine(root, "repo");
         var design = Path.Combine(repository, ".design");
         Directory.CreateDirectory(design);
-        _roots.Add(root);
 
         // Named as the convention names them, so the folder reads the colour
         // scheme first and the interaction guidelines after it — the order every

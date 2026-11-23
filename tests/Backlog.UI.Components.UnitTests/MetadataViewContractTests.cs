@@ -180,17 +180,6 @@ public sealed class MetadataViewContractTests
     }
 
     [Fact]
-    public void A_type_read_from_the_legacy_kind_is_the_kind_chip_and_not_a_second_row()
-    {
-        using var context = new BunitContext();
-
-        var view = Render(context, "status: adopted\nkind: library");
-
-        Assert.Equal("library", view.Find(".badge--kind").TextContent);
-        Assert.DoesNotContain(view.FindAll("dt"), label => label.TextContent == "type");
-    }
-
-    [Fact]
     public void Without_a_folder_no_findings_are_drawn()
     {
         using var context = new BunitContext();
@@ -205,7 +194,7 @@ public sealed class MetadataViewContractTests
     {
         using var context = new BunitContext();
 
-        var view = Render(context, "status: adopted\nkind: library\nversion: \"1.0\"", DevbookFolder.Tech);
+        var view = Render(context, "status: adopted\ntype: banana\nversion: \"1.0\"", DevbookFolder.Tech);
 
         var record = view.Find(".devbook-record");
         var children = record.Children.Select(child => child.ClassName).ToList();
@@ -214,8 +203,8 @@ public sealed class MetadataViewContractTests
         var item = view.Find(".devbook-findings__item");
         Assert.Contains("devbook-findings__item--warning", item.ClassList);
         Assert.Equal("warning", item.QuerySelector(".badge--finding")!.TextContent);
-        Assert.Equal("kind", item.QuerySelector("code.devbook-value")!.TextContent);
-        Assert.Contains("rename", item.QuerySelector(".devbook-findings__message")!.TextContent, StringComparison.Ordinal);
+        Assert.Equal("type", item.QuerySelector("code.devbook-value")!.TextContent);
+        Assert.Contains("banana", item.QuerySelector(".devbook-findings__message")!.TextContent, StringComparison.Ordinal);
         Assert.Equal("Metadata findings", view.Find("ul.devbook-findings").GetAttribute("aria-label"));
     }
 

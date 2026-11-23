@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-07
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md"]
 c4: [backlog.desktop.shell]
 c4-touches: [backlog.desktop.inbox, backlog.desktop.devbook, backlog.desktop.roadmap, backlog.desktop.sessions, backlog.desktop.dashboard, backlog.desktop.tasks]
 ```
@@ -40,6 +40,12 @@ deferred pieces step 18 settled landed in pull request #1134.
 > surface of its own that reads the Tasks, Plans and Events layers. Tasks and Board
 > stay one pane, and the Calendar keeps its slot in §2's view switch and its stored
 > names in §6.
+
+> **Amended, 2026-11-18, by
+> [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted).**
+> §2's view switch becomes `Tasks | Board | Roadmap`, and the Calendar gets a header
+> tab of its own after it. It stays a main view, and `lastView: calendar` still
+> reopens it.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -124,6 +130,10 @@ render their own content and carry no Tasks filter bar.
 ```meta
 ```
 
+Amended by [ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md#7-the-calendar-gets-a-header-tab-of-its-own):
+the Calendar leaves the switch for a tab of its own, so the switch reads
+`Tasks | Board | Roadmap`. The text below is the decision as first taken.
+
 The header's view switch is one fused group, `Tasks | Board | Calendar | Roadmap`.
 In progress is a main view too, but its option leads the work in progress group,
 `In progress | Sessions | Pull requests`. It answers "what is moving", the
@@ -199,6 +209,9 @@ surface again when it initialises, so no path puts the old takeover back:
 
 `Roadmap` is never written as a surface again. The names are appended to the
 enums, never reordered, because the names are what is stored.
+
+*(Amended 2026-11-19: the `lastEnabledPanes` rows of this table are no longer
+read. See the [Amendment](#amendment). The `lastView` and `Roadmap` rows stand.)*
 
 ## Consequences
 
@@ -379,6 +392,22 @@ nor does the negative consequence about dragging the side-pane edge. The
 per window, lets any surface open in separate OS windows, and replaces the enums of
 §1 and §4 with surfaces modules register.
 
+**2026-11-18: the Calendar gets a tab of its own.**
+[ADR 0056](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) (accepted) takes
+the Calendar out of §2's view switch, which reads `Tasks | Board | Roadmap`. The
+Calendar tab stands alone after it and acts as a view option. The GitHub check and
+Ask AI's Tasks area are not offered while it shows.
+
+**2026-11-19: the side-pane migrations are removed.** Every install has run
+v0.1.149 or later, so every `shell-navigation.json` has already been read into the
+shape above and written back. `ShellNavigationStore` no longer reads
+`lastEnabledPanes`, and with it the older `Knowledge` name; pull request #1910
+deleted that migration and its tests. A file that still lists panes now opens on
+its `lastSurface`, or the workspace without one. The rows that read
+`lastEnabledPanes` in §6, the 2026-10-12 amendment and the 2026-10-15 amendment no
+longer apply. The rest of this record stands: the `lastView` default and
+`lastSurface: Roadmap` still read as §6 says, and the decisions above are unchanged.
+
 ## Verification
 
 ```meta
@@ -399,16 +428,14 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `A_window_resize_never_closes_the_roadmap`,
    `GlobalPaneMarkupTests.Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover`.
 6. **Migration.** `A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view`,
-   `A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_inbox_reopens`,
-   `An_inbox_pane_from_before_the_inbox_took_the_screen_reopens_as_the_inbox_surface`,
    `The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it`, and
-   `ShellNavigationStoreTests`.
+   `ShellNavigationStoreTests`. The pane-list tests left with the migration on
+   2026-11-19.
 7. **The Inbox takes the screen** (amendment). `HomeWorkspaceSurfaceTests.Opening_the_inbox_reopens_it_after_a_restart`,
    `HomeInboxWiringTests.Routing_an_item_reloads_the_tasks_from_the_store_and_keeps_the_inbox_on_screen`,
    `HomeInboxWiringTests.Escape_heard_at_the_document_does_not_leave_the_inbox`,
    `GlobalPaneMarkupTests.Inbox_renders_as_its_own_surface_and_never_beside_the_main_view`,
-   and the
-   `ShellNavigationStoreTests` whose names start `An_inbox_pane_` or `A_migrated_inbox_pane_`.
+   and `ShellNavigationStoreTests`.
 8. **The Devbook takes the screen** (amendment of 2026-10-15).
    `HomeWorkspaceSurfaceTests.The_devbook_takes_the_screen_over_the_view_and_a_second_press_returns_to_it`,
    `Each_way_back_from_the_devbook_returns_to_the_view_underneath` (a view option,
@@ -417,8 +444,6 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `Pressing_the_devbook_during_another_takeover_gives_it_the_screen`,
    `The_devbook_and_the_inbox_each_take_the_screen_over_the_roadmap`,
    `Opening_the_devbook_reopens_it_after_a_restart`,
-   `A_devbook_pane_from_before_the_devbook_took_the_screen_reopens_as_the_devbook_surface`,
-   `A_devbook_pane_under_another_takeover_reopens_on_that_takeover`,
    `Turning_the_devbook_flag_off_while_it_has_the_screen_returns_to_the_workspace`,
    `The_devbook_toggle_takes_no_modifier_and_is_never_disabled`,
    `The_devbook_tooltip_says_what_the_press_will_do`;
@@ -427,7 +452,5 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
    `An_escape_in_the_devbooks_source_field_does_not_close_the_devbook`;
    `MarkdownCommentTests.A_key_pressed_in_a_comment_draft_does_not_reach_the_host`;
    `GlobalPaneMarkupTests.Devbook_renders_as_its_own_surface_and_closes_on_escape`,
-   `No_side_pane_remains_and_neither_does_its_pin_or_modifier`; and the
-   `ShellNavigationStoreTests` whose names start `A_devbook_pane_` or
-   `A_migrated_devbook_pane_`, with `The_devbook_surface_survives_a_restart`.
-   No test yet holds the row where a file lists both the Inbox and the Devbook.
+   `No_side_pane_remains_and_neither_does_its_pin_or_modifier`; and
+   `ShellNavigationStoreTests.The_devbook_surface_survives_a_restart`.

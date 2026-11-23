@@ -77,7 +77,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
         "```mermaid\nC4Context\n    title Finance context\n    Person(me, \"ME\")\n    System(finance, \"Finance\")\n    Rel(me, finance, \"Uses\")\n```\n";
 
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     // ---- with no model -------------------------------------------------------
 
@@ -841,8 +841,9 @@ public sealed class C4DevbookPanelTests : IDisposable
         bool createReferenceDirectory = true,
         IReadOnlyDictionary<string, string>? extraFiles = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-c4-" + Guid.NewGuid().ToString("N"));
-        _roots.Add(root);
+        var temp = new TemporaryDirectory("backlog-c4");
+        _temps.Add(temp);
+        var root = temp.Path;
 
         var arc42 = Path.Combine(root, ".arc42");
         Directory.CreateDirectory(arc42);
@@ -963,16 +964,6 @@ public sealed class C4DevbookPanelTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots)
-        {
-            try
-            {
-                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temp folder that will not delete is not a test failure.
-            }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 }

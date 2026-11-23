@@ -10,11 +10,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class SpendBudgetSettingsStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "spend-budget-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("spend-budget-settings-store-tests");
 
-    public SpendBudgetSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "spend-budgets.json");
 
@@ -97,14 +95,5 @@ public class SpendBudgetSettingsStoreTests : IDisposable
         Assert.Null(Store().BudgetFor(SpendProvider.Claude));
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

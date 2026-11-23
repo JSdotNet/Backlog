@@ -19,7 +19,9 @@ internal sealed class HarnessSurfaceWindowHost(IServer server) : ISurfaceWindowH
     public Task<bool> TryOpenWindowAsync(string surfaceId, IReadOnlyDictionary<string, string> query) => Task.FromResult(false);
 
     /// <inheritdoc />
-    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query)
+    /// <remarks>Mints no token, so there is nothing to log: <paramref name="caller"/> is
+    /// unused.</remarks>
+    public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query, string caller)
     {
         var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? [];
 

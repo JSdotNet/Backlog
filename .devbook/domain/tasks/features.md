@@ -8,7 +8,6 @@ type: features
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
 
@@ -240,7 +239,7 @@ related: [.devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-t
 Say how much work is open, not only how it splits. The total is one line: how many tasks
 are open, the points they carry, and how many carry none. It sits at the end of the
 filter bar. In a narrow list it moves beside **New entry**, so the bar keeps its room for filters.
-The Board and the Calendar have no **New entry** row, so there it stays on the bar.
+The Board has no **New entry** row, so there it stays on the bar.
 
 It counts what the
 repository scope leaves in view, before any status, tag or other filter narrows
@@ -777,7 +776,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 ```meta
 type: feature
 related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_tab_shows_the_grid_in_its_own_region_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
 Find and narrow the backlog:
@@ -818,16 +817,17 @@ every repository. A scope narrowed back to one comes back as that one. Where an
 appears in the scope, the Board and the pickers is set by
 [its requirements](../repository-management/requirements.md#archiving-a-repository).
 
-The filtered tasks can be read three ways, picked in the header's view switch:
-**Tasks**, the list with the open task beside it; the
-[Board](#board-view); and the [Calendar](../calendar/features.md#calendar-view), a
-surface of its own on which Tasks draws the [Tasks layer](#tasks-on-the-calendar). The three share one
-filter bar, one open task and one selection, so switching never loses what the reader narrowed to.
+The filtered tasks can be read two ways, picked in the header's view switch:
+**Tasks**, the list with the open task beside it, and the
+[Board](#board-view). The two share one filter bar, one open task and one selection, so
+switching never loses what the reader narrowed to. The
+[Calendar](../calendar/features.md#calendar-view) is a surface of its own, under a header
+tab of its own, and shows the tasks as its [Tasks layer](#tasks-on-the-calendar). The
+filter bar does not reach it.
 
 Among the filters is the [Task Type](domain.md#task-type): prompt, task, idea or
-test, one at a time. The Board and the Calendar, including its tray of tasks with
-no due date, narrow by type like the list. The filter bar belongs to
-these three views only, and on the Calendar it narrows the Tasks layer alone. The app reopens on the view last
+test, one at a time. The Board narrows by type like the list. The filter bar belongs to
+these two views only. The app reopens on the view last
 chosen, and on Tasks by default. The Inbox and the Devbook open
 beside any of them.
 
@@ -927,27 +927,32 @@ With the task open beside it, the board scrolls sideways rather than squeezing i
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/features.md#planned-hours, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#my-day, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/features.md#planned-hours, .devbook/domain/calendar/domain.md#calendar-layer, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/calendar/context.md#show-tasks, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
-The [Calendar](../calendar/features.md#calendar-view) is a surface of its own, and Tasks
-draws on it as the Tasks layer (local ADR 0055). The layer lays the filtered tasks out
-by their [Due Date](domain.md#due-date), under the same filters and beside the same open
-task as the Tasks view. The Calendar's other layers do not narrow by these filters.
+The [Calendar](../calendar/features.md#calendar-view) is a surface of its own, and the
+tasks are its Tasks layer (local ADR 0056). The Calendar reads them through a port it
+owns, which an adapter answers over Tasks' published contract, so Tasks registers
+nothing for the Calendar. The layer lays out each task with a
+[Due Date](domain.md#due-date) in the range, within the repository scope. The Tasks
+filter bar does not narrow it, and the open task and the selection stay in Tasks. The
+Calendar's [Show tasks](../calendar/context.md#show-tasks) choice turns the layer off.
 
-Today says how many tasks are in [My Day](#my-day). Each day lists its tasks with their
-lifecycle state. An open task past its due date stands out as overdue, and a finished
-one is struck through. On the month, past two a day folds the rest behind a count that
-opens the whole day. A recurring task shows on its due date only, because the next
-occurrence is written when this one is finished.
+Each day lists its tasks with their lifecycle state. An open task past its due date
+stands out as overdue, and a finished one is struck through and never overdue. An
+archived task is left out, as the Tasks view leaves it out by default. On the month,
+past two a day folds the rest behind a count that opens the whole day. A recurring task
+shows on its due date only, because the next occurrence is written when this one is
+finished.
 
-The open tasks with no due date wait beside the calendar. Dragging one onto a day gives
-it that due date, and dragging a task to another day moves it. Only the due date places
-a task here.
+Pressing a task shows the Tasks view with that task selected and open. Dragging a task
+to another day moves its due date. Only the due date places a task here: a task with no
+due date is not on the Calendar, and gets one in Tasks.
 
 The [planned hours](../calendar/features.md#planned-hours) on a day are the task's
 [Planned Hours](domain.md#planned-hours). Every change the layer makes, a due date or
-an hours figure, goes through Tasks, as the task's own editor makes it.
+an hours figure, goes through Tasks' published contract, as the task's own editor makes
+it.
 
 ## Prompt features
 
@@ -964,7 +969,6 @@ entry while the [`copy-entries`](context.md#copy-entries) flag is on (the defaul
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/tasks/context.md#copy-entries
 related: [.devbook/domain/tasks/features.md#import, .devbook/domain/tasks/domain.md#task-type]
 ```
 

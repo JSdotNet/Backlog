@@ -138,7 +138,8 @@ public sealed class DevbookAdoptionViewTests : IAsyncDisposable
     [InlineData(false)]
     public async Task The_ai_section_hands_the_tab_the_repository_s_configuration(bool withConfiguration)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-adoption-tests", Guid.NewGuid().ToString("n"));
+        using var temp = new TemporaryDirectory("backlog-devbook-adoption-tests");
+        var root = temp.Path;
         var repository = Path.Combine(root, "repo");
         Directory.CreateDirectory(Path.Combine(repository, ".ai"));
         Directory.CreateDirectory(Path.Combine(repository, ".devbook"));
@@ -183,39 +184,31 @@ public sealed class DevbookAdoptionViewTests : IAsyncDisposable
                 """{ "components": { "delivery": { "pluginVersion": "9.8.7" } } }""");
         }
 
-        try
+        var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+        Assert.Null(gitHubSettings.SetRepositories(repositories));
+        gitHubSettings.SetCloneDirectory("backlog", repository);
+
+        await using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings));
+        context.Services.AddSingleton<AiDevbookProvider>();
+        context.Services.AddSingleton<DevbookChapterWriter>();
+
+        var component = context.Render<AiDevbookView>(parameters => parameters.Add(view => view.RepositoryAlias, "backlog"));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-devbook-tab']")));
+        component.Find("[data-testid='ai-devbook-tab']").Click();
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-adoption-view']")));
+        if (withConfiguration)
         {
-            var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-            var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
-            Assert.Empty(errors);
-            Assert.Null(gitHubSettings.SetRepositories(repositories));
-            gitHubSettings.SetCloneDirectory("backlog", repository);
-
-            await using var context = new BunitContext();
-            context.JSInterop.Mode = JSRuntimeMode.Loose;
-            context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings));
-            context.Services.AddSingleton<AiDevbookProvider>();
-            context.Services.AddSingleton<DevbookChapterWriter>();
-
-            var component = context.Render<AiDevbookView>(parameters => parameters.Add(view => view.RepositoryAlias, "backlog"));
-            component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-devbook-tab']")));
-            component.Find("[data-testid='ai-devbook-tab']").Click();
-
-            component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-adoption-view']")));
-            if (withConfiguration)
-            {
-                Assert.Equal("9.8.7", component.Find("[data-testid='devbook-adoption-delivery-version']").TextContent.Trim());
-                Assert.Single(component.FindAll("[data-testid='devbook-adoption-devbook-not-adopted']"));
-            }
-            else
-            {
-                Assert.Single(component.FindAll("[data-testid='devbook-adoption-empty']"));
-            }
+            Assert.Equal("9.8.7", component.Find("[data-testid='devbook-adoption-delivery-version']").TextContent.Trim());
+            Assert.Single(component.FindAll("[data-testid='devbook-adoption-devbook-not-adopted']"));
         }
-        finally
+        else
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            Assert.Single(component.FindAll("[data-testid='devbook-adoption-empty']"));
         }
     }
 

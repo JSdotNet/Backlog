@@ -1299,7 +1299,18 @@ public sealed class InboxDesktopState : IDisposable
 
     /// <summary>Fetches one of the selected item's files again, then reloads so
     /// the row shows the file or the new reason it failed.</summary>
-    public async Task RetryAttachmentAsync(Guid attachmentId)
+    public Task RetryAttachmentAsync(Guid attachmentId) =>
+        RetryAsync(attachmentId, (itemId, fileId) => _inbox.RetryAttachmentAsync(itemId, fileId));
+
+    /// <summary>Sends one of the selected note's recordings to transcription again, after
+    /// three failures (local ADR 0049 §6), then reloads so the row drops the failure. The
+    /// recording itself goes out in the background; a success takes it off the note.</summary>
+    public Task RetryTranscriptionAsync(Guid attachmentId) =>
+        RetryAsync(attachmentId, (itemId, fileId) => _inbox.RetryTranscriptionAsync(itemId, fileId));
+
+    /// <summary>One Retry on a file row at a time: the row shows it busy, the answer is
+    /// reported, and the reload shows what came of it.</summary>
+    private async Task RetryAsync(Guid attachmentId, Func<Guid, Guid, Task<Result>> retry)
     {
         if (SelectedItem is not { } item || RetryingAttachmentId is not null) return;
 
@@ -1308,29 +1319,7 @@ public sealed class InboxDesktopState : IDisposable
 
         try
         {
-            Report(await _inbox.RetryAttachmentAsync(item.Id, attachmentId));
-        }
-        finally
-        {
-            RetryingAttachmentId = null;
-        }
-
-        await ReloadAsync();
-    }
-
-    /// <summary>Sends a recording whose transcription failed three times to transcription
-    /// again (local ADR 0049 §6), then reloads so its row drops the failure. The busy state
-    /// is the download Retry's: one Retry runs at a time, whichever it is.</summary>
-    public async Task RetryTranscriptionAsync(Guid attachmentId)
-    {
-        if (SelectedItem is not { } item || RetryingAttachmentId is not null) return;
-
-        RetryingAttachmentId = attachmentId;
-        Changed?.Invoke();
-
-        try
-        {
-            Report(await _inbox.RetryTranscriptionAsync(item.Id, attachmentId));
+            Report(await retry(item.Id, attachmentId));
         }
         finally
         {
@@ -3340,11 +3329,6 @@ public sealed class InboxDesktopState : IDisposable
                 && chosen.All(id => item.RepoIds.Contains(id, StringComparer.OrdinalIgnoreCase)),
             apply: items => _inbox.AssignRepositoriesAsync(Ids(items), chosen));
     }
-
-    /// <summary>Routes every picked item to the backlog as one batch — one plan,
-    /// tagged <c>+inbox-batch-…</c>. An item already decided is refused here and
-    /// named, as the tag and repository acts do; the rest go together.</summary>
-    public Task<InboxBulkOutcome> BulkRouteToBacklogAsync() => RouteBatchAsync(SelectedItems, listId: null);
 
     /// <summary>The open list's items still open to a decision — what "Move
     /// list to backlog" would route. Empty for the unfiled inbox and the

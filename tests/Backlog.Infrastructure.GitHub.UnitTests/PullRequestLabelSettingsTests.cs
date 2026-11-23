@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -16,13 +17,11 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class PullRequestLabelSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "pull-request-label-settings-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("pull-request-label-settings-tests");
 
-    private string WorkspaceRoot(string device = "a") => Path.Combine(_root, device, "workspace");
+    private string WorkspaceRoot(string device = "a") => _temp.Combine(device, "workspace");
 
-    private string LocalPath(string device = "a") => Path.Combine(_root, device, "local", "github.json");
+    private string LocalPath(string device = "a") => _temp.Combine(device, "local", "github.json");
 
     private GitHubSettingsStore Store(string device = "a") => new(LocalPath(device), () => WorkspaceRoot(device));
 
@@ -31,15 +30,11 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
     private GitHubSettingsStore Configured(string device = "a")
     {
         var store = Store(device);
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
         return store;
     }
 
-    public void Dispose()
-    {
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void A_repository_starts_with_no_label_filter()
@@ -57,7 +52,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
         Assert.Null(store.SetPullRequestLabels("backlog", [" frontend ", "Frontend", "", "  ", "needs review"]));
 
         Assert.Equal(["frontend", "needs review"], store.Current.Find("backlog")!.PullRequestLabels);
-        Assert.Empty(store.Current.Find("archify")!.PullRequestLabels);
+        Assert.Empty(store.Current.Find("almanac")!.PullRequestLabels);
     }
 
     [Fact]
@@ -65,9 +60,9 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
     {
         var store = Configured();
 
-        Assert.Null(store.SetPullRequestLabels("JSdotNet/Archify", ["backend"]));
+        Assert.Null(store.SetPullRequestLabels("JSdotNet/Almanac", ["backend"]));
 
-        Assert.Equal(["backend"], store.Current.Find("archify")!.PullRequestLabels);
+        Assert.Equal(["backend"], store.Current.Find("almanac")!.PullRequestLabels);
     }
 
     [Fact]
@@ -126,9 +121,9 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
         var store = Configured();
         Assert.Null(store.SetPullRequestLabels("backlog", ["frontend"]));
 
-        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("archify", "Archify")]));
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("almanac", "Almanac")]));
         Assert.Null(store.SetRepositoryColour("backlog", 2));
-        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetCloneDirectory("backlog", _temp.Combine("clone")));
         Assert.Null(store.SetDevbookSource("backlog", "main", useLocalFolder: false));
         Assert.Null(store.RenameRepository("backlog", "JSdotNet/Backlog2", out _));
 
@@ -161,7 +156,7 @@ public sealed class PullRequestLabelSettingsTests : IDisposable
 
         var outcome = await new GitHubSettingsReplication(b).ApplyAsync(GitHubReplicaDocument.Registry, copy, TestContext.Current.CancellationToken);
 
-        Assert.Equal(GitHubReplicaOutcome.Taken, outcome);
+        Assert.Equal(ReplicaOutcome.Taken, outcome);
         Assert.Equal(["frontend"], b.Current.Find("backlog")!.PullRequestLabels);
         Assert.Equal(["frontend"], Store("b").Current.Find("backlog")!.PullRequestLabels);
     }

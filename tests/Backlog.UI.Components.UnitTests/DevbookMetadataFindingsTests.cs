@@ -235,16 +235,6 @@ public sealed class DevbookMetadataFindingsTests
     }
 
     [Fact]
-    public void A_tech_type_read_from_kind_asks_for_the_rename()
-    {
-        // "The old name still parses … but it reports a warning — rename it to type."
-        var finding = Only(For(DevbookFolder.Tech, "status: adopted\nkind: library"), "kind");
-
-        Assert.Equal(DevbookFindingSeverity.Warning, finding.Severity);
-        Assert.Contains("rename", finding.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void A_tech_type_written_as_type_reports_nothing()
     {
         Assert.Empty(For(DevbookFolder.Tech, "status: adopted\ntype: library"));

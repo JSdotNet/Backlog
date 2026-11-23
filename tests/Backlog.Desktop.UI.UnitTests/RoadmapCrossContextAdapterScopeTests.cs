@@ -37,18 +37,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 {
-    private readonly string _tempDir = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-scope-validation",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-scope-validation");
+
+    private string _tempDir => _temp.Path;
 
     public void Dispose()
     {
-        if (Directory.Exists(_tempDir))
-        {
-            TestDatabases.Release(_tempDir);
-            try { Directory.Delete(_tempDir, recursive: true); } catch (IOException) { }
-        }
+        TestDatabases.Release(_tempDir);
+        _temp.Dispose();
     }
 
     /// <summary>

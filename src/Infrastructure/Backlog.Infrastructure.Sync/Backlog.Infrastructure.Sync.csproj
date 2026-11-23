@@ -135,4 +135,11 @@
     <InternalsVisibleTo Include="Backlog.Infrastructure.Sync.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The one DPAPI seal every per-user secret is kept under (local ADR 0030).
+         Compiled in from the GitHub adapter rather than referenced, so this adapter
+         stays free of GitHub's dependencies and the copy cannot drift. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\UserDpapi.cs" Link="UserDpapi.cs" />
+  </ItemGroup>
+
 </Project>

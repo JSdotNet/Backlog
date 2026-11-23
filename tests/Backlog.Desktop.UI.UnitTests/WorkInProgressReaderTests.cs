@@ -150,7 +150,7 @@ public sealed class WorkInProgressReaderTests
         host.Client.OpenPullRequests.Add(Open(700));
         var clock = new FakeTimeProvider(Noon);
         var contract = RepositoryManagementChain.For(host.GitHub, clock);
-        var reader = new WorkInProgressReader(contract, new NoSessions(), clock);
+        var reader = new WorkInProgressReader(contract, new StubSessionSource(), clock);
 
         // The pull requests pane lists at noon; a pull request opens on GitHub after.
         await contract.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
@@ -263,7 +263,7 @@ public sealed class WorkInProgressReaderTests
 
         var services = new ServiceCollection()
             .AddSingleton(RepositoryManagementChain.For(host.GitHub, clock))
-            .AddSingleton<IAgentSessionSource>(new NoSessions())
+            .AddSingleton<IAgentSessionSource>(new StubSessionSource())
             .AddSingleton<TimeProvider>(clock);
         using (var withLookup = services.AddSingleton<ITaskLookup>(lookup).BuildServiceProvider())
         {
@@ -340,7 +340,7 @@ public sealed class WorkInProgressReaderTests
         clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new WorkInProgressReader(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock, () => links.SelectMany(link => link()));
+        return new WorkInProgressReader(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(), clock, () => links.SelectMany(link => link()));
     }
 
     private static PullRequestByNumber Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>
@@ -367,15 +367,6 @@ public sealed class WorkInProgressReaderTests
             MergeStateStatus: "BLOCKED",
             PreferredMergeMethod: GitHubMergeMethod.Squash,
             UpdatedAt: Noon.AddMinutes(-number));
-
-    private sealed class NoSessions : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog([], [], 0));
-    }
 
     /// <summary>A Tasks lookup whose tasks link the given pull requests and own no
     /// session or pull request.</summary>

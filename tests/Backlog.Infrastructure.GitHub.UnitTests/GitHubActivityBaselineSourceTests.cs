@@ -14,21 +14,14 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 7, 31, 0, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-activity-baseline-source-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-activity-baseline-source-tests");
 
-    public GitHubActivityBaselineSourceTests() => Directory.CreateDirectory(_root);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task Repositories_bound_to_different_accounts_are_counted_under_each_accounts_login_and_summed()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -62,7 +55,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
     [Fact]
     public async Task Repositories_on_the_default_account_go_out_as_one_query_under_the_signed_in_login()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -92,7 +85,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
     [Fact]
     public async Task One_accounts_refusal_leaves_its_record_out_and_marks_the_baseline_incomplete()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
@@ -124,7 +117,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
     [Fact]
     public async Task An_archived_repository_is_left_out_of_the_query()
     {
-        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         Assert.Null(settings.SetRepositories(
         [
             new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),

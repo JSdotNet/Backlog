@@ -160,7 +160,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/tech/cloud.md#azure-notification-hubs", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 The optional cloud service runs in Azure as a single-region, low-cost footprint sized for sync coordination and webhook forwarding.
@@ -180,8 +180,11 @@ Deployment considerations:
 - **Single region**, one Container App instance: enough for a personal tool.
 - **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044). Nor has `knowledgeEvents`, for the same reason (local ADR 0050).
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the service stores and forwards.
-- **Secrets in Key Vault** — webhook secrets and OAuth tokens go there when they arrive. `infra/sync/main.bicep` provisions the vault and the identity's read role; nothing reads it yet.
-- **The token signing key is not in Key Vault.** The device-token signing key (`Modules:Sync:Tokens:SigningKey`) is required outside Development; the service refuses to start without it. It reaches the container as a **container app secret** from a `@secure()` Bicep parameter, fed by the GitHub environment secret `SYNC_TOKEN_SIGNING_KEY`. A missing key fails the provision rather than the app. The value never touches disk or a log, and a scale-to-zero app pays no vault round-trip on cold start. `docs/deployment/sync.md#the-device-token-signing-key` covers what a rotation invalidates.
+- **Secrets in Key Vault** *(local ADR 0058)* — Key Vault `kv-backlog-sync-we`, in RBAC mode, holds the service's secrets. The service's managed identity reads them as **Key Vault Secrets User**, and no Bicep parameter, GitHub secret or `azd` environment carries one:
+  - `sync-token-signing-key`, the device-token signing key. The service reads it on start and refreshes it every five minutes. Outside Development it refuses to start without the vault, and only a Development run takes the key from user-secrets.
+  - `github-oauth-client-secret`, stored by hand once the GitHub OAuth App exists, read as `GitHub:ClientSecret`.
+- **GitHub OAuth App** *(local ADR 0058)* — the owner signs in through the OAuth App "Backlog sync", owned by the JSdotNet account. Its homepage is the service's URL, its one callback is `/oauth/github/callback` on that URL, and device flow is off. The client id is public, so it is no vault secret: the container app holds it as the setting `GitHub__ClientId`, read as `GitHub:ClientId`. It was set by hand, and `infra/sync/main.bicep` does not declare it yet, so the next `azd provision` drops it.
+- **Signing key rotation** — a rotation adds a version of `sync-token-signing-key`. The service signs with the newest version. It still accepts the one before for one token lifetime plus one refresh interval after the new version is created, 35 minutes by default, so no device is signed out. `docs/deployment/sync.md#rotating-the-signing-key` is the procedure.
 - **Attachment blob store** *(local ADR 0014)* — `infra/sync/main.bicep`
   provisions one Standard LRS storage account beside the Cosmos replica:
   - `allowSharedKeyAccess: false`, TLS 1.2, and no public blob access;
@@ -265,7 +268,7 @@ The service deploys unattended: every Release All run that publishes, the nightl
 | **Observability** | Log Analytics and Application Insights, with only application telemetry going to either. |
 
 - **Infrastructure as code:** the template is resource-group scoped, so it deploys into a group created by hand.
-- **CI/CD:** a person starts infrastructure from `Deploy Sync` or `Deploy All`. The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. The repository holds no publish profile or service principal secret; the one secret carried is the token signing key.
+- **CI/CD:** a person starts infrastructure from `Deploy Sync` or `Deploy All`. The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. The repository holds no publish profile, service principal secret or service secret: the token signing key is in Key Vault.
 - **Local development:** Azurite is the `storage` resource with the `attachments` container (local ADR 0014), so the sync path builds and tests with no cloud account.
 - **Observability:** OpenTelemetry already flows through `AddServiceDefaults()`. No domain data goes to either sink, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. A 1 GB/day ingestion cap (`logDailyQuotaGb`) stops runaway logging. Once it is reached, Azure drops the rest of the day, exceptions included, which is intended since the volume is the incident. See `docs/deployment/sync.md`.
 

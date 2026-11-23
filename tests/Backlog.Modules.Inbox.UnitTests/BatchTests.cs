@@ -184,7 +184,6 @@ public sealed class BatchTests
             ungroup: null!,
             ensureDefaultOrganizer: null!,
             retryAttachment: null!,
-            retryTranscription: null!,
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,
@@ -196,5 +195,6 @@ public sealed class BatchTests
             adviseTriage: null!,
             proposeTriagePass: null!,
             editNote: null!,
-            routeToEvent: null!);
+            routeToEvent: null!,
+            retryTranscription: null!);
 }

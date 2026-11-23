@@ -11,7 +11,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(BrainRootCollection.Name)]
 public class BrainFolderSourceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "brain-folder-source-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-folder-source-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string? _setting;
 
@@ -299,14 +301,5 @@ public class BrainFolderSourceTests : IDisposable
         return file;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

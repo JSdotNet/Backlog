@@ -3,19 +3,8 @@
 <PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Fields"
-           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: sixteen stories share eight shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, the extension namespace, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and two fields draw no visible label because their value already says which field it is. `issue`, `effort` and `roadmap` have no story: the reader still parses them for the task parser and the generated graph, and the chapter view draws none of them, because the plan lives in Backlog's own entries. `status` is not here: it is the same question as state, and it has a subpage of its own — and so is the decision and review state beside it, which is never a row at all; Chapter and file draws it. Combinations are the parent page's job."
+           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: fifteen stories share seven shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, the extension namespace, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and one field draws no visible label because its value already says which field it is. `issue`, `effort` and `roadmap` have no story: the reader still parses them for the task parser and the generated graph, and the chapter view draws none of them, because the plan lives in Backlog's own entries. `status` is not here: it is the same question as state, and it has a subpage of its own — and so is the decision and review state beside it, which is never a row at all; Chapter and file draws it. Combinations are the parent page's job."
            Guidelines="@Rules">
-
-    <Story Name="kind"
-           Description="What kind of thing the entry is, out of a closed vocabulary — `format`, `runtime`, `framework`, `library`. That closedness is the fact worth drawing, so it is a classification chip rather than a value: a bare `framework` in a code span could have come from any field in the block, and an outlined chip says “this entry has been filed as one of a small number of things”.
-
-Which is what lets the row lose its visible label. The chip says which field it came from; a dimmed `kind` in front of it was holding up something that stands on its own. The label is hidden, not dropped — the `dt` is still in the description list wearing `sr-only`, so a screen reader still hears the field name, and the tooltip carries it for a pointer user.
-
-`.badge--kind` shares its rule with `.badge--area`, because the two are the same fact about different things: the drawer something is filed in, out of a vocabulary somebody else owns. No per-value tone, and no slug — the vocabulary belongs to the folder, and a `Slug` would put an authored word into a class name."
-           Code="@KindCode">
-        @Field("kind", "kind: framework", ".tech entries.", "MetadataKindBadge",
-            @<MetadataKindBadge Kind="framework" />, showLabel: false)
-    </Story>
 
     <Story Name="version"
            Description="The pinned version, as authored — and the reason the shape is a `code` element: `10.0` is a version string and not the number ten. A file writes it quoted for exactly that reason, and the reader drops the quotes and keeps the text.
@@ -135,7 +124,7 @@ Twelve `.domain` chapters write it today. A key the reader does not model lands 
     <Story Name="type"
            Description="What kind of thing a chapter or file is — `aggregate`, `library`, `context` — out of the vocabulary its folder defines: `domain/`, `tech/` and `ai/` each have one, and `arc42/` and `design/` define none. A field of the record now rather than a key it happened to keep, and drawn exactly as it was before that: a plain value under its own label.
 
-In `.domain` the row usually is not drawn at all, because the heading above it carries the value as a mark and the same fact twice would be noise — that is the heading's page. `tech/`'s old spelling, `kind`, still reads into the same field; it keeps the classification chip above rather than being drawn a second time here, and the findings ask for the rename."
+In `.domain` the row usually is not drawn at all, because the heading above it carries the value as a mark and the same fact twice would be noise — that is the heading's page."
            Code="@TypeCode">
         @Field("type", "type: format", "domain/, tech/, ai/. A warning in arc42/ and design/, which define none.", "MetadataValueList",
             @<MetadataValueList Values="@TypeValue" />)
@@ -362,9 +351,8 @@ A key the reader recognises and deliberately drops never arrives here. `order` a
 
     private const string TypeCode = """
         @* A field of the record, drawn as it always was: a plain value under its
-           own label. A value read from the legacy `kind` is the kind chip instead,
-           so the same fact is never drawn under two names. *@
-        @if (!string.IsNullOrWhiteSpace(Metadata.Type) && !Metadata.TypeReadFromKind)
+           own label. *@
+        @if (!string.IsNullOrWhiteSpace(Metadata.Type))
         {
             <MetadataField Label="type"><MetadataValueList Values="@(new[] { Metadata.Type! })" /></MetadataField>
         }
@@ -384,18 +372,6 @@ A key the reader recognises and deliberately drops never arrives here. `order` a
 
         @* Inside: key and value as one scalar, the full key on the tooltip. *@
         <MetadataScalar Value="@Entry(key, value)" Title="@($"ext.{key}")" />
-        """;
-
-    private const string KindCode = """
-        @* A closed vocabulary drawn as a classification. No Slug: the vocabulary
-           belongs to the folder, and an authored word in a class name is how
-           `.badge--kind-framework` becomes a rule nobody wrote. *@
-        <MetadataKindBadge Kind="@metadata.Kind" />
-
-        @* The row hides the name rather than dropping it. The chip says which
-           field it is to somebody looking, and nothing at all to somebody
-           listening, so the <dt> stays and wears sr-only. *@
-        <MetadataField Label="kind" ShowLabel="false">
         """;
 
     private const string VersionCode = """

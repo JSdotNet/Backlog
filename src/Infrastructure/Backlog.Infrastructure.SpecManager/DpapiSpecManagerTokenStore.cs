@@ -2,14 +2,15 @@ using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.SpecManager;
 
 /// <summary>
 /// The token store on Windows: every installation's entry in one file, serialized
-/// as UTF-8 JSON, handed to <see cref="ProtectedData.Protect"/> under
+/// as UTF-8 JSON, sealed by <see cref="UserDpapi"/> under
 /// <see cref="DataProtectionScope.CurrentUser"/>, and the envelope written as base64
-/// text — the envelope <c>DpapiDeviceCredentialStore</c> uses for the sync
+/// text — the seal <c>DpapiDeviceCredentialStore</c> uses for the sync
 /// credential, for the same reason: another account on the machine, or the file
 /// copied to another machine, opens nothing.
 /// <para>
@@ -42,10 +43,7 @@ public sealed class DpapiSpecManagerTokenStore : ISpecManagerTokenStore
 
     /// <summary><c>%LOCALAPPDATA%\Backlog\spec-manager-credentials.json</c>, beside
     /// the per-user <c>github.json</c>.</summary>
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Backlog",
-        "spec-manager-credentials.json");
+    public static string DefaultPath => AppDataPaths.Shared("spec-manager-credentials.json");
 
     /// <summary>The one file this store writes.</summary>
     public string StorePath => _path;
@@ -111,8 +109,7 @@ public sealed class DpapiSpecManagerTokenStore : ISpecManagerTokenStore
 
         try
         {
-            var envelope = ProtectedData.Protect(plaintext, optionalEntropy: null, DataProtectionScope.CurrentUser);
-            var text = Encoding.ASCII.GetBytes(Convert.ToBase64String(envelope));
+            var text = Encoding.ASCII.GetBytes(UserDpapi.Seal(plaintext));
 
             using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
@@ -143,8 +140,7 @@ public sealed class DpapiSpecManagerTokenStore : ISpecManagerTokenStore
         {
             if (!File.Exists(_path)) return new(StringComparer.OrdinalIgnoreCase);
 
-            var envelope = Convert.FromBase64String(File.ReadAllText(_path));
-            var plaintext = ProtectedData.Unprotect(envelope, optionalEntropy: null, DataProtectionScope.CurrentUser);
+            var plaintext = UserDpapi.Open(File.ReadAllText(_path));
             var entries = JsonSerializer.Deserialize<Dictionary<string, SpecManagerCredential>>(plaintext, JsonOptions);
 
             Array.Clear(plaintext);

@@ -1,7 +1,7 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.SharedKernel;
@@ -35,13 +35,10 @@ namespace Backlog.Infrastructure.Mcp;
 /// area — and this is the table that says which key each one reads.
 /// </para>
 /// <para>
-/// <b>A key may be read by two groups, and one is.</b> §7 asks for one check per
-/// group; it does not ask for one group per key, and the two are different
-/// requirements. A group is the unit the check is applied at, so that a class
-/// cannot half-appear; a key is the switchable <em>area</em> a person turns off.
-/// <see cref="Work"/> and <see cref="Tracker"/> are two classes because they are
-/// two descriptions of what a tool is for, and one key because reading the
-/// backlog and moving it are the same thing to switch off.
+/// <b>A group of an area no switch turns off carries no key</b> and is always
+/// listed: the backlog, the roadmap and the devbook tools among them, since those
+/// areas are permanent. A key may still be read by two groups — §7 asks for one
+/// check per group, not one group per key.
 /// </para>
 /// <para>
 /// It lives in this project rather than in the host because both hosts need it
@@ -64,34 +61,24 @@ public static class BacklogMcpTools
     /// are listed at all, and the names those tools carry on the wire.</summary>
     /// <param name="FeatureKey">The <see cref="IAppFeatureSettings"/> key. One per
     /// group, per local ADR 0012 §7 — or null for a group no flag gates, which is
-    /// always listed: <see cref="Windows"/>, whose record decided it has none.</param>
+    /// always listed.</param>
     /// <param name="ToolType">The attributed class. The host hands this to
     /// <c>WithTools</c>; nothing here constructs it.</param>
     /// <param name="ToolNames">The <c>tools/list</c> names, exactly as the
     /// <c>[McpServerTool(Name = …)]</c> attributes spell them.</param>
     public sealed record McpToolGroup(string? FeatureKey, Type ToolType, IReadOnlyList<string> ToolNames);
 
-    /// <summary>The backlog and import-plan tools, behind <c>backlog</c> — the
-    /// key the Tasks context owns and the pane reads.</summary>
+    /// <summary>The backlog and import-plan tools. Always listed: the backlog is
+    /// not switchable.</summary>
     public static McpToolGroup Work { get; } = new(
-        TasksFeatures.Tasks,
+        FeatureKey: null,
         typeof(WorkTools),
         [WorkTools.ListEntries, WorkTools.GetPlanItems]);
 
     /// <summary>
     /// The tracker operations — find, read, transition, mark blocked or unblock,
     /// comment, link, create, and set or list an entry's Devbook references —
-    /// behind <c>backlog</c>, the same key <see cref="Work"/> reads.
-    /// <para>
-    /// <b>The shared key is the decision, not an oversight.</b> Local ADR 0012 §7
-    /// requires one <see cref="IAppFeatureSettings"/> check per group, which this
-    /// satisfies: the check runs once for this group and once for
-    /// <see cref="Work"/>, and each group's tools appear or vanish whole. What §7
-    /// does not require is a key per group. A key names a switchable area, and
-    /// reading the backlog and moving it are one area — somebody switching Tasks
-    /// off means "no backlog tools", not "no backlog tools except the ones that
-    /// write".
-    /// </para>
+    /// always listed, as <see cref="Work"/> is.
     /// <para>
     /// The split into two classes is about description rather than gating.
     /// <see cref="WorkTools"/> answers one question two ways and says so; these
@@ -101,7 +88,7 @@ public static class BacklogMcpTools
     /// </para>
     /// </summary>
     public static McpToolGroup Tracker { get; } = new(
-        TasksFeatures.Tasks,
+        FeatureKey: null,
         typeof(TrackerTools),
         [
             TrackerTools.FindItem,
@@ -116,26 +103,16 @@ public static class BacklogMcpTools
             TrackerTools.ListDevbookReferences
         ]);
 
-    /// <summary>The roadmap tool, behind <c>roadmap</c>.
-    /// <para>
-    /// Its own group because Roadmap Planning is its own bounded context with its
-    /// own key — the one the Home shell reads to decide whether to draw the band
-    /// — and §7's rule is one check per group, each group behind its own
-    /// context's flag. It rode with the backlog tools once, on the argument that a
-    /// session reading a plan item wants the roadmap entry it executes; that is an
-    /// argument about what a session will ask for next, not about what somebody
-    /// switching the roadmap off meant by it.
-    /// </para></summary>
+    /// <summary>The roadmap tool. Always listed: the roadmap is not switchable. Its
+    /// own group because Roadmap Planning is its own bounded context.</summary>
     public static McpToolGroup Roadmap { get; } = new(
-        RoadmapFeatures.Roadmap,
+        FeatureKey: null,
         typeof(RoadmapTools),
         [RoadmapTools.GetRoadmap]);
 
-    /// <summary>The devbook tools, behind <c>repository-devbook</c> — the key the
-    /// Shell reads to decide whether to offer the pane at all, which is the same
-    /// question asked of a session.</summary>
+    /// <summary>The devbook tools. Always listed: the Devbook is not switchable.</summary>
     public static McpToolGroup Devbook { get; } = new(
-        DevbookFeatures.RepositoryDevbook,
+        FeatureKey: null,
         typeof(DevbookTools),
         [
             DevbookTools.ListKnowledgeContexts,
@@ -231,13 +208,11 @@ public static class BacklogMcpTools
     /// <summary>
     /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
     /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
-    /// Behind <c>backlog</c>, the always-on Tasks key, since Progress has no switch of its
-    /// own: goals, impediments and the stand-up are always on (§10). An impediment holds
-    /// tasks back, and a session raises one beside the <see cref="Tracker"/> calls it works
-    /// tasks with, so the key that gates those gates these.
+    /// Always listed: Progress has no switch of its own — goals, impediments and the
+    /// stand-up are always on (§10).
     /// </summary>
     public static McpToolGroup Impediments { get; } = new(
-        TasksFeatures.Tasks,
+        FeatureKey: null,
         typeof(ImpedimentTools),
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState, ImpedimentTools.LinkToImpediment, ImpedimentTools.UnlinkFromImpediment]);
 
@@ -276,12 +251,11 @@ public static class BacklogMcpTools
     /// The goal tools: read the goals and the iterations they are read over, set, edit and
     /// delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
-    /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
-    /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
-    /// switch of its own (local ADR 0035 §10), and a goal's work is the backlog's.
+    /// a goal and an impediment are two things a model is told about. Always listed, for the
+    /// reason the impediment tools give: Progress has no switch of its own (local ADR 0035 §10).
     /// </summary>
     public static McpToolGroup Goals { get; } = new(
-        TasksFeatures.Tasks,
+        FeatureKey: null,
         typeof(GoalTools),
         [
             GoalTools.ListGoals,
@@ -311,14 +285,25 @@ public static class BacklogMcpTools
         [InboxTools.ListInboxItems, InboxTools.ReadInboxItem, InboxTools.ArchiveInboxItem, InboxTools.CaptureToInbox]);
 
     /// <summary>
+    /// <c>add_knowledge_event</c>, behind <c>events</c> — the one key Events owns, which
+    /// withdraws the whole area (local ADR 0050 §6). Off, the tool is absent from
+    /// <c>tools/list</c> and a call to it is an unknown tool, as ADR 0012 §7 has every group;
+    /// there is no refusal of its own.
+    /// </summary>
+    public static McpToolGroup Events { get; } = new(
+        EventsFeatures.Events,
+        typeof(EventTools),
+        [EventTools.AddKnowledgeEvent]);
+
+    /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or
-    /// as a web link (local ADR 0043 §7), and the one group behind no key.
+    /// as a web link (local ADR 0043 §7), behind no key.
     /// <para>
     /// <b>Ungated on purpose.</b> ADR 0043 §7 gives pop-out, its routes and this tool
     /// no feature flag: the tool adds no surface and removes none. What a flag hides is
     /// the surface, and the catalog the tool reads leaves out a surface whose own flag
-    /// is off — so switching the Devbook off still takes it out of reach here, as a
-    /// refusal naming the surfaces that remain.
+    /// is off — so a switched-off surface is out of reach here too, as a refusal naming
+    /// the surfaces that remain.
     /// </para>
     /// </summary>
     public static McpToolGroup Windows { get; } = new(
@@ -327,7 +312,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Events, Windows, AccessTools.Group, GrantTools.Group];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

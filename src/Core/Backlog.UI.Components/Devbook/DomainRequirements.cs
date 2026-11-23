@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
+
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>One row of a scenario: its keyword and the clauses it holds, each a
@@ -150,9 +152,9 @@ public static partial class DomainRequirements
         var loose = page.Chapters.Where(DomainUnits.IsRequirement).ToList();
         if (loose.Count > 0)
         {
-            keys.Add(DomainUnits.Slug(page.Title));
+            keys.Add(HeadingAnchor.Of(page.Title));
             groups.Add(new DomainRequirementGroup(
-                DomainUnits.Slug(page.Title),
+                HeadingAnchor.Of(page.Title),
                 page.Title,
                 DomainUnits.Normalize(page.Path),
                 string.Empty,

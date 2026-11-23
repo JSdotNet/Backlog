@@ -93,6 +93,7 @@ public sealed class ReorderTasksTests
         return task;
     }
 
+    // Differs from InMemoryTaskRepository: records each batch save and counts gets and single saves.
     private sealed class RecordingTaskRepository(params TaskItem[] entries) : ITaskRepository
     {
         public List<IReadOnlyCollection<TaskItem>> Batches { get; } = [];

@@ -1,5 +1,6 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
+using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -41,7 +42,7 @@ internal sealed class GitHubSettingsReplication : IGitHubSettingsReplication
         return Task.FromResult(_store.ReadReplica(document));
     }
 
-    public Task<GitHubReplicaOutcome> ApplyAsync(
+    public Task<ReplicaOutcome> ApplyAsync(
         GitHubReplicaDocument document,
         GitHubReplicaCopyDto inbound,
         CancellationToken cancellationToken = default)

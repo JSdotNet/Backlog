@@ -20,7 +20,8 @@ public sealed class SqliteWaitingQuestionStoreTests : IDisposable
         "Database",
         [new RelayOption("SQLite", "A local file"), new RelayOption("Postgres")]);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-waiting-questions", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-waiting-questions");
+    private string _root => _temp.Path;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -57,6 +58,23 @@ public sealed class SqliteWaitingQuestionStoreTests : IDisposable
         var read = (await store.GetAsync(question.Id, Ct))!;
         Assert.Equal(answered, read);
         Assert.Equal(AnswerDeliveryState.Pending, read.Delivery);
+    }
+
+    [Fact]
+    public async Task The_device_each_answer_came_from_survives_a_round_trip()
+    {
+        var store = Store();
+        var question = Dialog(away: true);
+        await store.RegisterAsync(question, Ct);
+        var phone = Guid.NewGuid();
+
+        var notified = WaitingQuestions.Notify(question, [Guid.NewGuid(), Guid.NewGuid()]).Question!;
+        var answered = WaitingQuestions.Answer(notified, notified.NotificationIds[0], RelayAnswer.Open("MySQL") with { FromDeviceId = phone }, Noon.AddMinutes(5)).Question!;
+        await store.ChangeAsync(question.Id, _ => WaitingQuestionOutcome.Done(answered), Ct);
+
+        var read = (await store.GetAsync(question.Id, Ct))!;
+        Assert.Equal(phone, read.Answers[0]!.FromDeviceId);
+        Assert.Null(read.Answers[1]);
     }
 
     [Fact]
@@ -134,7 +152,6 @@ public sealed class SqliteWaitingQuestionStoreTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

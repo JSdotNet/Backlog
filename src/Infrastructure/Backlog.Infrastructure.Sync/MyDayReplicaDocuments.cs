@@ -33,13 +33,11 @@ public static class MyDayReplicaDocuments
     /// </summary>
     public static readonly Guid PreferencesId = Guid.Parse("4d7a9c2e-5b1f-4e3a-8c6d-2f0e1a3b5c01");
 
+    private static readonly WholeDocumentKind Kind = new(PreferencesType, Title);
+
     /// <summary>Whether a document is the preferences'. Ordinal, as every token on the
     /// feed is compared.</summary>
-    public static bool Is(TaskChange change)
-    {
-        ArgumentNullException.ThrowIfNull(change);
-        return string.Equals(change.Task.Type, PreferencesType, StringComparison.Ordinal);
-    }
+    public static bool Is(TaskChange change) => Kind.Is(change);
 
     /// <summary>The preferences as a task-shaped change, the shape
     /// <see cref="WholeDocumentChange"/> describes: the constant id, the file's stamp,
@@ -48,7 +46,7 @@ public static class MyDayReplicaDocuments
     {
         ArgumentNullException.ThrowIfNull(copy);
 
-        return WholeDocumentChange.Of(PreferencesId, Title, PreferencesType, copy.Content, copy.UpdatedAt);
+        return Kind.ToChange(PreferencesId, Title, copy.Content, copy.UpdatedAt);
     }
 
     /// <summary>The copy a pulled document carries: its text verbatim and its
@@ -57,6 +55,6 @@ public static class MyDayReplicaDocuments
     {
         ArgumentNullException.ThrowIfNull(change);
 
-        return new MyDayPreferencesCopyDto(change.Task.ContentMd ?? string.Empty, change.UpdatedAt);
+        return new MyDayPreferencesCopyDto(WholeDocumentKind.ContentOf(change), change.UpdatedAt);
     }
 }

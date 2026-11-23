@@ -135,7 +135,6 @@ public static class InboxModuleRegistration
         // IInboxAttachmentSource — so a head without them still builds, and the
         // handlers answer inbox.attachment.unavailable.
         services.AddScoped<ICommandHandler<RetryAttachmentCommand, Result>, RetryAttachmentCommandHandler>();
-        services.AddScoped<ICommandHandler<RetryTranscriptionCommand, Result>, RetryTranscriptionCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<byte[]>>, ReadAttachmentQueryHandler>();
         services.AddScoped<ICommandHandler<OpenAttachmentCommand, Result>, OpenAttachmentCommandHandler>();
 
@@ -186,6 +185,7 @@ public static class InboxModuleRegistration
         // handler is transient for the worker, which resolves it from the root provider;
         // the worker is the queue the note pull hands notes to, and the host starts it.
         services.AddTransient<ICommandHandler<TranscribeRecordingsCommand, Result<int>>, TranscribeRecordingsCommandHandler>();
+        services.AddScoped<ICommandHandler<RetryTranscriptionCommand, Result>, RetryTranscriptionCommandHandler>();
         services.TryAddSingleton<InboxRecordingTranscriptionWorker>();
         services.TryAddSingleton<IInboxRecordingQueue>(provider => provider.GetRequiredService<InboxRecordingTranscriptionWorker>());
 

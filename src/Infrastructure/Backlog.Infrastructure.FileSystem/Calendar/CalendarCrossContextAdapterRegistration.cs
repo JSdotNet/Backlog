@@ -1,6 +1,7 @@
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +13,8 @@ namespace Backlog.Infrastructure.FileSystem.Calendar;
 /// answered by adapters that may see both sides: the roadmap's plans
 /// (<see cref="ICalendarPlans"/>) and the hours worked a day
 /// (<see cref="ICalendarCapacity"/>), each over Roadmap's own abstractions, and the
-/// knowledge events (<see cref="ICalendarEvents"/>) over Events' published read contract.
+/// knowledge events (<see cref="ICalendarEvents"/>) over Events' published read contract, and
+/// the tasks (<see cref="ICalendarTasks"/>) over Tasks' published port (local ADR 0056 §2).
 /// <para>
 /// Registered here — in one place both hosts and the scope-validation guard call — so
 /// the lifetimes cannot drift between the desktop app and the web harness.
@@ -24,7 +26,9 @@ public static class CalendarCrossContextAdapterRegistration
     /// Registers the Calendar's cross-context adapters. Call after <c>AddRoadmapModule</c>
     /// and <c>AddRoadmapCrossContextAdapters</c>, whose ports these resolve when first
     /// asked; the read contract the Events adapter asks is <c>AddEventsModule</c>'s, resolved
-    /// the same way, and without it the Calendar is offered no events. Safe to call twice.
+    /// the same way, and without it the Calendar is offered no events; the Tasks port the
+    /// tasks adapter asks is <c>AddTasksModule</c>'s, and without it the Calendar is offered no
+    /// tasks. Safe to call twice.
     /// </summary>
     public static IServiceCollection AddCalendarCrossContextAdapters(this IServiceCollection services)
     {
@@ -39,7 +43,6 @@ public static class CalendarCrossContextAdapterRegistration
                 sp.GetRequiredService<IRoadmapItemRollup>(),
                 sp.GetRequiredService<IPlanningVelocity>(),
                 sp.GetRequiredService<IImportedPlanSource>(),
-                sp.GetService<IAppFeatureSettings>(),
                 sp.GetService<IRoadmapWorkChanges>(),
                 sp.GetService<IPlanningPace>()));
 
@@ -59,6 +62,15 @@ public static class CalendarCrossContextAdapterRegistration
             sp.GetService<IKnowledgeEventReader>() is { } reader
                 ? new EventsCalendarEvents(reader, sp.GetService<IAppFeatureSettings>())
                 : new NoCalendarEvents());
+
+        // The Tasks layer's port, read and written through Tasks' published port — Scoped,
+        // because ITaskItems is: one per window. It hears the task signal and the store
+        // moving, as the Tasks pane does. A host composed without Tasks has no port to ask:
+        // its Calendar is answered Off and still draws its plans and events.
+        services.TryAddScoped<ICalendarTasks>(sp =>
+            sp.GetService<ITaskItems>() is { } items
+                ? new TasksCalendarTasks(items, sp.GetService<ITaskChangeSignal>(), sp.GetService<ITaskStore>())
+                : new NoCalendarTasks());
 
         return services;
     }

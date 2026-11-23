@@ -9,6 +9,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -104,6 +105,12 @@ public static class SyncClientRegistration
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
 
+        // The claude.ai connector's owner calls (local ADR 0058 §8), all bearer: the
+        // Remote connector card resolves the port, and a host with no sync client none.
+        services.AddHttpClient<RemoteConnectorClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddSyncPipeline();
+        services.TryAddTransient<IRemoteConnector>(sp => sp.GetRequiredService<RemoteConnectorClient>());
+
         // The pairings the codes this device issues open. While a code waits, the device
         // list is read through the pairing client to see the device that redeemed it, and
         // the person is asked on this desktop whether to keep it; a notification about the
@@ -116,6 +123,10 @@ public static class SyncClientRegistration
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<PairingSubjects>>(),
             sp.GetService<DevicePairingClient>));
+
+        // Whether a device is one of the owner's paired devices now, read from the device
+        // list: the question relay asks it before an answer reaches a waiting agent.
+        services.TryAddSingleton<IPairedDevices>(sp => new RosterPairedDevices(sp));
 
         return services;
     }

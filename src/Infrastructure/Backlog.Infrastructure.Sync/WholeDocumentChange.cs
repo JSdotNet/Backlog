@@ -43,3 +43,37 @@ internal static class WholeDocumentChange
             UsageEvents: [],
             ProjectionRefs: []));
 }
+
+/// <summary>
+/// One kind of whole document on the task feed: its kind token and the title the activity
+/// log shows it under — the goals', the impediments', the iteration settings' and the My Day
+/// preferences' alike. The wire half the per-kind document classes share; what the document
+/// says, and which copy wins, stays behind each kind's port.
+/// </summary>
+/// <param name="Type">The kind token. Persisted on every replica, so never renamed.</param>
+/// <param name="Title">The title a document goes under where it carries none of its own.</param>
+internal sealed record WholeDocumentKind(string Type, string Title)
+{
+    /// <summary>Whether a document is of this kind. Ordinal, as every token on the feed is compared.</summary>
+    public bool Is(TaskChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        return string.Equals(change.Task.Type, Type, StringComparison.Ordinal);
+    }
+
+    /// <summary>The key one document's push mark is kept under in
+    /// <see cref="TaskSyncState.DocumentWatermarks"/>: prefixed by the kind token so it
+    /// never meets another kind's marks.</summary>
+    public string MarkOf(Guid id) => $"{Type}/{id:D}";
+
+    /// <summary>The document as a task-shaped change under <paramref name="id"/>, titled by
+    /// <paramref name="title"/>, or by <see cref="Title"/> where that is blank.</summary>
+    public TaskChange ToChange(Guid id, string? title, string content, DateTimeOffset updatedAt) =>
+        WholeDocumentChange.Of(id, string.IsNullOrWhiteSpace(title) ? Title : title, Type, content, updatedAt);
+
+    /// <summary>The title a pulled document carries, or empty.</summary>
+    public static string TitleOf(TaskChange change) => change.Task.Title ?? string.Empty;
+
+    /// <summary>The text a pulled document carries verbatim, or empty.</summary>
+    public static string ContentOf(TaskChange change) => change.Task.ContentMd ?? string.Empty;
+}

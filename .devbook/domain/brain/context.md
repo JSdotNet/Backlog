@@ -66,7 +66,7 @@ related: [".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/brai
 
 With the `atlas-lobes` flag on, the Devbook pane's **Atlas** button opens the [Lobes atlas](features.md#lobes-atlas) on the header's repository scope, whose anchor the pane reads. The shell header offers the atlas. Off, the button opens today's atlas and the header offers none. The Technology section keeps its own views either way.
 
-It ships off, marked in development, while the Lobes atlas is finished. The key is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the settings screen lists it with the other switches. A person's choice is kept in `features.json` like the pane's. It means nothing with Devbook off: Devbook's scope service answers the header and the pane from the two switches together.
+It ships off, marked in development, while the Lobes atlas is finished. The key is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the settings screen lists it with the other switches. A person's choice is kept in `features.json`.
 
 ## Dependencies
 

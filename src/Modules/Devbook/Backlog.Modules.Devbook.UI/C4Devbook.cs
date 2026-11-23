@@ -3,10 +3,12 @@ using System.Text.Json;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.C4;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 
 using DevbookC4Graph = Backlog.Infrastructure.Devbook.Building.DevbookC4Graph;
+using DevbookC4Includes = Backlog.Infrastructure.Devbook.Building.DevbookC4Includes;
 using DevbookMarkdown = Backlog.Infrastructure.Devbook.Building.DevbookMarkdown;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -34,13 +36,6 @@ namespace Backlog.Desktop.UI.Devbook;
 /// rather than read, and it is held only as long as the catalog is: an authored
 /// workspace, once there is one, replaces it entirely.
 /// </para>
-/// <para>
-/// That is the whole difference from the Archify arrangement next door. An Archify
-/// artifact is a re-authoring of a mermaid fence with nothing in it pointing back,
-/// so it has to be matched to that fence by hash and filed in a generated index, and
-/// it can go stale. A C4 workspace is attached to no fence, has no committed
-/// rendering, and therefore has nothing to drift from.
-/// </para>
 /// </summary>
 public sealed class C4DevbookStore : IDisposable
 {
@@ -49,11 +44,11 @@ public sealed class C4DevbookStore : IDisposable
     public const string WorkspaceFile = "workspace.dsl";
 
     /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
-    public const string IncludeDirectory = "c4";
+    public const string IncludeDirectory = DevbookC4Includes.Folder;
 
     /// <summary>The folder that held the workspaces before contract 33 and still holds
-    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_archify</c> and
-    /// <c>_meta</c>, which is what puts it out of the way of the chapter listing.</summary>
+    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_meta</c>, which is what
+    /// puts it out of the way of the chapter listing.</summary>
     public const string ReferenceDirectory = "_c4";
 
     /// <summary>
@@ -64,10 +59,9 @@ public sealed class C4DevbookStore : IDisposable
     /// embed and the file is retired. A view a chapter embeds needs no entry here.
     /// </para>
     /// <para>
-    /// <c>references.json</c> rather than <c>index.json</c> because the
-    /// <c>_archify/index.json</c> beside a chapter is generated, and a file with that
-    /// name beside a workspace would read as generated too. This one is authored and
-    /// reviewed like the <c>.dsl</c> is.
+    /// <c>references.json</c> rather than <c>index.json</c> because an
+    /// <c>index.json</c> reads as generated. This one is authored and reviewed like
+    /// the <c>.dsl</c> is.
     /// </para>
     /// <para>
     /// A file at all because the two better homes are both closed. A chapter's own
@@ -286,7 +280,11 @@ public sealed class C4DevbookStore : IDisposable
         {
             var workspacePath = Path.GetFullPath(Path.Combine(directory, WorkspaceFile));
             workspace = reuse
-                ?? C4DslReader.Read(ExpandIncludes(File.ReadAllText(workspacePath), workspacePath, Path.Combine(directory, IncludeDirectory), [workspacePath]));
+                ?? C4DslReader.Read(File.ReadAllText(workspacePath), new C4ReadOptions
+                {
+                    File = WorkspaceFile,
+                    Include = DevbookC4Includes.Resolver(directory, workspacePath)
+                });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -405,45 +403,6 @@ public sealed class C4DevbookStore : IDisposable
         location.Available
         && location.FullPath is not null
         && File.Exists(Path.Combine(location.FullPath, WorkspaceFile));
-
-    /// <summary>
-    /// The workspace with every <c>!include</c> of a file in <c>c4/</c> replaced by
-    /// that file's text.
-    /// <para>
-    /// The reader knows no <c>!include</c> — it is handed text, never a folder — so
-    /// the splice happens here, where the files are. A path is resolved from the
-    /// including file, as devbook's <c>c4.mjs</c> resolves it, and spliced only when
-    /// it lands on a file inside <c>c4/</c>, the one folder a workspace includes from.
-    /// Any other <c>!include</c> — outside that folder, missing, absolute, or a file
-    /// already being read — is left in place for the reader to report, so the panel
-    /// still says what it could not read.
-    /// </para>
-    /// </summary>
-    private static string ExpandIncludes(string text, string fromFile, string allowed, IReadOnlyList<string> stack)
-    {
-        if (!text.Contains("!include", StringComparison.OrdinalIgnoreCase)) return text;
-
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var root = Path.GetFullPath(allowed) + Path.DirectorySeparatorChar;
-
-        for (var index = 0; index < lines.Length; index++)
-        {
-            var parts = lines[index].Trim().Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 2 || !string.Equals(parts[0], "!include", StringComparison.OrdinalIgnoreCase)) continue;
-
-            var target = parts[1].Trim().Trim('"');
-            if (target.Length == 0 || Path.IsPathRooted(target) || target.Contains(':', StringComparison.Ordinal)) continue;
-
-            var resolved = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fromFile)!, target.Replace('/', Path.DirectorySeparatorChar)));
-            if (!resolved.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
-            if (!File.Exists(resolved)) continue;
-            if (stack.Contains(resolved, StringComparer.OrdinalIgnoreCase)) continue;
-
-            lines[index] = ExpandIncludes(File.ReadAllText(resolved), resolved, allowed, [.. stack, resolved]);
-        }
-
-        return string.Join('\n', lines);
-    }
 
     /// <summary>
     /// The model drawn from the chapters' own C4 fences, for a folder with no

@@ -21,7 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class TechnologyDevbookPanelTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _roots = [];
 
     [Fact]
     public async Task One_tab_bar_offers_the_five_views_and_no_atlas_or_layers()
@@ -371,10 +371,9 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     /// </summary>
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var root in _roots)
         {
-            try { Directory.Delete(root, recursive: true); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            root.Dispose();
         }
     }
 
@@ -442,11 +441,12 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     /// composed to answer it; null composes none, which shows the status.</param>
     private Harness CreateHarness(bool withTechFolder = true, bool withPackages = false, bool? status = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-technology-panel-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-technology-panel-tests");
+        _roots.Add(temp);
+        var root = temp.Path;
         var repository = Path.Combine(root, "repo");
         var tech = Path.Combine(repository, ".tech");
         Directory.CreateDirectory(withTechFolder ? tech : repository);
-        _roots.Add(root);
 
         if (withTechFolder)
         {

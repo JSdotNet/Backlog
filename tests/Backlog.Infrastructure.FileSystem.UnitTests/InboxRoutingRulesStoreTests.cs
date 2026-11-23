@@ -9,11 +9,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class InboxRoutingRulesStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "inbox-routing-rules-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("inbox-routing-rules-store-tests");
 
-    public InboxRoutingRulesStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "inbox-routing-rules.json");
 
@@ -91,8 +89,5 @@ public sealed class InboxRoutingRulesStoreTests : IDisposable
         Assert.Empty(Store().Current);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

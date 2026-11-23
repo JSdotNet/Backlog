@@ -25,20 +25,11 @@ public sealed class RoadmapCalendarCapacityTests : IDisposable
     private static readonly DateOnly Wednesday = new(2026, 10, 14);
     private static readonly DateOnly Thursday = new(2026, 10, 15);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "roadmap-calendar-capacity-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("roadmap-calendar-capacity-tests");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    private string _root => _temp.Combine("data");
+
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void A_worked_weekday_toggled_off_answers_no_hours_and_leaves_its_neighbours_alone()

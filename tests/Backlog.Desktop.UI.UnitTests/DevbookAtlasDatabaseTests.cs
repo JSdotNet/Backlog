@@ -23,10 +23,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 {
     private static readonly DevbookAtlasScope DomainScope = new("domain", "Domain", ".domain");
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-atlas-database-tests",
-        Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-atlas-database-tests");
 
     [Fact]
     public async Task A_folder_scope_draws_from_the_database_and_keeps_its_boundary_nodes()
@@ -88,17 +85,17 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 
     private IDevbookFolderSource Arrange(bool withDatabase)
     {
-        Directory.CreateDirectory(Path.Combine(_root, ".domain"));
-        Directory.CreateDirectory(Path.Combine(_root, ".tech"));
+        Directory.CreateDirectory(_temp.Combine(".domain"));
+        Directory.CreateDirectory(_temp.Combine(".tech"));
 
         if (withDatabase) WriteDatabase();
 
-        return new FixedDevbookFolderSource(_root);
+        return new FixedDevbookFolderSource(_temp.Path);
     }
 
     private void WriteDatabase()
     {
-        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_temp.Path)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -151,19 +148,13 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A temp folder that outlives the run is not a test failure.
-        }
+        SqliteConnection.ClearAllPools();
+        _temp.Dispose();
     }
 
     /// <summary>The devbook folders of one repository on disk, with nothing else
     /// the port can do — no settings file, no clone, no branch snapshot.</summary>
+    // Differs from StubFolderSource: resolves the current layout of one repository on disk.
     private sealed class FixedDevbookFolderSource(string root) : IDevbookFolderSource
     {
         public event Action? Changed

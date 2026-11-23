@@ -75,12 +75,12 @@ public sealed class DevbookPaneOpenErrorTests
 
     private static Harness CreateHarness()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -115,10 +115,10 @@ public sealed class DevbookPaneOpenErrorTests
         // surface, which writes. Composing the pane means composing the writer.
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context, configuredRepository.Alias);
+        return new Harness(temp, context, configuredRepository.Alias);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias) : IAsyncDisposable
+    private sealed record Harness(TemporaryDirectory Temp, BunitContext Context, string RepositoryAlias) : IAsyncDisposable
     {
         public IRenderedComponent<DevbookPane> Render() =>
             Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
@@ -134,14 +134,7 @@ public sealed class DevbookPaneOpenErrorTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

@@ -78,10 +78,6 @@ public static class DevbookSchema
     /// Carried through untouched and never validated.</summary>
     public const string ExtensionPrefix = "ext.";
 
-    /// <summary><c>tech/</c>'s old spelling of <c>type</c>. Still read, and
-    /// reported.</summary>
-    public const string LegacyTechTypeField = "kind";
-
     private static readonly string[] DomainChapterTypes =
     [
         "bounded-context", "aggregate", "entity", "value-object", "enum",

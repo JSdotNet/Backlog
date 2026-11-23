@@ -122,21 +122,4 @@ public static class DevbookSyncChapters
         return string.Equals(otherPath, DevbookChapterKey.Canonical(path), StringComparison.OrdinalIgnoreCase)
             && string.Equals(otherAnchor, anchor, StringComparison.OrdinalIgnoreCase);
     }
-
-    /// <summary>
-    /// The anchor a heading is addressed by, the way the devbook's own tools derive it:
-    /// lower-cased and trimmed, everything but letters, digits, underscores, spaces and
-    /// hyphens dropped, and each space a hyphen. <c>Delivery Run Recording</c> is
-    /// <c>delivery-run-recording</c>.
-    /// </summary>
-    public static string AnchorOf(string? heading)
-    {
-        if (string.IsNullOrWhiteSpace(heading)) return string.Empty;
-
-        var kept = heading.Trim().ToLowerInvariant()
-            .Where(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' || char.IsWhiteSpace(ch))
-            .Select(ch => char.IsWhiteSpace(ch) ? '-' : ch);
-
-        return new string([.. kept]);
-    }
 }

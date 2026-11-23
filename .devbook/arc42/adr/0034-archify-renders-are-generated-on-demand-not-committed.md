@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/tech/tooling.md#archify"]
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/tech/tooling.md#archify", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md"]
 c4: [backlog.desktop.devbook]
 c4-touches: [github]
 ```
@@ -18,6 +18,12 @@ specification, into a cache beside the devbook databases.
 
 Proposed, 2026-10-15, with the issue-sweep draft pull request for issue #752 that
 builds it. It awaits acceptance when that pull request is reviewed.
+
+> **Superseded, 2026-11-19, by
+> [ADR 0057](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)
+> (proposed).** Archify is retired: the app draws every chapter diagram with
+> Mermaid, and the renderer, the cache and `tools/archify` leave the repository.
+> This record stays as the history of how the renders were drawn.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

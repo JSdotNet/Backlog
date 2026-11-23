@@ -86,7 +86,7 @@ and whether it is online, because an answer counts only once that desktop accept
 it.
 
 On the phone this is the Notifications screen in `Backlog.Mobile.UI`, opened from
-the app bar's bell. It pulls the
+the Notifications tab. It pulls the
 feed when it opens and when the app comes back to the front. It also pulls every 30 seconds
 while a reply made there waits for its owner. Those pulls are its refresh, so the
 screen has no refresh button.

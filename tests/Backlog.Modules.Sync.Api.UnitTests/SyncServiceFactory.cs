@@ -69,6 +69,23 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     /// thing that is missing.</summary>
     internal IReadOnlyList<(string Key, string? Value)> MoreConfiguration { get; init; } = [];
 
+    /// <summary>The owner a deployed service needs before it starts (local ADR 0058
+    /// §1): a GitHub user id and both halves of the OAuth App. Test values.</summary>
+    internal static IReadOnlyList<(string Key, string? Value)> ConfiguredOwner { get; } =
+    [
+        ("Owner:GitHubUserId", "7655166"),
+        ("GitHub:ClientId", "test-client-id"),
+        ("GitHub:ClientSecret", "test-client-secret"),
+    ];
+
+    /// <summary>The remote connector's issuer and resource a deployed service needs before it
+    /// starts (local ADR 0058 §8). Test values.</summary>
+    internal static IReadOnlyList<(string Key, string? Value)> ConfiguredConnector { get; } =
+    [
+        ("Modules:Sync:Connector:Issuer", "https://sync.test"),
+        ("Modules:Sync:Connector:Resource", "https://sync.test/mcp"),
+    ];
+
     /// <summary>The gate registered for the most recent build, which is the one
     /// <see cref="CreateHost"/> is in the middle of: it is set while that build
     /// runs and opened before <see cref="CreateHost"/> returns or throws. One
@@ -185,15 +202,56 @@ internal static class SyncClientExtensions
 {
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
+    /// <summary>The loopback every test enrolment answers to. Nothing listens on it:
+    /// the code is read off the address the service sends the browser to.</summary>
+    internal static readonly Uri Loopback = new("http://127.0.0.1:49152/enrolment/");
+
     internal static async Task<DeviceRegistrationResponse> RegisterDevice(this HttpClient client, string name)
     {
         var response = await client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), new RegisterDeviceRequest(name), Cancellation);
+            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await client.EnrolmentRequest(name), Cancellation);
 
         response.EnsureSuccessStatusCode();
 
         return (await response.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
     }
+
+    /// <summary>
+    /// A registration request carrying a fresh one-time code, from a service with no
+    /// owner configured: the enrolment start answers the loopback with the code on it.
+    /// </summary>
+    internal static async Task<RegisterDeviceRequest> EnrolmentRequest(this HttpClient client, string name)
+    {
+        var verifier = EnrolmentPkce.CreateVerifier();
+        var signIn = await client.StartEnrolment(verifier);
+
+        Assert.StartsWith(Loopback.AbsoluteUri, signIn.AbsoluteUri, StringComparison.Ordinal);
+
+        return new RegisterDeviceRequest(name, QueryValue(signIn, "code"), verifier);
+    }
+
+    /// <summary>Starts an owner sign-in for <paramref name="verifier"/> and answers where
+    /// the browser is sent.</summary>
+    internal static async Task<Uri> StartEnrolment(this HttpClient client, string verifier, string state = "device-state")
+    {
+        var response = await client.PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.EnrolmentStart),
+            new StartEnrolmentRequest(Loopback, EnrolmentPkce.Challenge(verifier), EnrolmentPkce.Method, state),
+            Cancellation);
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<EnrolmentStartResponse>(Cancellation))!.SignInAddress;
+    }
+
+    /// <summary>One query parameter of an address, unescaped, or null.</summary>
+    internal static string? QueryValue(Uri address, string name) =>
+        address.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .Where(pair => pair[0] == name)
+            .Select(pair => Uri.UnescapeDataString(pair.Length > 1 ? pair[1] : string.Empty))
+            .FirstOrDefault();
 
     internal static async Task<string> DeviceToken(this HttpClient client, DeviceRegistrationResponse device)
     {

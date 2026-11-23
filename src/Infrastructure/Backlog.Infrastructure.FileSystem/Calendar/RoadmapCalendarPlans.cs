@@ -25,10 +25,6 @@ namespace Backlog.Infrastructure.FileSystem.Calendar;
 /// (<see cref="IPlanningPace"/>) — the three the roadmap band redraws on. The shelf is the
 /// band's own (<see cref="RoadmapShelf"/>).
 /// </para>
-/// <para>
-/// With the roadmap switched off nothing is read, and the Calendar offers no plans: a
-/// plan somebody turned off is not one to draw behind their back.
-/// </para>
 /// </summary>
 public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
 {
@@ -36,7 +32,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
     private readonly IRoadmapItemRollup _rollups;
     private readonly IPlanningVelocity _velocity;
     private readonly IImportedPlanSource _imported;
-    private readonly IAppFeatureSettings? _features;
     private readonly IRoadmapWorkChanges? _work;
     private readonly IPlanningPace? _pace;
 
@@ -45,7 +40,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
         IRoadmapItemRollup rollups,
         IPlanningVelocity velocity,
         IImportedPlanSource imported,
-        IAppFeatureSettings? features = null,
         IRoadmapWorkChanges? work = null,
         IPlanningPace? pace = null)
     {
@@ -58,7 +52,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
         _rollups = rollups;
         _velocity = velocity;
         _imported = imported;
-        _features = features;
         _work = work;
         _pace = pace;
         _planning.Changed += OnPlanChanged;
@@ -70,8 +63,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
 
     public async Task<CalendarPlansDto> ReadAsync(DateOnly today, CancellationToken cancellationToken = default)
     {
-        if (!RoadmapOn) return CalendarPlansDto.Off;
-
         var plan = await _planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
         var gathered = plan.Items.Count == 0
             ? new Dictionary<Guid, RoadmapItemRollupDto>()
@@ -112,7 +103,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
     public async Task<string?> StartAsync(string tag, DateOnly start, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);
-        if (!RoadmapOn) return "The roadmap is switched off.";
 
         var bare = tag.StartsWith('+') ? tag[1..] : tag;
 
@@ -136,8 +126,6 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
 
         return result.IsFailure ? result.Error.Message : null;
     }
-
-    private bool RoadmapOn => _features?.IsEnabled(RoadmapFeatures.Roadmap) ?? true;
 
     private void OnPlanChanged() => Changed?.Invoke();
 

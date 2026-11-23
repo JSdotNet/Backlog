@@ -114,9 +114,8 @@ function Invoke-Git([string[]] $Arguments) {
 
 function Resolve-SyncEndpoint {
     <#
-        Deploy-Azure.ps1's Get-DeployedSyncApp, then the app's ingress. Kept in
-        step by hand: both find the app by the tags azd writes, so a renamed
-        environment moves both at once.
+        The container app by the tags azd writes (azd-env-name, azd-service-name),
+        then its ingress, so a renamed environment moves with it.
     #>
     if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
         throw 'No -Endpoint given and az is not on PATH; pass the service URL or install the Azure CLI.'

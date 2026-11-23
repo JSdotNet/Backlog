@@ -80,9 +80,9 @@ public interface IClaudeApiRequestStore
 /// tells a person what to paste into Claude Code.
 /// <para>
 /// A port because the address is the desktop head's to know — the MCP listener's
-/// configured port and its bearer token (local ADR 0024) — and the page that shows it
-/// is this context's. A host that composes none, the browser harness, serves the
-/// endpoint on its own origin with no token, and the page says that instead.
+/// configured port and the Telemetry grant (local ADR 0024, local ADR 0058) — and the page
+/// that shows it is this context's. A host that composes none, the browser harness, serves
+/// the endpoint on its own origin with no token, and the page says that instead.
 /// </para>
 /// </summary>
 public interface IClaudeCodeTelemetryEndpoint
@@ -91,8 +91,8 @@ public interface IClaudeCodeTelemetryEndpoint
     /// <c>/v1/logs</c>.</summary>
     Uri LogsEndpoint { get; }
 
-    /// <summary>The bearer token a request has to carry, minted if this machine has
-    /// none yet. The same token the MCP registrations carry: the endpoint sits behind
-    /// the same guard.</summary>
-    string EnsureToken();
+    /// <summary>The command Claude Code's <c>otelHeadersHelper</c> runs to fetch a token for the
+    /// Telemetry grant, which reaches the logs endpoint and no tool; null while there is no
+    /// grant yet. A command and not a token, so nothing on the page is a secret.</summary>
+    string? HeadersHelper { get; }
 }

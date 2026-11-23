@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
@@ -116,5 +118,41 @@ public class UiLibraryBoundaryTests
                     .Contains("Backlog.UI.Components", StringComparer.OrdinalIgnoreCase),
                 $"{project.Name} should render the shared components rather than growing its own copies.");
         }
+    }
+
+    /// <summary>
+    /// The Calendar owns its grid (local ADR 0056 §1, Verification 1 and 2): the grid
+    /// component and the records it draws from live in <c>Backlog.Modules.Calendar.UI</c>,
+    /// and the shared part contract that once let Tasks hand the Calendar its body is gone
+    /// with the library's <c>Calendar/</c> folder. What stays here is the detail panel's
+    /// Planned hours editor and the <c>CalendarHours</c> helpers it uses.
+    /// </summary>
+    [Fact]
+    public void The_shared_ui_library_holds_no_calendar_grid()
+    {
+        var library = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "Core", "Backlog.UI.Components"));
+        Assert.True(library.Exists);
+        Assert.False(
+            Directory.Exists(Path.Combine(library.FullName, "Calendar")),
+            "Backlog.UI.Components/Calendar/ held the retired Tasks part contract (local ADR 0056 §3).");
+
+        var declaration = new Regex(
+            @"\b(?:class|record|struct|enum|interface)\s+(?:struct\s+)?(?<name>TaskCalendar|CalendarGrid|CalendarTask|CalendarTaskState|CalendarDueChange|CalendarMonth"
+            + @"|CalendarPlan|CalendarMilestone|CalendarShelfPlan|CalendarPlanStart|CalendarPlanSegment|CalendarPlanLanes"
+            + @"|CalendarEvent|CalendarKeyDate|CalendarEventSegment|CalendarEventLanes|CalendarLanes|CalendarRange"
+            + @"|CalendarHoursBlock|CalendarHoursChange|CalendarDayHours|CalendarTasksLayer|CalendarLayerInputs)\b");
+
+        var offenders = Repository.SourceFilesUnder(library, ".cs", ".razor")
+            .SelectMany(file => FileName(file) is "TaskCalendar" or "CalendarGrid"
+                ? [Repository.RelativePath(file)]
+                : declaration.Matches(File.ReadAllText(file.FullName))
+                    .Select(match => $"{Repository.RelativePath(file)}: {match.Groups["name"].Value}"))
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The Calendar's grid and its records belong to Backlog.Modules.Calendar.UI: " + string.Join(", ", offenders));
+
+        static string FileName(FileInfo file) => Path.GetFileNameWithoutExtension(file.Name);
     }
 }

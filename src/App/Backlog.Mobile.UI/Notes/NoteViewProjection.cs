@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Services;
 using Backlog.Mobile.UI.TalkNotes;
@@ -149,6 +151,25 @@ public sealed class NoteViewProjection : IDisposable
     }
 
     /// <summary>
+    /// Creates a meeting (<c>.devbook/domain/inbox/domain.md#meeting</c>): a note whose
+    /// document names the meeting kind, queued and written as <see cref="CreateAsync"/>
+    /// writes a note. It is created before its recording starts, so the recording's
+    /// files carry its id; a blank title is "Meeting · 7 Oct 2026", so the row has a
+    /// name while nothing is typed yet.
+    /// </summary>
+    public async Task<NoteViewRow> CreateMeetingAsync(string? title, CancellationToken cancellationToken = default)
+    {
+        var named = string.IsNullOrWhiteSpace(title)
+            ? string.Create(CultureInfo.InvariantCulture, $"Meeting · {DateOnly.FromDateTime(_clock.GetLocalNow().DateTime):d MMM yyyy}")
+            : title.Trim();
+        var change = NewNote(Guid.CreateVersion7(), named, string.Empty, [], _clock.GetUtcNow(), NoteFold.MeetingKind);
+
+        var row = await WriteAsync(_ => (change, []), cancellationToken);
+
+        return row!;
+    }
+
+    /// <summary>
     /// Edits a note the phone holds: a new title and body, and files added to the
     /// ones it already names. Written into the view at once and queued whole under
     /// a stamp of now, so it wins over every earlier copy. Answers null for a note
@@ -191,7 +212,8 @@ public sealed class NoteViewProjection : IDisposable
             cancellationToken);
 
     /// <summary>
-    /// Adds files to a note the phone holds and changes nothing else: the title and body are
+    /// Adds files to a note the phone holds and changes nothing else but a blank title, which is
+    /// named as a save names it (<see cref="TalkNoteTitle"/>): the title and body are
     /// the row's as it stands when the write is built, under the gate, so an edit that landed
     /// while the files were being readied is kept. A file the note already names is not added
     /// again, and when none is new nothing is written. Answers the row, or null for a note the
@@ -223,7 +245,13 @@ public sealed class NoteViewProjection : IDisposable
                 var now = _clock.GetUtcNow();
                 var stamp = now > current.UpdatedAt ? now : current.UpdatedAt.AddTicks(1);
 
-                return (new TaskChange(id, stamp, DeletedAt: null, current.Note with { Attachments = files }), [.. added.Select(file => file.Id)]);
+                // A note Record created empty has no title yet, and the desktop files no note
+                // without one: it is named the way a save names it, after its first file.
+                var title = string.IsNullOrWhiteSpace(current.Note.Title)
+                    ? TitleOf(null, current.Note.ContentMd, files)
+                    : current.Note.Title;
+
+                return (new TaskChange(id, stamp, DeletedAt: null, current.Note with { Title = title, Attachments = files }), [.. added.Select(file => file.Id)]);
             },
             cancellationToken);
 
@@ -234,9 +262,16 @@ public sealed class NoteViewProjection : IDisposable
     /// The note document the phone creates: a new id, the note kind token, the
     /// body as <c>ContentMd</c>, the phone's channel in <c>SourceInboxId</c> as a
     /// capture's is, its files as metadata, and the Tasks defaults for status and
-    /// priority, so no field but the type is unusual.
+    /// priority, so no field but the type is unusual. A meeting names
+    /// <see cref="NoteFold.MeetingKind"/> as <paramref name="noteKind"/>; a plain note names none.
     /// </summary>
-    public static TaskChange NewNote(Guid id, string title, string body, IReadOnlyList<AttachmentMetadata> attachments, DateTimeOffset now)
+    public static TaskChange NewNote(
+        Guid id,
+        string title,
+        string body,
+        IReadOnlyList<AttachmentMetadata> attachments,
+        DateTimeOffset now,
+        string? noteKind = null)
     {
         var payload = new TaskPayload(
             Title: title,
@@ -264,7 +299,8 @@ public sealed class NoteViewProjection : IDisposable
             SubItems: [],
             UsageEvents: [],
             ProjectionRefs: [],
-            Attachments: attachments.Count > 0 ? attachments : null);
+            Attachments: attachments.Count > 0 ? attachments : null,
+            NoteKind: noteKind);
 
         return new TaskChange(id, now, DeletedAt: null, payload);
     }

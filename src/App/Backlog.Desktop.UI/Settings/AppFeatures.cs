@@ -3,8 +3,6 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Events.Abstractions;
@@ -43,17 +41,11 @@ namespace Backlog.Desktop.UI.Shell;
 /// ordinary case.
 /// </para>
 /// <para>
-/// Two of the keys here have now made the same journey, which is worth recording
-/// because it is the shape the rule predicts. Both sat in a <c>.UI</c> project
-/// while their context had no domain module — no abstractions project to hold the
-/// key, and one constant is no reason to create one. Both moved when the module
-/// arrived: the dashboard key from <c>MonitoringFeatures</c> to
-/// <c>DashboardFeatures</c>, and the roadmap key from the Roadmap <c>.UI</c>
-/// project to <c>RoadmapFeatures</c> in its abstractions project. Neither string
-/// changed, so nobody's settings file forgot what they had switched off. The pull
-/// requests key made a third such move, from <c>SessionFeatures</c> to
+/// A key moves with the context that owns it and keeps its string: the pull
+/// requests key moved from <c>SessionFeatures</c> to
 /// <see cref="RepositoryManagementFeatures"/> when Repository Management took over
-/// pull-request state (local ADR 0042), its string <c>"pull-requests"</c> unchanged.
+/// pull-request state (local ADR 0042), its string <c>"pull-requests"</c> unchanged,
+/// so nobody's settings file forgot what they had switched off.
 /// </para>
 /// </summary>
 public static class AppFeatures
@@ -63,9 +55,6 @@ public static class AppFeatures
     /// on it too and cannot read the Shell. Named here as well so the catalog and
     /// the Shell's readers keep the name they had.</summary>
     public const string InboxPane = InboxFeatures.Pane;
-
-    /// <summary>Report a Desktop app issue to GitHub from the app chrome.</summary>
-    public const string FeedbackReporting = "feedback-reporting";
 
     /// <summary>The assistant panel in the app chrome.</summary>
     public const string AiAssistant = "ai-assistant";
@@ -80,7 +69,6 @@ public static class AppFeatures
     public static IReadOnlyList<AppFeatureDefinition> All { get; } =
     [
         // --- Domain: an area of the product ---------------------------------
-        new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(
             ProgressFeatures.WeeklyReview,
@@ -88,21 +76,6 @@ public static class AppFeatures
             "Offer the Weekly review beside the Inbox in the Home shell: the GTD review over the Inbox, the Brain and the backlog, one stage at a time, each finding with its action in place.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
-        new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
-        // The devbook keys carried the context's former name; the former keys
-        // keep a features.json written before the rename reading as it did.
-        // Devbook also absorbed the separate Devbook sections switch, so a
-        // choice to turn either off still reads as Devbook off.
-        new(
-            DevbookFeatures.RepositoryDevbook,
-            "Devbook",
-            "Show the Devbook side pane for the selected repository, with its design, architecture, domain, technology, and instruction sections.",
-            FormerKeys: ["repository-knowledge", "devbook-sections", "knowledge-sections"]),
-        new(
-            DevbookFeatures.ArchifyDiagrams,
-            "Archify diagrams",
-            "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
-            EnabledByDefault: false),
         new(
             DevbookFeatures.LobesAtlas,
             "Lobes atlas",
@@ -114,15 +87,13 @@ public static class AppFeatures
             "Devbook search",
             "Find the chapter that answers a question across every devbook area at once. Results name the chapter they came from, so you can open it. A repository whose devbook database has not been generated says so instead of showing an empty list.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev,
-            FormerKeys: ["knowledge-search"]),
+            Status: AppFeatureStatus.Dev),
         new(
             DevbookFeatures.SemanticSearch,
             "Devbook search by meaning",
             "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a devbook database built with an embedding model; without one, searching by words still answers.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev,
-            FormerKeys: ["knowledge-semantic-search"]),
+            Status: AppFeatureStatus.Dev),
         new(
             DevbookFeatures.Editing,
             "Devbook editing",
@@ -160,14 +131,12 @@ public static class AppFeatures
             "Start a Claude session on a prompt entry or a plan with one click: the app queues a request naming the entry or plan, the repository and its clone folder, and a dispatcher session waiting on the MCP server starts it. Nothing of the entry's text is handed over.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
-        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(
             SyncFeatures.Sync,
             "Sync",
             "Pair this device with the cloud sync service, push this machine's task changes and Claude and Copilot session records to the cloud replica, and pull back what the other devices changed and reported. Session records travel as metadata only: never a prompt, a transcript, a working folder, or a session's title.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Beta,
-            FormerKeys: ["device-pairing", "task-sync", "session-sync"]),
+            Status: AppFeatureStatus.Beta),
         new(
             NotificationsFeatures.Notifications,
             "Notifications",
@@ -183,31 +152,16 @@ public static class AppFeatures
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(
-            TasksFeatures.AdditionalRepositories,
-            "Additional repositories",
-            "Configure multiple repositories and switch between their devbooks.",
-            Group: AppFeatureGroup.CrossCutting),
-        new(
             TasksFeatures.GitHubIntegration,
             "GitHub integration",
             "Configure GitHub access, push entries to issues, and refresh issue or pull request state.",
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(
-            FeedbackReporting,
-            "Feedback reporting",
-            "Report Desktop app issues to GitHub with a title, details, and an attached screenshot.",
-            Group: AppFeatureGroup.CrossCutting),
-        new(
             AppFeatureKeys.CopilotCli,
             "Copilot CLI",
             "Start GitHub Copilot CLI from Backlog workflows.",
             Status: AppFeatureStatus.Dev,
-            Group: AppFeatureGroup.CrossCutting),
-        new(
-            AppFeatureKeys.CopyEntries,
-            "Copy entries and plans",
-            "Show the copy button on a task row, a board card, the open entry, the pressed plan chip and a planned item's dialog on the roadmap, to paste its text or the plan's tag into a session yourself. Turn it off once queueing a session from the same place does the job; the queue button stays.",
             Group: AppFeatureGroup.CrossCutting),
         new(
             AiAssistant,

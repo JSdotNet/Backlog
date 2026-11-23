@@ -8,9 +8,9 @@ namespace Backlog.Infrastructure.Sync;
 /// The credential store ADR 0005 calls "the OS credential store — DPAPI on
 /// Windows".
 /// <para>
-/// The record is serialized as UTF-8 JSON, handed to
+/// The record is serialized as UTF-8 JSON and sealed by <see cref="UserDpapi"/> —
 /// <see cref="ProtectedData.Protect"/> under
-/// <see cref="DataProtectionScope.CurrentUser"/>, and the envelope written out
+/// <see cref="DataProtectionScope.CurrentUser"/> — and the envelope written out
 /// as base64 text. The key never leaves the OS: another account on the same
 /// machine reads the file and gets nothing, and copying it to another machine
 /// gets nothing either. That is the whole reason the credential is not simply
@@ -83,9 +83,7 @@ public sealed class DpapiDeviceCredentialStore : IDeviceCredentialStore
 
         try
         {
-            var envelope = ProtectedData.Protect(plaintext, optionalEntropy: null, DataProtectionScope.CurrentUser);
-
-            File.WriteAllText(_path, Convert.ToBase64String(envelope));
+            File.WriteAllText(_path, UserDpapi.Seal(plaintext));
         }
         finally
         {
@@ -131,13 +129,12 @@ public sealed class DpapiDeviceCredentialStore : IDeviceCredentialStore
         {
             if (!File.Exists(_path)) return null;
 
-            var envelope = Convert.FromBase64String(File.ReadAllText(_path));
-            var plaintext = ProtectedData.Unprotect(envelope, optionalEntropy: null, DataProtectionScope.CurrentUser);
+            var plaintext = UserDpapi.Open(File.ReadAllText(_path));
             var credential = JsonSerializer.Deserialize<DeviceCredential>(plaintext, JsonOptions);
 
             Array.Clear(plaintext);
 
-            return credential is null || string.IsNullOrWhiteSpace(credential.Credential) ? null : credential;
+            return credential is { IsUsable: true } ? credential : null;
         }
         catch (Exception ex) when (ex is IOException
             or UnauthorizedAccessException

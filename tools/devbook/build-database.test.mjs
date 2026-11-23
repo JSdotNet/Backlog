@@ -180,22 +180,10 @@ const FIXTURE = {
     }),
     '.devbook/domain/billing/refunds.demo.html': demo('Refunds', {}),
 
-    '.devbook/domain/inbox/_archify/index.json': JSON.stringify({
-        schemaVersion: 1,
-        entries: {
-            abc123: {
-                chapter: 'domain.md',
-                ordinal: 1,
-                type: 'domain',
-                quality: 'showcase',
-                kind: 'flowchart',
-                spec: 'domain.1.domain.json',
-                artifact: 'domain.1.domain.html',
-                checksPassed: 8,
-                checkCount: 9,
-            },
-        },
-    }),
+    // Another repository's leftover Archify renders (local ADR 0057 §4): never a
+    // chapter, whatever it holds.
+    '.devbook/domain/inbox/_archify/leftover.md': '# Leftover\n\nNot a chapter.\n',
+    '.devbook/domain/inbox/_archify/index.json': JSON.stringify({ schemaVersion: 1, entries: {} }),
 };
 
 /** Write the fixture corpus to a fresh temp directory and return its root. */
@@ -354,8 +342,8 @@ test('search_text is the chapter as prose: fences dropped, heading text kept', a
     await withFixture(({ all }) => {
         const [file, aggregate] = all("SELECT * FROM chapter WHERE path = '.devbook/domain/inbox/domain.md' ORDER BY line");
 
-        // `text` is still the chapter as authored — a hash is taken over it and
-        // the Archify fence addressing reads it, so nothing may be missing.
+        // `text` is still the chapter as authored — a hash is taken over it, so
+        // nothing may be missing.
         assert.match(aggregate.text, /```meta/);
         assert.match(aggregate.text, /stateDiagram-v2/);
 
@@ -582,23 +570,10 @@ test('list-valued metadata becomes attribute rows, references become edges', asy
     });
 });
 
-test('the archify rows load, addressed repo-relatively', async () => {
+test('an _archify folder is skipped and has no table', async () => {
     await withFixture(({ all }) => {
-        const rows = all('SELECT * FROM archify_artifact');
-        assert.equal(rows.length, 1);
-
-        const [row] = rows;
-        assert.equal(row.fence_hash, 'abc123');
-        // The index records `domain.md`; the database records where that is.
-        assert.equal(row.chapter_path, '.devbook/domain/inbox/domain.md');
-        assert.equal(row.spec_path, '.devbook/domain/inbox/_archify/domain.1.domain.json');
-        assert.equal(row.artifact_path, '.devbook/domain/inbox/_archify/domain.1.domain.html');
-        assert.equal(row.ordinal, 1);
-        assert.equal(row.kind, 'flowchart');
-        assert.equal(row.quality, 'showcase');
-        // Carried although no C# DTO reads them today; ADR 0004 lists them.
-        assert.equal(row.checks_passed, 8);
-        assert.equal(row.check_count, 9);
+        assert.deepEqual(all("SELECT path FROM chapter WHERE path LIKE '%/_archify/%'"), []);
+        assert.deepEqual(all("SELECT name FROM sqlite_master WHERE name LIKE 'archify%'"), []);
     });
 });
 
@@ -669,7 +644,6 @@ test("this repository's own corpus builds", async () => {
         assert.ok(counts.chapter > counts.files, 'every file should contribute at least one chapter');
         assert.ok(counts.node > 0 && counts.edge > 0, 'the graph came out empty');
         assert.ok(counts.outline_entry > 0, 'the outline came out empty');
-        assert.equal(counts.archify_artifact, 23, 'the three _archify indexes hold 23 artifacts');
 
         const db = new DatabaseSync(target, { readOnly: true });
         try {

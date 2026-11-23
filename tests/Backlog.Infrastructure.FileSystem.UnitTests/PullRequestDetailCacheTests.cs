@@ -15,15 +15,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public class PullRequestDetailCacheTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "pull-request-detail-cache-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("pull-request-detail-cache-tests");
+
+    private string _root => _temp.Path;
 
     private static readonly GitHubRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
 
     private static readonly GitHubRepositoryRef Spec = new("spec", "innovadis-dev", "spec-manager");
-
-    public PullRequestDetailCacheTests() => Directory.CreateDirectory(_root);
 
     private PullRequestDetailCache Cache() => new(() => _root);
 
@@ -229,12 +227,6 @@ public class PullRequestDetailCacheTests : IDisposable
     {
         GC.SuppressFinalize(this);
 
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

@@ -19,9 +19,9 @@ public sealed class FileLoggerProviderTests : IDisposable
     /// the file has in front of them.</summary>
     private static readonly DateTimeOffset Morning = new(2026, 9, 17, 8, 47, 12, 123, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "file-logger-provider-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("file-logger-provider-tests");
+
+    private string _root => _temp.Combine("data");
 
     private readonly FakeTimeProvider _clock = new(Morning);
 
@@ -105,8 +105,5 @@ public sealed class FileLoggerProviderTests : IDisposable
         Assert.EndsWith("kept too", lines[1], StringComparison.Ordinal);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

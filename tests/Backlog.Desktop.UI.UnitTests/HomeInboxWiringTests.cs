@@ -474,7 +474,8 @@ public sealed class HomeInboxWiringTests
     /// </summary>
     private static Harness CreateHarness(bool inboxOpenOnStart = true, TaskItem? pull = null, bool startOnRoadmap = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-wiring-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-inbox-wiring-tests");
+        var root = temp.Path;
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -487,13 +488,9 @@ public sealed class HomeInboxWiringTests
         if (startOnRoadmap) shellNavigation.SetLastView("Roadmap");
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, startOnRoadmap);
-        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
@@ -508,7 +505,7 @@ public sealed class HomeInboxWiringTests
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
-        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings, store));
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -596,11 +593,11 @@ public sealed class HomeInboxWiringTests
                 sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
         }
 
-        return new Harness(root, context, shellNavigation, entries, inbox, replica);
+        return new Harness(temp, context, shellNavigation, entries, inbox, replica);
     }
 
     private sealed record Harness(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext Context,
         ShellNavigationStore ShellNavigation,
         ITaskItems Entries,
@@ -610,15 +607,8 @@ public sealed class HomeInboxWiringTests
         public void Dispose()
         {
             Context.Dispose();
-            TestDatabases.Release(Root);
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TestDatabases.Release(Temp.Path);
+            Temp.Dispose();
         }
     }
 
@@ -657,14 +647,5 @@ public sealed class HomeInboxWiringTests
                 })
             });
         }
-    }
-
-    private sealed class EmptySessionSource : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(AgentSessionCatalog.Empty);
     }
 }

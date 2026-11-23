@@ -27,6 +27,19 @@ public interface IEventsPane
     /// Refused for a blank title (<c>knowledge_event.title_missing</c>) and an unknown series.</summary>
     Task<Result<KnowledgeEventDto>> AddAsync(string title, Guid? seriesId = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Adds a Spotted event with every field <paramref name="request"/> carries, in one save, its
+    /// dates with date source Typed: the editor's fields filled at once, as
+    /// <c>add_knowledge_event</c> does over MCP. Every rule the aggregate holds refuses with its
+    /// own code, and a refusal writes nothing — no event, and no series.
+    /// <para>
+    /// The series is named by its name. One series with that name, trimmed and without regard to
+    /// case, is joined; none starts one with that name, saved only once the event is known to
+    /// be valid; two or more are refused (<c>event_series.ambiguous</c>).
+    /// </para>
+    /// </summary>
+    Task<Result<KnowledgeEventDto>> AddAsync(NewKnowledgeEventDto request, CancellationToken cancellationToken = default);
+
     Task<Result<KnowledgeEventDto>> RenameAsync(Guid id, string title, CancellationToken cancellationToken = default);
 
     /// <summary>Moves the event forward, skipping states if need be.</summary>
@@ -100,6 +113,10 @@ public interface IEventsPane
     string? BrainUnavailableReason { get; }
 
     /// <summary>Raised when a task or the Brain changed underneath, so an open event's chips are
-    /// read again. On the writer's thread; a screen marshals to its own.</summary>
+    /// read again, and when an event or a series was saved anywhere but through this instance —
+    /// another window's pane, the MCP server, the To Event route, the Harvest Task Policy's
+    /// worker — so an open list shows it. This instance's own saves are not raised: their answer
+    /// is the event as saved. A copy pulled from another device is not raised either. On the
+    /// writer's thread; a screen marshals to its own.</summary>
     event Action? Changed;
 }

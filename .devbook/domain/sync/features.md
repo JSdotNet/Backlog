@@ -96,8 +96,10 @@ A capture made on the phone or in the IDE reaches the desktop's Inbox. It travel
 as a `capture`-kind document on the task feed. Its attachments go up to the
 blob store first, through the sync service, so a capture never names a file that
 is not there. When the desktop routes or archives the item, it pushes a tombstone
-for the capture, and the phone learns it was dealt with. There is no second sync
-path for any of it.
+for the capture, and the phone learns it was dealt with. Until then the phone may
+reword a capture through `PUT /api/sync/inbox/{id}`, or withdraw it through the
+acknowledgement route. The tombstone wins over any live copy, whichever side
+sent it. There is no second sync path for any of it.
 
 A capture made while the service is newer than the phone's app is neither lost nor
 refused. It waits in the outbox until the app is updated or the service rolled

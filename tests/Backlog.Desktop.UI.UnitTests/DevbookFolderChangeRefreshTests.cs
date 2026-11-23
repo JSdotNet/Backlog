@@ -323,20 +323,19 @@ public sealed class DevbookFolderChangeRefreshTests
     /// <summary>
     /// One handler and no more. The pane has two collaborators standing between it
     /// and the folder source, and subscribing to a forwarder on each of them would
-    /// reload the menu twice for one folder change. Counted with Devbook
-    /// turned off, because a pane with sections in it holds the subscriptions of
+    /// reload the menu twice for one folder change. Counted on a repository with
+    /// no devbook, because a pane with sections in it holds the subscriptions of
     /// the panels it renders as well as its own.
     /// </summary>
     [Fact]
     public void Devbook_pane_attaches_one_handler_to_the_folder_source()
     {
         using var workspace = DevbookWorkspace.Create();
-        Assert.Null(workspace.Features.SetEnabled(DevbookFeatures.RepositoryDevbook, false));
         var source = new CountingDevbookFolderSource(workspace.Folders);
         using var context = workspace.CreateBunitContext(source);
 
         context.Render<DevbookPane>(parameters => parameters
-            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
+            .Add(parameter => parameter.RepositoryAlias, "no-devbook"));
 
         Assert.Equal(1, source.SubscriberCount);
     }
@@ -473,11 +472,11 @@ internal sealed class DevbookWorkspace : IDisposable
 {
     public const string Alias = "backlog";
 
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-refresh-tests");
 
-    private DevbookWorkspace(string root)
+    private DevbookWorkspace()
     {
-        _root = root;
+        var root = _temp.Path;
         RepositoryPath = WriteRepository(Path.Combine(root, "alpha"), "Alpha");
         SecondRepositoryPath = WriteRepository(Path.Combine(root, "beta"), "Beta");
 
@@ -495,7 +494,6 @@ internal sealed class DevbookWorkspace : IDisposable
         Folders = new DevbookFolderSource(RepositorySettings, WorkspaceSettings);
 
         Features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(Features.SetEnabled(DevbookFeatures.RepositoryDevbook, true));
         // Several of these open an editor, which is behind its own switch and off
         // by default.
         Assert.Null(Features.SetEnabled(DevbookFeatures.Editing, true));
@@ -511,8 +509,7 @@ internal sealed class DevbookWorkspace : IDisposable
 
     public DevbookFolderSource Folders { get; }
 
-    public static DevbookWorkspace Create() =>
-        new(Path.Combine(Path.GetTempPath(), "backlog-devbook-refresh-tests", Guid.NewGuid().ToString("n")));
+    public static DevbookWorkspace Create() => new();
 
     /// <summary>Moves the configured devbook folders, which is what a user
     /// changing the clone directory in Settings does.</summary>
@@ -565,16 +562,7 @@ internal sealed class DevbookWorkspace : IDisposable
         return context;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static string WriteRepository(string path, string name)
     {
@@ -635,6 +623,7 @@ status: approved
 /// counts how many handlers are attached to <c>Changed</c> — the one thing a
 /// leaked subscription can be observed by from outside the panel.
 /// </summary>
+// Differs from StubFolderSource: wraps another source and counts the Changed subscribers.
 file sealed class CountingDevbookFolderSource(IDevbookFolderSource inner) : IDevbookFolderSource
 {
     public event Action? Changed

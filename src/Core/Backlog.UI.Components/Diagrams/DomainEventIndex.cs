@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.UI.Components.Diagrams;
 
@@ -223,7 +224,7 @@ public static partial class DomainEventIndex
     private static bool IsSelf(string name, string context, string? slug) =>
         string.Equals(name, context, StringComparison.OrdinalIgnoreCase)
         || context.StartsWith(name + " ", StringComparison.OrdinalIgnoreCase)
-        || (slug is { Length: > 0 } && string.Equals(DomainUnits.Slug(name), slug, StringComparison.OrdinalIgnoreCase));
+        || (slug is { Length: > 0 } && string.Equals(HeadingAnchor.Of(name), slug, StringComparison.OrdinalIgnoreCase));
 
     private static string? Cell(string[] header, IReadOnlyList<string> cells, string column)
     {

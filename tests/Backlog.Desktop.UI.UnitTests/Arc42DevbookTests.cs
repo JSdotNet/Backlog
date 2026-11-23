@@ -76,31 +76,25 @@ public class Arc42DevbookTests
     [Fact]
     public async Task Reads_arc42_index_order_when_available()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
-            File.WriteAllText(Path.Combine(root, ".arc42", "01-first.md"), "# First");
-            File.WriteAllText(Path.Combine(root, ".arc42", "02-second.md"), "# Second");
-            File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
-                {
-                  "schemaVersion": 1,
-                  "entries": [
-                    { "type": "file", "path": ".arc42/02-second.md" },
-                    { "type": "file", "path": ".arc42/01-first.md" }
-                  ]
-                }
-                """);
+        using var temp = new TemporaryDirectory("backlog-arc42-tests");
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
+        File.WriteAllText(Path.Combine(root, ".arc42", "01-first.md"), "# First");
+        File.WriteAllText(Path.Combine(root, ".arc42", "02-second.md"), "# Second");
+        File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
+            {
+              "schemaVersion": 1,
+              "entries": [
+                { "type": "file", "path": ".arc42/02-second.md" },
+                { "type": "file", "path": ".arc42/01-first.md" }
+              ]
+            }
+            """);
 
-            var catalog = await Arc42DevbookReader.LoadAsync(root);
+        var catalog = await Arc42DevbookReader.LoadAsync(root);
 
-            Assert.True(catalog.Exists);
-            Assert.Equal(["Second", "First"], catalog.Documents.Select(document => document.Title));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.True(catalog.Exists);
+        Assert.Equal(["Second", "First"], catalog.Documents.Select(document => document.Title));
     }
 
     [Fact]
@@ -112,32 +106,26 @@ public class Arc42DevbookTests
         // against the folder's own parent went looking under docs/docs/arch,
         // matched nothing, and left the panel a folder that exists with no
         // documents in it and no chapter to open.
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        using var temp = new TemporaryDirectory("backlog-arc42-tests");
+        var root = temp.Path;
         var folder = Path.Combine(root, "docs", "arch");
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(folder, "_meta"));
-            Directory.CreateDirectory(Path.Combine(folder, "adr"));
-            File.WriteAllText(Path.Combine(folder, "adr", "0001-test.md"), "# ADR 0001");
-            File.WriteAllText(Path.Combine(folder, "_meta", "index.json"), """
-                {
-                  "schemaVersion": 1,
-                  "entries": [
-                    { "type": "file", "path": "docs/arch/adr/0001-test.md" }
-                  ]
-                }
-                """);
+        Directory.CreateDirectory(Path.Combine(folder, "_meta"));
+        Directory.CreateDirectory(Path.Combine(folder, "adr"));
+        File.WriteAllText(Path.Combine(folder, "adr", "0001-test.md"), "# ADR 0001");
+        File.WriteAllText(Path.Combine(folder, "_meta", "index.json"), """
+            {
+              "schemaVersion": 1,
+              "entries": [
+                { "type": "file", "path": "docs/arch/adr/0001-test.md" }
+              ]
+            }
+            """);
 
-            var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, root);
+        var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, root);
 
-            var document = Assert.Single(catalog.Documents);
-            Assert.Equal("docs/arch/adr/0001-test.md", document.Path);
-            Assert.Equal("ADR 0001", document.Title);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        var document = Assert.Single(catalog.Documents);
+        Assert.Equal("docs/arch/adr/0001-test.md", document.Path);
+        Assert.Equal("ADR 0001", document.Title);
     }
 
     [Fact]
@@ -148,79 +136,66 @@ public class Arc42DevbookTests
         // produce a path climbing out of the root the writer checks against, so
         // the folder's own parent stands in and the last segment is what a
         // selection carries.
-        var repository = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
-        var elsewhere = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        using var repositoryTemp = new TemporaryDirectory("backlog-arc42-tests");
+        var repository = repositoryTemp.Path;
+        using var elsewhereTemp = new TemporaryDirectory("backlog-arc42-tests");
+        var elsewhere = elsewhereTemp.Path;
         var folder = Path.Combine(elsewhere, "arch");
-        try
-        {
-            Directory.CreateDirectory(repository);
-            Directory.CreateDirectory(folder);
-            File.WriteAllText(Path.Combine(folder, "08-concepts.md"), "# Concepts");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "08-concepts.md"), "# Concepts");
 
-            var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, repository);
+        var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, repository);
 
-            Assert.Equal("arch/08-concepts.md", Assert.Single(catalog.Documents).Path);
-        }
-        finally
-        {
-            if (Directory.Exists(repository)) Directory.Delete(repository, recursive: true);
-            if (Directory.Exists(elsewhere)) Directory.Delete(elsewhere, recursive: true);
-        }
+        Assert.Equal("arch/08-concepts.md", Assert.Single(catalog.Documents).Path);
     }
 
     [Fact]
     public async Task Counts_only_adr_and_tdr_files_as_decision_records()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "adr"));
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "tdr"));
-            File.WriteAllText(Path.Combine(root, ".arc42", "01-introduction-and-goals.md"), """
-                # Intro
-                ```meta
-                status: active
-                ```
-                """);
-            File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0001-test.md"), """
-                # ADR 0001
-                ```meta
-                status: accepted
-                ```
-                """);
-            File.WriteAllText(Path.Combine(root, ".arc42", "tdr", "0001-test.md"), """
-                # TDR 0001
-                ```meta
-                status: draft
-                ```
-                """);
-            File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
-                {
-                  "schemaVersion": 1,
-                  "entries": [
-                    { "type": "file", "path": ".arc42/01-introduction-and-goals.md" },
-                    { "type": "directory", "path": ".arc42/adr", "children": [
-                      { "type": "file", "path": ".arc42/adr/0001-test.md" }
-                    ] },
-                    { "type": "directory", "path": ".arc42/tdr", "children": [
-                      { "type": "file", "path": ".arc42/tdr/0001-test.md" }
-                    ] }
-                  ]
-                }
-                """);
+        using var temp = new TemporaryDirectory("backlog-arc42-tests");
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
+        Directory.CreateDirectory(Path.Combine(root, ".arc42", "adr"));
+        Directory.CreateDirectory(Path.Combine(root, ".arc42", "tdr"));
+        File.WriteAllText(Path.Combine(root, ".arc42", "01-introduction-and-goals.md"), """
+            # Intro
+            ```meta
+            status: active
+            ```
+            """);
+        File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0001-test.md"), """
+            # ADR 0001
+            ```meta
+            status: accepted
+            ```
+            """);
+        File.WriteAllText(Path.Combine(root, ".arc42", "tdr", "0001-test.md"), """
+            # TDR 0001
+            ```meta
+            status: draft
+            ```
+            """);
+        File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
+            {
+              "schemaVersion": 1,
+              "entries": [
+                { "type": "file", "path": ".arc42/01-introduction-and-goals.md" },
+                { "type": "directory", "path": ".arc42/adr", "children": [
+                  { "type": "file", "path": ".arc42/adr/0001-test.md" }
+                ] },
+                { "type": "directory", "path": ".arc42/tdr", "children": [
+                  { "type": "file", "path": ".arc42/tdr/0001-test.md" }
+                ] }
+              ]
+            }
+            """);
 
-            var catalog = await Arc42DevbookReader.LoadAsync(root);
+        var catalog = await Arc42DevbookReader.LoadAsync(root);
 
-            Assert.Equal(2, catalog.DecisionRecordCount);
-            Assert.False(Arc42DevbookCatalog.IsDecisionRecord(".arc42/01-introduction-and-goals.md"));
-            Assert.True(Arc42DevbookCatalog.IsDecisionRecord(".arc42/adr/0001-test.md"));
-            Assert.True(Arc42DevbookCatalog.IsDecisionRecord(".arc42/tdr/0001-test.md"));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(2, catalog.DecisionRecordCount);
+        Assert.False(Arc42DevbookCatalog.IsDecisionRecord(".arc42/01-introduction-and-goals.md"));
+        Assert.True(Arc42DevbookCatalog.IsDecisionRecord(".arc42/adr/0001-test.md"));
+        Assert.True(Arc42DevbookCatalog.IsDecisionRecord(".arc42/tdr/0001-test.md"));
     }
 
 

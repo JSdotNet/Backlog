@@ -205,8 +205,9 @@
                         @Prose(item, "Only the title and the attachment were captured.")
                         break;
 
-                    case ContentKind.Note:
-                        @* A note is the one kind the reader may change after it is
+                    case ContentKind.Note or ContentKind.Meeting:
+                        @* A note, and a meeting which is a note started by recording,
+                           are the kinds the reader may change after they are
                            captured, and the change reaches the phone. Edited in
                            place rather than in a dialog: the note is what the
                            column is about. Not once archived, because an archived
@@ -896,7 +897,8 @@
     /// size, Open when it is on this machine, and Retry with the reason when its
     /// download failed. A file still waiting for its first fetch says so. A
     /// recording on this machine plays in its row, under its name, and one whose
-    /// transcription failed three times says why and offers Retry.</summary>
+    /// transcription failed three times says so with the last reason and Retry
+    /// (local ADR 0049 §6).</summary>
     private RenderFragment FileRows(InboxItemDto item) => @<text>
         @{ var files = item.Attachments.Where(attachment => !InboxDesktopState.ShowsAsThumbnail(attachment)).ToList(); }
         @if (files.Count > 0)
@@ -926,17 +928,15 @@
                             }
                             @if (file.TranscriptionFailure is { } failure)
                             {
-                                @* Three failed attempts: the file is not sent again until this
-                                   Retry (local ADR 0049 §6). The download Retry's markup. *@
                                 <AppButton Size="ButtonSize.Small"
                                            Busy="@(State.RetryingAttachmentId == file.Id)"
-                                           BusyLabel="Retrying"
+                                           BusyLabel="Queuing"
                                            Disabled="@(State.RetryingAttachmentId is not null)"
                                            OnClick="() => State.RetryTranscriptionAsync(file.Id)"
                                            TestId="@($"inbox-attachment-transcription-retry-{file.Id:N}")">Retry</AppButton>
                                 <Alert BaseClass="inbox-pane__file-error"
                                        Role="status"
-                                       Message="@($"Transcription failed: {failure.Reason}")"
+                                       Message="@($"Transcription failed: {failure.LastReason}")"
                                        TestId="@($"inbox-attachment-transcription-error-{file.Id:N}")" />
                             }
                         }

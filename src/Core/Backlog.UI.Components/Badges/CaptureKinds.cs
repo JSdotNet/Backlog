@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.Badges;
 /// consumer can decide its own fallback without keeping a second copy of the
 /// list.
 ///
-/// <para>Eleven content kinds, spelled as slugs, because the library depends on no
+/// <para>Twelve content kinds, spelled as slugs, because the library depends on no
 /// module and a module's enum is out of reach here. A consumer maps its own
 /// enum onto these strings; the two have to agree, and the tests on each side
 /// name the same values so a change to one shows up as a failure on the
@@ -19,12 +19,14 @@ namespace Backlog.UI.Components.Badges;
 public static class CaptureKinds
 {
     /// <summary>Every kind the marker draws, in the order a reader meets them:
-    /// the plain thought first and the note kept beside it, then the things a link
-    /// can turn out to be, then the things that arrive as files or from a machine.</summary>
+    /// the plain thought first and the note and meeting kept beside it, then the
+    /// things a link can turn out to be, then the things that arrive as files or
+    /// from a machine.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
         "text",
         "note",
+        "meeting",
         "article",
         "link",
         "youtube",
@@ -53,6 +55,7 @@ public static class CaptureKinds
     {
         "text" => "Text",
         "note" => "Note",
+        "meeting" => "Meeting",
         "article" => "Article",
         "link" => "Link",
         "youtube" => "YouTube",

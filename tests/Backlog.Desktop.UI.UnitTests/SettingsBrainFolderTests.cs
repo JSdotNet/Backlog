@@ -172,7 +172,8 @@ public sealed class SettingsBrainFolderTests
         string? navigateTo = null,
         bool composeBrain = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-brain-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-brain-tests");
+        var root = temp.Path;
 
         var storeAppData = Path.Combine(root, "store");
         var store = new WorkspaceSettingsStore(storeAppData, Path.Combine(storeAppData, "settings.json"), _ => null);
@@ -196,7 +197,7 @@ public sealed class SettingsBrainFolderTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -223,7 +224,7 @@ public sealed class SettingsBrainFolderTests
         // The router hands the page in the address to the screen as its PageId;
         // a test renderer routes nothing, so the address is handed over here.
         var pageId = navigateTo is null ? null : new Uri(new Uri("http://localhost/"), navigateTo).AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
-        return new SettingsRenderContext(root, brain, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)));
+        return new SettingsRenderContext(temp, brain, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)));
     }
 
     private sealed class FixedPicker : IBrainFolderPicker
@@ -234,62 +235,18 @@ public sealed class SettingsBrainFolderTests
             Task.FromResult(Folder);
     }
 
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BrainSettingsStore Brain,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

@@ -16,7 +16,8 @@ public sealed class TaskSubjectClosureTests : IDisposable
 {
     private static readonly DateOnly Today = new(2026, 10, 22);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-task-subjects", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-task-subjects");
+    private string _root => _temp.Path;
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
 
     [Fact]
@@ -132,6 +133,6 @@ public sealed class TaskSubjectClosureTests : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

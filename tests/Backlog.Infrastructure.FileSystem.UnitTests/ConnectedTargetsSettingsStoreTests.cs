@@ -14,11 +14,9 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Synced = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "connected-targets-settings-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("connected-targets-settings-store-tests");
 
-    public ConnectedTargetsSettingsStoreTests() => Directory.CreateDirectory(_root);
+    private string _root => _temp.Path;
 
     private string SettingsFile => Path.Combine(_root, "connected-targets.json");
 
@@ -345,14 +343,5 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
         Assert.Empty(Store().List());
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

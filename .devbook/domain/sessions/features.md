@@ -292,19 +292,26 @@ there and quiet, and a record cannot tell that from a session that ended a month
 
 ```meta
 type: sub-feature
+related: [.devbook/domain/sessions/requirements.md#re-read-on-request, .devbook/domain/sessions/features.md#record-a-run-as-it-happens]
 ```
 
-The list is read when it is opened and again when the reader asks for it. Only the
-[loop sessions](#loop-sessions) are read again on their own: while the list holds one, the
-pane reads the Loop Register every 30 seconds, so a loop's state follows its check-ins.
+The sessions are read when the list is opened and again when the reader asks for them.
+Two things are read again on their own. While the list holds a
+[loop session](#loop-sessions), the pane reads the Loop Register every 30 seconds, so a
+loop's state follows its check-ins. And when this application records or changes a run, an
+open list reads its runs again, in every window.
 
 A self-refreshing list would claim to be live, and the evidence does
 not support that: one of the two agents leaves no liveness marker. A loop session is
-the exception, because its check-ins are the liveness marker.
+one exception, because its check-ins are the liveness marker. A run recorded here is the
+other: this application writes it, so it knows the moment the run starts, moves a stage or
+ends. Reading the runs again leaves the reader where they were: the row on screen, the
+run card and stage they opened, and the filters stay.
 
 Records arriving from another machine change nothing. They arrive on their own schedule, into what this environment has a record of, which is what the
-list reads. Nothing appears on screen until the reader
-opens the list or asks again, so the rows they are looking at never move.
+list reads. Nothing appears on screen until the reader opens the list or asks again.
+
+The [requirements](requirements.md#re-read-on-request) hold the rules.
 
 ## Session grouping
 
@@ -1081,8 +1088,9 @@ merges that page's block into the `env` of their user-level `~/.claude/settings.
 The block:
 
 - turns telemetry on;
-- sets the OTLP logs exporter, the logs protocol, the endpoint and the bearer token as
-  a header;
+- sets the OTLP logs exporter, the logs protocol and the endpoint;
+- names an `otelHeadersHelper` that fetches a short-lived token for the app's Telemetry
+  grant, so the block itself holds no token;
 - sets `OTEL_LOG_TOOL_DETAILS=1`, so each request names the sub-agent and the skill it
   ran under.
 

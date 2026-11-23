@@ -8499,21 +8499,9 @@ button.task-panel__check:focus-visible {
     font-family: var(--font-family-mono);
 }
 
-/* Which renderer drew the picture, next to what the fence is written in — and,
-   where there are two to choose between, the control that chooses. Not mono: it
-   names a tool rather than quoting a language, and the difference in face is what
-   keeps it from reading as one thing with the language beside it. */
-/* Two badges side by side, spaced like the badges they sit beside. It was a
-   segmented pill first — one background with the inner corners squared off — and
-   that made it the loudest thing in a header whose whole job is to be quiet. A
-   badge is already the vocabulary for "a small fact about this block"; which
-   renderer drew the picture is exactly that, and being able to press it does not
-   make it a different kind of thing. */
-.diagram-view__renderers {
-    display: inline-flex;
-    gap: var(--spacing-xs);
-}
-
+/* A badge-shaped button — a click demo's places. A badge is already the
+   vocabulary for "a small fact about this block", and being able to press it
+   does not make it a different kind of thing. */
 /* Everything else is .language-badge's. Only what a button adds over a span is
    taken back off. */
 .diagram-view__renderer {
@@ -8540,58 +8528,20 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
-/* An Archify artifact is a whole document with its own layout, so it gets height
-   rather than the width-fitting a drawn SVG gets. No frame, matching
-   .diagram-view__rendered: the artifact paints its own background and a border
-   here would draw a box around a box.
-
-   The height here is only the opening bid. What an artifact is actually worth is
-   a function of how wide this frame turns out to be — one drawing is 1440x700 and
-   another is 1392x3496 — so the document measures itself and components.js writes
-   the answer back as an inline height. This is what it looks like until that
-   arrives, and what it stays at if the frame never reports: `height` rather than
-   `min-height` precisely so the measured value can go under it as well as over,
-   and a small diagram is not left sitting in 28rem of empty panel.
-
-   Transparent, and it takes both sides to be so: components.js clears the
-   artifact's own background inside the frame, and this clears the background the
-   frame element itself paints behind that. Either one left opaque and the diagram
-   still sits on a navy card in the middle of a chapter. */
-.diagram-view__artifact {
-    display: block;
-    width: 100%;
-    height: 28rem;
-    border: 0;
-    border-radius: var(--border-radius-md);
-    background: transparent;
-}
-
-/* Scenery in a chapter and the screen itself in fullscreen. The stage exists
-   for one reason: fullscreen is requested on it rather than on the frame, because
-   only the element in the top layer and its descendants are painted, and an
-   artifact frame is sandboxed into an opaque origin and can carry nothing of
-   ours. Wrapping the frame is what gives the way back out somewhere to live.
-
-   A positioning context and nothing else while it is in the chapter — the frame
-   is still the whole of what a reader sees there, at the height it measured for
-   itself. */
+/* Scenery in a chapter and the screen itself in fullscreen. Fullscreen is
+   requested on the stage rather than on the frame, because only the element in
+   the top layer and its descendants are painted, and a frame sandboxed into an
+   opaque origin can carry nothing of ours. Wrapping the frame is what gives the
+   way back out somewhere to live. */
 .diagram-view__stage {
     position: relative;
     display: block;
 }
 
 /* On the screen it is the app's own surface rather than the browser's black
-   backdrop, and the frame takes all of it: the measured inline height has just
-   been removed by components.js, and the 28rem opening bid above would otherwise
-   leave a fullscreen diagram sitting in a letterbox. The radius goes with it —
-   there is no card here to round off, only screen. */
+   backdrop. */
 .diagram-view__stage:fullscreen {
     background: var(--color-background);
-}
-
-.diagram-view__stage:fullscreen .diagram-view__artifact {
-    height: 100%;
-    border-radius: 0;
 }
 
 /* The way out. Off screen in a chapter, where the header already carries the
@@ -8605,18 +8555,8 @@ button.task-panel__check:focus-visible {
     display: none;
 }
 
-/* Bottom left, which is the one corner the artifact does not use. Its own
-   chrome is fixed in the other three — the title top left, `Classic | Live |
-   Export` top right, and the zoom and lens controls bottom right — and this
-   started out over the toolbar, where it did not merely look crowded: being
-   above the frame, it won the hit test and made Export unreachable for as long
-   as the diagram was full screen. That is the same menu `allow-downloads` was
-   granted for.
-
-   A raised surface and a shadow because it is laid over a drawing rather than
-   sat on a panel. The button's own background is transparent, and a transparent
-   control over a diagram is exactly as findable as the one this whole change
-   exists to provide. */
+/* Bottom left, on a raised surface and a shadow because it is laid over the
+   frame rather than sat on a panel. */
 .diagram-view__stage:fullscreen .diagram-view__exit {
     display: inline-flex;
     position: absolute;
@@ -8627,11 +8567,10 @@ button.task-panel__check:focus-visible {
     box-shadow: var(--shadow-md);
 }
 
-/* A click demo's frame. Unlike an artifact it does not measure itself: a demo is
-   an application with its own scrolling, so it gets a screen's worth of height and
-   keeps it. The background is the demo's own — it is a picture of the product and
-   paints itself — and the frame is bordered because, unlike a drawing, it is a
-   working surface whose edge a reader needs to see. */
+/* A click demo's frame. A demo is an application with its own scrolling, so it
+   gets a screen's worth of height and keeps it. The background is the demo's own
+   — it is a picture of the product and paints itself — and the frame is bordered
+   because it is a working surface whose edge a reader needs to see. */
 .demo-view__frame {
     display: block;
     width: 100%;
@@ -8653,25 +8592,6 @@ button.task-panel__check:focus-visible {
 }
 
 .demo-view__path {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-/* The offers, under the diagram rather than in the header: they are about what
-   is missing, which is not something to read before the picture. */
-.diagram-view__footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-/* An explanation, not a failure — the diagram above is correct and current, and
-   the notice only says why it is the mermaid one. Secondary text rather than the
-   error colouring .app-error-message carries. */
-.diagram-view__notice {
-    flex-basis: 100%;
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -9769,10 +9689,7 @@ button.tag-chip__label {
    fields showed a near-black clock on a near-black field. Every rule below sets
    the field's own surface and text; none of them can reach the glyph.
 
-   On the elements rather than on `:root`, which is where a one-theme product
-   would naturally say it: the Archify artifact frame is a transparent iframe
-   pinned to `normal` (see renderArtifact in components.js), and a browser paints
-   an opaque canvas behind any frame whose scheme differs from its embedder's.
+   On the elements rather than on `:root`.
    By element rather than by class for the reason `select option` gives — a host
    may replace `field__input` outright, and the settings screen does.
 */
@@ -10622,6 +10539,12 @@ select.field__input {
     border-radius: var(--border-radius-md);
     background: var(--color-background-raised);
     box-shadow: var(--shadow-lg);
+}
+
+/* AlignEnd: the x the host passed is the menu's end edge, the opening button's
+   right, so a menu from a button at the window's end opens inward. */
+.context-menu--end {
+    transform: translateX(-100%);
 }
 
 /* PopoverButton: a trigger with a small panel of the host's controls under it
@@ -18183,6 +18106,12 @@ select.field__input {
 
    Width is clamped rather than a share of the viewport: a drawer belongs
    between about 320 and 480px, and a third of a wide monitor is well past that.
+   On a phone the clamp's floor is most of the screen and would leave a strip of
+   the list showing beside it, so at 600px and under the sheet is the screen.
+
+   The header clears the status bar: a fixed panel at the top edge sits under it
+   on a phone with no safe-area inset of its own, and the inset is zero
+   everywhere else, so desktop widths draw exactly as before.
    ========================================================================== */
 
 .detail-sheet-backdrop {
@@ -18230,8 +18159,32 @@ select.field__input {
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-sm);
-    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    padding: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px)) var(--spacing-lg) var(--spacing-md);
     border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The library's icon button, held to the 44px target accessibility.md asks of
+   anything tapped, and kept from shrinking beside a long title. */
+.detail-sheet__close {
+    flex: none;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    font-size: var(--font-size-xl);
+    color: var(--color-text-secondary);
+}
+
+.detail-sheet__close:hover:not(:disabled) {
+    color: var(--color-text-primary);
+}
+
+/* Anchored to both edges rather than sized to the viewport: 100vw counts a
+   classic scrollbar too, and would push the sheet's left edge off the screen. */
+@media (max-width: 37.5rem) {
+    .detail-sheet {
+        left: 0;
+        width: auto;
+        border-left: 0;
+    }
 }
 
 .detail-sheet__heading {
@@ -20216,6 +20169,28 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     line-height: 0;
 }
 
+/*
+  An icon-only tab (NavItem.IconOnly) shows its glyph alone; its word is in the
+  link as .sr-only text. It is positioned, as every .sr-only host in this file
+  is, so the hidden word resolves against the tab rather than a far-off
+  containing block.
+*/
+.tab-bar__tab--icon {
+    position: relative;
+}
+
+/*
+  Centred, the lone glyph would sit lower than its siblings' glyphs, which
+  share their column with a word - and a word that wraps in a narrow column
+  (Stand-up at its hyphen) moves its own glyph again. So a bar holding an
+  icon-only tab starts every tab's content at the top: the tabs share padding
+  and border, so every glyph sits on one line whatever its word does. A bar
+  without one keeps its centred tabs.
+*/
+.tab-bar:has(.tab-bar__tab--icon) .tab-bar__tab {
+    justify-content: flex-start;
+}
+
 /* Weight and a bar, not colour alone, say which tab is current. */
 .tab-bar__tab--active {
     border-top-color: var(--color-primary);
@@ -20746,6 +20721,10 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     gap: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+.capture-row__kind {
+    display: inline-flex;
 }
 
 .capture-row__state {
@@ -21873,12 +21852,26 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     pointer-events: none;
 }
 
-/* --- TaskCalendar ---------------------------------------------------------
-   The month of tasks placed by due date, with the tray of tasks without one.
+/* --- CalendarGrid ---------------------------------------------------------
+   The Calendar module's grid (Backlog.Modules.Calendar.UI), styled here as every
+   screen is; the task-calendar class names are the ones it always wore.
+   The month of tasks placed by due date, with the shelf of plans beside it.
    Every colour is a palette token or a mix of two: the day shades are the
    background stepped toward its neighbours, so the grid adds no hue of its own.
    The status dots differ in shape as well as colour — a hollow ring for a draft —
    so they still read apart without the colour. */
+
+/* The Calendar's own region (local ADR 0056 §1), in the workspace's main column where
+   the Tasks pane used to hold the grid. It owns the scrollbar, so a tall month scrolls
+   under the header, and it is what a drag's edge-scroll walks up to. */
+.calendar-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
 .task-calendar {
     display: flex;
     flex-direction: column;
@@ -22038,7 +22031,7 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background));
 }
 
-/* Wraps, so a narrow column puts today's My Day count under the number rather
+/* Wraps, so a narrow column puts the day's hours total under the number rather
    than over the next day. */
 .task-calendar__day-head {
     display: flex;
@@ -22073,17 +22066,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: var(--color-primary);
     color: var(--color-text-inverse);
     font-weight: var(--font-weight-semibold);
-}
-
-.task-calendar__my-day {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    max-width: 100%;
-    overflow: hidden;
-    color: var(--color-primary-light);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .task-calendar__chip {
@@ -22135,11 +22117,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     text-decoration: line-through;
 }
 
-.task-calendar__chip--selected {
-    outline: var(--border-width) solid var(--color-border-strong);
-    outline-offset: calc(-1 * var(--border-width));
-}
-
 .task-calendar__chip:focus-visible,
 .task-calendar__more:focus-visible,
 .task-calendar__tray-item:focus-visible {
@@ -22184,11 +22161,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 .task-calendar__dot--in-progress { background: var(--color-primary); }
 .task-calendar__dot--done { background: var(--color-success-text); }
 .task-calendar__dot--overdue { background: var(--color-error-text); }
-
-.task-calendar__dot--archived {
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
-}
 
 .task-calendar__tray {
     flex: 1 1 16rem;
@@ -22268,10 +22240,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.625rem + var(--border-width-4));
 }
 
-.task-calendar__tray-item--selected {
-    border-color: var(--color-border-strong);
-}
-
 .task-calendar__tray-text {
     flex: 1;
     min-width: 0;
@@ -22304,9 +22272,21 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     margin-left: auto;
 }
 
+/* Show tasks leads the layer boxes (local ADR 0056 §4): it takes the push to the end
+   of the bar, and the boxes after it sit a gap apart as Show events does after Show
+   plans. */
+.task-calendar__show-tasks {
+    margin-left: auto;
+}
+
+.task-calendar__show-tasks + .task-calendar__show-plans,
+.task-calendar__show-tasks + .task-calendar__show-events {
+    margin-left: var(--spacing-md);
+}
+
 /* Below the day head: the day's top padding, the head's height and the day's gap. A
-   head that wraps — today's My Day count on a narrow column — grows past that height,
-   so the head holds its count to one line while the week carries bars — plans or
+   head that wraps — the day's hours total on a narrow column — grows past that height,
+   so the head holds its total to one line while the week carries bars — plans or
    events. */
 .task-calendar__plans {
     position: absolute;
@@ -22488,12 +22468,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     background: transparent;
 }
 
-.task-calendar__tray-head--plans {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-background-raised);
-}
-
 /* A plan's tag is often one long word, so its card keeps the title to one line and
    puts the size under it rather than squeezing the two side by side. */
 .task-calendar__shelf-item {
@@ -22575,7 +22549,6 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     padding-left: calc(0.375rem + var(--border-width-4));
 }
 
-.task-calendar__block--selected,
 .task-calendar__block[aria-expanded='true'] {
     border-style: solid;
 }
@@ -25608,6 +25581,18 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     overflow-wrap: anywhere;
 }
 
+.note-row__meta {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.note-row__kind {
+    display: inline-flex;
+}
+
 .note-row__when {
     flex: none;
     color: var(--color-text-secondary);
@@ -25712,11 +25697,78 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     outline: none;
 }
 
+/*
+  The tools: one row of equal tiles pinned along the bottom of the note, each a
+  glyph above a short word — the tab bar's idiom, because five labelled buttons
+  side by side need about 470px and a phone has 320 inside its gutters. Pinned the
+  way .task-detail__footer is: sticky, opaque and full bleed, so the body scrolling
+  under it never shows at the edges. bottom: 0 is right with no bar below the page;
+  a host whose tab bar is pinned there raises it.
+
+  The z-index keeps the row over any part of what scrolls under it that sets a
+  stacking order of its own. 10 is the scale's z-index-raised, the step
+  typography-and-layout.md#z-index-scale gives a sticky row; the stylesheet
+  declares no custom property for it, so the value is written out.
+
+  The top padding is the focus ring's room: the clip-path cuts at the row's own
+  edge, and a ring drawn 2px outside a tile needs 4px above it.
+*/
 .note-editor__tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    box-shadow: 0 0 0 100vmax var(--color-background);
+    clip-path: inset(0 -100vmax);
+}
+
+/*
+  A tile is a block, not a flex column: the word is then a line of the button's own,
+  so a word too wide for a larger text scale ends in an ellipsis rather than spilling
+  into the next tile. The button keeps its whole name — the tools pass the long one as
+  aria-label — and only the ink is cut. At 14px every word fits whole at 360px.
+
+  At least 48px tall and about 62px wide at 360px: past the 44px target
+  (accessibility.md#target-sizes-and-text). The glyph is drawn at icon-md by the host.
+*/
+.note-editor__tools > .btn {
+    display: block;
+    min-width: 0;
+    min-height: 3rem;
+    padding: var(--spacing-xs) var(--spacing-2xs);
+    line-height: var(--line-height-normal);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-editor__tools > .btn .btn__icon {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 var(--spacing-2xs);
+}
+
+/* A glyph written straight into the tile, as a toggle's is, centres the same way.
+   Block is stated here rather than left to `.btn svg`: the tile's word only falls
+   onto a line of its own under a block glyph, and auto margins centre nothing inline. */
+.note-editor__tools > .btn > svg {
+    display: block;
+    margin: 0 auto var(--spacing-2xs);
+}
+
+/* Busy swaps the glyph for the spinner; held to the glyph's 20px so the tile keeps its height. */
+.note-editor__tools > .btn > .spinner {
+    display: flex;
+    justify-content: center;
+    height: 1.25rem;
+    margin: 0 0 var(--spacing-2xs);
 }
 
 /* RecordingBar: a meeting being recorded into the note. The band sits on a soft
@@ -26409,6 +26461,177 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     display: grid;
     gap: var(--spacing-sm);
     min-width: 0;
+}
+
+/* --- Agents (MCP server page, local ADR 0058 §3) ------------------------- */
+
+/* One row per agent: who it is and its scopes on the left, its actions on the
+   right, and its switches under both while Edit scopes is open. Rows are divided
+   by a hairline; the actions wrap under the name in a narrow card rather than
+   squeeze it. */
+.agent-list {
+    container: agent-list / inline-size;
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs) var(--spacing-md);
+    align-items: start;
+    padding-block: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.agent-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-row__who {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.agent-row__name {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.agent-row__scopes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-2xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agent-row__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    max-width: 22rem;
+}
+
+.agent-row__confirm {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    text-align: end;
+}
+
+.agent-row__editor {
+    grid-column: 1 / -1;
+    padding-top: var(--spacing-xs);
+}
+
+/* A grant another agent made, under its granter (local ADR 0058 §5): indented, with
+   a rule down its leading edge that ties it to the row above. */
+.agent-row--delegated {
+    margin-inline-start: var(--spacing-lg);
+    padding-inline-start: var(--spacing-sm);
+    border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+@container agent-list (max-width: 30rem) {
+    .agent-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .agent-row__actions {
+        justify-content: flex-start;
+        max-width: none;
+    }
+
+    .agent-row__confirm {
+        text-align: start;
+    }
+}
+
+/* The scope switches: as many columns as the card has room for, each switch
+   with its one-line description. A locked scope is dimmed as well as disabled,
+   so the boundary reads at a glance. */
+.agent-scopes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.agent-scopes__switch--locked {
+    opacity: 0.65;
+}
+
+/* The second step of Add agent: the registration to paste, then the copies. */
+.agent-registration {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.agent-registration__title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.agent-registration__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.agent-registration__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* An agent's request for access (local ADR 0058 §5): an agent row with Decline and
+   Allow with Hello. In the request window the switches are its content, so the row
+   gives its whole width to them under the name. */
+.agent-request--window {
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 0;
+    padding-top: 0;
+}
+
+.agent-request--window .agent-row__actions {
+    order: 3;
+    max-width: none;
+}
+
+.agent-request--window .agent-row__editor {
+    order: 2;
+}
+
+.agent-request__status {
+    grid-column: 1 / -1;
+    order: 4;
+}
+
+.agent-request__status--error {
+    color: var(--color-error-text);
+}
+
+/* The card that holds the requests waiting for the person: the warning ink on its
+   border, so a request reads as needing an answer before the agents below it. */
+.settings-card--pending {
+    border-color: var(--color-warning);
 }
 
 /*

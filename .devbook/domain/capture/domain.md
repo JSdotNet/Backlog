@@ -24,13 +24,15 @@ Inbox Item. The aggregate guarantees that every capture is normalized into the
 standard shape and keeps the
 original source link and capture timestamp until delivery. Each capture is a
 unique entry: the same content from two devices makes two captures. Edits follow
-last-write-wins by timestamp.
+last-write-wins by timestamp, but a capture's tombstone is final: it wins over a
+live copy whatever their stamps.
 
 A note the phone creates starts as a capture like any other, with an id the
 phone mints. Unlike the others, it does not end at delivery. Its Inbox
 Item has `Content Kind` `note` and keeps syncing with the phone, which may edit
 it again. Those later edits are the Inbox Item's. See
-[Note](../inbox/domain.md#note). The phone's Notes tab writes this kind of note.
+[Note](../inbox/domain.md#note). A [Meeting](../inbox/domain.md#meeting) the
+phone starts behaves the same way.
 
 The aggregate has no owned entities beyond its root. The `Source Metadata`
 value object and the `Capture Source` enum carry what varies between captures. The
@@ -122,7 +124,7 @@ aliases: [CaptureSource, CaptureSourceKind, source]
 Origin type of a capture. Values and meaning:
 
 - `mobile` — quick entry from the mobile app by voice, text or share sheet, and
-  a note created on the phone's Notes tab.
+  a note or meeting created from the phone Inbox's **+** menu.
 - `youtube` — a new video detected by the YouTube monitor.
 - `website` — a change detected by the website monitor.
 - `event_page` — a new edition read off a watched event page by the

@@ -9,7 +9,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class CaptureTargetLedgerStoreTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"capture-ledger-{Guid.NewGuid():N}");
+    private readonly TemporaryDirectory _temp = new("capture-ledger");
+
+    private string _directory => _temp.Combine("data");
 
     private string LedgerPath => Path.Combine(_directory, "capture-targets.json");
 
@@ -53,8 +55,5 @@ public sealed class CaptureTargetLedgerStoreTests : IDisposable
         Assert.Null(new CaptureTargetLedgerStore(LedgerPath).PassedOverAt(CaptureSourceKind.Website, "https://aspire.dev"));
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 }

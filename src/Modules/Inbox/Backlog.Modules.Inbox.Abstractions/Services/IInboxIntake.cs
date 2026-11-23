@@ -25,9 +25,10 @@ public enum InboxIntakeOutcome
     /// to make.</summary>
     Ignored,
 
-    /// <summary>A known note took the later copy the replica carried: another
-    /// device edited it (<see cref="IInboxNoteReplication"/>). Only a note
-    /// changes after it is captured, so only a note is answered with this.</summary>
+    /// <summary>A known item took the later copy the replica carried: another
+    /// device edited a note (<see cref="IInboxNoteReplication"/>), or the phone
+    /// reworded a capture still open here. Only those change after they are
+    /// captured, so only they are answered with this.</summary>
     Updated
 }
 

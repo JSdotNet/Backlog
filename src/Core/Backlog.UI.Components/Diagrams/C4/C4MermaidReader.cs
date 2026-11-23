@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.C4;
+
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>One mermaid C4 fence, and the chapter it was written in.</summary>

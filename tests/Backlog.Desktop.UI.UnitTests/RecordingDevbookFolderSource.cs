@@ -11,6 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// tool's under devbook's branch-true decision — so that half went with the write.
 /// </para>
 /// </summary>
+// Differs from StubFolderSource: wraps another source and can delete a chapter mid-reload.
 internal sealed class RecordingDevbookFolderSource(IDevbookFolderSource inner, string chapterPath) : IDevbookFolderSource
 {
     private int _breakChapterCountdown = -1;

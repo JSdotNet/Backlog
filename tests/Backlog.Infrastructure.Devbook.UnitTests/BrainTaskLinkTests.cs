@@ -16,11 +16,11 @@ public class BrainTaskLinkTests : IDisposable
     private const string Ship = "6f9619ff-8b86-d011-b42d-00c04fc964ff";
     private const string Plan = "0c8a1b4e-2f6d-4a37-9c11-5e0b7d3f2a90";
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-brain-task-links", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-task-links");
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
-    private string Target => DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), Brain)!;
+    private string Target => DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), Brain)!;
 
     public BrainTaskLinkTests()
     {
@@ -99,7 +99,7 @@ public class BrainTaskLinkTests : IDisposable
         {
         }
 
-        var reader = new BrainTaskLinkReader(() => Brain, root => DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root));
+        var reader = new BrainTaskLinkReader(() => Brain, root => DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), root));
 
         Assert.Equal(2, (await reader.NotesByTaskAsync(TestContext.Current.CancellationToken))[Ship].Count);
         Assert.Equal(3, (await reader.TasksOfAsync("projects/roadmap.md", TestContext.Current.CancellationToken)).Count);
@@ -108,7 +108,7 @@ public class BrainTaskLinkTests : IDisposable
     [Fact]
     public async Task A_brain_with_no_database_or_no_brain_links_no_task()
     {
-        var missing = new BrainTaskLinkReader(() => Brain, _ => Path.Combine(_scratch, "missing", "devbook.db"));
+        var missing = new BrainTaskLinkReader(() => Brain, _ => _temp.Combine("missing", "devbook.db"));
         var none = new BrainTaskLinkReader(() => null);
 
         Assert.Empty(await missing.NotesByTaskAsync(TestContext.Current.CancellationToken));
@@ -135,15 +135,7 @@ public class BrainTaskLinkTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-
+        _temp.Dispose();
         GC.SuppressFinalize(this);
     }
 }

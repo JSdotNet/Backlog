@@ -18,7 +18,7 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
         "## Read the file\n" +
         "Notes for reading.\n";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -80,8 +80,9 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
 
     private TasksDesktopState State()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-typed-sub-item", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-typed-sub-item");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -101,10 +102,10 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 }

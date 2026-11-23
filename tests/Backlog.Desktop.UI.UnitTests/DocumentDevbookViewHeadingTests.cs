@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DocumentDevbookViewHeadingTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-document-heading", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-document-heading");
 
     [Theory]
     [InlineData("coding-agent", "Coding agent")]
@@ -30,8 +30,7 @@ public sealed class DocumentDevbookViewHeadingTests : IDisposable
 
     private DocumentDevbookFile Parse()
     {
-        Directory.CreateDirectory(_root);
-        var path = Path.Combine(_root, "01-build.md");
+        var path = _temp.Combine("01-build.md");
         File.WriteAllText(path, """
             # Build
 
@@ -49,12 +48,8 @@ public sealed class DocumentDevbookViewHeadingTests : IDisposable
 
             Nothing merges red.
             """);
-        return DocumentDevbookParser.ParseFile(_root, path, "ai");
+        return DocumentDevbookParser.ParseFile(_temp.Path, path, "ai");
     }
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_root, recursive: true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

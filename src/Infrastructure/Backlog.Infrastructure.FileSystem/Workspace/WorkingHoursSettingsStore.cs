@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -59,14 +60,10 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// which is what a person editing the file writes and sorts as text.</summary>
     private const string DateFormat = "yyyy-MM-dd";
 
-    private readonly string _path;
+    private readonly JsonFileStore<WorkingHoursDto> _file;
 
     public WorkingHoursSettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "working-hours.json"))
+        : this(AppDataPaths.Shared("working-hours.json"))
     {
     }
 
@@ -76,15 +73,7 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// that does not fight over the real per-user file.</summary>
     public WorkingHoursSettingsStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<WorkingHoursDto>(path, JsonOptions);
 
         Current = Read();
     }
@@ -93,7 +82,7 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
 
     public WorkingHours Current { get; private set; }
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end)
     {
@@ -301,38 +290,16 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     {
         Current = Normalize(hours);
 
-        string? error = null;
-        try
-        {
-            File.WriteAllText(_path, JsonSerializer.Serialize(ToDto(Current), JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the working week couldn't be saved for next time.";
-        }
+        var saved = _file.TrySave(ToDto(Current));
 
         Changed?.Invoke();
-        return error;
+        return saved ? null : "Changed, but the working week couldn't be saved for next time.";
     }
 
-    private WorkingHours Read()
-    {
-        try
-        {
-            if (!File.Exists(_path)) return WorkingHours.Default;
-
-            var dto = JsonSerializer.Deserialize<WorkingHoursDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return WorkingHours.Default;
-
-            return FromDto(dto);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            // A corrupt or unreachable setting must never stop the app from
-            // opening — fall back to the default week.
-            return WorkingHours.Default;
-        }
-    }
+    // A corrupt or unreachable setting must never stop the app from
+    // opening — fall back to the default week.
+    private WorkingHours Read() =>
+        _file.Load() is { } dto ? FromDto(dto) : WorkingHours.Default;
 
     /// <summary>A line nobody can read is dropped rather than guessed at.
     /// <see cref="Normalize"/> then fills the day back in from the default,

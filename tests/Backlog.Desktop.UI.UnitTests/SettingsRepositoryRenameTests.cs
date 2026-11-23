@@ -297,7 +297,8 @@ public sealed class SettingsRepositoryRenameTests
 
     private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null, ILocalGitRepositoryService? localGit = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-rename-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-settings-rename-tests");
+        var root = temp.Path;
 
         if (registry is not null)
         {
@@ -320,7 +321,7 @@ public sealed class SettingsRepositoryRenameTests
             Assert.Null(githubSettings.SetRepositories(repositories));
         }
 
-        var tasks = new RecordingTaskItems(entriesMoved, tasksRefuse);
+        var tasks = new RenameRecordingTaskItems(entriesMoved, tasksRefuse);
         var inbox = new RecordingInboxItems(itemsMoved);
 
         var context = new BunitContext();
@@ -334,7 +335,7 @@ public sealed class SettingsRepositoryRenameTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
-        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton(localGit ?? new LocalGitRepositoryService());
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
@@ -342,12 +343,13 @@ public sealed class SettingsRepositoryRenameTests
         context.Services.AddSingleton<ITaskItems>(tasks);
         context.Services.AddSingleton<IInboxItems>(inbox);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), githubSettings, tasks, inbox);
+        return new SettingsRenderContext(temp, context, context.Render<Settings>(), githubSettings, tasks, inbox);
     }
 
     /// <summary>Records the rename it is asked for and answers with the count the
     /// test chose; every other member is out of this page's reach.</summary>
-    private sealed class RecordingTaskItems(int moved, bool refuse) : ITaskItems
+    // Differs from RecordingTaskItems: records renames and can refuse them; nothing else is reachable.
+    private sealed class RenameRecordingTaskItems(int moved, bool refuse) : ITaskItems
     {
         public List<(string OldId, string NewId)> Renames { get; } = [];
 
@@ -455,56 +457,24 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> UngroupAsync(Guid groupId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task EnsureDefaultOrganizerAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
-    private sealed class NoGitHub : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class NoProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed record SettingsRenderContext(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         GitHubSettingsStore GitHub,
-        RecordingTaskItems Tasks,
+        RenameRecordingTaskItems Tasks,
         RecordingInboxItems Inbox) : IDisposable
     {
+        public string Root => Temp.Path;
+
         public void Dispose()
         {
             TestContext.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

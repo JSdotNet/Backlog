@@ -242,34 +242,27 @@ public sealed class ToolsPaneTabsTests
     [Fact]
     public void The_tab_and_the_host_filter_are_remembered_on_this_machine()
     {
-        var file = Path.Combine(Path.GetTempPath(), "tools-pane-tests-" + Guid.NewGuid().ToString("N"), "shell-navigation.json");
-        try
+        using var temp = new TemporaryDirectory("tools-pane-tests");
+        var file = temp.Combine("shell-navigation.json");
+        using (var first = Context(HostMix()))
         {
-            using (var first = Context(HostMix()))
-            {
-                first.Services.AddSingleton<IToolsViewPreferences>(new ToolsViewPreferences(new ShellNavigationStore(file)));
-                var pane = first.Render<ToolsPane>();
+            first.Services.AddSingleton<IToolsViewPreferences>(new ToolsViewPreferences(new ShellNavigationStore(file)));
+            var pane = first.Render<ToolsPane>();
 
-                pane.Find("[data-testid='tools-tab-checklist']").Click();
-                pane.Find("[data-testid='tools-host-copilot']").Click();
-            }
-
-            var store = new ShellNavigationStore(file);
-            Assert.Equal("checklist", store.ToolsTab);
-            Assert.Equal("copilot", store.ToolsHostFilter);
-
-            using var second = Context(HostMix());
-            second.Services.AddSingleton<IToolsViewPreferences>(new ToolsViewPreferences(store));
-            var reopened = second.Render<ToolsPane>();
-
-            Assert.Equal("true", reopened.Find("[data-testid='tools-tab-checklist']").GetAttribute("aria-selected"));
-            Assert.Equal("true", reopened.Find("[data-testid='tools-host-copilot']").GetAttribute("aria-checked"));
+            pane.Find("[data-testid='tools-tab-checklist']").Click();
+            pane.Find("[data-testid='tools-host-copilot']").Click();
         }
-        finally
-        {
-            var directory = Path.GetDirectoryName(file)!;
-            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
-        }
+
+        var store = new ShellNavigationStore(file);
+        Assert.Equal("checklist", store.ToolsTab);
+        Assert.Equal("copilot", store.ToolsHostFilter);
+
+        using var second = Context(HostMix());
+        second.Services.AddSingleton<IToolsViewPreferences>(new ToolsViewPreferences(store));
+        var reopened = second.Render<ToolsPane>();
+
+        Assert.Equal("true", reopened.Find("[data-testid='tools-tab-checklist']").GetAttribute("aria-selected"));
+        Assert.Equal("true", reopened.Find("[data-testid='tools-host-copilot']").GetAttribute("aria-checked"));
     }
 
     /// <summary>A remembered value this build does not know opens on the defaults

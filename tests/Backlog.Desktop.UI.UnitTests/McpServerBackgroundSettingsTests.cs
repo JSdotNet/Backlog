@@ -15,7 +15,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class McpServerBackgroundSettingsTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-background-settings-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("mcp-background-settings");
+
+    private string _root => _temp.Path;
 
     [Fact]
     public void The_tray_switch_is_on_by_default_and_says_the_server_keeps_answering()
@@ -132,8 +134,7 @@ public sealed class McpServerBackgroundSettingsTests : IDisposable
 
     private BunitContext Context(FakeStartup startup, out WorkspaceSettingsStore settings)
     {
-        Directory.CreateDirectory(_root);
-        settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"), _ => null);
+        settings =new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"), _ => null);
 
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -145,16 +146,7 @@ public sealed class McpServerBackgroundSettingsTests : IDisposable
     private static IRenderedComponent<Toggle> Switch(IRenderedComponent<McpServerSettingsPage> page, string testId) =>
         page.FindComponents<Toggle>().Single(toggle => toggle.Instance.TestId == testId);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>The startup task as the page sees it: Windows takes an enable or a
     /// disable while the task is the app's to change, and answers the state it ends in.</summary>

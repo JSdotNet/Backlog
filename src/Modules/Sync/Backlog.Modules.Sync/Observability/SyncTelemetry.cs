@@ -69,6 +69,10 @@ public static class SyncTelemetry
         public const string TooLarge = "too_large";
     }
 
+    /// <summary>Which OAuth grant a connector token was issued by — <c>authorization_code</c>
+    /// or <c>refresh_token</c>. Low cardinality by construction.</summary>
+    public const string GrantTypeTag = "backlog.sync.grant_type";
+
     public static readonly ActivitySource Source = new(Name);
 
     private static readonly Meter Meter = new(Name);
@@ -113,4 +117,30 @@ public static class SyncTelemetry
         "backlog.sync.transcription.size",
         unit: "By",
         description: "Bytes of dictation audio relayed for transcription, by content type and outcome.");
+
+    /// <summary>Remote connector access tokens issued (local ADR 0058 §8), by grant type.</summary>
+    public static readonly Counter<long> ConnectorTokensIssued = Meter.CreateCounter<long>(
+        "backlog.sync.connector.tokens_issued",
+        unit: "{token}",
+        description: "Remote connector access tokens issued, tagged by grant type.");
+
+    /// <summary>Remote connector requests refused, by the OAuth error answered (inherited ADR
+    /// 0013: every authorization failure leaves a trace, never a token).</summary>
+    public static readonly Counter<long> ConnectorRefused = Meter.CreateCounter<long>(
+        "backlog.sync.connector.refused",
+        unit: "{request}",
+        description: "Remote connector authorize and token requests refused, tagged by the OAuth error.");
+
+    /// <summary>Calls to the remote <c>/mcp</c> endpoint refused (local ADR 0058 §8), by
+    /// reason: <c>no_token</c>, <c>invalid_token</c> or <c>insufficient_scope</c>.</summary>
+    public static readonly Counter<long> RemoteMcpRefused = Meter.CreateCounter<long>(
+        "backlog.sync.mcp.refused",
+        unit: "{request}",
+        description: "Remote MCP requests refused, tagged by the Bearer error.");
+
+    /// <summary>Captures written to the replica through the remote <c>/mcp</c> endpoint.</summary>
+    public static readonly Counter<long> RemoteMcpCaptures = Meter.CreateCounter<long>(
+        "backlog.sync.mcp.captures",
+        unit: "{capture}",
+        description: "Captures written to the replica through the remote MCP endpoint, tagged by whether the call created one.");
 }

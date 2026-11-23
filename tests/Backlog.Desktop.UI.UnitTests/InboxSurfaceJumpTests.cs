@@ -14,14 +14,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxSurfaceJumpTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-surface-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-surface-tests");
     private readonly BunitContext _context = new();
     private readonly FakeInboxItems _inbox;
 
     public InboxSurfaceJumpTests()
     {
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
-        _context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        _context.Services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github.json")));
         TasksTestHost.AddToastChannel(_context.Services);
         _inbox = InboxTestHost.AddInboxState(_context.Services);
     }
@@ -79,13 +79,6 @@ public sealed class InboxSurfaceJumpTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 }

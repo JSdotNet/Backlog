@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class DevbookMenuTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Builds_hierarchical_tree_from_enabled_knowledge_folders()
@@ -99,7 +99,6 @@ public sealed class DevbookMenuTests : IDisposable
     public async Task Includes_virtual_instructions_folder_for_instruction_section()
     {
         var repo = TempDir();
-        Directory.CreateDirectory(repo);
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
@@ -290,10 +289,7 @@ public sealed class DevbookMenuTests : IDisposable
     }
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private GitHubSettingsStore NewSettingsStore()
@@ -304,9 +300,9 @@ public sealed class DevbookMenuTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-menu-tests", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-menu-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private static void ConfigureRepository(GitHubSettingsStore settings, string repo)

@@ -30,10 +30,8 @@ public sealed class DeliveryRunReaderTests : IDisposable
     /// agree on the machine.</summary>
     private const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
 
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-delivery-run-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-delivery-run-tests");
+    private string _home => _temp.Path;
 
     [Fact]
     public async Task A_run_file_is_read_whole()
@@ -125,7 +123,7 @@ public sealed class DeliveryRunReaderTests : IDisposable
     [Fact]
     public async Task An_address_stated_only_in_the_summary_is_still_a_reference()
     {
-        GivenRun("orch-dashboard", "archify-animation-loop-ac8a3c-8e0887e5", "run.json", SummaryOnlyRun);
+        GivenRun("orch-dashboard", "almanac-animation-loop-ac8a3c-8e0887e5", "run.json", SummaryOnlyRun);
 
         var run = Assert.Single((await ReadAsync()).Runs);
         var reference = Assert.Single(run.References);
@@ -1028,19 +1026,7 @@ public sealed class DeliveryRunReaderTests : IDisposable
         folder.SetAccessControl(security);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>A run of the orch dashboard's current generation, trimmed from a real
     /// file: three of its ten stages, three of its thousand insights, and the token
@@ -1181,7 +1167,7 @@ public sealed class DeliveryRunReaderTests : IDisposable
         {
           "id": "run-summary",
           "skillId": "orch-feature",
-          "title": "Archify animation loop",
+          "title": "Almanac animation loop",
           "status": "done",
           "changeKind": "new-functionality",
           "phaseDoneCounts": { "Summary": 1 },

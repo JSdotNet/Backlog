@@ -14,7 +14,7 @@ public sealed class SessionDevbookSubjectStateStoreTests
     private const string Host = "DEV-TOWER";
     private const string Fingerprint = "sha256:2b11c532";
 
-    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-archify.md");
+    private static readonly DevbookSubject Debt = DevbookSubject.Debt(".devbook/arc42/tdr/0001-almanac.md");
     private static readonly DevbookSubject Change = DevbookSubject.Proposal("pay-by-card");
 
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 30, 9, 0, 0, TimeSpan.Zero));

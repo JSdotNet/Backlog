@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class PaneInitialLoadTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _roots = [];
 
     [Fact]
     public async Task The_tasks_list_is_a_skeleton_while_the_backlog_is_read_rather_than_an_empty_state()
@@ -178,7 +178,7 @@ public sealed class PaneInitialLoadTests : IDisposable
         var gitHub = new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(root, "github.json")),
             new TasksPaneHost.FakeGitHubClient(),
-            new UnconnectedProbe());
+            new StubProbe());
         state = new TasksDesktopState(TasksTestHost.TaskStoreFor(store), entries, gitHub);
 
         var context = new BunitContext();
@@ -201,22 +201,23 @@ public sealed class PaneInitialLoadTests : IDisposable
 
     private string Root()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-pane-initial-load", Guid.NewGuid().ToString("n"));
+        var root = new TemporaryDirectory("backlog-pane-initial-load");
         _roots.Add(root);
-        return root;
+        return root.Path;
     }
 
     public void Dispose()
     {
         foreach (var root in _roots)
         {
-            TestDatabases.Release(root);
-            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(root.Path);
+            root.Dispose();
         }
     }
 
     /// <summary>The module, with the first thing the load asks of it held until
     /// <see cref="Release"/>. Everything else delegates.</summary>
+    // Differs from RecordingTaskItems: wraps the real module and holds its first load.
     private sealed class HeldTaskItems(ITaskItems inner) : ITaskItems
     {
         private TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -271,16 +272,6 @@ public sealed class PaneInitialLoadTests : IDisposable
             bool layOutOnRoadmap = false,
             CancellationToken cancellationToken = default) =>
             inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, sourceInboxIds, layOutOnRoadmap, cancellationToken);
-    }
-
-    private sealed class UnconnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
-        }
     }
 }
 

@@ -19,7 +19,7 @@ public sealed class DevToolListingTests : IDisposable
     private const string LocalCommit = "1111111111111111111111111111111111111111";
     private const string FetchedCommit = "2222222222222222222222222222222222222222";
 
-    private readonly string _root;
+    private readonly TemporaryDirectory _temp = new("backlog-tool-listing-tests");
     private readonly string _catalogPath;
     private readonly string _mirror;
 
@@ -30,29 +30,19 @@ public sealed class DevToolListingTests : IDisposable
 
     public DevToolListingTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "backlog-tool-listing-tests", Guid.NewGuid().ToString("N"));
-        _mirror = Path.Combine(_root, "mirror");
-        Directory.CreateDirectory(Path.Combine(_root, ".tools"));
+        _mirror = _temp.Combine("mirror");
+        Directory.CreateDirectory(_temp.Combine(".tools"));
         Directory.CreateDirectory(_mirror);
 
-        _catalogPath = DevToolConfigurationPaths.FromRepositoryRoot(_root, "dev-pc").CatalogPath;
-        _desktopConfig = [Path.Combine(_root, "claude-desktop", "claude_desktop_config.json")];
+        _catalogPath = DevToolConfigurationPaths.FromRepositoryRoot(_temp.Path, "dev-pc").CatalogPath;
+        _desktopConfig = [_temp.Combine("claude-desktop", "claude_desktop_config.json")];
         File.WriteAllText(_catalogPath, Catalog(_mirror));
     }
 
     private DevToolService Service(ScriptedRunner runner, int concurrency, TimeSpan? probeTimeout = null) =>
         new(_catalogPath, runner, concurrency, probeTimeout, _desktopConfig);
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public async Task A_concurrent_listing_reads_exactly_as_a_listing_run_one_command_at_a_time()
@@ -195,7 +185,7 @@ public sealed class DevToolListingTests : IDisposable
         var catalog = await Service(new ScriptedRunner(), concurrency: 5).ListAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            Path.Combine(_root, ".tools", Environment.MachineName.ToLowerInvariant(), "ai-tools.json"),
+            _temp.Combine(".tools", Environment.MachineName.ToLowerInvariant(), "ai-tools.json"),
             catalog.PcConfigPath,
             ignoreCase: true);
     }
@@ -266,6 +256,29 @@ public sealed class DevToolListingTests : IDisposable
         Assert.Equal("1.1.0", pulled.AvailableVersion);
         Assert.Equal(DevToolOutput.Unknown, notPulled.AvailableVersion);
         Assert.Contains("The market-two marketplace could not be refreshed", catalog.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Claude is asked what it has installed only after its marketplace
+    /// listing and every pull it named have run, in that order. Claude answers out of
+    /// its own clone of each marketplace, so asking first is asking about the last
+    /// refresh somebody else happened to run. The first pull is the slow one, so a
+    /// listing that started the installed-plugins question beside the pulls would
+    /// launch it before the second.</summary>
+    [Fact]
+    public async Task A_claude_listing_pulls_every_marketplace_before_asking_what_is_installed()
+    {
+        var runner = new ScriptedRunner { SlowCommand = "plugin marketplace update market-one" };
+
+        await Service(runner, concurrency: 5).ListAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [
+                "claude.cmd plugin marketplace list --json",
+                "claude.cmd plugin marketplace update market-one",
+                "claude.cmd plugin marketplace update market-two",
+                "claude.cmd plugin list --json"
+            ],
+            runner.Launches.Where(launch => launch.StartsWith("claude.cmd plugin ", StringComparison.Ordinal)));
     }
 
     [Fact]

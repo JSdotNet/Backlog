@@ -136,8 +136,11 @@ public sealed class InboxToEventTests
 
     private sealed class Harness : IDisposable
     {
-        private Harness(BunitContext context, FakeInboxItems inbox)
+        private readonly TemporaryDirectory _temp;
+
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox)
         {
+            _temp = temp;
             Context = context;
             Inbox = inbox;
         }
@@ -152,15 +155,16 @@ public sealed class InboxToEventTests
 
         public static Harness Create(bool eventsOn)
         {
+            var temp = new TemporaryDirectory("backlog-inbox-to-event-tests");
             var context = new BunitContext();
             context.JSInterop.Mode = JSRuntimeMode.Loose;
             context.Services.AddSingleton(new Backlog.Infrastructure.GitHub.GitHubSettingsStore(
-                Path.Combine(Path.GetTempPath(), "backlog-inbox-to-event-tests", Guid.NewGuid().ToString("n"), "github.json")));
+                temp.Combine("github.json")));
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
             inbox.ToEventOffered = eventsOn;
 
-            return new Harness(context, inbox);
+            return new Harness(temp, context, inbox);
         }
 
         public IReadOnlyList<InboxItemDto> SeedNewestFirst(params string[] titles) =>
@@ -177,6 +181,10 @@ public sealed class InboxToEventTests
             return pane;
         }
 
-        public void Dispose() => Context.Dispose();
+        public void Dispose()
+        {
+            Context.Dispose();
+            _temp.Dispose();
+        }
     }
 }

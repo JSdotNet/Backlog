@@ -22,9 +22,9 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
 
     private static readonly TimeOnly Nine = new(9, 0);
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "planning-velocity-week-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("planning-velocity-week-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -32,16 +32,7 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
 
     private string WeekFileOf(string device) => Path.Combine(_root, device, "working-hours.json");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private (WorkingHoursSettingsStore Week, PlanningVelocitySettingsStore Pace) Device(string name, TimeProvider? time = null)
     {

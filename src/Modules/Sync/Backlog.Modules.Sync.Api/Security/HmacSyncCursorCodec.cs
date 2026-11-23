@@ -4,11 +4,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Sync.Api.Options;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Results;
-using Microsoft.Extensions.Options;
 
 namespace Backlog.Modules.Sync.Api.Security;
 
@@ -34,7 +32,7 @@ namespace Backlog.Modules.Sync.Api.Security;
 /// somebody would eventually skip.
 /// </para>
 /// </summary>
-internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : ISyncCursorCodec
+internal sealed class HmacSyncCursorCodec(SigningKeyRing keys) : ISyncCursorCodec
 {
     /// <summary>The only version this codec mints, and the only one it reads.
     /// A cursor from a future version is refused as malformed rather than
@@ -51,7 +49,10 @@ internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : 
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    private readonly byte[] _key = HMACSHA256.HashData(options.Value.DecodeSigningKey(), Purpose);
+    /// <summary>The cursor key derived from one signing key. Derived per call
+    /// rather than held, so a rotation the ring picked up reaches the codec
+    /// without anything else changing.</summary>
+    private static byte[] CursorKey(byte[] signingKey) => HMACSHA256.HashData(signingKey, Purpose);
 
     public string Mint(OwnerId owner, string continuation)
     {
@@ -64,7 +65,7 @@ internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : 
             ".",
             Base64Url.EncodeToString(payload),
             ".",
-            Base64Url.EncodeToString(HMACSHA256.HashData(_key, payload)));
+            Base64Url.EncodeToString(HMACSHA256.HashData(CursorKey(keys.Current), payload)));
     }
 
     public Result<SyncCursor> Verify(string cursor, OwnerId caller)
@@ -113,7 +114,9 @@ internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : 
         // Fixed-time, so a caller cannot learn the expected signature one byte
         // at a time by measuring how long the rejection took. It also handles the
         // length mismatch, which an equality check would leak on its own.
-        if (!CryptographicOperations.FixedTimeEquals(HMACSHA256.HashData(_key, body), signature))
+        // Every accepted key, so a cursor minted just before a rotation still
+        // reads while the previous key's window is open, as a token does.
+        if (!keys.Accepted().Any(key => CryptographicOperations.FixedTimeEquals(HMACSHA256.HashData(CursorKey(key), body), signature)))
         {
             return false;
         }

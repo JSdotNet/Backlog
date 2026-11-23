@@ -17,7 +17,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 [Collection(BrainRootCollection.Name)]
 public sealed class BrainFolderWatchTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "brain-folder-watch-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("brain-folder-watch-tests");
+
+    private string _root => _temp.Path;
     private readonly List<string> _watched = [];
     private readonly List<string> _stopped = [];
     private readonly BrainSettingsStore _settings;
@@ -27,7 +29,6 @@ public sealed class BrainFolderWatchTests : IDisposable
 
     public BrainFolderWatchTests()
     {
-        Directory.CreateDirectory(_root);
         _settings = new BrainSettingsStore(Path.Combine(_root, BrainSettingsStore.FileName));
         _brain = new BrainFolderSource(() => _settings.BrainFolder);
         _brain.Changed += () => Interlocked.Increment(ref _changes);
@@ -230,17 +231,5 @@ public sealed class BrainFolderWatchTests : IDisposable
         public void Dispose() => stopped();
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

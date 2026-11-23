@@ -41,20 +41,20 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
 
     private static readonly InboxLaidOutPlanDto LaidOut = new(Tag, Title, []);
 
-    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "backlog-create-plan-undo", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-create-plan-undo");
 
     private readonly ServiceProvider _provider;
 
     public CreatePlanUndoAcrossRoadmapTests()
     {
-        var store = new WorkspaceSettingsStore(_tempDir, Path.Combine(_tempDir, "settings.json"));
+        var store = new WorkspaceSettingsStore(_temp.Path, _temp.Combine("settings.json"));
 
         var services = new ServiceCollection();
         services.AddSingleton(store);
         services.AddSingleton<ITaskRepository>(_ => new RootedSqliteTaskRepository(() => store.RootDirectory));
         services.AddSingleton<IRoadmapPlanRepository>(_ => new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory));
-        services.AddSingleton(new GitHubSettingsStore(Path.Combine(_tempDir, "github", "github.json")));
-        services.AddSingleton(new PlanningVelocitySettingsStore(Path.Combine(_tempDir, "velocity", "planning-velocity.json")));
+        services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github", "github.json")));
+        services.AddSingleton(new PlanningVelocitySettingsStore(_temp.Combine("velocity", "planning-velocity.json")));
         services.AddTasksAdapters();
         services.AddTasksModule();
         services.AddRoadmapModule();
@@ -67,11 +67,8 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        if (Directory.Exists(_tempDir))
-        {
-            TestDatabases.Release(_tempDir);
-            try { Directory.Delete(_tempDir, recursive: true); } catch (IOException) { }
-        }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
     }
 
     [Fact]

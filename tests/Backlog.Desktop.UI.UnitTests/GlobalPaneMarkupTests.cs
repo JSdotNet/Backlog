@@ -39,6 +39,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("id=\"repository-devbook-pane\"", NormalizeLineEndings(File.ReadAllText(FindDevbookPane())), StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"backlog-pane\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"roadmap-view\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"calendar-view\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"inbox-surface\"", home, StringComparison.Ordinal);
         // The Devbook's, from its surface id: devbook-surface.
         Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
@@ -49,7 +50,7 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The nav, left to right, as the design draws it: the Inbox toggle, the view
-    /// switch, the Devbook toggle, the Goals group, and the other takeovers.
+    /// switch, the Calendar tab, the Devbook toggle, the Goals group, and the other takeovers.
     /// Every takeover is named here rather than counted, so adding one to the header
     /// without adding it to a group cannot pass. They are pressed states, not
     /// disclosures: the takeover on screen is one field with one state at a time.
@@ -67,8 +68,9 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"view-switch\"",
             "TestId=\"tasks-view-option\"",
             "TestId=\"board-view-option\"",
-            "TestId=\"calendar-view-option\"",
             "TestId=\"roadmap-view-option\"",
+            // The Calendar tab, standing alone right after the switch (local ADR 0056 §7).
+            "TestId=\"calendar-view-option\"",
             "@foreach (var surface in RegisteredTakeoversOffered)",
             "TestId=\"goals-switcher\"",
             "TestId=\"sessions-toggle-button\"",
@@ -154,8 +156,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
         // Three standalone toggles — the Inbox, the weekly review and the registered
-        // takeovers' — and the four loose takeovers wear the loose option.
-        Assert.Equal(7, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // takeovers' — the Calendar tab, and the four loose takeovers wear the loose
+        // option.
+        Assert.Equal(8, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.
@@ -276,14 +279,14 @@ public sealed class GlobalPaneMarkupTests
     /// hold, which the navigation store reads as the Roadmap view over the workspace.
     /// </summary>
     [Fact]
-    public void Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover()
+    public void Roadmap_option_is_a_view_not_a_takeover()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var store = NormalizeLineEndings(File.ReadAllText(FindShellNavigationStore()));
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
-        Assert.Contains("RoadmapFeatures.Roadmap,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
+        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
         Assert.Contains("private bool WorkspaceVisible => TakeoverOnScreen is null;", home, StringComparison.Ordinal);
         Assert.Contains(
             "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",

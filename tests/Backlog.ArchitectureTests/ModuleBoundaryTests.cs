@@ -476,7 +476,7 @@ public class ModuleBoundaryTests
     ///
     /// <para>The rules above let a <c>.UI</c> project take an adapter; none of them asks
     /// whether it <em>is</em> one, and for a while this one was — the transcript
-    /// readers, the delivery-run stores and the Archify runner sat in
+    /// readers and the delivery-run stores sat in
     /// <c>Backlog.Modules.Sessions.UI/Adapters</c>. They are
     /// <c>Backlog.Infrastructure.Sessions</c> now, composed by the two hosts. This pins
     /// both halves: the folder is gone and no file in the screen project opens a file or
@@ -591,14 +591,14 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
-    /// Calendar is one module trio (local ADR 0055 §6): <c>Backlog.Modules.Calendar</c>, its
+    /// Calendar is one module trio (local ADR 0056, after local ADR 0055): <c>Backlog.Modules.Calendar</c>, its
     /// <c>.Abstractions</c> and its <c>.UI</c>, on the Events precedent above. It reads every
     /// layer through a port it owns, so the core and the UI reach nothing under
     /// <c>src/Modules</c> but the Calendar's own Abstractions, and the Abstractions reach
     /// nothing there at all — no Tasks, Roadmap or Events project. And no project under
     /// <c>src/Modules</c> outside the Calendar's folder references any of the three: the
-    /// sources do not know the Calendar draws them; Tasks offers its part through the shared
-    /// library and Roadmap is read by an infrastructure adapter.
+    /// sources do not know the Calendar draws them; Tasks, Roadmap and Events are each read
+    /// by an infrastructure adapter over their published port.
     /// </summary>
     [Fact]
     public void Backlog_Modules_Calendar_is_one_trio_that_no_other_module_references()
@@ -752,13 +752,13 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
-    /// The Calendar's Plans layer, working week and Events layer are answered in
+    /// The Calendar's Plans layer, working week, Events layer and Tasks layer are answered in
     /// <c>Backlog.Infrastructure.FileSystem</c>, under <c>Calendar/</c>, through the
-    /// Calendar's own ports and the <em>published</em> surfaces of Roadmap and Events (local
-    /// ADR 0055 §2) — never either's implementation, and nothing of Tasks: the ports moved out
-    /// of Tasks with this module. The same compiled-assembly scan as the events joins above,
-    /// for the same reason: FileSystem reaches Roadmap's and Events' implementations for other
-    /// joins, so a project-reference rule cannot draw the line.
+    /// Calendar's own ports and the <em>published</em> surfaces of Roadmap, Events and Tasks
+    /// (local ADR 0055 §2, local ADR 0056 §2) — never their implementations. The same
+    /// compiled-assembly scan as the events joins above, for the same reason: FileSystem
+    /// reaches those implementations for other joins, so a project-reference rule cannot draw
+    /// the line.
     /// </summary>
     [Fact]
     public void Backlog_Infrastructure_FileSystem_answers_the_calendars_plans_through_roadmaps_published_surface()
@@ -771,6 +771,7 @@ public class ModuleBoundaryTests
         Assert.Contains("RoadmapCalendarPlans", scanned);
         Assert.Contains("RoadmapCalendarCapacity", scanned);
         Assert.Contains("EventsCalendarEvents", scanned);
+        Assert.Contains("TasksCalendarTasks", scanned);
         Assert.Contains("CalendarCrossContextAdapterRegistration", scanned);
 
         // The adapters do answer the Calendar: through its own ports.
@@ -780,13 +781,21 @@ public class ModuleBoundaryTests
         Assert.Contains(reached, entry =>
             entry.Assembly.Equals("Backlog.Modules.Calendar.Abstractions", StringComparison.OrdinalIgnoreCase)
             && entry.Type.EndsWith(".ICalendarEvents", StringComparison.Ordinal));
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals("Backlog.Modules.Calendar.Abstractions", StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".ICalendarTasks", StringComparison.Ordinal));
 
         // The events adapter reads Events through its published reader.
         Assert.Contains(reached, entry =>
             entry.Assembly.Equals(EventsAbstractions, StringComparison.OrdinalIgnoreCase)
             && entry.Type.EndsWith(".IKnowledgeEventReader", StringComparison.Ordinal));
 
-        string[] forbidden = ["Backlog.Modules.Roadmap", EventsImplementation, "Backlog.Modules.Tasks", "Backlog.Modules.Tasks.Abstractions"];
+        // The tasks adapter reads and writes Tasks through its published port.
+        Assert.Contains(reached, entry =>
+            entry.Assembly.Equals("Backlog.Modules.Tasks.Abstractions", StringComparison.OrdinalIgnoreCase)
+            && entry.Type.EndsWith(".ITaskItems", StringComparison.Ordinal));
+
+        string[] forbidden = ["Backlog.Modules.Roadmap", EventsImplementation, "Backlog.Modules.Tasks"];
         var offenders = reached
             .Where(entry => forbidden.Contains(entry.Assembly, StringComparer.OrdinalIgnoreCase))
             .Select(entry => $"{entry.Member} names {entry.Type}")
@@ -795,8 +804,8 @@ public class ModuleBoundaryTests
 
         Assert.True(
             offenders.Count == 0,
-            "Backlog.Infrastructure.FileSystem.Calendar reads Roadmap's or Events' implementation, or Tasks; it reads the "
-            + "Calendar's ports and the published surfaces of Roadmap and Events only:\n"
+            "Backlog.Infrastructure.FileSystem.Calendar reads Roadmap's, Events' or Tasks' implementation; it reads the "
+            + "Calendar's ports and the published surfaces of Roadmap, Events and Tasks only:\n"
             + string.Join('\n', offenders));
     }
 

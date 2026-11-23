@@ -104,6 +104,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
     /// <summary>A branch whose index is known and whose files are not here:
     /// every folder the index names resolves, the tree is the index, and both
     /// prepare calls are counted rather than performed.</summary>
+    // Differs from StubFolderSource: answers a branch index and counts the prepare calls.
     private sealed class IndexedBranchSource : IDevbookFolderSource
     {
         private readonly string _root;

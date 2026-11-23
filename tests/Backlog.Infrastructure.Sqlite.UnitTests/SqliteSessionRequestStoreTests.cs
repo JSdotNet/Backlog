@@ -16,7 +16,8 @@ public sealed class SqliteSessionRequestStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-session-requests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-session-requests");
+    private string _root => _temp.Path;
     private readonly ManualClock _clock = new(Noon);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -607,8 +608,7 @@ public sealed class SqliteSessionRequestStoreTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     private sealed class ManualClock(DateTimeOffset now) : TimeProvider

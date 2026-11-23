@@ -94,8 +94,9 @@ internal static class SurfaceWindowPages
     /// <summary>The head's own plumbing, which a page has no business resolving: the
     /// listener itself, whose disposal would take the page down with it, the
     /// snapshot it forwards from, and the link tokens, which a page that could mint
-    /// one could hand out.</summary>
-    private static readonly Type[] HostOnlyTypes = [typeof(McpServerWorker), typeof(DesktopServiceRegistrations), typeof(WindowLinkTokens)];
+    /// one could hand out — and the grant tokens and their broker, for the same reason.</summary>
+    private static readonly Type[] HostOnlyTypes =
+        [typeof(McpServerWorker), typeof(DesktopServiceRegistrations), typeof(WindowLinkTokens), typeof(McpGrantTokens), typeof(McpTokenBroker)];
 
     /// <summary>The names a request for a page may arrive under: loopback, as the
     /// listener is bound.</summary>
@@ -129,17 +130,22 @@ internal static class SurfaceWindowPages
     /// already carries the cookie: then it is a page reloaded from a stale address,
     /// and only the token is dropped.</item>
     /// <item><b>Any other page request</b> — the page itself, its files and its
-    /// circuit — goes on only with the cookie, and is 401 without it.</item>
+    /// circuit — goes on only with the cookie, and is 401 without it. The request
+    /// holds the cookie in use while it runs, so a page whose circuit is connected
+    /// never goes idle (local ADR 0058 §4).</item>
     /// </list>
-    /// A listener without <paramref name="tokens"/> admits nothing.
+    /// A refused <c>/window</c> load answers <see cref="ExpiredPage"/>, which asks for the
+    /// window to be opened again: a cookie idle for 8 hours, or forgotten by a restart,
+    /// is the usual reason. A listener without <paramref name="tokens"/> admits nothing.
     /// </summary>
-    public static bool Admit(HttpContext context, WindowLinkTokens? tokens)
+    public static async Task<bool> AdmitAsync(HttpContext context, WindowLinkTokens? tokens)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         var request = context.Request;
         var cookieName = CookieName(context.Connection.LocalPort);
-        var hasCookie = tokens is not null && tokens.IsValidCookie(request.Cookies[cookieName]);
+        var cookieValue = request.Cookies[cookieName];
+        var hasCookie = tokens is not null && tokens.IsValidCookie(cookieValue);
 
         if (request.Path.StartsWithSegments("/window", StringComparison.OrdinalIgnoreCase)
             && request.Query.TryGetValue(TokenQueryKey, out var presented))
@@ -163,7 +169,7 @@ internal static class SurfaceWindowPages
             }
             else if (!hasCookie)
             {
-                Refuse(context);
+                await RefuseAsync(context).ConfigureAwait(false);
                 return false;
             }
 
@@ -173,17 +179,46 @@ internal static class SurfaceWindowPages
             return false;
         }
 
-        if (hasCookie) return true;
+        if (hasCookie)
+        {
+            context.Response.RegisterForDispose(tokens!.Hold(cookieValue));
+            return true;
+        }
 
-        Refuse(context);
+        await RefuseAsync(context).ConfigureAwait(false);
         return false;
     }
 
-    private static void Refuse(HttpContext context)
+    /// <summary>
+    /// What a refused <c>/window</c> load shows the person or the agent's browser pane:
+    /// the page cannot be shown, and the way back is a new link. Static, so it says
+    /// nothing about the app beyond that; no surface is named and nothing is rendered.
+    /// </summary>
+    public const string ExpiredPage =
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Open the window again - Backlog</title>"
+        + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>"
+        + "<body style=\"font-family: system-ui, sans-serif; max-width: 36rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5\">"
+        + "<h1 style=\"font-size: 1.25rem\">Open the window again</h1>"
+        + "<p data-testid=\"window-expired\">This window's link has expired: the page was idle for 8 hours, the link was "
+        + "already used, or Backlog restarted since it was opened.</p>"
+        + "<p>Ask the agent to open the window again with <code>open_window</code>, or open it from the Backlog app.</p>"
+        + "</body></html>";
+
+    private static async Task RefuseAsync(HttpContext context)
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        context.Response.ContentType = "text/plain; charset=utf-8";
         context.Response.Headers.CacheControl = "no-store";
+
+        if (context.Request.Path.StartsWithSegments("/window", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            // No RequestAborted: a browser that gave up has nothing to read, and a
+            // cancelled write would only raise out of the guard.
+            await context.Response.WriteAsync(ExpiredPage, CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        context.Response.ContentType = "text/plain; charset=utf-8";
     }
 
     /// <summary>

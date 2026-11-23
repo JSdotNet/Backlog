@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.UI.Parts;
 
@@ -65,7 +66,7 @@ public sealed record BriefWeek(int WeeksBack, DateOnly Monday, int Number)
     {
         var back = Math.Clamp(weeksBack, 0, MaxWeeksBack);
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var thisMonday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var thisMonday = CalendarWeek.MondayOf(today);
         var monday = thisMonday.AddDays(-7 * (back + 1));
 
         return new BriefWeek(back, monday, ISOWeek.GetWeekOfYear(monday.ToDateTime(TimeOnly.MinValue)));

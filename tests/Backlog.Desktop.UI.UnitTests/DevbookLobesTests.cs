@@ -35,7 +35,7 @@ public sealed class DevbookLobesTests : IDisposable
         | Recipes | recipes |
         """;
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-lobes-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-lobes-tests");
 
     // ----- Brain regions -----------------------------------------------------------
 
@@ -396,7 +396,7 @@ public sealed class DevbookLobesTests : IDisposable
         Assert.False(unset.Available);
         Assert.Equal(BrainAtlas.NoBrainFolder, unset.Message);
 
-        var unbuilt = await service.ReadLobesAsync(new FixedBrain(Path.Combine(_scratch, "never-built")), [], TestContext.Current.CancellationToken);
+        var unbuilt = await service.ReadLobesAsync(new FixedBrain(_temp.Combine("never-built")), [], TestContext.Current.CancellationToken);
         Assert.False(unbuilt.Available);
         Assert.Equal(BrainAtlas.BrainIndexMissing, unbuilt.Message);
 
@@ -426,7 +426,7 @@ public sealed class DevbookLobesTests : IDisposable
     public async Task The_lobes_source_builds_the_brains_index_through_the_refresher()
     {
         var brain = WriteBrain();
-        var cache = Path.Combine(_scratch, "devbook-cache");
+        var cache = _temp.Combine("devbook-cache");
         using var refresher = new DevbookDatabaseRefresher(() => cache, watchFolder: (_, _) => null);
         using var services = new ServiceCollection()
             .AddSingleton<IBrainFolderSource>(new FixedBrain(brain))
@@ -457,7 +457,7 @@ public sealed class DevbookLobesTests : IDisposable
             Assert.Equal(BrainLobesSource.BuildUnavailable, await source.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
         }
 
-        using var refresher = new DevbookDatabaseRefresher(() => Path.Combine(_scratch, "devbook-cache"), watchFolder: (_, _) => null);
+        using var refresher = new DevbookDatabaseRefresher(() => _temp.Combine("devbook-cache"), watchFolder: (_, _) => null);
         using var noBrain = new ServiceCollection().AddSingleton<IBrainFolderSource>(new FixedBrain(null)).AddSingleton(refresher).BuildServiceProvider();
         var unset = new BrainLobesSource(new DevbookAtlasService(new Registered(Array.Empty<string>())), atlas,new DevbookScope(null!, null!, null!), noBrain);
         Assert.False(unset.CanBuildBrainIndex);
@@ -496,7 +496,7 @@ public sealed class DevbookLobesTests : IDisposable
 
     private string WriteBrain()
     {
-        var root = Path.Combine(_scratch, "Brain");
+        var root = _temp.Combine("Brain");
         Write(root, BrainConventions.FileName, Conventions);
         Write(root, "projects/plan.md", """
             # Plan
@@ -532,7 +532,7 @@ public sealed class DevbookLobesTests : IDisposable
 
     private string WriteRepository()
     {
-        var root = Path.Combine(_scratch, "backlog");
+        var root = _temp.Combine("backlog");
         Write(root, ".devbook/arc42/01-introduction-and-goals.md", "# Introduction\n\nGoals.\n");
         Write(root, ".devbook/arc42/adr/README.md", "# Decisions\n\nThe records.\n");
         Write(root, ".devbook/arc42/adr/0001-use-sqlite.md", "# Use SQLite\n\nDecided.\n");
@@ -559,7 +559,7 @@ public sealed class DevbookLobesTests : IDisposable
     }
 
     private string DatabaseFor(string brainRoot) =>
-        DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), brainRoot)!;
+        DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), brainRoot)!;
 
     private static void Write(string root, string relativePath, string text)
     {
@@ -570,18 +570,13 @@ public sealed class DevbookLobesTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
+        SqliteConnection.ClearAllPools();
+        _temp.Dispose();
     }
 
     /// <summary>The repositories registered on this machine: an alias, and where
     /// its clone is when it has one.</summary>
+    // Differs from StubFolderSource: answers several registered repositories, each with its own clone.
     private sealed class Registered(params (string Alias, string? Root)[] repositories) : IDevbookFolderSource
     {
         public Registered(params string[] aliases)

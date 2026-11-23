@@ -96,17 +96,6 @@ public sealed class AppErrorBoundaryTests
     }
 
     [Fact]
-    public void Report_issue_is_withheld_when_feedback_reporting_is_off()
-    {
-        using var host = Open(feedbackReporting: false);
-
-        host.Layout.Find("[data-testid='page-throw']").Click();
-
-        Assert.NotNull(host.Layout.Find("[data-testid='app-error-retry']"));
-        Assert.Empty(host.Layout.FindAll("[data-testid='app-error-report']"));
-    }
-
-    [Fact]
     public void Go_to_Home_leaves_the_failed_route_and_renders_the_page_again()
     {
         using var host = Open();
@@ -121,7 +110,7 @@ public sealed class AppErrorBoundaryTests
         Assert.Empty(host.Layout.FindAll("[data-testid='app-error-state']"));
     }
 
-    private static LayoutHost Open(bool throwOnRender = false, bool feedbackReporting = true)
+    private static LayoutHost Open(bool throwOnRender = false)
     {
         var context = new BunitContext();
 
@@ -129,18 +118,18 @@ public sealed class AppErrorBoundaryTests
         // is about that.
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-error-boundary", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-error-boundary");
+        var root = temp.Path;
 
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        _ = features.SetEnabled(AppFeatures.FeedbackReporting, feedbackReporting);
 
         context.Services.AddSingleton<IAppUpdateService>(new UnsupportedAppUpdateService(currentVersion: "1.2.3"));
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton(new FeedbackReporter(
             new GitHubIntegration(
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
-                new SilentGitHubClient(),
-                new SilentProbe())));
+                new StubGitHubClient(),
+                new StubProbe())));
         context.Services.AddSingleton<FeedbackReportChannel>();
 
         var layout = context.Render<MainLayout>(parameters => parameters.Add(
@@ -152,22 +141,15 @@ public sealed class AppErrorBoundaryTests
                 builder.CloseComponent();
             }));
 
-        return new LayoutHost(context, layout, root);
+        return new LayoutHost(context, layout, temp);
     }
 
-    private sealed record LayoutHost(BunitContext Context, IRenderedComponent<MainLayout> Layout, string Root) : IDisposable
+    private sealed record LayoutHost(BunitContext Context, IRenderedComponent<MainLayout> Layout, TemporaryDirectory Temp) : IDisposable
     {
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 
@@ -197,30 +179,5 @@ public sealed class AppErrorBoundaryTests
         }
 
         private static void Throw() => throw new InvalidOperationException("The page threw.");
-    }
-
-    private sealed class SilentGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class SilentProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not configured."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

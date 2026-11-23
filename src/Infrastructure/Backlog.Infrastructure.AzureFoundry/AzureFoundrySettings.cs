@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.AzureFoundry;
 
@@ -67,10 +68,7 @@ public sealed class AzureFoundrySettingsStore
     private readonly string _path;
 
     public AzureFoundrySettingsStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            "azure-foundry.json"))
+        : this(AppDataPaths.Shared("azure-foundry.json"))
     {
     }
 

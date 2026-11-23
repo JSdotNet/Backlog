@@ -39,23 +39,20 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         "# First step\n`prompt` `+myplan` `id:first` `effort:3`\n\n"
         + "# Second step\n`prompt` `+myplan` `id:second` `after:first` `effort:5`\n";
 
-    private readonly string _tempDir = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-import-across-roadmap",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-import-across-roadmap");
 
     private readonly ServiceProvider _provider;
 
     public ImportPlanAcrossRoadmapTests()
     {
-        var store = new WorkspaceSettingsStore(_tempDir, Path.Combine(_tempDir, "settings.json"));
+        var store = new WorkspaceSettingsStore(_temp.Path, _temp.Combine("settings.json"));
 
         var services = new ServiceCollection();
         services.AddSingleton(store);
         services.AddSingleton<ITaskRepository>(_ => new RootedSqliteTaskRepository(() => store.RootDirectory));
         services.AddSingleton<IRoadmapPlanRepository>(_ => new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory));
-        services.AddSingleton(new GitHubSettingsStore(Path.Combine(_tempDir, "github", "github.json")));
-        services.AddSingleton(new PlanningVelocitySettingsStore(Path.Combine(_tempDir, "velocity", "planning-velocity.json")));
+        services.AddSingleton(new GitHubSettingsStore(_temp.Combine("github", "github.json")));
+        services.AddSingleton(new PlanningVelocitySettingsStore(_temp.Combine("velocity", "planning-velocity.json")));
         services.AddTasksAdapters();
         services.AddTasksModule();
         services.AddRoadmapModule();
@@ -68,11 +65,8 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        if (Directory.Exists(_tempDir))
-        {
-            TestDatabases.Release(_tempDir);
-            try { Directory.Delete(_tempDir, recursive: true); } catch (IOException) { }
-        }
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
     }
 
     [Fact]

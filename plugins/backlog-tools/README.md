@@ -152,8 +152,12 @@ and one that keeps a person's goals current — and a pane that follows a runnin
 - **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
   ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
-  Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
-  finds the app's port and token the way the telemetry forwarder does, loops on
+  Desktop session. It works under the app's **Manager** grant (`mcpServer.grants.manager`,
+  local ADR 0058), the only grant holding `sessions:dispatch`: the six request and delivery
+  tools go through `assets/manager-call.mjs`, one JSON-RPC call to the app's `/mcp` each, not
+  through the `backlog` server, whose delivery grant the app refuses them. A Monitor runs
+  `skills/dispatch-sessions/assets/wait-requests.mjs`, which takes a Manager token per call
+  the way the telemetry forwarder takes its own (`hooks/backlog-grant.mjs`), loops on
   `GET /session-requests/wait` — naming the Manager's own session as `sessionId`, so each wait
   counts as its loop check-in (local ADR 0051 §3) — and prints each item once — an answer delivery (`delivery`,
   local ADR 0041) before any session request (`request`) — so the Manager spends no turn
@@ -188,7 +192,8 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   yet model-invocable: `/loop` runs its inner command through the Skill tool, which refuses a
   `disable-model-invocation` skill, so its description confines invocation to that start and
   `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it. `tests/dispatch-sessions.test.ts` drives the wait
-  script's decisions under `claude plugin test`; the two processes themselves run under
+  script's decisions under `claude plugin test`; the processes themselves — the wait script,
+  `manager-call.mjs` and the capacity probe — run under
   `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
   sandbox spawns nothing.
 - **`tend-brain`** — tends a person's Brain, the personal notes folder of local ADR 0026
@@ -202,8 +207,18 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   unless the rules name a field or a filename form — and moved out of the inbox to the folder the
   rules keep for processed input, else `archive/processed/`. The folders and the `source:` links
   are its only state, so a tick over an unchanged folder changes nothing — and costs little: it
-  re-reads the rules only when one changed, and stops after one line when the inbox is empty and
-  no follow-up is open. A remark the person routes to the rules' Backlog follow-up heading, with
+  re-reads the rules only when one changed, and stops after one line when the inbox is empty,
+  no follow-up is open and the app's inbox holds nothing. With the `backlog` MCP server present it
+  also triages the Backlog app's inbox (`list_inbox_items`, `read_inbox_item`). A follow-up first
+  gets its `task` entry, or a `plan` when it has several steps — found by its title or created, and
+  with two matches it waits, nothing written. Then every reference, capture or follow-up gets one
+  file per item id where the rules file it, else `_inbox/` — where the next tick files it as input —
+  with the item's words verbatim, its source URL, tags and attachments by path, `source:
+  backlog-inbox <id>` and any task id in `tasks:`. An unclear item, or one whose attachments are
+  not downloaded yet, stays in the app inbox, its reason reported. Only once its file exists is an
+  item archived with `archive_inbox_item` — never deleted — and the report says, per item, where
+  its file went, the task id it created, and whether it was archived or left waiting.
+  A remark the person routes to the rules' Backlog follow-up heading, with
   no reference yet, becomes a `task` entry through the `backlog` MCP server — `find_item` by
   its title first, so a second tick files no duplicate — and the new id is reported for the
   person to fill in; the line itself is never edited. An input with more than one possible home, or whose filing needs a fact it does not
@@ -362,11 +377,14 @@ provides on every platform it runs on.
 
 It also registers `hooks/telemetry-forwarder.mjs` for `PreToolUse`, `PostToolUse`,
 `SubagentStop`, `PreCompact`, `Stop` and `SessionEnd`. Each event is posted to the app's
-`/telemetry` endpoint — beside `/mcp`, on the same port and behind the same bearer token — and
+`/telemetry` endpoint — beside `/mcp`, on the same port — and
 the app attributes the tool calls, delegated agents, token usage and context gauge to the
-delivery run that session is driving, which the Sessions pane shows under the run's row. The
-port and token come from `BACKLOG_MCP_PORT` and `BACKLOG_MCP_TOKEN`, else from the app's own
-`settings.json`. The tool-call events
+delivery run that session is driving, which the Sessions pane shows under the run's row. Each
+post carries a token for the app's **Telemetry** grant (`mcpServer.grants.telemetry` in its
+`settings.json`, local ADR 0058), which `hooks/backlog-grant.mjs` asks for through the headers
+helper the app installs, `<app data>\hooks\backlog-mcp-headers.mjs --grant <id>`; no token is
+kept in a file. `BACKLOG_MCP_TOKEN`, the dev and CI escape hatch, is sent only where no
+Telemetry grant is recorded, and `BACKLOG_MCP_PORT` overrides the port. The tool-call events
 are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's figures are
 read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on

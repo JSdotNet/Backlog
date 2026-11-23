@@ -17,19 +17,19 @@ public sealed class EventsBrainNotesTests : IDisposable
     private const string Techorama = "areas/learning/techorama.md";
     private const string Aspire = "areas/learning/aspire.md";
 
-    private readonly string _scratch = Path.Combine(Path.GetTempPath(), "backlog-events-brain-notes", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-events-brain-notes");
 
     public EventsBrainNotesTests()
     {
         Write("CONVENTIONS.md", "# Conventions\n\n## Areas\n\n| Area | Folder |\n|---|---|\n| Areas | areas |\n");
         Write(Techorama, "# Techorama takeaways\n\nWhat I learned.\n");
         Write(Aspire, "# Aspire in production\n\nNotes.\n");
-        Write("outside.md", "# Outside\n", root: _scratch);
+        Write("outside.md", "# Outside\n", root: _temp.Path);
     }
 
-    private string Brain => Path.Combine(_scratch, "Brain");
+    private string Brain => _temp.Combine("Brain");
 
-    private string Database => DevbookDatabaseLocation.PathFor(Path.Combine(_scratch, "devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), Brain)!;
+    private string Database => DevbookDatabaseLocation.PathFor(_temp.Combine("devbook-cache", DevbookDatabaseLocation.DatabasesFolderName), Brain)!;
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
@@ -92,7 +92,7 @@ public sealed class EventsBrainNotesTests : IDisposable
     [Fact]
     public async Task A_brain_folder_that_is_gone_says_so()
     {
-        var gone = Path.Combine(_scratch, "Gone");
+        var gone = _temp.Combine("Gone");
         var notes = new EventsBrainNotes(null, () => gone, _ => Database);
 
         Assert.Equal($"The Brain folder was not found at {gone}.", notes.UnavailableReason);
@@ -102,7 +102,7 @@ public sealed class EventsBrainNotesTests : IDisposable
     [Fact]
     public async Task A_brain_without_a_database_still_resolves_its_notes_by_file_name()
     {
-        var notes = new EventsBrainNotes(null, () => Brain, _ => Path.Combine(_scratch, "missing", "devbook.db"));
+        var notes = new EventsBrainNotes(null, () => Brain, _ => _temp.Combine("missing", "devbook.db"));
 
         var found = await notes.ResolveAsync([Techorama], Token);
 
@@ -158,14 +158,7 @@ public sealed class EventsBrainNotesTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-
-        try
-        {
-            if (Directory.Exists(_scratch)) Directory.Delete(_scratch, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 
     private sealed class ChangingSource : IBrainFolderSource

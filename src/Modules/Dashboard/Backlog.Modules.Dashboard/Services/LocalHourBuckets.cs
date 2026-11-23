@@ -103,49 +103,6 @@ internal static class LocalHourBuckets
     }
 
     /// <summary>
-    /// Which of the grid's cells an interval touches, in order, and none at all for an
-    /// interval that falls outside it.
-    /// <para>
-    /// Hours rather than days, because the questions asked of it are hour-level: whether
-    /// a session ran on a day is answered by the days these cells fall on, but whether it
-    /// ran inside the working day is not — a session from four until eight was inside for
-    /// one hour of it and outside for three, and a day-level answer could only have said
-    /// one of those.
-    /// </para>
-    /// <para>
-    /// Here rather than at the caller for the reason every other conversion in this class
-    /// is: a second place that turned an instant into a local hour would be a second place
-    /// for the grid's cells and the figures beside them to disagree about when something
-    /// happened.
-    /// </para>
-    /// </summary>
-    internal static IEnumerable<HourCell> HoursTouched(
-        DateTimeOffset from,
-        DateTimeOffset to,
-        DateTimeOffset gridEnd,
-        TimeZoneInfo zone)
-    {
-        ArgumentNullException.ThrowIfNull(zone);
-
-        if (to <= from) yield break;
-
-        var last = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(gridEnd, zone).DateTime);
-        var first = last.AddDays(-(Days - 1));
-
-        foreach (var (cell, length) in Pieces(from, to, zone))
-        {
-            // A zero-length piece touches nothing. The same rule the sweep raises a peak
-            // under, and for the same reason: an interval that ends exactly on an hour
-            // boundary has not happened in the hour after it.
-            if (length <= TimeSpan.Zero) continue;
-
-            if (cell.Day < first || cell.Day > last) continue;
-
-            yield return cell;
-        }
-    }
-
-    /// <summary>
     /// Sweeps a set of intervals into the cells: the peak number overlapping at any
     /// instant in the cell, and the total interval-time landing in it with overlapping
     /// intervals summed rather than merged.

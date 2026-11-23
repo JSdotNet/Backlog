@@ -38,7 +38,7 @@ The build engine, and the directory-scoped property files that configure it.
 | File | Sets | Why there |
 |---|---|---|
 | `Directory.Build.props` | `net10.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, and `$(MauiVersion)` | Every project needs them. |
-| `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `RepositoryRoot.cs` | Every test project runs the same way. |
+| `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `tests/Shared/` helpers `RepositoryRoot.cs`, `Polling.cs` and `TemporaryDirectory.cs` | Every test project runs the same way. |
 | `src/Harness/Directory.Build.props` | The non-publishable flags | An accidental `dotnet publish` of a harness fails loudly. |
 
 Each subtree file re-imports the root one, because MSBuild loads only the nearest.
@@ -126,8 +126,7 @@ The package manager for JavaScript/TypeScript dependencies.
   `npm run compile` in the pull-request workflow, and `npm run watch` as the
   `ide-vscode-build` Aspire resource.
 - **Why** — the default package manager of Node.js. The repository's own Node
-  tooling avoids it on purpose: Archify is vendored under `tools/archify/` with
-  no `node_modules`, so `tools/diagrams` runs on a bare Node install.
+  tooling avoids it on purpose, so `tools/devbook` runs on a bare Node install.
 
 ## PowerShell
 
@@ -378,7 +377,7 @@ flowchart LR
   holds:
   - the reference graph and the resolved reading outline;
   - every chapter's text and hashes, with its count of open review notes;
-  - the FTS5 index, the Archify artifact rows, and an empty embedding table.
+  - the FTS5 index, the click demos, and an empty embedding table.
 
   `node tools/devbook/build-database.mjs` builds the same tables from the
   command line. `--check` builds to a temporary file and deletes it, and
@@ -421,34 +420,24 @@ flowchart LR
 ## Archify
 
 ```meta
-rating: adopted
+rating: retired
 type: tool
 version: "2.16.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#mermaid"]
-related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons"]
+related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md"]
+date: 2026-11-19
 ```
 
-A JSON-IR diagram renderer, vendored under `tools/archify/`.
+A JSON-IR diagram renderer, once vendored under `tools/archify/`.
 
-- **Used for** — re-authoring a devbook-chapter mermaid fence as a
-  specification and rendering a self-contained HTML artifact from it. The
-  desktop app shows that artifact in place of the mermaid behind the
-  `archify-diagrams` flag. `tools/diagrams/archify-artifacts.mjs` wraps it with
-  `scan`, `scaffold`, `render`, and `verify`.
-- **Why** — it is a visualization layer over the canonical fence, not a
-  replacement. An artifact is matched to a diagram by the SHA-256 of the
-  normalized fence. So an edited diagram falls back to mermaid with an
-  out-of-date note rather than showing a stale picture.
-- **How** — vendored with no `node_modules`, so the commands run on a bare Node
-  install. A specification is accepted only at 9/9 checks. A few diagrams render
-  at the `standard` profile instead of `showcase`, and say so in their filename.
-- **What is committed** — the specifications and `_archify/index.json` only
-  (local ADR 0034). The desktop app draws each artifact on demand from its
-  specification, into `_archify-renders/` under the devbook cache folder. It uses
-  the clone's `tools/archify` or the copy bundled beside the app. The cache key
-  covers the specification, its type and quality, and the generator's content, so
-  an upgrade redraws every diagram. The upstream example renders are not
-  vendored, and `.gitignore` keeps any local render out.
+- **Used for** — nothing now. It re-authored a chapter's mermaid fence as a
+  specification and rendered a self-contained HTML artifact from it, which the
+  desktop app showed in place of the mermaid behind the `archify-diagrams` flag.
+- **Why `retired`** — local ADR 0057 retires it, superseding ADR 0034. The flag
+  was off by default and Mermaid already drew every chapter, while the vendored
+  generator and its app code were about 41,000 lines and every fence edit left an
+  artifact out of date. The app draws every chapter diagram with Mermaid, and the
+  generator leaves the repository with the code that ran it.
 
 ## c4hero
 
@@ -485,33 +474,34 @@ dependency**.
 ## Ajv
 
 ```meta
-rating: adopted
+rating: retired
 type: package
 version: "^8.17.1"
 depends-on: [".devbook/tech/tooling.md#archify", ".devbook/tech/shared.md#json"]
+date: 2026-11-19
 ```
 
 JSON Schema validation.
 
-- **Used for** — validating an Archify specification before it renders, through
-  the generated validators `tools/archify/scripts/generate-validators.mjs`
-  produces.
-- **Why** — a specification that fails validation must not produce an artifact,
-  and the check is compiled rather than interpreted at render time.
+- **Used for** — nothing now. It validated an Archify specification before it
+  rendered, through the validators `tools/archify/scripts/generate-validators.mjs`
+  generated.
+- **Why `retired`** — Archify was its only user, and it leaves with it (local
+  ADR 0057).
 
 ## simple-icons
 
 ```meta
-rating: adopted
+rating: retired
 type: package
 version: "16.28.0"
 depends-on: [".devbook/tech/tooling.md#archify"]
+date: 2026-11-19
 ```
 
 The brand-mark icon set.
 
-- **Used for** — the technology marks Archify draws into an artifact, generated
-  into the renderer by `generate-brand-marks.mjs`.
-- **Why** — it is pinned to an exact version, and both generators ship a
-  `--check` mode that the vendored test script runs. A regenerated output
-  therefore cannot drift from what is committed.
+- **Used for** — nothing now. It supplied the technology marks Archify drew into
+  an artifact, generated into the renderer by `generate-brand-marks.mjs`.
+- **Why `retired`** — Archify was its only user, and it leaves with it (local
+  ADR 0057).

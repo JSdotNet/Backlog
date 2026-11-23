@@ -11,7 +11,9 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class BrainShowHiddenTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-brain-show-hidden-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-brain-show-hidden-tests");
+
+    private string _root => _temp.Combine("data");
 
     private string ShellPath => Path.Combine(_root, "shell-navigation.json");
 
@@ -106,14 +108,5 @@ public sealed class BrainShowHiddenTests : IDisposable
         Assert.Equal(1, announced);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

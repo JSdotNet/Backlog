@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -23,7 +24,7 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
     };
 
     private readonly IReadOnlyList<AppFeatureDefinition> _features;
-    private readonly string _path;
+    private readonly JsonFileStore<FeatureSettingsDto> _file;
 
     public AppFeatureSettingsStore(IReadOnlyList<AppFeatureDefinition> features)
         : this(
@@ -35,16 +36,9 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
     public AppFeatureSettingsStore(IReadOnlyList<AppFeatureDefinition> features, string path)
     {
         ArgumentNullException.ThrowIfNull(features);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         _features = features;
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<FeatureSettingsDto>(path, JsonOptions);
 
         Current = Read();
     }
@@ -53,13 +47,11 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
 
     public AppFeatureSettings Current { get; private set; }
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public bool IsEnabled(string key)
     {
         var feature = Find(key) ?? throw new ArgumentException($"Unknown feature '{key}'.", nameof(key));
-
-        if (feature.AlwaysEnabled) return true;
 
         return feature.EnabledByDefault
             ? !Current.DisabledFeatures.Contains(feature.Key)
@@ -72,11 +64,6 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
         if (feature is null)
         {
             return $"Unknown feature '{key}'.";
-        }
-
-        if (feature.AlwaysEnabled && !enabled)
-        {
-            return $"{feature.Name} is always available.";
         }
 
         var disabled = new HashSet<string>(Current.DisabledFeatures, StringComparer.OrdinalIgnoreCase);
@@ -107,65 +94,33 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
     {
         Current = Normalize(settings);
 
-        string? error = null;
-        try
+        var saved = _file.TrySave(new FeatureSettingsDto
         {
-            var dto = new FeatureSettingsDto
-            {
-                DisabledFeatures = [.. Current.DisabledFeatures.Order(StringComparer.OrdinalIgnoreCase)],
-                EnabledFeatures = [.. Current.EnabledFeatures.Order(StringComparer.OrdinalIgnoreCase)]
-            };
-
-            File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the feature choice couldn't be saved for next time.";
-        }
+            DisabledFeatures = [.. Current.DisabledFeatures.Order(StringComparer.OrdinalIgnoreCase)],
+            EnabledFeatures = [.. Current.EnabledFeatures.Order(StringComparer.OrdinalIgnoreCase)]
+        });
 
         Changed?.Invoke();
-        return error;
+        return saved ? null : "Changed, but the feature choice couldn't be saved for next time.";
     }
 
     private AppFeatureSettings Read()
     {
-        try
+        if (_file.Load() is not { } dto) return new AppFeatureSettings();
+
+        return Normalize(new AppFeatureSettings
         {
-            if (!File.Exists(_path)) return new AppFeatureSettings();
-
-            var dto = JsonSerializer.Deserialize<FeatureSettingsDto>(File.ReadAllText(_path), JsonOptions);
-            if (dto is null) return new AppFeatureSettings();
-
-            var disabled = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase);
-            var enabled = new HashSet<string>(dto.EnabledFeatures, StringComparer.OrdinalIgnoreCase);
-
-            // A choice recorded under a key the feature used to have is the same
-            // choice. Done before Normalize, which would otherwise drop the old
-            // key as unknown and lose the choice with it; the old key itself is
-            // then dropped there, so the next save writes only the current one.
-            foreach (var feature in _features.Where(f => f.FormerKeys is { Count: > 0 }))
-            {
-                if (feature.FormerKeys!.Any(disabled.Contains)) disabled.Add(feature.Key);
-                if (feature.FormerKeys!.Any(enabled.Contains)) enabled.Add(feature.Key);
-            }
-
-            return Normalize(new AppFeatureSettings
-            {
-                DisabledFeatures = disabled,
-                EnabledFeatures = enabled
-            });
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return new AppFeatureSettings();
-        }
+            DisabledFeatures = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase),
+            EnabledFeatures = new HashSet<string>(dto.EnabledFeatures, StringComparer.OrdinalIgnoreCase)
+        });
     }
 
     private AppFeatureSettings Normalize(AppFeatureSettings settings)
     {
-        var switchable = _features.Where(f => !f.AlwaysEnabled).ToList();
-        var optOut = switchable.Where(f => f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var optIn = switchable.Where(f => !f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // A key the catalog no longer defines — a retired flag — matches neither
+        // set and is dropped here, so the next save leaves it out of the file.
+        var optOut = _features.Where(f => f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var optIn = _features.Where(f => !f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         return new AppFeatureSettings
         {

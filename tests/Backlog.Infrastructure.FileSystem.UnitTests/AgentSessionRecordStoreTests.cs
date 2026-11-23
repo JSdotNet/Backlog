@@ -5,16 +5,13 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 public sealed class AgentSessionRecordStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "agent-session-record-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("agent-session-record-store-tests");
+
+    private string _root => _temp.Combine("data");
 
     private static readonly DateTimeOffset Noon = new(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private AgentSessionRecordStore Store() => new(() => _root);
 

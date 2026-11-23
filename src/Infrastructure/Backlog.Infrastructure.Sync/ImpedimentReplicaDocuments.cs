@@ -19,27 +19,20 @@ public static class ImpedimentReplicaDocuments
     /// <summary>What the activity log calls an impediment whose title this build could not read.</summary>
     public const string UntitledTitle = "Impediment";
 
+    private static readonly WholeDocumentKind Kind = new(ImpedimentType, UntitledTitle);
+
     /// <summary>Whether a document is an impediment's. Ordinal, as every token on the feed is compared.</summary>
-    public static bool IsImpediment(TaskChange change)
-    {
-        ArgumentNullException.ThrowIfNull(change);
-        return string.Equals(change.Task.Type, ImpedimentType, StringComparison.Ordinal);
-    }
+    public static bool IsImpediment(TaskChange change) => Kind.Is(change);
 
     /// <summary>The key an impediment's push mark is kept under, prefixed by the kind token.</summary>
-    public static string MarkOf(Guid impedimentId) => $"{ImpedimentType}/{impedimentId:D}";
+    public static string MarkOf(Guid impedimentId) => Kind.MarkOf(impedimentId);
 
     /// <summary>The impediment as a task-shaped change, titled by its title.</summary>
     public static TaskChange ToChange(ImpedimentReplicaCopyDto copy)
     {
         ArgumentNullException.ThrowIfNull(copy);
 
-        return WholeDocumentChange.Of(
-            copy.Id,
-            string.IsNullOrWhiteSpace(copy.Title) ? UntitledTitle : copy.Title,
-            ImpedimentType,
-            copy.Content,
-            copy.UpdatedAt);
+        return Kind.ToChange(copy.Id, copy.Title, copy.Content, copy.UpdatedAt);
     }
 
     /// <summary>The copy a pulled document carries, as Progress takes it.</summary>
@@ -48,9 +41,6 @@ public static class ImpedimentReplicaDocuments
         ArgumentNullException.ThrowIfNull(change);
 
         return new ImpedimentReplicaCopyDto(
-            change.Id,
-            change.Task.Title ?? string.Empty,
-            change.Task.ContentMd ?? string.Empty,
-            change.UpdatedAt);
+            change.Id, WholeDocumentKind.TitleOf(change), WholeDocumentKind.ContentOf(change), change.UpdatedAt);
     }
 }

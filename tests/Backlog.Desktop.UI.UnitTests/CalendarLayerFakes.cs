@@ -86,6 +86,104 @@ internal sealed class FakeCalendarEvents(DateOnly today) : ICalendarEvents
     }
 }
 
+/// <summary>
+/// The Calendar's Tasks port over a list kept in memory: what it reads is what the test put
+/// in, narrowed to the window as the adapter narrows it, and a write is recorded, applied
+/// and signalled — or refused when <see cref="Refusal"/> is set, which changes nothing.
+/// </summary>
+internal sealed class FakeCalendarTasks : ICalendarTasks
+{
+    public event Action? Changed;
+
+    public List<CalendarTaskDto> Tasks { get; } = [];
+
+    public List<CalendarHoursBlockDto> Hours { get; } = [];
+
+    /// <summary>The refusal every write answers with, or null to accept them.</summary>
+    public string? Refusal { get; set; }
+
+    /// <summary>When given, every read throws it — as a task list that cannot be read does.</summary>
+    public Exception? Failure { get; set; }
+
+    /// <summary>Answers <see cref="CalendarTasksDto.Off"/>, as the adapter for a host
+    /// composed without Tasks does.</summary>
+    public bool Off { get; init; }
+
+    public List<CalendarWindow> Reads { get; } = [];
+
+    public List<(Guid Id, DateOnly DueOn)> DueWrites { get; } = [];
+
+    public List<(Guid Id, DateOnly On, decimal? Hours)> HoursWrites { get; } = [];
+
+    public void RaiseChanged() => Changed?.Invoke();
+
+    public Task<CalendarTasksDto> ReadAsync(CalendarWindow window, CancellationToken cancellationToken = default)
+    {
+        Reads.Add(window);
+        if (Failure is not null) return Task.FromException<CalendarTasksDto>(Failure);
+        if (Off) return Task.FromResult(CalendarTasksDto.Off);
+
+        return Task.FromResult(new CalendarTasksDto(
+            [.. Tasks.Where(task => window.Contains(task.DueOn))],
+            [.. Hours.Where(block => window.Contains(block.On))]));
+    }
+
+    public Task<string?> SetDueDateAsync(Guid taskId, DateOnly dueOn, CancellationToken cancellationToken = default)
+    {
+        DueWrites.Add((taskId, dueOn));
+        if (Refusal is not null) return Task.FromResult<string?>(Refusal);
+
+        var index = Tasks.FindIndex(task => task.Id == taskId);
+        if (index >= 0) Tasks[index] = Tasks[index] with { DueOn = dueOn };
+        Changed?.Invoke();
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task<string?> SetPlannedHoursAsync(Guid taskId, DateOnly on, decimal? hours, CancellationToken cancellationToken = default)
+    {
+        HoursWrites.Add((taskId, on, hours));
+        if (Refusal is not null) return Task.FromResult<string?>(Refusal);
+
+        var existing = Hours.FindIndex(block => block.TaskId == taskId && block.On == on);
+        var title = Tasks.FirstOrDefault(task => task.Id == taskId)?.Title
+            ?? (existing >= 0 ? Hours[existing].Title : string.Empty);
+        var repositories = Tasks.FirstOrDefault(task => task.Id == taskId)?.RepositoryIds
+            ?? (existing >= 0 ? Hours[existing].RepositoryIds : []);
+        if (existing >= 0) Hours.RemoveAt(existing);
+        if (hours is { } figure) Hours.Add(new CalendarHoursBlockDto(taskId, title, on, figure, repositories));
+        Changed?.Invoke();
+        return Task.FromResult<string?>(null);
+    }
+}
+
+/// <summary>The window's scope and colours, set by the test: every repository in scope
+/// and no colour until told otherwise.</summary>
+internal sealed class FakeCalendarWindowScope : ICalendarWindowScope
+{
+    public event Action? Changed;
+
+    /// <summary>The repositories in scope; empty takes every task.</summary>
+    public HashSet<string> Scope { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Whether a task filed under no repository is in scope while
+    /// <see cref="Scope"/> holds some — the Brain pressed.</summary>
+    public bool Brain { get; set; }
+
+    /// <summary>The band each repository wears; empty while the colours are hidden.</summary>
+    public Dictionary<string, int> Bands { get; } = new(StringComparer.Ordinal);
+
+    public void RaiseChanged() => Changed?.Invoke();
+
+    public bool InScope(IReadOnlyList<string> repositoryIds) =>
+        Scope.Count == 0
+        || (Brain && repositoryIds.Count == 0)
+        || repositoryIds.Any(Scope.Contains);
+
+    public int? BandFor(IReadOnlyList<string> repositories) =>
+        repositories.Select(repository => Bands.TryGetValue(repository, out var band) ? band : (int?)null)
+            .FirstOrDefault(band => band is not null);
+}
+
 /// <summary>The working week at a fixed number of hours every day.</summary>
 internal sealed class FakeCalendarCapacity(decimal hours) : ICalendarCapacity
 {
@@ -98,18 +196,23 @@ internal sealed class FakeCalendarCapacity(decimal hours) : ICalendarCapacity
     public void RaiseChanged() => Changed?.Invoke();
 }
 
-/// <summary>The Calendar's view choices, kept in memory. Show plans starts ticked, so a
-/// test about the plans sees them drawn without ticking the box first; Show events starts
-/// off, as on a device that never chose.</summary>
+/// <summary>The Calendar's view choices, kept in memory. Show tasks starts ticked, as on
+/// every device; Show plans starts ticked, so a test about the plans sees them drawn
+/// without ticking the box first; Show events starts off, as on a device that never
+/// chose.</summary>
 internal sealed class FakeCalendarViewPreferences : ICalendarViewPreferences
 {
     public CalendarRange Range { get; set; } = CalendarRange.Month;
+
+    public bool TasksShown { get; set; } = true;
 
     public bool PlansShown { get; set; } = true;
 
     public bool EventsShown { get; set; }
 
     public void SetRange(CalendarRange range) => Range = range;
+
+    public void SetTasksShown(bool shown) => TasksShown = shown;
 
     public void SetPlansShown(bool shown) => PlansShown = shown;
 
@@ -119,14 +222,9 @@ internal sealed class FakeCalendarViewPreferences : ICalendarViewPreferences
 /// <summary>A shell navigation file path of its own, removed again afterwards.</summary>
 internal sealed class TempShellNavigationFile : IDisposable
 {
-    private readonly string _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "backlog-calendar-plans-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-calendar-plans-tests");
 
-    public TempShellNavigationFile() => Directory.CreateDirectory(_directory);
+    public string Path => _temp.Combine("shell-navigation.json");
 
-    public string Path => System.IO.Path.Combine(_directory, "shell-navigation.json");
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_directory, recursive: true); } catch (IOException) { }
-    }
+    public void Dispose() => _temp.Dispose();
 }

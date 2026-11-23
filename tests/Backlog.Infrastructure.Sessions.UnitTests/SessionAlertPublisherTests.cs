@@ -520,6 +520,7 @@ public sealed class SessionAlertPublisherTests
     /// <summary>The session list. It records every horizon it is asked for; with
     /// <see cref="HonoursHorizon"/> it also answers only the sessions active since it, as the
     /// readers over the transcripts do.</summary>
+    // Differs from StubSessionSource: adds and archives sessions live, and can answer only those since a horizon.
     private sealed class HeldSessions : IAgentSessionSource
     {
         private readonly List<AgentSession> _held = [];
@@ -568,6 +569,7 @@ public sealed class SessionAlertPublisherTests
     /// open and settled alike — but for one <see cref="Unlist"/> has let go of, as the centre lets
     /// go of what settled more than a week ago, which the store still holds.
     /// </summary>
+    // Differs from RecordingNotifications: is also the centre and replication, closing a subject's notifications.
     private sealed class Ledger : INotifications, INotificationCentre, INotificationReplication
     {
         private readonly List<NotificationView> _views = [];

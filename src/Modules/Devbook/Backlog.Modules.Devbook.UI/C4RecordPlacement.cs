@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.C4;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 

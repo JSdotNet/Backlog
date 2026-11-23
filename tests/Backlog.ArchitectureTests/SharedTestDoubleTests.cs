@@ -27,7 +27,124 @@ public partial class SharedTestDoubleTests
         "InMemorySessionRequestStore",
         "RecordingNotifications",
         "InMemoryPullRequests",
+        "StubSessionSource",
+        "StubFolderSource",
+        "RecordingTaskItems",
     ];
+
+    /// <summary>
+    /// A copy under another name is still a copy. The suite once carried the
+    /// throw-only GitHub client as <c>NoGitHub</c>, <c>SilentGitHubClient</c>,
+    /// <c>UnusedGitHubClient</c> and <c>UnreachableGitHub</c>, and the probe as
+    /// <c>NoProbe</c>, <c>SilentProbe</c> and <c>UnusedProbe</c>, none of which
+    /// a check on the shared class's own name could see. So every test class
+    /// that implements an interface a shared double implements is either that
+    /// double or says, on the line above it, how it differs:
+    /// <c>// Differs from StubProbe: answers connected.</c>
+    /// </summary>
+    [Fact]
+    public void A_class_implementing_a_shared_doubles_interface_is_the_shared_double_or_says_how_it_differs()
+    {
+        var covered = SharedDoubleInterfaces();
+
+        Assert.NotEmpty(covered);
+
+        var implementers = TestSources()
+            .Where(file => !Relative(file).StartsWith("tests/Shared/TestDoubles/", StringComparison.Ordinal))
+            .SelectMany(file => Implementers(file, covered))
+            .ToList();
+
+        var undeclared = implementers
+            .Where(implementer => !implementer.SaysHowItDiffers)
+            .Select(implementer => $"{implementer.File}: {implementer.Name} implements {implementer.Interface}; use {implementer.Shared}, or say above it '// Differs from {implementer.Shared}: <how>'.")
+            .ToList();
+
+        Assert.True(undeclared.Count == 0, string.Join(Environment.NewLine, undeclared));
+
+        // The doubles kept for a real difference are found too, so a scan that
+        // matched nothing cannot pass for one that found nothing wrong.
+        Assert.Contains(implementers, implementer => implementer.SaysHowItDiffers);
+    }
+
+    /// <summary>Each interface a double under <c>tests/Shared/TestDoubles</c>
+    /// implements, mapped to the double that implements it.</summary>
+    private static readonly HashSet<string> LifetimeInterfaces = new(StringComparer.Ordinal) { "IDisposable", "IAsyncDisposable" };
+
+    private static Dictionary<string, string> SharedDoubleInterfaces()
+    {
+        var covered = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var file in new DirectoryInfo(RepositoryRoot.Directory("tests", "Shared", "TestDoubles")).EnumerateFiles("*.cs").OrderBy(file => file.Name, StringComparer.Ordinal))
+        {
+            foreach (Match declaration in TypeDeclaration().Matches(File.ReadAllText(file.FullName)))
+            {
+                // A product port is what a copy would duplicate; disposing is how a test
+                // double lets go of what it holds, and every fixture class has it too.
+                foreach (var implemented in Interfaces(declaration.Groups["bases"].Value).Where(name => !LifetimeInterfaces.Contains(name)))
+                {
+                    covered.TryAdd(implemented, declaration.Groups["name"].Value);
+                }
+            }
+        }
+
+        return covered;
+    }
+
+    private static IEnumerable<Implementer> Implementers(FileInfo file, Dictionary<string, string> covered)
+    {
+        var text = File.ReadAllText(file.FullName);
+
+        foreach (Match declaration in TypeDeclaration().Matches(text))
+        {
+            foreach (var implemented in Interfaces(declaration.Groups["bases"].Value))
+            {
+                if (covered.TryGetValue(implemented, out var shared))
+                {
+                    yield return new Implementer(
+                        Relative(file),
+                        declaration.Groups["name"].Value,
+                        implemented,
+                        shared,
+                        SaysHowItDiffers(text, declaration.Index, shared));
+                }
+            }
+        }
+    }
+
+    /// <summary>A test class implementing an interface a shared double covers.</summary>
+    private sealed record Implementer(string File, string Name, string Interface, string Shared, bool SaysHowItDiffers);
+
+    /// <summary>The interfaces a base list names: each entry's simple name with
+    /// its type arguments dropped, kept when it reads as an interface.</summary>
+    private static IEnumerable<string> Interfaces(string bases) =>
+        TypeArguments().Replace(bases, "")
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(entry => entry.Split('.')[^1])
+            .Where(entry => InterfaceName().IsMatch(entry));
+
+    /// <summary>Whether the line above the declaration, past its attributes and
+    /// modifiers, is a <c>// Differs from {shared}:</c> comment that says how.</summary>
+    private static bool SaysHowItDiffers(string text, int declarationIndex, string shared)
+    {
+        var lines = text[..declarationIndex].Split('\n');
+
+        // The last line holds the declaration's own modifiers.
+        for (var i = lines.Length - 2; i >= 0; i--)
+        {
+            var line = lines[i].Trim();
+
+            if (line.StartsWith('['))
+            {
+                continue;
+            }
+
+            var prefix = $"// Differs from {shared}:";
+
+            return line.StartsWith(prefix, StringComparison.Ordinal) && line.Length > prefix.Length + 1;
+        }
+
+        return false;
+    }
 
     [Theory]
     [MemberData(nameof(SharedDoubles))]
@@ -163,6 +280,17 @@ public partial class SharedTestDoubleTests
     /// for its deadline.</summary>
     [GeneratedRegex(@"DateTime\.UtcNow[\s\S]{0,600}?Task\.Delay\(50\)")]
     private static partial Regex HandRolledPoll();
+
+    /// <summary>A class or record declaration up to its body: its name, an
+    /// optional type parameter list and primary constructor, and its base list.</summary>
+    [GeneratedRegex(@"\b(?:class|record)\s+(?<name>\w+)\s*(?:<[^>]*>)?\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*:(?<bases>[^{;]*?)(?:\bwhere\b[^{;]*)?[{;]")]
+    private static partial Regex TypeDeclaration();
+
+    [GeneratedRegex(@"<[^<>]*(?:<[^<>]*>[^<>]*)*>")]
+    private static partial Regex TypeArguments();
+
+    [GeneratedRegex(@"^I[A-Z]\w*$")]
+    private static partial Regex InterfaceName();
 
     [GeneratedRegex(@"\bclass\s+(\w+Tests)\b")]
     private static partial Regex TestClassName();

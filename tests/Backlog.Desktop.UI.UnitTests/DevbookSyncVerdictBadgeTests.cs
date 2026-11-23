@@ -136,6 +136,7 @@ public sealed class DevbookSyncVerdictBadgeTests
     }
 
     /// <summary>One repository, the alias resolving to it — or to none.</summary>
+    // Differs from StubFolderSource: resolves an alias to one repository or to none.
     private sealed class OneRepository(string? repository) : IDevbookFolderSource
     {
         public event Action? Changed

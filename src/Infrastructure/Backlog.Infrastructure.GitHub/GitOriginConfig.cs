@@ -43,8 +43,11 @@ internal static class GitOriginConfig
     /// linked worktree, the <c>.git</c> file's <c>gitdir:</c> leads to a folder
     /// whose <c>commondir</c> names the shared one holding it; a submodule's
     /// <c>gitdir:</c> folder has no <c>commondir</c> and holds its own. The same
-    /// walk <c>DevelopmentWorkspace.MainCheckoutOf</c> makes, which this project
-    /// cannot reference.
+    /// walk <c>DevelopmentWorkspace.MainCheckoutOf</c> makes, kept twice on purpose:
+    /// that one is in <c>Backlog.Aspire.ServiceDefaults</c>, which references no
+    /// project at all — not even the shared kernel this adapter does — so there is no
+    /// project both already see that one copy could live in, and sharing it would take
+    /// a new reference across that boundary.
     /// </summary>
     private static string? ResolveConfigPath(string checkout)
     {

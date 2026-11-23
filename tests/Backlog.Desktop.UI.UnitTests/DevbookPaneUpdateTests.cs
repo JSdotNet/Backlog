@@ -247,7 +247,8 @@ public sealed class DevbookPaneUpdateTests
 
     private static Harness CreateHarness(bool cloned = true)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-update-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-update-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         WriteDevbookFolders(clone);
 
@@ -255,7 +256,6 @@ public sealed class DevbookPaneUpdateTests
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -296,7 +296,7 @@ public sealed class DevbookPaneUpdateTests
         // surface, which writes. Composing the pane means composing the writer.
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, clone, context, configuredRepository.Alias, git);
+        return new Harness(temp, clone, context, configuredRepository.Alias, git);
     }
 
     /// <summary>
@@ -320,7 +320,7 @@ public sealed class DevbookPaneUpdateTests
     }
 
     private sealed record Harness(
-        string Root,
+        TemporaryDirectory Temp,
         string CloneDirectory,
         BunitContext Context,
         string RepositoryAlias,
@@ -343,14 +343,7 @@ public sealed class DevbookPaneUpdateTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

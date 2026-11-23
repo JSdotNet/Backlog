@@ -16,7 +16,8 @@ public sealed class SqliteScheduleRegisterTests : IDisposable
 {
     private static readonly DateTimeOffset Due = new(2026, 11, 11, 5, 30, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-schedules", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-sqlite-schedules");
+    private string _root => _temp.Path;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -124,7 +125,6 @@ public sealed class SqliteScheduleRegisterTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
 
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 }

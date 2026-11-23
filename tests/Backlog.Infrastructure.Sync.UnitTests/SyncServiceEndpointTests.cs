@@ -11,12 +11,10 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// </summary>
 public sealed class SyncServiceEndpointTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sync-endpoint-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-sync-endpoint-tests");
+    private string _root => _temp.Path;
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_settings_value_wins_over_everything()

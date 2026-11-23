@@ -17,7 +17,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 ```meta
 type: aggregate
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureEditTests]
 aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task, RestoredAt, restored_at]
 ```
 
@@ -154,9 +154,16 @@ restamp `updated_at` only. Otherwise a note pushed for such a change would carry
 stamp later than an edit the phone made meanwhile, and overwrite that edit
 with the older text. A note taken in from the phone keeps the phone's stamp.
 
+The phone may also reword or delete a capture it made, until the desktop decides
+it. A [replica-backed item](#replica-backed-item) starts with its document's
+stamp as `edited_at`, on the service's clock. While the item is open, a later
+copy with other words replaces its title and body. Kind, tags, list, status and
+AI state stay the desktop's. A phone delete arrives as the capture's tombstone
+and archives the open item.
+
 Triage stays on the desktop for every kind, notes included. The phone may create
-a note and edit any note, but it never routes, defers, accepts or archives an
-item. A note waits in the queue as `unprocessed` like any other item, and the desktop may triage it like any other.
+a note, edit any note, and edit or delete its own captures, but it never routes,
+defers, accepts or archives an item. A note waits in the queue as `unprocessed` like any other item, and the desktop may triage it like any other.
 
 The rules the item and its attachments are held to are `### Invariant:`
 chapters in [`domain.invariants.md`](domain.invariants.md#inbox-item).
@@ -283,7 +290,7 @@ change is a new attachment that only the item swaps in.
 
 ```meta
 type: enum
-related: [.devbook/domain/inbox/domain.md#note]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#meeting]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
 
@@ -292,11 +299,14 @@ It is distinct from `Capture Source`, which says how it arrived:
 
 - `text` — a plain thought waiting to be sorted; the kind every source can
   produce and the kind an item is until somebody says otherwise.
-- `note` — a [Note](#note) the person keeps and edits. Created on the phone's
-  Notes tab or as a note from any device, it syncs both ways with the phone.
-  An item is a note because it was created as one. Classification never infers
-  it from the text, and a note document never turns an item of another kind
-  into one.
+- `note` — a [Note](#note) the person keeps and edits. Created with **Note**
+  in the phone Inbox's **+** menu or as a note from any device, it syncs both
+  ways with the phone. An item is a note because it was created as one.
+  Classification never infers it from the text, and a note document never
+  turns an item of another kind into one.
+- `meeting` — a [Meeting](#meeting): a note started by recording a meeting on
+  the phone. It syncs both ways like a note, and is a meeting because it was
+  created as one.
 - `article` — a web page worth reading, clipped or linked.
 - `link` — a bare URL not yet known to be an article.
 - `youtube` — a video, from the YouTube monitor or a shared link.
@@ -308,8 +318,9 @@ It is distinct from `Capture Source`, which says how it arrived:
 - `claude-artifact` — an artifact a Claude session produced and shared.
 
 The set will grow. A kind nobody has drawn yet is shown as its plain word.
-Seven of the kinds are [collected material](#collected-material). `note` is the
-only kind that changes after it is captured.
+Seven of the kinds are [collected material](#collected-material). `note` and
+`meeting` are the kinds both sides edit. The phone may reword a capture of any
+other kind only until the desktop decides it ([Inbox Item](#inbox-item)).
 
 ### Inbox Status
 
@@ -629,15 +640,15 @@ the Capture context, which arrives from a device through sync.
 
 ```meta
 type: term
-aliases: [note, NoteItem, Notes tab]
-related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+aliases: [note, NoteItem]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#meeting, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 ```
 
 An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
-such as what was said in a meeting or a list they add to. A note syncs both
+such as what was said in a talk or a list they add to. A note syncs both
 ways between the desktop and the phone, and either side may edit it. A `text`
-item is different: it is a thought waiting to be sorted, and the phone forgets
-it once the desktop takes it in.
+item is different: it is a thought waiting to be sorted. The phone may reword
+or delete it until the desktop decides it, and then forgets it.
 
 A note is not a *Brain note*, a
 [Knowledge Note](../brain/domain.md#knowledge-note), which is a file in
@@ -646,7 +657,23 @@ it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
 [To Brain](features.md#route-to-brain) writes a Brain note from it. The
 Capture context's [talk note](../capture/features.md#talk-note) is a note
-written in the Notes tab.
+written on the phone.
+
+A recording added to a note later leaves it a note. Only an item started as a
+meeting is a [Meeting](#meeting).
+
+### Meeting
+
+```meta
+type: term
+aliases: [meeting]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/domain.md#note, .devbook/domain/capture/features.md#meeting-recording, .devbook/domain/inbox/features.md#meetings]
+```
+
+An Inbox Item of `Content Kind` `meeting`: a note the phone starts with a
+[meeting recording](../capture/features.md#meeting-recording) already running.
+It syncs, edits and is triaged exactly as a [Note](#note) does. Its body is the
+reader's notes, and the desktop appends the transcript and summary to it.
 
 ### Plan tag
 
@@ -795,6 +822,7 @@ related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/feat
 
 An Inbox Item that arrived through sync, so its id is a capture document's id
 on the replica. The replica wants to hear what became of it: routing, archiving
-or deleting it puts an acknowledgement in the outbox. A
+or deleting it puts an acknowledgement in the outbox. Only a replica-backed item
+takes the phone's later rewording of its capture. A
 [Capture (manual)](#capture-manual) has no replica behind it and is not
 replica-backed.

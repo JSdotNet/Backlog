@@ -22,7 +22,7 @@ public sealed class SchedulingRoundTripTests : IDisposable
         "\n" +
         "Ship it before the demo.\n";
 
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
@@ -92,9 +92,9 @@ public sealed class SchedulingRoundTripTests : IDisposable
 
     private string TempRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-scheduling", Guid.NewGuid().ToString("n"));
+        var root = new TemporaryDirectory("backlog-scheduling");
         _tempDirs.Add(root);
-        return root;
+        return root.Path;
     }
 
     private TasksDesktopState State(string root)
@@ -116,10 +116,10 @@ public sealed class SchedulingRoundTripTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 }

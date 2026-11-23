@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.C4;
 
 namespace Backlog.Infrastructure.Devbook.Building;
 
@@ -68,18 +69,18 @@ internal static partial class DevbookC4Graph
 
             added.Add(new DevbookGraphNode(id, "element")
             {
-                Label = element.Name ?? element.Id,
+                Label = element.Name,
                 Folder = "arc42",
                 Path = element.File,
                 Line = element.Line,
-                Kind = element.Kind
+                Kind = Camel(element.Kind.ToString())
             });
         }
 
         foreach (var element in workspace.Elements)
         {
-            if (element.Parent is null) continue;
-            var source = ElementNodeId(element.Parent);
+            if (element.ParentId is null) continue;
+            var source = ElementNodeId(element.ParentId);
             var target = ElementNodeId(element.Id);
             edges.Add(new DevbookGraphEdge($"contains:{source}->{target}", "contains", source, target));
         }
@@ -88,8 +89,8 @@ internal static partial class DevbookC4Graph
         var seen = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var relationship in workspace.Relationships)
         {
-            var source = ElementNodeId(relationship.Source);
-            var target = ElementNodeId(relationship.Destination);
+            var source = ElementNodeId(relationship.SourceId);
+            var target = ElementNodeId(relationship.DestinationId);
             var id = $"relationship:{source}->{target}";
             var n = seen.GetValueOrDefault(id) + 1;
             seen[id] = n;
@@ -100,7 +101,7 @@ internal static partial class DevbookC4Graph
         foreach (var view in workspace.Views)
         {
             // No key, or a key an earlier view has: the reader reported it.
-            if (view.Key is null || !views.TryAdd(view.Key.ToLowerInvariant(), view)) continue;
+            if (view.Key.Length == 0 || !views.TryAdd(view.Key.ToLowerInvariant(), view)) continue;
 
             added.Add(new DevbookGraphNode(ViewNodeId(view.Key), "view")
             {
@@ -108,7 +109,7 @@ internal static partial class DevbookC4Graph
                 Folder = "arc42",
                 Path = view.File,
                 Line = view.Line,
-                Kind = view.Kind
+                Kind = Camel(view.Kind.ToString())
             });
         }
 
@@ -134,9 +135,9 @@ internal static partial class DevbookC4Graph
                     }
                 }
 
-                var count = embedded.GetValueOrDefault(view.Key!) + 1;
-                embedded[view.Key!] = count;
-                var target = ViewNodeId(view.Key!);
+                var count = embedded.GetValueOrDefault(view.Key) + 1;
+                embedded[view.Key] = count;
+                var target = ViewNodeId(view.Key);
                 edges.Add(new DevbookGraphEdge($"embeds:{source}->{target}{(count > 1 ? $"#{count}" : string.Empty)}", "embeds", source, target));
             }
         }
@@ -164,7 +165,7 @@ internal static partial class DevbookC4Graph
 
     /// <summary>The workspace, or null when it cannot be read — which the
     /// generator reports, and draws nothing for.</summary>
-    private static C4Reading? TryRead(string repositoryRoot)
+    private static C4Workspace? TryRead(string repositoryRoot)
     {
         try
         {
@@ -175,6 +176,9 @@ internal static partial class DevbookC4Graph
             return null;
         }
     }
+
+    /// <summary>A kind as the generator spells it: <c>softwareSystem</c>, <c>systemContext</c>.</summary>
+    private static string Camel(string name) => char.ToLowerInvariant(name[0]) + name[1..];
 
     /// <summary>
     /// Every <c>c4:</c> image embed in one document outside a fence, an inline code

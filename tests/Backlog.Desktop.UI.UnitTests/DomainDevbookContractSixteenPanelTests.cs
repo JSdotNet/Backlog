@@ -22,9 +22,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the drawing, and a view built here says what the store would have said without
 /// a folder on disk having to spell it.</para>
 /// </summary>
-public sealed class DomainDevbookContractSixteenPanelTests
+public sealed class DomainDevbookContractSixteenPanelTests : IDisposable
 {
     private const string ContextMapPath = ".domain/context-map.md";
+
+    private readonly TemporaryDirectory _temp = new("backlog-domain-contract-16-panel");
+
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_nine_state_fields_are_never_rows_in_the_strip()
@@ -281,17 +285,16 @@ public sealed class DomainDevbookContractSixteenPanelTests
         IReadOnlyList<DomainDevbookSection> sections) =>
         new(path, title, kind, "none", new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase), string.Empty, [], sections, []);
 
-    private static BunitContext CreateContext()
+    private BunitContext CreateContext()
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-domain-contract-16-panel", Guid.NewGuid().ToString("n"));
-        var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+        var settings = new GitHubSettingsStore(_temp.Combine("github.json"));
         context.Services.AddSingleton(new DomainDevbookStore(new DevbookFolderSource(settings)));
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
-        context.Services.AddSingleton<IAppFeatureSettings>(new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json")));
+        context.Services.AddSingleton<IAppFeatureSettings>(new AppFeatureSettingsStore(AppFeatures.All, _temp.Combine("features.json")));
         return context;
     }
 }

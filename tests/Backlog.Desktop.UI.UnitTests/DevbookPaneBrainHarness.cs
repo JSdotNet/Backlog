@@ -21,14 +21,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
 {
     private DevbookPaneBrainHarness(
-        string root,
+        TemporaryDirectory temp,
         BunitContext context,
         TestBrainSettings settings,
         BrainFolderSource brain,
         RecordingRepositoryFolders repositoryFolders,
         string repositoryAlias)
     {
-        Root = root;
+        _temp = temp;
         Context = context;
         Settings = settings;
         Brain = brain;
@@ -36,7 +36,9 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         RepositoryAlias = repositoryAlias;
     }
 
-    public string Root { get; }
+    private readonly TemporaryDirectory _temp;
+
+    public string Root => _temp.Path;
 
     public BunitContext Context { get; }
 
@@ -72,7 +74,8 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
     /// </summary>
     public static DevbookPaneBrainHarness Create(string? brainFolder = DefaultFolder, bool noteWriter = true, bool branchOverview = false)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-brain-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-brain-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         WriteFile(clone, ".github/instructions/already-here.instructions.md", "---\napplyTo: \"**\"\n---\n\n# Already here\n");
         WriteFile(clone, ".arc42/01-introduction-and-goals.md", "# Introduction\n");
@@ -83,7 +86,6 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         // Search on as well, so its absence on the Brain is the pane's choice and
         // not the flag's.
@@ -106,7 +108,7 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(store);
-        var harness = new DevbookPaneBrainHarness(root, context, settings, brain, repositoryFolders, repository.Alias);
+        var harness = new DevbookPaneBrainHarness(temp, context, settings, brain, repositoryFolders, repository.Alias);
         context.Services.AddSingleton<IBrainShowHidden>(harness.ShowHidden);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(gitHubSettings);
@@ -226,14 +228,7 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Context.DisposeAsync();
-
-        try
-        {
-            if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
+        _temp.Dispose();
     }
 }
 
@@ -254,6 +249,7 @@ internal sealed class TestBrainSettings(string? folder) : IBrainSettings
 }
 
 /// <summary>The repository devbook source, counting every question it is asked.</summary>
+// Differs from StubFolderSource: wraps another source and counts every question.
 internal sealed class RecordingRepositoryFolders(IDevbookFolderSource inner) : IDevbookFolderSource
 {
     private int _calls;

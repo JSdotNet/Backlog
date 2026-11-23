@@ -1,4 +1,3 @@
-using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,12 +15,9 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// composes the pane carries its page without a line of its own.
 /// </para>
 /// <para>
-/// The usage-reset page is offered behind <see cref="DashboardFeatures.Dashboard"/>,
-/// the switch the pane that reads it is opened under, so while nothing would read
-/// it the menu marks the page Off and it shows only a note pointing at the
-/// Features page. The working week is offered with no switch:
-/// the roadmap counts it as well as the dashboard (ADR 0019), so it is read
-/// whether or not the dashboard is on.
+/// Both pages are offered with no switch: the dashboard that reads the usage reset
+/// is always on, and the roadmap counts the working week as well as the dashboard
+/// (ADR 0019).
 /// </para>
 /// </remarks>
 public static class DashboardSettingsRegistration
@@ -41,7 +37,7 @@ public static class DashboardSettingsRegistration
             "Dashboard",
             Order,
             typeof(DashboardSettings),
-            DashboardFeatures.Dashboard,
+            null,
             SettingsGroup.ProductAreas,
             CardTitles: [DashboardSettings.UsageResetCardTitle, DashboardSettings.SpendBudgetCardTitle]));
 

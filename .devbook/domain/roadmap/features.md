@@ -171,11 +171,10 @@ settles the spellings.
 A saved item's dialog has up to two buttons beside the Tag field:
 
 - a copy button, which copies the tag with its sigil, as the Tasks filter bar's plan
-  chip does. It shows while the [`copy-entries`](../tasks/context.md#copy-entries)
-  flag is on, which it is by default;
+  chip does;
 - the plan's [queue icon](../sessions/features.md#start-a-session-from-an-entry),
   which shows while [`session-requests`](../sessions/context.md#session-requests)
-  is on, and stays when `copy-entries` is off.
+  is on.
 
 A new item, or one without a tag, has no copy button.
 
@@ -425,8 +424,8 @@ See the whole plan against time, with its bands, lanes, spans, milestones and
 arrows, and change when something happens by moving it. A reschedule is stored as
 a change to the plan.
 
-The roadmap is the last of the views in the header's view switch, after Tasks,
-Board and Calendar, under its own Planning heading row and without the Tasks
+The roadmap is the last of the views in the header's view switch, after Tasks
+and Board, under its own Planning heading row and without the Tasks
 filter bar. It is a view, not a takeover, so only another view replaces it. The
 Inbox and the Devbook take the screen over it as over the task list, and closing
 either returns to the roadmap.

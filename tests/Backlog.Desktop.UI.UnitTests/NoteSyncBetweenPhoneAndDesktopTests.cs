@@ -36,7 +36,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
     private static readonly Guid Owner = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly DateTimeOffset Start = new(2026, 10, 7, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "note-sync-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("note-sync");
     private readonly FakeTaskReplica _replica = new();
     private readonly FakeTimeProvider _clock = new(Start);
     private readonly Phone _phone;
@@ -44,8 +44,8 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
 
     public NoteSyncBetweenPhoneAndDesktopTests()
     {
-        _phone = new Phone(Path.Combine(_root, "phone"), _replica, _clock);
-        _desktop = new Desktop(Path.Combine(_root, "desktop"), _replica, _clock);
+        _phone = new Phone(_temp.Combine("phone"), _replica, _clock);
+        _desktop = new Desktop(_temp.Combine("desktop"), _replica, _clock);
     }
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
@@ -55,9 +55,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         _phone.Dispose();
         _desktop.Dispose();
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _temp.Dispose();
     }
 
     [Fact]
@@ -83,6 +81,29 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         Assert.Null(_replica.Held(made.Id)!.DeletedAt);
         await _phone.Notes.PullAsync(Cancellation);
         Assert.Equal(made.Id, Assert.Single(_phone.Notes.Notes()).Id);
+    }
+
+    /// <summary>.devbook/domain/inbox/requirements.md#requirement-a-meeting-reaches-the-desktop-as-a-meeting</summary>
+    [Fact]
+    public async Task A_meeting_made_on_the_phone_reaches_the_desktop_as_a_meeting_and_comes_back_one()
+    {
+        var made = await _phone.Notes.CreateMeetingAsync("Weekly sync", Cancellation);
+        await _phone.Outbox.FlushAsync(Cancellation);
+
+        await _desktop.SyncAsync();
+
+        var item = await _desktop.ItemAsync(made.Id);
+        Assert.NotNull(item);
+        Assert.Equal(ContentKind.Meeting, item.Kind);
+
+        _clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.True((await _desktop.EditAsync(made.Id, "Weekly sync", "transcript")).IsSuccess);
+        await _desktop.SyncAsync();
+        await _phone.Notes.PullAsync(Cancellation);
+
+        var back = Assert.Single(_phone.Notes.Notes());
+        Assert.Equal("transcript", back.Body);
+        Assert.True(back.IsMeeting);
     }
 
     [Fact]

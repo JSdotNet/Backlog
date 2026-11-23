@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookStatusRetirementTests : IDisposable
 {
-    private readonly List<string> _roots = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public void Neither_the_architecture_nor_the_domain_store_writes_a_status()
@@ -72,18 +72,17 @@ public sealed class DevbookStatusRetirementTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var root in _roots.Where(Directory.Exists))
+        foreach (var temp in _temps)
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            temp.Dispose();
         }
     }
 
     private string NewRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-retirement-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        _roots.Add(root);
-        return root;
+        var temp = new TemporaryDirectory("backlog-devbook-retirement-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private static GitHubSettingsStore ConfiguredSettings(string repo)

@@ -58,6 +58,41 @@ public sealed class NoteViewProjectionTests : IDisposable
         Assert.Empty(_outbox.Entries);
     }
 
+    /// <summary>A meeting travels as a note does, under the note type, with its own
+    /// kind beside it (.devbook/domain/inbox/domain.md#meeting); a plain note names none.</summary>
+    [Fact]
+    public async Task A_new_meeting_is_a_note_document_that_names_the_meeting_kind()
+    {
+        var meeting = await _notes.CreateMeetingAsync(null, Cancellation);
+        var note = await _notes.CreateAsync("Standup", null, cancellationToken: Cancellation);
+
+        Assert.True(meeting.IsMeeting);
+        Assert.False(note.IsMeeting);
+        Assert.Equal("Meeting · 7 Oct 2026", meeting.Title);
+
+        await _outbox.WhenIdleAsync();
+
+        var pushed = _service.Pushed.Single(change => change.Id == meeting.Id);
+        Assert.Equal(NoteFold.NoteType, pushed.Task.Type);
+        Assert.Equal("meeting", pushed.Task.NoteKind);
+        Assert.Null(_service.Pushed.Single(change => change.Id == note.Id).Task.NoteKind);
+    }
+
+    [Fact]
+    public async Task An_edit_and_a_recording_keep_a_meeting_a_meeting_and_a_note_a_note()
+    {
+        var meeting = await _notes.CreateMeetingAsync("Weekly sync", Cancellation);
+        var note = await _notes.CreateAsync("Standup", null, cancellationToken: Cancellation);
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(
+            Guid.CreateVersion7(), "Recording · 12:00.aac", "audio/aac", 12, new string('a', 64));
+
+        var edited = await _notes.EditAsync(meeting.Id, "Weekly sync", "decided", cancellationToken: Cancellation);
+        var recorded = await _notes.AttachAsync(note.Id, [recording], Cancellation);
+
+        Assert.True(edited!.IsMeeting);
+        Assert.False(recorded!.IsMeeting);
+    }
+
     [Fact]
     public async Task A_note_with_no_title_is_named_after_its_first_line()
     {
@@ -163,6 +198,23 @@ public sealed class NoteViewProjectionTests : IDisposable
         var queued = NoteOutboxKind.Read(_outbox.Entries[^1]).Change.Task;
         Assert.Equal("after", queued.ContentMd);
         Assert.Equal([recording.Id], queued.Attachments!.Select(file => file.Id));
+    }
+
+    [Fact]
+    public async Task A_recording_names_an_empty_note_after_itself()
+    {
+        _service.State = InboxServiceState.Unreachable;
+
+        // Record on a new note creates it empty before anything is typed, and the desktop
+        // files no note that has no title.
+        var created = await _notes.CreateAsync(string.Empty, string.Empty, cancellationToken: Cancellation);
+        var recording = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.AttachmentMetadata(Guid.CreateVersion7(), "Recording · 0:12", "audio/aac", 300, new string('a', 64));
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await _notes.AttachAsync(created.Id, [recording], Cancellation);
+
+        Assert.Equal("Recording · 0:12", _notes.Find(created.Id)!.Title);
+        Assert.Equal("Recording · 0:12", NoteOutboxKind.Read(_outbox.Entries[^1]).Change.Task.Title);
     }
 
     [Fact]

@@ -7,9 +7,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 /// <summary>
-/// The Inbox's recording transcriber over Foundry (local ADR 0049): ADTS goes out remuxed
-/// as M4A parts of at most five minutes, each part's text headed by its offset and
-/// prompted with the last words of the part before, M4A is cut the same way, and the joined
+/// The Inbox's recording transcriber over Foundry (local ADR 0049): ADTS and M4A alike go
+/// out remuxed as M4A parts of at most five minutes, each part's text headed by its offset
+/// and prompted with the last words of the part before, and the joined
 /// transcript alone goes to the chat deployment for the summary. Any failure is a failed
 /// result with this adapter's words, never Foundry's.
 /// </summary>
@@ -44,45 +44,51 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         Assert.Equal("Summary.", answer.Value.SummaryMd);
     }
 
-    [Fact]
-    public async Task A_long_m4a_recording_goes_out_in_five_minute_parts_with_their_offsets()
+    [Theory]
+    [InlineData("audio/mp4")]
+    [InlineData("audio/x-m4a")]
+    public async Task A_long_m4a_recording_goes_out_in_five_minute_parts_with_offsets_and_running_prompts(string contentType)
     {
-        // One plain M4A of 4688 frames of 64 ms, one frame past five minutes, as the browser
-        // harness records a meeting in one file with no rollover.
+        // One M4A file of 4688 frames of 64 ms, written whole: one frame past five minutes.
         var m4a = Assert.Single(AdtsRemuxer.Remux(Adts(4688), TimeSpan.FromMinutes(10))).M4a;
 
-        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, "audio/mp4"), Cancellation);
+        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, contentType), Cancellation);
 
         Assert.True(answer.IsSuccess);
         Assert.Equal(2, _transcription.Sent.Count);
-        Assert.All(_transcription.Sent, request => Assert.Equal("audio/mp4", request.ContentType));
+        Assert.All(_transcription.Sent, request =>
+        {
+            Assert.Equal("audio/mp4", request.ContentType);
+            Assert.Equal("ftyp", Encoding.ASCII.GetString(request.Audio.Span[4..8]));
+        });
+        Assert.Null(_transcription.Sent[0].Prompt);
         Assert.Equal("part 1 words", _transcription.Sent[1].Prompt);
         Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Value.TranscriptMd);
     }
 
     [Fact]
-    public async Task An_m4a_that_cannot_be_read_fails_and_sends_nothing()
+    public async Task An_m4a_that_cannot_be_read_fails_with_a_reason_and_sends_nothing()
     {
-        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(Encoding.ASCII.GetBytes("not an m4a at all"), "audio/mp4"), Cancellation);
+        var m4a = Encoding.ASCII.GetBytes("\0\0\0\u0010ftypM4A \0\0\0\0rest of the file");
+
+        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, "audio/mp4"), Cancellation);
 
         Assert.True(answer.IsFailure);
-        Assert.Equal("The recording could not be read as AAC or M4A audio.", answer.Error.Message);
+        Assert.Equal("inbox.transcription.failed", answer.Error.Code);
+        Assert.Equal("The recording could not be read as an M4A file.", answer.Error.Message);
         Assert.Empty(_transcription.Sent);
     }
 
-    [Theory]
-    [InlineData(404, "Part 1 of 1 could not be transcribed: the transcription deployment 'gpt-4o-transcribe' was not found on the Foundry endpoint.")]
-    [InlineData(401, "Part 1 of 1 could not be transcribed: Foundry refused the API key.")]
-    [InlineData(403, "Part 1 of 1 could not be transcribed: Foundry refused the API key.")]
-    [InlineData(400, "Part 1 of 1 could not be transcribed (Foundry answered 400).")]
-    public async Task A_refused_part_says_what_a_person_can_fix(int status, string reason)
+    [Fact]
+    public async Task An_m4a_whose_frame_outlasts_a_part_fails_with_a_reason_instead_of_throwing()
     {
-        _transcription.FailOn = 1;
-        _transcription.FailWith = status;
+        var m4a = Mp4AacReaderTests.Classic(delta: 0xFFFF_FFFF, chunkOffset: null);
 
-        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(Adts(3), "audio/aac"), Cancellation);
+        var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, "audio/mp4"), Cancellation);
 
-        Assert.Equal(reason, answer.Error.Message);
+        Assert.True(answer.IsFailure);
+        Assert.Equal("The recording could not be read as an M4A file.", answer.Error.Message);
+        Assert.Empty(_transcription.Sent);
     }
 
     [Fact]
@@ -177,13 +183,11 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         public int? FailOn { get; set; }
 
-        public int? FailWith { get; set; }
-
         public Task<AzureFoundryTranscriptionResult> TranscribeAsync(AzureFoundryTranscriptionRequest request, CancellationToken cancellationToken = default)
         {
             Sent.Add(request);
             return Task.FromResult(Sent.Count == FailOn
-                ? (FailWith is { } status ? AzureFoundryTranscriptionResult.Refused(status) : AzureFoundryTranscriptionResult.Failure)
+                ? AzureFoundryTranscriptionResult.Failure
                 : AzureFoundryTranscriptionResult.Success($"part {Sent.Count} words"));
         }
     }

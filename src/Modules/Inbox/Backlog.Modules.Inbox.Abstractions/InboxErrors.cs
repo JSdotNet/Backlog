@@ -142,11 +142,17 @@ public static class InboxErrors
         "inbox.transcription.failed",
         detail);
 
-    /// <summary>Retry on a recording in a host that keeps no transcription records or runs no
-    /// transcription step, so there is nothing to send it again.</summary>
-    public static readonly Error TranscriptionUnavailable = Error.Validation(
+    /// <summary>A host that keeps no transcription records transcribes nothing, so there is
+    /// nothing to retry (local ADR 0049).</summary>
+    public static readonly Error TranscriptionUnavailable = new(
         "inbox.transcription.unavailable",
-        "Recordings are not transcribed in this app.");
+        "Recordings are not transcribed on this machine.");
+
+    /// <summary>The failure record could not be cleared — its file is locked or cannot be
+    /// read — so the recording would only be refused again.</summary>
+    public static readonly Error TranscriptionRetryFailed = new(
+        "inbox.transcription.retry_failed",
+        "The recording's failed attempts could not be cleared on this machine. Try again in a moment.");
 
     /// <summary>No triage advisor, or one that says it cannot run. Every AI
     /// surface is hidden in this case (local ADR 0023 §4), so the message is

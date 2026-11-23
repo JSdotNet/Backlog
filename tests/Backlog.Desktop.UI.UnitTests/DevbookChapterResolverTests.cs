@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookChapterResolverTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public void An_arc42_document_path_resolves_with_its_area_prefix()
@@ -300,10 +300,7 @@ public sealed class DevbookChapterResolverTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     /// <summary>A knowledge area folder inside a throwaway repository, with one
@@ -325,9 +322,8 @@ public sealed class DevbookChapterResolverTests : IDisposable
 
     private string TempDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "devbook-chapter-resolver-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        _tempDirs.Add(dir);
-        return dir;
+        var temp = new TemporaryDirectory("devbook-chapter-resolver-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 }

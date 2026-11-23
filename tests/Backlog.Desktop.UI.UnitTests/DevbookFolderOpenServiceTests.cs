@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class DevbookFolderOpenServiceTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _temps = [];
 
     [Fact]
     public async Task Opens_nested_knowledge_folder_in_configured_area()
@@ -85,10 +85,7 @@ public sealed class DevbookFolderOpenServiceTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
-        {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
-        }
+        foreach (var temp in _temps) temp.Dispose();
     }
 
     private GitHubSettingsStore NewSettingsStore(string repo)
@@ -104,9 +101,9 @@ public sealed class DevbookFolderOpenServiceTests : IDisposable
 
     private string TempDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "devbook-folder-open-tests", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(path);
-        return path;
+        var temp = new TemporaryDirectory("devbook-folder-open-tests");
+        _temps.Add(temp);
+        return temp.Path;
     }
 
     private sealed class RecordingFolderEditorLauncher : IFolderEditorLauncher

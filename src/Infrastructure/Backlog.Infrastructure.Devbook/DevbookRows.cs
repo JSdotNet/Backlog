@@ -47,10 +47,6 @@ public sealed record DevbookTaskLinkRow(string NotePath, string Value, string? N
 /// file it is in and the file's title.</summary>
 public sealed record DevbookReviewDateRow(string NotePath, string Value, string? NoteTitle);
 
-/// <summary>One row of <c>node_attribute</c> — a list-valued field of a
-/// <c>meta</c> block flattened to one row per value.</summary>
-public sealed record DevbookNodeAttributeRow(string NodeId, string Name, string Value);
-
 /// <summary>
 /// One row of <c>outline_entry</c>: a line of the resolved reading outline, with
 /// the authored order already applied.
@@ -108,27 +104,6 @@ public sealed record DevbookChapterRow(
     long Size,
     long Mtime,
     int OpenAnnotations = 0);
-
-/// <summary>
-/// One row of <c>archify_artifact</c>: which rendered diagram belongs to which
-/// mermaid fence, keyed by the SHA-256 of the normalised fence.
-/// </summary>
-/// <param name="ChapterPath">Repository-relative, <c>/</c>-separated.</param>
-/// <param name="SpecPath">Repository-relative path of the hand-authored
-/// specification, or <see langword="null"/>.</param>
-/// <param name="ChecksPassed">Carried because ADR 0004 lists it. Nothing reads it
-/// yet, and inventing a use for it is not this reader's business.</param>
-public sealed record DevbookArchifyArtifactRow(
-    string ChapterPath,
-    string FenceHash,
-    int Ordinal,
-    string? Type,
-    string? Quality,
-    string? Kind,
-    string? SpecPath,
-    string? ArtifactPath,
-    int? ChecksPassed,
-    int? CheckCount);
 
 /// <summary>
 /// One demo a page has: paired with it by name (<see cref="Address"/> null,

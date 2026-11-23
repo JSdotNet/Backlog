@@ -21,6 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// lost, which a test about something else does not miss.
 /// </para>
 /// </summary>
+// Differs from StubFolderSource: wraps another source and counts the chapter reads.
 internal sealed class ChapterReadCountingFolderSource(IDevbookFolderSource inner, string folderKey = ".design") : IDevbookFolderSource
 {
     private int _reads;

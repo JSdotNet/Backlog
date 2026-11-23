@@ -28,7 +28,7 @@ namespace Backlog.Modules.Sync.Api.Security;
 /// place.
 /// </para>
 /// </summary>
-internal sealed class JwtDeviceTokenIssuer(IOptions<SyncTokenOptions> options, TimeProvider clock) : IDeviceTokenIssuer
+internal sealed class JwtDeviceTokenIssuer(IOptions<SyncTokenOptions> options, SigningKeyRing keys, TimeProvider clock) : IDeviceTokenIssuer
 {
     private readonly JsonWebTokenHandler _handler = new();
 
@@ -57,7 +57,7 @@ internal sealed class JwtDeviceTokenIssuer(IOptions<SyncTokenOptions> options, T
                 [JwtRegisteredClaimNames.Jti] = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)),
             },
             SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(settings.DecodeSigningKey()),
+                new SymmetricSecurityKey(keys.Current),
                 SecurityAlgorithms.HmacSha256),
         };
 

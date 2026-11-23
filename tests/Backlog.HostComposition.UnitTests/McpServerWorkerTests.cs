@@ -8,6 +8,7 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -33,7 +34,7 @@ public sealed class McpServerWorkerTests : IDisposable
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-worker-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("mcp-worker-tests");
 
     private readonly GatedProvider _services = new(new ServiceCollection().BuildServiceProvider());
 
@@ -216,25 +217,30 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>
-    /// Claude Code's OTLP logs reach the head's listener at <c>/v1/logs</c> behind the
-    /// same bearer-token guard as <c>/mcp</c> (local ADR 0024): the real listener, bound
-    /// on loopback, refuses an export with no token and one with the wrong token —
-    /// storing nothing — and stores the one carrying the token the Settings page copies.
+    /// Claude Code's OTLP logs reach the head's listener at <c>/v1/logs</c> behind a token for
+    /// a grant holding <c>telemetry:write</c> (local ADR 0024, local ADR 0058, Phase 1): the real
+    /// listener refuses an export with no token, the wrong token and the telemetry token an
+    /// earlier build kept in settings.json — 401, storing nothing — refuses a delivery grant's
+    /// with 403, and stores the one carrying the Telemetry grant's token.
     /// </summary>
     [Fact]
-    public async Task The_logs_route_refuses_a_missing_or_wrong_token_and_stores_the_right_ones_export()
+    public async Task The_logs_route_refuses_a_missing_wrong_or_retired_token_and_stores_the_telemetry_grant_s_export()
     {
         var store = new RecordingRequestStore();
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection()
             .AddSingleton<IClaudeApiRequestStore>(store)
+            .AddSingleton(tokens)
             .BuildServiceProvider());
-        var settings = Settings(FreePort());
+        var settings = Settings(FreePort(), """{ "mcpServer": { "token": "retired-shared", "telemetryToken": "retired-telemetry" } }""");
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var telemetry = tokens.Mint(grants.Create("Telemetry", [McpScopes.TelemetryWrite], "test").Id).Token!.Value;
+        var delivery = tokens.Mint(grants.Create("Backlog delivery", McpTokenRetirement.DeliveryScopes, "test").Id).Token!.Value;
 
         using (var response = await client.SendAsync(Export(null), TestContext.Current.CancellationToken))
         {
@@ -242,14 +248,20 @@ public sealed class McpServerWorkerTests : IDisposable
             Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
         }
 
-        using (var response = await client.SendAsync(Export(token + "-wrong"), TestContext.Current.CancellationToken))
+        foreach (var refused in new[] { telemetry + "-wrong", "retired-telemetry", "retired-shared" })
         {
+            using var response = await client.SendAsync(Export(refused), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Export(delivery), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         Assert.Empty(store.Added);
 
-        using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
+        using (var response = await client.SendAsync(Export(telemetry), TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -272,13 +284,13 @@ public sealed class McpServerWorkerTests : IDisposable
         var collection = new ServiceCollection().AddSingleton<IClaudeApiRequestStore>(store);
         collection.AddSingleton(new DesktopServiceRegistrations([.. collection]));
         var services = new GatedProvider(collection.BuildServiceProvider());
-        var settings = Settings(FreePort());
+        var settings = EscapeHatchSettings(FreePort());
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var token = EnvironmentToken;
 
         for (var export = 0; export < 2; export++)
         {
@@ -328,13 +340,13 @@ public sealed class McpServerWorkerTests : IDisposable
             .AddSingleton<ISessionRequestStore>(queue)
             .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
             .BuildServiceProvider());
-        var settings = Settings(FreePort());
+        var settings = EscapeHatchSettings(FreePort());
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var token = EnvironmentToken;
 
         using (var response = await client.SendAsync(Wait(null), TestContext.Current.CancellationToken))
         {
@@ -357,16 +369,175 @@ public sealed class McpServerWorkerTests : IDisposable
         }
     }
 
-    /// <summary>The report route a scheduled run's hook posts to (local ADR 0051 §1) is held
-    /// to the same bearer token: refused without it or with a wrong one, recording nothing,
-    /// and recorded with it.</summary>
+    /// <summary>
+    /// The shared token is retired (local ADR 0058, Phase 1): a settings.json an earlier build
+    /// wrote still carries it, and the listener refuses it with 401 wherever it is presented —
+    /// <c>/mcp</c>, the wait route, the hook script — as it refuses no token at all.
+    /// </summary>
     [Fact]
-    public async Task The_schedule_run_report_refuses_a_missing_or_wrong_token_and_records_with_the_right_one()
+    public async Task The_retired_shared_token_is_refused_everywhere()
+    {
+        var settings = Settings(FreePort(), """{ "mcpServer": { "token": "retired-shared", "hookToken": "retired-hook" } }""");
+        Assert.Contains("retired-shared", settings.RetiredMcpTokens);
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        foreach (var retired in new[] { "retired-shared", "retired-hook" })
+        {
+            using (var response = await client.SendAsync(ToolCall("list_entries", retired), TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+                Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+            }
+
+            using (var response = await client.SendAsync(Wait(retired), TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            }
+
+            using (var response = await client.SendAsync(Hook(retired), TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            }
+        }
+    }
+
+    /// <summary>Sessions still sending the retired token after the upgrade must not lock the
+    /// listener out: with the escape hatch off there is no static token to guess, so a static
+    /// bearer is refused without counting, and a grant token is still admitted after twice the
+    /// lockout's worth of them.</summary>
+    [Fact]
+    public async Task The_retired_token_never_trips_the_bearer_limit()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort(), """{ "mcpServer": { "token": "retired-shared" } }""");
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures * 2; i++)
+        {
+            using var refused = await client.SendAsync(Hook("retired-shared"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        var hook = tokens.Mint(grants.Create("Question hook", [McpScopes.NotifyAsk], "test").Id).Token!.Value;
+        using var admitted = await client.SendAsync(Hook(hook), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, admitted.StatusCode);
+    }
+
+    /// <summary>Ten failed bearer attempts within a minute refuse every bearer request
+    /// with 429 for a minute, the right token included, and write one audit record; once
+    /// the minute is up the right token is admitted again.</summary>
+    [Fact]
+    public async Task Ten_failed_bearer_attempts_lock_every_bearer_request_out_for_a_minute_and_are_audited()
+    {
+        var audit = new RecordingAuditLog();
+        var clock = new ManualClock(new DateTimeOffset(2026, 11, 11, 9, 0, 0, TimeSpan.Zero));
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IMcpAuditLog>(audit)
+            .BuildServiceProvider());
+        var settings = EscapeHatchSettings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings, log: null, staticWebAssetsManifest: null, clock);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = EnvironmentToken;
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Hook(token + "-wrong"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        var record = Assert.Single(audit.Records);
+        Assert.Equal(McpAudit.BearerLockout, record.Tool);
+        Assert.Equal(McpAudit.NoValidTokenCaller, record.Caller);
+        Assert.Equal(McpCallOutcome.Refused, record.Outcome);
+
+        clock.Advance(TimeSpan.FromSeconds(20));
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+            Assert.Equal(TimeSpan.FromSeconds(40), response.Headers.RetryAfter?.Delta);
+        }
+
+        clock.Advance(McpBearerLimiter.Lockout);
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        Assert.Single(audit.Records);
+    }
+
+    private static HttpRequestMessage Hook(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, AskBacklogHook.RoutePath);
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    /// <summary>A clock the test moves by hand.</summary>
+    private sealed class ManualClock(DateTimeOffset now) : TimeProvider
+    {
+        private long _ticks = now.UtcTicks;
+
+        public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _ticks), TimeSpan.Zero);
+
+        public void Advance(TimeSpan by) => Interlocked.Add(ref _ticks, by.Ticks);
+    }
+
+    /// <summary>Keeps every record written, in order.</summary>
+    private sealed class RecordingAuditLog : IMcpAuditLog
+    {
+        private readonly List<McpAuditRecord> _records = [];
+
+        public event Action? Changed;
+
+        public IReadOnlyList<McpAuditRecord> Records
+        {
+            get
+            {
+                lock (_records) return [.. _records];
+            }
+        }
+
+        public Task AppendAsync(McpAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            lock (_records) _records.Add(record);
+            Changed?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<McpAuditRecord>> LatestAsync(int count, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. Records.AsEnumerable().Reverse().Take(count)]);
+    }
+
+    /// <summary>The report route a scheduled run's hook posts to (local ADR 0051 §1) needs
+    /// <c>runs:write</c> (local ADR 0058 §4): refused without a token or with a wrong one, and
+    /// forbidden to the telemetry grant, recording nothing; recorded under the delivery grant.</summary>
+    [Fact]
+    public async Task The_schedule_run_report_refuses_a_missing_wrong_or_unscoped_token_and_records_under_the_delivery_grant()
     {
         var register = new InMemoryScheduleRegister();
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection()
             .AddSingleton<IScheduleRegister>(register)
             .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .AddSingleton(tokens)
             .BuildServiceProvider());
         var settings = Settings(FreePort());
 
@@ -374,7 +545,8 @@ public sealed class McpServerWorkerTests : IDisposable
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = settings.EnsureMcpServerToken();
+        var token = tokens.Mint(grants.Create("Backlog delivery", McpTokenRetirement.DeliveryScopes, "test").Id).Token!.Value;
+        var telemetry = tokens.Mint(grants.Create("Telemetry", [McpScopes.TelemetryWrite], "test").Id).Token!.Value;
 
         using (var response = await client.SendAsync(Report(null), TestContext.Current.CancellationToken))
         {
@@ -384,6 +556,11 @@ public sealed class McpServerWorkerTests : IDisposable
         using (var response = await client.SendAsync(Report(token + "-wrong"), TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Report(telemetry), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         Assert.Equal(0, register.Recorded);
@@ -425,14 +602,14 @@ public sealed class McpServerWorkerTests : IDisposable
             .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
             .AddSingleton(contact)
             .BuildServiceProvider());
-        var settings = Settings(FreePort());
+        var settings = EscapeHatchSettings(FreePort());
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
 
-        using var response = await client.SendAsync(Wait(settings.EnsureMcpServerToken()), TestContext.Current.CancellationToken);
+        using var response = await client.SendAsync(Wait(EnvironmentToken), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(contact.LastHeardAt);
@@ -462,6 +639,195 @@ public sealed class McpServerWorkerTests : IDisposable
             Changed?.Invoke();
             return null;
         }
+    }
+
+    /// <summary>
+    /// The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0058, Phase 1): with the debug
+    /// setting on, the token in the app's environment calls a tool; with it off, the same token
+    /// in the same environment is refused with 401.
+    /// </summary>
+    [Fact]
+    public async Task The_environment_token_reaches_a_tool_only_while_the_debug_setting_is_on()
+    {
+        var on = EscapeHatchSettings(FreePort());
+        using (var worker = new McpServerWorker(_services, on))
+        {
+            await ListeningAsync(worker, on.McpServerPort);
+            using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{on.McpServerPort}") };
+
+            using var response = await client.SendAsync(ToolCall("list_entries", EnvironmentToken), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        var off = Settings(FreePort());
+        using (var worker = new McpServerWorker(_services, off))
+        {
+            await ListeningAsync(worker, off.McpServerPort);
+            using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{off.McpServerPort}") };
+
+            using var response = await client.SendAsync(ToolCall("list_entries", EnvironmentToken), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
+    /// <summary>
+    /// A grant token the broker minted (local ADR 0058 §3) gets past the guard where its scopes
+    /// reach, and is refused with 403 where they do not; once its grant is revoked the same token is
+    /// refused with 401 and <c>WWW-Authenticate: Bearer</c> on the very next request.
+    /// </summary>
+    [Fact]
+    public async Task A_grant_token_reaches_what_its_scopes_do_until_its_grant_is_revoked()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grant = grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var token = tokens.Mint(grant.Id).Token!.Value;
+
+        using (var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        // The logs route needs telemetry:write, which this grant does not hold: its token is
+        // good and its scope is not, so 403 with insufficient_scope (local ADR 0058 §4).
+        using (var response = await client.SendAsync(Export(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("insufficient_scope", response.Headers.WwwAuthenticate.Single().Parameter, StringComparison.Ordinal);
+        }
+
+        // And one that does hold it gets past the guard there.
+        var exporter = grants.Create("Telemetry", ["telemetry:write"], "jobsc");
+        using (var response = await client.SendAsync(Export(tokens.Mint(exporter.Id).Token!.Value), TestContext.Current.CancellationToken))
+        {
+            Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        grants.Revoke(grant.Id);
+
+        using (var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+    }
+
+    /// <summary>A grant token this listener never signed is a guess, and counts towards the
+    /// failed-bearer lockout; one it signed whose grant was revoked does not, because its client
+    /// is real and its next mint is the fix.</summary>
+    [Fact]
+    public async Task Forged_grant_tokens_count_towards_the_lockout_and_a_revoked_one_does_not()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = EscapeHatchSettings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grant = grants.Create("Claude Code", [], "jobsc");
+        var revoked = tokens.Mint(grant.Id).Token!.Value;
+        grants.Revoke(grant.Id);
+
+        // Signed by another listener's key: well-formed, never signed here.
+        var otherGrants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var forged = new McpGrantTokens(otherGrants, TimeProvider.System).Mint(otherGrants.Create("x", [], "jobsc").Id).Token!.Value;
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", revoked), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        var token = EnvironmentToken;
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", forged), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Hook(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        }
+    }
+
+    /// <summary>A grant store that cannot be read — a locked or denied <c>mcp-grants.json</c> —
+    /// refuses the grant token with 401, so the headersHelper runs again, and never answers a
+    /// 500.</summary>
+    [Fact]
+    public async Task A_grant_store_that_cannot_be_read_refuses_with_401_not_500()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var store = new FailableMcpGrantStore(grants);
+        var tokens = new McpGrantTokens(store, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = tokens.Mint(grants.Create("Claude Code", [], "jobsc").Id).Token!.Value;
+        store.Failure = new UnauthorizedAccessException("Access to the path is denied.");
+
+        using var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+    }
+
+    /// <summary>A listener whose head composed no grant tokens — the web harness's case — has
+    /// no grant path: a JWT-shaped bearer is refused like any other unknown token.</summary>
+    [Fact]
+    public async Task Without_grant_tokens_a_JWT_shaped_bearer_is_refused()
+    {
+        var settings = Settings(FreePort());
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var token = new McpGrantTokens(grants, TimeProvider.System).Mint(grants.Create("x", [], "jobsc").Id).Token!.Value;
+
+        using var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>One JSON-RPC <c>tools/call</c> of <paramref name="tool"/>.</summary>
+    private static string Call(string tool) =>
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"" + tool + "\",\"arguments\":{}}}";
+
+    /// <summary>A <c>tools/call</c> of <paramref name="tool"/> on <c>/mcp</c>, as the hook
+    /// script sends one.</summary>
+    private static HttpRequestMessage ToolCall(string tool, string token) => Rpc(Call(tool), token);
+
+    private static HttpRequestMessage Rpc(string body, string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, McpServerWorker.EndpointPath)
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
     }
 
     /// <summary>The JSON fixture <c>ClaudeCodeOtlpLogsTests</c> describes, posted the
@@ -504,22 +870,34 @@ public sealed class McpServerWorkerTests : IDisposable
     public void Dispose()
     {
         _services.Open();
-
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
+        _temp.Dispose();
     }
 
-    private WorkspaceSettingsStore Settings(int port)
+    /// <summary>What the escape hatch's environment variable holds in a test's own environment.</summary>
+    private const string EnvironmentToken = "env-token-for-tests-0000000000000000000000";
+
+    /// <summary>A store on <paramref name="port"/>, over a settings.json holding
+    /// <paramref name="settingsJson"/> first when one is given, whose environment holds
+    /// <see cref="EnvironmentToken"/> as BACKLOG_MCP_TOKEN — accepted only where the file
+    /// switches the escape hatch on.</summary>
+    private WorkspaceSettingsStore Settings(int port, string? settingsJson = null)
     {
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store-" + Guid.NewGuid().ToString("N")));
+        var folder = _temp.Combine("store-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        if (settingsJson is not null) File.WriteAllText(Path.Combine(folder, "settings.json"), settingsJson);
+
+        var settings = new WorkspaceSettingsStore(folder)
+        {
+            ReadEnvironment = name => name == WorkspaceSettingsStore.EnvironmentTokenVariable ? EnvironmentToken : null
+        };
         Assert.Null(settings.SetMcpServerPort(port));
         return settings;
     }
+
+    /// <summary>A store with the BACKLOG_MCP_TOKEN escape hatch switched on, so
+    /// <see cref="EnvironmentToken"/> is a token the listener accepts with every grantable scope.</summary>
+    private WorkspaceSettingsStore EscapeHatchSettings(int port) =>
+        Settings(port, """{ "mcpServer": { "acceptEnvironmentToken": true } }""");
 
     private static async Task ListeningAsync(McpServerWorker worker, int port)
     {

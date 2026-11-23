@@ -775,9 +775,8 @@ h1, h2, h3 {
 
 /*
    The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
-   after the copy, or straight after the chip with the copy-entries switch off. It
-   wears the copy segment's class, so it takes the same fill, border, hairline and
-   hover, and the copy, when there, hands it the pair's rounded end. Like the
+   after the copy. It wears the copy segment's class, so it takes the same fill,
+   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
    copy it stays inside the strip's one-row clip, which cuts anything taller than a
    chip, so its target is the segment itself.
 
@@ -3422,7 +3421,7 @@ h1, h2, h3 {
    row, tighter. Asked of the settings frame's width, as its own phone rules are. */
 @container settings-frame (width < 50.25rem) {
     .feature-board__tiles {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-xs);
     }
 
@@ -3433,12 +3432,6 @@ h1, h2, h3 {
     .feature-board__tiles .metric-tile__value {
         font-size: var(--font-size-xl);
     }
-}
-
-/* The always-available tile holds names rather than a count, and a list of
-   names has to wrap where a number never does. */
-.feature-board__names .metric-tile__value {
-    overflow-wrap: anywhere;
 }
 
 /* The filter's chips are pills, and the chosen one is filled. Three classes so
@@ -3481,19 +3474,6 @@ h1, h2, h3 {
     border-top: var(--border-width) solid color-mix(in srgb, var(--color-border) 60%, transparent);
     border-radius: 0;
     background: none;
-}
-
-/* A locked row is told by its "Always available" mark, not by a tint, so its
-   name reads as every other row's name does. */
-.feature-flags > .feature-flag--locked {
-    color: var(--color-text-primary);
-}
-
-.feature-flags .feature-flag__status {
-    margin-left: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 400;
 }
 
 /* The note the usage-metrics flag brings with it sits directly under that
@@ -9107,7 +9087,8 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
-   inside the paragraph, the full width of the chapter, framed; the diagram's inline host keeps the picture's own aspect ratio. */
+   inside the paragraph, the full width of the chapter, drawn straight on the page
+   with no panel behind it; the diagram's inline host keeps the picture's own aspect ratio. */
 .devbook-c4-embed {
     display: flex;
     flex-direction: column;
@@ -9115,11 +9096,11 @@ a.pull-request-detail-checks__name:hover {
     margin: var(--spacing-sm) 0;
 }
 
-.devbook-c4-embed .c4-diagram-host--inline {
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
+/* The full width includes the strip an annotated block keeps clear for its corner
+   controls (.md-block--affordance): a picture loses more to that strip than a line
+   of prose does, and the controls float over the diagram's empty corner. */
+.md-block--affordance:has(> .md-p > .devbook-c4-embed) {
+    padding-inline-end: 0;
 }
 
 .devbook-c4-embed__caption {
@@ -10280,6 +10261,50 @@ a.pull-request-detail-checks__name:hover {
 .instructions-devbook .instructions-list {
     min-height: 0;
     overflow: auto;
+}
+
+/* The change proposals the person decides (local ADR 0058 §7): one row each,
+   its state and decisions, then Approve and Accept. */
+.devbook-proposals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    overflow: auto;
+}
+
+.devbook-proposals__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.devbook-proposals__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.devbook-proposals__summary {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.devbook-proposals__decision {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-proposals__actions {
+    display: flex;
+    gap: var(--spacing-xs);
 }
 
 /* Stacked, the arrangement above has nothing to stand on: the section stops
@@ -13054,4 +13079,26 @@ a.pull-request-detail-checks__name:hover {
     .surface-window .task-item {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
+}
+
+/* The agent request window (local ADR 0058 §5): one request, read in a pop-out of its
+   own, with its switches as the content and Decline and Allow with Hello under them. */
+.agent-request-window {
+    display: grid;
+    gap: var(--spacing-md);
+    max-width: 46rem;
+    margin-inline: auto;
+    padding: var(--spacing-lg) var(--spacing-md);
+}
+
+.agent-request-window__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    overflow-wrap: anywhere;
+}
+
+.agent-request-window__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }

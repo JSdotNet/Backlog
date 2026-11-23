@@ -374,7 +374,8 @@ public sealed class DevbookPaneSourceStatusTests
 
     private static Harness CreateHarness(List<string>? branches = null, Dictionary<string, GitHubBranchHead>? heads = null)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-source-status-tests", Guid.NewGuid().ToString("n"));
+        var temp = new TemporaryDirectory("backlog-devbook-pane-source-status-tests");
+        var root = temp.Path;
         var clone = Path.Combine(root, "clone");
         Write(clone, ".github/instructions/already-here.instructions.md", "---\napplyTo: \"**\"\n---\n\n# Already here\n");
         Write(clone, ".arc42/01-introduction-and-goals.md", "# Introduction\n");
@@ -383,7 +384,6 @@ public sealed class DevbookPaneSourceStatusTests
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -431,7 +431,7 @@ public sealed class DevbookPaneSourceStatusTests
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context, configuredRepository.Alias, git, gitHubSettings, catalog);
+        return new Harness(temp, context, configuredRepository.Alias, git, gitHubSettings, catalog);
     }
 
     private static void Write(string root, string relativePath, string content)
@@ -442,7 +442,7 @@ public sealed class DevbookPaneSourceStatusTests
     }
 
     private sealed record Harness(
-        string Root,
+        TemporaryDirectory Temp,
         BunitContext Context,
         string RepositoryAlias,
         ScriptedGitRepositoryService Git,
@@ -463,14 +463,7 @@ public sealed class DevbookPaneSourceStatusTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+            Temp.Dispose();
         }
     }
 }

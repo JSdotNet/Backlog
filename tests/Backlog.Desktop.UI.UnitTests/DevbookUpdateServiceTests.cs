@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookUpdateServiceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-devbook-update-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-devbook-update-tests");
 
     [Fact]
     public void Devbook_kept_in_the_storage_folder_has_no_latest_version_to_be_on()
@@ -286,11 +286,11 @@ public sealed class DevbookUpdateServiceTests : IDisposable
     /// active.</param>
     private Harness CreateHarness(string? cloneDirectory = "clone", bool withOverview = false, string? alongside = null)
     {
-        var gitHubSettings = new GitHubSettingsStore(Path.Combine(_root, "github", Guid.NewGuid().ToString("n"), "github.json"));
+        var gitHubSettings = new GitHubSettingsStore(_temp.Combine("github", Guid.NewGuid().ToString("n"), "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText(alongside is null ? "JSdotNet/Backlog" : $"JSdotNet/Backlog\n{alongside}");
         Assert.Empty(errors);
 
-        var resolvedClone = cloneDirectory is null ? null : Path.Combine(_root, cloneDirectory);
+        var resolvedClone = cloneDirectory is null ? null : _temp.Combine(cloneDirectory);
         var repository = repositories[0] with
         {
             CloneDirectory = resolvedClone,
@@ -330,16 +330,7 @@ public sealed class DevbookUpdateServiceTests : IDisposable
         GitHubSettingsStore Settings,
         DevbookBranchOverview? Overview = null);
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }
 
 /// <summary>
@@ -401,6 +392,7 @@ internal sealed class ScriptedGitRepositoryService : ILocalGitRepositoryService
 /// A folder source that resolves nothing and counts the one thing this test cares
 /// about: whether the panels were told to re-read.
 /// </summary>
+// Differs from StubFolderSource: resolves nothing and counts the re-read announcements.
 internal sealed class AnnouncementCountingFolderSource : IDevbookFolderSource
 {
     public event Action? Changed;

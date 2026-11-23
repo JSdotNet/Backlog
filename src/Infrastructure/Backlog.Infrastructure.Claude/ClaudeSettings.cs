@@ -248,59 +248,12 @@ public sealed class ClaudeSettingsStore
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>
-    /// The file's shape. It carries the flat fields the file had before accounts
-    /// existed so an older <c>claude.json</c> reads as one account with nothing
-    /// lost; they are read, never written back, so the first save moves the file
-    /// to the list shape for good.
-    /// </summary>
+    /// <summary>The file's shape: the accounts list.</summary>
     private sealed class SettingsFile
     {
         public List<ClaudeAccount>? Accounts { get; set; }
 
-        // Read-only in practice: a save constructs this with the list alone, and
-        // the condition keeps the null legacy fields out of the file it writes.
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? AdminApiKey { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? WorkspaceId { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Actor { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? ApiVersion { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? ApiEndpoint { get; set; }
-
-        public ClaudeSettings ToSettings()
-        {
-            if (Accounts is { Count: > 0 }) return new ClaudeSettings { Accounts = Accounts };
-
-            var hasLegacyFields = !string.IsNullOrWhiteSpace(AdminApiKey)
-                || !string.IsNullOrWhiteSpace(WorkspaceId)
-                || !string.IsNullOrWhiteSpace(Actor)
-                || !string.IsNullOrWhiteSpace(ApiVersion)
-                || !string.IsNullOrWhiteSpace(ApiEndpoint);
-
-            return hasLegacyFields
-                ? new ClaudeSettings
-                {
-                    Accounts =
-                    [
-                        new ClaudeAccount
-                        {
-                            AdminApiKey = AdminApiKey,
-                            WorkspaceId = WorkspaceId,
-                            Actor = Actor,
-                            ApiVersion = ApiVersion ?? DefaultApiVersion,
-                            ApiEndpoint = ApiEndpoint ?? DefaultApiEndpoint
-                        }
-                    ]
-                }
-                : new ClaudeSettings();
-        }
+        public ClaudeSettings ToSettings() =>
+            Accounts is { Count: > 0 } ? new ClaudeSettings { Accounts = Accounts } : new ClaudeSettings();
     }
 }

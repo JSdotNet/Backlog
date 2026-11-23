@@ -19,14 +19,14 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// </summary>
 public sealed class InboxUndoRouteTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-undo", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-inbox-undo");
+
+    private string _root => _temp.Path;
 
     private readonly ServiceProvider _provider;
 
     public InboxUndoRouteTests()
     {
-        Directory.CreateDirectory(_root);
-
         _provider = new ServiceCollection()
             .AddSingleton<ITaskRepository>(new RootedSqliteTaskRepository(() => _root))
             .AddSingleton<IRepositoryDirectory, NoRepositories>()
@@ -106,15 +106,7 @@ public sealed class InboxUndoRouteTests : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // SQLite's pool can hold the file a moment past the last call; the
-            // folder is under the temp directory and harmless if it stays.
-        }
+        _temp.Dispose();
     }
 
     private sealed class NoRepositories : IRepositoryDirectory

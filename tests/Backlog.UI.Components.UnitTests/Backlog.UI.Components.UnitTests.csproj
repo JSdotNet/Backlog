@@ -21,6 +21,7 @@
     <Using Include="Backlog.UI.Components.Compare" />
     <Using Include="Backlog.UI.Components.Diagrams" />
     <Using Include="Backlog.UI.Components.Diagrams.C4" />
+    <Using Include="Backlog.SharedKernel.C4" />
     <Using Include="Backlog.UI.Components.Feedback" />
     <Using Include="Backlog.UI.Components.Icons" />
     <Using Include="Backlog.UI.Components.Inputs" />

@@ -14,9 +14,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubAccountProbeTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "github-account-probe-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("github-account-probe-tests");
 
     [Fact]
     public async Task A_token_that_authenticates_as_the_card_passes_and_says_so()
@@ -85,12 +83,9 @@ public sealed class GitHubAccountProbeTests : IDisposable
         Assert.Contains("octocat", check.Summary, StringComparison.Ordinal);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
-    private GitHubSettingsStore Store() => new(Path.Combine(_root, "github.json"));
+    private GitHubSettingsStore Store() => new(_temp.Combine("github.json"));
 
     private static TokenTransport BoundToken(AnsweringHandler handler, string account) =>
         new(StubCredentialResolver.Bound(account), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));

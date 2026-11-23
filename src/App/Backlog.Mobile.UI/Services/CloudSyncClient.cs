@@ -17,7 +17,7 @@ namespace Backlog.Mobile.UI.Services;
 /// </summary>
 public sealed class CloudSyncClient(HttpClient http)
 {
-    private const string InboxRoute = "/api/sync/inbox";
+    private const string InboxRoute = SyncRoutes.Base + SyncRoutes.Inbox;
     private const string TasksRoute = "/api/sync/tasks";
 
     /// <summary>The endpoint's own default page, said here so the loop over it
@@ -81,8 +81,42 @@ public sealed class CloudSyncClient(HttpClient http)
         return (response.StatusCode, problem.Detail);
     }
 
-    public async Task AcknowledgeAsync(Guid id, CancellationToken ct = default)
-        => (await http.PostAsync($"{InboxRoute}/{id}/ack", null, ct)).EnsureSuccessStatusCode();
+    /// <summary>
+    /// One attempt at taking one capture out of the inbox — the phone's Delete,
+    /// queued as the outbox's withdraw kind. The status, and the problem's detail
+    /// and code when it failed: a 404 carrying <c>inbox.item_not_found</c> is a
+    /// capture the desktop already decided, and one with no code is a service
+    /// that has no such route. Throws only when there was no answer at all.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, string? Detail, string? Code)> AcknowledgeAsync(Guid id, CancellationToken ct = default)
+    {
+        using var response = await http.PostAsync(SyncRoutes.AcknowledgeInboxItemFor(id), null, ct);
+
+        return await AnswerAsync(response, ct);
+    }
+
+    /// <summary>
+    /// One attempt at rewording one capture the desktop has not decided yet, under
+    /// its own id. Answered as <see cref="AcknowledgeAsync"/> is, for the same
+    /// reasons. Throws only when there was no answer at all.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, string? Detail, string? Code)> PutCaptureAsync(
+        Guid id,
+        CaptureEditRequest request,
+        CancellationToken ct = default)
+    {
+        using var response = await http.PutAsJsonAsync(SyncRoutes.EditInboxItemFor(id), request, ct);
+
+        return await AnswerAsync(response, ct);
+    }
+
+    private static async Task<(HttpStatusCode Status, string? Detail, string? Code)> AnswerAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode) return (response.StatusCode, null, null);
+
+        var problem = await SyncProblem.ReadAsync(response, ct);
+        return (response.StatusCode, problem.Detail, problem.Code);
+    }
 
     /// <summary>One page of the owner's task feed from <paramref name="since"/>,
     /// or from the beginning when it is null — or <see cref="SyncUnavailableException"/>

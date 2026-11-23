@@ -29,7 +29,7 @@ public sealed class SessionSyncReadingDepthTests
             : StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"sessions":[],"since":"cursor-1","hasMore":false}"""));
         using var http = new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") };
 
-        var source = new StubAgentSessionSource(AgentSessions.Local());
+        var source = new StubSessionSource(AgentSessions.Local());
         var session = new SessionSyncSession(
             new SessionSyncClient(http),
             source,

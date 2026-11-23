@@ -149,6 +149,7 @@ public sealed class DevbookPanelLoadStatesTests
     /// <c>FailuresLeft</c> throws the way a folder moving mid-pull does, that many
     /// times, before reading normally.
     /// </summary>
+    // Differs from StubFolderSource: wraps another source and can hold or fail its content reads.
     private sealed class FlakyDevbookFolderSource(IDevbookFolderSource inner) : IDevbookFolderSource
     {
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);

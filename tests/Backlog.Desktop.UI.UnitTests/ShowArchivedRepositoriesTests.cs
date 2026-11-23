@@ -10,9 +10,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class ShowArchivedRepositoriesTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-show-archived-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-show-archived-tests");
 
-    private string ShellPath => Path.Combine(_root, "shell-navigation.json");
+    private string ShellPath => _temp.Combine("shell-navigation.json");
 
     [Fact]
     public void Show_archived_is_off_until_turned_on_and_survives_a_restart()
@@ -96,14 +96,5 @@ public sealed class ShowArchivedRepositoriesTests : IDisposable
         Assert.Equal(1, announced);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

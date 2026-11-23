@@ -26,7 +26,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | State | Travels as | Reconciled by | Decision |
 |---|---|---|---|
 | Task aggregate | a task document in the `tasks` container | [last-write-wins](12-glossary.md#terms), whole document ([Task Sync](#task-sync)) | local ADR 0005 |
-| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone | local ADR 0009 |
+| Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone; a tombstone beats a live copy whatever the stamps | local ADR 0009 |
 | Note | kind `note` in `tasks` | the later edit wins, in both directions | local ADR 0025 |
 | Roadmap plan | kind `roadmap-plan` in `tasks` | last-write-wins on `roadmap_plan.updated_at` | local ADR 0018 |
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
@@ -96,6 +96,8 @@ found. `spend-cache` holds Claude Code days and Copilot months that are over.
 `session-activity-cache` holds what a pass over this machine's own transcripts
 established. Each is keyed per author, login, actor or file, so a second identity
 never reads the first's. None may sit under the workspace root: a per-machine cache carried by a file-sync product is the hazard `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` removes.
+
+The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, which `AppDataPaths` in `Backlog.SharedKernel` names. `Backlog` is shared by every build, so a Debug head reads the same settings as the installed app. `Backlog.Debug` in a Debug build, and `Backlog` in a Release one, holds the files a Debug head must never share, such as the workspace pointer, the device identity, the feature flags and the logs. A settings store reads and writes its file through `JsonFileStore<T>`. A missing, locked or corrupt file reads as the store's default. A refused write keeps the change for the session and returns the store's own message. An empty document deletes the file. Stores in projects that do not reference the shared kernel keep their own copy of this code.
 
 - **Nine containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
   - `tasks`
@@ -317,12 +319,12 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   outside every repository, so nothing about it is committed or needs ignoring,
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
-- **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace are committed and reviewed in diffs. The workspace is
-  `workspace.dsl` in the arc42 folder, with any files it includes from its `c4/` folder.
+- **The authored half stays text.** The Structurizr C4 workspace is committed and
+  reviewed in diffs. It is `workspace.dsl` in the arc42 folder, with any files it
+  includes from its `c4/` folder.
   Only what a generator produces goes into the database.
-  - The rendered Archify pages are not committed at all. The app draws them on demand
-    from the specifications into `_archify-renders/` beside `_databases/` (local ADR 0034).
+  - Diagrams are mermaid fences in the chapters. Archify is retired (local ADR 0057),
+    so no specification or rendered page sits beside them.
   - The reading order is not authored either. Both writers derive it the way the
     devbook generator does, from `index: root`, the folder's convention root and the
     numbers in filenames (local ADR 0016).
@@ -469,11 +471,32 @@ These parts are built:
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.
-- **The flag is per device.** Off on a phone means no push and no Notifications bell. Off on a
+- **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
 - **The sync service still scales to zero.** No connection to the sync service
   stays open. Web PubSub holds the desktop connections instead.
+
+## Change Notices
+
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#events-pane", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/sessions/features.md#re-read-on-request"]
+```
+
+An open page shows a write made elsewhere because the module that owns the data
+raises a singleton notice on every save, whoever saves. The module's published port
+holds its `Changed` on that notice. An MCP call runs in a desktop scope of its own,
+and each window has its own scopes, so a scoped event would reach neither.
+
+- **A page ignores its own writes.** The Tasks and Events panes mark their own saves
+  and skip the notice they cause, so a reload never reads over a field being typed.
+- **Every MCP write tool names its notice.** `McpRefreshMap` in
+  `Backlog.Infrastructure.Mcp` maps each tool not marked read-only to the notice that
+  refreshes its pages, or the reason none does. `BacklogMcpToolsTests` fails for a
+  write tool missing from it.
+- **The exceptions are named in the map.** The session request queue is polled every
+  five seconds. The window tools change no data. The surface run tools do not refresh
+  the Sessions pane, which reads its runs on request.
 
 ## Feature Enablement
 
@@ -483,16 +506,19 @@ related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/fea
 
 - **Optional capabilities are switchable per installation.** Each of these can be turned
   on:
-  - repository knowledge;
   - the individual knowledge areas;
-  - additional repositories;
   - system tools;
   - GitHub integration;
-  - feedback reporting;
   - Copilot CLI;
   - AI assistance.
 
-  Core backlog editing is always available and is never switchable.
+- **A finished capability is permanent, not a switch.** Core backlog editing, the
+  Devbook, the roadmap, the dashboard, additional repositories, feedback reporting
+  and copying an entry have no switch. A flag is retired once its feature is
+  finished: its key, its catalog row and every check of it go together.
+- **A key is a persisted value and is never renamed.** The store reads no former
+  keys. A key the catalog no longer defines is ignored on load and left out of the
+  next save, so a retired flag disappears from a settings file on its own.
 - **Disabled is the default.** The stored setting records only what has been switched
   *on*, so a capability added later stays out of the way until it is deliberately
   chosen.
@@ -543,13 +569,24 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 ```
 
-- **No account is required** for personal use in standalone mode.
+Local ADR 0058 decides how each principal proves itself. It is partly built, and
+each item below says where the code stands.
+
+| Principal | Proven by | Today |
+| --- | --- | --- |
+| The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Registration is anonymous |
+| A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | Built on Windows and Android; a device paired on a stored credential moves onto its key at its next sync |
+| A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | Built |
+| A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Built, not yet deployed: the authorization server and `/mcp`, serving `inbox:capture` |
+
+- **No account is required** for personal use in standalone mode. The desktop app
+  has no sign-in: the Windows session is the person's identity there.
 - **GitHub integration uses OAuth 2.0** for issue sync and webhook registration.
-- **The cloud connection uses device-based auth.** It uses JWT device sessions and no user
-  login. `Backlog.Modules.Sync.Api` implements it:
+- **The cloud connection uses device-based auth.** It uses JWT device sessions and no
+  user login. `Backlog.Modules.Sync.Api` implements it:
   - every sync request is bearer-only;
   - the service validates the JWT's issuer, audience and lifetime, plus its signature and algorithm;
   - a fallback-deny policy covers any endpoint not explicitly opened;
@@ -557,12 +594,35 @@ related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/003
     query outside it.
 
   [Task Sync](#task-sync) has the pairing flow that issues the token.
+- **The MCP listener checks scopes, not one token.** Each tool group requires a scope
+  under fallback-deny, behind the loopback `Origin` check, and every call is audited.
+  This is built: every tool and route requires a scope by a named policy, and the audit
+  names the grant. The listener takes grant tokens only: a named pipe for the person's SID
+  mints a grant's 15-minute JWT, and the listener refuses one older than its grant's version.
+  The shared, question-hook and telemetry tokens are retired, and `settings.json` holds
+  only grant ids. A debug setting can let the listener accept `BACKLOG_MCP_TOKEN`; it is off
+  by default.
+  The audit is built already: one record per tool call the listener admits, in a per-installation
+  `mcp-audit.db`, kept 30 days, the latest 200 on the MCP server Settings page.
+  A limit on failed bearer attempts is built too: ten within 60 seconds answer every bearer
+  request 429 for 60 seconds, and the trip is audited.
+- **An agent may grant others only within what it holds.** The person switches
+  `agents:grant` on for an orchestrator. It then grants, trims and revokes other agents,
+  one level deep, without `devbook:decide`, `agents:grant` or `tasks:admin`. Its grants
+  expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0058 §5
+  has the rules.
+- **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
+  device, minting a pairing code, allowing an agent's grant, and switching
+  `agents:grant` on. A transition to Done asks for none.
+- **Devbook decisions are human-only.** Approve and accept are not served over MCP,
+  and `devbook_set_state` over MCP accepts `draft` only.
+- **The Aspire web harness keeps no auth**, because it is not the installed app.
 - **One personal user.** The current architecture assumes a single personal user and has no team-oriented authorization roles.
 - **Credentials at rest are sealed by the OS.** Every third-party key or token the
   app stores is sealed under the signed-in Windows user with DPAPI, or in the
   platform secure store on Android. The settings files seal only the secret value
-  and stay legible otherwise. The MCP server's loopback token is the one stated
-  exception. Local ADR 0030 has the threat model.
+  and stay legible otherwise. No MCP credential is stored in plaintext since local
+  ADR 0058 retired the loopback token. Local ADR 0030 has the threat model.
 
 For the cloud service specifically, three inherited decisions apply:
 

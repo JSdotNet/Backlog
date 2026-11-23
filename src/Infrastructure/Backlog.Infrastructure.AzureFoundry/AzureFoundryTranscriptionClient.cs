@@ -84,15 +84,10 @@ public sealed class AzureFoundryTranscriptionTokens(TokenCredential? credential)
 public sealed record AzureFoundryTranscriptionRequest(ReadOnlyMemory<byte> Audio, string ContentType, string? Language, string? Prompt = null);
 
 /// <summary>The text, or that there is none. A failure carries nothing Foundry said: its
-/// message may quote the input. A refusal carries the status Foundry answered with, which
-/// says no more than which way it refused, so a caller can tell a deployment Foundry does not
-/// know (<c>404</c>) from a key it refused (<c>401</c>, <c>403</c>).</summary>
-public sealed record AzureFoundryTranscriptionResult(bool Succeeded, string? Text, int? StatusCode = null)
+/// message may quote the input.</summary>
+public sealed record AzureFoundryTranscriptionResult(bool Succeeded, string? Text)
 {
     public static AzureFoundryTranscriptionResult Failure { get; } = new(false, null);
-
-    /// <summary>Foundry answered <paramref name="statusCode"/>, not a success.</summary>
-    public static AzureFoundryTranscriptionResult Refused(int statusCode) => new(false, null, statusCode);
 
     public static AzureFoundryTranscriptionResult Success(string text) => new(true, text);
 }
@@ -180,7 +175,7 @@ public sealed partial class AzureFoundryTranscriptionClient(
             if (!response.IsSuccessStatusCode)
             {
                 LogRefused(logger, (int)response.StatusCode, ErrorCode(payload));
-                return AzureFoundryTranscriptionResult.Refused((int)response.StatusCode);
+                return AzureFoundryTranscriptionResult.Failure;
             }
 
             var text = Text(payload);

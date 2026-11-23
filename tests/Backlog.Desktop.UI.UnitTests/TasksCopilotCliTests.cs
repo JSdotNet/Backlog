@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksCopilotCliTests : IDisposable
 {
-    private readonly List<string> _tempDirs = [];
+    private readonly List<TemporaryDirectory> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
@@ -20,10 +20,10 @@ public sealed class TasksCopilotCliTests : IDisposable
             state.Dispose();
         }
 
-        foreach (var dir in _tempDirs.Where(Directory.Exists))
+        foreach (var dir in _tempDirs)
         {
-            TestDatabases.Release(dir);
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            TestDatabases.Release(dir.Path);
+            dir.Dispose();
         }
     }
 
@@ -86,14 +86,15 @@ public sealed class TasksCopilotCliTests : IDisposable
 
     private Harness Build(ICopilotCliLauncher launcher)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-copilot-flow", Guid.NewGuid().ToString("n"));
-        _tempDirs.Add(root);
+        var temp = new TemporaryDirectory("backlog-copilot-flow");
+        _tempDirs.Add(temp);
+        var root = temp.Path;
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var integration = new GitHubIntegration(settings, new FakeGitHubClient(), new FakeProbe());
+        var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe(new GitHubConnection(true, "Connected.")));
         var copilot = new TasksCopilotCli(launcher);
 
         var state = TasksTestHost.StateFor(store, integration, copilot);
@@ -119,43 +120,5 @@ public sealed class TasksCopilotCliTests : IDisposable
     {
         public Task LaunchAsync(CopilotCliRequest request, CancellationToken cancellationToken = default) =>
             throw new CopilotCliException(message);
-    }
-
-    private sealed class FakeGitHubClient : IGitHubClient
-    {
-        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubUploadedFile> UploadFileAsync(
-            GitHubRepositoryRef repository,
-            string path,
-            string branch,
-            byte[] content,
-            string commitMessage,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class FakeProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 }

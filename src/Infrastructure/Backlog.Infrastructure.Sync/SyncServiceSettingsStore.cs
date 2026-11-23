@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.Sync;
 
@@ -37,20 +38,14 @@ public sealed class SyncServiceSettingsStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<SyncServiceSettings> _file;
 
     /// <summary>A store at <paramref name="path"/>. No default, for the same
     /// reason the credential store has none: which per-user folder is the
     /// app's is the host's to say.</summary>
     public SyncServiceSettingsStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        _path = path;
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<SyncServiceSettings>(path, JsonOptions);
 
         Current = Read();
     }
@@ -59,7 +54,7 @@ public sealed class SyncServiceSettingsStore
 
     public SyncServiceSettings Current { get; private set; }
 
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     /// <summary>
     /// Stores <paramref name="serviceUrl"/>, or clears the setting when it is
@@ -85,34 +80,14 @@ public sealed class SyncServiceSettingsStore
     {
         Current = Normalize(settings);
 
-        string? error = null;
-        try
-        {
-            File.WriteAllText(_path, JsonSerializer.Serialize(Current, JsonOptions));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error = "Changed, but the sync service settings couldn't be saved for next time.";
-        }
+        var saved = _file.TrySave(Current);
 
         Changed?.Invoke();
-        return error;
+        return saved ? null : "Changed, but the sync service settings couldn't be saved for next time.";
     }
 
-    private SyncServiceSettings Read()
-    {
-        try
-        {
-            if (!File.Exists(_path)) return new SyncServiceSettings();
-
-            var settings = JsonSerializer.Deserialize<SyncServiceSettings>(File.ReadAllText(_path), JsonOptions);
-            return Normalize(settings ?? new SyncServiceSettings());
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return new SyncServiceSettings();
-        }
-    }
+    private SyncServiceSettings Read() =>
+        Normalize(_file.Load() ?? new SyncServiceSettings());
 
     // A stored value that fails the same check the setter applies is dropped on
     // read, so a hand-edited file cannot put a base address in place that the

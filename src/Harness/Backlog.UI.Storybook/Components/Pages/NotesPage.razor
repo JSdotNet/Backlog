@@ -4,14 +4,14 @@
 <PageTitle>Notes — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Notes"
-           Summary="NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own — the parts of the phone's Notes tab."
+           Summary="NoteRow and NoteEditor: notes and meetings newest first, each led by its kind's mark, that a search narrows, and one note being written that saves on its own — the parts the phone Inbox lists and opens."
            Guidelines="@Rules">
 
     <Story Name="Note row"
-           Description="One note: its title and when it last changed on one line, the opening of its body under them, clamped to two lines. The whole row is one link to the note. The snippet is the host's words — the row knows nothing of Markdown."
+           Description="One note: its title, then its kind's mark and when it last changed on one line, the opening of its body under them, clamped to two lines. The mark stands alone; its word is the tooltip and a visually-hidden span. The whole row is one link to the note. The snippet is the host's words — the row knows nothing of Markdown."
            Code="@RowCode">
         <div class="sb-phone">
-            <NoteRow Title="Conflict cases from the call" When="09:50"
+            <NoteRow Title="Conflict cases from the call" Kind="note" When="09:50"
                      Snippet="Last write wins for the title; sub-items merge by id; a delete beats an edit unless the edit is newer, which is the case the phone has to get right offline."
                      Href="#note-row" TestId="story-note-row" />
         </div>
@@ -25,7 +25,7 @@
                 @foreach (var note in Samples)
                 {
                     <li @key="note.Title">
-                        <NoteRow Title="@note.Title" When="@note.When" Snippet="@note.Snippet" Href="#notes-list" />
+                        <NoteRow Title="@note.Title" Kind="@note.Kind" When="@note.When" Snippet="@note.Snippet" Href="#notes-list" />
                     </li>
                 }
             </ul>
@@ -49,7 +49,7 @@
                     @foreach (var note in Matches)
                     {
                         <li @key="note.Title">
-                            <NoteRow Title="@note.Title" When="@note.When" Snippet="@note.Snippet" Href="#search" />
+                            <NoteRow Title="@note.Title" Kind="@note.Kind" When="@note.When" Snippet="@note.Snippet" Href="#search" />
                         </li>
                     }
                 </ul>
@@ -58,11 +58,11 @@
     </Story>
 
     <Story Name="No notes yet"
-           Description="The tab before the first note: an EmptyState that says where notes come from, and no search field, since there is nothing to search. The host's New note button stays."
+           Description="The Inbox filtered to Notes before the first note: an EmptyState that says where notes come from. The host's + menu stays."
            Code="@EmptyCode">
         <div class="sb-phone">
             <EmptyState Title="No notes yet"
-                        Description="Write one with New note. Notes you take on the desktop show here too."
+                        Description="Write one with Note in the + menu. Notes you take on the desktop show here too."
                         TestId="story-notes-empty" />
         </div>
     </Story>
@@ -78,7 +78,7 @@
     </Story>
 
     <Story Name="Editing a note"
-           Description="A saved note opens with its words, when it last changed, and Saved. Tools holds the host's ways of adding to it — dictation, a photo, a file — and ChildContent what they produce, such as the files attached."
+           Description="A saved note opens with its words, when it last changed, and Saved. Tools holds the host's ways of adding to it — dictation, a recording, a photo, pictures, files — as one row of tiles pinned along the bottom, each a glyph above a short word so five fit across a phone; a tile whose word is shorter than its act keeps the act as its name. ChildContent holds what they produce, such as the files attached, between the body and the row. On the phone the row sits right above the tab bar."
            Code="@EditCode">
         <div class="sb-phone">
             <NoteEditor Title="@_editTitle" TitleChanged="v => _editTitle = v"
@@ -88,10 +88,24 @@
                 <Tools>
                     <ToggleButton Pressed="_listening" PressedChanged="p => _listening = p"
                                   AriaLabel="Dictate into the note" Title="Dictate into the note">
-                        <MicIcon />
+                        <MicIcon Size="20" />Dictate
                     </ToggleButton>
-                    <AppButton Size="ButtonSize.Small">Take photo</AppButton>
-                    <AppButton Size="ButtonSize.Small">Choose files</AppButton>
+                    <AppButton>
+                        <Icon><CircleDotIcon Size="20" /></Icon>
+                        <ChildContent>Record</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Take photo" title="Take photo">
+                        <Icon><CameraIcon Size="20" /></Icon>
+                        <ChildContent>Photo</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Choose pictures" title="Choose pictures">
+                        <Icon><ImageIcon Size="20" /></Icon>
+                        <ChildContent>Pictures</ChildContent>
+                    </AppButton>
+                    <AppButton aria-label="Choose files" title="Choose files">
+                        <Icon><PaperclipIcon Size="20" /></Icon>
+                        <ChildContent>Files</ChildContent>
+                    </AppButton>
                 </Tools>
                 <ChildContent>
                     <AttachmentStrip Tiles="Attached" AriaLabel="Attached to this note" />
@@ -189,11 +203,11 @@ Leaving the note does not stop the recording; the bar is back when the note is o
         new("interaction-guidelines.md#motion-and-reduced-motion", "Why the recording dot stops pulsing and the level stops moving under reduced motion.")
     ];
 
-    private sealed record Sample(string Title, string When, string? Snippet);
+    private sealed record Sample(string Title, string When, string? Snippet, string Kind = "note");
 
     private static readonly IReadOnlyList<Sample> Samples =
     [
-        new("Conflict cases from the call", "09:50", "Last write wins for the title; sub-items merge by id; a delete beats an edit unless the edit is newer."),
+        new("Conflict cases from the call", "09:50", "Last write wins for the title; sub-items merge by id; a delete beats an edit unless the edit is newer.", "meeting"),
         new("Release goals — draft", "Yesterday", "Ship the phone Today view. Inbox triage on mobile. Notes sync."),
         new("Offsite ideas", "Mon", "Somewhere reachable by train. A half day for the roadmap, a half day off."),
         new("Books to read", "2 Oct", "Shape Up. The Making of a Manager. A Philosophy of Software Design."),
@@ -289,7 +303,7 @@ Leaving the note does not stop the recording; the bar is back when the note is o
     }
 
     private const string RowCode = """
-        <NoteRow Title="Conflict cases from the call" When="09:50"
+        <NoteRow Title="Conflict cases from the call" Kind="note" When="09:50"
                  Snippet="@NoteSnippet.Of(note.Body)" Href="notes/{id}" />
         """;
 
@@ -298,7 +312,7 @@ Leaving the note does not stop the recording; the bar is back when the note is o
             @foreach (var note in notes)
             {
                 <li @key="note.Id">
-                    <NoteRow Title="@note.Title" When="@When(note)" Snippet="@NoteSnippet.Of(note.Body)"
+                    <NoteRow Title="@note.Title" Kind="@(note.IsMeeting ? "meeting" : "note")" When="@When(note)" Snippet="@NoteSnippet.Of(note.Body)"
                              Href="@($"notes/{note.Id}")" />
                 </li>
             }
@@ -316,7 +330,7 @@ Leaving the note does not stop the recording; the bar is back when the note is o
 
     private const string EmptyCode = """
         <EmptyState Title="No notes yet"
-                    Description="Write one with New note. Notes you take on the desktop show here too." />
+                    Description="Write one with Note in the + menu. Notes you take on the desktop show here too." />
         """;
 
     private const string NewCode = """
@@ -330,9 +344,25 @@ Leaving the note does not stop the recording; the bar is back when the note is o
                     Body="@draft.Body" BodyChanged="OnBodyChanged"
                     When="Wed 7 Oct · 09:50" State="SaveState.Saved">
             <Tools>
-                <ToggleButton Pressed="listening" PressedChanged="OnSpeechToggledAsync" AriaLabel="Dictate into the note">…</ToggleButton>
-                <AppButton Size="ButtonSize.Small" OnClick="TakePhotoAsync">Take photo</AppButton>
-                <AppButton Size="ButtonSize.Small" OnClick="PickFilesAsync">Choose files</AppButton>
+                <ToggleButton Pressed="listening" PressedChanged="OnSpeechToggledAsync" AriaLabel="Dictate into the note">
+                    <MicIcon Size="20" />Dictate
+                </ToggleButton>
+                <AppButton OnClick="RecordAsync">
+                    <Icon><CircleDotIcon Size="20" /></Icon>
+                    <ChildContent>Record</ChildContent>
+                </AppButton>
+                <AppButton OnClick="TakePhotoAsync" aria-label="Take photo" title="Take photo">
+                    <Icon><CameraIcon Size="20" /></Icon>
+                    <ChildContent>Photo</ChildContent>
+                </AppButton>
+                <AppButton OnClick="PickPicturesAsync" aria-label="Choose pictures" title="Choose pictures">
+                    <Icon><ImageIcon Size="20" /></Icon>
+                    <ChildContent>Pictures</ChildContent>
+                </AppButton>
+                <AppButton OnClick="PickFilesAsync" aria-label="Choose files" title="Choose files">
+                    <Icon><PaperclipIcon Size="20" /></Icon>
+                    <ChildContent>Files</ChildContent>
+                </AppButton>
             </Tools>
             <ChildContent>
                 <AttachmentStrip Tiles="attached" AriaLabel="Attached to this note" />

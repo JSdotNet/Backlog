@@ -7,8 +7,12 @@ namespace Backlog.Infrastructure.DevPc.UnitTests;
 /// server, written by the Add tool path, kept by an import, and absent — not
 /// invented — on every catalog written before the property existed.
 /// </summary>
-public class DevToolDownloadTests
+public sealed class DevToolDownloadTests : IDisposable
 {
+    private readonly TemporaryDirectory _temp = new("backlog-tool-tests");
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void An_application_entry_reads_its_download_page()
     {
@@ -172,9 +176,9 @@ public class DevToolDownloadTests
         Assert.Equal(expected, DevToolConfiguration.IsLinkableDownload(download));
     }
 
-    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var root = _temp.Combine(Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, json);

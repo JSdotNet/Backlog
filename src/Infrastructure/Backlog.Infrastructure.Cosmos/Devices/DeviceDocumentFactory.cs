@@ -26,6 +26,7 @@ internal static class DeviceDocumentFactory
             CredentialHash = device.CredentialHash,
             RegisteredAt = device.RegisteredAt,
             PairedBy = device.PairedBy is { } pairedBy ? ReplicaDocumentSerialization.Key(pairedBy.Value) : null,
+            PublicKey = device.PublicKey,
         };
     }
 
@@ -51,8 +52,9 @@ internal static class DeviceDocumentFactory
             new DeviceId(id),
             new OwnerId(ownerId),
             document.Name,
-            document.CredentialHash,
+            string.IsNullOrEmpty(document.CredentialHash) ? null : document.CredentialHash,
             document.RegisteredAt,
-            Guid.TryParse(document.PairedBy, out var pairedBy) ? new DeviceId(pairedBy) : null);
+            Guid.TryParse(document.PairedBy, out var pairedBy) ? new DeviceId(pairedBy) : null,
+            string.IsNullOrEmpty(document.PublicKey) ? null : document.PublicKey);
     }
 }

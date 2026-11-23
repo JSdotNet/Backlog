@@ -148,28 +148,21 @@ public sealed class DevbookChapterKeyTests
     [InlineData(null)]
     public async Task Every_arc42_catalog_path_keys_under_the_conventional_folder(string? folderInRepository)
     {
-        var repository = Path.Combine(Path.GetTempPath(), "backlog-chapter-key-tests", Guid.NewGuid().ToString("N"));
-        var elsewhere = Path.Combine(Path.GetTempPath(), "backlog-chapter-key-tests", Guid.NewGuid().ToString("N"));
+        using var repositoryTemp = new TemporaryDirectory("backlog-chapter-key-tests");
+        var repository = repositoryTemp.Path;
+        using var elsewhereTemp = new TemporaryDirectory("backlog-chapter-key-tests");
+        var elsewhere = elsewhereTemp.Path;
         var folder = folderInRepository is null
             ? Path.Combine(elsewhere, "arch")
             : Path.Combine(repository, folderInRepository.Replace('/', Path.DirectorySeparatorChar));
-        try
-        {
-            Directory.CreateDirectory(repository);
-            Directory.CreateDirectory(Path.Combine(folder, "adr"));
-            File.WriteAllText(Path.Combine(folder, "adr", "0001-decision.md"), "# Decision");
+        Directory.CreateDirectory(Path.Combine(folder, "adr"));
+        File.WriteAllText(Path.Combine(folder, "adr", "0001-decision.md"), "# Decision");
 
-            var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, repository);
+        var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, repository);
 
-            var path = Assert.Single(catalog.Documents).Path;
-            Assert.NotEqual("adr/0001-decision.md", path);
-            Assert.Equal(Decision, DevbookChapterKey.Canonical(path, Arc42At(folderInRepository ?? folder)));
-        }
-        finally
-        {
-            if (Directory.Exists(repository)) Directory.Delete(repository, recursive: true);
-            if (Directory.Exists(elsewhere)) Directory.Delete(elsewhere, recursive: true);
-        }
+        var path = Assert.Single(catalog.Documents).Path;
+        Assert.NotEqual("adr/0001-decision.md", path);
+        Assert.Equal(Decision, DevbookChapterKey.Canonical(path, Arc42At(folderInRepository ?? folder)));
     }
 
     /// <summary>The cheap half: one spelling for a path before anything decides

@@ -61,7 +61,7 @@ public sealed class SessionsPaneSchedulesTests
     {
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddSingleton<IAgentSessionSource>(new Sessions(sessions));
+        context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions));
         context.Services.AddSingleton<IDeliveryRunSource>(new SessionsPaneTests.StubRunSource([], []));
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
         if (register is not null) context.Services.AddSingleton(register);
@@ -310,14 +310,5 @@ public sealed class SessionsPaneSchedulesTests
             surface = null;
             return false;
         }
-    }
-
-    private sealed class Sessions(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
     }
 }

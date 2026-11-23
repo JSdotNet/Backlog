@@ -26,11 +26,10 @@ public sealed class DemoViewTests
         Assert.Equal("allow-scripts", demo.Find("[data-testid='demo-view-frame']").GetAttribute("sandbox"));
     }
 
-    /// <summary>The Archify frame pins its document to the dark theme and lays a
-    /// stylesheet over it. A demo shows the product as it looks, so it is handed
-    /// over byte for byte and through its own loader, never the artifact's.</summary>
+    /// <summary>A demo shows the product as it looks, so it is handed over byte for
+    /// byte and through its own loader.</summary>
     [Fact]
-    public void The_demo_is_handed_to_its_frame_unchanged_and_not_through_the_artifact_loader()
+    public void The_demo_is_handed_to_its_frame_unchanged_through_its_own_loader()
     {
         using var context = Context();
 
@@ -38,7 +37,6 @@ public sealed class DemoViewTests
 
         var load = Assert.Single(context.JSInterop.Invocations["backlogDemos.load"]);
         Assert.Equal(Html, load.Arguments[2]);
-        Assert.Empty(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
     }
 
     [Fact]
@@ -154,7 +152,7 @@ public sealed class DemoViewTests
         var stage = demo.Find("[data-testid='demo-view-stage']");
         Assert.NotNull(stage.QuerySelector("[data-testid='demo-view-frame']"));
         Assert.NotNull(stage.QuerySelector("[data-testid='demo-view-exit-fullscreen']"));
-        Assert.Single(context.JSInterop.Invocations["backlogDiagrams.toggleArtifactFullscreen"]);
+        Assert.Single(context.JSInterop.Invocations["backlogDiagrams.toggleFullscreen"]);
     }
 
     /// <summary>bUnit has no frame, so the half that lives in the browser is held

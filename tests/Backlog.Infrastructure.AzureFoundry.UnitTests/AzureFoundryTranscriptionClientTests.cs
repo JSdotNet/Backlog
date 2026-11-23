@@ -111,7 +111,7 @@ public sealed class AzureFoundryTranscriptionClientTests
 
         var result = await Client(foundry, logger: logger).TranscribeAsync(Request("audio/mp4"), Cancellation);
 
-        Assert.Equal(AzureFoundryTranscriptionResult.Refused(400), result);
+        Assert.Equal(AzureFoundryTranscriptionResult.Failure, result);
         var logged = string.Join('\n', logger.Messages);
         Assert.Contains("400", logged, StringComparison.Ordinal);
         Assert.Contains("invalid_audio", logged, StringComparison.Ordinal);
@@ -177,7 +177,7 @@ public sealed class AzureFoundryTranscriptionClientTests
 
         var result = await provider.GetRequiredService<IAzureFoundryTranscriptionClient>().TranscribeAsync(Request("audio/mp4"), Cancellation);
 
-        Assert.Equal(AzureFoundryTranscriptionResult.Refused(500), result);
+        Assert.Equal(AzureFoundryTranscriptionResult.Failure, result);
         Assert.Equal(2, foundry.Requests.Count);
     }
 
@@ -187,14 +187,14 @@ public sealed class AzureFoundryTranscriptionClientTests
     [InlineData(HttpStatusCode.Forbidden)]
     [InlineData(HttpStatusCode.NotFound)]
     [InlineData(HttpStatusCode.RequestTimeout)]
-    public async Task Any_other_refusal_is_not_retried_and_carries_its_status(HttpStatusCode status)
+    public async Task Any_other_refusal_is_not_retried(HttpStatusCode status)
     {
         var foundry = new Foundry(_ => Json(status, "{}"));
         using var provider = Registered(foundry);
 
         var result = await provider.GetRequiredService<IAzureFoundryTranscriptionClient>().TranscribeAsync(Request("audio/mp4"), Cancellation);
 
-        Assert.Equal(AzureFoundryTranscriptionResult.Refused((int)status), result);
+        Assert.Equal(AzureFoundryTranscriptionResult.Failure, result);
         Assert.Single(foundry.Requests);
     }
 

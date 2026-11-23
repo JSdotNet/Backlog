@@ -2,7 +2,6 @@ using AngleSharp.Dom;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
-using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
@@ -145,6 +144,30 @@ public sealed class InboxPaneTests
         Assert.Equal(4, Titles(pane).Count);
         Assert.Equal("true", pane.Find("[data-testid='inbox-kind-all']").GetAttribute("aria-pressed"));
         Assert.Equal("false", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>.devbook/domain/inbox/requirements.md#requirement-meetings-have-a-mark-and-a-chip-of-their-own:
+    /// a meeting has a mark of its own, and its chip sits beside the note's.</summary>
+    [Fact]
+    public async Task A_meeting_has_its_own_mark_and_a_chip_beside_the_notes()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Release plan", ContentKind.Note);
+        harness.Inbox.Seed("Weekly sync", ContentKind.Meeting);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(
+            ["inbox-kind-all", "inbox-kind-note", "inbox-kind-meeting"],
+            pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-kind-meeting'] .inbox-pane__chip-label").TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-kind-meeting']").ClickAsync(new());
+
+        Assert.Equal(["Weekly sync"], Titles(pane));
+        var mark = pane.Find("[data-testid='inbox-pane-item-tile'] svg");
+        Assert.Contains("capture-kind-marker--meeting", mark.ClassList);
+        Assert.Equal("Meeting", pane.Find("[data-testid='inbox-pane-item-kind']").TextContent.Trim());
     }
 
     [Fact]
@@ -751,15 +774,13 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
-    public async Task A_recording_whose_transcription_failed_three_times_says_why_and_retries()
+    public async Task A_recording_that_failed_to_transcribe_three_times_says_why_and_retry_sends_it_again()
     {
         using var harness = Harness.Create();
-        harness.Context.JSInterop.Setup<string?>("backlogAudio.open", _ => true).SetResult("blob:recording");
-        var failure = new InboxTranscriptionFailureDto(new string('a', 64), Guid.NewGuid(), Guid.NewGuid(), 3,
-            "Part 1 of 2 could not be transcribed: Foundry refused the API key.", DateTimeOffset.UnixEpoch);
         var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null)
         {
-            TranscriptionFailure = failure,
+            TranscriptionFailure = new Backlog.Modules.Inbox.Abstractions.Services.InboxTranscriptionFailureDto(
+                new string('a', 64), 3, "The deployment was not found.", DateTimeOffset.UnixEpoch),
         };
         var item = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
         harness.Inbox.SeedAttachments(item.Id, recording);
@@ -767,15 +788,18 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
 
-        Assert.Equal(
-            "Transcription failed: Part 1 of 2 could not be transcribed: Foundry refused the API key.",
-            pane.Find($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']").TextContent.Trim());
+        var notice = pane.Find($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']");
+        Assert.Equal("Transcription failed: The deployment was not found.", notice.TextContent.Trim());
+        Assert.Equal("status", notice.GetAttribute("role"));
 
         await pane.Find($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']").ClickAsync(new());
 
-        Assert.Equal([recording.Id], harness.Inbox.TranscriptionRetries);
+        Assert.Equal([recording.Id], harness.Inbox.RetriedTranscriptions);
         pane.WaitForAssertion(() =>
-            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']")));
+        {
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-error-{recording.Id:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-transcription-retry-{recording.Id:N}']"));
+        });
     }
 
     [Fact]
@@ -2410,7 +2434,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.Equal(decided.Id, Assert.Single(outcome.Failures).Id);
@@ -2433,7 +2457,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(0, outcome.Changed);
         Assert.Equal(2, outcome.Failures.Count);
@@ -2500,7 +2524,7 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
-        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var outcome = await pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         Assert.Equal(1, outcome.Changed);
         Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing);
@@ -2528,7 +2552,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         harness.Inbox.BeforeRoute = () => release.Task;
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-move-to-backlog']").HasAttribute("disabled")));
         // Not awaited before the release: were the guard missing, the route
@@ -2558,7 +2582,7 @@ public sealed class InboxPaneTests
         await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
 
         pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-bulk-backlog']").HasAttribute("disabled")));
-        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batch = pane.InvokeAsync(() => harness.State.RouteSelectionToBacklogAsync());
         var batches = harness.Inbox.BatchRoutes.Count;
 
         release.SetResult();
@@ -3423,11 +3447,11 @@ public sealed class InboxPaneTests
 
     private sealed class Harness : IDisposable
     {
-        private readonly string _root;
+        private readonly TemporaryDirectory _temp;
 
-        private Harness(string root, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
+        private Harness(TemporaryDirectory temp, BunitContext context, FakeInboxItems inbox, GitHubSettingsStore gitHub, ToastChannel toasts)
         {
-            _root = root;
+            _temp = temp;
             Context = context;
             Inbox = inbox;
             GitHub = gitHub;
@@ -3448,8 +3472,8 @@ public sealed class InboxPaneTests
         /// is what the state reads "now" from; the system clock when null.</summary>
         public static Harness Create(TimeProvider? clock = null)
         {
-            var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-pane-tests", Guid.NewGuid().ToString("n"));
-            var gitHub = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+            var temp = new TemporaryDirectory("backlog-inbox-pane-tests");
+            var gitHub = new GitHubSettingsStore(temp.Combine("github.json"));
 
             var context = new BunitContext();
             // The split pane, the side menu's focus moves and the menus all
@@ -3460,7 +3484,7 @@ public sealed class InboxPaneTests
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 
-            return new Harness(root, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
+            return new Harness(temp, context, inbox, gitHub, context.Services.GetRequiredService<ToastChannel>());
         }
 
         /// <summary>Renders the pane the way the shell shows it: initialised, so
@@ -3479,14 +3503,7 @@ public sealed class InboxPaneTests
         public void Dispose()
         {
             Context.Dispose();
-
-            try
-            {
-                if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            _temp.Dispose();
         }
     }
 }

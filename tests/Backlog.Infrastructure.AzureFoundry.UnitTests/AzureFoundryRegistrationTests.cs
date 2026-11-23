@@ -14,18 +14,9 @@ namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 /// </summary>
 public sealed class AzureFoundryRegistrationTests : IDisposable
 {
-    private readonly List<string> _paths = [];
+    private readonly TemporaryDirectory _temp = new("backlog-foundry-registration");
 
-    public void Dispose()
-    {
-        foreach (var path in _paths)
-        {
-            var directory = Path.GetDirectoryName(path);
-            if (directory is null) continue;
-
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_chat_client_resolves_as_the_foundry_client()
@@ -80,12 +71,7 @@ public sealed class AzureFoundryRegistrationTests : IDisposable
         Assert.Single(chain.OfType<ResilienceHandler>());
     }
 
-    private string NewSettingsPath()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-registration", Guid.NewGuid().ToString("n"), "azure-foundry.json");
-        _paths.Add(path);
-        return path;
-    }
+    private string NewSettingsPath() => _temp.Combine(Guid.NewGuid().ToString("n"), "azure-foundry.json");
 
     /// <summary>The factory's handler, the additional handlers in order, and
     /// the primary handler last — walked the way a request travels.</summary>

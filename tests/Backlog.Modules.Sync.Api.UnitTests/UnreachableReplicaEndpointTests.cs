@@ -77,7 +77,7 @@ public sealed class UnreachableReplicaEndpointTests : IDisposable
 
         var response = await client.PostAsJsonAsync(
             SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-            new RegisterDeviceRequest("Study desktop"),
+            await client.EnrolmentRequest("Study desktop"),
             Cancellation).WaitAsync(Promptly * 2, Cancellation);
 
         clock.Stop();
@@ -97,12 +97,12 @@ public sealed class UnreachableReplicaEndpointTests : IDisposable
         var client = _service.CreateClient();
 
         await client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), new RegisterDeviceRequest("First"), Cancellation)
+            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await client.EnrolmentRequest("First"), Cancellation)
             .WaitAsync(Promptly * 2, Cancellation);
 
         var clock = Stopwatch.StartNew();
         var response = await client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), new RegisterDeviceRequest("Second"), Cancellation)
+            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await client.EnrolmentRequest("Second"), Cancellation)
             .WaitAsync(Promptly * 2, Cancellation);
 
         clock.Stop();

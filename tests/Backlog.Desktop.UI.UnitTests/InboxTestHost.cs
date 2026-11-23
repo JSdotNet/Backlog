@@ -25,6 +25,16 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal static class InboxTestHost
 {
+    /// <summary>The bulk bar's Move to backlog taken to the end: the press, and
+    /// Confirm on the "Before you route" panel when the press opened one — what a
+    /// person does to route the picked items as one batch.</summary>
+    public static async Task<InboxBulkOutcome> RouteSelectionToBacklogAsync(this InboxDesktopState state)
+    {
+        var outcome = await state.BeginBulkRouteAsync();
+
+        return state.RouteDraft is null ? outcome : await state.ConfirmRouteAsync();
+    }
+
     /// <summary>Registers the state and the fake behind it. The fake is
     /// registered as itself too, so a test can seed it and read it back.</summary>
     public static FakeInboxItems AddInboxState(IServiceCollection services, FakeInboxItems? inbox = null)
@@ -1220,14 +1230,14 @@ internal sealed class FakeInboxItems : IInboxItems
         return updated.IsFailure || error is null ? updated : Result.Failure(error.Value);
     }
 
-    /// <summary>The recordings a transcription Retry was pressed for, in order.</summary>
-    public List<Guid> TranscriptionRetries { get; } = [];
+    /// <summary>The recordings Retry sent to transcription again, in order.</summary>
+    public List<Guid> RetriedTranscriptions { get; } = [];
 
-    /// <summary>Forgets the recording's failure, as the module's Retry does once it has
-    /// cleared the record and queued the note.</summary>
+    /// <summary>The module's Retry on a recording whose transcription failed three times:
+    /// the failure record is cleared, so the row drops it on the reload.</summary>
     public Task<Result> RetryTranscriptionAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default)
     {
-        TranscriptionRetries.Add(attachmentId);
+        RetriedTranscriptions.Add(attachmentId);
 
         return Update(id, item => item with
         {

@@ -369,9 +369,43 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         </div>
     </Story>
 
+    <Story Name="Planned hours"
+           Description="`PlannedHoursEditor`: the hours set aside for one task, a day and a number of hours each — never a time of day — as the detail panel's **Planned hours** section edits them. A line a day to change or remove, and a line to add another day. A suggestion taken for a day is kept at once, a typed figure on Enter or on leaving the field, and a refused figure puts the field back to the day's own. This is where a task with no due date gets its hours; the Calendar plans hours only for the tasks it draws."
+           Code="@PlannedHoursCode">
+        <div class="sb-side-panel" data-testid="planned-hours-panel">
+            <PlannedHoursEditor Blocks="@_plannedHours"
+                                DefaultDay="@PlannedHoursToday"
+                                OnChanged="ChangePlannedHours"
+                                TestId="planned-hours" />
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
+    private static readonly DateOnly PlannedHoursToday = new(2026, 10, 6);
+
+    private List<PlannedHoursDay> _plannedHours =
+    [
+        new(new DateOnly(2026, 10, 7), 3m),
+        new(new DateOnly(2026, 10, 9), 1.5m)
+    ];
+
+    /// <summary>The story keeps the blocks in memory, as the module keeps them on the
+    /// entry: a change replaces the day's block, and no hours removes it.</summary>
+    private void ChangePlannedHours(PlannedHoursDayChange change)
+    {
+        _plannedHours = [.. _plannedHours.Where(block => block.On != change.On)];
+        if (change.Hours is { } hours) _plannedHours.Add(new PlannedHoursDay(change.On, hours));
+        _plannedHours = [.. _plannedHours.OrderBy(block => block.On)];
+    }
+
+    private const string PlannedHoursCode = """
+        <PlannedHoursEditor Blocks="@blocksOfOneTask"
+                            DefaultDay="@today"
+                            OnChanged="change => backlog.SetPlannedHoursAsync(taskId, change.On, change.Hours)" />
+        """;
+
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#task-rows", "What a row states, and what a pane over one may add to it."),

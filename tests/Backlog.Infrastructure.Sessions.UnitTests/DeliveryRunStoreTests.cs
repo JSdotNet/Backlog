@@ -14,7 +14,8 @@ public sealed class DeliveryRunStoreTests : IDisposable
     private const string Worktree = @"D:\n\5c1e0b7a";
     private const string RunId = "run-1";
 
-    private readonly string _home = Path.Combine(Path.GetTempPath(), "backlog-delivery-run-store-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-delivery-run-store-tests");
+    private string _home => _temp.Path;
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -60,14 +61,5 @@ public sealed class DeliveryRunStoreTests : IDisposable
 
     private static JsonObject Run(string title) => new() { ["id"] = RunId, ["title"] = title };
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_home, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

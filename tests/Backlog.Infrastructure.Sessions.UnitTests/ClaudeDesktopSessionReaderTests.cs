@@ -21,10 +21,8 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
     private const string Account = "76e40352-1b9a-468f-8ef7-caaf76d5103c";
     private const string Org = "6a29ea76-8694-4b36-aea5-a4d4b0f03805";
 
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-claude-desktop-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-claude-desktop-tests");
+    private string _root => _temp.Path;
 
     private int _opens;
 
@@ -305,14 +303,5 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
         return path;
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 }

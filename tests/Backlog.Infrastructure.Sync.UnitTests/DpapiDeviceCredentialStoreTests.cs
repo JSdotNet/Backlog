@@ -17,23 +17,12 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 [SupportedOSPlatform("windows")]
 public sealed class DpapiDeviceCredentialStoreTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-device-credential-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("backlog-device-credential-tests");
+    private string _root => _temp.Path;
 
     private string CredentialPath => Path.Combine(_root, "device-credential.json");
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     [Fact]
     public void The_credential_survives_a_restart_and_is_never_written_in_the_clear()
@@ -56,8 +45,8 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
         // because "not found" only means something if the search could have found
         // it — a UTF-16 write would pass a UTF-8-only scan for the wrong reason.
         var bytes = File.ReadAllBytes(CredentialPath);
-        Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.Credential)), "The credential is in the file as UTF-8.");
-        Assert.False(Contains(bytes, Encoding.Unicode.GetBytes(credential.Credential)), "The credential is in the file as UTF-16.");
+        Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.Credential!)), "The credential is in the file as UTF-8.");
+        Assert.False(Contains(bytes, Encoding.Unicode.GetBytes(credential.Credential!)), "The credential is in the file as UTF-16.");
         Assert.False(Contains(bytes, Encoding.UTF8.GetBytes(credential.DeviceId.ToString("D"))), "The device id is in the file in the clear.");
 
         // And the scan itself works: the envelope's own bytes are found by it.
@@ -175,11 +164,13 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var store = new DpapiDeviceCredentialStore(CredentialPath);
+        var folder = _temp.Combine("unwritten");
+        var credentialPath = Path.Combine(folder, "device-credential.json");
+        var store = new DpapiDeviceCredentialStore(credentialPath);
 
         Assert.Null(store.Current);
-        Assert.Equal(CredentialPath, store.StorePath);
-        Assert.True(Directory.Exists(_root), "The store creates its folder rather than failing on first save.");
+        Assert.Equal(credentialPath, store.StorePath);
+        Assert.True(Directory.Exists(folder), "The store creates its folder rather than failing on first save.");
     }
 
     /// <summary>

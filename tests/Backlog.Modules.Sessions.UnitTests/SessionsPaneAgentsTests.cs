@@ -1009,7 +1009,7 @@ public sealed class SessionsPaneAgentsTests
         private void Compose()
         {
             _context.JSInterop.Mode = JSRuntimeMode.Loose;
-            var source = new Sessions(_sessions);
+            var source = new StubSessionSource(_sessions);
             _context.Services.AddSingleton<TimeProvider>(_paneClock);
             _context.Services.AddSingleton<IAgentSessionSource>(source);
             _context.Services.AddSingleton<IDeliveryRunSource>(new SessionsPaneTests.StubRunSource([], []));
@@ -1061,6 +1061,7 @@ public sealed class SessionsPaneAgentsTests
         }
 
         /// <summary>The register, counting how often it is listed.</summary>
+        // Differs from InMemoryLoopRegister: wraps another register and counts the listings.
         private sealed class CountingLoopRegister(ILoopRegister inner) : ILoopRegister
         {
             private int _lists;
@@ -1109,14 +1110,5 @@ public sealed class SessionsPaneAgentsTests
             Disposed = true;
             return inner.DisposeAsync();
         }
-    }
-
-    private sealed class Sessions(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
-    {
-        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
-            GetSessionsAsync(cancellationToken);
-
-        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Count));
     }
 }

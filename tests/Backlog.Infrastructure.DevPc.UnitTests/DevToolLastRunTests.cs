@@ -9,19 +9,13 @@ public sealed class DevToolLastRunTests : IDisposable
 {
     private static readonly DateTimeOffset Started = new(2026, 10, 13, 9, 30, 0, TimeSpan.FromHours(2));
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-last-run-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("backlog-last-run");
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private DevToolConfigurationPaths Paths => DevToolConfigurationPaths.FromStorageRoot(_root, "Test PC");
+    private DevToolConfigurationPaths Paths => DevToolConfigurationPaths.FromStorageRoot(_temp.Path, "Test PC");
 
     [Fact]
     public void The_last_run_sits_beside_the_per_pc_tool_choices()

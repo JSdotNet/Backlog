@@ -20,19 +20,16 @@ public sealed class AskBacklogScriptTests : IDisposable
     private const string ProseId = "22222222-2222-2222-2222-222222222222";
     private const string Question = "Which database?";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "ask-backlog-script-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _temp = new("ask-backlog-script");
     private readonly string _script;
 
     public AskBacklogScriptTests()
     {
         // The script as the app installs it, so what runs is the embedded bytes.
-        _script = AskBacklogHook.Install(_root);
+        _script = AskBacklogHook.Install(_temp.Path);
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _temp.Dispose();
 
     private static JsonArray Questions() => JsonNode.Parse("""
         [{ "question": "Which database?", "header": "Database", "multiSelect": false,
@@ -59,6 +56,82 @@ public sealed class AskBacklogScriptTests : IDisposable
     }
 
     private static JsonObject Unavailable() => new() { ["status"] = 503 };
+
+    /// <summary>
+    /// With no token in the environment the hook reads the Question hook grant's id from the
+    /// app's settings.json beside its folder, asks the broker for a token for it, and presents
+    /// that (local ADR 0058, Phase 1) — never a token settings.json still carries from before.
+    /// </summary>
+    [Fact]
+    public async Task The_hook_presents_a_broker_token_for_the_question_hook_grant_and_never_a_retired_token()
+    {
+        File.WriteAllText(Path.Combine(_temp.Path, "settings.json"), """
+            { "mcpServer": { "token": "mcp-token", "hookToken": "hook-token",
+                             "grants": { "delivery": "g_d", "questionHook": "g_q", "telemetry": "g_t" } } }
+            """);
+        var pipe = "ask-backlog-test-" + Guid.NewGuid().ToString("N");
+        var requests = new List<string>();
+        using var stop = new CancellationTokenSource();
+        var broker = ServeBrokerAsync(pipe, """{"token":"broker.token.x","expiresAt":"2026-11-12T10:15:00Z"}""", requests, stop.Token);
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "session")])),
+            new Dictionary<string, string> { ["BACKLOG_MCP_TOKEN"] = "", ["BACKLOG_MCP_BROKER_PIPE"] = pipe },
+            Step("pre", PreInput()));
+
+        await stop.CancelAsync();
+        await broker;
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal("Bearer broker.token.x", Assert.Single(run.Calls).Authorization);
+        Assert.Equal("""{"grant":"g_q"}""", Assert.Single(requests));
+    }
+
+    /// <summary>A settings.json from before the upgrade, with the retired tokens and no grant yet:
+    /// the hook sends nothing rather than a token the listener refuses, and the dialog opens.</summary>
+    [Fact]
+    public void Without_a_recorded_grant_the_hook_asks_nothing()
+    {
+        File.WriteAllText(Path.Combine(_temp.Path, "settings.json"), """
+            { "mcpServer": { "token": "mcp-token", "hookToken": "hook-token" } }
+            """);
+
+        var run = Run(
+            Replies(("ask", [Asked(DialogId, "session")])),
+            new Dictionary<string, string> { ["BACKLOG_MCP_TOKEN"] = "" },
+            Step("pre", PreInput()));
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal(string.Empty, run.Output(0));
+        Assert.Empty(run.Calls);
+    }
+
+    /// <summary>A stand-in for the token broker: answers every connection on <paramref name="pipe"/>
+    /// with <paramref name="reply"/> and records the line it was sent, until stopped.</summary>
+    private static async Task ServeBrokerAsync(string pipe, string reply, List<string> requests, CancellationToken stop)
+    {
+        while (!stop.IsCancellationRequested)
+        {
+            using var server = new System.IO.Pipes.NamedPipeServerStream(
+                pipe, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+            try
+            {
+                await server.WaitForConnectionAsync(stop);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            using var reader = new StreamReader(server, leaveOpen: true);
+            var line = await reader.ReadLineAsync(stop);
+            if (line is not null) lock (requests) requests.Add(line);
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(reply + "\n");
+            await server.WriteAsync(bytes, stop);
+            await server.FlushAsync(stop);
+        }
+    }
 
     // ---- pre ---------------------------------------------------------------------------
 
@@ -445,7 +518,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     [Fact]
     public void End_sweeps_stale_state_files_and_orphaned_temporary_files()
     {
-        var folder = Path.Combine(_root, "state");
+        var folder = Path.Combine(_temp.Path, "state");
         Directory.CreateDirectory(folder);
         var now = DateTime.UtcNow;
         string Seed(string name, TimeSpan age)
@@ -500,7 +573,7 @@ public sealed class AskBacklogScriptTests : IDisposable
     /// after a tool-use-only assistant entry and before nothing.</summary>
     private string Transcript(string message)
     {
-        var path = Path.Combine(_root, $"transcript-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(_temp.Path, $"transcript-{Guid.NewGuid():N}.jsonl");
         var lines = new[]
         {
             new JsonObject { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = "Do the thing." } },
@@ -521,7 +594,7 @@ public sealed class AskBacklogScriptTests : IDisposable
 
     private string[] StateFiles()
     {
-        var folder = Path.Combine(_root, "state");
+        var folder = Path.Combine(_temp.Path, "state");
         return Directory.Exists(folder) ? Directory.GetFiles(folder) : [];
     }
 
@@ -545,11 +618,11 @@ public sealed class AskBacklogScriptTests : IDisposable
         var environment = new JsonObject
         {
             ["BACKLOG_MCP_TOKEN"] = "test-token",
-            ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_root, "state"),
+            ["ASK_BACKLOG_STATE_DIR"] = Path.Combine(_temp.Path, "state"),
             ["ASK_BACKLOG_RETRY_MS"] = "",
             // Never this machine's own settings.json, whatever the test sets.
-            ["LOCALAPPDATA"] = _root,
-            ["XDG_DATA_HOME"] = _root,
+            ["LOCALAPPDATA"] = _temp.Path,
+            ["XDG_DATA_HOME"] = _temp.Path,
         };
         foreach (var (key, value) in env) environment[key] = value;
 

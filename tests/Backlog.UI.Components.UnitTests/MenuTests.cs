@@ -236,6 +236,25 @@ public sealed class ContextMenuTests
         Assert.Contains("--context-menu-y: 34px", menu.Find(".context-menu").GetAttribute("style"), StringComparison.Ordinal);
     }
 
+    /// <summary>AlignEnd puts the menu's end edge at X, so a menu opened from a button at
+    /// the window's end opens inward; without it the menu starts at X, as before.</summary>
+    [Fact]
+    public void An_end_aligned_context_menu_opens_inward_from_the_point_it_was_given()
+    {
+        using var context = new BunitContext();
+
+        var end = context.Render<ContextMenu>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.AlignEnd, true)
+            .Add(m => m.Items, Items));
+        var start = context.Render<ContextMenu>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Items, Items));
+
+        Assert.Contains("context-menu--end", end.Find(".context-menu").ClassList);
+        Assert.DoesNotContain("context-menu--end", start.Find(".context-menu").ClassList);
+    }
+
     [Fact]
     public void Escape_closes_the_context_menu()
     {

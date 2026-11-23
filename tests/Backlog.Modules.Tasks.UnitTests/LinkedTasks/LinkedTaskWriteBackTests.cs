@@ -103,9 +103,15 @@ public sealed class LinkedTaskWriteBackTests
     [Fact]
     public async Task With_nothing_requested_there_is_nothing_to_wait_for()
     {
-        using var writeBack = WriteBack(new GatedHandler());
+        var handler = new GatedHandler();
+        using var writeBack = WriteBack(handler);
 
-        await writeBack.WhenIdleAsync();
+        var idle = writeBack.WhenIdleAsync();
+
+        // Already over: nothing in flight, so the wait does not wait.
+        Assert.True(idle.IsCompletedSuccessfully);
+        await idle;
+        Assert.Empty(handler.Finished);
     }
 
     // --- The grace ------------------------------------------------------------------

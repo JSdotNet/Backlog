@@ -10,6 +10,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// deleted task through <see cref="GetAsync"/> would make the merge's tombstone
 /// test pass for the wrong reason.
 /// </summary>
+// Differs from InMemoryTaskRepository: keeps tombstones and records every write.
 internal sealed class InMemoryTaskStore : ITaskRepository
 {
     public Dictionary<Guid, TaskItem> Tasks { get; } = [];
