@@ -932,6 +932,81 @@ Review surface: the Calendar in the desktop web harness, with Show events ticked
 grid is the Calendar module's, so it has no story (local
 [ADR 0056](../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) §1).
 
+### Events map marks
+
+```meta
+related: [".devbook/domain/events/features.md#events-map", ".devbook/design/color-scheme.md#calendar-event-tones", ".devbook/design/accessibility.md#contrast", ".devbook/design/component-libraries.md#diagram-and-graph-strategy"]
+```
+
+The [Events map](../domain/events/features.md#events-map) draws each event twice:
+as a pin on the map and as a mark at the start of its list row. Pin and row mark
+wear the same tone and, for an upcoming event with a point, the same number. The
+tones are the [calendar event tones](#calendar-event-tones), so the map gains no
+colour.
+
+| Mark | Drawn as | Number |
+|---|---|---|
+| Going | `color-primary` fill | `color-text-inverse`, semibold |
+| Spotted or Considering | No fill inside a dashed `color-primary` edge: 1px on a row, 2px on a pin | `color-text-primary` |
+| Grey: past, Skipped, or Attended and Harvested while still upcoming | No fill inside a solid 2px `color-border-strong` ring | Only while upcoming, in `color-text-secondary` |
+| Online | `◎` in `color-text-secondary`, row only | None |
+| No venue, or address not found | `–` in `color-text-secondary`, row only | None |
+
+A list row sits on `color-background-alt`, and a selected row on
+`color-background-raised`. Every ratio is computed with the WCAG 2.1
+relative-luminance formula.
+
+| Pairing | Required | On a row | On a selected row | On a pin's plate (`color-background`) |
+|---|---|---|---|---|
+| `color-primary` fill or dashed edge | 3:1 | 9.68:1 | 7.28:1 | 11.15:1 |
+| `color-text-inverse` number on the gold fill | 4.5:1 | 9.19:1 | 9.19:1 | 9.19:1 |
+| `color-text-primary` number | 4.5:1 | 15.42:1 | 11.58:1 | 17.75:1 |
+| `color-border-strong` ring | 3:1 | **3.45:1** | 2.59:1 ✗ | 3.97:1 |
+| `color-secondary` ring, selected row only | 3:1 | — | 5.89:1 | — |
+| `color-text-secondary` number or glyph | 4.5:1 | 10.88:1 | 8.17:1 | 12.52:1 |
+
+Rules:
+
+- **The tile colours are not ours.** A pin therefore never touches a tile
+  directly. Its mark sits on a `color-background` plate: the plate fills a
+  hollow mark, and it shows as a 2px ring around a filled one. Outside the plate
+  runs a 1px `color-text-primary` ring. All ratios above are measured against
+  that plate, never against a tile.
+- **The two rings keep the pin at 3:1 on any tile.** `color-text-primary` and
+  `color-background` measure 17.75:1 against each other. WCAG technique
+  [C40](https://www.w3.org/WAI/WCAG21/Techniques/css/C40) shows that two colours
+  at 9:1 or more guarantee one of them 3:1 against any solid colour. A tile is a
+  patchwork of solid fills, so every stretch of the outline has a ring that
+  clears 3:1 against the fill beside it.
+- **The grey ring turns `color-secondary` on a selected row.** `color-border-strong`
+  measures 2.59:1 on `color-background-raised`, below the 3:1 the mark owes. Its
+  binding pair at rest is the row, at 3.45:1. Both values are grey, so selecting
+  a row changes no tone.
+- **"No fill" on a pin means the plate.** A Spotted or Considering pin shows
+  `color-background` inside its dashed edge, so its number never sits on a tile.
+- **A selected pin's outer ring grows** from 1px to 3px of `color-text-primary`.
+  Width, not hue, says selected, and the list row is selected with it.
+- **The focus ring is two-tone too.** It is the 2px `color-border-focus` ring with
+  a 1px `color-background` ring outside it, 11.15:1 apart. A gold ring alone
+  could vanish against a yellow tile.
+- **An edge pill wears its pin.** A numbered event outside the view shows as a
+  pill on the map's edge in its pin's tone, plate and rings. Grey events are
+  unnumbered once past, so a past event never gets a pill.
+- **Nothing else touches a tile.** The zoom and fit controls, the legend, the
+  tile attribution and the offline note each sit on an opaque
+  `color-background-alt` plate. Attribution in `color-text-secondary` measures
+  10.88:1 there.
+- **Colour is never the sole carrier.** Going and grey differ by a fill, and
+  Spotted or Considering and grey by a dash. Every pin's accessible name carries
+  its number, title, state, date and venue. The legend names each tone in words.
+  The `◎` and `–` glyphs are hidden from assistive technology, because the words
+  beside them, such as "Online · not on the map", carry the meaning.
+
+The palette gains nothing: every value above is a palette token, used as one.
+
+Review surface: the Events pane in the desktop web harness.
+`[TODO: clarify]` the storybook story that will show the marks.
+
 ### Chart roles
 
 ```meta

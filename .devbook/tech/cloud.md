@@ -223,6 +223,24 @@ The speech-to-text model deployed on the `backlog-foundry` account, behind
 - **Rating** — `trial`: dictation and meeting transcription both call it; the
   meeting path landed in PR #1806 and has no record yet of use in practice.
 
+## Azure Maps
+
+```meta
+rating: candidate
+type: service
+related: [".devbook/tech/desktop.md#leaflet", ".devbook/arc42/03-context-and-scope.md#external-interfaces", ".devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md"]
+alternatives: ["MapTiler", "OpenStreetMap tiles and Nominatim", "OpenFreeMap"]
+```
+
+The map service behind the Events map, on the EU endpoint. Not yet provisioned.
+
+- **Used for** — two calls the desktop makes itself, with the key it stores:
+  - **Render**, Get Map Tile: the raster road tiles the map shows.
+  - **Search**, Get Geocoding: the point for an event address, once per saved change.
+- **Why** — Backlog already runs in Azure, the free tier covers one person's map, and
+  the EU endpoint keeps the address in the EU
+  ([local ADR 0061](../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)).
+
 ## Azure Cosmos DB
 
 ```meta

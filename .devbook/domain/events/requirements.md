@@ -17,7 +17,9 @@ type: requirements
 related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/domain.md#knowledge-event]
 ```
 
-> What the person gets when they add an event and decide on it.
+> What the person gets when they add an event and decide on it. The map and the
+> by-date list are not built yet: the by-date requirement still names the tests
+> of the by-state list it replaces, which change when it is built.
 
 ### Requirement: An event needs only a title
 
@@ -217,26 +219,252 @@ The system SHALL show an event added or changed outside an open Events pane in t
 - **When** the event is marked Considering in another window
 - **Then** the pane shows it Considering, and the title field keeps what the person typed
 
-### Requirement: The pane lists events by state, upcoming first
+### Requirement: The pane lists events by date, Upcoming then Past
 
 ```meta
 type: requirement
 tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.The_list_groups_events_by_state_with_upcoming_first_and_draws_no_empty_group, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_no_events_the_pane_says_so_and_offers_to_add_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.The_list_groups_by_state_in_decided_order_and_leaves_empty_groups_out, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.Within_a_group_upcoming_come_soonest_first_then_undated_then_past_most_recent_first, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.An_event_still_running_today_counts_as_upcoming_and_one_that_ended_yesterday_as_past]
 ```
 
-The system SHALL list the events grouped by state, Going, Considering, Spotted, Attended, Harvested, Skipped, drawing no empty group, and within a group the events not yet over soonest first, then the undated ones, then the past ones most recent first.
+The system SHALL list the events in two sections whatever their state, Upcoming with the events not yet over soonest first and then the undated ones, and Past with the rest most recent first, drawing no empty section.
 
-#### Scenario: Upcoming first
+#### Scenario: Soonest first, whatever the state
 
-- **Given** a Going event "NDC Oslo", and the Spotted events "Techorama Belgium" in May 2027 and "dotNET Friday" on 27 November 2026
+- **Given** today is 24 November 2026, a Going event "NDC Oslo" in June 2027, and the Spotted events "Techorama Belgium" in May 2027 and "dotNET Friday" on 27 November 2026
 - **When** the person opens the Events pane
-- **Then** Going comes before Spotted, no other group is drawn, and "dotNET Friday" leads Spotted
+- **Then** Upcoming lists "dotNET Friday", "Techorama Belgium", "NDC Oslo" in that order, and no Past section is drawn
+
+#### Scenario: Undated last, past most recent first
+
+- **Given** an undated Spotted event "Azure Meetup", and the Harvested events "Techorama 2025" in May 2025 and "dotNET Friday" in September 2026
+- **When** the person opens the Events pane
+- **Then** "Azure Meetup" closes Upcoming, and Past lists "dotNET Friday" before "Techorama 2025"
+
+#### Scenario: A skipped event keeps its date
+
+- **Given** a Skipped event "NDC London" in January 2027
+- **When** the person opens the Events pane
+- **Then** "NDC London" is listed under Upcoming by its date
+
+#### Scenario: Still running today
+
+- **Given** today is 24 November 2026, and an event running from 23 to 25 November 2026
+- **When** the person opens the Events pane
+- **Then** the event is listed under Upcoming
 
 #### Scenario: No events yet
 
 - **Given** the person has no events
 - **When** they open the Events pane
 - **Then** the pane says there are no events yet and offers to add one
+
+### Requirement: Upcoming events on the map are numbered in date order
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#map-number]
+```
+
+The system SHALL number the upcoming events that have a map point and are not Skipped from 1 in list order, and show each number on both the event's row and its pin.
+
+#### Scenario: Numbers follow the dates
+
+- **Given** the upcoming events "dotNET Friday" in Utrecht, "Techorama Belgium" in Antwerp and "NDC Oslo" in Oslo, each with a map point
+- **When** the person opens the Events pane
+- **Then** their rows and pins read 1, 2 and 3 in that order
+
+#### Scenario: An event off the map takes no number
+
+- **Given** the upcoming events "dotNET Friday" in Utrecht, the online "Build" after it, and "NDC Oslo" in Oslo after that
+- **When** the person opens the Events pane
+- **Then** "dotNET Friday" is 1, "NDC Oslo" is 2, and "Build" has no number
+
+#### Scenario: Past and skipped events are unnumbered
+
+- **Given** a Harvested event "Techorama 2025" and a Skipped upcoming event "NDC London", both with a map point
+- **When** the person opens the Events pane
+- **Then** "Techorama 2025" has a grey pin with no number, and "NDC London" has neither a number nor a pin
+
+#### Scenario: Attended before its last day
+
+- **Given** an event running from 23 to 25 November 2026 with a map point, marked Attended, on 24 November 2026
+- **When** the person opens the Events pane
+- **Then** it is listed under Upcoming with a number, in the grey tone
+
+### Requirement: Picking a pin or a row selects the event in both
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+```
+
+The system SHALL select an event on the map and in the list together when the person picks its pin or its row, and open it in the editor.
+
+#### Scenario: A pin picked
+
+- **Given** the pin numbered 2 for "Techorama Belgium"
+- **When** the person picks the pin
+- **Then** the row "Techorama Belgium" is selected and the editor shows the event
+
+#### Scenario: A row picked
+
+- **Given** the row "NDC Oslo", numbered 3
+- **When** the person picks the row
+- **Then** pin 3 is selected and the editor shows the event
+
+### Requirement: A numbered event out of view shows on the map's edge
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+```
+
+The system SHALL show each numbered event whose map point is outside the map's view as a pill with its number on the map's nearest edge, and bring the event into view and select it when the person picks the pill.
+
+#### Scenario: Oslo out of view
+
+- **Given** the map zoomed on Belgium, and "NDC Oslo" numbered 3
+- **When** the person looks at the map
+- **Then** a pill numbered 3 sits on the map's top edge
+
+#### Scenario: The pill picked
+
+- **Given** the pill numbered 3 on the map's edge
+- **When** the person picks it
+- **Then** the map shows pin 3, and "NDC Oslo" is selected in the list and the editor
+
+### Requirement: An event off the map says why
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#not-on-the-map]
+```
+
+The system SHALL mark an event's row with why it has no pin: online, no venue yet, an address the geocoder looked up and could not find, or an address not looked up yet.
+
+#### Scenario: Online
+
+- **Given** the online event "Build"
+- **When** the person opens the Events pane
+- **Then** its row reads "Online · not on the map"
+
+#### Scenario: No venue yet
+
+- **Given** a Spotted event "dotNET Friday" with no place
+- **When** the person opens the Events pane
+- **Then** its row reads "No venue yet · not on the map"
+
+#### Scenario: Address not found
+
+- **Given** an event whose saved address "Nowherestraat 1, Nergenshuizen" geocoding could not place
+- **When** the person opens the Events pane
+- **Then** its row reads "Address not found · not on the map", and the map has no pin for it
+
+#### Scenario: Address not looked up yet
+
+- **Given** an event whose address "Groenendaallaan 394, 2030 Antwerpen, Belgium" was saved while the desktop was offline
+- **When** the person opens the Events pane
+- **Then** its row reads "Address not looked up yet · not on the map", and the map has no pin for it
+
+### Requirement: The venue field says where the event is on the map
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+```
+
+The system SHALL show under the editor's venue field whether the event is on the map, as its number, or why it is not.
+
+#### Scenario: On the map
+
+- **Given** "Techorama Belgium" numbered 2 and in the map's view
+- **When** the person opens it in the editor
+- **Then** the venue field reads "On the map as 2."
+
+#### Scenario: Out of view
+
+- **Given** "NDC Oslo" numbered 3, outside the map's view
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Outside the map's view."
+
+#### Scenario: Online
+
+- **Given** the online event "Build"
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Online: not on the map."
+
+#### Scenario: No address
+
+- **Given** an event with the venue name "Jaarbeurs" and no address
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Add an address to put it on the map."
+
+#### Scenario: Address not found
+
+- **Given** an event whose address geocoding could not place
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Address not found: check it."
+
+#### Scenario: Address not looked up yet
+
+- **Given** an event whose address was saved while the desktop had no map key
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Not looked up yet: it will be looked up when you save again, or Look up now."
+
+### Requirement: An address is geocoded once, when it is saved
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#place, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+```
+
+The system SHALL geocode an event's address when the person saves it new or changed, store the map point found or none, keep an address it could not look up as not looked up yet until the next save or the person's retry, and never geocode while drawing the map or in the background.
+
+#### Scenario: A new address placed
+
+- **Given** "Techorama Belgium" with no address
+- **When** the person saves the address "Groenendaallaan 394, 2030 Antwerpen, Belgium"
+- **Then** the event stores the point geocoding found, and the map shows its pin
+
+#### Scenario: A changed address moves the pin
+
+- **Given** "Techorama Belgium" with a point in Antwerp
+- **When** the person changes the town to "Brussel" and saves
+- **Then** the event stores the new point, and the old one is gone
+
+#### Scenario: Drawing sends nothing
+
+- **Given** ten events with saved addresses
+- **When** the person opens, pans and zooms the map
+- **Then** no address is sent to the geocoder
+
+#### Scenario: An unchanged address is not looked up again
+
+- **Given** "Techorama Belgium" with an address and its point
+- **When** the person changes the event's title and saves
+- **Then** the address is not sent to the geocoder, and the point stays
+
+#### Scenario: An address saved offline waits for the next save
+
+- **Given** the desktop has no connection
+- **When** the person saves "Techorama Belgium" with the address "Groenendaallaan 394, 2030 Antwerpen, Belgium"
+- **Then** nothing is sent, the event stores no point, and its address is not looked up yet rather than not found
+- **And** nothing looks it up in the background once the connection returns; the next save of the event or Look up now does
+
+### Requirement: The map says when it is offline
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+```
+
+The system SHALL show an offline note in place of the map while the map tiles cannot be reached, and keep the list and the editor working.
+
+#### Scenario: No connection
+
+- **Given** the desktop has no connection
+- **When** the person opens the Events pane
+- **Then** the map area shows the offline note, and the list shows every event with its number
 
 ## To Event route
 

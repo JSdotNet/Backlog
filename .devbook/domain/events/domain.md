@@ -44,7 +44,9 @@ It holds:
 - the [Event Series](#event-series) it belongs to, by id;
 - a start and an end, each an [Event Date](#event-date), and their
   [Date Source](#date-source);
-- a [Place](#place), and a link to the edition's page;
+- a [Place](#place), with its [Address](#address),
+  [Address Lookup](#address-lookup) and [Map Point](#map-point) when it is in
+  person, and a link to the edition's page;
 - its [state](#knowledge-event-state), and a [Skip Reason](#skip-reason) once
   Skipped;
 - what the person wants to learn, in free text;
@@ -82,9 +84,66 @@ Nieuwegein has a time and the offset `+01:00`. Equality is by value.
 
 ```meta
 type: value-object
+related: [.devbook/domain/events/domain.invariants.md#invariant-a-place-is-a-venue-or-online]
 ```
 
-Where the event happens: a venue, in free text, or online. Equality is by value.
+Where the event happens: online, or in person. An in-person place has a venue
+name in free text, such as "Kinepolis Antwerpen", an [Address](#address), or
+both. A place with an address also holds its [Address Lookup](#address-lookup),
+and the [Map Point](#map-point) when the lookup placed it. An online place has
+no venue name, no address, no lookup and no point. Equality is by value.
+
+The point is found by geocoding: the app sends the address to an online
+geocoder once, when the person saves the address new or changed, and keeps the
+answer on the event as its Address Lookup. Only a Placed address is on the map.
+The venue name is never geocoded. Why the address leaves the machine, and to
+whom, is [the online map decision](../../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md).
+
+### Address
+
+```meta
+type: value-object
+related: [.devbook/domain/events/domain.invariants.md#invariant-an-address-has-a-part]
+```
+
+Where an in-person event is held, in four parts: street, postcode, town and
+country. Each part is optional free text, kept trimmed. "Kinepolis, Groenendaallaan
+394, 2030 Antwerpen, Belgium" is a venue name with a full address; a meetup known
+only to be "in Utrecht" has a town alone. Equality is by value, part by part.
+
+### Address Lookup
+
+```meta
+type: enum
+aliases: [AddressLookup]
+related: [.devbook/domain/events/domain.invariants.md#invariant-a-point-exists-exactly-when-the-address-is-placed, .devbook/domain/events/domain.invariants.md#invariant-a-changed-address-is-not-looked-up-yet]
+```
+
+What geocoding answered for a place's [Address](#address):
+
+- **Placed**: the geocoder found the address; the place holds its
+  [Map Point](#map-point).
+- **Address not found**: the geocoder looked it up and found no usable match.
+  Only a changed address or the person's retry looks it up again.
+- **Not looked up yet**: no answer came back, because the app was offline, had
+  no map key, or the call failed. The next save of the event, or the person's
+  retry, looks it up. When the person first saves the map key, that act looks up
+  each address not looked up yet, once. Nothing looks it up in the background.
+
+A new or changed address starts Not looked up yet, until the save that carries
+it gets the geocoder's answer.
+
+### Map Point
+
+```meta
+type: value-object
+aliases: [MapPoint]
+related: [.devbook/domain/events/domain.invariants.md#invariant-a-map-point-lies-on-the-globe]
+```
+
+The spot on the map where an in-person event is held: a latitude and a
+longitude in degrees. Only an [Address Lookup](#address-lookup) that Placed the
+address sets it; the person never places it by hand. Equality is by value.
 
 ### Key Date
 
@@ -324,6 +383,29 @@ related: [.devbook/domain/capture/features.md#talk-note, .devbook/domain/events/
 One talk given at a knowledge event. It is never a *session*, because Sessions is a
 bounded context of its own. Talks are not modelled yet: the person keeps what a
 talk said in a [Talk note](../capture/features.md#talk-note) linked to the event.
+
+### Map number
+
+```meta
+type: term
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#map-point]
+```
+
+The number an upcoming event with a [Map Point](#map-point) carries in the Events
+pane, the same on its row and its pin. The numbers run 1, 2, 3 in date order, so
+they say which event comes first. The pane derives them each time it draws;
+nothing stores them, and an event's number changes as others are added or pass.
+
+### Not on the map
+
+```meta
+type: term
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#place]
+```
+
+An event the map cannot show, because it has no [Map Point](#map-point). It is
+online, has no address yet, or its [Address Lookup](#address-lookup) reads
+Address not found or Not looked up yet. The pane says which of the four.
 
 ### Talk picks
 

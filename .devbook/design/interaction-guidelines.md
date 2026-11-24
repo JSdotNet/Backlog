@@ -608,6 +608,7 @@ Which region shows a loader, and when it appears, is `#scoped-loading`'s and
 | Persistent banner | Show a calm, persistent offline banner (`color-info` surface) at the top of the viewport; auto-dismiss on reconnect. |
 | Editing continues | Reading and editing MUST continue offline; only genuinely network-only actions (e.g. GitHub sync) are disabled with explanation. |
 | Save state | The save-state indicator shows `Offline — changes saved locally` (see `#save-state-indicator-vocabulary`). |
+| Online map | Offline, the Events map shows a note in place of its tiles, on an opaque plate. The list below it keeps working, and picking a row still opens the editor (local ADR 0061). |
 
 ## Task Rows
 

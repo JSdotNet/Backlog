@@ -77,6 +77,25 @@ The Chromium-based embedded browser the desktop UI renders in.
   Hybrid over plain MAUI XAML. It is why Debug builds stay unpackaged: MSIX would
   break the Aspire desktop resource and the CDP attach.
 
+## Leaflet
+
+```meta
+rating: candidate
+type: library
+depends-on: [".devbook/tech/desktop.md#webview2"]
+related: [".devbook/tech/cloud.md#azure-maps", ".devbook/tech/shared.md#mermaid", ".devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md"]
+alternatives: ["MapLibre GL JS"]
+```
+
+The JavaScript map library behind the Events map, vendored and not yet built.
+
+- **Used for** — drawing the Azure Maps raster tiles, panning and zooming. Pins and
+  controls are the component library's buttons, placed by Leaflet's projection.
+- **Why** — small, BSD-licensed, and needs no WebGL for raster tiles
+  ([local ADR 0061](../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)).
+  It is vendored under `Backlog.UI.Components/wwwroot/lib/leaflet/`, as Mermaid is,
+  so it loads with the network down.
+
 ## Local Task Store
 
 ```meta

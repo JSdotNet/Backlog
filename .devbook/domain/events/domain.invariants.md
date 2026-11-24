@@ -179,9 +179,62 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_place_that_is_both_a_venue_and_online_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_place_that_is_neither_a_venue_nor_online_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_blank_venue_is_refused]
 ```
 
-A place is either a venue that is not empty or online, never both and never neither (`place.invalid`).
+A place is either in person, with a venue name or an address or both, or online, never both and never neither (`place.invalid`).
+A blank venue name counts as none.
 
 Enforced at: constructor (Place)
+
+### Invariant: An online place has no address and no point
+
+```meta
+type: invariant
+```
+
+An online place carries no address, no address lookup and no map point (`place.invalid`).
+
+Enforced at: constructor (Place)
+
+### Invariant: A point exists exactly when the address is placed
+
+```meta
+type: invariant
+```
+
+A place carries an address lookup exactly when it carries an address, and a map point exactly when that lookup is Placed (`place.lookup_mismatch`).
+A point is dropped with its address, so a venue name alone is never on the map, and Address not found and Not looked up yet never carry one.
+
+Enforced at: constructor (Place)
+
+### Invariant: A changed address is not looked up yet
+
+```meta
+type: invariant
+```
+
+When the event's place takes an address that differs from the one it held, its address lookup is Not looked up yet and it carries no map point, whatever lookup the new place came with; an unchanged address keeps its lookup and point.
+So a point found for an old address never lands on a new one. When the save geocodes the changed address is the requirement [An address is geocoded once, when it is saved](requirements.md#requirement-an-address-is-geocoded-once-when-it-is-saved).
+
+Enforced at: `SetPlace()`
+
+### Invariant: An address has a part
+
+```meta
+type: invariant
+```
+
+An address has at least one of street, postcode, town and country that is not blank, each kept trimmed (`address.empty`).
+
+Enforced at: constructor (Address)
+
+### Invariant: A map point lies on the globe
+
+```meta
+type: invariant
+```
+
+A map point's latitude is from -90 to 90 degrees and its longitude from -180 to 180 degrees, both included (`map_point.out_of_range`).
+
+Enforced at: constructor (Map Point)
 
 ### Invariant: A key date has a label
 

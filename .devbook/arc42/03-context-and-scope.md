@@ -31,6 +31,7 @@ Capture stays coupled to Inbox as one deployable pipeline (raw input → triage 
 ## External Interfaces
 
 ```meta
+related: [".devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md"]
 ```
 
 | External system | Direction | Interface | Purpose |
@@ -42,6 +43,7 @@ Capture stays coupled to Inbox as one deployable pipeline (raw input → triage 
 | **Package Registries** (npm, NuGet, PyPI) | in | HTTPS | Dependency scanning for Repository Management |
 | **Application Insights** | in | HTTPS | Read telemetry signals for monitoring dashboards |
 | **Push Provider** (FCM) | out | HTTPS | Deliver push notifications to the Android mobile app |
+| **Azure Maps** | out | HTTPS, EU endpoint | Look up a saved event address and load the Events map's tiles ([local ADR 0061](adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)) |
 
 Local desktop workers drive all inbound polling (YouTube, Websites, Email), so credentials never leave the machine.
 

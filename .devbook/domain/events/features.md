@@ -19,8 +19,15 @@ related: [.devbook/domain/events/requirements.md#events-pane, .devbook/domain/ev
 ```
 
 The desktop's place to keep track of knowledge events: add one, decide on it, and
-link what it produced. The pane lists the person's events by state, the decided
-ones first, and within a state the upcoming ones soonest first.
+link what it produced. The pane's left column holds the [Events map](#events-map)
+above a list of the events by date, and picking an event opens it in the editor.
+
+The list has two sections. **Upcoming** holds the events not yet over, soonest
+first, then the undated ones. **Past** holds the rest, most recent first. An
+event stays in its date section whatever its state: a Skipped one keeps its date,
+and one marked Attended before its last day is still Upcoming. Each row's mark
+shows the state's tone, and an upcoming event on the map also shows its
+[Map number](domain.md#map-number).
 
 An event added or changed elsewhere shows in an open pane at once, without a reload
 by hand, in the main window and in a popped-out one: over MCP, through the To Event
@@ -36,6 +43,50 @@ The person adds an event by its title alone, and fills in the rest when they kno
 it. A new event starts Spotted. Dates typed here carry the date source Typed. Beside
 the dates the pane shows where they came from, Typed or Event page, because a listing
 and the event's own page can disagree.
+
+### Events map
+
+```meta
+type: sub-feature
+related: [.devbook/domain/events/domain.md#map-point, .devbook/domain/events/domain.md#address, .devbook/domain/events/requirements.md#requirement-upcoming-events-on-the-map-are-numbered-in-date-order, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+```
+
+```mermaid
+flowchart LR
+    Save["The person saves a new or changed address"] --> Look["Geocode it once"]
+    Look -->|found| Point["Store the map point on the event"]
+    Look -->|not found| None["Store no point: Address not found"]
+    Look -->|offline, no key or failed| Later["Store no point: Not looked up yet"]
+    Later -->|next save or Look up now| Look
+    Point --> Draw["The map draws a pin from the stored point"]
+```
+
+A map of where the events are, above the list. The map reads the
+[Map Point](domain.md#map-point) stored on each event and never geocodes while it
+draws. It uses online map tiles, so it needs a connection; offline it shows a
+note in its place, and the list works as before. Sending the address and the
+map's view to third parties is [the online map decision](../../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md).
+
+**Pins.** Each event with a point and a state other than Skipped has a pin. An
+upcoming event's pin carries its [Map number](domain.md#map-number), the same as
+its row, so the numbers follow the dates. A past event's pin is grey and
+unnumbered. A numbered event outside the map's view shows as a numbered pill on
+the map's nearest edge, and picking it brings the event into view.
+
+**Picking.** Picking a pin or a row selects the event in both and opens it in the
+editor. The legend names the tones in words: Going, Spotted or considering, Past.
+
+**Not on the map.** A row says why its event has no pin: *Online*, *No venue
+yet*, *Address not found*, or *Address not looked up yet*. Not found means the
+geocoder looked and found nothing; not looked up yet means it was never asked,
+because the app was offline, had no map key, or the call failed. The editor's
+venue field says the same, or gives the event's number when it is on the map,
+and offers *Look up now* for an address not looked up yet. Nothing retries in the
+background: the next save, *Look up now*, or the person first saving the map key
+looks it up.
+
+The person can hide the map and resize it against the list. Whether it shows,
+its height and its zoom last for the session only.
 
 ### Add an event over MCP
 
@@ -77,7 +128,8 @@ pane asks why. A Going one is Skipped when it is called off or the person gives 
 the ticket.
 
 While deciding, the person records what they want to learn, the key dates, the
-ticket state and the cost. A cost needs its currency: emptying the currency of a saved
+ticket state and the cost. They also record the place: online, or a venue name
+and its address, which puts the event on the [Events map](#events-map). A cost needs its currency: emptying the currency of a saved
 cost keeps the cost as it was, and the field says a currency is needed.
 
 ### Removing an event

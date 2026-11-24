@@ -230,7 +230,7 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 ## Diagram and Graph Strategy
 
 ```meta
-related: [".devbook/tech/technology-graph.md", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md", ".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md", ".devbook/domain/devbook/features.md#technology-view"]
+related: [".devbook/tech/technology-graph.md", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md", ".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md", ".devbook/domain/devbook/features.md#technology-view", ".devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md"]
 ```
 
 Backlog should solve diagrams in layers instead of relying on one component suite:
@@ -241,6 +241,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL. |
 | Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). |
 | Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas and the repository devbook atlas as a 3D-projected map. |
+| Geographic map of event places | **A vendored slippy map with online tiles** | Draw the Events pane's map. The library and the tile and geocoding services are local ADR 0061's. |
 | Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
 | Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor outweighs Markdown-first diagrams. |
@@ -256,6 +257,13 @@ Backlog should solve diagrams in layers instead of relying on one component suit
   nothing is drawn on a canvas. Colour marks the type family; status is fill,
   hollow until `adopted`, so it never rests on colour. Each pointer view keeps
   the list or table companion below.
+- **A vendored slippy map with online tiles:** the Events pane's map is the one
+  exception to offline asset bundling below. The library ships with the app,
+  but its tiles come from a tile server, so the map needs the network (local
+  ADR 0061). Every pin and edge pill is a real `button` over the tiles, and the
+  list below the map is the keyboard companion. Offline, the map shows a note
+  in place of the tiles, per `interaction-guidelines.md#offline`. Marks and
+  their halo are `color-scheme.md#events-map-marks`.
 - **A first-party canvas renderer:**
   - The repository devbook atlas covers every folder but `.devbook/tech`. The
     map has one cluster per area and sizes nodes by in-degree. It draws curved
@@ -271,7 +279,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 All diagram and graph rendering must follow the product defaults:
 
 - dark mode only;
-- local, offline asset bundling for production;
+- local, offline asset bundling for production, except the Events map's tiles;
 - no save buttons;
 - Markdown stays canonical for devbook documents;
 - every pointer interaction has a keyboard-accessible companion surface with

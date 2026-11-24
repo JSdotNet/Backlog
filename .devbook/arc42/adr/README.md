@@ -86,6 +86,7 @@ between inherited ADRs 0005 and 0009.
 - **[0057 — Archify is retired, and Mermaid draws every chapter diagram](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)** *(proposed, built by pull request #1913; supersedes 0034, resolves TDR 0001)*
 - **[0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(proposed, not yet built; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
 - **[0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md)** *(proposed, not yet built)*
+- **[0061 — The Events map uses online tiles and geocodes an address on save](0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)** *(proposed, not yet built; Azure Maps on the EU endpoint, beside 0023 and 0045)*
 
 ## Inherited decisions
 
