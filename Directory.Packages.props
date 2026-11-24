@@ -136,7 +136,7 @@
       configures its client on two builds of one assembly. Bump the two together
       or not at all.
     -->
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.64.0" />
     <!--
       Syntax trees only, for the C4 zoom tab's Code level (local ADR 0046 §3):
       Backlog.Infrastructure.Devbook parses a component's C# files with
