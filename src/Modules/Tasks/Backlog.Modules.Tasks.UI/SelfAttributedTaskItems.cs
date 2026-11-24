@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.Tasks;
@@ -25,6 +26,14 @@ namespace Backlog.Desktop.UI.Tasks;
 /// server writing through the same singleton on a request thread at the same
 /// moment runs in a flow that never had it set.
 /// </para>
+/// <para>
+/// Each write is also the person's change set of the change journal (local ADR
+/// 0061 §2), on the same asynchronous flow, unless the gesture that made it opened
+/// one already — a group of undo steps, a typing session — which it then joins.
+/// <see cref="RecordUsageAsync"/> opens none: noting that an entry was used changes
+/// nothing a person would take back, and <see cref="ReconcileRepositoryIdsAsync"/>
+/// is housekeeping rather than a gesture.
+/// </para>
 /// </summary>
 internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool> writingHere) : ITaskItems
 {
@@ -49,18 +58,21 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "saving an entry");
         return await inner.SaveFromTextAsync(id, rawText, order, sourceInboxId, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "deleting an entry");
         await inner.DeleteAsync(id, cancellationToken);
     }
 
     public async Task ReorderAsync(IReadOnlyList<Guid> idsInOrder, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "reordering");
         await inner.ReorderAsync(idsInOrder, cancellationToken);
     }
 
@@ -72,6 +84,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "linking an entry");
         return await inner.LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken);
     }
 
@@ -83,6 +96,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "unlinking an entry");
         return await inner.UnlinkFromIssueAsync(id, repoId, externalId, targetType, cancellationToken);
     }
 
@@ -92,6 +106,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "setting Devbook references");
         return await inner.SetDevbookReferencesAsync(id, references, cancellationToken);
     }
 
@@ -101,6 +116,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "planning hours");
         return await inner.SetPlannedHoursAsync(id, blocks, cancellationToken);
     }
 
@@ -110,6 +126,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "setting a due date");
         return await inner.SetDueAsync(id, dueOn, cancellationToken);
     }
 
@@ -120,6 +137,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "adding an entry");
         return await inner.CreateFromTextIfAbsentAsync(id, rawText, order, cancellationToken);
     }
 
@@ -138,12 +156,14 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
     public async Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "renaming a repository");
         return await inner.RenameRepositoryAsync(oldId, newId, cancellationToken);
     }
 
     public async Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "refiling a repository's entries");
         return await inner.RefileRepositoryTasksAsync(repositoryId, moveToId, drop, cancellationToken);
     }
 
@@ -157,6 +177,7 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "importing a plan");
         return await inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, sourceInboxIds, layOutOnRoadmap, cancellationToken);
     }
 }

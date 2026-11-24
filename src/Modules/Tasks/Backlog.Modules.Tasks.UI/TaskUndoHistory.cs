@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Changes;
+
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
@@ -63,6 +65,8 @@ internal sealed class TaskUndoHistory
     private List<TaskUndoStep>? _group;
     private string? _groupLabel;
     private int _groupDepth;
+    private ChangeContext.Scope _groupChange;
+    private (Guid Id, ChangeSet ChangeSet)? _typing;
 
     public bool CanUndo => _undo.Count > 0;
 
@@ -73,12 +77,17 @@ internal sealed class TaskUndoHistory
     /// Nested scopes join the outermost, so a bulk delete that runs the single-row
     /// delete N times is still one step.
     /// </summary>
+    /// <remarks>The gesture is also one change set of the change journal (local ADR
+    /// 0061 §2), made current here for the caller's flow until the outermost scope
+    /// ends — unless the caller is already inside one, which the writes then join.
+    /// </remarks>
     public IDisposable Group(string label)
     {
         if (_groupDepth++ == 0)
         {
             _group = [];
             _groupLabel = label;
+            _groupChange = ChangeContext.BeginIfNone(ChangeActor.Person, label);
         }
 
         return new GroupScope(this);
@@ -86,6 +95,8 @@ internal sealed class TaskUndoHistory
 
     public void Record(TaskUndoStep step)
     {
+        if (step is TaskCreatedUndoStep { Open: true } created) RememberTyping(created.Id);
+
         if (_group is not null)
         {
             _group.Add(step);
@@ -96,12 +107,38 @@ internal sealed class TaskUndoHistory
     }
 
     /// <summary>
+    /// Makes the change set of the typing step still open on <paramref name="id"/>
+    /// current, so the next debounced save of the same session joins it: one typing
+    /// session is one change set, as it is one Ctrl+Z. Changes nothing when the step
+    /// on top is not that entry's open one, or a wider gesture's change set is
+    /// current already.
+    /// </summary>
+    public ChangeContext.Scope JoinTyping(Guid id) =>
+        ChangeContext.Current is null && _typing is { } typing && typing.Id == id && _undo.Last?.Value switch
+        {
+            TaskTextUndoStep { Open: true } text => text.Id == id,
+            TaskCreatedUndoStep { Open: true } created => created.Id == id,
+            _ => false,
+        }
+            ? ChangeContext.Enter(typing.ChangeSet)
+            : default;
+
+    /// <summary>Keeps the change set an open typing step's save ran under, for
+    /// <see cref="JoinTyping"/>.</summary>
+    private void RememberTyping(Guid id)
+    {
+        if (ChangeContext.Current is { } changeSet) _typing = (id, changeSet);
+    }
+
+    /// <summary>
     /// Records an existing entry's text change, joining the open typing step for
     /// the same entry when there is one on top. <paramref name="open"/> false
     /// closes it: the flush that ends a typing session is the last save it owns.
     /// </summary>
     public void RecordText(string label, Guid id, string before, string after, bool open)
     {
+        if (open) RememberTyping(id);
+
         if (_group is null && _undo.Last?.Value is TaskCreatedUndoStep { Open: true } created && created.Id == id)
         {
             _undo.Last.Value = created with { Text = after, Open = open };
@@ -200,6 +237,10 @@ internal sealed class TaskUndoHistory
         var label = _groupLabel!;
         _group = null;
         _groupLabel = null;
+
+        var change = _groupChange;
+        _groupChange = default;
+        change.Dispose();
 
         switch (steps.Count)
         {

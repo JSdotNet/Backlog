@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Changes;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -148,4 +150,84 @@ public sealed class TaskUndoHistoryTests
         Assert.Equal(third, history.Resolve(second));
         Assert.Equal(Two, history.Resolve(Two));
     }
-}
+
+    // The change journal (local ADR 0061 §2): one gesture, one change set.
+
+    [Fact]
+    public void A_group_is_one_person_change_set_for_as_long_as_it_lasts()
+    {
+        var history = new TaskUndoHistory();
+
+        using (history.Group("editing 2 tasks"))
+        {
+            var gesture = ChangeContext.Current;
+            Assert.Equal((ChangeActor.Person, "editing 2 tasks"), (gesture?.Actor, gesture?.Label));
+
+            using (history.Group("nested"))
+            {
+                Assert.Same(gesture, ChangeContext.Current);
+            }
+
+            Assert.Same(gesture, ChangeContext.Current);
+        }
+
+        Assert.Null(ChangeContext.Current);
+    }
+
+    [Fact]
+    public void A_group_inside_a_wider_change_set_joins_it()
+    {
+        var history = new TaskUndoHistory();
+        using var undo = ChangeContext.Begin(ChangeActor.Person, "undoing");
+        var wider = ChangeContext.Current;
+
+        using (history.Group("splitting"))
+        {
+            Assert.Same(wider, ChangeContext.Current);
+        }
+
+        Assert.Same(wider, ChangeContext.Current);
+    }
+
+    [Fact]
+    public void The_saves_of_one_typing_session_rejoin_its_change_set()
+    {
+        var history = new TaskUndoHistory();
+        ChangeSet first;
+
+        using (ChangeContext.Begin(ChangeActor.Person, "editing"))
+        {
+            first = ChangeContext.Current!;
+            history.RecordText("typing", One, "a", "ab", open: true);
+        }
+
+        using (history.JoinTyping(One))
+        {
+            Assert.Same(first, ChangeContext.Current);
+        }
+
+        Assert.Null(ChangeContext.Current);
+    }
+
+    [Fact]
+    public void A_closed_or_different_typing_step_is_not_rejoined()
+    {
+        var history = new TaskUndoHistory();
+
+        using (ChangeContext.Begin(ChangeActor.Person, "editing"))
+        {
+            history.RecordText("typing", One, "a", "ab", open: true);
+        }
+
+        using (history.JoinTyping(Two))
+        {
+            Assert.Null(ChangeContext.Current);
+        }
+
+        history.Seal();
+
+        using (history.JoinTyping(One))
+        {
+            Assert.Null(ChangeContext.Current);
+        }
+    }}

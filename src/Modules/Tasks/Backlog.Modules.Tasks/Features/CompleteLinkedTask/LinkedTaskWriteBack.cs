@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -162,6 +163,9 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
             await _turns.WaitAsync(_stopping).ConfigureAwait(false);
             try
             {
+                // Background work, so the system's change set (local ADR 0061 §2) — the
+                // flow suppressed in Request carries no person's in.
+                using var change = ChangeContext.Begin(ChangeActor.System, "completing a linked task at its source");
                 var outcome = await CompleteAsync(taskId).ConfigureAwait(false);
                 if (outcome == LinkedTaskWriteBackOutcome.Completed) ScheduleSync();
             }

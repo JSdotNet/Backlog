@@ -1,6 +1,7 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
@@ -207,7 +208,11 @@ public sealed class AnnotationSyncSession
             }
 
             pulled += feed.Annotations.Count;
-            applied += _merge.Apply(feed.Annotations).Applied;
+            // One applied page is one sync change set (local ADR 0061 §2).
+            using (ChangeContext.Begin(ChangeActor.Sync, "applying an annotation sync page"))
+            {
+                applied += _merge.Apply(feed.Annotations).Applied;
+            }
 
             cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
