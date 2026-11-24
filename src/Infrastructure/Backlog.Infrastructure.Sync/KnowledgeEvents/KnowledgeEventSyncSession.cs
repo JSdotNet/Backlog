@@ -2,6 +2,7 @@ using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
@@ -237,7 +238,11 @@ public sealed class KnowledgeEventSyncSession
             }
 
             pulled += feed.Events.Count;
-            applied += (await _merge.ApplyAsync(feed.Events, cancellationToken).ConfigureAwait(false)).Applied;
+            // One applied page is one sync change set (local ADR 0061 §2).
+            using (ChangeContext.Begin(ChangeActor.Sync, "applying a knowledge event sync page"))
+            {
+                applied += (await _merge.ApplyAsync(feed.Events, cancellationToken).ConfigureAwait(false)).Applied;
+            }
 
             cursor = feed.Since;
             _state.Update(state => state with { PullCursor = cursor });

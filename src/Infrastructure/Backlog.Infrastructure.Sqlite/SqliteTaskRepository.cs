@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
@@ -71,7 +72,14 @@ public sealed class SqliteTaskRepository : ITaskRepository
         ArgumentNullException.ThrowIfNull(task);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await WriteAsync(connection, transaction: null, task, cancellationToken).ConfigureAwait(false);
+
+        // A write under a change set records it in the same transaction (local ADR
+        // 0061 §2); one under none stays the single statement it always was. A save
+        // refused as stale throws before the commit, so its change set rolls back
+        // with it.
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await WriteAsync(connection, journal.Transaction, task, cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         task.MarkPersisted();
     }
@@ -86,8 +94,11 @@ public sealed class SqliteTaskRepository : ITaskRepository
         if (tasks.Count == 0) return;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await SqliteChangeSets.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var transaction = (SqliteTransaction)await connection
             .BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        await SqliteChangeSets.RecordAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
 
         foreach (var task in tasks)
         {

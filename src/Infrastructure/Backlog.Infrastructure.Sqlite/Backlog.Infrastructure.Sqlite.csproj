@@ -12,7 +12,10 @@
     inbox_* and events_* tables, notifications, and the Sessions context's
     tables. Inherited ADR 0014 puts persistence in the hands of
     the module that owns the data, so no adapter here reads, writes, or creates
-    another's table - what they share is a database file, not a schema.
+    another's table - what they share is a database file, not a schema. The one
+    shared table is the change journal's change_sets (local ADR 0061 §2): one change
+    set can span several owners' tables, so it belongs to none of them, and each
+    journalled write records its change set there through Changes/.
 
     It is a separate project from Backlog.Infrastructure.FileSystem on purpose.
     That project holds the adapters that genuinely are files - the workspace

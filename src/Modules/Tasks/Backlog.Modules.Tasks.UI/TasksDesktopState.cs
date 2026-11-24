@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using System.Globalization;
@@ -2354,6 +2355,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         if (row.IsReadOnly) return;
 
+        // The delete and the renumbering after it are one gesture, so one change set
+        // (local ADR 0061 §2), as they are one Ctrl+Z.
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"deleting “{row.PreviewTitle}”");
+
         if (await DeleteOneAsync(row) is Error) return;
 
         await NormalizeOrderAsync();
@@ -2463,6 +2468,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _replaying = true;
         try
         {
+            // One change set for the whole step, however many entries it puts back.
+            using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"undoing {step.Label}");
             _history.Undone(await RevertAsync(step));
         }
         finally
@@ -2492,6 +2499,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _replaying = true;
         try
         {
+            using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"redoing {step.Label}");
             _history.Redone(await ReapplyAsync(step));
         }
         finally
@@ -2753,6 +2761,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (row.IsReadOnly || ReferenceEquals(row, target)) return;
 
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"moving “{row.PreviewTitle}”");
+
         // The Waiting slice draws the rows in follow-up order, not rank order, so a
         // neighbour there is no neighbour in the rank: a move would change a rank the
         // reader cannot see and change nothing they can. The Next actions slice draws
@@ -2812,6 +2822,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         var visible = SortableVisibleRows().ToList();
         if (visible.Count < 2 || !CanSortVisibleByStatus) return;
+
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "sorting by status");
 
         var slots = visible.Select(row => Rows.IndexOf(row)).Order().ToList();
         var sorted = StatusSortOrder(visible);
@@ -5895,6 +5907,15 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             ? EntryTextParser.ToRawText(known)
             : null;
         var created = row.Id is null;
+
+        // The change set this save writes under (local ADR 0061 §2): the open typing
+        // session's when this save continues one, else the gesture's around it, else
+        // one of its own. Opened here rather than in the use cases, so it is still
+        // current when the history records the step and keeps it for the next save.
+        using var typing = row.Id is { } typedId ? _history.JoinTyping(typedId) : default;
+        using var change = ChangeContext.BeginIfNone(
+            ChangeActor.Person,
+            created ? "adding an entry" : $"editing “{row.PreviewTitle}”");
 
         Result<SavedTaskDto> saved;
         try

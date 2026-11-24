@@ -8,6 +8,7 @@ using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Sync;
@@ -694,9 +695,17 @@ public sealed class TaskSyncSession
             }
 
             pulled += feed.Tasks.Count;
-            var merged = await _merge
-                .ApplyAsync(feed.Tasks, cancellationToken)
-                .ConfigureAwait(false);
+
+            // One applied page is one sync change set (local ADR 0061 §2): every task,
+            // plan, goal and impediment the page carries, and any occurrence it spawns
+            // under its own system change set.
+            TaskMergeOutcome merged;
+            using (ChangeContext.Begin(ChangeActor.Sync, "applying a task sync page"))
+            {
+                merged = await _merge
+                    .ApplyAsync(feed.Tasks, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             applied += merged.Applied;
             skipped += merged.Skipped;

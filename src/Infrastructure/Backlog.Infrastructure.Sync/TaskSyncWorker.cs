@@ -5,6 +5,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -452,7 +453,11 @@ public sealed class TaskSyncWorker : IDisposable
             if (_disposed) return Task.CompletedTask;
         }
 
-        return Task.Run(RunGuardedAsync, CancellationToken.None);
+        // A cycle is nobody's gesture: its pages open their own sync change sets.
+        using (ChangeContext.Detach())
+        {
+            return Task.Run(RunGuardedAsync, CancellationToken.None);
+        }
     }
 
     /// <summary>Both gates, read together. A device with task sync on and no
@@ -482,7 +487,14 @@ public sealed class TaskSyncWorker : IDisposable
 
             if (_settle is null)
             {
-                _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+                // Created on the writer's call, inside its save, so without the
+                // detachment the timer would hold the writer's execution context — its
+                // change set (local ADR 0061 §2), the Tasks pane's self-write mark — and
+                // every cycle after would run in it for the app's life.
+                using (ChangeContext.Detach())
+                {
+                    _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+                }
             }
             else
             {

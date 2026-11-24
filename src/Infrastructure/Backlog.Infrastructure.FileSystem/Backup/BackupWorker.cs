@@ -17,7 +17,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// backup replaces the last one at that path and the repository's history holds
 /// the rest, which is what a repository is for; a database that has not changed
 /// since the last backup makes no commit at all. Nothing beside the database is
-/// taken — not the inbox folder, not the settings, not any cache — because the
+/// taken — not the inbox folder, not the settings, not any cache, not the
+/// <see cref="AgentCheckpoints.FolderName"/> folder of copies beside it — because the
 /// database is what local ADR 0003 makes the whole of the backlog, and a
 /// restore is one file put back. Local ADR 0010 is the decision.
 /// </para>

@@ -1,6 +1,7 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
@@ -211,7 +212,11 @@ public sealed class DevbookSubjectSyncSession
             }
 
             pulled += feed.Subjects.Count;
-            applied += _merge.Apply(feed.Subjects).Applied;
+            // One applied page is one sync change set (local ADR 0061 §2).
+            using (ChangeContext.Begin(ChangeActor.Sync, "applying a Devbook subject sync page"))
+            {
+                applied += _merge.Apply(feed.Subjects).Applied;
+            }
 
             cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });

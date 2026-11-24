@@ -324,6 +324,12 @@ public static class DesktopCompositionRegistration
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
+        // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
+        // a folder beside backlog.db, following the root as the stores it copies do.
+        services.AddSingleton(sp => new AgentCheckpoints(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<AgentCheckpoints>>()));
 
         // Where the sync service is, asked per client rather than fixed here: the URL
         // on the Settings page, then BACKLOG_SYNC_URL, then "https+http://sync",

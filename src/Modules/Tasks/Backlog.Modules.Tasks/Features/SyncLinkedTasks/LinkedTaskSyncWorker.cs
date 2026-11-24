@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -246,6 +247,10 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 
         try
         {
+            // One run is one system change set (local ADR 0061 §2), whoever's flow
+            // happened to start it.
+            using var change = ChangeContext.Begin(ChangeActor.System, "syncing linked tasks");
+
             foreach (var target in _targets.List())
             {
                 if (_stopping.IsCancellationRequested) return;
