@@ -1252,15 +1252,14 @@ or meeting row also shows:
   within the week, then the date;
 - the opening of its body, as two lines of plain text.
 
-A search field narrows the list on the phone itself. A note stays when every
-word typed is in its title or its body. With nothing to show the list says how
-to start, and with no match it repeats the words searched for.
+With nothing to show the list says how to start. The list has no search field.
 
-The Inbox has one **+**, beside the quick one-line field. With words in the
-field, **+** or Enter adds them as a capture. With the field empty, **+** opens a
-menu of **Note**, which opens an empty editor, and **Meeting**, which opens a
-new [meeting](domain.md#meeting) already recording. A tap on a note or meeting
-opens it in the same editor. Sharing from another app still makes a capture.
+Above the list sit two buttons, **Note**, which opens an empty editor, and
+**Meeting**, which opens a new [meeting](domain.md#meeting) already recording;
+the title is typed in the editor. The Inbox has no text field and no **+**
+menu. A tap on a note or meeting opens it in the same editor. A capture comes
+from a share from another app, the launcher's **Capture** shortcut or Today's
+capture link.
 
 The old `/notes` address opens the Inbox filtered to notes. `/notes/new` and
 `/notes/{id}` still open the editor.

@@ -1122,12 +1122,12 @@ related: [".devbook/design/interaction-guidelines.md#phone-tab-bar", ".devbook/d
 
 ```text
 [ All | Captures | Notes | Meetings ]
+[   (n) Note        ][   (m) Meeting     ]   <- half the row each
  (c) Buy filters          <- kind mark leads every row
  (n) Release plan
  (m) Weekly sync
-[ quick one-line field ...................... ] [+]
-   words in the field: + or Enter -> a capture
-   field empty:        +          -> Note | Meeting
+   Note    -> notes/new                (empty editor, title typed there)
+   Meeting -> notes/new?kind=meeting   (already recording)
 ```
 
 The phone Inbox is one list of every Inbox Item the phone holds. It shows the
@@ -1140,11 +1140,12 @@ desktop.
 | One filter, fused | The kind filter MUST be one fused group of four chips: All, Captures, Notes, Meetings. |
 | Exactly one on | Exactly one chip is pressed; All is the default. |
 | Every row is marked | Every row MUST lead its metadata line with its kind mark, on every filter. |
-| One `+` | The page MUST have one `+` button, beside the quick one-line field. |
-| `+` follows the field | With words in the field, `+` and Enter MUST add them as a capture. With the field empty, `+` MUST open a menu of two items: **Note** and **Meeting**. |
-| Captures are not in the menu | A capture comes from the quick one-line field or a share from another app, never from the menu. |
+| Two buttons, no menu | The page MUST offer **Note** and **Meeting** as two standalone buttons side by side, each half the row, and no `+` or menu. |
+| The title is typed in the editor | The Inbox MUST hold no text field: a note's or meeting's title is typed in the editor the button opens. |
+| Captures come from elsewhere | A capture comes from a share from another app, the launcher's **Capture** shortcut or Today's capture link, never from the Inbox page. |
 | A meeting starts recording | **Meeting** MUST open a new meeting that is already recording. |
 | `/notes` is the Notes filter | The `/notes` route MUST open the Inbox with the Notes chip pressed. |
+| Back closes the sheet | With a sheet or dialog open, Android Back MUST close it and leave the page where it is. |
 
 - **One filter, fused:** the chips are one set, drawn as the desktop's view
   switch is, per `#group-shape-says-cardinality`. The group is one
@@ -1156,16 +1157,24 @@ desktop.
 - **Every row is marked:** the mark follows `#task-rows`. The glyph stands
   alone, and its word is the tooltip and a visually-hidden span. A mark
   that showed only on All would leave the reader unsure what a filtered list holds.
-- **One `+`:** two `+` buttons on one screen would leave the reader guessing
-  which adds what, so the field's own button carries both jobs.
-- **`+` follows the field:** the button's name says what a press does now:
-  **Add to inbox** with words in the field, **New** with it empty. Only the
-  empty field's button announces a menu (`aria-haspopup="menu"`). Its glyph is
-  hidden. Enter adds the words once, never a second time on the same keypress.
-  Two items earn a menu under `#action-density-and-overflow`, which forbids
-  only a menu of one.
+- **Two buttons, no menu:** a note and a meeting are each one tap away, on
+  targets half the row wide, rather than a small `+` and a menu of two. The
+  pair is one `role="group"` named "New", drawn loose per
+  `#group-shape-says-cardinality`, since neither is a state. Each leads with
+  its kind's glyph, hidden from assistive technology, so it is announced by
+  its word.
+- **The title is typed in the editor:** a one-line field beside the buttons
+  would ask which of three things a line becomes. Note opens `notes/new` and
+  Meeting `notes/new?kind=meeting`.
+- **Captures come from elsewhere:** the Inbox lists captures but does not make
+  them; the capture sheet and a share are where a thought is set down.
 - **A meeting starts recording:** the person meets the recording controls at
   once and does not press record a second time.
+- **Back closes the sheet:** a sheet or dialog opens without a navigation, so
+  the history does not know it is there. Back is offered to the topmost open
+  layer first, which takes it as Escape; with nothing open, Back walks the
+  history as before. A capture opened from the Inbox closes back to the Inbox,
+  not to the tab before it.
 
 Captures leave the list once the desktop takes them in. Notes and meetings stay
 and sync both ways. Glyphs and the empty states per filter are [TODO: clarify].
