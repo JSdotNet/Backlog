@@ -37,8 +37,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class HomeRepositoryScopeTests
 {
     /// <summary>
-    /// The identity region opens on the scope chips, because there is nothing in
-    /// front of them any more.
+    /// The header carries no wordmark: the scope chips sit in the navigation row,
+    /// after the views they filter (interaction-guidelines.md#shell-header).
     /// <para>
     /// It used to open with a "Backlog" wordmark. The window border carries the name,
     /// so the wordmark was the app saying twice which app you were in and spending
@@ -55,9 +55,8 @@ public sealed class HomeRepositoryScopeTests
 
         Assert.Empty(component.FindAll(".app-header h1"));
 
-        // And the region is still there, still holding the scope: the wordmark went,
-        // not the region around it.
-        Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
+        // And the scope is still there, in the navigation row.
+        Assert.NotNull(component.Find(".app-header__nav [aria-label='Repository scope']"));
     }
 
     /// <summary>
@@ -75,7 +74,7 @@ public sealed class HomeRepositoryScopeTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        var group = component.Find(".app-header__identity [aria-label='Repository scope']");
+        var group = component.Find(".app-header__nav [aria-label='Repository scope']");
 
         Assert.Equal("group", group.GetAttribute("role"));
         Assert.Contains("btn-group", group.ClassList);
@@ -561,7 +560,7 @@ public sealed class HomeRepositoryScopeTests
         var component = Render(harness);
         Chips(component);
 
-        var group = component.Find(".app-header__identity [aria-label='Repository scope']");
+        var group = component.Find(".app-header__nav [aria-label='Repository scope']");
         var members = group.Children.ToList();
 
         Assert.Equal("brain-scope-option", members[0].GetAttribute("data-testid"));
@@ -594,7 +593,7 @@ public sealed class HomeRepositoryScopeTests
         Assert.Empty(component.FindAll("[data-testid='brain-scope-divider']"));
         OpenDisplayOptions(component);
         Assert.Empty(Gear(component).FindAll("[data-testid='repository-colours-toggle']"));
-        Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
+        Assert.NotNull(component.Find(".app-header__nav [aria-label='Repository scope']"));
     }
 
     /// <summary>Until a Brain folder is set the chip reads "Set up your Brain", says in

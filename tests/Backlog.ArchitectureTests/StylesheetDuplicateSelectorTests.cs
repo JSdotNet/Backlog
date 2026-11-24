@@ -51,7 +51,6 @@ public class StylesheetDuplicateSelectorTests
     {
         [App] =
         [
-            new(".app-header__identity", 2, SharedWithSiblings),
             new(".app-header__nav", 2, SharedWithSiblings),
             new(".app-header__status", 2, SharedWithSiblings),
             new(".app-header__utilities", 2, SharedWithSiblings),

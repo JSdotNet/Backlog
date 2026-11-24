@@ -275,7 +275,7 @@ h1, h2, h3 {
 }
 
 .app-header--wrap,
-.app-header--wrap :is(.app-header__identity, .app-header__nav, .app-header__status, .app-header__utilities, .app-header__workspace, .app-header__repository-scope) {
+.app-header--wrap :is(.app-header__nav, .app-header__status, .app-header__utilities, .app-header__workspace, .app-header__repository-scope) {
     flex-wrap: wrap;
 }
 
@@ -290,13 +290,12 @@ h1, h2, h3 {
 
 /* --- Header regions ------------------------------------------------------- */
 /*
-  The shell header is four regions rather than one row of controls: identity and
-  repository scope, navigation, workspace status, cross-cutting utilities. The
+  The shell header is three regions rather than one row of controls: navigation
+  with the repository scope, workspace status, cross-cutting utilities. The
   auto margin sits on the status region, so status and utilities travel to the
-  right edge together while identity and navigation stay left.
+  right edge together while navigation stays left.
 */
 
-.app-header__identity,
 .app-header__nav,
 .app-header__status,
 .app-header__utilities {
@@ -306,20 +305,17 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.app-header__identity {
-    gap: var(--spacing-sm);
-}
-
 /* The groups inside are separate controls, so they take more air between
    them than the members within either one. */
 .app-header__nav {
     gap: var(--spacing-md);
 }
 
-/* The workspace's own controls — the Inbox toggle, the view switch and the Devbook
-   toggle — sit closer to each other than to the takeover groups: the Inbox and
-   the Devbook take the screen over whichever view the switch shows and return to
-   it, so the three read as one cluster. */
+/* The workspace's own controls — the Inbox toggle, the view switch, the
+   repository scope, the Devbook toggle and the Calendar tab — sit closer to each
+   other than to the takeover groups: the Inbox and the Devbook take the screen
+   over whichever view the switch shows and return to it, and the scope filters
+   what the views show, so they read as one cluster. */
 .app-header__workspace {
     display: inline-flex;
     align-items: center;

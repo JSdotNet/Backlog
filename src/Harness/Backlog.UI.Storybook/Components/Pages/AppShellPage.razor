@@ -241,7 +241,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
 
     private static readonly DesignGuideline[] Rules =
     [
-        new("interaction-guidelines.md#shell-header", "The header's four regions, and what the view switch, the Inbox and Devbook toggles and the takeover groups each behave as."),
+        new("interaction-guidelines.md#shell-header", "The header's three regions and their order, and what the view switch, the Inbox and Devbook toggles and the takeover groups each behave as."),
         new("interaction-guidelines.md#workspace-panes", "Why the Inbox and the Devbook take the whole screen rather than opening beside the view."),
         new("interaction-guidelines.md#group-shape-says-cardinality", "What a fused group and a standalone option say before anything is pressed."),
         new("typography-and-layout.md#iconography", "The glyph each header option leads with: its library, its size, and where its colour comes from."),
@@ -301,10 +301,15 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
                 <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
                     @HeaderItem(TasksViewId, @<ToggleButton Pressed="ViewOptionPressed(TasksViewId)" OnClick="() => ShowView(TasksViewId)"><ListIcon />Tasks</ToggleButton>)
                     @HeaderItem(BoardViewId, @<ToggleButton Pressed="ViewOptionPressed(BoardViewId)" OnClick="() => ShowView(BoardViewId)"><Columns3Icon />Board</ToggleButton>)
-                    @HeaderItem(CalendarViewId, @<ToggleButton Pressed="ViewOptionPressed(CalendarViewId)" OnClick="() => ShowView(CalendarViewId)"><CalendarIcon />Calendar</ToggleButton>)
                     @HeaderItem(RoadmapViewId, @<ToggleButton Pressed="ViewOptionPressed(RoadmapViewId)" OnClick="() => ShowView(RoadmapViewId)"><ChartGanttIcon />Roadmap</ToggleButton>)
                 </ButtonGroup>
+                <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
+                    <ToggleButton BaseClass="chip chip--scope" Pressed="State.BrainInScope" OnClick="ScopeBrain"><BrainIcon />Brain</ToggleButton>
+                    <span class="app-header__scope-divider" aria-hidden="true"></span>
+                    @* one chip per repository *@
+                </ButtonGroup>
                 @HeaderItem(DevbookSurfaceId, @<ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>)
+                @HeaderItem(CalendarViewId, @<ToggleButton Pressed="ViewOptionPressed(CalendarViewId)" OnClick="() => ShowView(CalendarViewId)"><CalendarIcon />Calendar</ToggleButton>)
             </div>
             <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Goals">
                 @HeaderItem(GoalsViewId, @<ToggleButton Pressed="ViewOptionPressed(GoalsViewId)" Title="Goals" OnClick="() => ShowView(GoalsViewId)"><TargetIcon />Goals</ToggleButton>)

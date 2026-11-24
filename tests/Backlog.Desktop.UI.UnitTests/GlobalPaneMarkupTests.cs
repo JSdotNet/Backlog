@@ -69,9 +69,15 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"tasks-view-option\"",
             "TestId=\"board-view-option\"",
             "TestId=\"roadmap-view-option\"",
-            // The Calendar tab, standing alone right after the switch (local ADR 0056 §7).
+            // The repository scope follows the views it filters, then the Devbook that
+            // reads it, then the Calendar tab (local ADR 0056 §7), then the other
+            // registered takeovers (interaction-guidelines.md#shell-header).
+            "AriaLabel=\"Repository scope\"",
+            "TestId=\"brain-scope-option\"",
+            "TestId=\"repository-filter-option\"",
+            "@foreach (var surface in RegisteredTakeoversOffered.Where(IsDevbook))",
             "TestId=\"calendar-view-option\"",
-            "@foreach (var surface in RegisteredTakeoversOffered)",
+            "@foreach (var surface in RegisteredTakeoversOffered.Where(surface => !IsDevbook(surface)))",
             "TestId=\"goals-switcher\"",
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
@@ -192,7 +198,7 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// Navigation and cross-cutting concerns are separate regions of the header, not
-    /// one row of interchangeable pills. This pins the four regions, the fact that
+    /// one row of interchangeable pills. This pins the three regions, the fact that
     /// only the navigation groups live inside the nav landmark, and that the
     /// utilities end on Ask AI, the Settings gear having moved to the footer band.
     /// </summary>
@@ -201,7 +207,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("class=\"app-header__identity\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"app-header__identity\"", home, StringComparison.Ordinal);
         Assert.Contains("class=\"app-header__nav\" aria-label=\"Workspace views\"", home, StringComparison.Ordinal);
         Assert.Contains("class=\"app-header__status\"", home, StringComparison.Ordinal);
         Assert.Contains("class=\"app-header__utilities\"", home, StringComparison.Ordinal);
@@ -213,6 +219,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(nav < status && status < utilities);
 
         Assert.InRange(home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal), nav, status);
+        Assert.InRange(home.IndexOf("AriaLabel=\"Repository scope\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"goals-switcher\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
 
