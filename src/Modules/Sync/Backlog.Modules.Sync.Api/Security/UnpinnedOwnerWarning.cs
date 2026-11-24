@@ -16,7 +16,7 @@ internal sealed class UnpinnedOwnerWarning(OwnerEnrolment owner, ILogger<Unpinne
     private static readonly Action<ILogger, Guid?, Exception?> Unpinned = LoggerMessage.Define<Guid?>(
         LogLevel.Warning,
         new EventId(1, nameof(Unpinned)),
-        "Owner__OwnerId is unset, so signed-in enrolment joins the derived owner {DerivedOwnerId}. While devices of any other owner are on record, enrolment and recovery are refused; pin the existing owner with Owner__OwnerId (azd: SYNC_OWNER_ID).");
+        "Owner__OwnerId is unset, so signed-in enrolment and a connector sign-in both bind to the derived owner {DerivedOwnerId}. While devices of any other owner are on record, enrolment and recovery are refused; pin the existing owner with Owner__OwnerId (azd: SYNC_OWNER_ID).");
 
     public Task StartAsync(CancellationToken cancellationToken)
     {

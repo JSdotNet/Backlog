@@ -77,6 +77,28 @@ public class OwnerPinTests
         Assert.Contains(log.Entries, entry => entry.Level == LogLevel.Error && entry.Message.Contains("Owner__OwnerId", StringComparison.Ordinal));
     }
 
+    /// <summary>The refusal is decided before the code is burned, so the operator's fix -
+    /// pinning the owner, or clearing the foreign devices - lets the same sign-in finish
+    /// rather than sending the person back to sign in again.</summary>
+    [Fact]
+    public async Task A_refused_enrolment_leaves_its_code_unspent()
+    {
+        var fixture = new SyncModuleFixture();
+        var legacy = DeviceOf(Pinned, "Study desktop");
+        await fixture.Devices.Add(legacy, Cancellation);
+        var unpinned = new OwnerEnrolment(GitHubUser, GuardsUnpinnedOwner: true);
+        var command = await fixture.Enrolled("New laptop");
+
+        var refused = await Register(fixture, unpinned).Handle(command, Cancellation);
+        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, refused.Error.Code);
+
+        Assert.True(await fixture.Devices.Remove(Pinned, legacy.Id, Cancellation));
+        var retried = await Register(fixture, unpinned).Handle(command, Cancellation);
+
+        Assert.True(retried.IsSuccess);
+        Assert.Equal(unpinned.Owner!.Value.Value, retried.Value.OwnerId);
+    }
+
     [Fact]
     public async Task An_unpinned_deployed_owner_with_no_other_owner_on_record_enrols_under_the_derived_one()
     {

@@ -204,6 +204,10 @@ exists beside the old one):
 SELECT c.ownerId, COUNT(1) AS devices, MIN(c.registeredAt) AS first FROM c GROUP BY c.ownerId
 ```
 
+When it shows two owners, pin the one whose data must be kept. Devices under the other
+owner do not move with the pin: re-pair each one, or delete its document from the
+`devices` container.
+
 Then set it where deploys read it, and provision:
 
 ```powershell
@@ -367,6 +371,13 @@ document lives until the assertion could no longer be taken, at most its five-mi
 lifetime plus a two-minute clock skew on either end, and a one-minute grace. When the
 container cannot be reached, the token exchange answers `503 sync.replica_unavailable`
 rather than mint on an assertion it could not check.
+
+**Provision before the first release that carries it.** The service does not create the
+container; `infra/sync/main.bicep` does. Run a `provision` (or a full `deploy`) before the
+next Release All: Release All redeploys in `service` mode and provisions nothing, and an
+image that finds no `assertionReplays` container answers every key-bound device's token
+request with that 503 until a provision creates it. `GET /` stays healthy meanwhile, so
+Release All's post-deploy check does not catch it.
 
 ### The `sessions` index
 
@@ -688,6 +699,13 @@ A `service` run:
 
 The image tag stays azd's own (`azd-deploy-<timestamp>`); the release number is what
 `GET /` reports as `release`.
+
+**A `service` run provisions nothing**, so a release whose code needs a new resource must
+follow a `provision` or `deploy` run. The `assertionReplays` container is one: it must
+exist before an image that keeps spent assertion ids in Cosmos runs. Run **Deploy Sync** in
+`provision` (or `deploy`) mode before the next Release All; otherwise every key-bound
+device's token request answers `503 sync.replica_unavailable` until it is provisioned,
+and step 5 above still passes, because `GET /` reads no container.
 
 Open **Actions -> Deploy Sync -> Run workflow**:
 

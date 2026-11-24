@@ -1,6 +1,7 @@
 using System.Security.Claims;
 
 using Backlog.Desktop.UI.Mcp;
+using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel.Mcp;
 
 using Microsoft.AspNetCore.Authorization;
@@ -147,9 +148,10 @@ public sealed class McpScopePoliciesTests
     {
         var held = McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller);
 
-        Assert.Equal(
-            McpScopes.Grantable.Where(scope => scope is not McpScopes.TelemetryWrite and not McpScopes.AgentsGrant).Order(StringComparer.Ordinal),
-            held.Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(McpScopes.TelemetryWrite, held);
+        Assert.DoesNotContain(McpScopes.AgentsGrant, held);
+        Assert.All(held, scope => Assert.True(McpScopes.IsGrantable(scope), scope));
+        Assert.Equal(McpScopes.Grantable.Count - 2, held.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(McpAudit.SharedTokenCaller, McpScopePolicies.CallerOf(McpScopePolicies.SharedTokenCaller));
 
         Assert.False(await McpScopePolicies.AuthorizeRouteAsync(Authorization, McpScopePolicies.SharedTokenCaller, "/v1/logs"));
@@ -257,12 +259,15 @@ public sealed class McpScopePoliciesTests
     {
         "tasks:read",
         "delivery preset",
+        "manager preset",
+        "read-only + capture preset",
         "escape hatch",
         "harness",
     };
 
     /// <summary>A caller holding any scope beyond the single-purpose ones may ask for more:
-    /// one tool scope, the Delivery flow preset, the escape hatch and the harness.</summary>
+    /// one tool scope, the Delivery flow, Manager and Read-only + capture presets, the escape
+    /// hatch and the harness.</summary>
     [Theory]
     [MemberData(nameof(Requesters))]
     public async Task Request_access_admits_a_caller_holding_a_tool_scope(string requester)
@@ -271,6 +276,8 @@ public sealed class McpScopePoliciesTests
         {
             "tasks:read" => Holding(McpScopes.TasksRead),
             "delivery preset" => Holding([.. McpTokenRetirement.DeliveryScopes]),
+            "manager preset" => Holding([.. McpTokenRetirement.ManagerScopes]),
+            "read-only + capture preset" => Holding([.. McpAgents.PresetOf("Read-only + capture") ?? throw new InvalidOperationException("McpAgents has no Read-only + capture role.")]),
             "escape hatch" => McpScopePolicies.SharedTokenCaller,
             "harness" => McpScopePolicies.HarnessCaller,
             _ => throw new ArgumentOutOfRangeException(nameof(requester), requester, null)
