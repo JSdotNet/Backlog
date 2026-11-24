@@ -15,8 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// a split file <c>&lt;file&gt;.&lt;name&gt;.md</c> is the same kind as its base and
 /// reads directly after it. A file the convention does not name is an additional
 /// page whose type is its filename, which is what <c>naming.md</c> became. And
-/// <c>deployment</c> is stated twice, on the map's <c>bounded-context</c> chapter
-/// and on <c>context.md</c>, and the two must agree.</para>
+/// a context's chapter on the map is its <c>bounded-context</c> chapter.</para>
 ///
 /// <para>The fixtures are the rule's own templates with the placeholders filled in,
 /// so a template that changes shape is a fixture to re-copy rather than a shape
@@ -347,7 +346,6 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         Assert.Equal(DomainDevbookDocumentKind.Page, flow.Kind);
         Assert.Equal("Flows", flow.Title);
         Assert.Equal("Additional page", flow.KindLabel);
-        Assert.Equal("flow", DomainDevbookFileTypes.Of("flow.md"));
         Assert.Equal(DomainDevbookDocumentKind.Page, Assert.Single(documents, document => Path.GetFileName(document.Path) == "flow.dunning.md").Kind);
         Assert.Equal(
             ["context.md", "domain.md", "model.md", "dependencies.md", "flow.dunning.md", "flow.md"],
@@ -356,24 +354,6 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         Assert.Equal(DomainViewPage.File, DomainViewUnit.PageFor("billing/flow.md"));
         Assert.Equal(DomainViewPage.File, DomainViewUnit.PageFor("billing/flow.dunning.md"));
         Assert.DoesNotContain("Flow", Enum.GetNames<DomainViewPage>());
-    }
-
-    [Fact]
-    public void A_files_type_is_the_schemas_own_value_including_a_pages_own_filename()
-    {
-        // Every kind the mark bridge names is a file type the schema knows, and
-        // every file type the schema knows has a kind that names it.
-        foreach (var fileType in DevbookSchema.FileTypes(DevbookFolder.Domain))
-        {
-            Assert.Equal(fileType, DomainDevbookFileTypes.Of($"{fileType}.md"));
-        }
-
-        Assert.Equal("domain", DomainDevbookFileTypes.Of("domain.order.md"));
-        Assert.Equal("invariants", DomainDevbookFileTypes.Of("domain.invariants.md"));
-        Assert.Equal("invariants", DomainDevbookFileTypes.Of("domain.order.invariants.md"));
-        Assert.Equal("go-live-takeover", DomainDevbookFileTypes.Of("go-live-takeover.md"));
-        Assert.True(DevbookSchema.IsKnownType(DevbookFolder.Domain, DevbookMetadataLevel.File, DomainDevbookFileTypes.Of("naming.md"), "naming.md"));
-        Assert.Null(DomainDevbookFileTypes.Of("index.md"));
     }
 
     [Fact]
@@ -415,7 +395,7 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     }
 
     [Fact]
-    public async Task Deployment_is_read_from_context_md_and_from_the_map_chapter_whose_related_names_it()
+    public async Task A_map_chapter_whose_related_names_the_context_is_its_chapter()
     {
         var repo = TempDir();
         WriteContext(repo, "context.md");
@@ -435,10 +415,6 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
 
         // Matched by `related`, although the heading slugs to something else.
         Assert.Equal("Invoicing and Billing", context.MapChapter!.Title);
-        Assert.Equal(new DomainDevbookDeployment("module", "module"), context.Deployment);
-        Assert.False(context.Deployment.Disagrees);
-        Assert.Null(context.Deployment.Problem);
-        Assert.Equal("module", context.Deployment.Value);
     }
 
     [Fact]
@@ -460,36 +436,6 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         var context = Assert.Single((await Load(repo)).Contexts);
 
         Assert.Equal("Billing", context.MapChapter!.Title);
-        Assert.True(context.Deployment.Disagrees);
-        Assert.Equal(
-            "Deployment disagrees: the bounded-context chapter in context-map.md says \"service\", and context.md says \"module\".",
-            context.Deployment.Problem);
-    }
-
-    [Fact]
-    public async Task A_value_on_one_side_only_is_a_disagreement_and_neither_side_is_none()
-    {
-        var repo = TempDir();
-        WriteContext(repo, "context.md");
-        WriteContextMap(repo, """
-            ## Billing
-
-            ```meta
-            type: bounded-context
-            ```
-
-            Where invoices are kept.
-            """);
-
-        var context = Assert.Single((await Load(repo)).Contexts);
-
-        Assert.True(context.Deployment.Disagrees);
-        Assert.Contains("context-map.md states none", context.Deployment.Problem, StringComparison.Ordinal);
-        Assert.Contains("context.md says \"module\"", context.Deployment.Problem, StringComparison.Ordinal);
-
-        var neither = new DomainDevbookDeployment(null, null);
-        Assert.False(neither.IsStated);
-        Assert.False(neither.Disagrees);
     }
 
     [Fact]
@@ -508,7 +454,6 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         var context = Assert.Single((await Load(repo)).Contexts);
 
         Assert.Null(context.MapChapter);
-        Assert.Equal(new DomainDevbookDeployment(null, "module"), context.Deployment);
     }
 
     /// <summary>Writes a <c>billing</c> context holding the named files, each a
@@ -526,13 +471,31 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
                 "context.md" => ContextFile,
                 "requirements.md" => RequirementsFile,
                 "domain.invariants.md" or "invariants.md" => InvariantsFile,
-                _ => $"# Billing\n\n```meta\ntype: {DomainDevbookFileTypes.Of(file)}\n```\n\nThe {file} file.\n"
+                _ => $"# Billing\n\n```meta\ntype: {FileType(file)}\n```\n\nThe {file} file.\n"
             };
             File.WriteAllText(Path.Combine(folder, file), text);
         }
 
         return ".domain/billing";
     }
+
+    /// <summary>The <c>type</c> a file carries by its name: its kind's, or for an
+    /// additional page, its own filename.</summary>
+    private static string? FileType(string file) => DomainDevbookStore.KindFromFile(file) switch
+    {
+        DomainDevbookDocumentKind.Page => DevbookSchema.OwnFileType(file),
+        DomainDevbookDocumentKind.ContextMap => "context-map",
+        DomainDevbookDocumentKind.Context => "context",
+        DomainDevbookDocumentKind.Domain => "domain",
+        DomainDevbookDocumentKind.Actors => "actors",
+        DomainDevbookDocumentKind.Features => "features",
+        DomainDevbookDocumentKind.Skills => "skills",
+        DomainDevbookDocumentKind.Requirements => "requirements",
+        DomainDevbookDocumentKind.Invariants => "invariants",
+        DomainDevbookDocumentKind.Model => "model",
+        DomainDevbookDocumentKind.Dependencies => "dependencies",
+        _ => null
+    };
 
     private static void WriteContextMap(string repo, string chapters)
     {

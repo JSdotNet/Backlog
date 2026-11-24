@@ -8,4 +8,12 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <param name="Anchor">The heading slug the reference named.</param>
 /// <param name="Sequence">Which request it was, so the same part asked for again is a
 /// new focus and is scrolled to again.</param>
-public sealed record DevbookFocus(string Anchor, int Sequence);
+public sealed record DevbookFocus(string Anchor, int Sequence)
+{
+    /// <summary>The file the anchor is a heading of, relative to the area's folder,
+    /// when that is not the selected file: a Domain file with no row of its own —
+    /// <c>tasks/domain.invariants.md</c> — opens on the page that shows it, and the
+    /// anchor still names a heading of the file the reference named. Null when the
+    /// anchor is the selected file's own.</summary>
+    public string? File { get; init; }
+}

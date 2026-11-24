@@ -1,5 +1,4 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Bunit;
@@ -13,7 +12,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// repository's direction map by the block's address and no file changes, so it
 /// is offered on a read-only branch snapshot too — and refused on an archived
 /// repository (local ADR 0029 §4), which shows the direction and offers nothing.
-/// Another writer — a tool call over MCP — moving the map redraws the pane.
+/// Another writer — a tool call over MCP — moving the map redraws the pane. The
+/// Domain view offers it in its As written mode, which shows the file itself.
 /// </summary>
 public sealed class DevbookSyncWriteTests : IDisposable
 {
@@ -26,7 +26,7 @@ public sealed class DevbookSyncWriteTests : IDisposable
     [Theory]
     [InlineData(DevbookSourceKind.LocalFolder)]
     [InlineData(DevbookSourceKind.Branch)]
-    public async Task A_pick_in_the_domain_panel_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
+    public async Task A_pick_in_the_domain_view_as_written_states_the_direction_in_the_map_and_writes_no_file(DevbookSourceKind source)
     {
         using var harness = DomainHarness(source, out var directions, out var file);
         var before = File.ReadAllBytes(file);
@@ -120,10 +120,10 @@ public sealed class DevbookSyncWriteTests : IDisposable
 
     // --- Fixtures --------------------------------------------------------------
 
-    private static IRenderedComponent<DomainDevbookPanel> Render(Harness harness) =>
-        harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+    private static IRenderedComponent<DomainViewAsWritten> Render(Harness harness) =>
+        harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, Alias)
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
     /// <summary>A domain folder holding the context map, whose own block is the
     /// folder's sync level, with a session direction map the panel finds.</summary>
@@ -144,7 +144,6 @@ public sealed class DevbookSyncWriteTests : IDisposable
         context.Services.AddSingleton<IAppFeatureSettings>(
             new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json")));
         context.Services.AddSingleton(new DomainDevbookStore(folders));
-        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
 
         return new Harness(context);

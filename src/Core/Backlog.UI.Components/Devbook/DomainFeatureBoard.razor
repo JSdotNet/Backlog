@@ -42,7 +42,10 @@
                 <li class="domain-features__legend-item" data-testid="domain-features-legend-flag"><DomainGateChip Kind="DomainFeatureGateKind.Flag" /> decided at release</li>
                 <li class="domain-features__legend-item" data-testid="domain-features-legend-setting"><DomainGateChip Kind="DomainFeatureGateKind.Setting" /> chosen by a person</li>
                 <li class="domain-features__legend-item"><span class="domain-feature-card__tally">n req · m tested</span>its promises on the Requirements page</li>
-                <li class="domain-features__legend-item"><Badge Kind="tone" CssClass="domain-feature-card__mark domain-features__legend-proposed">Proposed</Badge>agreed, not yet the model</li>
+                @if (StatusShown)
+                {
+                    <li class="domain-features__legend-item" data-testid="domain-features-legend-proposed"><Badge Kind="tone" CssClass="domain-feature-card__mark domain-features__legend-proposed">Proposed</Badge>agreed, not yet the model</li>
+                }
             </ul>
         </header>
 
@@ -84,7 +87,7 @@
                                                 {
                                                     <span class="domain-feature-card__tally" data-testid="domain-feature-requirements"><span aria-hidden="true">@ShortTally(feature.Requirements)</span><span class="sr-only">@SpokenTally(feature.Requirements)</span></span>
                                                 }
-                                                @if (feature.IsProposed)
+                                                @if (feature.IsProposed && StatusShown)
                                                 {
                                                     <Badge Kind="tone" CssClass="domain-feature-card__mark" TestId="domain-feature-status">Proposed</Badge>
                                                 }
@@ -137,7 +140,7 @@
                 <div class="domain-feature-detail__main">
                     <div class="domain-feature-detail__head">
                         <h3 class="domain-feature-detail__title">@active.Title</h3>
-                        @if (active.IsProposed || active.IsDeprecated)
+                        @if (StatusShown && (active.IsProposed || active.IsDeprecated))
                         {
                             <Badge Kind="tone" CssClass="domain-feature-card__mark" TestId="domain-feature-detail-status">@(active.IsProposed ? "Proposed" : "Deprecated")</Badge>
                         }
@@ -230,6 +233,13 @@
 </article>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
     /// <summary>The columns <see cref="DomainFeatures.Columns"/> read.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<DomainFeatureColumn> Columns { get; set; } = [];
@@ -310,16 +320,16 @@
         await ActiveFeatureChanged.InvokeAsync(feature.Key);
     }
 
-    private static string CardClass(DomainFeature feature, bool selected) =>
+    private string CardClass(DomainFeature feature, bool selected) =>
         "domain-feature-card"
-        + (feature.IsProposed ? " domain-feature-card--proposed" : string.Empty)
+        + (feature.IsProposed && StatusShown ? " domain-feature-card--proposed" : string.Empty)
         + (selected ? " domain-feature-card--selected" : string.Empty);
 
     private static string DeprecatedClass(bool selected) =>
         "domain-features__deprecated-item" + (selected ? " domain-features__deprecated-item--selected" : string.Empty);
 
-    private static bool HasFacts(DomainFeature feature) =>
-        feature.SubFeatures.Count > 0 || feature.Gate is not null || feature.Requirements.Count > 0 || feature.IsProposed;
+    private bool HasFacts(DomainFeature feature) =>
+        feature.SubFeatures.Count > 0 || feature.Gate is not null || feature.Requirements.Count > 0 || (feature.IsProposed && StatusShown);
 
     private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
 

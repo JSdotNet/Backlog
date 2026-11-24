@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The page a Domain menu row opens in the new domain view: one per kind of file a
+/// The page a Domain menu row opens in the Domain view: one per kind of file a
 /// row can be (local ADR 0047). A file shown on another page —
 /// <c>dependencies.md</c>, a <c>domain.&lt;name&gt;.invariants.md</c> — answers the page
 /// it shows on, so a path that reaches the view some other way still lands on a page.
@@ -67,6 +67,45 @@ public static class DomainViewUnit
             DomainDevbookDocumentKind.Model => DomainViewPage.Model,
             _ => DomainViewPage.File
         };
+    }
+
+    /// <summary>
+    /// The file a page's As written reading opens: the selected file, or a
+    /// context folder's <c>context.md</c>. Null when no row is selected. A page
+    /// built from more than one file opens its primary file this way, and offers
+    /// the rest through <see cref="Companions"/>.
+    /// </summary>
+    public static string? WrittenFile(string? selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(selectedPath)) return null;
+
+        var path = selectedPath.Replace('\\', '/').Trim('/');
+        if (path.Length == 0) return null;
+        return path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? path : path + "/context.md";
+    }
+
+    /// <summary>
+    /// The files a page reads beside its primary file, which draw no row of their
+    /// own (<see cref="DevbookMenu.DomainUnitHosts"/>): a domain file's Always true
+    /// file, <c>domain.&lt;name&gt;.invariants.md</c>, and a context's
+    /// <c>dependencies.md</c>. Named whether or not the folder holds them; the
+    /// reader asks the folder.
+    /// </summary>
+    public static IReadOnlyList<string> Companions(string writtenFile)
+    {
+        ArgumentNullException.ThrowIfNull(writtenFile);
+
+        var path = writtenFile.Replace('\\', '/');
+        var slash = path.LastIndexOf('/');
+        if (slash <= 0) return [];
+
+        var context = path[..slash];
+        var name = path[(slash + 1)..];
+        if (string.Equals(name, "context.md", StringComparison.OrdinalIgnoreCase)) return [context + "/dependencies.md"];
+
+        return DomainDevbookStore.KindFromFile(name) == DomainDevbookDocumentKind.Domain
+            ? [context + "/" + name[..^".md".Length] + ".invariants.md"]
+            : [];
     }
 
     /// <summary>The page as markup and tests key on it: <c>context-map</c>, <c>domain</c>.</summary>

@@ -139,7 +139,8 @@ public sealed class DomainDevbookStore : IDisposable
     /// direction in force there, read from <paramref name="stated"/> — the
     /// repository's direction map. Read from whatever the folder resolves to,
     /// branch snapshot included. There is no write beside it: a direction is the
-    /// map's, and nothing writes <c>sync</c> into a file.
+    /// map's, and nothing writes <c>sync</c> into a file. The Domain view's As
+    /// written reading asks it for the file it shows.
     /// </summary>
     public Task<DevbookSyncReading> ReadSyncAsync(
         string? repositoryAlias,
@@ -155,6 +156,7 @@ public sealed class DomainDevbookStore : IDisposable
         var folderPath = location.FullPath;
         return Task.Run(() => DevbookSyncReading.Read(folderPath, DevbookFolder.Domain, documentPath, stated), cancellationToken);
     }
+
     /// <summary>
     /// Builds the bounded contexts from the generated <c>_meta/index.json</c>:
     /// the slug, the display name, and the status of each come from the index,
@@ -683,53 +685,6 @@ public sealed record DomainDevbookContext(string Slug, string DisplayName, strin
     /// documents, which the index route otherwise defers until they are
     /// shown.</summary>
     public DomainDevbookDocument? RootDocument => DomainDevbookStore.ContextRoot(Documents);
-
-    /// <summary>
-    /// How the context ships, as its two statements of it say. The <c>context.md</c>
-    /// side is read off the context's documents, so like
-    /// <see cref="RootDocument"/> it is only worth asking of a context that is on
-    /// screen.
-    /// </summary>
-    public DomainDevbookDeployment Deployment => new(
-        MapChapter is { } chapter && chapter.Metadata.TryGetValue("deployment", out var mapValue) ? Blank(mapValue) : null,
-        Documents.FirstOrDefault(document => document.Kind == DomainDevbookDocumentKind.Context) is { } context
-            && context.Metadata.TryGetValue("deployment", out var contextValue) ? Blank(contextValue) : null);
-
-    private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-}
-
-/// <summary>
-/// A bounded context's <c>deployment</c>, as the two places that state it state it:
-/// the <c>bounded-context</c> chapter in <c>context-map.md</c>, and the file-level
-/// block of the context's own <c>context.md</c>.
-/// <para>
-/// They have to agree, and a value on one side only is a disagreement too — the
-/// rule's own wording, which <see cref="DevbookSchema.DeploymentDisagrees"/> keeps.
-/// Neither side stating one is not: the choice is simply not made yet.
-/// </para>
-/// </summary>
-public sealed record DomainDevbookDeployment(string? MapValue, string? ContextValue)
-{
-    /// <summary>Whether either side states one.</summary>
-    public bool IsStated => MapValue is not null || ContextValue is not null;
-
-    /// <summary>Whether the two statements disagree, including one side stating
-    /// nothing.</summary>
-    public bool Disagrees => DevbookSchema.DeploymentDisagrees(MapValue, ContextValue);
-
-    /// <summary>The value to show: the context's own, which a reader of the context
-    /// sees without opening the map, and the map's when the context states none.
-    /// When the two disagree <see cref="Problem"/> names both, so showing one here
-    /// hides nothing.</summary>
-    public string? Value => ContextValue ?? MapValue;
-
-    /// <summary>The disagreement as a sentence naming both values, or nothing
-    /// when they agree.</summary>
-    public string? Problem => Disagrees
-        ? $"Deployment disagrees: the bounded-context chapter in context-map.md {Says(MapValue)}, and context.md {Says(ContextValue)}."
-        : null;
-
-    private static string Says(string? value) => value is null ? "states none" : $"says \"{value}\"";
 }
 
 public sealed record DomainDevbookDocument(string Path, string Title, DomainDevbookDocumentKind Kind, string Status, IReadOnlyDictionary<string, string> Metadata, string Summary, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<DomainDevbookSection> Sections, IReadOnlyList<string> Links)
@@ -794,59 +749,4 @@ public enum DomainDevbookDocumentKind
     /// <summary>A legacy <c>index.md</c>, or a document nobody has classified —
     /// the map's empty stand-in.</summary>
     Other
-}
-
-/// <summary>
-/// The bridge between this module's document kind and the shared library's
-/// <c>type</c> vocabulary — the file-type marks
-/// <see cref="Backlog.UI.Components.Devbook.DevbookTypeMarkers.FileTypes"/>
-/// draws.
-/// <para>
-/// The two lists say the same thing in two vocabularies, and this is the single
-/// place they meet. The alternative — a second filename-to-slug switch wherever a
-/// mark is wanted — is how the tree and the panel would come to disagree about
-/// what <c>model.md</c> is.
-/// </para>
-/// <para>
-/// An additional page has no fixed value: its type is its own filename, so
-/// <see cref="Of(string)"/> answers it from the name and <see cref="Of(DomainDevbookDocumentKind)"/>,
-/// holding only the kind, cannot. A caller drawing it passes the file name to the
-/// marker beside the value, which is how the marker knows the value is a page's.
-/// <see cref="DomainDevbookDocumentKind.Other"/> has no mark, deliberately: an
-/// unknown value draws nothing rather than guessing.
-/// </para>
-/// </summary>
-public static class DomainDevbookFileTypes
-{
-    /// <summary>The <c>type</c> a file carries, from its name alone — for an
-    /// additional page, its own filename.</summary>
-    public static string? Of(string fileName) =>
-        string.IsNullOrWhiteSpace(fileName) ? null
-        : DomainDevbookStore.KindFromFile(fileName) is DomainDevbookDocumentKind.Page ? DevbookSchema.OwnFileType(fileName)
-        : Of(DomainDevbookStore.KindFromFile(fileName));
-
-    /// <summary>The same for a document already read.</summary>
-    public static string? Of(DomainDevbookDocument document) =>
-        document.Kind is not DomainDevbookDocumentKind.Page ? Of(document.Kind)
-        // A scenario page is the one additional page typed by what it states rather
-        // than by its name: it is named after its journey.
-        : DevbookTypeMarkers.IsScenario(document.Metadata.GetValueOrDefault("type")) ? DevbookSchema.ScenarioFileType
-        : DevbookSchema.OwnFileType(document.Path);
-
-    /// <summary>The <c>type</c> for a document whose kind is already known, when
-    /// the kind alone says it.</summary>
-    public static string? Of(DomainDevbookDocumentKind kind) => kind switch
-    {
-        DomainDevbookDocumentKind.ContextMap => "context-map",
-        DomainDevbookDocumentKind.Context => "context",
-        DomainDevbookDocumentKind.Domain => "domain",
-        DomainDevbookDocumentKind.Actors => "actors",
-        DomainDevbookDocumentKind.Features => "features",
-        DomainDevbookDocumentKind.Skills => "skills",
-        DomainDevbookDocumentKind.Requirements => "requirements",
-        DomainDevbookDocumentKind.Invariants => "invariants",
-        DomainDevbookDocumentKind.Model => "model",
-        DomainDevbookDocumentKind.Dependencies => "dependencies",
-        _ => null
-    };
 }

@@ -315,11 +315,11 @@ public sealed class MarkdownNotesGutterTests
     /// the notes cell would have to be outside the box, and everything outside a
     /// scroll box is clipped by it.</para>
     ///
-    /// <para>So the pane hands the scrolling up to whatever it sits in. Both
-    /// surfaces in this product that draw remarks already relied on that —
-    /// <c>Arc42DevbookPanel</c> and <c>DomainDevbookPanel</c> pass no
-    /// <c>MaxHeight</c> and say so — and this makes it true wherever a margin is
-    /// drawn rather than wherever the caller remembered.</para>
+    /// <para>So the pane hands the scrolling up to whatever it sits in. The
+    /// surface in this product that draws remarks already relied on that —
+    /// <c>Arc42DevbookPanel</c> passes no <c>MaxHeight</c> and says so — and this
+    /// makes it true wherever a margin is drawn rather than wherever the caller
+    /// remembered.</para>
     /// </summary>
     [Fact]
     public void A_pane_carrying_a_gutter_hands_its_scrolling_up()

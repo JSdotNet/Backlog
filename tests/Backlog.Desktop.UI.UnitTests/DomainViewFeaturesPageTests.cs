@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain view's Features and Requirements pages, reached the way a reader
-/// reaches them: the New domain view switch on, a context opened, its Features or
+/// reaches them: a context opened, its Features or
 /// Requirements row picked (local ADR 0047). Features stand in columns by what
 /// they build on with their proved requirements; Requirements reads a feature's
 /// requirements and scenarios, and its Always true link opens the aggregate's
@@ -366,7 +366,9 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.DomainView, true);
+        // The pages draw the status their chapters state only while the Devbook
+        // status switch is on; these read it.
+        Assert.Null(features.SetEnabled(DevbookFeatures.Status, true));
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

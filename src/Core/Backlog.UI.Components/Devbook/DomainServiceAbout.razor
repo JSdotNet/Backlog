@@ -13,7 +13,7 @@
 
 <div class="domain-about domain-about--summary" data-testid="domain-service-about">
     <section class="domain-about__intro" data-testid="domain-unit-hero" aria-labelledby="@($"{_id}-title")">
-        <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.DomainService, Chapter.Status)</span>
+        <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.DomainService, StatusShown ? Chapter.Status : null)</span>
         <h2 class="domain-about__title" id="@($"{_id}-title")" data-testid="domain-unit-title">@Chapter.Title</h2>
         @if (_lead.Length > 0)
         {
@@ -64,6 +64,13 @@
 </div>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
     /// <summary>The service's chapter.</summary>
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;

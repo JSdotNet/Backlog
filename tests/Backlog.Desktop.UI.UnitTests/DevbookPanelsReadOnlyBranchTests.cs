@@ -1,5 +1,4 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Bunit;
@@ -28,29 +27,32 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 {
     private readonly List<TemporaryDirectory> _temps = [];
 
-    // --- Domain ----------------------------------------------------------------
+    // --- Domain, as written ----------------------------------------------------
+
+    // The Domain view reads by unit; its As written mode shows the file itself, and
+    // is where a Domain chapter is edited and remarked on.
 
     [Fact]
-    public void The_domain_panel_offers_no_edit_on_a_branch()
+    public void The_domain_view_as_written_offers_no_edit_on_a_branch()
     {
         using var harness = DomainHarness(DevbookSourceKind.Branch);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
     }
 
     [Fact]
-    public void The_domain_panel_offers_the_edit_on_a_clone()
+    public void The_domain_view_as_written_offers_the_edit_on_a_clone()
     {
         using var harness = DomainHarness(DevbookSourceKind.LocalFolder);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
     }
@@ -60,13 +62,13 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     /// <summary>"A clone of an archived repository": the chapter reads, and
     /// neither an edit nor a remark is offered.</summary>
     [Fact]
-    public void The_domain_panel_offers_no_edit_and_no_remark_on_an_archived_repositorys_clone()
+    public void The_domain_view_as_written_offers_no_edit_and_no_remark_on_an_archived_repositorys_clone()
     {
         using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-edit']"));
@@ -76,7 +78,7 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     /// <summary>A remark kept from before the archive reads, with no resolve,
     /// edit or delete control: each would write to the replicated store.</summary>
     [Fact]
-    public void The_domain_panel_shows_a_kept_remark_read_only_on_an_archived_repository()
+    public void The_domain_view_as_written_shows_a_kept_remark_read_only_on_an_archived_repository()
     {
         using var harness = DomainHarness(DevbookSourceKind.LocalFolder, archived: true);
         var store = new SessionDevbookAnnotationStore();
@@ -84,9 +86,9 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         store.Edit(kept.Id, "Kept from before the archive.");
         harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Kept from before the archive.", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid^='markdown-comment-resolve-']"));
@@ -99,13 +101,13 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     /// the remarks it always had, because a remark is the app's, not the
     /// file's.</summary>
     [Fact]
-    public void The_domain_panel_still_takes_remarks_on_an_active_repositorys_branch()
+    public void The_domain_view_as_written_still_takes_remarks_on_an_active_repositorys_branch()
     {
         using var harness = DomainHarness(DevbookSourceKind.Branch);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
     }
@@ -114,7 +116,7 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
     /// on a named branch's snapshot the panel lists that branch's remarks and none
     /// of the default branch's, and a new one is kept under the branch.</summary>
     [Fact]
-    public async Task The_domain_panel_keeps_a_named_branchs_remarks_under_that_branch()
+    public async Task The_domain_view_as_written_keeps_a_named_branchs_remarks_under_that_branch()
     {
         using var harness = DomainHarness(DevbookSourceKind.Branch);
         harness.Folders.Branch = "feature/remark-kinds";
@@ -125,9 +127,9 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         store.Edit(onBranch.Id, "Left on the feature branch.");
         harness.Context.Services.AddSingleton<IDevbookAnnotationStore>(store);
 
-        var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
+        var component = harness.Context.Render<DomainViewAsWritten>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, "backlog")
-            .Add(panel => panel.SelectedPath, ".domain/context-map.md"));
+            .Add(panel => panel.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Left on the feature branch.", component.Markup, StringComparison.Ordinal));
         Assert.DoesNotContain("Left on the default branch.", component.Markup, StringComparison.Ordinal);
@@ -316,7 +318,6 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         context.Services.AddSingleton<IAppFeatureSettings>(
             new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json")));
         context.Services.AddSingleton(new DomainDevbookStore(folders));
-        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
 
         return new Harness(context, folders);

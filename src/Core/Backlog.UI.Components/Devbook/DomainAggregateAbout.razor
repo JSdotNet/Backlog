@@ -20,7 +20,7 @@
     <section class="domain-about__hero" data-testid="domain-unit-hero" aria-labelledby="@($"{_id}-title")">
         <div class="domain-about__headline">
             <h2 class="domain-about__title" id="@($"{_id}-title")" data-testid="domain-unit-title">@Chapter.Title</h2>
-            <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.Aggregate, Chapter.Status)</span>
+            <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.Aggregate, StatusShown ? Chapter.Status : null)</span>
         </div>
         @if (_lead.Length > 0)
         {
@@ -51,7 +51,7 @@
             <ul class="domain-about__cards">
                 @foreach (var member in _members)
                 {
-                    var proposed = string.Equals(member.Status, "proposed", StringComparison.OrdinalIgnoreCase);
+                    var proposed = StatusShown && string.Equals(member.Status, "proposed", StringComparison.OrdinalIgnoreCase);
                     var rules = RulesOf?.Invoke(member) ?? [];
                     var shown = _rulesShown.Contains(member.Anchor);
                     var listId = $"{_id}-rules-{member.Anchor}";
@@ -153,6 +153,13 @@
 </div>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
     /// <summary>The aggregate's chapter.</summary>
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;

@@ -164,10 +164,7 @@ public sealed class C4DevbookStore : IDisposable
         // with no workspace it is drawn from their own fences, and with one the embeds
         // they carry tie each view to its chapter, and their `c4`, `c4-touches` and
         // `code` fields link a record to an element. The arc42 store fetches the same
-        // folder, and a file already current is not fetched twice. The Domain panel
-        // loads this store as well, so opening it on a branch fetches the arc42
-        // chapters too — accepted, since the views and records that panel links to
-        // are only placed by reading them.
+        // folder, and a file already current is not fetched twice.
         location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
 
         // A domain chapter links to the model by the same two fields, so with a

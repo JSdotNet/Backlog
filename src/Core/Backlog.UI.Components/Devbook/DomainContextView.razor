@@ -20,7 +20,7 @@
 
     <div class="domain-context-page__overview" data-testid="domain-context-page-overview">
         <header class="domain-context-page__intro" data-testid="domain-context-page-header">
-            @if (SubdomainLabel is not null || DeploymentLabel is not null || Overview.Status is not null)
+            @if (SubdomainLabel is not null || DeploymentLabel is not null || ShownStatus is not null)
             {
                 <div class="domain-context-page__badges">
                     @if (SubdomainLabel is { } subdomain)
@@ -31,7 +31,7 @@
                     {
                         <span class="domain-context-page__badge" data-testid="domain-context-page-deployment">@deployment</span>
                     }
-                    @if (Overview.Status is { } status)
+                    @if (ShownStatus is { } status)
                     {
                         <DevbookStatusPill Status="@status" Folder="DevbookFolder.Domain" />
                     }
@@ -163,7 +163,7 @@
 
         @* Only a devbook whose chapters still state a rating or a status draws the
            bar: past devbook contract 38 a domain chapter carries no workflow state. *@
-        @if (Overview.Statuses.Count > 0)
+        @if (StatusShown && Overview.Statuses.Count > 0)
         {
         <section class="domain-context-page__section" data-testid="domain-context-page-settled" aria-labelledby="@($"{_id}-settled")">
             <h3 class="domain-context-page__heading" id="@($"{_id}-settled")">How settled</h3>
@@ -275,6 +275,16 @@
 </section>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
+    // The context's own status, when the switch draws it.
+    private string? ShownStatus => StatusShown ? Overview.Status : null;
+
     /// <summary>The context's name as its <c>context.md</c> heads it.</summary>
     [Parameter]
     public string ContextName { get; set; } = "This context";

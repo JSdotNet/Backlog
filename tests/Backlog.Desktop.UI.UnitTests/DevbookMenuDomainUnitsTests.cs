@@ -5,8 +5,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Domain menu with the New domain view switch (<c>devbook-domain-view</c>)
-/// on: a bounded context listed by unit, as local ADR 0047 decides — its kinds in
+/// The Domain menu: a bounded context listed by unit, as local ADR 0047 decides — its kinds in
 /// the reading order, each split file nested under its kind and titled by its
 /// heading, the files that are a tab or a button on another page drawing no row.
 ///
@@ -14,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <c>.devbook/domain/financieel/</c> is the ADR's worked example of a split
 /// context: thirteen domain splits each with an invariants subpage, Features with
 /// no base file, a demo, and two <c>_</c> files. Backlog's own <c>tasks/</c> is
-/// the unsplit context the switch must not disturb.</para>
+/// the unsplit context.</para>
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookMenuDomainUnitsTests : IDisposable
@@ -88,7 +87,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", Financieel, "assets");
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
 
         Assert.Equal("financieel/context.md", context.Path);
         Assert.Equal(
@@ -109,7 +108,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", Financieel, "assets");
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
 
         var domain = Child(context, "Domain");
         Assert.Equal(DevbookMenuNodeKind.File, domain.Kind);
@@ -138,7 +137,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", Financieel, "assets");
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
         var paths = Descendants(context).Select(node => node.Path).ToList();
 
         Assert.DoesNotContain(paths, path => path.EndsWith(".invariants.md", StringComparison.Ordinal));
@@ -155,7 +154,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", Financieel, "assets");
 
-        var features = Child(await LoadContextAsync(repo, "financieel", domainView: true), "Features");
+        var features = Child(await LoadContextAsync(repo, "financieel"), "Features");
 
         Assert.Equal(DevbookMenuNodeKind.Folder, features.Kind);
         Assert.False(features.Path.EndsWith(".md", StringComparison.Ordinal));
@@ -172,7 +171,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
             "features.producten.budgetbeheer.limieten.md", "features.diensten.aanvragen.md"
         ]);
 
-        var features = Child(await LoadContextAsync(repo, "financieel", domainView: true), "Features");
+        var features = Child(await LoadContextAsync(repo, "financieel"), "Features");
 
         Assert.Equal(["Diensten", "Producten"], features.Children.Select(node => node.Label));
 
@@ -203,7 +202,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
             new DevbookMenuOutlineRow("file", "domain.vierogen.md", ".domain/financieel/domain.vierogen.md", "Vier-ogenprincipe", IsRoot: false, Parent: ".domain/financieel")
         ]);
 
-        var domain = Child(await LoadContextAsync(repo, "financieel", domainView: true), "Domain");
+        var domain = Child(await LoadContextAsync(repo, "financieel"), "Domain");
 
         Assert.Equal("Vier-ogenprincipe", Assert.Single(domain.Children).Label);
     }
@@ -213,7 +212,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("tasks", Tasks, "assets", "_archify");
 
-        var context = await LoadContextAsync(repo, "tasks", domainView: true);
+        var context = await LoadContextAsync(repo, "tasks");
 
         Assert.Equal(["Domain", "Features", "Requirements", "Model", "Flow"], context.Children.Select(node => node.Label));
         Assert.Equal(
@@ -232,7 +231,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", Financieel, "assets");
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
 
         Assert.Equal(
             new (string, int?)[] { ("Domain", 13), ("Actors", null), ("Features", 20), ("Requirements", 17), ("Model", 10) },
@@ -258,7 +257,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
             new DevbookMenuOutlineRow("file", "model.md", ".domain/financieel/model.md", "Financieel", IsRoot: false, Parent: ".domain/financieel")
         ]);
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
 
         // A legacy flow file and its split are pages like import.md, labelled by
         // their names: no kind row takes flow.md's heading or nests its split.
@@ -283,7 +282,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         ]);
         File.SetLastWriteTimeUtc(Path.Combine(repo, ".domain", "monitoring", "context.md"), DateTime.UtcNow.AddHours(1));
 
-        var context = await LoadContextAsync(repo, "monitoring", domainView: true);
+        var context = await LoadContextAsync(repo, "monitoring");
 
         Assert.Equal(["Features", "Model"], context.Children.Select(node => node.Label));
     }
@@ -295,44 +294,9 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
     {
         var repo = Repository("financieel", ["context.md", "domain.md"], "assets", "archief");
 
-        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+        var context = await LoadContextAsync(repo, "financieel");
 
         Assert.Equal(["financieel/domain.md", "financieel/archief"], context.Children.Select(node => node.Path));
-    }
-
-    [Fact]
-    public async Task With_the_switch_off_a_split_context_is_todays_flat_list()
-    {
-        var repo = Repository("financieel", Financieel, "assets");
-
-        var on = await LoadContextAsync(repo, "financieel", domainView: true);
-        var off = await LoadContextAsync(repo, "financieel", domainView: false);
-        var unswitched = await LoadContextAsync(repo, "financieel", domainView: null);
-
-        // Every Markdown file but the context's own and the `_` ones, one row each.
-        var expected = Financieel
-            .Where(name => name.EndsWith(".md", StringComparison.Ordinal) && !name.StartsWith('_') && name != "context.md")
-            .Select(name => "financieel/" + name)
-            .Append("financieel/assets")
-            .Order(StringComparer.OrdinalIgnoreCase);
-
-        Assert.Equal(expected, off.Children.Select(node => node.Path).Order(StringComparer.OrdinalIgnoreCase));
-        Assert.All(off.Children, node => Assert.Empty(node.Children));
-        Assert.Contains(off.Children, node => node.Path == "financieel/dependencies.md");
-        Assert.Equal(off.Children.Select(node => (node.Path, node.Label)), unswitched.Children.Select(node => (node.Path, node.Label)));
-        Assert.NotEqual(off.Children.Count, on.Children.Count);
-    }
-
-    [Fact]
-    public async Task With_the_switch_off_an_unsplit_context_is_todays_list()
-    {
-        var repo = Repository("tasks", Tasks, "assets", "_archify");
-
-        var off = await LoadContextAsync(repo, "tasks", domainView: false);
-
-        Assert.Equal(
-            ["tasks/domain.md", "tasks/domain.invariants.md", "tasks/features.md", "tasks/model.md", "tasks/dependencies.md", "tasks/assets", "tasks/flow.md", "tasks/requirements.md"],
-            off.Children.Select(node => node.Path));
     }
 
     [Theory]
@@ -379,9 +343,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         return repo;
     }
 
-    /// <param name="domainView">The switch; <see langword="null"/> for a host
-    /// that composes no feature settings at all.</param>
-    private async Task<DevbookMenuNode> LoadContextAsync(string repo, string context, bool? domainView)
+    private async Task<DevbookMenuNode> LoadContextAsync(string repo, string context)
     {
         var settings = new GitHubSettingsStore(Path.Combine(TempDir(), "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -389,14 +351,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         settings.SetRepositories(repositories);
         settings.SetCloneDirectory("backlog", repo);
 
-        AppFeatureSettingsStore? features = null;
-        if (domainView is { } enabled)
-        {
-            features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(TempDir(), "features.json"));
-            Assert.Null(features.SetEnabled(DevbookFeatures.DomainView, enabled));
-        }
-
-        var tree = await new DevbookMenu(new DevbookFolderSource(settings), features)
+        var tree = await new DevbookMenu(new DevbookFolderSource(settings))
             .LoadAsync(["domain"], cancellationToken: TestContext.Current.CancellationToken);
 
         var root = Assert.Single(tree.Roots);

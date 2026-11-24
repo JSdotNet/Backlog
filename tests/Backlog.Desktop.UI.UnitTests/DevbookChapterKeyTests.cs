@@ -167,7 +167,7 @@ public sealed class DevbookChapterKeyTests
 
     /// <summary>The cheap half: one spelling for a path before anything decides
     /// which area it belongs to. The anchor goes because a chapter is a file and
-    /// the domain panel names sections as <c>path#anchor</c>.</summary>
+    /// a reference names a section as <c>path#anchor</c>.</summary>
     [Fact]
     public void One_spelling_survives_separators_anchors_and_leading_noise()
     {
