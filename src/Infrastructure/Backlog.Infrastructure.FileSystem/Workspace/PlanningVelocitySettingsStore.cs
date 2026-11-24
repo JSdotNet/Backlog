@@ -82,8 +82,14 @@ namespace Backlog.Infrastructure.FileSystem;
 /// one, and the newer week wins together with its overrides. A week without the array
 /// has none.
 /// </para>
+/// <para>
+/// <b>A relabelled repository takes its pace along</b> (local ADR 0060 §3): its entry
+/// under <c>repositories</c> moves to the new alias as one change, stamped and
+/// announced like any other, so the moved document travels the way a slider change
+/// does. Where the new alias already keeps a pace, that pace wins.
+/// </para>
 /// </summary>
-public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
+public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore, IRepositoryAliasKeyedStore
 {
     /// <summary>Seven story points a working week — the figure kept from when the pace
     /// meant one point a calendar day. Since local ADR 0019 a week is the hours of the
@@ -154,6 +160,10 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// change it causes is not taken for the person's own and stamped as a newer
     /// document — which would send the copy straight back. Zero otherwise.</summary>
     private int _pullingOn;
+
+    /// <summary>Serializes the alias move's read-modify-save against a pulled copy's
+    /// write: the move runs on the follower's thread, not the UI's.</summary>
+    private readonly Lock _gate = new();
 
     public PlanningVelocitySettingsStore()
         : this(DefaultPath)
@@ -392,11 +402,13 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     private static bool TryParse(string? typed, out decimal storyPointsPerWeek) =>
         decimal.TryParse(typed, PaceStyles, CultureInfo.InvariantCulture, out storyPointsPerWeek);
 
-    private string? Save(Pace pace)
+    /// <param name="restamp">False only for a backstop alias move, which carries data
+    /// this device already held rather than making a new version of it.</param>
+    private string? Save(Pace pace, bool restamp = true)
     {
         // Every change is a new version of the pace document, stamped past the one
         // held — see Next for why "now" alone is not enough.
-        pace = pace with { UpdatedAt = Next(pace.UpdatedAt) };
+        if (restamp) pace = pace with { UpdatedAt = Next(pace.UpdatedAt) };
         _pace = pace;
 
         string? error = null;
@@ -517,29 +529,115 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         // The one key this store owns the value of. Everything else is written as it
         // arrived, so a key a newer build added survives on this device.
         document["updatedAt"] = FormatStamp(copy.UpdatedAt);
-        File.WriteAllText(_path, document.ToJsonString(JsonOptions));
 
-        _pace = Read();
-
-        // A copy carrying the week replaces the device's, at the inbound stamp. One
-        // without it — an older build's — leaves the device's week alone, and that is
-        // what placement reads until the next change writes the key back.
-        if (_workingHours is not null && _pace.WorkingWeek is { } week)
+        lock (_gate)
         {
-            _pullingOn = Environment.CurrentManagedThreadId;
-            try
+            File.WriteAllText(_path, document.ToJsonString(JsonOptions));
+
+            _pace = Read();
+
+            // A copy carrying the week replaces the device's, at the inbound stamp. One
+            // without it — an older build's — leaves the device's week alone, and that is
+            // what placement reads until the next change writes the key back.
+            if (_workingHours is not null && _pace.WorkingWeek is { } week)
             {
-                _workingHours.Replace(week);
-            }
-            finally
-            {
-                _pullingOn = 0;
+                _pullingOn = Environment.CurrentManagedThreadId;
+                try
+                {
+                    _workingHours.Replace(week);
+                }
+                finally
+                {
+                    _pullingOn = 0;
+                }
             }
         }
 
         Changed?.Invoke();
 
         return Task.FromResult(true);
+    }
+
+    // --- A relabelled repository (local ADR 0060 §3) --------------------------
+
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Replicated;
+
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases() => [.. _pace.Repositories.Keys];
+
+    /// <summary>
+    /// Moves each named repository's own pace to its new alias, the whole mapping at
+    /// once: the entries that stay are placed first, so a new alias that already keeps
+    /// a pace keeps it, and a swap never runs one move into the other. Saved through
+    /// <see cref="Save"/> only when an entry moved, so the stamp and
+    /// <see cref="Changed"/> — which pushes the document — follow a real change only.
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken) =>
+        ((IRepositoryAliasKeyedStore)this).MoveAliasesAsync(oldToNew, AliasMoveOrigin.Edit, cancellationToken);
+
+    /// <summary>
+    /// The move, saying why. An <see cref="AliasMoveOrigin.Edit"/> is a new version of
+    /// the document, stamped now. A <see cref="AliasMoveOrigin.Backstop"/> keeps the
+    /// document's stamp: a pace this device pulled loses to the editing device's newer
+    /// document, rather than being sent back over it as the latest.
+    /// <para>
+    /// Under <see cref="_gate"/> with <see cref="IRoadmapReplicaStore.TryWriteAsync"/>,
+    /// because it runs on the follower's thread: a pulled pace written between the read
+    /// and the save would otherwise be overwritten.
+    /// </para>
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        AliasMoveOrigin origin,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(oldToNew);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var mapping = Mapping(oldToNew);
+
+        lock (_gate)
+        {
+            var pace = _pace;
+
+            if (!pace.Repositories.Keys.Any(mapping.ContainsKey)) return Task.FromResult(false);
+
+            var repositories = new Dictionary<string, RepositoryPace>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (alias, own) in pace.Repositories)
+            {
+                if (!mapping.ContainsKey(alias)) repositories[alias] = own;
+            }
+
+            foreach (var (alias, own) in pace.Repositories)
+            {
+                if (mapping.TryGetValue(alias, out var target)) repositories.TryAdd(target, own);
+            }
+
+            // A failed write keeps the move in memory and on screen; the follower has
+            // nothing more it could do with the message.
+            Save(pace with { Repositories = repositories }, restamp: origin == AliasMoveOrigin.Edit);
+        }
+
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The mapping as this file keys it, with an alias mapped onto itself
+    /// left out: that is no move.</summary>
+    private static Dictionary<string, string> Mapping(IReadOnlyDictionary<string, string> oldToNew)
+    {
+        var mapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (from, to) in oldToNew)
+        {
+            if (Key(from) is { } old && Key(to) is { } target && !string.Equals(old, target, StringComparison.Ordinal))
+            {
+                mapping[old] = target;
+            }
+        }
+
+        return mapping;
     }
 
     private static DateTimeOffset? StampOf(JsonObject document) =>

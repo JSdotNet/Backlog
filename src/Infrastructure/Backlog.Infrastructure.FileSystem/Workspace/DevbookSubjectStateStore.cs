@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -51,8 +52,18 @@ namespace Backlog.Infrastructure.FileSystem;
 /// only — a repository none of whose folders resolves, or that this machine reads
 /// from a branch snapshot, is left unmarked, so it imports when a clone does.
 /// </para>
+/// <para>
+/// A relabelled repository takes its states along (local ADR 0060 §3;
+/// <see cref="IRepositoryAliasKeyedStore"/>, replicated). A state's id is derived from
+/// its alias, so a moved state is a new document under the id the new alias gives it,
+/// stamped now on the editing device so the next push carries it. The old document is
+/// dropped from this device and never pushed: the subject wire has no tombstone, and
+/// every other device's backstop maps its own copy onto the same new id. The direction
+/// map travels nowhere, so it moves separately, on every device, through
+/// <see cref="DevbookSyncDirectionAliases"/>.
+/// </para>
 /// </summary>
-public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore
+public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore, IRepositoryAliasKeyedStore
 {
     /// <summary>The folders whose Markdown the import reads, by the key the
     /// panels resolve them with.</summary>
@@ -349,6 +360,202 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         DirectionsChanged?.Invoke();
     }
 
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Replicated;
+
+    /// <summary>The aliases with a subject state — the replicated half. The direction
+    /// map is <see cref="DevbookSyncDirectionAliases"/>'.</summary>
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases() =>
+        HeldAliases(file => file.States.Count > 0);
+
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken) =>
+        ((IRepositoryAliasKeyedStore)this).MoveAliasesAsync(oldToNew, AliasMoveOrigin.Edit, cancellationToken);
+
+    /// <summary>
+    /// Moves each named repository's states to its new alias, the whole mapping at
+    /// once: every source's states are taken out before any is placed, so a swap never
+    /// runs one move into the other. A moved state is filed under
+    /// <see cref="DevbookSubject.IdFor"/> of its new alias.
+    /// <para>
+    /// An <see cref="AliasMoveOrigin.Edit"/> stamps it now and leaves a state the
+    /// target already holds for the subject in place (the kept repository's, ADR 0060
+    /// §1). A <see cref="AliasMoveOrigin.Backstop"/> keeps its stamp and keeps the
+    /// later of the two — a write here the editing device never saw is not lost to
+    /// its re-keyed copy.
+    /// </para>
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        AliasMoveOrigin origin,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(oldToNew);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_gate)
+        {
+            Load();
+
+            var moving = Sources(oldToNew, file => file.States.Count > 0);
+            if (moving.Count == 0) return Task.FromResult(false);
+
+            var taken = moving.Select(move => (move.Source, move.Target, States: move.Source.States.Values.ToList())).ToList();
+            foreach (var (source, _, _) in taken) source.States.Clear();
+
+            var writes = new List<(RepositoryFile Source, RepositoryFile Target)>();
+
+            foreach (var (source, target, states) in taken)
+            {
+                var file = FileFor(target);
+                writes.Add((source, file));
+
+                foreach (var state in states)
+                {
+                    var id = DevbookSubject.IdFor(target, state.Subject);
+                    var moved = state with
+                    {
+                        Id = id,
+                        RepositoryAlias = target,
+                        UpdatedAt = origin == AliasMoveOrigin.Edit ? Stamp(state) : state.UpdatedAt,
+                    };
+
+                    if (file.States.TryGetValue(id, out var held)
+                        && !(origin == AliasMoveOrigin.Backstop && DevbookSubjectRules.Supersedes(moved, held)))
+                    {
+                        continue;
+                    }
+
+                    file.States[id] = moved;
+                }
+            }
+
+            Commit(writes);
+        }
+
+        Changed?.Invoke();
+
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The aliases with a direction or the imported mark, for
+    /// <see cref="DevbookSyncDirectionAliases"/>.</summary>
+    internal IReadOnlyCollection<string> HeldDirectionAliases() =>
+        HeldAliases(file => file.Directions.Count > 0 || file.DirectionsImportedAt is not null);
+
+    /// <summary>
+    /// Moves each named repository's direction map and imported mark to its new alias,
+    /// the whole mapping at once; the target's directions and mark win. Device-local
+    /// (the subject wire carries neither), so every device runs it from the registry's
+    /// move groups through <see cref="DevbookSyncDirectionAliases"/>.
+    /// </summary>
+    internal bool MoveDirectionAliases(IReadOnlyDictionary<string, string> oldToNew)
+    {
+        ArgumentNullException.ThrowIfNull(oldToNew);
+
+        lock (_gate)
+        {
+            Load();
+
+            var moving = Sources(oldToNew, file => file.Directions.Count > 0 || file.DirectionsImportedAt is not null);
+            if (moving.Count == 0) return false;
+
+            var taken = moving
+                .Select(move => (move.Source, move.Target, Directions: move.Source.Directions.Values.ToList(), ImportedAt: move.Source.DirectionsImportedAt))
+                .ToList();
+
+            foreach (var (source, _, _, _) in taken)
+            {
+                source.Directions.Clear();
+                source.DirectionsImportedAt = null;
+            }
+
+            var writes = new List<(RepositoryFile Source, RepositoryFile Target)>();
+
+            foreach (var (source, target, directions, importedAt) in taken)
+            {
+                var file = FileFor(target);
+                writes.Add((source, file));
+
+                foreach (var statement in directions)
+                {
+                    file.Directions.TryAdd(statement.Address, statement);
+                }
+
+                file.DirectionsImportedAt ??= importedAt;
+            }
+
+            Commit(writes);
+        }
+
+        DirectionsChanged?.Invoke();
+
+        return true;
+    }
+
+    /// <summary>The aliases whose file keeps what <paramref name="holds"/> asks for;
+    /// the unscoped alias is no repository and is never moved.</summary>
+    private List<string> HeldAliases(Func<RepositoryFile, bool> holds)
+    {
+        lock (_gate)
+        {
+            Load();
+
+            return [.. _files.Values.Where(file => file.Alias.Length > 0 && holds(file)).Select(file => file.Alias)];
+        }
+    }
+
+    /// <summary>The files a mapping moves something out of, each with its target alias
+    /// as the store keys it. Must be called under the lock, after <see cref="Load"/>.</summary>
+    private List<(RepositoryFile Source, string Target)> Sources(
+        IReadOnlyDictionary<string, string> oldToNew,
+        Func<RepositoryFile, bool> holds)
+    {
+        var moving = new List<(RepositoryFile Source, string Target)>();
+
+        foreach (var (from, to) in oldToNew)
+        {
+            var old = DevbookSubject.AliasKey(from);
+            var target = DevbookSubject.AliasKey(to);
+
+            if (old.Length == 0 || target.Length == 0 || old == target) continue;
+            if (!_files.TryGetValue(old, out var source) || !holds(source)) continue;
+
+            moving.Add((source, target));
+        }
+
+        return moving;
+    }
+
+    /// <summary>Writes a move, targets before sources (<see cref="RepositoryFileMove"/>).
+    /// A source left holding nothing is deleted and forgotten. Must be called under the
+    /// lock.</summary>
+    private void Commit(List<(RepositoryFile Source, RepositoryFile Target)> writes) =>
+        RepositoryFileMove.Commit(
+            writes,
+            Save,
+            file => file.HoldsAnything,
+            file =>
+            {
+                if (Delete(file)) _files.Remove(file.Alias);
+            });
+
+    /// <summary>Deletes a repository file left holding nothing. One that will not go
+    /// is read again at the next start, empty of what was moved only in this run's
+    /// memory, so the backstop moves it once more.</summary>
+    private static bool Delete(RepositoryFile file)
+    {
+        try
+        {
+            File.Delete(file.Path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// The import the first read of a repository's map runs, when a folder source
     /// is composed and the repository is not marked yet. The Markdown is scanned
@@ -591,7 +798,8 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
     private static DecisionDto? FromDecision(DevbookSubjectDecision? decision) =>
         decision is null ? null : new DecisionDto { By = decision.By, At = decision.At, Fingerprint = decision.Fingerprint };
 
-    private static void Save(RepositoryFile file)
+    /// <summary>Writes the file whole, answering whether the write held.</summary>
+    private static bool Save(RepositoryFile file)
     {
         try
         {
@@ -637,7 +845,10 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         {
             // The state is in memory and on screen; only the copy for next time is
             // missing. The next write to the file tries again.
+            return false;
         }
+
+        return true;
     }
 
     private sealed class RepositoryFile(string alias, string path)
@@ -654,6 +865,10 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         /// <summary>When the Markdown's directions were copied in; null until
         /// then.</summary>
         public DateTimeOffset? DirectionsImportedAt { get; set; }
+
+        /// <summary>Whether the file keeps anything under its alias — a state, a
+        /// direction or the imported mark.</summary>
+        public bool HoldsAnything => States.Count > 0 || Directions.Count > 0 || DirectionsImportedAt is not null;
     }
 
     private sealed class RepositoryFileDto

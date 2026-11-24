@@ -17,7 +17,7 @@ moves, and an old alias still written anywhere resolves through them.
 ```meta
 ```
 
-Proposed, 2026-11-24. Not yet built.
+Proposed, 2026-11-24. Amended the same day to match what was built.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -58,14 +58,15 @@ the relabelled registry and the re-keyed stores in no fixed order.
 | --- | --- | --- | --- |
 | Roadmap plan (`RoadmapPlanDocument`) | `BandColours` keys; item and milestone Repository Scope lists | Replicated, whole document (ADR 0018) | Re-keyed by the editing device |
 | Planning pace (`PlanningVelocitySettingsStore`) | `repositories` keys | Replicated, whole document (ADR 0018) | Re-keyed by the editing device |
-| Devbook subject state (`DevbookSubjectStateStore`) | File per alias; document id `DevbookSubject.IdFor(alias, subject)` | Replicated (ADR 0044) | Re-keyed by the editing device: a new document under the new id, the old one tombstoned |
+| Devbook subject state (`DevbookSubjectStateStore`) | File per alias; document id `DevbookSubject.IdFor(alias, subject)` | Replicated (ADR 0044) | Re-keyed by the editing device: it deletes the old record and pushes only the new one. No tombstone travels |
+| Devbook sync direction map and its imported mark | Per-alias entries in the same file | Local | Re-keyed on each device, apart from the states |
 | Devbook annotations (`DevbookAnnotationStore`) | File per alias | Replicated (ADR 0011) | Re-keyed by the editing device |
 | Session records (`SessionDocument`) | `RepositoryAlias` | Replicated | Resolved at read: a record of what happened |
 | Notifications | `PublishedRepository(alias)`; remark links `backlog://devbook/<alias>/<path>` | Replicated (ADR 0039) | Resolved at read: a record of what happened |
-| Shell navigation (`ShellNavigationStore`) | Header scope; `LastSurface` `repo:`/`ghost:<alias>` | Local | Re-keyed on each device |
+| Shell navigation (`ShellNavigationStore`) | Header scope; atlas scope and `LastSurface` in `repo:`/`ghost:<alias>` form; roadmap collapsed groups | Local | Re-keyed on each device |
 | Devbook import ledger (`DevbookImportLedger`) | `imported.json` keys | Local | Re-keyed on each device |
 | Workspace settings (`WorkspaceSettingsStore`) | `RootRepository` alias copy | Local | Re-keyed on each device |
-| Phone notification filter | `notifications.filter.repository` preference | Local, phone | Re-keyed on the phone |
+| Phone notification filter | `notifications.filter.repository` preference | Local, phone | Not followed: the phone keeps no registry. It keeps the old alias until the person picks again; a follow-up |
 | Brain links, plan `Repositories` lists | `repo:<alias>/<path>`, the aliases as typed | Person-authored text | Never rewritten; resolved at read |
 
 Entries, inbox items, inbox routing rules and impediments store the id, and need
@@ -107,6 +108,10 @@ repository's id, and when. One edit writes its moves with one time, and a device
 applies them together. That is what keeps an alias swap, two moves at once, from
 running into itself.
 
+When a registry arrives, the device merges its moves with its own as a union,
+ordered by time. The rows still follow the newer copy, but no device's moves are
+lost.
+
 `GitHubSettings.Find` resolves an alias no row carries through the moves, the latest
 first, bounded by their count as `RenamedTo` is. A configured row always wins over a
 move, as it does over a Rename Record.
@@ -133,14 +138,24 @@ sequenceDiagram
 - **Replicated stores are re-keyed once, by the device that made the edit,** and
   pushed. The newer document wins on every other device by the store's existing
   merge rule. The devbook subject merge accepts the moved state, because its new id
-  is `IdFor` of its new alias.
+  is `IdFor` of its new alias. The editing device deletes the old subject record
+  rather than tombstoning it, so the sync service needs no change.
 - **Local stores are re-keyed on each device,** because no other device can reach
-  them. Each device keeps the time of the last move it applied, and applies every
-  later one once, in order.
+  them. Each device keeps a cursor per store: the time of the last move group that
+  store applied. It applies every later group once, in order, and a failing store
+  holds back only its own cursor.
+- **A store with no cursor replays the moves only when it holds data under an
+  orphaned moved alias.** That is the first start after this decision ships.
+  Otherwise it starts at the newest move, so a fresh device never replays an old
+  swap.
 - **A backstop runs at start and when a registry arrives.** Replicated data under an
   alias no row carries, which a move resolves to a row, moves to that row's alias.
   It only ever acts on an orphaned alias, so running it twice changes nothing. It
   catches a write a device made under the old alias before it saw the move.
+- **An edit's move stamps the data now; a backstop move keeps each copy's own
+  stamp.** The roadmap plan saves at the stamp it already had. A device that got
+  the registry before the re-keyed documents therefore never outranks the newer
+  copy the editing device pushed.
 - **Person-authored text and records of what happened are never rewritten.** A Brain
   link, a plan's `Repositories` list, a session record and a notification keep the
   alias as written, and resolve it through the moves.
@@ -178,10 +193,22 @@ records is what keeps it from running twice. It is how
 - **A person who kept the old name as the alias on purpose loses it** to §5, once. The
   pass cannot tell that choice from the default. They relabel back, and nothing fires
   again.
+- **A merge made before this decision cannot be told from a rename.** Its kept row
+  may be relabelled once by §5 when its alias equals the merged row's old name.
+- **Two devices relabelling at once keep both moves, but one relabel is undone.**
+  The rows follow the newer registry. Data the losing device re-keyed stays under
+  an alias no row carries and no move resolves.
+- **The cursor compares device clocks.** A device whose clock runs ahead of another
+  can skip that device's move group.
+- **A lost cursor can replay a swap** on a store holding both an orphaned alias and
+  data already swapped.
+- **The Tasks header scope follows a relabel at the next filter,** not at once. The
+  shell writes the followed scope meanwhile.
+- **The phone's notification filter keeps the old alias** until the person picks a
+  repository again. Following it needs the registry on the phone, a follow-up.
 - **The moves are kept indefinitely,** as Rename Records are. Pruning is open.
-- **Each alias-keyed store gains one re-key operation,** and the registry one list and
-  one cursor per device. Tests are needed for the trigger rule of §1, both arrival
-  orders, a swap, a merge, and §5 firing once.
+- **Each alias-keyed store gains one re-key operation,** and each device one cursor
+  per local store.
 
 ## Rejected
 
@@ -209,4 +236,5 @@ records is what keeps it from running twice. It is how
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | Amended as built: subject state deletes its old record with no tombstone; the direction map is local; edits stamp now and backstop moves keep their stamp; a cursor per store; moves merge as a union; the phone filter is a follow-up. | The build settled what the proposal left open, and the person chose no server change. |
 | 2026-11-24 | Proposed: a rename relabels an alias that is still the old name; the registry records alias moves; the editing device re-keys replicated stores, each device its local ones, and an old alias resolves at read. | A renamed repository kept answering to its old name, and a relabel orphaned everything keyed by the alias. |

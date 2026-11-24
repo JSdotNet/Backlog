@@ -675,6 +675,35 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal([BrainScope.Value, "backlog"], new ShellNavigationStore(path).RepositoryScope));
     }
 
+    /// <summary>A relabel (local ADR 0060) re-keys the remembered scope, and the
+    /// state's own scope follows it only at its next filter. A change the state
+    /// announces before then - here selection mode, which filters nothing - writes
+    /// the scope as the registry names it now, not the old alias back over the
+    /// re-key.</summary>
+    [Fact]
+    public void A_change_before_the_next_filter_remembers_a_relabelled_repository_by_its_new_alias()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var path = ShellNavigationPath(harness.Root);
+
+        Chips(component)[0].Click();
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog", "docs"], new ShellNavigationStore(path).RepositoryScope));
+
+        var (relabelled, errors) = GitHubSettings.ParseText(
+            "bl = JSdotNet/Backlog" + Environment.NewLine + "docs = JSdotNet/Docs");
+        Assert.Empty(errors);
+        Assert.Null(harness.GitHubSettings.SetRepositories([.. relabelled]));
+
+        component.InvokeAsync(() => state.SetSelectionMode(true));
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(["bl", "docs"], new ShellNavigationStore(path).RepositoryScope));
+    }
+
     [Fact]
     public void A_remembered_brain_comes_back_as_the_anchor()
     {

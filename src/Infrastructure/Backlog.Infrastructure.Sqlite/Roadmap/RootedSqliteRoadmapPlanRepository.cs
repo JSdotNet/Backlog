@@ -51,6 +51,9 @@ public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDi
     public Task SaveAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(plan, cancellationToken);
 
+    public Task SaveKeepingStampAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
+        Current.SaveKeepingStampAsync(plan, cancellationToken);
+
     // The replicated document (local ADR 0018): the plan row of whichever folder the
     // app points at now, the same one LoadAsync and SaveAsync reach.
 

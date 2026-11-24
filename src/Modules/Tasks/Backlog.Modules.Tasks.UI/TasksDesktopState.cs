@@ -1723,19 +1723,41 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         // A repository archived since is dropped the same way while show archived is
         // off (local ADR 0029, §3): there is no chip for it to be pressed on.
-        var restored = repositoryAliases
-            .Select(member => BrainScope.Is(member) ? BrainScope.Value : ResolveAliasOrNull(member))
+        if (!ReplaceRepositoryScope(FollowedRepositoryScope(repositoryAliases))) return;
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// The scope as the registry names it now: each alias as its repository answers
+    /// to it, so one relabelled since (local ADR 0060) is named by its new alias in
+    /// its place, and one that resolves to nothing, or is archived and not shown, is
+    /// left out. <see cref="SelectedRepositoryAliases"/> follows a relabel only at the
+    /// next filter; this is what to write down before then, so the old alias is not
+    /// written back over a scope the relabel re-keyed.
+    /// </summary>
+    public IReadOnlyList<string> FollowedRepositoryAliases => FollowedRepositoryScope(_selectedRepositoryAliases);
+
+    /// <summary><paramref name="aliases"/> resolved through the registry, in order,
+    /// each once: the Brain kept, an alias that resolves to no shown repository
+    /// dropped.</summary>
+    private List<string> FollowedRepositoryScope(IEnumerable<string> aliases) =>
+        aliases
+            .Select(alias => BrainScope.Is(alias) ? BrainScope.Value : ResolveAliasOrNull(alias))
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        if (restored.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return;
+    /// <summary>Makes <paramref name="scope"/> the scope, and says whether that
+    /// changed it.</summary>
+    private bool ReplaceRepositoryScope(List<string> scope)
+    {
+        if (scope.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return false;
 
         _selectedRepositoryAliases.Clear();
-        _selectedRepositoryAliases.AddRange(restored);
-
-        ApplyFilter();
-        Changed?.Invoke();
+        _selectedRepositoryAliases.AddRange(scope);
+        return true;
     }
 
     /// <summary>Whether the shared repository registry (<c>config/repos.json</c>)
@@ -6526,11 +6548,19 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// ADR 0029, §3), since its chip is gone too. Turning the switch off therefore takes
     /// it out of the live scope as well, which is intended.
     /// </para>
+    /// <para>
+    /// A repository relabelled since (local ADR 0060) stays in the scope under the
+    /// alias it now answers to: the old alias still finds it through the alias
+    /// moves, but the chips and the row filter compare the row's own alias, and the
+    /// scope written back to <c>shell-navigation.json</c> would undo the re-key. A
+    /// merge of two scoped repositories leaves the kept one once. Nothing here
+    /// listens to the registry: the scope follows at the next filter, by design, as
+    /// a removal does, and the shell writes <see cref="FollowedRepositoryAliases"/>
+    /// meanwhile.
+    /// </para>
     /// </summary>
     private void ForgetStaleRepositoryScope() =>
-        _selectedRepositoryAliases.RemoveAll(alias =>
-            !BrainScope.Is(alias)
-            && (_gitHub.Settings.Current.Find(alias) is not { } repository || !IsRepositoryShown(repository)));
+        ReplaceRepositoryScope(FollowedRepositoryScope(_selectedRepositoryAliases));
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group

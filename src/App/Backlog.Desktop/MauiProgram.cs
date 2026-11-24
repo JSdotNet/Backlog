@@ -431,6 +431,12 @@ public static class MauiProgram
         // took yet to its handler. Started on the thread pool, never ahead of the first window.
         _ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
 
+        // And the repository alias follower (local ADR 0060 §3), on the same terms: it re-keys
+        // what each store still holds under a repository's old alias. Until it has, the
+        // registry's moves resolve an old alias, so nothing waits on it. A MAUI app has no
+        // host stopping token; the container disposing the follower at exit ends it.
+        _ = app.Services.StartRepositoryAliasFollower();
+
         // And the MCP listener, on the same terms again - its constructor is
         // what queues the bind, so a singleton nobody resolves is a server no
         // session can reach. Queues, not performs: building the ASP.NET host

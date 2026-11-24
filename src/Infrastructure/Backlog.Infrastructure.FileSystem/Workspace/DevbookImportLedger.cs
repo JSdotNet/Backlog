@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -20,8 +21,13 @@ namespace Backlog.Infrastructure.FileSystem;
 /// that cannot be read counts as no marks, as every store here treats a file it
 /// cannot read; the import then runs again and writes nothing new.
 /// </para>
+/// <para>
+/// A relabelled repository's mark moves to its new alias (local ADR 0060 §3), so the
+/// import does not run again for a repository that only changed its name. Each device
+/// moves its own marks, from the registry's alias moves.
+/// </para>
 /// </summary>
-public sealed class DevbookImportLedger : IDevbookImportLedger
+public sealed class DevbookImportLedger : IDevbookImportLedger, IRepositoryAliasKeyedStore
 {
     /// <summary>The folder under the storage root the file goes in.</summary>
     public const string FolderName = "devbook-imports";
@@ -79,6 +85,59 @@ public sealed class DevbookImportLedger : IDevbookImportLedger
 
             _marks[DevbookSubject.AliasKey(repositoryAlias)] = at;
             Save();
+        }
+    }
+
+    // --- A relabelled repository (local ADR 0060 §3) --------------------------
+
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Local;
+
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases()
+    {
+        lock (_gate)
+        {
+            Load();
+
+            return [.. _marks.Keys.Where(alias => alias.Length > 0)];
+        }
+    }
+
+    /// <summary>
+    /// Moves each named alias's mark to its new alias, the whole mapping at once: the
+    /// marks that stay are placed first, so a new alias already marked keeps its own
+    /// mark, and a swap never runs one move into the other. Written only when a mark
+    /// moved.
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var mapping = RepositoryAliasMapping.Of(oldToNew);
+
+        lock (_gate)
+        {
+            Load();
+
+            if (!_marks.Keys.Any(mapping.Moves)) return Task.FromResult(false);
+
+            var marks = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+
+            foreach (var (alias, at) in _marks)
+            {
+                if (!mapping.Moves(alias)) marks[alias] = at;
+            }
+
+            foreach (var (alias, at) in _marks)
+            {
+                if (mapping.MovedTo(alias) is { } target) marks.TryAdd(DevbookSubject.AliasKey(target), at);
+            }
+
+            _marks = marks;
+            Save();
+
+            return Task.FromResult(true);
         }
     }
 

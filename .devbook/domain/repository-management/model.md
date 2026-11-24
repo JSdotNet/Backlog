@@ -17,6 +17,7 @@ classDiagram
         <<aggregate root>>
         +Map~RepositoryId,Repository~ repositories
         +RenameRecord[] renames
+        +AliasMove[] aliasMoves
         +RemovalRecord[] removals
         +TechBaselines baselines
         +PortfolioAnalytics analytics
@@ -118,6 +119,9 @@ classDiagram
   are validated against it without holding the foreign aggregate.
 - `RenameRecord` and `RemovalRecord` belong to the registry rather than to a
   repository, because each names a repository the registry no longer holds.
+- An [alias move](domain.md#repository-alias) belongs to the registry for the
+  same reason: its old alias is one no row carries. It names the repository by
+  id, and the moves of one edit share one time (local ADR 0060).
 - `archived` belongs to the `Repository`, because an
   [archived repository](domain.md#archived-repository) is still held by the
   registry. It is absent from the stored row while false, and it travels with the

@@ -334,6 +334,47 @@ public class TasksRepositoryScopeTests
         Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
     }
 
+    /// <summary>A repository relabelled in Settings (local ADR 0060) stays in the
+    /// scope under the alias it now answers to, in its place. Kept under the old
+    /// alias, which still finds it through the move, the chip would read unpressed,
+    /// its rows would leave the list, and the shell would write the old alias back
+    /// over the re-keyed scope. It follows at the next filter, by design, as a
+    /// removal does; the state listens to no registry event, and the shell writes
+    /// the followed scope meanwhile (HomeRepositoryScopeTests).</summary>
+    [Fact]
+    public async Task A_relabelled_repository_stays_in_the_scope_under_its_new_alias()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var ours = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+
+        var (relabelled, _) = GitHubSettings.ParseText("bl = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+        Assert.Null(host.GitHub.Settings.SetRepositories(relabelled));
+        host.State.SetReadyInPlanFilter(false);
+
+        Assert.Equal(["bl", "docs"], host.State.SelectedRepositoryAliases);
+        Assert.Contains(ours, host.State.FilteredRows);
+    }
+
+    /// <summary>A scoped repository merged into another scoped one leaves the kept
+    /// one in the scope once, in the first place either held.</summary>
+    [Fact]
+    public async Task A_merge_of_two_scoped_repositories_leaves_the_kept_one_once()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+
+        Assert.Null(host.GitHub.Settings.RenameRepository("backlog", "JSdotNet/Docs", out var rename));
+        Assert.NotNull(rename);
+        host.State.SetReadyInPlanFilter(false);
+
+        Assert.Equal(["docs"], host.State.SelectedRepositoryAliases);
+    }
+
     [Fact]
     public async Task A_new_entry_is_filed_under_the_anchor()
     {

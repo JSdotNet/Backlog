@@ -2446,7 +2446,10 @@
             return;
         }
 
-        ShellNavigation.SetRepositoryScope(State.SelectedRepositoryAliases);
+        // As the registry names it now: a relabel (local ADR 0060) re-keys the
+        // remembered scope, and the state's own scope follows only at its next
+        // filter, so writing that one meanwhile would put the old alias back.
+        ShellNavigation.SetRepositoryScope(State.FollowedRepositoryAliases);
     }
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>

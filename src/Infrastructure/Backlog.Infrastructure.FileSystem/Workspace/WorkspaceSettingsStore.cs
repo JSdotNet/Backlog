@@ -5,6 +5,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 using Backlog.SharedKernel.Storage;
 using Microsoft.Data.Sqlite;
@@ -38,8 +39,13 @@ namespace Backlog.Infrastructure.FileSystem;
 /// was still true still opens; the rows it carried are ignored and the next
 /// save drops them.
 /// </para>
+/// <para>
+/// The backup repository follows a relabel (local ADR 0060 §3): its alias moves, its
+/// owner and name stay. The file is this device's own, so every device moves it from
+/// the registry's alias moves.
+/// </para>
 /// </summary>
-public sealed class WorkspaceSettingsStore
+public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -48,6 +54,11 @@ public sealed class WorkspaceSettingsStore
     };
 
     private readonly string _settingsPath;
+
+    /// <summary>Serializes the file's writes, and the backup repository's
+    /// read-modify-write, between the UI thread and the alias follower's (local ADR
+    /// 0060 §3). Re-entrant, so a setter that holds it may save.</summary>
+    private readonly Lock _settingsGate = new();
 
     private readonly Func<string, SyncedFolderMatch?> _detectSyncedFolder;
 
@@ -917,18 +928,67 @@ public sealed class WorkspaceSettingsStore
             return error ?? "Enter a GitHub repository as owner/repo, or clear it.";
         }
 
-        RootRepository = repository;
-        var saveError = SaveSettings("Repository configured, but the choice couldn't be saved for next time.");
+        string? saveError;
+        lock (_settingsGate)
+        {
+            RootRepository = repository;
+            saveError = SaveSettings("Repository configured, but the choice couldn't be saved for next time.");
+        }
+
         BackupChanged?.Invoke();
         return saveError;
     }
 
+    // --- A relabelled repository (local ADR 0060 §3) --------------------------
+
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Local;
+
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases() =>
+        RootRepository is { } root ? [GitHubRepositoryRef.NormalizeAlias(root.Alias)] : [];
+
+    /// <summary>
+    /// Gives the backup repository its new alias when the mapping names its alias.
+    /// <see cref="BackupChanged"/> is not raised: the repository backed up to is the
+    /// same one, so the worker has no timer to re-arm. Written only when it moved; a
+    /// failed write keeps the move in memory, as every setter here does. Runs on the
+    /// follower's thread, so the read, the move and the write sit under
+    /// <see cref="_settingsGate"/>, which the repository's own setters take too: a
+    /// repository the person names meanwhile is never overwritten by the old one's
+    /// relabel.
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var mapping = RepositoryAliasMapping.Of(oldToNew);
+
+        lock (_settingsGate)
+        {
+            if (RootRepository is not { } root || mapping.MovedTo(root.Alias) is not { } target)
+            {
+                return Task.FromResult(false);
+            }
+
+            RootRepository = root with { Alias = target };
+            SaveSettings("Repository relabelled, but the new name couldn't be saved for next time.");
+        }
+
+        return Task.FromResult(true);
+    }
+
     public string? ClearRepository()
     {
-        if (RootRepository is null) return null;
+        string? error;
+        lock (_settingsGate)
+        {
+            if (RootRepository is null) return null;
 
-        RootRepository = null;
-        var error = SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
+            RootRepository = null;
+            error = SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
+        }
+
         BackupChanged?.Invoke();
         return error;
     }
@@ -1170,7 +1230,18 @@ public sealed class WorkspaceSettingsStore
         return error;
     }
 
+    /// <summary>Snapshots and writes under <see cref="_settingsGate"/>, so a relabel on
+    /// the follower's thread and a setter on the UI thread never write the file at
+    /// once.</summary>
     private string? SaveSettings(string saveFailureMessage)
+    {
+        lock (_settingsGate)
+        {
+            return WriteSettings(saveFailureMessage);
+        }
+    }
+
+    private string? WriteSettings(string saveFailureMessage)
     {
         try
         {

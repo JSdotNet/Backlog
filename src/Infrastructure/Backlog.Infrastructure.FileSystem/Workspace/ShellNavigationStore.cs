@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -47,9 +48,20 @@ namespace Backlog.Infrastructure.FileSystem;
 /// and filters until chosen and its Show settled switch while off — so a file
 /// written before it keeps its shape and an older build reads a newer file.
 /// </para>
+/// <para>
+/// <b>A relabelled repository takes what is remembered of it along</b> (local ADR 0060
+/// §3): the repository scope, the atlas's scope and the surface in their
+/// <c>repo:</c> and <c>ghost:</c> forms, and the roadmap bands folded by alias move to
+/// the new alias. The file is this device's own, so every device re-keys its copy
+/// from the registry's alias moves.
+/// </para>
 /// </summary>
-public sealed class ShellNavigationStore
+public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
 {
+    /// <summary>The prefixes of a surface or an atlas scope that name a repository by
+    /// its alias: a registered devbook's and a ghost devbook's.</summary>
+    private static readonly string[] AliasPrefixes = ["repo:", "ghost:"];
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -132,6 +144,10 @@ public sealed class ShellNavigationStore
     public const string FileName = "shell-navigation.json";
 
     private readonly string _path;
+
+    /// <summary>Serializes every read-modify-write and its snapshot; see
+    /// <see cref="Update"/>.</summary>
+    private readonly Lock _gate = new();
 
     /// <summary>The file in <see cref="WorkspaceSettingsStore.DefaultAppDataDirectory"/>:
     /// <c>Backlog.Debug</c> for a Debug build, <c>Backlog</c> for the installed app, so
@@ -325,24 +341,28 @@ public sealed class ShellNavigationStore
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
 
-    public void SetLastSurface(string? surface)
+    public void SetLastSurface(string? surface) => Update(() =>
     {
         var (normalizedSurface, view) = Normalize(surface, LastView);
-        if (normalizedSurface == LastSurface && view == LastView) return;
+        if (normalizedSurface == LastSurface && view == LastView) return false;
 
         LastSurface = normalizedSurface;
         LastView = view;
-        Save();
-    }
+        return true;
+    });
 
     public void SetLastView(string view)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(view);
         view = ViewId(view);
-        if (view == LastView) return;
 
-        LastView = view;
-        Save();
+        Update(() =>
+        {
+            if (view == LastView) return false;
+
+            LastView = view;
+            return true;
+        });
     }
 
     /// <summary>
@@ -383,80 +403,96 @@ public sealed class ShellNavigationStore
     private static string ViewId(string view) =>
         RetiredViewNames.TryGetValue(view, out var id) ? id : view;
 
-    public void SetRoadmapHoursShown(bool shown)
+    public void SetRoadmapHoursShown(bool shown) => Update(() =>
     {
-        if (shown == RoadmapHoursShown) return;
+        if (shown == RoadmapHoursShown) return false;
 
         RoadmapHoursShown = shown;
-        Save();
-    }
+        return true;
+    });
 
-    public void SetRoadmapCompletedShown(bool shown)
+    public void SetRoadmapCompletedShown(bool shown) => Update(() =>
     {
-        if (shown == RoadmapCompletedShown) return;
+        if (shown == RoadmapCompletedShown) return false;
 
         RoadmapCompletedShown = shown;
-        Save();
-    }
+        return true;
+    });
 
     public void SetRoadmapCollapsedGroups(IReadOnlyCollection<string> collapsed)
     {
         string[] sorted = [.. collapsed.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
-        if (sorted.SequenceEqual(RoadmapCollapsedGroups)) return;
 
-        RoadmapCollapsedGroups = sorted;
-        Save();
+        Update(() =>
+        {
+            if (sorted.SequenceEqual(RoadmapCollapsedGroups)) return false;
+
+            RoadmapCollapsedGroups = sorted;
+            return true;
+        });
     }
 
     public void SetBoardColumns(string columns)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(columns);
-        if (columns == BoardColumns) return;
 
-        BoardColumns = columns;
-        Save();
+        Update(() =>
+        {
+            if (columns == BoardColumns) return false;
+
+            BoardColumns = columns;
+            return true;
+        });
     }
 
-    public void SetCalendarTasksShown(bool shown)
+    public void SetCalendarTasksShown(bool shown) => Update(() =>
     {
-        if (shown == CalendarTasksShown) return;
+        if (shown == CalendarTasksShown) return false;
 
         CalendarTasksShown = shown;
-        Save();
-    }
+        return true;
+    });
 
-    public void SetCalendarPlansShown(bool shown)
+    public void SetCalendarPlansShown(bool shown) => Update(() =>
     {
-        if (shown == CalendarPlansShown) return;
+        if (shown == CalendarPlansShown) return false;
 
         CalendarPlansShown = shown;
-        Save();
-    }
+        return true;
+    });
 
-    public void SetCalendarEventsShown(bool shown)
+    public void SetCalendarEventsShown(bool shown) => Update(() =>
     {
-        if (shown == CalendarEventsShown) return;
+        if (shown == CalendarEventsShown) return false;
 
         CalendarEventsShown = shown;
-        Save();
-    }
+        return true;
+    });
 
     public void SetCalendarRange(string range)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(range);
-        if (range == CalendarRange) return;
 
-        CalendarRange = range;
-        Save();
+        Update(() =>
+        {
+            if (range == CalendarRange) return false;
+
+            CalendarRange = range;
+            return true;
+        });
     }
 
     public void SetToolsTab(string tab)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tab);
-        if (tab == ToolsTab) return;
 
-        ToolsTab = tab;
-        Save();
+        Update(() =>
+        {
+            if (tab == ToolsTab) return false;
+
+            ToolsTab = tab;
+            return true;
+        });
     }
 
     /// <summary>Replaces the atlas's place — its way back and its scope — in one save.</summary>
@@ -464,75 +500,91 @@ public sealed class ShellNavigationStore
     {
         returnSurface = AtlasReturnId(returnSurface);
         scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
-        if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return;
 
-        AtlasReturnSurface = returnSurface;
-        AtlasScope = scope;
-        Save();
+        Update(() =>
+        {
+            if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return false;
+
+            AtlasReturnSurface = returnSurface;
+            AtlasScope = scope;
+            return true;
+        });
     }
 
     public void SetToolsHostFilter(string hostFilter)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hostFilter);
-        if (hostFilter == ToolsHostFilter) return;
 
-        ToolsHostFilter = hostFilter;
-        Save();
+        Update(() =>
+        {
+            if (hostFilter == ToolsHostFilter) return false;
+
+            ToolsHostFilter = hostFilter;
+            return true;
+        });
     }
 
     /// <summary>Remembers that the C4 zoom navigation's hint was dismissed. There is no way to
     /// undo it: the hint is a first-run aid, and the zoom bar says the same things.</summary>
-    public void DismissC4ZoomHint()
+    public void DismissC4ZoomHint() => Update(() =>
     {
-        if (C4ZoomHintDismissed) return;
+        if (C4ZoomHintDismissed) return false;
 
         C4ZoomHintDismissed = true;
-        Save();
-    }
+        return true;
+    });
 
     /// <summary>Replaces the notification centre's Group by, its three filters and its Show
     /// settled switch in one save; a blank one is its default.</summary>
     public void SetNotificationsView(string? groupBy, string? askedBy, string? kind, string? from, bool showSettled)
     {
         (groupBy, askedBy, kind, from) = (Blank(groupBy), Blank(askedBy), Blank(kind), Blank(from));
-        if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom
-            && showSettled == NotificationsShowSettled) return;
 
-        NotificationsGroupBy = groupBy;
-        NotificationsAskedBy = askedBy;
-        NotificationsKind = kind;
-        NotificationsFrom = from;
-        NotificationsShowSettled = showSettled;
-        Save();
+        Update(() =>
+        {
+            if (groupBy == NotificationsGroupBy && askedBy == NotificationsAskedBy && kind == NotificationsKind && from == NotificationsFrom
+                && showSettled == NotificationsShowSettled) return false;
+
+            NotificationsGroupBy = groupBy;
+            NotificationsAskedBy = askedBy;
+            NotificationsKind = kind;
+            NotificationsFrom = from;
+            NotificationsShowSettled = showSettled;
+            return true;
+        });
     }
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    public void SetShowArchivedRepositories(bool shown)
+    public void SetShowArchivedRepositories(bool shown) => Update(() =>
     {
-        if (shown == ShowArchivedRepositories) return;
+        if (shown == ShowArchivedRepositories) return false;
 
         ShowArchivedRepositories = shown;
-        Save();
-    }
+        return true;
+    });
 
-    public void SetBrainHiddenShown(bool shown)
+    public void SetBrainHiddenShown(bool shown) => Update(() =>
     {
-        if (shown == BrainHiddenShown) return;
+        if (shown == BrainHiddenShown) return false;
 
         BrainHiddenShown = shown;
-        Save();
-    }
+        return true;
+    });
 
     /// <summary>Remembers that the roadmap item <paramref name="itemId"/> was offered
     /// the archive move. One already remembered writes nothing.</summary>
     public void MarkRoadmapArchiveOffered(string itemId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
-        if (RoadmapArchiveOffered.Contains(itemId, StringComparer.OrdinalIgnoreCase)) return;
 
-        RoadmapArchiveOffered = [.. RoadmapArchiveOffered.Append(itemId).Order(StringComparer.Ordinal)];
-        Save();
+        Update(() =>
+        {
+            if (RoadmapArchiveOffered.Contains(itemId, StringComparer.OrdinalIgnoreCase)) return false;
+
+            RoadmapArchiveOffered = [.. RoadmapArchiveOffered.Append(itemId).Order(StringComparer.Ordinal)];
+            return true;
+        });
     }
 
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
@@ -540,11 +592,125 @@ public sealed class ShellNavigationStore
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
     {
         ArgumentNullException.ThrowIfNull(aliases);
-        if (aliases.SequenceEqual(RepositoryScope, StringComparer.Ordinal)) return;
+        string[] scope = [.. aliases];
 
-        RepositoryScope = [.. aliases];
-        Save();
+        Update(() =>
+        {
+            if (scope.SequenceEqual(RepositoryScope, StringComparer.Ordinal)) return false;
+
+            RepositoryScope = scope;
+            return true;
+        });
     }
+
+    // --- A relabelled repository (local ADR 0060 §3) --------------------------
+
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Local;
+
+    /// <summary>The aliases the scope and the folded bands name, and the one a
+    /// <c>repo:</c> or <c>ghost:</c> surface or atlas scope names. A folded band's id is
+    /// not always an alias — the roadmap's own groups sit beside them — but no relabel
+    /// names those, and the backstop reads replicated stores only.</summary>
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases()
+    {
+        lock (_gate)
+        {
+            var held = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var alias in RepositoryScope.Concat(RoadmapCollapsedGroups))
+            {
+                if (!string.IsNullOrWhiteSpace(alias)) held.Add(GitHubRepositoryRef.NormalizeAlias(alias));
+            }
+
+            foreach (var value in (string?[])[LastSurface, AtlasScope])
+            {
+                if (PrefixedAlias(value) is { } named) held.Add(GitHubRepositoryRef.NormalizeAlias(named.Alias));
+            }
+
+            return held;
+        }
+    }
+
+    /// <summary>
+    /// Moves every alias the mapping names to its new one, each value mapped once, so a
+    /// swap never runs one move into the other. A list that then names an alias twice
+    /// keeps it once, at the first place either held: the old alias's place when it
+    /// stood first, the anchor included, since both now name the same repository. The
+    /// Brain's empty scope value and a surface or scope that names no repository stay.
+    /// Saved once, and only when something moved. Runs on the follower's thread, under
+    /// the gate the setters take, so a choice made meanwhile is never lost.
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var mapping = RepositoryAliasMapping.Of(oldToNew);
+
+        var changed = Update(() =>
+        {
+            var moved = false;
+
+            if (RepositoryScope.Any(mapping.Moves))
+            {
+                RepositoryScope = [.. RepositoryScope.Select(alias => mapping.MovedTo(alias) ?? alias).Distinct(StringComparer.OrdinalIgnoreCase)];
+                moved = true;
+            }
+
+            if (RoadmapCollapsedGroups.Any(mapping.Moves))
+            {
+                RoadmapCollapsedGroups =
+                [
+                    .. RoadmapCollapsedGroups
+                        .Select(group => mapping.MovedTo(group) ?? group)
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal)
+                ];
+                moved = true;
+            }
+
+            if (Moved(LastSurface, mapping) is { } surface)
+            {
+                LastSurface = surface;
+                moved = true;
+            }
+
+            if (Moved(AtlasScope, mapping) is { } scope)
+            {
+                AtlasScope = scope;
+                moved = true;
+            }
+
+            return moved;
+        });
+
+        return Task.FromResult(changed);
+    }
+
+    /// <summary>The prefix and the alias of a <c>repo:</c> or <c>ghost:</c> value, or
+    /// null for any other.</summary>
+    private static (string Prefix, string Alias)? PrefixedAlias(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        foreach (var prefix in AliasPrefixes)
+        {
+            if (value.Length > prefix.Length && value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return (value[..prefix.Length], value[prefix.Length..]);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary><paramref name="value"/> with the alias it names moved, or null when it
+    /// names none the mapping moves.</summary>
+    private static string? Moved(string? value, RepositoryAliasMapping mapping) =>
+        PrefixedAlias(value) is { } named && mapping.MovedTo(named.Alias) is { } target
+            ? named.Prefix + target
+            : null;
 
     /// <summary>
     /// Waits until every choice set on this store so far is on disk. The setters
@@ -570,11 +736,28 @@ public sealed class ShellNavigationStore
     /// on the UI thread"). The properties are the truth for this process and change
     /// at once, so nothing that reads them waits; only the file lags.
     /// </para>
+    /// <para>
+    /// The compare, the change, the snapshot and the enqueue all run under
+    /// <see cref="_gate"/>: the setters run on the UI thread and a relabel's re-key on the
+    /// alias follower's (local ADR 0060 §3), and without it one could drop the other's
+    /// change, or enqueue an older snapshot after a newer one. <see cref="Changed"/> is
+    /// raised after the gate is left, so no handler runs while holding it.
+    /// </para>
     /// </summary>
-    private void Save()
+    /// <param name="change">Applies the change to the properties and says whether
+    /// anything changed; it runs under the gate.</param>
+    /// <returns>Whether anything changed.</returns>
+    private bool Update(Func<bool> change)
     {
-        QueuedFileWrites.Enqueue(_path, Serialize());
+        lock (_gate)
+        {
+            if (!change()) return false;
+
+            QueuedFileWrites.Enqueue(_path, Serialize());
+        }
+
         Changed?.Invoke();
+        return true;
     }
 
     private string Serialize() =>

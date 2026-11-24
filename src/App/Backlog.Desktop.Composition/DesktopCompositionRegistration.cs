@@ -746,11 +746,15 @@ public static class DesktopCompositionRegistration
         // panel, the MCP tool, or a resolve synced in from another device — so the
         // notifications about it close, and for a remark left on another device that syncs
         // in, which raises an alert linking to its chapter (RemarkNotificationStore).
+        // The file store is a singleton of its own beneath the decorator, so the alias
+        // follower re-keys the same instance every caller reads through it.
+        services.AddSingleton(sp =>
+            new DevbookAnnotationStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
             new RemarkNotificationStore(
-                new DevbookAnnotationStore(
-                    () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                    folders: sp.GetRequiredService<IDevbookFolderSource>()),
+                sp.GetRequiredService<DevbookAnnotationStore>(),
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RemarkNotificationStore>>()));
 
@@ -776,8 +780,9 @@ public static class DesktopCompositionRegistration
         // repository: the ledger beside them, under the storage folder, records
         // which ones finished. Each head resolves the worker after Build(), as it
         // does the sync loops; a singleton nobody resolves never runs.
-        services.AddSingleton<IDevbookImportLedger>(sp =>
+        services.AddSingleton(sp =>
             new DevbookImportLedger(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        services.AddSingleton<IDevbookImportLedger>(sp => sp.GetRequiredService<DevbookImportLedger>());
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<GitHubSettingsStore>();
@@ -793,5 +798,82 @@ public static class DesktopCompositionRegistration
                 sp.GetService<TimeProvider>() ?? TimeProvider.System,
                 sp.GetService<ILogger<Backlog.Desktop.UI.Devbook.DevbookImportWorker>>());
         });
+
+        AddRepositoryAliasFollowing(services);
+    }
+
+    /// <summary>
+    /// Every store kept under a repository alias, and the follower that re-keys them when
+    /// the registry relabels a repository (local ADR 0060 §3). Each port answer is the
+    /// singleton already registered, never a second instance, so a re-key lands in what
+    /// the app reads. The roadmap plan's store is not here: <c>AddRoadmapModule</c> brings
+    /// it, over the plan repository <c>AddSqlite</c> registers. The heads start the
+    /// follower once the container is built.
+    /// </summary>
+    private static void AddRepositoryAliasFollowing(IServiceCollection services)
+    {
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<PlanningVelocitySettingsStore>());
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
+        // The direction map shares the subject store's files but no feed carries it, so it
+        // is a local store of its own over the same instance.
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp =>
+            new DevbookSyncDirectionAliases(sp.GetRequiredService<DevbookSubjectStateStore>()));
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<DevbookAnnotationStore>());
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<ShellNavigationStore>());
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<DevbookImportLedger>());
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => sp.GetRequiredService<WorkspaceSettingsStore>());
+        services.AddSingleton<RepositoryAliasFollower>();
+    }
+
+    /// <summary>
+    /// Starts the repository alias follower on the thread pool and returns at once: a
+    /// head calls it beside the notifications startup pass. The follower logs and passes
+    /// over a store that fails; anything else that ends the start is logged here, since
+    /// nobody awaits it.
+    /// <para>
+    /// <paramref name="stopping"/> is the host's stopping token where the head has one, so a
+    /// start still running at shutdown stops rather than reading a disposed container. The
+    /// returned task never faults; it is returned so a test can wait for the start.
+    /// </para>
+    /// </summary>
+    public static Task StartRepositoryAliasFollower(this IServiceProvider services, CancellationToken stopping = default)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        var follower = services.GetRequiredService<RepositoryAliasFollower>();
+        var logger = services.GetService<ILogger<RepositoryAliasFollower>>();
+        return StartLoggedAsync(follower, logger, stopping);
+    }
+
+    private static async Task StartLoggedAsync(RepositoryAliasFollower follower, ILogger? logger, CancellationToken stopping)
+    {
+        try
+        {
+            await follower.StartAsync(stopping).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+        {
+            // The host is stopping: the next start runs the pass again.
+        }
+        catch (Exception ex)
+        {
+            LogStartFailure(logger, ex);
+        }
+    }
+
+    /// <summary>
+    /// At shutdown the logger itself may already be disposed and throw. Nobody awaits the
+    /// start, so that would be an unobserved fault; the failure is dropped instead.
+    /// </summary>
+    private static void LogStartFailure(ILogger? logger, Exception failure)
+    {
+        try
+        {
+            logger?.LogError(failure, "Starting the repository alias follower failed.");
+        }
+        catch (Exception)
+        {
+            // Nothing is left to report it to.
+        }
     }
 }
