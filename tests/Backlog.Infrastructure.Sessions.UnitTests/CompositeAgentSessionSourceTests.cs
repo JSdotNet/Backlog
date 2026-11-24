@@ -286,11 +286,6 @@ public sealed class CompositeAgentSessionSourceTests
             GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
     }
 
-    private sealed class StubDeviceIdentity : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = new(Guid.Empty, "Workshop PC");
-    }
-
     private sealed class StubFeatures : IAppFeatureSettings
     {
         public event Action? Changed;

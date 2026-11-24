@@ -83,6 +83,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// has none.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: a stamped replica document, written whole as it arrived with keys this build does not read.
 public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
 {
     /// <summary>Seven story points a working week — the figure kept from when the pace

@@ -18,9 +18,9 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// </summary>
 public sealed class OwnerEnrolmentEndpointTests : IDisposable
 {
-    private const long OwnerGitHubId = 7655166;
-    private const string OwnerCode = "code-from-the-owner";
-    private const string StrangerCode = "code-from-someone-else";
+    private const long OwnerGitHubId = StubGitHubOwnerSignIn.OwnerGitHubId;
+    private const string OwnerCode = StubGitHubOwnerSignIn.OwnerCode;
+    private const string StrangerCode = StubGitHubOwnerSignIn.StrangerCode;
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -30,7 +30,7 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
         TestServices = services =>
         {
             services.RemoveAll<IGitHubOwnerSignIn>();
-            services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+            services.AddSingleton<IGitHubOwnerSignIn>(new StubGitHubOwnerSignIn());
         },
     };
 
@@ -263,17 +263,4 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
 
     private static string CallbackAddress(string code, string? state) =>
         $"{SyncRoutes.GitHubCallback}?code={Uri.EscapeDataString(code)}&state={Uri.EscapeDataString(state ?? string.Empty)}";
-
-    private sealed class FakeGitHub : IGitHubOwnerSignIn
-    {
-        public Task<long?> ResolveUserIdAsync(string authorizationCode, CancellationToken cancellationToken = default) =>
-            Task.FromResult<long?>(authorizationCode switch
-            {
-                OwnerCode => OwnerGitHubId,
-                StrangerCode => 1,
-                _ => null,
-            });
-
-        public Uri AuthorizeAddress(string state) => new($"https://github.test/login/oauth/authorize?state={Uri.EscapeDataString(state)}");
-    }
 }

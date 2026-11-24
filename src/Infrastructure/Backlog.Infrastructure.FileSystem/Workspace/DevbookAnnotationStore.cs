@@ -36,6 +36,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// store here does.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
 public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
 {
     /// <summary>The folder under the storage root the files go in.</summary>

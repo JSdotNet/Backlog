@@ -649,7 +649,10 @@ public sealed class DomainDevbookStore : IDisposable
     }
 
     private static string Humanize(string slug) => string.Join(' ', slug.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
-    private static string Slug(string heading) => Regex.Replace(new string(heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()), "-+", "-").Trim('-');
+    /// <summary>The run-collapsing slug the writers find a heading by, not
+    /// <see cref="HeadingAnchor.Of"/>: a section's stored address and a reference
+    /// written in the collapsed form would change.</summary>
+    private static string Slug(string heading) => DevbookHeadingDocument.Slug(heading);
 }
 
 /// <param name="CanEdit">Whether this view's documents may be written to. False

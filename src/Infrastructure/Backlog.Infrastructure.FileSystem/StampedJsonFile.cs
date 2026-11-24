@@ -13,6 +13,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <see cref="Progress.IterationSettingsStore"/> and <see cref="MyDayPreferencesStore"/>
 /// share; what the values are, and whether a copy reads as them, stays each store's.
 /// </summary>
+// Not on JsonFileStore<T>: a copy travels as the file's raw text with keys no DTO
+// holds, and a refused write throws for the caller to answer rather than reading false.
 internal sealed class StampedJsonFile
 {
     /// <summary>The key the stamp is kept under. Persisted, so never to be renamed.</summary>

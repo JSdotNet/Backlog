@@ -20,6 +20,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// for this session — losing it costs the next launch the pin, never this one.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: it writes through a temporary file and a move, which that store's plain write would drop.
 public sealed class PullRequestPinsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

@@ -16,6 +16,8 @@
   <ItemGroup>
     <!-- A device's software P-256 key and the assertions it signs (local ADR 0058 §2). -->
     <Compile Include="..\Shared\TestDoubles\DeviceSigningKey.cs" Link="Shared\TestDoubles\DeviceSigningKey.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubGitHubOwnerSignIn.cs" Link="Shared\TestDoubles\StubGitHubOwnerSignIn.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingLogger.cs" Link="Shared\TestDoubles\RecordingLogger.cs" />
   </ItemGroup>
 
 </Project>

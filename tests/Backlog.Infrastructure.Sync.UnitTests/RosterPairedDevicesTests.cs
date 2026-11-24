@@ -23,7 +23,7 @@ public sealed class RosterPairedDevicesTests
 
     public RosterPairedDevicesTests()
     {
-        _devices = new RosterPairedDevices(() => _roster, new FixedIdentity(), _clock);
+        _devices = new RosterPairedDevices(() => _roster, new StubDeviceIdentity(new(ThisInstallation, "DESKTOP")), _clock);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -110,17 +110,12 @@ public sealed class RosterPairedDevicesTests
     [Fact]
     public async Task No_sync_client_composed_is_never_read_as_paired()
     {
-        var devices = new RosterPairedDevices(() => null, new FixedIdentity());
+        var devices = new RosterPairedDevices(() => null, new StubDeviceIdentity(new(ThisInstallation, "DESKTOP")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => devices.StandingOfAsync(Phone, Ct));
     }
 
     private static DeviceSummary Device(Guid id) => new(id, "Pixel", DateTimeOffset.UnixEpoch, ThisSyncDevice);
-
-    private sealed class FixedIdentity : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = new(ThisInstallation, "DESKTOP");
-    }
 
     private sealed class FakeRoster : IDeviceRoster
     {

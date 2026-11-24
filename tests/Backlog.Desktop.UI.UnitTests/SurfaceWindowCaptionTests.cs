@@ -156,6 +156,7 @@ public sealed class SurfaceWindowCaptionTests
     }
 
     /// <summary>The head's windows, as far as the caption reads and drives them.</summary>
+    // Differs from RecordingShellWindows: pins only where CanKeepOnTop and refuses every open, close, title and activation.
     private sealed class FakeShellWindows : IShellWindows
     {
         public bool CanKeepOnTop { get; init; }

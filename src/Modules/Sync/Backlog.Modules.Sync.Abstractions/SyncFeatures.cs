@@ -18,9 +18,9 @@ public static class SyncFeatures
     /// that each had to be found and turned on before anything synced made that
     /// one answer look like three. The sanitization boundary that made session
     /// records safe to replicate still holds; it is what lets the three become
-    /// one rather than a reason to keep them apart. The former keys are named
-    /// on the catalog entry, so a settings file written while any of them was on
-    /// comes up with this one on.
+    /// one rather than a reason to keep them apart. The former keys are no longer
+    /// read: the settings store drops a key it does not know on its next save, so
+    /// a file that still names one loses it then.
     /// </para></summary>
     public const string Sync = "sync";
 }

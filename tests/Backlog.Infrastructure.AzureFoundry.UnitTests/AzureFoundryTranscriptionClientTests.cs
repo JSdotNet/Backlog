@@ -520,6 +520,7 @@ public sealed class AzureFoundryTranscriptionClientTests
     }
 
     /// <summary>Every message logged, formatted, so a test can say what never appears.</summary>
+    // Differs from RecordingLogger: keeps each message as one string with the exception's text appended.
     private sealed class ListLogger<T> : ILogger<T>
     {
         public List<string> Messages { get; } = [];

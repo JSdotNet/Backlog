@@ -16,18 +16,13 @@ public sealed class McpTokenRetirementTests : IDisposable
 {
     private const string Helper = @"C:\Users\me\AppData\Local\Backlog\hooks\backlog-mcp-headers.mjs";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-token-retirement-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-token-retirement");
 
-    public McpTokenRetirementTests() => Directory.CreateDirectory(_root);
+    public void Dispose() => _root.Dispose();
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    private string AppData => _root.Combine("Backlog");
 
-    private string AppData => Path.Combine(_root, "Backlog");
-
-    private ClaudeConfigFiles Files => new(Path.Combine(_root, ".claude.json"), Path.Combine(_root, ".claude", "settings.json"));
+    private ClaudeConfigFiles Files => new(_root.Combine(".claude.json"), _root.Combine(".claude", "settings.json"));
 
     private FileMcpGrantStore Grants() => new(Path.Combine(AppData, FileMcpGrantStore.FileName));
 
@@ -322,7 +317,7 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal(2, config["numStartups"]!.GetValue<int>());
         Assert.Equal(1, config["tipsHistory"]!["x"]!.GetValue<int>());
         Assert.Equal("helper", config["mcpServers"]!["backlog"]!["headersHelper"]!.GetValue<string>());
-        Assert.Single(Directory.GetFiles(_root, ".claude.json*"));
+        Assert.Single(Directory.GetFiles(_root.Path, ".claude.json*"));
     }
 
     /// <summary>A file that changes under every attempt is left as its other writer last wrote it
@@ -348,7 +343,7 @@ public sealed class McpTokenRetirementTests : IDisposable
         Assert.Equal(McpTokenRetirement.EditAttempts, writes);
         Assert.Contains(problems, problem => problem.Contains("kept changing", StringComparison.Ordinal));
         Assert.Equal(Latest(), File.ReadAllText(Files.UserConfigPath));
-        Assert.Single(Directory.GetFiles(_root, ".claude.json*"));
+        Assert.Single(Directory.GetFiles(_root.Path, ".claude.json*"));
     }
 
     /// <summary>The Manager grant holds the Manager role's preset — <c>sessions:dispatch</c>,

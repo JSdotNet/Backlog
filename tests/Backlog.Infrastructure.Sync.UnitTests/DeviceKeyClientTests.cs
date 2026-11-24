@@ -154,29 +154,22 @@ public sealed class DeviceKeyClientTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-device-key-tests", Guid.NewGuid().ToString("N"));
-        var path = Path.Combine(root, "device-key.json");
+        using var root = new TemporaryDirectory("backlog-device-key-tests");
+        var path = root.Combine("device-key.json");
 
-        try
+        string publicKey;
+        using (var store = new DpapiDeviceKeyStore(path))
         {
-            string publicKey;
-            using (var store = new DpapiDeviceKeyStore(path))
-            {
-                publicKey = store.GetOrCreate().PublicKey;
-                Assert.Equal(DeviceKeyProtection.Software, store.Protection);
-            }
-
-            using var reopened = new DpapiDeviceKeyStore(path);
-            var key = reopened.GetOrCreate();
-
-            Assert.Equal(publicKey, key.PublicKey);
-            Assert.True(Jwt.Read(DeviceAssertion.Create(Device, key, new FakeTimeProvider(Now)), publicKey).SignatureValid);
-            Assert.DoesNotContain("PRIVATE KEY", File.ReadAllText(path), StringComparison.Ordinal);
+            publicKey = store.GetOrCreate().PublicKey;
+            Assert.Equal(DeviceKeyProtection.Software, store.Protection);
         }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+
+        using var reopened = new DpapiDeviceKeyStore(path);
+        var key = reopened.GetOrCreate();
+
+        Assert.Equal(publicKey, key.PublicKey);
+        Assert.True(Jwt.Read(DeviceAssertion.Create(Device, key, new FakeTimeProvider(Now)), publicKey).SignatureValid);
+        Assert.DoesNotContain("PRIVATE KEY", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
     /// <summary>A key that cannot be written leaves no half-written envelope beside the
@@ -186,23 +179,16 @@ public sealed class DeviceKeyClientTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-device-key-tests", Guid.NewGuid().ToString("N"));
-        var path = Path.Combine(root, "device-key.json");
+        using var root = new TemporaryDirectory("backlog-device-key-tests");
+        var path = root.Combine("device-key.json");
 
-        try
-        {
-            // A folder where the file goes: the envelope is written beside it, and the
-            // move over it fails.
-            Directory.CreateDirectory(path);
-            using var store = new DpapiDeviceKeyStore(path);
+        // A folder where the file goes: the envelope is written beside it, and the
+        // move over it fails.
+        Directory.CreateDirectory(path);
+        using var store = new DpapiDeviceKeyStore(path);
 
-            Assert.Throws<CryptographicException>(store.GetOrCreate);
-            Assert.False(File.Exists(path + ".tmp"));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Throws<CryptographicException>(store.GetOrCreate);
+        Assert.False(File.Exists(path + ".tmp"));
     }
 
     [Fact]
@@ -544,20 +530,13 @@ public sealed class DeviceKeyClientTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        var root = Path.Combine(Path.GetTempPath(), "backlog-device-key-tests", Guid.NewGuid().ToString("N"));
-        var path = Path.Combine(root, "device-credential.json");
+        using var root = new TemporaryDirectory("backlog-device-key-tests");
+        var path = root.Combine("device-credential.json");
 
-        try
-        {
-            var credential = new DeviceCredential(Owner, Device, "Workshop PC", null);
-            new DpapiDeviceCredentialStore(path).Save(credential);
+        var credential = new DeviceCredential(Owner, Device, "Workshop PC", null);
+        new DpapiDeviceCredentialStore(path).Save(credential);
 
-            Assert.Equal(credential, new DpapiDeviceCredentialStore(path).Current);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(credential, new DpapiDeviceCredentialStore(path).Current);
     }
 
     [Fact]
