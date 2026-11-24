@@ -665,7 +665,7 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(chat.Plan, result.Value.PlanMarkdown);
+        Assert.Equal(chat.Plan, result.Unwrap().PlanMarkdown);
 
         var request = Assert.Single(chat.Requests);
         Assert.Equal("Fix the login page", request.ItemTitle);

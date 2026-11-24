@@ -286,8 +286,8 @@ public sealed class PairingSubjectsTests
         var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
         Assert.True(listed.IsSuccess);
-        Assert.Equal(ThisDesktop, listed.Value.CallerDeviceId);
-        Assert.Equal(ThisDesktop, Assert.Single(listed.Value.Devices).PairedBy);
+        Assert.Equal(ThisDesktop, listed.Unwrap().CallerDeviceId);
+        Assert.Equal(ThisDesktop, Assert.Single(listed.Unwrap().Devices).PairedBy);
         Assert.True(revoked.IsSuccess);
         Assert.Equal(["GET /api/sync/devices", $"DELETE /api/sync/devices/{Phone:D}"], calls);
     }

@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    TEMPORARY (plan app-defaults-rollout, step 14 deletes this file with the
+    shim). Imports Backlog.SharedKernel.Results.Compatibility into every
+    project outside src/Core, src/Modules and their unit tests that compiles
+    against Backlog.SharedKernel, directly or through another project. Decided
+    after reference resolution, because a global using of a namespace the
+    project cannot see does not compile.
+  -->
+  <Target Name="_BacklogResultCompatibilityUsing"
+          BeforeTargets="GenerateGlobalUsings"
+          DependsOnTargets="ResolveReferences"
+          Condition="'$(_BacklogResultMigrated)' != 'true'">
+    <ItemGroup>
+      <Using Include="Backlog.SharedKernel.Results.Compatibility"
+             Condition="'@(ReferencePath->AnyHaveMetadataValue('Filename', 'Backlog.SharedKernel'))' == 'true'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

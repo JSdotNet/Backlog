@@ -3,6 +3,7 @@ using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Extensions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,23 +40,23 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
     /// <summary>A Going event with every field set through the aggregate's own rules.</summary>
     private static KnowledgeEvent Techorama(Guid series)
     {
-        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
+        var knowledgeEvent = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value).Value;
 
         knowledgeEvent.SetSeries(series);
-        Assert.True(knowledgeEvent.SetDates(
-            EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Value,
-            EventDate.Create(new DateOnly(2026, 10, 28), null, null).Value,
-            DateSource.EventPage).IsSuccess);
-        knowledgeEvent.SetPlace(Place.AtVenue("Kinepolis Utrecht").Value);
+        Assert.IsType<Ok>(knowledgeEvent.SetDates(
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Value).Value,
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 28), null, null).Value).Value,
+            DateSource.EventPage).Value);
+        knowledgeEvent.SetPlace(Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Utrecht").Value).Value);
         knowledgeEvent.SetLink("https://techorama.nl/2026");
         knowledgeEvent.SetWhatToLearn("Aspire in production");
-        knowledgeEvent.SetKeyDates([KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Value]);
+        knowledgeEvent.SetKeyDates([Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Value).Value]);
         knowledgeEvent.SetTicket(TicketState.Bought);
-        knowledgeEvent.SetCost(Cost.Create(1295.50m, "EUR").Value);
-        Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Brain, "knowledge/aspire.md", "Aspire")).IsSuccess);
-        Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "6f1c2d3e-0000-0000-0000-000000000042", "Keynote")).IsSuccess);
-        Assert.True(knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).IsSuccess);
-        Assert.True(knowledgeEvent.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        knowledgeEvent.SetCost(Assert.IsType<Ok<Cost>>(Cost.Create(1295.50m, "EUR").Value).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Brain, "knowledge/aspire.md", "Aspire")).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "6f1c2d3e-0000-0000-0000-000000000042", "Keynote")).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).Value);
+        Assert.IsType<Ok>(knowledgeEvent.MoveTo(KnowledgeEventState.Going).Value);
 
         return knowledgeEvent;
     }
@@ -128,7 +129,7 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
     [Fact]
     public async Task A_later_copy_replaces_the_event_and_one_no_later_changes_nothing()
     {
-        var id = _events.Seed(KnowledgeEvent.Create(Guid.NewGuid(), "dotNET Friday").Value, Noon).Id;
+        var id = _events.Seed(Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "dotNET Friday").Value).Value, Noon).Id;
 
         Assert.Equal(KnowledgeEventReplicaOutcome.NotLater, await _replication.ApplyEventAsync(Copy(id, "Older", Noon.AddMinutes(-1)), Cancellation));
         Assert.Equal(KnowledgeEventReplicaOutcome.NotLater, await _replication.ApplyEventAsync(Copy(id, "Same stamp", Noon), Cancellation));
@@ -143,10 +144,10 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
     [Fact]
     public async Task A_removed_event_travels_marked_removed()
     {
-        var removed = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
-        Assert.True(removed.Remove().IsSuccess);
+        var removed = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value).Value;
+        Assert.IsType<Ok>(removed.Remove().Value);
         _events.Seed(removed, Noon);
-        var held = _events.Seed(KnowledgeEvent.Create(Guid.NewGuid(), "dotNET Friday").Value, Noon).Id;
+        var held = _events.Seed(Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "dotNET Friday").Value).Value, Noon).Id;
 
         var listed = await _replication.ListEventsChangedSinceAsync(DateTimeOffset.MinValue, Cancellation);
         var taken = await _replication.ApplyEventAsync(Copy(held, "dotNET Friday", Noon.AddMinutes(1)) with { Removed = true }, Cancellation);
@@ -215,7 +216,7 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
     [Fact]
     public async Task Series_travel_and_are_taken_on_the_same_terms()
     {
-        var series = _series.Seed(EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BV", "https://techorama.nl").Value, Noon);
+        var series = _series.Seed(Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BV", "https://techorama.nl").Value).Value, Noon);
 
         Assert.Equal(
             new EventSeriesReplicaDto(series.Id, "Techorama", "Techorama BV", "https://techorama.nl", Noon),

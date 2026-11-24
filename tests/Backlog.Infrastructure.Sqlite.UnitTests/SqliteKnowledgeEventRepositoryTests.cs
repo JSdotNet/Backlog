@@ -36,23 +36,23 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
     /// public rules rather than restored, so what is stored is what the module writes.</summary>
     private static KnowledgeEvent Attended()
     {
-        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
+        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Unwrap();
 
         knowledgeEvent.SetSeries(Guid.NewGuid());
         Assert.True(knowledgeEvent.SetDates(
-            EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Value,
-            EventDate.Create(new DateOnly(2026, 10, 28), null, null).Value,
+            EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Unwrap(),
+            EventDate.Create(new DateOnly(2026, 10, 28), null, null).Unwrap(),
             DateSource.EventPage).IsSuccess);
-        knowledgeEvent.SetPlace(Place.AtVenue("Kinepolis Utrecht").Value);
+        knowledgeEvent.SetPlace(Place.AtVenue("Kinepolis Utrecht").Unwrap());
         knowledgeEvent.SetLink("https://techorama.nl/2026");
         knowledgeEvent.SetWhatToLearn("Aspire in production; what .NET 11 changes for MAUI");
         knowledgeEvent.SetKeyDates(
         [
-            KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Value,
-            KeyDate.Create(new DateOnly(2026, 9, 1), "Registration closes").Value,
+            KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Unwrap(),
+            KeyDate.Create(new DateOnly(2026, 9, 1), "Registration closes").Unwrap(),
         ]);
         knowledgeEvent.SetTicket(TicketState.Bought);
-        knowledgeEvent.SetCost(Cost.Create(1295.50m, "eur").Value);
+        knowledgeEvent.SetCost(Cost.Create(1295.50m, "eur").Unwrap());
         Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Brain, "knowledge/aspire.md", "Aspire")).IsSuccess);
         Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-42", null)).IsSuccess);
         Assert.True(knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).IsSuccess);
@@ -64,7 +64,7 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
     }
 
     private static KnowledgeEvent TitleOnly(string title = "dotNET Friday") =>
-        KnowledgeEvent.Create(Guid.NewGuid(), title).Value;
+        KnowledgeEvent.Create(Guid.NewGuid(), title).Unwrap();
 
     [Fact]
     public async Task A_first_run_has_no_event()

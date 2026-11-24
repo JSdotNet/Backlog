@@ -318,26 +318,26 @@ else
 
         var standUp = await _standUp.ReadAsync();
         if (generation != _generation) return;
-        if (standUp.IsFailure)
+        if (standUp is not Ok<StandUpDto>(var reading))
         {
-            _readError = standUp.Error.Message;
+            _readError = ((Error)standUp.Value!).Message;
             return;
         }
 
-        var goals = await _goals.ListAsync(standUp.Value.Last.First, standUp.Value.Last.Last);
+        var goals = await _goals.ListAsync(reading.Last.First, reading.Last.Last);
         if (generation != _generation) return;
-        if (goals.IsFailure)
+        if (goals is not Ok<IReadOnlyList<GoalSummaryDto>>(var summaries))
         {
-            _readError = goals.Error.Message;
+            _readError = ((Error)goals.Value!).Message;
             return;
         }
 
-        var refs = GoalsMapper.PullRequestsToRead(standUp.Value, goals.Value, CandidatesNow());
+        var refs = GoalsMapper.PullRequestsToRead(reading, summaries, CandidatesNow());
         IReadOnlyList<GoalPullRequestDto> pulls = refs.Count == 0 || _pullRequests is null ? [] : await _pullRequests.ReadAsync(refs);
         if (generation != _generation) return;
 
-        _reading = standUp.Value;
-        _summaries = goals.Value;
+        _reading = reading;
+        _summaries = summaries;
         _pulls = pulls;
         _readError = null;
         Remap();
@@ -404,15 +404,15 @@ else
             try
             {
                 var created = await goals.CreateAsync(new SetGoalRequest(draft.Title, draft.Outcome, draft.DueDate));
-                if (created.IsFailure)
+                if (created is not Ok<GoalDto>(var goal))
                 {
-                    _createError = created.Error.Message;
+                    _createError = ((Error)created.Value!).Message;
                     return false;
                 }
 
                 _createError = null;
                 _creating = false;
-                _selectedGoalId = created.Value.Id.ToString();
+                _selectedGoalId = goal.Id.ToString();
                 return true;
             }
             finally
@@ -434,19 +434,20 @@ else
             try
             {
                 var attached = await goals.AttachAsync(goalId, item);
-                if (attached.IsSuccess) return new Written(true, attached.Value);
+                if (attached is Ok<GoalDto>(var goal)) return new Written(true, goal);
 
-                if (attached.Error.Code != ItemInOtherGoal)
+                var refused = (Error)attached.Value!;
+                if (refused.Code != ItemInOtherGoal)
                 {
-                    _writeError = attached.Error.Message;
+                    _writeError = refused.Message;
                     return new Written(false);
                 }
 
                 // The picker names the goal that holds it and asks before the move.
                 var holder = await goals.FindGoalOfAsync(item);
-                if (holder.IsFailure || holder.Value is not { } held)
+                if (holder is not Ok<GoalDto?>({ } held))
                 {
-                    _writeError = attached.Error.Message;
+                    _writeError = refused.Message;
                     return new Written(false);
                 }
 
@@ -477,16 +478,16 @@ else
             try
             {
                 var created = await create(request.Title);
-                if (created.IsFailure)
+                if (created is not Ok<Guid>(var taskId))
                 {
-                    _writeError = created.Error.Message;
+                    _writeError = ((Error)created.Value!).Message;
                     return new Written(false);
                 }
 
-                var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(created.Value));
-                if (attached.IsSuccess) return new Written(true, attached.Value);
+                var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(taskId));
+                if (attached is Ok<GoalDto>(var goal)) return new Written(true, goal);
 
-                _writeError = $"{request.Title} was added to the backlog, but not to this goal: {attached.Error.Message}";
+                _writeError = $"{request.Title} was added to the backlog, but not to this goal: {((Error)attached.Value!).Message}";
                 return new Written(true);
             }
             finally
@@ -532,10 +533,10 @@ else
         if (_pickCreated is { } earlier && earlier.Draft == draft) return await AttachPickedAsync(goals, picking, earlier.Id);
 
         var created = await goals.CreateAsync(new SetGoalRequest(draft.Title, null, draft.DueDate));
-        if (created.IsFailure) return created;
+        if (created is not Ok<GoalDto>(var goal)) return created;
 
-        _pickCreated = (draft, created.Value.Id);
-        return await AttachPickedAsync(goals, picking, created.Value.Id);
+        _pickCreated = (draft, goal.Id);
+        return await AttachPickedAsync(goals, picking, goal.Id);
     });
 
     private static Task<Result<GoalDto>> AttachPickedAsync(IGoals goals, Picking picking, Guid goalId) =>
@@ -554,9 +555,9 @@ else
             try
             {
                 var written = await write(goals, picking);
-                if (written.IsFailure)
+                if (written is not Ok<GoalDto>(var goal))
                 {
-                    _pickError = written.Error.Message;
+                    _pickError = ((Error)written.Value!).Message;
                     // A goal set before the refusal is on the board now.
                     return new Written(_pickCreated is not null);
                 }
@@ -564,7 +565,7 @@ else
                 _pickError = null;
                 _pickCreated = null;
                 _picking = null;
-                return new Written(true, written.Value);
+                return new Written(true, goal);
             }
             finally
             {
@@ -591,8 +592,8 @@ else
             try
             {
                 var edited = await goals.EditAsync(goalId, new SetGoalRequest(request.Title, request.Outcome, request.DueDate));
-                _editError = edited.IsFailure ? edited.Error.Message : null;
-                return edited.IsSuccess;
+                _editError = edited is Error error ? error.Message : null;
+                return edited is Ok<GoalDto>;
             }
             finally
             {
@@ -613,7 +614,7 @@ else
             try
             {
                 var deleted = await goals.DeleteAsync(id);
-                if (deleted.IsFailure) _writeError = deleted.Error.Message;
+                if (deleted is Error error) _writeError = error.Message;
                 else if (_selectedGoalId == goalId) _selectedGoalId = null;
                 return true;
             }
@@ -636,9 +637,9 @@ else
             try
             {
                 var detached = await goals.DetachAsync(goalId, item);
-                if (detached.IsSuccess) return new Written(true, detached.Value);
+                if (detached is Ok<GoalDto>(var goal)) return new Written(true, goal);
 
-                _writeError = detached.Error.Message;
+                _writeError = ((Error)detached.Value!).Message;
                 return new Written(true);
             }
             finally
@@ -661,7 +662,7 @@ else
             try
             {
                 var moved = await goals.MoveAsync(goalId, request.ToIndex);
-                if (moved.IsFailure) _writeError = moved.Error.Message;
+                if (moved is Error error) _writeError = error.Message;
                 return true;
             }
             finally
@@ -684,7 +685,7 @@ else
                 // No person: the last one the impediment was with stands. A refusal is
                 // read again too, so the picker draws the stored state from a fresh reading.
                 var moved = await impediments.MoveAsync(id, GoalsMapper.State(request.State));
-                if (moved.IsFailure) _writeError = moved.Error.Message;
+                if (moved is Error error) _writeError = error.Message;
                 return true;
             }
             finally
@@ -705,7 +706,7 @@ else
             try
             {
                 var edited = await impediments.EditNoteAsync(id, request.Note);
-                if (edited.IsFailure) _writeError = edited.Error.Message;
+                if (edited is Error error) _writeError = error.Message;
                 return true;
             }
             finally
@@ -737,9 +738,9 @@ else
                     request.Title,
                     [.. request.Items.Select(GoalSubjects.ToHeldBack)],
                     request.Note));
-                if (raised.IsFailure)
+                if (raised is Error error)
                 {
-                    _raiseError = raised.Error.Message;
+                    _raiseError = error.Message;
                     return false;
                 }
 
@@ -779,9 +780,9 @@ else
             try
             {
                 var written = await write(impediments, id, item);
-                if (written.IsSuccess) return true;
+                if (written is not Error error) return true;
 
-                _linkError = written.Error.Message;
+                _linkError = error.Message;
                 return false;
             }
             finally

@@ -118,7 +118,7 @@ public sealed class RelationActsTests
 
         var result = await Archive(store, duplicate.Id, original.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Archived, duplicate.Status);
         Assert.Equal(original.Id, duplicate.DuplicateOf);
         Assert.Equal(original.Id, duplicate.ToDto().DuplicateOf);
@@ -134,7 +134,7 @@ public sealed class RelationActsTests
 
         var result = await Archive(store, item.Id, Guid.CreateVersion7());
 
-        Assert.Equal(InboxErrors.DuplicateTargetNotFound, result.Error);
+        Assert.Equal(InboxErrors.DuplicateTargetNotFound, Assert.IsType<Error>(result.Value));
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Empty(store.ItemWrites);
     }
@@ -148,7 +148,7 @@ public sealed class RelationActsTests
 
         var result = await Archive(store, item.Id, item.Id);
 
-        Assert.Equal(InboxErrors.DuplicateOfItself, result.Error);
+        Assert.Equal(InboxErrors.DuplicateOfItself, Assert.IsType<Error>(result.Value));
         Assert.Empty(store.ItemWrites);
     }
 
@@ -160,11 +160,11 @@ public sealed class RelationActsTests
         var b = Items.Manual("Read the post again");
         store.Seed(a);
         store.Seed(b);
-        Assert.True((await Archive(store, b.Id, a.Id)).IsSuccess);
+        Assert.IsType<Ok>((await Archive(store, b.Id, a.Id)).Value);
 
         var result = await Archive(store, a.Id, b.Id);
 
-        Assert.Equal(InboxErrors.DuplicateCircular, result.Error);
+        Assert.Equal(InboxErrors.DuplicateCircular, Assert.IsType<Error>(result.Value));
         Assert.Equal(InboxStatus.Unprocessed, a.Status);
         Assert.Null(a.DuplicateOf);
         Assert.Equal([b.Id], store.ItemWrites);
@@ -180,11 +180,11 @@ public sealed class RelationActsTests
         store.Seed(root);
         store.Seed(middle);
         store.Seed(item);
-        Assert.True((await Archive(store, middle.Id, root.Id)).IsSuccess);
+        Assert.IsType<Ok>((await Archive(store, middle.Id, root.Id)).Value);
 
         var result = await Archive(store, item.Id, middle.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(root.Id, item.DuplicateOf);
     }
 
@@ -198,13 +198,13 @@ public sealed class RelationActsTests
         store.Seed(a);
         store.Seed(b);
         store.Seed(c);
-        Assert.True((await Archive(store, b.Id, a.Id)).IsSuccess);
-        Assert.True((await Archive(store, c.Id, b.Id)).IsSuccess);
+        Assert.IsType<Ok>((await Archive(store, b.Id, a.Id)).Value);
+        Assert.IsType<Ok>((await Archive(store, c.Id, b.Id)).Value);
         Assert.Equal(a.Id, c.DuplicateOf);
 
         var result = await Archive(store, a.Id, c.Id);
 
-        Assert.Equal(InboxErrors.DuplicateCircular, result.Error);
+        Assert.Equal(InboxErrors.DuplicateCircular, Assert.IsType<Error>(result.Value));
         Assert.Null(a.DuplicateOf);
     }
 
@@ -221,7 +221,7 @@ public sealed class RelationActsTests
 
         var result = await Archive(store, item.Id, middle.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(middle.Id, item.DuplicateOf);
     }
 
@@ -237,7 +237,7 @@ public sealed class RelationActsTests
 
         var result = await Archive(store, item.Id, original.Id);
 
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        Assert.Equal("inbox.item.invalid_transition", Assert.IsType<Error>(result.Value).Code);
         Assert.Null(item.DuplicateOf);
         Assert.Empty(store.ItemWrites);
     }
@@ -255,7 +255,7 @@ public sealed class RelationActsTests
 
         var result = await Link(store, item.Id, task.Id, new FakeTaskReferences(task));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal([task.Id], item.Routing!.TaskIds);
         Assert.Equal(["JSdotNet/Backlog"], item.Routing.RepoIds);
         Assert.Equal(Later, item.Routing.RoutedAt);
@@ -271,7 +271,7 @@ public sealed class RelationActsTests
 
         var result = await Link(store, item.Id, Guid.CreateVersion7(), new FakeTaskReferences());
 
-        Assert.Equal(InboxErrors.TaskNotFound, result.Error);
+        Assert.Equal(InboxErrors.TaskNotFound, Assert.IsType<Error>(result.Value));
         Assert.False(item.IsRouted);
         Assert.Empty(store.ItemWrites);
     }
@@ -287,7 +287,7 @@ public sealed class RelationActsTests
 
         var result = await Link(store, item.Id, task);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal([task], item.Routing!.TaskIds);
         Assert.Equal(["a/one"], item.Routing.RepoIds);
     }
@@ -302,7 +302,7 @@ public sealed class RelationActsTests
 
         var result = await Link(store, item.Id, Guid.CreateVersion7());
 
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        Assert.Equal("inbox.item.invalid_transition", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -322,12 +322,12 @@ public sealed class RelationActsTests
         var result = await new RelatedQueryHandler(store, new FakeTaskReferences(routed, open))
             .Handle(new RelatedQuery(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(item.Id, result.Value.ItemId);
-        Assert.Equal(twin.Id, Assert.Single(result.Value.Items).Id);
-        var task = Assert.Single(result.Value.Tasks);
+        var ok = Assert.IsType<Ok<InboxRelationsDto>>(result.Value);
+        Assert.Equal(item.Id, ok.Value.ItemId);
+        Assert.Equal(twin.Id, Assert.Single(ok.Value.Items).Id);
+        var task = Assert.Single(ok.Value.Tasks);
         Assert.Equal((routed.Id, InboxRelationKind.RoutedFromItem, false), (task.Id, task.Kind, task.IsOpen));
-        Assert.Equal([new InboxTaskOptionDto(open.Id, "Buy milk")], result.Value.OpenTasks);
+        Assert.Equal([new InboxTaskOptionDto(open.Id, "Buy milk")], ok.Value.OpenTasks);
     }
 
     [Fact]
@@ -340,9 +340,10 @@ public sealed class RelationActsTests
 
         var result = await new RelatedQueryHandler(store).Handle(new RelatedQuery(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.Single(result.Value.Items);
-        Assert.Empty(result.Value.Tasks);
-        Assert.Empty(result.Value.OpenTasks);
+        var ok = Assert.IsType<Ok<InboxRelationsDto>>(result.Value);
+        Assert.Single(ok.Value.Items);
+        Assert.Empty(ok.Value.Tasks);
+        Assert.Empty(ok.Value.OpenTasks);
     }
 
     [Fact]
@@ -351,7 +352,7 @@ public sealed class RelationActsTests
         var result = await new RelatedQueryHandler(new InMemoryInboxStore())
             .Handle(new RelatedQuery(Guid.CreateVersion7()), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.ItemNotFound, result.Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(result.Value));
     }
 
     private static Task<Result> Archive(InMemoryInboxStore store, Guid id, Guid duplicateOf) =>

@@ -250,7 +250,7 @@ public sealed class NotificationNudgeListener : IDisposable
             return Attempt.Failed;
         }
 
-        if (negotiated.Value is null)
+        if (negotiated.Unwrap() is not { } url)
         {
             _log.LogInformation("The sync service runs without a nudge hub, so replies arrive on the two-minute poll.");
             return Attempt.Unavailable;
@@ -260,7 +260,7 @@ public sealed class NotificationNudgeListener : IDisposable
 
         try
         {
-            socket = await _connector.ConnectAsync(negotiated.Value, cancellationToken).ConfigureAwait(false);
+            socket = await _connector.ConnectAsync(url, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -308,7 +308,7 @@ public sealed class NotificationNudgeListener : IDisposable
             _services, () => client.NegotiateNudgeAsync(cancellationToken), _log, "notification nudge").ConfigureAwait(false);
 
         return result.IsSuccess
-            ? Result.Success(result.Value.Url)
+            ? Result.Success(result.Unwrap().Url)
             : Result.Failure<Uri?>(result.Error);
     }
 

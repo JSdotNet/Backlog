@@ -907,7 +907,7 @@ public sealed class InboxTriagePassTests
             var pass = (await new FakeInboxTriageAdvisor().ProposePassAsync(
                 [.. waiting.Select(InboxTriageItemDto.From)],
                 context,
-                TestContext.Current.CancellationToken)).Value;
+                TestContext.Current.CancellationToken)).Unwrap();
 
             Inbox.TriageAdvisorAvailable = true;
             Inbox.TriagePassAnswer = Result.Success(pass with

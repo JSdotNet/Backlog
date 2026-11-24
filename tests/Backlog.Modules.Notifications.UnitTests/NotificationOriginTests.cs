@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using static Backlog.Modules.Notifications.UnitTests.Drafts;
 
@@ -52,9 +53,9 @@ public sealed class NotificationOriginTests
     [InlineData("   ")]
     public void An_origin_without_a_system_is_refused(string system)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = new NotificationOrigin(system, "Pairing") }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = new NotificationOrigin(system, "Pairing") }, Now).Value);
 
-        Assert.Equal("notification.origin_invalid", result.Error.Code);
+        Assert.Equal("notification.origin_invalid", result.Code);
     }
 
     [Theory]
@@ -70,9 +71,9 @@ public sealed class NotificationOriginTests
             askedBy == 0 ? null : new string('a', askedBy),
             via == 0 ? null : new string('v', via));
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).Value);
 
-        Assert.Equal("notification.content_too_long", result.Error.Code);
+        Assert.Equal("notification.content_too_long", result.Code);
     }
 
     [Fact]
@@ -82,7 +83,7 @@ public sealed class NotificationOriginTests
 
         var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<Notification>>(result.Value);
     }
 
     public static TheoryData<string, string> LineBreaksInEachPart =>
@@ -103,9 +104,9 @@ public sealed class NotificationOriginTests
             _ => new NotificationOrigin("Backlog", Via: broken),
         };
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).Value);
 
-        Assert.Equal("notification.origin_invalid", result.Error.Code);
+        Assert.Equal("notification.origin_invalid", result.Code);
     }
 
     [Theory]
@@ -115,9 +116,9 @@ public sealed class NotificationOriginTests
     [InlineData("ftp://example.test/q")]
     public void A_link_that_is_not_http_or_https_is_refused(string link)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = new NotificationOrigin("spec-manager", OpenLink: link) }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = new NotificationOrigin("spec-manager", OpenLink: link) }, Now).Value);
 
-        Assert.Equal("notification.origin_invalid", result.Error.Code);
+        Assert.Equal("notification.origin_invalid", result.Code);
     }
 
     [Fact]
@@ -152,7 +153,7 @@ public sealed class NotificationOriginTests
         Assert.DoesNotContain('\n', origin.Place);
         Assert.Equal(80, origin.AskedBy!.Length);
         Assert.Equal(40, origin.Via!.Length);
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).Value);
     }
 
     [Fact]
@@ -169,7 +170,7 @@ public sealed class NotificationOriginTests
         var origin = NotificationOrigin.Fit(new string('s', 38) + "\U0001F600" + " more", "Billing")!;
 
         Assert.Equal(new string('s', 38) + "…", origin.System);
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Origin = origin }, Now).Value);
     }
 
     [Fact]

@@ -26,7 +26,7 @@ public sealed class DeviceStepUpTests
         var code = await client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
 
         Assert.True(code.IsSuccess);
-        Assert.Equal("K7MN9PQR", code.Value.Code);
+        Assert.Equal("K7MN9PQR", code.Unwrap().Code);
         Assert.Equal("/api/sync/devices/codes", Assert.Single(handler.Requests).Path);
         Assert.Contains("pairing code", Assert.Single(consent.Prompts), StringComparison.Ordinal);
     }

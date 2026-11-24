@@ -260,8 +260,8 @@ public sealed class TaskSyncSession
             // version of the rest. The response does not say which, and the
             // watermark still moves past them — offered again they would be
             // refused again — so the count is where the loss is said.
-            var refusedInBatch = Math.Max(0, batch.Count - response.Value.Accepted);
-            pushed += response.Value.Accepted;
+            var refusedInBatch = Math.Max(0, batch.Count - response.Unwrap().Accepted);
+            pushed += response.Unwrap().Accepted;
             refused += refusedInBatch;
 
             // After the service answered and not before: the log says what left,
@@ -276,7 +276,7 @@ public sealed class TaskSyncSession
             // them stayed behind; the all-or-nothing echo is the case that
             // happens on every cycle, and it is listed nowhere.
             // One RecordRange per batch, so the footer redraws once per request.
-            if (response.Value.Accepted > 0 && _activity is { } activity)
+            if (response.Unwrap().Accepted > 0 && _activity is { } activity)
             {
                 activity.RecordRange(batch.Select(task => activity.Entry(
                     SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
@@ -294,7 +294,7 @@ public sealed class TaskSyncSession
             var sent = await PushNotesAsync(_notes, cancellationToken).ConfigureAwait(false);
             if (sent.IsFailure) return Result.Failure<TaskSyncSummary>(sent.Error);
 
-            pushed += sent.Value;
+            pushed += sent.Unwrap();
         }
 
         if (_outbox is not null)
@@ -317,7 +317,7 @@ public sealed class TaskSyncSession
                 var response = await _client.PushAsync(tombstones, cancellationToken).ConfigureAwait(false);
                 if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
 
-                pushed += response.Value.Accepted;
+                pushed += response.Unwrap().Accepted;
 
                 if (_activity is { } activity)
                 {
@@ -337,8 +337,8 @@ public sealed class TaskSyncSession
             var documents = await PushRoadmapAsync(_roadmap, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_github is not null)
@@ -346,8 +346,8 @@ public sealed class TaskSyncSession
             var documents = await PushGitHubSettingsAsync(_github, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_myDay is not null)
@@ -355,8 +355,8 @@ public sealed class TaskSyncSession
             var documents = await PushMyDayPreferencesAsync(_myDay, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_iteration is not null)
@@ -364,8 +364,8 @@ public sealed class TaskSyncSession
             var documents = await PushIterationSettingsAsync(_iteration, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_goals is not null)
@@ -373,8 +373,8 @@ public sealed class TaskSyncSession
             var documents = await PushGoalsAsync(_goals, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_impediments is not null)
@@ -382,8 +382,8 @@ public sealed class TaskSyncSession
             var documents = await PushImpedimentsAsync(_impediments, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         if (_standUpContext is not null)
@@ -391,13 +391,13 @@ public sealed class TaskSyncSession
             var documents = await PushStandUpContextAsync(_standUpContext, cancellationToken).ConfigureAwait(false);
             if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
 
-            pushed += documents.Value.Pushed;
-            refused += documents.Value.Refused;
+            pushed += documents.Unwrap().Pushed;
+            refused += documents.Unwrap().Refused;
         }
 
         var retired = await PushRetirementsAsync(cancellationToken).ConfigureAwait(false);
         if (retired.IsFailure) return Result.Failure<TaskSyncSummary>(retired.Error);
-        pushed += retired.Value;
+        pushed += retired.Unwrap();
 
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
@@ -499,7 +499,7 @@ public sealed class TaskSyncSession
             var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<(int, int)>(response.Error);
 
-            if (response.Value.Accepted > 0)
+            if (response.Unwrap().Accepted > 0)
             {
                 pushed += 1;
                 _activity?.Record(SyncDirection.Sent, itemKind, change.Id.ToString("D"), change.Task.Title);
@@ -603,7 +603,7 @@ public sealed class TaskSyncSession
         // Taken or refused alike: a refusal means the replica holds a later copy, which is
         // a tombstone another desktop sent for the same edit.
         _retirements.Sent(waiting);
-        return Result.Success(response.Value.Accepted);
+        return Result.Success(response.Unwrap().Accepted);
     }
 
     /// <summary>The note a sent task's log line carries: what was already known
@@ -692,18 +692,18 @@ public sealed class TaskSyncSession
                 continue;
             }
 
-            pulled += page.Value.Tasks.Count;
+            pulled += page.Unwrap().Tasks.Count;
             var merged = await _merge
-                .ApplyAsync(page.Value.Tasks, cancellationToken)
+                .ApplyAsync(page.Unwrap().Tasks, cancellationToken)
                 .ConfigureAwait(false);
 
             applied += merged.Applied;
             skipped += merged.Skipped;
 
-            cursor = page.Value.Since;
+            cursor = page.Unwrap().Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!page.Value.HasMore) break;
+            if (!page.Unwrap().HasMore) break;
         }
 
         return Result.Success(new TaskSyncSummary(0, pulled, applied, skipped, _time.GetUtcNow()));
@@ -749,19 +749,19 @@ public sealed class TaskSyncSession
             {
                 var documents = await PushImpedimentsAsync(_impediments, cancellationToken).ConfigureAwait(false);
                 if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
-                answered += documents.Value.Pushed;
+                answered += documents.Unwrap().Pushed;
             }
 
             var retired = await PushRetirementsAsync(cancellationToken).ConfigureAwait(false);
             if (retired.IsFailure) return Result.Failure<TaskSyncSummary>(retired.Error);
-            answered += retired.Value;
+            answered += retired.Unwrap();
         }
 
         return Result.Success(new TaskSyncSummary(
-            push.Value.Pushed + answered,
-            pull.Value.Pulled,
-            pull.Value.Applied,
-            pull.Value.Skipped,
+            push.Unwrap().Pushed + answered,
+            pull.Unwrap().Pulled,
+            pull.Unwrap().Applied,
+            pull.Unwrap().Skipped,
             _time.GetUtcNow()));
     }
 
@@ -796,9 +796,9 @@ public sealed class TaskSyncSession
                 .ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<int>(response.Error);
 
-            pushed += response.Value.Accepted;
+            pushed += response.Unwrap().Accepted;
 
-            if (response.Value.Accepted > 0 && _activity is { } activity)
+            if (response.Unwrap().Accepted > 0 && _activity is { } activity)
             {
                 activity.RecordRange(batch.Select(note => activity.Entry(
                     SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title)));

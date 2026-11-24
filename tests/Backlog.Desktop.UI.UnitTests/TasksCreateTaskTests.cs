@@ -21,14 +21,14 @@ public sealed class TasksCreateTaskTests
         var created = await host.State.CreateTaskAsync("  Bank export  ");
 
         Assert.True(created.IsSuccess);
-        var row = Assert.Single(host.State.Rows, row => row.Id == created.Value);
+        var row = Assert.Single(host.State.Rows, row => row.Id == created.Unwrap());
         Assert.Equal("Bank export", row.PreviewTitle);
         Assert.Equal(EntryType.Task, row.Type);
         Assert.Equal(EntryStatus.Draft, row.PreviewStatus);
         Assert.DoesNotContain(row.PreviewTags, tag => tag.StartsWith('+'));
         Assert.True(changed > 0);
 
-        var stored = Assert.Single(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken), entry => entry.Id == created.Value);
+        var stored = Assert.Single(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken), entry => entry.Id == created.Unwrap());
         Assert.Equal("Bank export", stored.Title);
         Assert.Equal(EntryStatus.Draft, stored.Status);
         Assert.Equal(Priority.Medium, stored.Priority);
@@ -48,7 +48,7 @@ public sealed class TasksCreateTaskTests
         var created = await host.State.CreateTaskAsync("Bank export");
 
         Assert.True(created.IsSuccess);
-        var row = Assert.Single(host.State.Rows, row => row.Id == created.Value);
+        var row = Assert.Single(host.State.Rows, row => row.Id == created.Unwrap());
         Assert.Equal(["docs"], row.PreviewRepoIds);
         Assert.Contains("`repo:docs`", row.RawText, StringComparison.Ordinal);
         Assert.Contains(row, host.State.RowsInRepositoryScope);

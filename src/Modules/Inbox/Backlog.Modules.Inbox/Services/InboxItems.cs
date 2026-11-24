@@ -345,8 +345,8 @@ internal sealed class InboxItems(
         {
             var result = await handle(id).ConfigureAwait(false);
 
-            if (result.IsSuccess) changed.Add(id);
-            else failed.Add(new InboxBatchFailureDto(id, result.Error));
+            if (result is Error error) failed.Add(new InboxBatchFailureDto(id, error));
+            else changed.Add(id);
         }
 
         return new InboxBatchResultDto(changed, failed);

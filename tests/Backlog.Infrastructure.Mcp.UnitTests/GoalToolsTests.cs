@@ -594,7 +594,7 @@ internal sealed class FakeGoals : IGoals
         if (Refusal(request) is { } error) return Task.FromResult(Result.Failure<GoalDto>(error));
 
         Edited = request;
-        return Task.FromResult(Result.Success(Replace(found.Value with
+        return Task.FromResult(Result.Success(Replace(found.Unwrap() with
         {
             Title = request.Title.Trim(),
             Outcome = Blank(request.Outcome),
@@ -607,7 +607,7 @@ internal sealed class FakeGoals : IGoals
         var found = Lookup(goalId);
         if (found.IsFailure) return Task.FromResult(Result.Failure(found.Error));
 
-        _goals.Remove(found.Value);
+        _goals.Remove(found.Unwrap());
         return Task.FromResult(Result.Success());
     }
 
@@ -628,7 +628,7 @@ internal sealed class FakeGoals : IGoals
             Replace(other with { Attachments = [.. other.Attachments.Where(a => a.Item != item)] });
         }
 
-        var goal = found.Value;
+        var goal = found.Unwrap();
         return Task.FromResult(Result.Success(goal.Attachments.Any(a => a.Item == item)
             ? goal
             : Replace(goal with { Attachments = [.. goal.Attachments, new GoalAttachmentDto(item, Today)] })));
@@ -639,9 +639,9 @@ internal sealed class FakeGoals : IGoals
         var found = Lookup(goalId);
         if (found.IsFailure) return Task.FromResult(found);
 
-        return Task.FromResult(Result.Success(Replace(found.Value with
+        return Task.FromResult(Result.Success(Replace(found.Unwrap() with
         {
-            Attachments = [.. found.Value.Attachments.Where(a => a.Item != item)]
+            Attachments = [.. found.Unwrap().Attachments.Where(a => a.Item != item)]
         })));
     }
 

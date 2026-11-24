@@ -2,6 +2,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Notifications.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -34,9 +35,9 @@ public sealed class NotificationCentreTests
     [Fact]
     public async Task Lists_open_notifications_newest_first()
     {
-        var first = (await _owner.PublishAsync(Question(), Ct)).Value;
+        var first = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(), Ct)).Value).Value;
         _time.Advance(TimeSpan.FromMinutes(1));
-        var second = (await _owner.PublishAsync(Alert(), Ct)).Value;
+        var second = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Alert(), Ct)).Value).Value;
 
         var listed = await _centre.ListAsync(Ct);
 
@@ -46,7 +47,7 @@ public sealed class NotificationCentreTests
     [Fact]
     public async Task Keeps_a_settled_notification_for_a_week_and_then_drops_it()
     {
-        var id = (await _owner.PublishAsync(Alert(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Alert(), Ct)).Value).Value;
         await _centre.AcknowledgeAsync(id, Ct);
 
         _time.Advance(TimeSpan.FromDays(6));
@@ -59,12 +60,11 @@ public sealed class NotificationCentreTests
     [Fact]
     public async Task An_answer_given_here_is_accepted_through_the_reply_path_from_this_device()
     {
-        var id = (await _owner.PublishAsync(Question(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(), Ct)).Value).Value;
 
-        var answer = await _centre.AnswerAsync(id, ["yes"], null, cancellationToken: Ct);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>((await _centre.AnswerAsync(id, ["yes"], null, cancellationToken: Ct)).Value).Value;
 
-        Assert.True(answer.IsSuccess);
-        Assert.Equal(Owner, answer.Value.FromDeviceId);
+        Assert.Equal(Owner, answer.FromDeviceId);
         var view = Assert.Single(await _centre.ListAsync(Ct));
         Assert.Equal(NotificationState.Answered, view.State);
         Assert.Equal(["yes"], view.Answer!.ChoiceIds);
@@ -73,11 +73,11 @@ public sealed class NotificationCentreTests
     [Fact]
     public async Task An_invalid_answer_is_rejected_with_its_reason_and_the_question_stays_open()
     {
-        var id = (await _owner.PublishAsync(Question(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(), Ct)).Value).Value;
 
-        var answer = await _centre.AnswerAsync(id, ["maybe"], null, cancellationToken: Ct);
+        var answer = Assert.IsType<Error>((await _centre.AnswerAsync(id, ["maybe"], null, cancellationToken: Ct)).Value);
 
-        Assert.Equal("reply.invalid", answer.Error.Code);
+        Assert.Equal("reply.invalid", answer.Code);
         Assert.True(Assert.Single(await _centre.ListAsync(Ct)).IsOpenQuestion);
     }
 
@@ -85,11 +85,11 @@ public sealed class NotificationCentreTests
     public async Task An_open_answer_carries_its_text()
     {
         var spec = new AnswerSpec([], Open: new OpenAnswer("Write an answer…", 200));
-        var id = (await _owner.PublishAsync(Question(spec), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(spec), Ct)).Value).Value;
 
-        var answer = await _centre.AnswerAsync(id, [], "Ship it on Friday", cancellationToken: Ct);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>((await _centre.AnswerAsync(id, [], "Ship it on Friday", cancellationToken: Ct)).Value).Value;
 
-        Assert.Equal("Ship it on Friday", answer.Value.Text);
+        Assert.Equal("Ship it on Friday", answer.Text);
     }
 
     [Fact]
@@ -98,21 +98,21 @@ public sealed class NotificationCentreTests
         var spec = new AnswerSpec(
             [new AnswerChoice("yes", "Yes"), new AnswerChoice("no", "No")],
             Note: new OpenAnswer("Add a note", 4000));
-        var id = (await _owner.PublishAsync(Question(spec), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(spec), Ct)).Value).Value;
 
-        var answer = await _centre.AnswerAsync(id, ["yes"], null, "After the backup", Ct);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>((await _centre.AnswerAsync(id, ["yes"], null, "After the backup", Ct)).Value).Value;
 
-        Assert.Equal(["yes"], answer.Value.ChoiceIds);
-        Assert.Equal("After the backup", answer.Value.Note);
+        Assert.Equal(["yes"], answer.ChoiceIds);
+        Assert.Equal("After the backup", answer.Note);
         Assert.Equal("After the backup", Assert.Single(await _centre.ListAsync(Ct)).Answer!.Note);
     }
 
     [Fact]
     public async Task Acknowledging_an_alert_settles_it()
     {
-        var id = (await _owner.PublishAsync(Alert(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Alert(), Ct)).Value).Value;
 
-        Assert.True((await _centre.AcknowledgeAsync(id, Ct)).IsSuccess);
+        Assert.IsType<Ok>((await _centre.AcknowledgeAsync(id, Ct)).Value);
         Assert.Equal(NotificationState.Acknowledged, Assert.Single(await _centre.ListAsync(Ct)).State);
     }
 
@@ -122,7 +122,7 @@ public sealed class NotificationCentreTests
         var changes = new List<NotificationChanged>();
         _centre.Changed += (_, change) => changes.Add(change);
 
-        var id = (await _owner.PublishAsync(Question(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(), Ct)).Value).Value;
         await _owner.CloseAsync(id, "Session archived", Ct);
 
         Assert.Collection(
@@ -141,7 +141,7 @@ public sealed class NotificationCentreTests
     {
         _centre.Changed += (_, _) => throw new InvalidOperationException("A screen fell over.");
 
-        var id = (await _owner.PublishAsync(Question(), Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(Question(), Ct)).Value).Value;
 
         Assert.NotNull(await _inner.GetAsync(id, Ct));
     }

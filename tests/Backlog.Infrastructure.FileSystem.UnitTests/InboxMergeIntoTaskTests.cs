@@ -127,7 +127,7 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
     private async Task<TaskItemDto> TaskAsync(string text)
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);
-        return saved.Value.Entry;
+        return saved.Unwrap().Entry;
     }
 
     private async Task<TaskItemDto> EntryAsync(Guid id) =>

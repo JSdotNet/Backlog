@@ -1,3 +1,4 @@
+@using global::Backlog.SharedKernel.Results
 @inject IEventsPane Pane
 @inject ISurfaceNavigator Navigator
 
@@ -105,14 +106,14 @@
             var id = Event.Id;
             var title = _prepTitle;
             var saved = await Writes.RunAsync(() => Pane.AddPrepTaskAsync(id, title));
-            if (saved.IsFailure)
+            if (saved is not Ok<KnowledgeEventDto>(var filed))
             {
-                _prepError = saved.Error.Message;
+                _prepError = ((Error)saved.Value!).Message;
                 return;
             }
 
             _prepTitle = string.Empty;
-            await OnSaved.InvokeAsync(saved.Value);
+            await OnSaved.InvokeAsync(filed);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -135,14 +136,14 @@
             var id = Event.Id;
             var taskId = _taskId;
             var saved = await Writes.RunAsync(() => Pane.LinkExistingTaskAsync(id, taskId));
-            if (saved.IsFailure)
+            if (saved is not Ok<KnowledgeEventDto>(var linked))
             {
-                _linkError = saved.Error.Message;
+                _linkError = ((Error)saved.Value!).Message;
                 return;
             }
 
             _taskId = string.Empty;
-            await OnSaved.InvokeAsync(saved.Value);
+            await OnSaved.InvokeAsync(linked);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

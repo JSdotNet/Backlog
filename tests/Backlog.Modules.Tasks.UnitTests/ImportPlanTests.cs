@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.ImportPlan;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -693,8 +694,8 @@ public sealed class ImportPlanTests
         var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new ImportPlanCommand("\n\n   \n"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ImportPlanCommandHandler.EmptyPlan, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ImportPlanCommandHandler.EmptyPlan, error);
     }
 
     /// <summary>
@@ -717,9 +718,9 @@ public sealed class ImportPlanTests
 
         var result = await new ImportPlanCommandHandler(store, directory).Handle(new ImportPlanCommand(plan), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);
-        Assert.Contains("same", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), error);
+        Assert.Contains("same", error.Message, StringComparison.Ordinal);
 
         // Refused before the writing pass, so the plan leaves nothing half-imported.
         Assert.Empty(store.Entries);
@@ -750,8 +751,8 @@ public sealed class ImportPlanTests
         var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new ImportPlanCommand(plan), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), error);
         Assert.Equal(before, Assert.Single(store.Entries).Value.Title);
     }
 
@@ -898,8 +899,8 @@ public sealed class ImportPlanTests
         var result = await new ImportPlanCommandHandler(store, directory)
             .Handle(new ImportPlanCommand("# Only prompt\n`prompt` `repo:newcomer`\n"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("The registry could not be written.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("The registry could not be written.", error.Message);
         Assert.Equal(["newcomer"], directory.Registered);
         Assert.Empty(store.Entries);
         Assert.Equal(0, store.Writes);
@@ -925,8 +926,8 @@ public sealed class ImportPlanTests
                 new ImportPlanCommand("# First prompt, revised\n`prompt` `#myplan` `id:first` `repo:newcomer`\n"),
                 TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("The registry could not be written.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("The registry could not be written.", error.Message);
         Assert.Equal(0, store.Writes);
 
         var after = Assert.Single(store.Entries).Value;
@@ -999,8 +1000,8 @@ public sealed class ImportPlanTests
         var handler = new ImportPlanCommandHandler(store, directory ?? new FakeRepositoryDirectory());
         var result = await handler.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches));
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
+        return ok.Value;
     }
 
     /// <summary>What the store would still show. A replaced entry is tombstoned

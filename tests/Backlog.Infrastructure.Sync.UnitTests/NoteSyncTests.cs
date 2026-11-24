@@ -104,7 +104,7 @@ public sealed class NoteSyncTests
         var pushed = await fixture.Session.PushAsync(Cancellation);
 
         Assert.True(pushed.IsSuccess);
-        Assert.Equal(2, pushed.Value.Pushed);
+        Assert.Equal(2, pushed.Unwrap().Pushed);
         var sent = Pushed(Assert.Single(fixture.Bodies));
         Assert.Equal([first.Id, second.Id], sent.Select(change => change.Id));
         Assert.All(sent, change => Assert.Equal("note", change.Task.Type));
@@ -116,7 +116,7 @@ public sealed class NoteSyncTests
         // Nothing pending since: the next push sends nothing.
         var again = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, again.Value.Pushed);
+        Assert.Equal(0, again.Unwrap().Pushed);
         Assert.Single(fixture.Bodies);
     }
 

@@ -30,7 +30,7 @@ public sealed class SqliteEventSeriesRepositoryTests : IDisposable
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     private static EventSeries Series(string name = "Techorama", string? organiser = "Techorama BV", string? link = "https://techorama.nl") =>
-        EventSeries.Create(Guid.NewGuid(), name, organiser, link).Value;
+        EventSeries.Create(Guid.NewGuid(), name, organiser, link).Unwrap();
 
     [Fact]
     public async Task A_first_run_has_no_series()

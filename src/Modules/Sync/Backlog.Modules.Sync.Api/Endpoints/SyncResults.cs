@@ -20,12 +20,13 @@ internal static class SyncResults
     /// succeeded, a problem body when it did not.</summary>
     internal static IResult From<TValue>(HttpContext context, Result<TValue> result, Func<TValue, IResult> onSuccess)
     {
-        ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(onSuccess);
 
-        return result.IsSuccess
-            ? onSuccess(result.Value)
-            : Problem(context, StatusFor(result.Error), result.Error.Code, result.Error.Message);
+        return result switch
+        {
+            Ok<TValue>(var value) => onSuccess(value),
+            Error error => Problem(context, StatusFor(error), error.Code, error.Message),
+        };
     }
 
     /// <summary>The same, for a use case that has nothing to hand back when it
@@ -35,12 +36,13 @@ internal static class SyncResults
     /// returns nothing.</summary>
     internal static IResult From(HttpContext context, Result result, Func<IResult> onSuccess)
     {
-        ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(onSuccess);
 
-        return result.IsSuccess
-            ? onSuccess()
-            : Problem(context, StatusFor(result.Error), result.Error.Code, result.Error.Message);
+        return result switch
+        {
+            Ok => onSuccess(),
+            Error error => Problem(context, StatusFor(error), error.Code, error.Message),
+        };
     }
 
     /// <summary>A problem body in the shape every failure from this service

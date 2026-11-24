@@ -149,7 +149,7 @@ internal sealed record ImpedimentDocument
             ? (HoldsBack ?? []).Select(HeldBackItem.ForTask)
             : HeldBack!.OfType<HeldBackItemDocument>().Select(item => item.ToItem());
 
-        return items.Where(item => item.IsSuccess).Select(item => item.Value);
+        return items.Where(item => item.IsSuccess).Select(item => item.Unwrap());
     }
 
     private static ImpedimentDocument? Read(string? json)

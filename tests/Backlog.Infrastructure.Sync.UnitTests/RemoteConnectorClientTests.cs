@@ -31,11 +31,11 @@ public sealed class RemoteConnectorClientTests
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal("/api/sync/connector", request.Path);
-        Assert.True(result.Value.HasSecret);
-        Assert.Equal("claude-connector", result.Value.ClientId);
-        Assert.Equal(new Uri("https://claude.ai/api/mcp/auth_callback"), result.Value.RedirectUri);
-        Assert.Equal(new DateTimeOffset(2026, 11, 1, 9, 0, 0, TimeSpan.Zero), result.Value.CreatedAt);
-        Assert.Equal(new DateTimeOffset(2026, 11, 17, 18, 30, 0, TimeSpan.Zero), result.Value.LastUsedAt);
+        Assert.True(result.Unwrap().HasSecret);
+        Assert.Equal("claude-connector", result.Unwrap().ClientId);
+        Assert.Equal(new Uri("https://claude.ai/api/mcp/auth_callback"), result.Unwrap().RedirectUri);
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 9, 0, 0, TimeSpan.Zero), result.Unwrap().CreatedAt);
+        Assert.Equal(new DateTimeOffset(2026, 11, 17, 18, 30, 0, TimeSpan.Zero), result.Unwrap().LastUsedAt);
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public sealed class RemoteConnectorClientTests
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("/api/sync/connector/secret", request.Path);
-        Assert.Equal("s3cr3t-shown-once", result.Value.ClientSecret);
-        Assert.Equal("claude-connector", result.Value.ClientId);
+        Assert.Equal("s3cr3t-shown-once", result.Unwrap().ClientSecret);
+        Assert.Equal("claude-connector", result.Unwrap().ClientId);
     }
 
     [Fact]

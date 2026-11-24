@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -15,21 +16,21 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var moved = await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token);
 
-        Assert.Equal(KnowledgeEventState.Going, moved.Value.State);
-        Assert.Equal(KnowledgeEventState.Going, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal(KnowledgeEventState.Going, Assert.IsType<Ok<KnowledgeEventDto>>(moved.Value).Value.State);
+        Assert.Equal(KnowledgeEventState.Going, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
     }
 
     [Fact]
     public async Task A_going_event_offers_no_way_back_and_refuses_one()
     {
         var id = await Add("Techorama Belgium");
-        var going = (await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value;
+        var going = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value).Value;
 
         var back = await Pane.MoveToAsync(id, KnowledgeEventState.Considering, Token);
 
         Assert.Equal([KnowledgeEventState.Attended, KnowledgeEventState.Harvested], going.Moves.Forward);
-        Assert.Equal("knowledge_event.state_backward", back.Error.Code);
-        Assert.Equal(KnowledgeEventState.Going, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal("knowledge_event.state_backward", Assert.IsType<Error>(back.Value).Code);
+        Assert.Equal(KnowledgeEventState.Going, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var moved = await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token);
 
-        Assert.Equal("knowledge_event.state_final", moved.Error.Code);
+        Assert.Equal("knowledge_event.state_final", Assert.IsType<Error>(moved.Value).Code);
     }
 
     // --- AC-4, AC-5 Skipping ------------------------------------------------------------
@@ -53,8 +54,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var skipped = await Pane.SkipAsync(id, "Clashes with the release", Token);
 
-        Assert.Equal(KnowledgeEventState.Skipped, skipped.Value.State);
-        Assert.Equal("Clashes with the release", skipped.Value.SkipReason);
+        Assert.Equal(KnowledgeEventState.Skipped, Assert.IsType<Ok<KnowledgeEventDto>>(skipped.Value).Value.State);
+        Assert.Equal("Clashes with the release", Assert.IsType<Ok<KnowledgeEventDto>>(skipped.Value).Value.SkipReason);
     }
 
     [Fact]
@@ -64,22 +65,22 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var skipped = await Pane.SkipAsync(id, " ", Token);
 
-        Assert.Equal("knowledge_event.skip_reason_missing", skipped.Error.Code);
-        Assert.Equal(KnowledgeEventState.Spotted, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal("knowledge_event.skip_reason_missing", Assert.IsType<Error>(skipped.Value).Code);
+        Assert.Equal(KnowledgeEventState.Spotted, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
     }
 
     [Fact]
     public async Task A_going_event_called_off_is_skipped_with_its_reason()
     {
         var id = await Dated("Techorama Belgium", new DateOnly(2026, 11, 7));
-        var going = (await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value;
+        var going = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value).Value;
 
         var skipped = await Pane.SkipAsync(id, "Cancelled by the organiser", Token);
         await new HarvestTaskPolicy(Store, Tasks).FileDueAsync(new DateOnly(2026, 11, 10), Token);
 
         Assert.True(going.Moves.CanSkip);
-        Assert.Equal(KnowledgeEventState.Skipped, skipped.Value.State);
-        Assert.Equal("Cancelled by the organiser", (await Pane.GetAsync(id, Token)).Value.SkipReason);
+        Assert.Equal(KnowledgeEventState.Skipped, Assert.IsType<Ok<KnowledgeEventDto>>(skipped.Value).Value.State);
+        Assert.Equal("Cancelled by the organiser", Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.SkipReason);
         Assert.Empty(Tasks.Filed);
     }
 
@@ -87,13 +88,13 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     public async Task An_attended_event_cannot_be_skipped()
     {
         var id = await Add("Techorama Belgium");
-        var attended = (await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).Value;
+        var attended = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).Value).Value;
 
         var skipped = await Pane.SkipAsync(id, "Too busy", Token);
 
         Assert.False(attended.Moves.CanSkip);
-        Assert.Equal("knowledge_event.cannot_skip", skipped.Error.Code);
-        Assert.Equal(KnowledgeEventState.Attended, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal("knowledge_event.cannot_skip", Assert.IsType<Error>(skipped.Value).Code);
+        Assert.Equal(KnowledgeEventState.Attended, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
     }
 
     // --- AC-13 The editor ---------------------------------------------------------------
@@ -106,8 +107,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var dated = await Pane.SetDatesAsync(id, start, null, Token);
 
-        Assert.Equal(start, dated.Value.Start);
-        Assert.Equal(DateSource.Typed, dated.Value.DateSource);
+        Assert.Equal(start, Assert.IsType<Ok<KnowledgeEventDto>>(dated.Value).Value.Start);
+        Assert.Equal(DateSource.Typed, Assert.IsType<Ok<KnowledgeEventDto>>(dated.Value).Value.DateSource);
     }
 
     [Fact]
@@ -117,8 +118,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var cleared = await Pane.SetDatesAsync(id, null, null, Token);
 
-        Assert.Null(cleared.Value.Start);
-        Assert.Null(cleared.Value.DateSource);
+        Assert.Null(Assert.IsType<Ok<KnowledgeEventDto>>(cleared.Value).Value.Start);
+        Assert.Null(Assert.IsType<Ok<KnowledgeEventDto>>(cleared.Value).Value.DateSource);
     }
 
     [Fact]
@@ -128,8 +129,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var dated = await Pane.SetDatesAsync(id, new EventDateDto(new DateOnly(2026, 10, 28)), new EventDateDto(new DateOnly(2026, 10, 26)), Token);
 
-        Assert.Equal("knowledge_event.dates_out_of_order", dated.Error.Code);
-        Assert.Null((await Pane.GetAsync(id, Token)).Value.Start);
+        Assert.Equal("knowledge_event.dates_out_of_order", Assert.IsType<Error>(dated.Value).Code);
+        Assert.Null(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Start);
     }
 
     [Fact]
@@ -139,7 +140,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var dated = await Pane.SetDatesAsync(id, new EventDateDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30)), null, Token);
 
-        Assert.Equal("event_date.offset_missing", dated.Error.Code);
+        Assert.Equal("event_date.offset_missing", Assert.IsType<Error>(dated.Value).Code);
     }
 
     [Fact]
@@ -152,7 +153,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
         await Pane.SetWhatToLearnAsync(id, "Aspire in production", Token);
         await Pane.SetKeyDatesAsync(id, [new KeyDateDto(new DateOnly(2026, 3, 1), "Early bird ends")], Token);
         await Pane.SetTicketAsync(id, TicketState.Bought, Token);
-        var read = (await Pane.SetCostAsync(id, new CostDto(899m, " eur "), Token)).Value;
+        var read = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetCostAsync(id, new CostDto(899m, " eur "), Token)).Value).Value;
 
         Assert.Equal(new PlaceDto("Kinepolis Antwerp", false), read.Place);
         Assert.Equal("https://techorama.be", read.Link);
@@ -169,7 +170,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var read = await Pane.SetPlaceAsync(id, new PlaceDto(null, true), Token);
 
-        Assert.Equal(new PlaceDto(null, true), read.Value.Place);
+        Assert.Equal(new PlaceDto(null, true), Assert.IsType<Ok<KnowledgeEventDto>>(read.Value).Value.Place);
     }
 
     [Theory]
@@ -181,7 +182,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var read = await Pane.SetPlaceAsync(id, new PlaceDto(venue, online), Token);
 
-        Assert.Equal("place.invalid", read.Error.Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(read.Value).Code);
     }
 
     [Fact]
@@ -192,8 +193,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var read = await Pane.SetKeyDatesAsync(id, [new KeyDateDto(new DateOnly(2026, 4, 1), " ")], Token);
 
-        Assert.Equal("key_date.label_missing", read.Error.Code);
-        Assert.Equal("Early bird ends", Assert.Single((await Pane.GetAsync(id, Token)).Value.KeyDates).Label);
+        Assert.Equal("key_date.label_missing", Assert.IsType<Error>(read.Value).Code);
+        Assert.Equal("Early bird ends", Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.KeyDates).Label);
     }
 
     [Fact]
@@ -203,7 +204,7 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
 
         var read = await Pane.SetCostAsync(id, new CostDto(-1m, "EUR"), Token);
 
-        Assert.Equal("cost.invalid", read.Error.Code);
+        Assert.Equal("cost.invalid", Assert.IsType<Error>(read.Value).Code);
     }
 
     // --- AC-14 The verdict --------------------------------------------------------------
@@ -212,16 +213,16 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     public async Task A_verdict_waits_until_the_event_is_attended()
     {
         var id = await Add("Techorama Belgium");
-        var going = (await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value;
+        var going = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value).Value;
 
         var early = await Pane.SetVerdictAsync(id, "Worth it", Token);
         await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token);
         var attended = await Pane.SetVerdictAsync(id, "Worth it", Token);
 
         Assert.False(going.VerdictOffered);
-        Assert.Equal("knowledge_event.verdict_too_early", early.Error.Code);
-        Assert.True(attended.Value.VerdictOffered);
-        Assert.Equal("Worth it", attended.Value.Verdict);
+        Assert.Equal("knowledge_event.verdict_too_early", Assert.IsType<Error>(early.Value).Code);
+        Assert.True(Assert.IsType<Ok<KnowledgeEventDto>>(attended.Value).Value.VerdictOffered);
+        Assert.Equal("Worth it", Assert.IsType<Ok<KnowledgeEventDto>>(attended.Value).Value.Verdict);
     }
 
     // --- AC-12 Series -------------------------------------------------------------------
@@ -231,23 +232,23 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
     {
         var started = await Pane.StartSeriesAsync(" ", cancellationToken: Token);
 
-        Assert.Equal("event_series.name_missing", started.Error.Code);
+        Assert.Equal("event_series.name_missing", Assert.IsType<Error>(started.Value).Code);
         Assert.Empty(await Pane.ListSeriesAsync(Token));
     }
 
     [Fact]
     public async Task An_event_added_with_its_series_lists_the_series_other_editions()
     {
-        var series = (await Pane.StartSeriesAsync("Techorama", "Techorama vzw", "https://techorama.be", Token)).Value;
-        var last = (await Pane.AddAsync("Techorama 2025", series.Id, Token)).Value;
+        var series = Assert.IsType<Ok<EventSeriesDto>>((await Pane.StartSeriesAsync("Techorama", "Techorama vzw", "https://techorama.be", Token)).Value).Value;
+        var last = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.AddAsync("Techorama 2025", series.Id, Token)).Value).Value;
         await Pane.AddAsync("Unrelated", cancellationToken: Token);
 
         var added = await Pane.AddAsync("Techorama 2026", series.Id, Token);
 
-        Assert.Equal(series, added.Value.Series);
-        var edition = Assert.Single(added.Value.OtherEditions);
+        Assert.Equal(series, Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Series);
+        var edition = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.OtherEditions);
         Assert.Equal(last.Id, edition.Id);
-        Assert.Equal("Techorama", Assert.Single(Assert.Single(await Pane.ListAsync(Token)).Events, e => e.Id == added.Value.Id).SeriesName);
+        Assert.Equal("Techorama", Assert.Single(Assert.Single(await Pane.ListAsync(Token)).Events, e => e.Id == Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id).SeriesName);
     }
 
     [Fact]
@@ -258,8 +259,8 @@ public sealed class EventsPaneDecideTests : EventsPaneFixture
         var set = await Pane.SetSeriesAsync(id, Guid.NewGuid(), Token);
         var added = await Pane.AddAsync("Techorama 2027", Guid.NewGuid(), Token);
 
-        Assert.Equal("event_series.not_found", set.Error.Code);
-        Assert.Equal("event_series.not_found", added.Error.Code);
+        Assert.Equal("event_series.not_found", Assert.IsType<Error>(set.Value).Code);
+        Assert.Equal("event_series.not_found", Assert.IsType<Error>(added.Value).Code);
     }
 
     [Fact]

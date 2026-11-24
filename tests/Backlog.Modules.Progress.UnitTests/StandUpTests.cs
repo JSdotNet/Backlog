@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.DomainModels;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -55,8 +56,8 @@ public sealed class StandUpTests : IDisposable
     private async Task<StandUpDto> ReadAsync(DateOnly? today = null, IterationLength length = IterationLength.Week)
     {
         var read = await StandUp.ReadAsync(today ?? Monday19, length, Cancellation);
-        Assert.True(read.IsSuccess, read.IsFailure ? read.Error.Message : null);
-        return read.Value;
+        if (read is Error error) Assert.Fail(error.Message);
+        return Assert.IsType<Ok<StandUpDto>>(read.Value).Value;
     }
 
     private async Task<Goal> GoalAsync(string title, params GoalAttachment[] holds)
@@ -87,7 +88,7 @@ public sealed class StandUpTests : IDisposable
         Assert.Equal((Oct(12), Oct(16), Oct(19), Oct(23)), (byWeek.Last.First, byWeek.Last.Last, byWeek.Next.First, byWeek.Next.Last));
 
         _scope.ServiceProvider.GetRequiredService<IIterationSettings>().SetLength(IterationLength.Day, Monday19);
-        var byDay = (await StandUp.ReadAsync(Cancellation)).Value;
+        var byDay = Assert.IsType<Ok<StandUpDto>>((await StandUp.ReadAsync(Cancellation)).Value).Value;
         Assert.Equal((IterationLength.Day, Oct(16), Oct(19)), (byDay.Next.Length, byDay.Last.First, byDay.Next.First));
     }
 
@@ -262,11 +263,11 @@ public sealed class StandUpTests : IDisposable
         await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
 
         var resolved = MakeImpediment.Raised("Test data refresh", Oct(12));
-        Assert.True(resolved.MoveTo(ImpedimentState.Resolved, Oct(15)).IsSuccess);
+        Assert.IsType<Ok>(resolved.MoveTo(ImpedimentState.Resolved, Oct(15)).Value);
         var bank = MakeImpediment.Raised("Bank sample files missing", Oct(14));
-        Assert.True(bank.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").IsSuccess);
-        Assert.True(bank.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").IsSuccess);
-        bank.HoldBack(HeldBackItem.ForTask(mapping.Id).Value);
+        Assert.IsType<Ok>(bank.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").Value);
+        Assert.IsType<Ok>(bank.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").Value);
+        bank.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(mapping.Id).Value).Value);
         var credit = MakeImpediment.Raised("Credit note numbering unclear", Oct(15));
         await _impediments.SaveAsync(resolved, Cancellation);
         await _impediments.SaveAsync(credit, Cancellation);
@@ -325,7 +326,7 @@ public sealed class StandUpTests : IDisposable
     public async Task A_goal_without_a_due_date_reads_as_due_at_the_end_of_next()
     {
         var dateless = MakeGoal.Named("Invoices settle in a day");
-        Assert.True(dateless.ChangeDueDate(null).IsSuccess);
+        Assert.IsType<Ok>(dateless.ChangeDueDate(null).Value);
         await _goals.SaveAsync(dateless, Cancellation);
         var dated = await GoalAsync("Customers get paid faster");
 
@@ -352,9 +353,9 @@ public sealed class StandUpTests : IDisposable
         Assert.Equal((GoalStanding.OnTrack, (DateOnly?)Oct(30)), (before.Standing, before.LandsOn));
 
         var impediment = MakeImpediment.Raised();
-        Assert.True(impediment.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").IsSuccess);
-        Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").IsSuccess);
-        impediment.HoldBack(HeldBackItem.ForTask(mapping.Id).Value);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Reported, Oct(14), "bank support").Value);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Escalated, Oct(15), "account manager").Value);
+        impediment.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(mapping.Id).Value).Value);
         await _impediments.SaveAsync(impediment, Cancellation);
 
         var after = Assert.Single((await ReadAsync(Oct(17))).Goals);
@@ -370,8 +371,8 @@ public sealed class StandUpTests : IDisposable
         var open = Entry("Open", order: 1);
         await GoalAsync("Customers get paid faster", MakeGoal.Plan("+" + Bank));
         var impediment = MakeImpediment.Raised();
-        impediment.HoldBack(HeldBackItem.ForTask(open.Id).Value);
-        Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).IsSuccess);
+        impediment.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(open.Id).Value).Value);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).Value);
         await _impediments.SaveAsync(impediment, Cancellation);
 
         var line = Assert.Single((await ReadAsync(Oct(17))).Goals);
@@ -388,11 +389,11 @@ public sealed class StandUpTests : IDisposable
         return impediment;
     }
 
-    private static HeldBackItem HeldTask(ProgressTaskDto task) => HeldBackItem.ForTask(task.Id).Value;
+    private static HeldBackItem HeldTask(ProgressTaskDto task) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(task.Id).Value).Value;
 
-    private static HeldBackItem HeldPullRequest(string repository, int number) => HeldBackItem.ForPullRequest(repository, number).Value;
+    private static HeldBackItem HeldPullRequest(string repository, int number) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPullRequest(repository, number).Value).Value;
 
-    private static HeldBackItem HeldPlan(string tag) => HeldBackItem.ForPlan(tag).Value;
+    private static HeldBackItem HeldPlan(string tag) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPlan(tag).Value).Value;
 
     /// <summary>A goal that lands in time — two done in the four weeks read, one open — with
     /// <paramref name="open"/> as its open entry: it lands on Friday 30 October.</summary>
@@ -465,7 +466,7 @@ public sealed class StandUpTests : IDisposable
         Assert.Equal((1, 1), (held.Progress.Done, held.Progress.Total));
         Assert.Equal(GoalStanding.AtRisk, held.Standing);
 
-        Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Resolved, Oct(16)).Value);
         await _impediments.SaveAsync(impediment, Cancellation);
 
         var resolved = (await ReadAsync(Oct(17))).Goals.Single(line => line.Id == goal.Id);
@@ -522,7 +523,7 @@ public sealed class StandUpTests : IDisposable
         await ImpedimentAsync(
             "Bank sandbox down",
             HeldTask(archived),
-            HeldBackItem.ForTask(gone).Value,
+            Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(gone).Value).Value,
             HeldPullRequest("acme/invoicing", 1344),
             HeldPullRequest("acme/legacy-billing", 77),
             HeldPlan(Bank));
@@ -547,9 +548,9 @@ public sealed class StandUpTests : IDisposable
     public async Task The_reading_asks_for_what_the_open_impediments_hold_back()
     {
         var task = Guid.NewGuid();
-        await ImpedimentAsync("Bank sandbox down", HeldBackItem.ForTask(task).Value, HeldPlan("+bank-statements"), HeldPullRequest("acme/invoicing", 1358));
+        await ImpedimentAsync("Bank sandbox down", Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(task).Value).Value, HeldPlan("+bank-statements"), HeldPullRequest("acme/invoicing", 1358));
         var resolved = await ImpedimentAsync("Old blocker", HeldPullRequest("acme/invoicing", 9), HeldPlan("old-plan"));
-        Assert.True(resolved.MoveTo(ImpedimentState.Resolved, Oct(15)).IsSuccess);
+        Assert.IsType<Ok>(resolved.MoveTo(ImpedimentState.Resolved, Oct(15)).Value);
         await _impediments.SaveAsync(resolved, Cancellation);
 
         await ReadAsync();

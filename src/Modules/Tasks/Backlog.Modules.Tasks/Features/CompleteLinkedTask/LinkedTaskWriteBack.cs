@@ -191,15 +191,16 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
                 .GetRequiredService<ICommandHandler<CompleteLinkedTaskCommand, Result<LinkedTaskWriteBackOutcome>>>();
 
             var result = await handler.Handle(new CompleteLinkedTaskCommand(taskId), _stopping).ConfigureAwait(false);
-            if (result.IsFailure)
+            if (result is not Ok<LinkedTaskWriteBackOutcome>(var outcome))
             {
+                var error = (Error)result.Value!;
                 _log.LogWarning(
                     "Completing linked task {TaskId} at its source did not run: {Code} {Message}",
-                    taskId, result.Error.Code, result.Error.Message);
+                    taskId, error.Code, error.Message);
                 return LinkedTaskWriteBackOutcome.NotAsked;
             }
 
-            return result.Value;
+            return outcome;
         }
     }
 

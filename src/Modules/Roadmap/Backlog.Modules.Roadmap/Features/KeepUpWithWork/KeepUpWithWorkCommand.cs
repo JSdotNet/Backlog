@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.Features.KeepUpWithWork;
 
@@ -80,9 +81,9 @@ public sealed class KeepUpWithWorkCommandHandler(
 
             // Refused only for a window a person placed, which KeepsUp already left out.
             var placed = plan.PlaceByImport(item.Id, PlannedWindow.Of(read.Start, read.End), ImportPlacement.Effort);
-            if (placed.IsFailure) continue;
+            if (placed is not Ok<RoadmapItem>(var moved)) continue;
 
-            scheduled.Add(placed.Value.Scheduled(previous));
+            scheduled.Add(moved.Scheduled(previous));
         }
 
         if (scheduled.Count > 0) await plans.SaveAsync(plan, cancellationToken);

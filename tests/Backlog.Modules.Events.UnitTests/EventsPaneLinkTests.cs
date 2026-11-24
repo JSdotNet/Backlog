@@ -20,8 +20,8 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
         var linked = await Pane.LinkBrainNoteAsync(id, TechoramaNote, cancellationToken: Token);
         Brain.Notes[TechoramaNote] = "Techorama 2026 takeaways";
 
-        var note = Assert.Single((await Pane.GetAsync(id, Token)).Value.Notes);
-        Assert.True(linked.IsSuccess);
+        var note = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Notes);
+        Assert.IsType<Ok<KnowledgeEventDto>>(linked.Value);
         Assert.False(note.Missing);
         Assert.Equal("Techorama 2026 takeaways", note.Title);
     }
@@ -35,7 +35,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         Brain.Notes.Remove(TechoramaNote);
 
-        var note = Assert.Single((await Pane.GetAsync(id, Token)).Value.Notes);
+        var note = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Notes);
         Assert.True(note.Missing);
         Assert.Equal("Techorama takeaways", note.Title);
     }
@@ -48,7 +48,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
         await Pane.LinkBrainNoteAsync(id, TechoramaNote, cancellationToken: Token);
         var again = await Pane.LinkBrainNoteAsync(id, @"\areas\learning\techorama.md", cancellationToken: Token);
 
-        Assert.Equal(TechoramaNote, Assert.Single(again.Value.Notes).Reference);
+        Assert.Equal(TechoramaNote, Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(again.Value).Value.Notes).Reference);
     }
 
     [Theory]
@@ -63,12 +63,12 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var again = await Pane.LinkBrainNoteAsync(id, spelling, cancellationToken: Token);
 
-        Assert.True(again.IsSuccess);
-        Assert.Equal(TechoramaNote, Assert.Single(again.Value.Notes).Reference);
+        Assert.IsType<Ok<KnowledgeEventDto>>(again.Value);
+        Assert.Equal(TechoramaNote, Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(again.Value).Value.Notes).Reference);
 
         var unlinked = await Pane.UnlinkNoteAsync(id, NoteLinkKind.Brain, spelling, Token);
 
-        Assert.Empty(unlinked.Value.Notes);
+        Assert.Empty(Assert.IsType<Ok<KnowledgeEventDto>>(unlinked.Value).Value.Notes);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var linked = await Pane.LinkBrainNoteAsync(id, " ", cancellationToken: Token);
 
-        Assert.Equal("note_link.path_missing", linked.Error.Code);
+        Assert.Equal("note_link.path_missing", Assert.IsType<Error>(linked.Value).Code);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var relinked = await Pane.RelinkBrainNoteAsync(id, TechoramaNote, "archive/techorama-2026.md", cancellationToken: Token);
 
-        var note = Assert.Single(relinked.Value.Notes);
+        var note = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(relinked.Value).Value.Notes);
         Assert.Equal(("archive/techorama-2026.md", "Techorama 2026", false), (note.Reference, note.Title, note.Missing));
         Assert.Equal(saves + 1, Store.Saves);
     }
@@ -104,7 +104,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var unlinked = await Pane.UnlinkNoteAsync(id, NoteLinkKind.Brain, TechoramaNote, Token);
 
-        Assert.Empty(unlinked.Value.Notes);
+        Assert.Empty(Assert.IsType<Ok<KnowledgeEventDto>>(unlinked.Value).Value.Notes);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
         var read = await Pane.AddPrepTaskAsync(id, " Book hotel in Antwerp ", Token);
 
         Assert.Equal(["Book hotel in Antwerp"], Tasks.Filed);
-        var task = Assert.Single(read.Value.Tasks);
+        var task = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(read.Value).Value.Tasks);
         Assert.Equal(TaskPurpose.Prep, task.Purpose);
         Assert.True(task.InBacklog);
         Assert.Equal(("Book hotel in Antwerp", "Draft"), (task.Title, task.Status));
@@ -142,7 +142,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var read = await Pane.AddPrepTaskAsync(id, "  ", Token);
 
-        Assert.Equal("event_task.title_missing", read.Error.Code);
+        Assert.Equal("event_task.title_missing", Assert.IsType<Error>(read.Value).Code);
         Assert.Equal(0, Tasks.Writes);
     }
 
@@ -154,8 +154,8 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var read = await Pane.AddPrepTaskAsync(id, "Book hotel", Token);
 
-        Assert.Equal("entry.needs_title", read.Error.Code);
-        Assert.Empty((await Pane.GetAsync(id, Token)).Value.Tasks);
+        Assert.Equal("entry.needs_title", Assert.IsType<Error>(read.Value).Code);
+        Assert.Empty(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Tasks);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
     {
         var read = await Pane.AddPrepTaskAsync(Guid.NewGuid(), "Book hotel", Token);
 
-        Assert.Equal("knowledge_event.not_found", read.Error.Code);
+        Assert.Equal("knowledge_event.not_found", Assert.IsType<Error>(read.Value).Code);
         Assert.Equal(0, Tasks.Writes);
     }
 
@@ -178,7 +178,7 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var read = await Pane.LinkExistingTaskAsync(id, "{" + budget.ToUpperInvariant() + "}", Token);
 
-        var task = Assert.Single(read.Value.Tasks);
+        var task = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(read.Value).Value.Tasks);
         Assert.Equal((budget, TaskPurpose.Linked, "Ask about training budget", "Ready"), (task.TaskId, task.Purpose, task.Title, task.Status));
         Assert.Equal(0, Tasks.Writes);
     }
@@ -192,9 +192,9 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
 
         var read = await Pane.LinkExistingTaskAsync(id, taskId, Token);
 
-        Assert.Equal("event_task.not_in_backlog", read.Error.Code);
-        Assert.Equal("No task with that id in this backlog.", read.Error.Message);
-        Assert.Empty((await Pane.GetAsync(id, Token)).Value.Tasks);
+        Assert.Equal("event_task.not_in_backlog", Assert.IsType<Error>(read.Value).Code);
+        Assert.Equal("No task with that id in this backlog.", Assert.IsType<Error>(read.Value).Message);
+        Assert.Empty(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Tasks);
     }
 
     // --- AC-15 The tasks section --------------------------------------------------------
@@ -203,11 +203,11 @@ public sealed class EventsPaneLinkTests : EventsPaneFixture
     public async Task A_linked_task_this_backlog_no_longer_holds_reads_as_not_in_this_backlog()
     {
         var gone = "6f9619ff-8b86-d011-b42d-00c04fc964ff";
-        var stored = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
+        var stored = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value).Value;
         stored.LinkTask(EventTaskLink.Create(gone, TaskPurpose.Prep));
         await Store.SaveAsync(stored, Token);
 
-        var task = Assert.Single((await Pane.GetAsync(stored.Id, Token)).Value.Tasks);
+        var task = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(stored.Id, Token)).Value).Value.Tasks);
 
         Assert.Equal((gone, false, null, null), (task.TaskId, task.InBacklog, task.Title, task.Status));
     }

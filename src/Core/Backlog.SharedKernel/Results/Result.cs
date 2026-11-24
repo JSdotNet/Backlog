@@ -2,67 +2,65 @@ namespace Backlog.SharedKernel.Results;
 
 /// <summary>
 /// The outcome of an operation that can fail for a reason the caller is
-/// expected to handle. Exceptions stay for genuinely exceptional situations;
-/// everything a feature slice can reasonably anticipate comes back as a result.
+/// expected to handle: <see cref="Ok"/> or an <see cref="Results.Error"/>.
+/// Exceptions stay for genuinely exceptional situations; everything a feature
+/// slice can reasonably anticipate comes back as a result.
 /// </summary>
-public class Result
+/// <remarks>
+/// A C# union (app-defaults ADR 0005): read it with an exhaustive
+/// <c>switch</c> over its cases, so the compiler proves every outcome is
+/// handled — CS8509 is an error.
+/// <code>
+/// return result switch
+/// {
+///     Ok => ...,
+///     Error error => ...,
+/// };
+/// </code>
+/// </remarks>
+public union Result(Ok, Error)
 {
-    protected Result(bool isSuccess, Error error)
-    {
-        if (isSuccess && error != Error.None)
-        {
-            throw new ArgumentException("A successful result cannot carry an error.", nameof(error));
-        }
+    public static Result Success() => Ok.Instance;
 
-        if (!isSuccess && error == Error.None)
-        {
-            throw new ArgumentException("A failed result must carry an error.", nameof(error));
-        }
+    public static Result Failure(Error error) => Failed(error);
 
-        IsSuccess = isSuccess;
-        Error = error;
-    }
+    public static Result<TValue> Success<TValue>(TValue value) => new Ok<TValue>(value);
 
-    public bool IsSuccess { get; }
+    public static Result<TValue> Failure<TValue>(Error error) => Failed(error);
 
-    public bool IsFailure => !IsSuccess;
-
-    /// <summary><see cref="Results.Error.None"/> when the result succeeded.</summary>
-    public Error Error { get; }
-
-    public static Result Success() => new(true, Error.None);
-
-    public static Result Failure(Error error) => new(false, error);
-
-    public static Result<TValue> Success<TValue>(TValue value) => new(value, true, Error.None);
-
-    public static Result<TValue> Failure<TValue>(Error error) => new(default, false, error);
+    private static Error Failed(Error error) => error == Error.None
+        ? throw new ArgumentException("A failed result must carry an error.", nameof(error))
+        : error;
 }
 
-/// <summary>A <see cref="Result"/> that carries a value when it succeeds.</summary>
-public class Result<TValue> : Result
+/// <summary>
+/// A <see cref="Result"/> that carries a value when it succeeds:
+/// <see cref="Ok{TValue}"/> or an <see cref="Results.Error"/>.
+/// </summary>
+/// <remarks>
+/// <code>
+/// return result switch
+/// {
+///     Ok&lt;Entry&gt; ok => ok.Value,
+///     Error error => ...,
+/// };
+/// </code>
+/// </remarks>
+public union Result<TValue>(Ok<TValue>, Error)
 {
-    private readonly TValue? _value;
-
-    protected internal Result(TValue? value, bool isSuccess, Error error)
-        : base(isSuccess, error)
-    {
-        _value = value;
-    }
-
-    /// <summary>The produced value. Reading it on a failed result is a bug, so it throws.</summary>
-    public TValue Value => IsSuccess
-        ? _value!
-        : throw new InvalidOperationException("A failed result has no value; check IsSuccess first.");
-
-    /// <summary>Hands out the value only when there is one, without throwing.</summary>
-    public bool TryGetValue(out TValue value)
-    {
-        value = _value!;
-        return IsSuccess;
-    }
-
-    public static implicit operator Result<TValue>(TValue value) => Success(value);
-
-    public static implicit operator Result<TValue>(Error error) => Failure<TValue>(error);
+    public static implicit operator Result<TValue>(TValue value) => new Ok<TValue>(value);
 }
+
+/// <summary>The success case of a <see cref="Result"/>: the operation did what it was asked.</summary>
+public sealed record Ok
+{
+    private Ok()
+    {
+    }
+
+    /// <summary>The one success; it carries nothing.</summary>
+    public static Ok Instance { get; } = new();
+}
+
+/// <summary>The success case of a <see cref="Result{TValue}"/>, holding the value produced.</summary>
+public sealed record Ok<TValue>(TValue Value);

@@ -251,7 +251,7 @@ public sealed class ShellWeeklyReviewSource : IWeeklyReviewSource, IDisposable
         var listed = await _goals.ListAsync(cancellationToken: cancellationToken);
         if (listed.IsFailure) return null;
 
-        return [.. listed.Value.Select(summary => new ReviewGoal(
+        return [.. listed.Unwrap().Select(summary => new ReviewGoal(
             summary.Goal.Id,
             summary.Goal.Title,
             summary.Goal.DueDate,

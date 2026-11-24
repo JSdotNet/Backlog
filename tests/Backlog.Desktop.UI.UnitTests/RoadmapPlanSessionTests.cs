@@ -48,7 +48,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
             cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(added.IsSuccess);
 
-        return (added.Value.Id, added.Value.Tag);
+        return (added.Unwrap().Id, added.Unwrap().Tag);
     }
 
     /// <summary>The tag with its plan sigil, <c>+&lt;slug&gt;</c>: what the plan row copies and names.</summary>

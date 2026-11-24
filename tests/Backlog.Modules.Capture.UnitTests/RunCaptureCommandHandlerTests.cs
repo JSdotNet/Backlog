@@ -3,6 +3,7 @@ using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Features.RunCapture;
 using Backlog.Modules.Capture.Ports;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -29,12 +30,12 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(new FakeSettings(), new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.Value.NothingEnabled);
-        Assert.Empty(result.Value.Sources);
-        Assert.Equal(0, result.Value.TotalNewItems);
-        Assert.Equal(Now, result.Value.RanAt);
+        Assert.True(reported.NothingEnabled);
+        Assert.Empty(reported.Sources);
+        Assert.Equal(0, reported.TotalNewItems);
+        Assert.Equal(Now, reported.RanAt);
     }
 
     [Fact]
@@ -45,13 +46,14 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        var source = Assert.Single(result.Value.Sources);
+        var source = Assert.Single(reported.Sources);
         Assert.Equal(CaptureSourceKind.YouTube, source.Kind);
         Assert.Equal(0, source.NewItems);
         Assert.Contains("YouTube", source.Message, StringComparison.Ordinal);
         Assert.Contains("no adapter", source.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.False(result.Value.NothingEnabled);
+        Assert.False(reported.NothingEnabled);
     }
 
     [Fact]
@@ -63,10 +65,11 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Equal(
             [CaptureSourceKind.Website, CaptureSourceKind.Email],
-            result.Value.Sources.Select(source => source.Kind).ToArray());
+            reported.Sources.Select(source => source.Kind).ToArray());
     }
 
     [Fact]
@@ -79,13 +82,14 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery(), adapter);
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.NotNull(adapter.Received);
         Assert.Equal(["https://www.youtube.com/@dotnet"], adapter.Received.Targets);
 
-        var source = Assert.Single(result.Value.Sources);
+        var source = Assert.Single(reported.Sources);
         Assert.Equal(3, source.NewItems);
-        Assert.Equal(3, result.Value.TotalNewItems);
+        Assert.Equal(3, reported.TotalNewItems);
         Assert.Equal("YouTube: 3 new items.", source.Message);
     }
 
@@ -135,11 +139,13 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b")));
 
         var first = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var firstRun = Assert.IsType<Ok<CaptureRunResultDto>>(first.Value).Value;
         var second = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var secondRun = Assert.IsType<Ok<CaptureRunResultDto>>(second.Value).Value;
 
-        Assert.Equal(2, first.Value.TotalNewItems);
-        Assert.Equal(0, second.Value.TotalNewItems);
-        Assert.Equal("YouTube: 0 new items.", Assert.Single(second.Value.Sources).Message);
+        Assert.Equal(2, firstRun.TotalNewItems);
+        Assert.Equal(0, secondRun.TotalNewItems);
+        Assert.Equal("YouTube: 0 new items.", Assert.Single(secondRun.Sources).Message);
         Assert.Equal(4, delivery.Offered.Count);
     }
 
@@ -155,9 +161,10 @@ public sealed class RunCaptureCommandHandlerTests
             Entry("kept")));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Equal("Entry kept", Assert.Single(delivery.Offered).Title);
-        Assert.Equal(1, result.Value.TotalNewItems);
+        Assert.Equal(1, reported.TotalNewItems);
     }
 
     [Fact]
@@ -169,8 +176,9 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.Website, Entry("a")));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        Assert.Equal(0, result.Value.TotalNewItems);
+        Assert.Equal(0, reported.TotalNewItems);
     }
 
     [Fact]
@@ -184,10 +192,11 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery(), adapter);
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Equal(
             "Website: 1 new item · https://x: no feed found · https://y: timed out.",
-            Assert.Single(result.Value.Sources).Message);
+            Assert.Single(reported.Sources).Message);
     }
 
     [Fact]
@@ -199,16 +208,16 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery(), new ThrowingAdapter(CaptureSourceKind.YouTube, "The feed timed out."));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Sources.Count);
+        Assert.Equal(2, reported.Sources.Count);
 
-        var failed = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.YouTube);
+        var failed = reported.Sources.Single(source => source.Kind == CaptureSourceKind.YouTube);
         Assert.Equal(0, failed.NewItems);
         Assert.Contains("The feed timed out.", failed.Message, StringComparison.Ordinal);
 
         // The source after the one that failed still got its turn.
-        var website = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.Website);
+        var website = reported.Sources.Single(source => source.Kind == CaptureSourceKind.Website);
         Assert.Contains("no adapter", website.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -230,16 +239,15 @@ public sealed class RunCaptureCommandHandlerTests
             new RecordingAdapter(CaptureSourceKind.Website, Entry("d")));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        Assert.True(result.IsSuccess);
-
-        var failed = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.YouTube);
+        var failed = reported.Sources.Single(source => source.Kind == CaptureSourceKind.YouTube);
         Assert.Equal(1, failed.NewItems);
         Assert.Equal("YouTube: 1 new item · The store is locked.", failed.Message);
 
-        var website = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.Website);
+        var website = reported.Sources.Single(source => source.Kind == CaptureSourceKind.Website);
         Assert.Equal(1, website.NewItems);
-        Assert.Equal(2, result.Value.TotalNewItems);
+        Assert.Equal(2, reported.TotalNewItems);
     }
 
     /// <summary>The run is written down as it is reported — one entry per
@@ -255,9 +263,10 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(settings, new FakeDelivery(), log, new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b")));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         var run = Assert.Single(log.Recorded);
-        Assert.Same(result.Value, run);
+        Assert.Same(reported, run);
         Assert.Equal(Now, run.RanAt);
         Assert.Collection(
             run.Sources,
@@ -303,11 +312,12 @@ public sealed class RunCaptureCommandHandlerTests
         var only = new MonitoredSource(CaptureSourceKind.Import, Enabled: true, Targets: ["C:/exports/todo.md"]);
 
         var result = await Handler(settings, new FakeDelivery(), log, youtube, import).Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Null(youtube.Received);
         Assert.Same(only, import.Received);
-        Assert.Equal(CaptureSourceKind.Import, Assert.Single(result.Value.Sources).Kind);
-        Assert.Same(result.Value, Assert.Single(log.Recorded));
+        Assert.Equal(CaptureSourceKind.Import, Assert.Single(reported.Sources).Kind);
+        Assert.Same(reported, Assert.Single(log.Recorded));
     }
 
     [Fact]
@@ -320,11 +330,13 @@ public sealed class RunCaptureCommandHandlerTests
         var handler = Handler(new FakeSettings(), delivery, import);
 
         var first = await handler.Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+        var firstRun = Assert.IsType<Ok<CaptureRunResultDto>>(first.Value).Value;
         var second = await handler.Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+        var secondRun = Assert.IsType<Ok<CaptureRunResultDto>>(second.Value).Value;
 
-        Assert.Equal("Import (microsoft-todo): 3 new items · 0 already known.", Assert.Single(first.Value.Sources).Message);
-        Assert.Equal("Import (microsoft-todo): 0 new items · 3 already known.", Assert.Single(second.Value.Sources).Message);
-        Assert.Equal(0, second.Value.TotalNewItems);
+        Assert.Equal("Import (microsoft-todo): 3 new items · 0 already known.", Assert.Single(firstRun.Sources).Message);
+        Assert.Equal("Import (microsoft-todo): 0 new items · 3 already known.", Assert.Single(secondRun.Sources).Message);
+        Assert.Equal(0, secondRun.TotalNewItems);
     }
 
     [Fact]
@@ -339,8 +351,9 @@ public sealed class RunCaptureCommandHandlerTests
 
         var result = await Handler(new FakeSettings(), delivery, import)
             .Handle(new RunCaptureCommand(new MonitoredSource(CaptureSourceKind.Import, true, ["todo.md"])), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
-        var line = Assert.Single(result.Value.Sources);
+        var line = Assert.Single(reported.Sources);
         Assert.Equal(2, line.NewItems);
         Assert.Equal(
             "Import: 2 new items · 0 already known · Item 3 \"Buy oat milk\": its meta block is never closed — add a line with just ``` after its last key · no list is called \"Someday/Maybe\", so what was meant for it landed unfiled.",
@@ -413,10 +426,11 @@ public sealed class RunCaptureCommandHandlerTests
 
         var result = await Handler(settings, availability, new FakeDelivery(), new FakeLog(), eventPage, website)
             .Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Null(eventPage.Received);
         Assert.NotNull(website.Received);
-        Assert.Equal(CaptureSourceKind.Website, Assert.Single(result.Value.Sources).Kind);
+        Assert.Equal(CaptureSourceKind.Website, Assert.Single(reported.Sources).Kind);
 
         var stored = settings.Current.For(CaptureSourceKind.EventPage);
         Assert.True(stored.Enabled);
@@ -438,9 +452,10 @@ public sealed class RunCaptureCommandHandlerTests
 
         availability.Withdrawn.Clear();
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.NotNull(eventPage.Received);
-        Assert.Equal(CaptureSourceKind.EventPage, Assert.Single(result.Value.Sources).Kind);
+        Assert.Equal(CaptureSourceKind.EventPage, Assert.Single(reported.Sources).Kind);
     }
 
     /// <summary>A run given one source is run as asked: what is offered is the
@@ -455,9 +470,10 @@ public sealed class RunCaptureCommandHandlerTests
 
         var result = await Handler(new FakeSettings(), availability, new FakeDelivery(), new FakeLog(), import)
             .Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Same(only, import.Received);
-        Assert.Equal(CaptureSourceKind.Import, Assert.Single(result.Value.Sources).Kind);
+        Assert.Equal(CaptureSourceKind.Import, Assert.Single(reported.Sources).Kind);
     }
 
     /// <summary>A feed is not news on the day it is added: a site whose feed
@@ -472,10 +488,11 @@ public sealed class RunCaptureCommandHandlerTests
         var website = new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 8));
 
         var result = await Run(Website(Site), delivery, ledger, website);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Equal(["Entry 0", "Entry 1", "Entry 2", "Entry 3", "Entry 4"], delivery.Delivered.Select(item => item.Title).ToArray());
         Assert.Equal(3, ledger.PassedOverAt(CaptureSourceKind.Website, Site)!.Count);
-        var line = Assert.Single(result.Value.Sources);
+        var line = Assert.Single(reported.Sources);
         Assert.Equal(5, line.NewItems);
         Assert.Equal(
             $"Website: 5 new items · {Site}: first look, so only the newest 5 of its 8 entries — the rest were already there.",
@@ -493,10 +510,11 @@ public sealed class RunCaptureCommandHandlerTests
 
         var fresh = Entry("fresh") with { Target = Site, PublishedAt = Now };
         var result = await Run(Website(Site), delivery, ledger, new RecordingAdapter(CaptureSourceKind.Website, [fresh, .. Feed(Site, 8)]));
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
 
         Assert.Equal("Entry fresh", delivery.Delivered[^1].Title);
         Assert.Equal(6, delivery.Delivered.Count);
-        Assert.Equal("Website: 1 new item.", Assert.Single(result.Value.Sources).Message);
+        Assert.Equal("Website: 1 new item.", Assert.Single(reported.Sources).Message);
     }
 
     /// <summary>A site that publishes its whole archive at once after the first
@@ -511,15 +529,17 @@ public sealed class RunCaptureCommandHandlerTests
         var website = new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 30));
 
         var result = await Run(Website(Site), delivery, ledger, website);
+        var reported = Assert.IsType<Ok<CaptureRunResultDto>>(result.Value).Value;
         var again = await Run(Website(Site), delivery, ledger, website);
+        var againRun = Assert.IsType<Ok<CaptureRunResultDto>>(again.Value).Value;
 
         Assert.Equal(20, delivery.Delivered.Count);
         Assert.Equal("Entry 0", delivery.Delivered[0].Title);
         Assert.Equal("Entry 19", delivery.Delivered[^1].Title);
         Assert.Equal(
             $"Website: 20 new items · {Site}: more than 20 new entries at once, so the older ones were passed over.",
-            Assert.Single(result.Value.Sources).Message);
-        Assert.Equal("Website: 0 new items.", Assert.Single(again.Value.Sources).Message);
+            Assert.Single(reported.Sources).Message);
+        Assert.Equal("Website: 0 new items.", Assert.Single(againRun.Sources).Message);
     }
 
     [Fact]

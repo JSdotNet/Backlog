@@ -161,7 +161,7 @@ public sealed class TranscribeRecordingsTests
         var retried = await new RetryTranscriptionCommandHandler(_store, _records, queue)
             .Handle(new RetryTranscriptionCommand(note.Id, recording.Id), Cancellation);
 
-        Assert.Equal(InboxErrors.TranscriptionRetryFailed.Code, retried.Error.Code);
+        Assert.Equal(InboxErrors.TranscriptionRetryFailed.Code, Assert.IsType<Error>(retried.Value).Code);
         Assert.Empty(queue.Requested);
     }
 
@@ -258,7 +258,7 @@ public sealed class TranscribeRecordingsTests
         var retried = await new RetryTranscriptionCommandHandler(_store, _records, queue)
             .Handle(new RetryTranscriptionCommand(note.Id, recording.Id), Cancellation);
 
-        Assert.True(retried.IsSuccess);
+        Assert.IsType<Ok>(retried.Value);
         Assert.Equal([note.Id], queue.Requested);
         Assert.Null(await _records.FindFailureAsync(recording.Sha256, Cancellation));
 
@@ -275,7 +275,7 @@ public sealed class TranscribeRecordingsTests
         var retried = await new RetryTranscriptionCommandHandler(_store, _records, new FakeQueue())
             .Handle(new RetryTranscriptionCommand(note.Id, Guid.CreateVersion7()), Cancellation);
 
-        Assert.Equal(InboxErrors.AttachmentNotFound.Code, retried.Error.Code);
+        Assert.Equal(InboxErrors.AttachmentNotFound.Code, Assert.IsType<Error>(retried.Value).Code);
     }
 
     [Fact]
@@ -464,8 +464,8 @@ public sealed class TranscribeRecordingsTests
         Assert.Equal(isRecording, InboxAttachment.Named(Guid.CreateVersion7(), name, contentType, 1, new string('a', 64)).IsRecording);
 
     private async Task<int> Handle(Guid noteId) =>
-        (await new TranscribeRecordingsCommandHandler(_store, new FakeTimeProvider(Now), _records, _transcriber, _files)
-            .Handle(new TranscribeRecordingsCommand(noteId), Cancellation)).Value;
+        Assert.IsType<Ok<int>>((await new TranscribeRecordingsCommandHandler(_store, new FakeTimeProvider(Now), _records, _transcriber, _files)
+            .Handle(new TranscribeRecordingsCommand(noteId), Cancellation)).Value).Value;
 
     private async Task<InboxTranscriptionFailureDto?> ShownFailure(Guid noteId, Guid attachmentId)
     {

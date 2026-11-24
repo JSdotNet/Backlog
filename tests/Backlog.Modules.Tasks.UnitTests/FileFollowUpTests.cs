@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.FileFollowUp;
@@ -29,8 +30,8 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), "Add the empty-state screenshot to the docs");
 
-        Assert.True(result.IsSuccess);
-        var followUp = store.Entries[result.Value];
+        var ok = Assert.IsType<Ok<Guid>>(result.Value);
+        var followUp = store.Entries[ok.Value];
         Assert.Equal(EntryType.Prompt, followUp.Type);
         Assert.Equal(EntryStatus.Ready, followUp.Status);
         Assert.Equal([gated.Id.ToString()], followUp.DependsOn);
@@ -54,8 +55,8 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ByPlanItem("notifications", "t41"), "Words");
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([gated.Id.ToString()], store.Entries[result.Value].DependsOn);
+        var ok = Assert.IsType<Ok<Guid>>(result.Value);
+        Assert.Equal([gated.Id.ToString()], store.Entries[ok.Value].DependsOn);
     }
 
     [Fact]
@@ -66,8 +67,8 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), "Rename the setting");
 
-        Assert.True(result.IsSuccess);
-        var followUp = store.Entries[result.Value];
+        var ok = Assert.IsType<Ok<Guid>>(result.Value);
+        var followUp = store.Entries[ok.Value];
         Assert.Empty(followUp.Tags);
         Assert.Equal([gated.Id.ToString()], followUp.DependsOn);
         Assert.Equal(EntryStatus.Ready, followUp.Status);
@@ -82,11 +83,11 @@ public sealed class FileFollowUpTests
         var store = new InMemoryTaskRepository(gated);
         var first = await File(store, GatedEntry.ById(gated.Id), "First words");
 
-        var second = await File(store, GatedEntry.ById(first.Value), "Second words", Guid.NewGuid());
+        var second = await File(store, GatedEntry.ById(Assert.IsType<Ok<Guid>>(first.Value).Value), "Second words", Guid.NewGuid());
 
-        Assert.True(second.IsSuccess);
-        Assert.Equal(["+notifications"], store.Entries[second.Value].Tags);
-        Assert.Equal("Follow-up: Follow-up: Show the empty state", store.Entries[second.Value].Title);
+        var secondOk = Assert.IsType<Ok<Guid>>(second.Value);
+        Assert.Equal(["+notifications"], store.Entries[secondOk.Value].Tags);
+        Assert.Equal("Follow-up: Follow-up: Show the empty state", store.Entries[secondOk.Value].Title);
     }
 
     [Fact]
@@ -98,8 +99,8 @@ public sealed class FileFollowUpTests
         var first = await File(store, GatedEntry.ById(gated.Id), "Words");
         var again = await File(store, GatedEntry.ById(gated.Id), "Words");
 
-        Assert.True(again.IsSuccess);
-        Assert.Equal(first.Value, again.Value);
+        var againOk = Assert.IsType<Ok<Guid>>(again.Value);
+        Assert.Equal(Assert.IsType<Ok<Guid>>(first.Value).Value, againOk.Value);
         Assert.Equal(2, store.Entries.Count);
     }
 
@@ -111,12 +112,12 @@ public sealed class FileFollowUpTests
         var gated = PlanEntry("Show the empty state", "+notifications", "t41", "owner/backlog");
         var store = new InMemoryTaskRepository(gated);
         var first = await File(store, GatedEntry.ById(gated.Id), "Words");
-        store.Entries[first.Value].MarkDeleted();
+        store.Entries[Assert.IsType<Ok<Guid>>(first.Value).Value].MarkDeleted();
 
         var again = await File(store, GatedEntry.ById(gated.Id), "Words");
 
-        Assert.True(again.IsSuccess);
-        Assert.Equal(first.Value, again.Value);
+        var againOk = Assert.IsType<Ok<Guid>>(again.Value);
+        Assert.Equal(Assert.IsType<Ok<Guid>>(first.Value).Value, againOk.Value);
         Assert.Equal(2, store.Entries.Count);
     }
 
@@ -131,9 +132,9 @@ public sealed class FileFollowUpTests
         var byPlanItem = await File(store, GatedEntry.ByPlanItem("notifications", "t41"), "Words", Guid.NewGuid());
         var unknown = await File(store, GatedEntry.ById(Guid.NewGuid()), "Words", Guid.NewGuid());
 
-        Assert.Equal(ErrorType.NotFound, byId.Error.Type);
-        Assert.Equal(ErrorType.NotFound, byPlanItem.Error.Type);
-        Assert.Equal(ErrorType.NotFound, unknown.Error.Type);
+        Assert.Equal(ErrorType.NotFound, Assert.IsType<Error>(byId.Value).Type);
+        Assert.Equal(ErrorType.NotFound, Assert.IsType<Error>(byPlanItem.Value).Type);
+        Assert.Equal(ErrorType.NotFound, Assert.IsType<Error>(unknown.Value).Type);
         Assert.Single(store.Entries);
     }
 
@@ -147,7 +148,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), text);
 
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
+        Assert.Equal(ErrorType.Validation, Assert.IsType<Error>(result.Value).Type);
         Assert.Single(store.Entries);
     }
 
@@ -158,7 +159,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, new GatedEntry(null), "Words");
 
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
+        Assert.Equal(ErrorType.Validation, Assert.IsType<Error>(result.Value).Type);
         Assert.Empty(store.Entries);
     }
 
@@ -172,7 +173,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), "- [ ] delete the old table");
 
-        var followUp = store.Entries[result.Value];
+        var followUp = store.Entries[Assert.IsType<Ok<Guid>>(result.Value).Value];
         Assert.Equal(@"\- [ ] delete the old table", followUp.ContentMd);
         Assert.Empty(followUp.SubItems);
         Assert.Empty(Reparse(followUp).SubItems);
@@ -203,7 +204,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), text);
 
-        var followUp = store.Entries[result.Value];
+        var followUp = store.Entries[Assert.IsType<Ok<Guid>>(result.Value).Value];
         var raw = EntryTextParser.ToRawText(followUp.ToDto());
         var parsed = EntryTextParser.Parse(raw);
 
@@ -233,7 +234,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), text);
 
-        var paragraph = Assert.IsType<MdParagraph>(Assert.Single(MarkdownPreview.Parse(store.Entries[result.Value].ContentMd)));
+        var paragraph = Assert.IsType<MdParagraph>(Assert.Single(MarkdownPreview.Parse(store.Entries[Assert.IsType<Ok<Guid>>(result.Value).Value].ContentMd)));
         Assert.Equal(text, Assert.IsType<MdText>(Assert.Single(paragraph.Content)).Text);
     }
 
@@ -248,7 +249,7 @@ public sealed class FileFollowUpTests
 
         var result = await File(store, GatedEntry.ById(gated.Id), words);
 
-        Assert.Equal(words, store.Entries[result.Value].ContentMd);
+        Assert.Equal(words, store.Entries[Assert.IsType<Ok<Guid>>(result.Value).Value].ContentMd);
     }
 
     /// <summary>The re-import clears by <c>import_plan_id</c>; the follow-up carries
@@ -268,8 +269,8 @@ public sealed class FileFollowUpTests
         var filed = await File(store, GatedEntry.ByPlanItem("notifications", "t41"), "Words");
         var reimported = await import.Handle(new ImportPlanCommand(plan), TestContext.Current.CancellationToken);
 
-        Assert.True(reimported.IsSuccess);
-        var followUp = store.Entries[filed.Value];
+        Assert.IsType<Ok<ImportPlanResultDto>>(reimported.Value);
+        var followUp = store.Entries[Assert.IsType<Ok<Guid>>(filed.Value).Value];
         Assert.Null(followUp.DeletedAt);
         Assert.Contains("+notifications", followUp.Tags);
         Assert.Null(followUp.ImportPlanId);

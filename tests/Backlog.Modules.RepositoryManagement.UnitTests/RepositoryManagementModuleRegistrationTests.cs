@@ -2,6 +2,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.RepositoryManagement.UnitTests.Fakes;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using static Backlog.Modules.RepositoryManagement.UnitTests.Fakes.Statuses;
@@ -32,7 +33,7 @@ public sealed class RepositoryManagementModuleRegistrationTests
         Assert.Empty(listing.PullRequests);
         Assert.Empty(listing.Failures);
         Assert.Empty(read.PullRequests);
-        Assert.Equal(PullRequestErrors.NotConfiguredCode, merged.Error.Code);
+        Assert.Equal(PullRequestErrors.NotConfiguredCode, Assert.IsType<Error>(merged.Value).Code);
         Assert.Same(pullRequests, provider.GetRequiredService<IPullRequests>());
     }
 

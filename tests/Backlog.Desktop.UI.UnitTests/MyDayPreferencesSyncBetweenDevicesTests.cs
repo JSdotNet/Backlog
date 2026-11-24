@@ -195,7 +195,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         {
             var pushed = await _session.PushAsync(Cancellation);
             Assert.True(pushed.IsSuccess);
-            return pushed.Value;
+            return pushed.Unwrap();
         }
 
         public void Dispose()

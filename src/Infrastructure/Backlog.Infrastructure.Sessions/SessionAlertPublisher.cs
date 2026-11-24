@@ -234,7 +234,7 @@ public sealed class SessionAlertPublisher(
                 : SessionAlerts.ClosedReason(subject.Id);
             var result = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
-            if (result.IsSuccess) closed += result.Value;
+            if (result.IsSuccess) closed += result.Unwrap();
             else _logger.LogDebug("The alert {Key} was not closed: {Error}", subject.Id, result.Error.Message);
         }
 

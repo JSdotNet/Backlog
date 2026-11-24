@@ -133,7 +133,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(ItemId, advice.ItemId);
         Assert.Equal(new InboxTriageDuplicateDto(InboxTriageTargetKind.Task, TaskId, "Fix the login page", "It asks for the same fix."), advice.Duplicate);
@@ -150,7 +150,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         var result = await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.False(result.Value.HasCards);
+        Assert.False(result.Unwrap().HasCards);
     }
 
     [Theory]
@@ -160,7 +160,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = $$"""{ "outcome": { "outcome": "{{word}}", "reason": "It reads that way." } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(new InboxTriageOutcomeDto(outcome, "It reads that way."), advice.Outcome);
         Assert.True(advice.HasCards);
@@ -171,7 +171,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "later", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Null(advice.Outcome);
         foreach (var prompt in new[] { AzureFoundryTriagePrompt.AdviceText, AzureFoundryTriagePrompt.PassText })
@@ -188,7 +188,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "waiting-for", "who": "  Sam\nat the bank ", "reason": "Sam has the next step." } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam has the next step.") { Who = "Sam at the bank" }, advice.Outcome);
         Assert.True(advice.HasCards);
@@ -202,7 +202,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = answer };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Null(advice.Outcome);
     }
@@ -212,7 +212,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "someday", "who": "Sam", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Null(advice.Outcome!.Who);
     }
@@ -236,7 +236,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Other")], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Other")], Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(
             [
@@ -252,7 +252,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = $$"""{ "duplicate": { "kind": "epic", "id": "{{TaskId}}", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Null(advice.Duplicate);
     }
@@ -295,7 +295,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Login button misaligned")], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Login button misaligned")], Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         var plan = Assert.Single(pass.Plans);
         Assert.Equal(("Login work", "Both login.", 0.8), (plan.Title, plan.Reason, plan.Confidence));
@@ -317,7 +317,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = "```json\n{}\n```" };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item()], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = (await Advisor(client).ProposePassAsync([Item()], Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Empty(pass.Plans);
         Assert.Empty(pass.Routes);

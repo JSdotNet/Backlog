@@ -33,11 +33,11 @@ public sealed class MergeOnRouteTests
         var result = await Route(store, target, [kept.Id, duplicate.Id, other.Id], new InboxBatchRouteChoicesDto(
             Merges: new Dictionary<Guid, IReadOnlyList<Guid>> { [kept.Id] = [duplicate.Id] }));
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         Assert.Equal([kept.Id, other.Id], Assert.Single(target.BatchRequests).Items.Select(item => item.InboxItemId));
-        Assert.Equal([kept.Id, other.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
-        Assert.Equal([duplicate.Id], result.Value.Archived);
-        Assert.Empty(result.Value.Failed);
+        Assert.Equal([kept.Id, other.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
+        Assert.Equal([duplicate.Id], ok.Value.Archived);
+        Assert.Empty(ok.Value.Failed);
 
         Assert.True(kept.IsRouted);
         Assert.Equal(InboxStatus.Archived, duplicate.Status);
@@ -61,7 +61,7 @@ public sealed class MergeOnRouteTests
             Dependencies: [new ProposedDependency(after.Id, DependencyTarget.ForItem(duplicate.Id, duplicate.Title), "the docs")],
             Merges: Merge(kept.Id, duplicate.Id)));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         var request = Assert.Single(target.BatchRequests);
         Assert.Equal([kept.Id, after.Id], request.Items.Select(item => item.InboxItemId));
         Assert.Equal([kept.Id], request.Items.Single(item => item.InboxItemId == after.Id).AfterItems);
@@ -89,7 +89,7 @@ public sealed class MergeOnRouteTests
             ],
             Merges: Merge(kept.Id, duplicate.Id)));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         var request = Assert.Single(target.BatchRequests);
         Assert.Equal([first.Id, kept.Id], request.Items.Select(item => item.InboxItemId));
         var sent = request.Items.Single(item => item.InboxItemId == kept.Id);
@@ -115,7 +115,7 @@ public sealed class MergeOnRouteTests
             Dependencies: [new ProposedDependency(duplicate.Id, DependencyTarget.ForItem(kept.Id, kept.Title), "the doc")],
             Merges: Merge(kept.Id, duplicate.Id)));
 
-        Assert.True(pair.IsSuccess);
+        Assert.IsType<Ok<InboxBatchRoutedDto>>(pair.Value);
         Assert.All(target.BatchRequests[0].Items, item => Assert.Empty(item.AfterItems ?? []));
 
         // The kept item after the other, and the other after the duplicate, is
@@ -135,8 +135,8 @@ public sealed class MergeOnRouteTests
             ],
             Merges: Merge(kept2.Id, duplicate2.Id)));
 
-        Assert.True(looped.IsFailure);
-        Assert.Equal("inbox.batch.dependency_loop", looped.Error.Code);
+        var loopedError = Assert.IsType<Error>(looped.Value);
+        Assert.Equal("inbox.batch.dependency_loop", loopedError.Code);
     }
 
     private static Dictionary<Guid, IReadOnlyList<Guid>> Merge(Guid kept, params Guid[] duplicates) =>
@@ -158,10 +158,11 @@ public sealed class MergeOnRouteTests
         var result = await Route(store, target, [kept.Id, duplicate.Id, other.Id], new InboxBatchRouteChoicesDto(
             Merges: new Dictionary<Guid, IReadOnlyList<Guid>> { [kept.Id] = [duplicate.Id] }));
 
-        Assert.Empty(result.Value.Archived);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Empty(ok.Value.Archived);
         Assert.Equal(InboxStatus.Unprocessed, duplicate.Status);
         Assert.Null(duplicate.DuplicateOf);
-        Assert.Equal(InboxErrors.BatchMergeNotRouted, result.Value.Failed.Single(failure => failure.Id == duplicate.Id).Error);
+        Assert.Equal(InboxErrors.BatchMergeNotRouted, ok.Value.Failed.Single(failure => failure.Id == duplicate.Id).Error);
     }
 
     [Fact]
@@ -177,9 +178,10 @@ public sealed class MergeOnRouteTests
         var result = await Route(store, target, [kept.Id, duplicate.Id], new InboxBatchRouteChoicesDto(
             Merges: new Dictionary<Guid, IReadOnlyList<Guid>> { [kept.Id] = [duplicate.Id] }));
 
-        Assert.Empty(result.Value.Archived);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Empty(ok.Value.Archived);
         Assert.Equal(InboxStatus.Unprocessed, duplicate.Status);
-        Assert.Equal([kept.Id, duplicate.Id], result.Value.Failed.Select(failure => failure.Id));
+        Assert.Equal([kept.Id, duplicate.Id], ok.Value.Failed.Select(failure => failure.Id));
         Assert.Empty(store.ItemWrites);
     }
 
@@ -196,8 +198,9 @@ public sealed class MergeOnRouteTests
         var result = await Route(store, target, [kept.Id, other.Id], new InboxBatchRouteChoicesDto(
             Merges: new Dictionary<Guid, IReadOnlyList<Guid>> { [kept.Id] = [kept.Id, Guid.CreateVersion7()] }));
 
-        Assert.Equal([kept.Id, other.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
-        Assert.Empty(result.Value.Archived);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Equal([kept.Id, other.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
+        Assert.Empty(ok.Value.Archived);
     }
 
     [Fact]
@@ -212,8 +215,9 @@ public sealed class MergeOnRouteTests
 
         var result = await Route(store, target, [first.Id, second.Id], new InboxBatchRouteChoicesDto());
 
-        Assert.Equal([first.Id, second.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
-        Assert.Empty(result.Value.Archived);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Equal([first.Id, second.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
+        Assert.Empty(ok.Value.Archived);
     }
 
     [Fact]
@@ -232,9 +236,10 @@ public sealed class MergeOnRouteTests
         var result = await new ProposeBatchQueryHandler(store, store)
             .Handle(new ProposeBatchQuery([first.Id, second.Id]), TestContext.Current.CancellationToken);
 
-        var hint = Assert.Single(result.Value.Hints, hint => hint.Kind == OrderingHintKind.Duplicate);
+        var ok = Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value);
+        var hint = Assert.Single(ok.Value.Hints, hint => hint.Kind == OrderingHintKind.Duplicate);
         Assert.Equal([first.Id, second.Id], hint.Items);
-        Assert.Empty(result.Value.Dependencies);
+        Assert.Empty(ok.Value.Dependencies);
     }
 
     [Fact]
@@ -247,7 +252,7 @@ public sealed class MergeOnRouteTests
         var result = await new ProposeBatchQueryHandler(store, store)
             .Handle(new ProposeBatchQuery([item.Id]), TestContext.Current.CancellationToken);
 
-        Assert.Empty(result.Value.Hints);
+        Assert.Empty(Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value).Value.Hints);
     }
 
     private static Task<Result<InboxBatchRoutedDto>> Route(

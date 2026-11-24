@@ -260,7 +260,7 @@ public sealed class HomeInboxWiringTests
 
         // Off the renderer's thread, as a request to the MCP endpoint is.
         var moved = await Task.Run(() => harness.Entries.SaveFromTextAsync(
-            saved.Value.Entry.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
+            saved.Unwrap().Entry.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
         Assert.True(moved.IsSuccess);
 
         component.WaitForAssertion(

@@ -3,6 +3,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -44,7 +45,7 @@ public sealed class GoalsTests : IDisposable
     private static SetGoalRequest Paid => new("Customers get paid faster", "Invoices settle in a day", MakeGoal.Due);
 
     private async Task<GoalDto> CreateAsync(string title = "Customers get paid faster") =>
-        (await Goals.CreateAsync(Paid with { Title = title }, Cancellation)).Value;
+        Assert.IsType<Ok<GoalDto>>((await Goals.CreateAsync(Paid with { Title = title }, Cancellation)).Value).Value;
 
     // --- Setting a goal ----------------------------------------------------------
 
@@ -66,16 +67,16 @@ public sealed class GoalsTests : IDisposable
     {
         var created = await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation);
 
-        Assert.True(created.IsSuccess);
-        Assert.Null(created.Value.DueDate);
-        Assert.Null((await Goals.GetAsync(created.Value.Id, Cancellation)).Value.DueDate);
+        var goal = Assert.IsType<Ok<GoalDto>>(created.Value).Value;
+        Assert.Null(goal.DueDate);
+        Assert.Null(Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Value.DueDate);
         Assert.Equal(1, _repository.Saves);
     }
 
     [Fact]
     public async Task A_goal_without_a_title_is_not_saved()
     {
-        Assert.Equal("progress.goal_without_title", (await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Error.Code);
+        Assert.Equal("progress.goal_without_title", Assert.IsType<Error>((await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Value).Code);
         Assert.Equal(0, _repository.Saves);
     }
 
@@ -86,8 +87,8 @@ public sealed class GoalsTests : IDisposable
 
         var edited = await Goals.EditAsync(goal.Id, Paid with { DueDate = null }, Cancellation);
 
-        Assert.True(edited.IsSuccess);
-        Assert.Null((await Goals.GetAsync(goal.Id, Cancellation)).Value.DueDate);
+        Assert.IsType<Ok<GoalDto>>(edited.Value);
+        Assert.Null(Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Value.DueDate);
     }
 
     [Fact]
@@ -99,10 +100,11 @@ public sealed class GoalsTests : IDisposable
 
         var edited = await Goals.EditAsync(goal.Id, new SetGoalRequest("Paid in a day", null, MakeGoal.Due.AddDays(7)), Cancellation);
 
-        Assert.Equal("Paid in a day", edited.Value.Title);
-        Assert.Null(edited.Value.Outcome);
-        Assert.Equal(MakeGoal.Due.AddDays(7), edited.Value.DueDate);
-        Assert.Equal(task, Assert.Single(edited.Value.Attachments).Item.TaskId);
+        var saved = Assert.IsType<Ok<GoalDto>>(edited.Value).Value;
+        Assert.Equal("Paid in a day", saved.Title);
+        Assert.Null(saved.Outcome);
+        Assert.Equal(MakeGoal.Due.AddDays(7), saved.DueDate);
+        Assert.Equal(task, Assert.Single(saved.Attachments).Item.TaskId);
     }
 
     [Fact]
@@ -113,17 +115,17 @@ public sealed class GoalsTests : IDisposable
 
         var edited = await Goals.EditAsync(goal.Id, new SetGoalRequest("Renamed", "two\nlines", MakeGoal.Due), Cancellation);
 
-        Assert.Equal("progress.outcome_not_one_line", edited.Error.Code);
+        Assert.Equal("progress.outcome_not_one_line", Assert.IsType<Error>(edited.Value).Code);
         Assert.Equal(saves, _repository.Saves);
-        Assert.Equal("Customers get paid faster", (await Goals.GetAsync(goal.Id, Cancellation)).Value.Title);
+        Assert.Equal("Customers get paid faster", Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Value.Title);
     }
 
     [Fact]
     public async Task Editing_or_attaching_to_a_goal_that_is_not_there_is_not_found()
     {
-        Assert.Equal("progress.goal_not_found", (await Goals.EditAsync(Guid.NewGuid(), Paid, Cancellation)).Error.Code);
-        Assert.Equal("progress.goal_not_found", (await Goals.AttachAsync(Guid.NewGuid(), GoalItemDto.ForPlan("x"), cancellationToken: Cancellation)).Error.Code);
-        Assert.Equal("progress.goal_not_found", (await Goals.DeleteAsync(Guid.NewGuid(), Cancellation)).Error.Code);
+        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.EditAsync(Guid.NewGuid(), Paid, Cancellation)).Value).Code);
+        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.AttachAsync(Guid.NewGuid(), GoalItemDto.ForPlan("x"), cancellationToken: Cancellation)).Value).Code);
+        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.DeleteAsync(Guid.NewGuid(), Cancellation)).Value).Code);
     }
 
     /// <summary>Scenario "Deleting a goal with a plan attached": the goal is gone and what
@@ -136,11 +138,11 @@ public sealed class GoalsTests : IDisposable
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForPlan("+bank-integration"), cancellationToken: Cancellation);
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForTask(credit), cancellationToken: Cancellation);
 
-        Assert.True((await Goals.DeleteAsync(goal.Id, Cancellation)).IsSuccess);
+        Assert.IsType<Ok>((await Goals.DeleteAsync(goal.Id, Cancellation)).Value);
 
-        Assert.Equal("progress.goal_not_found", (await Goals.GetAsync(goal.Id, Cancellation)).Error.Code);
-        Assert.Null((await Goals.FindGoalOfAsync(GoalItemDto.ForTask(credit), Cancellation)).Value);
-        Assert.Empty((await Goals.ListAsync(cancellationToken: Cancellation)).Value);
+        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Code);
+        Assert.Null(Assert.IsType<Ok<GoalDto?>>((await Goals.FindGoalOfAsync(GoalItemDto.ForTask(credit), Cancellation)).Value).Value);
+        Assert.Empty(Assert.IsType<Ok<IReadOnlyList<GoalSummaryDto>>>((await Goals.ListAsync(cancellationToken: Cancellation)).Value).Value);
     }
 
     // --- Attaching work to a goal ------------------------------------------------
@@ -157,8 +159,8 @@ public sealed class GoalsTests : IDisposable
 
         Assert.Equal(
             [GoalItemDto.ForPlan("bank-integration"), GoalItemDto.ForTask(task), GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352)],
-            attached.Value.Attachments.Select(a => a.Item));
-        Assert.All(attached.Value.Attachments, a => Assert.Equal(MakeGoal.Today, a.AttachedOn));
+            Assert.IsType<Ok<GoalDto>>(attached.Value).Value.Attachments.Select(a => a.Item));
+        Assert.All(Assert.IsType<Ok<GoalDto>>(attached.Value).Value.Attachments, a => Assert.Equal(MakeGoal.Today, a.AttachedOn));
     }
 
     [Fact]
@@ -167,9 +169,9 @@ public sealed class GoalsTests : IDisposable
         var goal = await CreateAsync();
 
         Assert.Equal("progress.pull_request_without_repository",
-            (await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.PullRequest, Number: 4), cancellationToken: Cancellation)).Error.Code);
+            Assert.IsType<Error>((await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.PullRequest, Number: 4), cancellationToken: Cancellation)).Value).Code);
         Assert.Equal("progress.plan_tag_required",
-            (await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.Plan), cancellationToken: Cancellation)).Error.Code);
+            Assert.IsType<Error>((await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.Plan), cancellationToken: Cancellation)).Value).Code);
     }
 
     /// <summary>Scenario "A task another goal holds": refused with "Already in …", and the
@@ -184,8 +186,8 @@ public sealed class GoalsTests : IDisposable
 
         var refused = await Goals.AttachAsync(paid.Id, highlight, cancellationToken: Cancellation);
 
-        Assert.Equal("Already in Devbook search ships", refused.Error.Message);
-        Assert.Equal(search.Id, (await Goals.FindGoalOfAsync(highlight, Cancellation)).Value!.Id);
+        Assert.Equal("Already in Devbook search ships", Assert.IsType<Error>(refused.Value).Message);
+        Assert.Equal(search.Id, Assert.IsType<Ok<GoalDto?>>((await Goals.FindGoalOfAsync(highlight, Cancellation)).Value).Value!.Id);
     }
 
     [Fact]
@@ -198,9 +200,9 @@ public sealed class GoalsTests : IDisposable
 
         var moved = await Goals.AttachAsync(paid.Id, highlight, moveFromOtherGoal: true, Cancellation);
 
-        Assert.True(moved.IsSuccess);
-        Assert.Empty((await Goals.GetAsync(search.Id, Cancellation)).Value.Attachments);
-        Assert.Equal(paid.Id, (await Goals.FindGoalOfAsync(highlight, Cancellation)).Value!.Id);
+        Assert.IsType<Ok<GoalDto>>(moved.Value);
+        Assert.Empty(Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(search.Id, Cancellation)).Value).Value.Attachments);
+        Assert.Equal(paid.Id, Assert.IsType<Ok<GoalDto?>>((await Goals.FindGoalOfAsync(highlight, Cancellation)).Value).Value!.Id);
     }
 
     [Fact]
@@ -213,9 +215,9 @@ public sealed class GoalsTests : IDisposable
         var detached = await Goals.DetachAsync(goal.Id, item, Cancellation);
         var again = await Goals.DetachAsync(goal.Id, item, Cancellation);
 
-        Assert.Empty(detached.Value.Attachments);
-        Assert.True(again.IsSuccess);
-        Assert.Null((await Goals.FindGoalOfAsync(item, Cancellation)).Value);
+        Assert.Empty(Assert.IsType<Ok<GoalDto>>(detached.Value).Value.Attachments);
+        Assert.IsType<Ok<GoalDto>>(again.Value);
+        Assert.Null(Assert.IsType<Ok<GoalDto?>>((await Goals.FindGoalOfAsync(item, Cancellation)).Value).Value);
     }
 
     // --- The list with its counts ------------------------------------------------
@@ -238,7 +240,7 @@ public sealed class GoalsTests : IDisposable
         await Goals.AttachAsync(search.Id, GoalItemDto.ForTask(mapping.Id), cancellationToken: Cancellation);
         await Goals.AttachAsync(search.Id, GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352), cancellationToken: Cancellation);
 
-        var listed = (await Goals.ListAsync(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 16), Cancellation)).Value;
+        var listed = Assert.IsType<Ok<IReadOnlyList<GoalSummaryDto>>>((await Goals.ListAsync(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 16), Cancellation)).Value).Value;
 
         Assert.Equal([paid.Id, search.Id], listed.Select(summary => summary.Goal.Id));
         Assert.Equal(new GoalProgressDto(Done: 5, Total: 8, Doing: 0, Blocked: 0, ToDo: 3, DoneInWindow: 5), listed[0].Progress);
@@ -254,7 +256,7 @@ public sealed class GoalsTests : IDisposable
         _tasks.Tasks.Add(task);
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForTask(task.Id), cancellationToken: Cancellation);
 
-        var progress = Assert.Single((await Goals.ListAsync(cancellationToken: Cancellation)).Value).Progress;
+        var progress = Assert.Single(Assert.IsType<Ok<IReadOnlyList<GoalSummaryDto>>>((await Goals.ListAsync(cancellationToken: Cancellation)).Value).Value).Progress;
 
         Assert.Equal((1, 1, 0), (progress.Done, progress.Total, progress.DoneInWindow));
     }
@@ -275,13 +277,13 @@ public sealed class GoalsTests : IDisposable
     }
 
     private async Task<List<string>> TitlesAsync() =>
-        [.. (await Goals.ListAsync(cancellationToken: Cancellation)).Value.Select(summary => summary.Goal.Title)];
+        [.. Assert.IsType<Ok<IReadOnlyList<GoalSummaryDto>>>((await Goals.ListAsync(cancellationToken: Cancellation)).Value).Value.Select(summary => summary.Goal.Title)];
 
     [Fact]
     public async Task Goals_nobody_moved_are_listed_in_the_order_they_were_set_and_a_new_one_lands_last()
     {
         var set = await SetThreeAsync();
-        Assert.True((await Goals.MoveAsync(set[2].Id, 0, Cancellation)).IsSuccess);
+        Assert.IsType<Ok>((await Goals.MoveAsync(set[2].Id, 0, Cancellation)).Value);
 
         await CreateAsync("Fourth");
 
@@ -316,7 +318,7 @@ public sealed class GoalsTests : IDisposable
 
         var moved = await Goals.MoveAsync(set[0].Id, 2, Cancellation);
 
-        Assert.True(moved.IsSuccess);
+        Assert.IsType<Ok>(moved.Value);
         Assert.Equal(["Second", "Third", "First"], await TitlesAsync());
         Assert.Equal(saves + 1, _repository.Saves);
         Assert.Equal(1, heard);
@@ -330,7 +332,7 @@ public sealed class GoalsTests : IDisposable
 
         await Goals.MoveAsync(set[1].Id, 0, Cancellation);
 
-        var goal = (await Goals.GetAsync(set[1].Id, Cancellation)).Value;
+        var goal = Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(set[1].Id, Cancellation)).Value).Value;
         Assert.Equal(set[1] with { Attachments = goal.Attachments }, goal);
         Assert.Equal(GoalItemDto.ForPlan("bank"), Assert.Single(goal.Attachments).Item);
     }
@@ -343,7 +345,7 @@ public sealed class GoalsTests : IDisposable
         var heard = 0;
         Goals.Changed += () => heard++;
 
-        Assert.True((await Goals.MoveAsync(set[1].Id, 1, Cancellation)).IsSuccess);
+        Assert.IsType<Ok>((await Goals.MoveAsync(set[1].Id, 1, Cancellation)).Value);
 
         Assert.Equal(saves, _repository.Saves);
         Assert.Equal(0, heard);
@@ -356,7 +358,7 @@ public sealed class GoalsTests : IDisposable
 
         var moved = await Goals.MoveAsync(Guid.NewGuid(), 0, Cancellation);
 
-        Assert.Equal("progress.goal_not_found", moved.Error.Code);
+        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>(moved.Value).Code);
     }
 
     // --- The notice --------------------------------------------------------------

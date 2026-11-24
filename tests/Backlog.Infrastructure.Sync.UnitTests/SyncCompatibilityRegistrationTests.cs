@@ -161,13 +161,13 @@ public sealed class SyncCompatibilityRegistrationTests
 
         public async Task<Result> CallAsync(string client) => client switch
         {
-            nameof(DevicePairingClient) => (Result)await Provider.GetRequiredService<DevicePairingClient>().GetStatusAsync(Cancellation),
-            nameof(TaskSyncClient) => (Result)await Provider.GetRequiredService<TaskSyncClient>().PushAsync([], Cancellation),
-            nameof(InboxAttachmentSyncSource) => (Result)await Provider.GetRequiredService<InboxAttachmentSyncSource>().FetchAsync(Guid.NewGuid(), Cancellation),
-            nameof(SessionSyncClient) => (Result)await Provider.GetRequiredService<SessionSyncClient>().PushAsync([], Cancellation),
-            nameof(AnnotationSyncClient) => (Result)await Provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], Cancellation),
-            nameof(DevbookSubjectSyncClient) => (Result)await Provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], Cancellation),
-            nameof(KnowledgeEventSyncClient) => (Result)await Provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], Cancellation),
+            nameof(DevicePairingClient) => (await Provider.GetRequiredService<DevicePairingClient>().GetStatusAsync(Cancellation)).AsResult(),
+            nameof(TaskSyncClient) => (await Provider.GetRequiredService<TaskSyncClient>().PushAsync([], Cancellation)).AsResult(),
+            nameof(InboxAttachmentSyncSource) => (await Provider.GetRequiredService<InboxAttachmentSyncSource>().FetchAsync(Guid.NewGuid(), Cancellation)).AsResult(),
+            nameof(SessionSyncClient) => (await Provider.GetRequiredService<SessionSyncClient>().PushAsync([], Cancellation)).AsResult(),
+            nameof(AnnotationSyncClient) => (await Provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], Cancellation)).AsResult(),
+            nameof(DevbookSubjectSyncClient) => (await Provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], Cancellation)).AsResult(),
+            nameof(KnowledgeEventSyncClient) => (await Provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], Cancellation)).AsResult(),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
 

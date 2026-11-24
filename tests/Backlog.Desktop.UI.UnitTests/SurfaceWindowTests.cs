@@ -215,7 +215,7 @@ public sealed class SurfaceWindowTests
 
         // Off the renderer's thread, as a request to the MCP endpoint is.
         var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
-            saved.Value.Entry.Id, "# Renamed in the main window\n`task` `!ready`\n", 0));
+            saved.Unwrap().Entry.Id, "# Renamed in the main window\n`task` `!ready`\n", 0));
         Assert.True(renamed.IsSuccess);
 
         window.WaitForAssertion(
@@ -271,7 +271,7 @@ public sealed class SurfaceWindowTests
         host.Pane.State.Changed += () => Interlocked.Increment(ref changed);
 
         var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
-            saved.Value.Entry.Id, "# Renamed after the window closed\n`task` `!ready`\n", 0));
+            saved.Unwrap().Entry.Id, "# Renamed after the window closed\n`task` `!ready`\n", 0));
         Assert.True(renamed.IsSuccess);
 
         // Long enough for a reload the dispatcher had queued to land; none should.

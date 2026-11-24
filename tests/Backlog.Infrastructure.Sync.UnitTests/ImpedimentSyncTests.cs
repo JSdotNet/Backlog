@@ -142,7 +142,7 @@ public sealed class ImpedimentSyncTests
             new FakeTimeProvider(Morning.AddHours(6)),
             impediments: impediments);
 
-        Assert.Equal(1, (await session.PushAsync(Cancellation)).Value.Pushed);
+        Assert.Equal(1, (await session.PushAsync(Cancellation)).Unwrap().Pushed);
         var sent = Assert.Single(JsonSerializer.Deserialize<PushTasksRequest>(bodies[0], Web)!.Tasks);
         Assert.Equal(bank.Id, sent.Id);
         Assert.Equal("impediment", sent.Task.Type);

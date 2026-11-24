@@ -54,7 +54,7 @@ internal sealed class InboxEventTarget(IKnowledgeEvents? events = null, IAppFeat
         }
 
         return spotted.IsSuccess
-            ? Result.Success(spotted.Value.EventId)
+            ? Result.Success(spotted.Unwrap().EventId)
             : Result.Failure<Guid>(InboxErrors.EventNotMade(spotted.Error.Message));
     }
 

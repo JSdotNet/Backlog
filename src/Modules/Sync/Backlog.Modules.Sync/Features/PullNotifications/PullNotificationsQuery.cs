@@ -34,15 +34,17 @@ public sealed class PullNotificationsQueryHandler(INotificationReplica replica, 
         if (!string.IsNullOrWhiteSpace(query.Since))
         {
             var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
-            if (verified.IsFailure)
+            if (verified is not Ok<SyncCursor>(var since))
             {
-                SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(SyncTelemetry.ReasonTag, verified.Error.Code));
-                activity?.SetStatus(ActivityStatusCode.Error, verified.Error.Code);
+                var error = (Error)verified.Value!;
 
-                return verified.Error;
+                SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(SyncTelemetry.ReasonTag, error.Code));
+                activity?.SetStatus(ActivityStatusCode.Error, error.Code);
+
+                return error;
             }
 
-            cursor = new NotificationReplicaCursor(verified.Value);
+            cursor = new NotificationReplicaCursor(since);
         }
 
         var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);

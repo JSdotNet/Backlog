@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.KeepUpWithWork;
 using Backlog.Modules.Roadmap.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
@@ -51,10 +52,10 @@ public class KeepUpWithWorkTests
             PlannedWindow.Of(start, end),
             placement,
             scope: RepositoryScope.Of(["app"]));
-        Assert.True(added.IsSuccess);
-        foreach (var dependsOn in after) Assert.True(plan.AddDependency(added.Value.Id, dependsOn).IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(added.Value);
+        foreach (var dependsOn in after) Assert.IsType<Ok>(plan.AddDependency(Assert.IsType<Ok<RoadmapItem>>(added.Value).Value.Id, dependsOn).Value);
         _plans.Current = plan;
-        return added.Value.Id;
+        return Assert.IsType<Ok<RoadmapItem>>(added.Value).Value.Id;
     }
 
     private static RoadmapGatheredLink Task(
@@ -166,7 +167,7 @@ public class KeepUpWithWorkTests
     {
         var plan = _plans.Current;
         var added = plan.AddItem("plan-a", PlannedWindow.Of(new DateOnly(2026, 9, 28), new DateOnly(2026, 10, 2)), tag: PlanningTag.Of("plan-a"));
-        Assert.True(added.IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(added.Value);
         _plans.Current = plan;
         _work.File("plan-a", Task("a-1", 8));
 
@@ -181,7 +182,7 @@ public class KeepUpWithWorkTests
     {
         var id = Imported("plan-a", new DateOnly(2026, 10, 5), new DateOnly(2026, 10, 9));
         var plan = _plans.Current;
-        Assert.True(plan.PinEnd(id, new DateOnly(2026, 10, 30)).IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(plan.PinEnd(id, new DateOnly(2026, 10, 30)).Value);
         _plans.Current = plan;
         _work.File("plan-a", Task("a-1", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 10, 6)), Task("a-2", 8));
 
@@ -253,7 +254,7 @@ public class KeepUpWithWorkTests
         gathering.SetResult();
         await System.Threading.Tasks.Task.WhenAll(keepUp, import);
 
-        Assert.True((await import).IsSuccess);
+        Assert.IsType<Ok<PlanImportResultDto>>((await import).Value);
         Assert.Equal(PlannedWindow.Of(Today, new DateOnly(2026, 10, 16)), Stored(id).Window);
         Assert.Single(_plans.Current.Items, item => item.Tag == PlanningTag.Of("plan-b"));
     }

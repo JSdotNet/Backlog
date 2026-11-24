@@ -47,7 +47,7 @@ public sealed class RoadmapBandPinnedEndTests : RoadmapBandHarness
             new DateOnly(2026, 1, 16),
             repositoryAliases: ["backlog"],
             cancellationToken: TestContext.Current.CancellationToken);
-        return added.Value.Id;
+        return added.Unwrap().Id;
     }
 
     private IRenderedComponent<RoadmapBand> Band(BunitContext context)

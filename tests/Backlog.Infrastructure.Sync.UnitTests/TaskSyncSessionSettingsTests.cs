@@ -76,7 +76,7 @@ public sealed class TaskSyncSessionSettingsTests
         var result = await fixture.Session.PushAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         var sent = Assert.Single(Pushed(Assert.Single(fixture.Bodies)));
         Assert.Equal(setting.Id, sent.Id);
@@ -120,7 +120,7 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
         Assert.Equal(DateTimeOffset.UnixEpoch, Assert.Single(Pushed(Assert.Single(fixture.Bodies))).UpdatedAt);
         Assert.Equal(DateTimeOffset.UnixEpoch, state.Current.DocumentWatermark(Iteration));
     }
@@ -137,7 +137,7 @@ public sealed class TaskSyncSessionSettingsTests
         var result = await fixture.Session.PushAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.Equal(0, result.Unwrap().Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -156,8 +156,8 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(0, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Refused);
         Assert.Empty(activity.Snapshot());
         Assert.Equal(Morning, state.Current.DocumentWatermark(setting.Type));
     }
@@ -201,7 +201,7 @@ public sealed class TaskSyncSessionSettingsTests
         var result = await fixture.Session.PullAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(1, result.Unwrap().Applied);
         Assert.Equal(sent, Assert.Single(fixture.Offered));
         Assert.Equal("cursor-after-the-page", state.Current.PullCursor);
     }

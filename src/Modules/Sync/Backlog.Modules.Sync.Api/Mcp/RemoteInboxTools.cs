@@ -85,15 +85,15 @@ public sealed class RemoteInboxTools(
                 tags),
             cancellationToken);
 
-        if (!result.IsSuccess)
+        if (result is not Ok<CaptureOutcome>(var captured))
         {
-            throw Failure(result.Error);
+            throw Failure((Error)result.Value!);
         }
 
-        SyncTelemetry.RemoteMcpCaptures.Add(1, new TagList { { "created", result.Value.Created } });
+        SyncTelemetry.RemoteMcpCaptures.Add(1, new TagList { { "created", captured.Created } });
 
-        var item = result.Value.Item;
-        return new RemoteCapturePayload(item.Id, item.Title, item.CapturedAt, result.Value.Created);
+        var item = captured.Item;
+        return new RemoteCapturePayload(item.Id, item.Title, item.CapturedAt, captured.Created);
     }
 
     /// <summary>The owner the access token names. The endpoint's policy admitted the call, so a

@@ -1,3 +1,4 @@
+@using global::Backlog.SharedKernel.Results
 @inject IEventsPane Pane
 @inject ISurfaceNavigator Navigator
 @inject ISurfaceCatalog Catalog
@@ -216,16 +217,16 @@
                 ? await Writes.RunAsync(() => Pane.RelinkBrainNoteAsync(Event.Id, old, path, title))
                 : await Writes.RunAsync(() => Pane.LinkBrainNoteAsync(Event.Id, path, title));
 
-            if (saved.IsFailure)
+            if (saved is not Ok<KnowledgeEventDto>(var linked))
             {
                 commit.Refuse();
-                _error = saved.Error.Message;
+                _error = ((Error)saved.Value!).Message;
                 return;
             }
 
             _relinking = null;
             _text = string.Empty;
-            await OnSaved.InvokeAsync(saved.Value);
+            await OnSaved.InvokeAsync(linked);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -245,14 +246,14 @@
         try
         {
             var saved = await Writes.RunAsync(() => Pane.UnlinkNoteAsync(Event.Id, note.Kind, note.Reference));
-            if (saved.IsFailure)
+            if (saved is not Ok<KnowledgeEventDto>(var unlinked))
             {
-                _error = saved.Error.Message;
+                _error = ((Error)saved.Value!).Message;
                 return;
             }
 
             if (_relinking == note.Reference) _relinking = null;
-            await OnSaved.InvokeAsync(saved.Value);
+            await OnSaved.InvokeAsync(unlinked);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

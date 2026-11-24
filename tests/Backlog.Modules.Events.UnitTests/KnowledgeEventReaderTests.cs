@@ -2,6 +2,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -48,11 +49,11 @@ public sealed class KnowledgeEventReaderTests
             id: id,
             start: new DateOnly(2026, 5, 12),
             end: new DateOnly(2026, 5, 14),
-            place: Place.AtVenue("Antwerp").Value,
+            place: Assert.IsType<Ok<Place>>(Place.AtVenue("Antwerp").Value).Value,
             keyDates:
             [
-                KeyDate.Create(new DateOnly(2026, 3, 3), "Early bird ends").Value,
-                KeyDate.Create(new DateOnly(2026, 2, 1), "Call for speakers closes").Value
+                Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 3, 3), "Early bird ends").Value).Value,
+                Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 2, 1), "Call for speakers closes").Value).Value
             ]));
 
         var techorama = Assert.Single(await reader.ListDecidedAsync(TestContext.Current.CancellationToken));
@@ -120,8 +121,8 @@ public sealed class KnowledgeEventReaderTests
             id ?? Guid.NewGuid(),
             title,
             series: null,
-            start: start is { } first ? EventDate.Create(first, time: null, utcOffset: null).Value : null,
-            end: end is { } last ? EventDate.Create(last, time: null, utcOffset: null).Value : null,
+            start: start is { } first ? Assert.IsType<Ok<EventDate>>(EventDate.Create(first, time: null, utcOffset: null).Value).Value : null,
+            end: end is { } last ? Assert.IsType<Ok<EventDate>>(EventDate.Create(last, time: null, utcOffset: null).Value).Value : null,
             dateSource: start is null ? null : DateSource.Typed,
             place: place,
             link: null,

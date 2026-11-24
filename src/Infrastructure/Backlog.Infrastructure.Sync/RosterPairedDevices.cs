@@ -70,10 +70,10 @@ public sealed class RosterPairedDevices : IPairedDevices
         if (listed.IsFailure)
             throw new InvalidOperationException($"The owner's devices could not be read: {listed.Error.Code}.");
 
-        _seen.TryAdd(listed.Value.CallerDeviceId, 0);
-        foreach (var device in listed.Value.Devices) _seen.TryAdd(device.DeviceId, 0);
+        _seen.TryAdd(listed.Unwrap().CallerDeviceId, 0);
+        foreach (var device in listed.Unwrap().Devices) _seen.TryAdd(device.DeviceId, 0);
 
-        if (deviceId == listed.Value.CallerDeviceId || listed.Value.Devices.Any(device => device.DeviceId == deviceId))
+        if (deviceId == listed.Unwrap().CallerDeviceId || listed.Unwrap().Devices.Any(device => device.DeviceId == deviceId))
             return DeviceStanding.Paired;
 
         return _seen.ContainsKey(deviceId) ? DeviceStanding.Revoked : DeviceStanding.Unknown;

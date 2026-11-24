@@ -50,17 +50,23 @@ public sealed class RedeemPairingCodeCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var name = DeviceName.Validate(command.DeviceName);
-        if (name.IsFailure)
+        var validName = DeviceName.Validate(command.DeviceName);
+        if (validName is not Ok<string>(var name))
         {
-            return name.Error;
+            return (Error)validName.Value!;
         }
 
         // Before the code is looked up, so a malformed key never burns a code.
-        var publicKey = command.PublicKey is null ? null : DevicePublicKey.Validate(command.PublicKey);
-        if (publicKey is { IsFailure: true })
+        string? publicKey = null;
+        if (command.PublicKey is not null)
         {
-            return publicKey.Error;
+            var validated = DevicePublicKey.Validate(command.PublicKey);
+            if (validated is not Ok<string>(var validKey))
+            {
+                return (Error)validated.Value!;
+            }
+
+            publicKey = validKey;
         }
 
         var normalized = PairingCodeFormat.Normalize(command.Code ?? string.Empty);
@@ -111,11 +117,11 @@ public sealed class RedeemPairingCodeCommandHandler(
             new Device(
                 deviceId,
                 code.OwnerId,
-                name.Value,
+                name,
                 credential is null ? null : hasher.Hash(credential),
                 clock.GetUtcNow(),
                 PairedBy: code.IssuedBy,
-                PublicKey: publicKey?.Value),
+                PublicKey: publicKey),
             cancellationToken);
 
         return new DeviceRegistrationResponse(code.OwnerId.Value, deviceId.Value, credential);

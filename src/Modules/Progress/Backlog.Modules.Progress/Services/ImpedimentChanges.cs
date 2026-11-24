@@ -60,7 +60,7 @@ public sealed class ImpedimentChanges(IImpedimentRepository repository, Progress
         if (impediment is null) return ProgressErrors.ImpedimentNotFound(impedimentId);
 
         var changed = change(impediment);
-        if (changed.IsFailure) return changed.Error;
+        if (changed is Error error) return error;
 
         await repository.SaveAsync(impediment, cancellationToken).ConfigureAwait(false);
         held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.

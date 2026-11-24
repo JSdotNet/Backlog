@@ -31,7 +31,7 @@ public sealed class DevicePairingClientTests
         Assert.True(result.IsSuccess);
         Assert.Equal("/api/sync/devices/register", fixture.Handler.Requests[^1].Path);
         Assert.Equal(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"), store.Current);
-        Assert.Equal(store.Current, result.Value);
+        Assert.Equal(store.Current, result.Unwrap());
     }
 
     [Fact]
@@ -116,10 +116,10 @@ public sealed class DevicePairingClientTests
         var code = await fixture.Client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
         var status = await fixture.Client.GetStatusAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal("K7MN9PQR", code.Value.Code);
+        Assert.Equal("K7MN9PQR", code.Unwrap().Code);
         Assert.Equal("/api/sync/devices/codes", fixture.Handler.Requests[0].Path);
 
-        Assert.Equal(2, status.Value.PairedDeviceCount);
+        Assert.Equal(2, status.Unwrap().PairedDeviceCount);
         Assert.Equal("/api/sync/devices/me", fixture.Handler.Requests[1].Path);
     }
 

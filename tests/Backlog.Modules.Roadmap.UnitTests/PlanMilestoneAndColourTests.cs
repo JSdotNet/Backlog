@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -16,11 +17,11 @@ public class PlanMilestoneAndColourTests
     private static (RoadmapPlan Plan, Milestone Milestone) Planned()
     {
         var plan = RoadmapPlan.Empty();
-        var milestone = plan.AddMilestone(
+        var milestone = Assert.IsType<Ok<Milestone>>(plan.AddMilestone(
             "1.0",
             March,
             MilestoneKind.Release,
-            RepositoryScope.Of(["backlog"])).Value;
+            RepositoryScope.Of(["backlog"])).Value).Value;
 
         return (plan, milestone);
     }
@@ -38,7 +39,7 @@ public class PlanMilestoneAndColourTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var milestone = plan.AddMilestone("Freeze", March, MilestoneKind.Freeze, isPlanWide: true).Value;
+        var milestone = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("Freeze", March, MilestoneKind.Freeze, isPlanWide: true).Value).Value;
 
         Assert.True(milestone.IsPlanWide);
     }
@@ -57,7 +58,7 @@ public class PlanMilestoneAndColourTests
             PlanningLane.Of("release"),
             isPlanWide: true);
 
-        Assert.True(updated.IsSuccess);
+        Assert.IsType<Ok<Milestone>>(updated.Value);
         Assert.Equal("1.1", milestone.Title);
         Assert.Equal(new DateOnly(2026, 4, 30), milestone.On);
         Assert.Equal(MilestoneKind.Commitment, milestone.Kind);
@@ -70,10 +71,10 @@ public class PlanMilestoneAndColourTests
     public void ADateEditKeepsItsIdSoDependenciesOnItSurvive()
     {
         var plan = RoadmapPlan.Empty();
-        var release = plan.AddMilestone("1.0", March).Value;
-        var work = plan.AddItem(
+        var release = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("1.0", March).Value).Value;
+        var work = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Work",
-            PlannedWindow.Of(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9))).Value;
+            PlannedWindow.Of(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9))).Value).Value;
         plan.AddDependency(work.Id, release.Id);
 
         plan.UpdateMilestone(release.Id, "1.0.1", March.AddDays(7), MilestoneKind.Release);
@@ -90,8 +91,8 @@ public class PlanMilestoneAndColourTests
 
         var updated = plan.UpdateMilestone(milestone.Id, title, March, MilestoneKind.Release);
 
-        Assert.True(updated.IsFailure);
-        Assert.Equal("roadmap.title_required", updated.Error.Code);
+        Assert.IsType<Error>(updated.Value);
+        Assert.Equal("roadmap.title_required", Assert.IsType<Error>(updated.Value).Code);
         Assert.Equal("1.0", milestone.Title);
     }
 
@@ -102,8 +103,8 @@ public class PlanMilestoneAndColourTests
 
         var updated = plan.UpdateMilestone(Guid.NewGuid(), "Anything", March, MilestoneKind.Release);
 
-        Assert.True(updated.IsFailure);
-        Assert.Equal("roadmap.node_not_found", updated.Error.Code);
+        Assert.IsType<Error>(updated.Value);
+        Assert.Equal("roadmap.node_not_found", Assert.IsType<Error>(updated.Value).Code);
     }
 
     // --- Band colours ---------------------------------------------------------

@@ -193,8 +193,8 @@ public sealed class InboxBacklogTargetTests
         var result = await target.CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Count);
-        Assert.Equal(tasks.Saves.Select(save => save.Id), result.Value);
+        Assert.Equal(2, result.Unwrap().Count);
+        Assert.Equal(tasks.Saves.Select(save => save.Id), result.Unwrap());
 
         Assert.Equal([3, 4], tasks.Saves.Select(save => save.Order));
         Assert.All(tasks.Saves, save => Assert.Equal(Item.ToString("D"), save.SourceInboxId));
@@ -211,7 +211,7 @@ public sealed class InboxBacklogTargetTests
 
         var result = await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Single(result.Value);
+        Assert.Single(result.Unwrap());
         Assert.Equal(0, Assert.Single(tasks.Saves).Order);
     }
 
@@ -324,7 +324,7 @@ public sealed class InboxBacklogTargetTests
             "# One\n`prompt`\n\n# Two\n`prompt`\n", Item, allowedRepoIds: [], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Count);
+        Assert.Equal(2, result.Unwrap().Count);
 
         var import = Assert.Single(tasks.Imports);
         Assert.Equal(Item.ToString("D"), import.SourceInboxId);
@@ -372,7 +372,7 @@ public sealed class InboxBacklogTargetTests
         var result = new InboxBacklogTarget(tasks, Known()).ReadDraftedOrder(plan, [a, b, c], ["jsdotnet/backlog"]);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal([new InboxBatchEdge(b, a), new InboxBatchEdge(c, b), new InboxBatchEdge(c, a)], result.Value);
+        Assert.Equal([new InboxBatchEdge(b, a), new InboxBatchEdge(c, b), new InboxBatchEdge(c, a)], result.Unwrap());
         Assert.Empty(tasks.Imports);
         Assert.Empty(tasks.Saves);
     }
@@ -427,7 +427,7 @@ public sealed class InboxBacklogTargetTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Count);
+        Assert.Equal(2, result.Unwrap().Count);
         Assert.Single(tasks.Imports);
     }
 

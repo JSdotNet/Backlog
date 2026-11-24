@@ -96,7 +96,7 @@ internal sealed partial class InboxBacklogTarget(
                     });
             }
 
-            created.Add(saved.Value.Entry.Id);
+            created.Add(saved.Unwrap().Entry.Id);
         }
 
         return created;
@@ -187,7 +187,7 @@ internal sealed partial class InboxBacklogTarget(
 
         if (imported.IsFailure) return new InboxBatchTargetResultDto([], Ordered(refused), imported.Error);
 
-        var byImportItemId = imported.Value.Entries
+        var byImportItemId = imported.Unwrap().Entries
             .Where(entry => entry.ImportItemId is not null)
             .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
@@ -288,7 +288,7 @@ internal sealed partial class InboxBacklogTarget(
 
         if (imported.IsFailure) return Result.Failure<IReadOnlyList<Guid>>(imported.Error);
 
-        return Result.Success<IReadOnlyList<Guid>>([.. imported.Value.Entries.Select(entry => entry.Id)]);
+        return Result.Success<IReadOnlyList<Guid>>([.. imported.Unwrap().Entries.Select(entry => entry.Id)]);
     }
 
     /// <summary>The drafted plan with every task entry carrying the item's
@@ -570,9 +570,9 @@ internal sealed partial class InboxBacklogTarget(
         if (taskIds.Count == 0) return Result.Success();
 
         var present = await DeletableTasksAsync(taskIds, madeDone, cancellationToken).ConfigureAwait(false);
-        if (present.IsFailure) return present;
+        if (present.IsFailure) return present.AsResult();
 
-        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+        await DeleteAsync(present.Unwrap(), cancellationToken).ConfigureAwait(false);
 
         return Result.Success();
     }
@@ -595,7 +595,7 @@ internal sealed partial class InboxBacklogTarget(
         ArgumentNullException.ThrowIfNull(plan);
 
         var present = await DeletableTasksAsync(taskIds, madeDone: false, cancellationToken).ConfigureAwait(false);
-        if (present.IsFailure) return present;
+        if (present.IsFailure) return present.AsResult();
 
         IReadOnlyList<RoadmapItemDto> laidOut = [];
         if (roadmap is not null)
@@ -609,7 +609,7 @@ internal sealed partial class InboxBacklogTarget(
             }
         }
 
-        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+        await DeleteAsync(present.Unwrap(), cancellationToken).ConfigureAwait(false);
 
         foreach (var item in laidOut)
         {

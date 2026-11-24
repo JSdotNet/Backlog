@@ -1,6 +1,8 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -147,7 +149,7 @@ public sealed class TaskItemStartedOnTests
         var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new SaveTaskFromTextCommand(id, rawText, 0));
 
-        Assert.True(result.IsSuccess);
-        return result.Value.Entry.Id;
+        var ok = Assert.IsType<Ok<SavedTaskDto>>(result.Value);
+        return ok.Value.Entry.Id;
     }
 }

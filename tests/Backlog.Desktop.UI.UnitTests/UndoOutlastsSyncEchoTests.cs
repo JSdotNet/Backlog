@@ -333,7 +333,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         {
             var pulled = await _session.PullAsync(Cancellation);
             Assert.True(pulled.IsSuccess, pulled.IsFailure ? pulled.Error.Message : null);
-            return pulled.Value;
+            return pulled.Unwrap();
         }
 
         public async Task SyncAsync()

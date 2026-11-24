@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -111,7 +112,7 @@ public sealed class NotificationsStartup
 
             var reason = await EndReasonAsync(probe, subject, cancellationToken).ConfigureAwait(false);
             var result = await _notifications.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
-            if (result.IsSuccess) closed += result.Value;
+            if (result is Ok<int>(var count)) closed += count;
         }
 
         return closed;

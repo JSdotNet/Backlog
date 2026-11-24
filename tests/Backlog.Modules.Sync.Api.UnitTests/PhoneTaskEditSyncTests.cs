@@ -10,6 +10,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -108,7 +109,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         var mine = (await devices.DesktopTasks.GetAsync(task.Id, Cancellation))!;
         mine.Rename("Plan the trip to Ghent");
         await devices.DesktopTasks.SaveAsync(mine, Cancellation);
-        Assert.True((await devices.DesktopSession.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.SyncAsync(Cancellation)).Value);
 
         await devices.Phone.View.PullAsync(Cancellation);
 
@@ -144,7 +145,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
 
         // The successor is the desktop's own write, so its next sync sends it and
         // the phone receives it.
-        Assert.True((await devices.DesktopSession.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.SyncAsync(Cancellation)).Value);
         await devices.Phone.View.PullAsync(Cancellation);
         Assert.NotNull(devices.Phone.View.Find(successor.Id));
     }
@@ -166,9 +167,9 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
 
         await devices.DesktopPullsAsync(task.Id);
         await devices.DesktopPullsAsync(task.Id);
-        Assert.True((await devices.DesktopSession.SyncAsync(Cancellation)).IsSuccess);
-        Assert.True((await devices.DesktopSession.SyncAsync(Cancellation)).IsSuccess);
-        Assert.True((await FromTheStartOfTheFeed(devices).PullAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.SyncAsync(Cancellation)).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.SyncAsync(Cancellation)).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await FromTheStartOfTheFeed(devices).PullAsync(Cancellation)).Value);
 
         Assert.Single(await devices.SuccessorsOfAsync(task.Id));
     }
@@ -184,20 +185,20 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         var task = await devices.DesktopAddsTodaysRepeatingTaskAsync();
         var laptop = await SecondDesktopAsync(devices);
         using var laptopHttp = laptop.Http;
-        Assert.True((await laptop.Session.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await laptop.Session.SyncAsync(Cancellation)).Value);
         Assert.NotNull(await laptop.Tasks.GetAsync(task.Id, Cancellation));
 
         await devices.Phone.View.PullAsync(Cancellation);
         await devices.Phone.Edits.MarkDoneAsync(task.Id, Cancellation);
         await devices.Phone.Outbox.FlushAsync(Cancellation);
 
-        Assert.True((await devices.DesktopSession.PullAsync(Cancellation)).IsSuccess);
-        Assert.True((await laptop.Session.PullAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.PullAsync(Cancellation)).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await laptop.Session.PullAsync(Cancellation)).Value);
 
         for (var round = 0; round < 2; round++)
         {
-            Assert.True((await devices.DesktopSession.SyncAsync(Cancellation)).IsSuccess);
-            Assert.True((await laptop.Session.SyncAsync(Cancellation)).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.SyncAsync(Cancellation)).Value);
+            Assert.IsType<Ok<TaskSyncSummary>>((await laptop.Session.SyncAsync(Cancellation)).Value);
         }
 
         var onDesktop = Assert.Single(await devices.SuccessorsOfAsync(task.Id));
@@ -246,7 +247,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
         await devices.Phone.Outbox.FlushAsync(Cancellation);
         Assert.Empty(devices.Phone.Outbox.Entries);
 
-        Assert.True((await devices.DesktopSession.PullAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.DesktopSession.PullAsync(Cancellation)).Value);
         await devices.Phone.View.PullAsync(Cancellation);
 
         string[] expected = ["Plan the trip", "Book the hotel", "Buy a charger"];
@@ -347,7 +348,7 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
             task.SetInMyDayOn(Phone.View.Today);
 
             await DesktopTasks.SaveAsync(task, Cancellation);
-            Assert.True((await DesktopSession.SyncAsync(Cancellation)).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await DesktopSession.SyncAsync(Cancellation)).Value);
 
             return task;
         }
@@ -367,14 +368,14 @@ public sealed class PhoneTaskEditSyncTests : IDisposable
             task.SetOrder(order);
 
             await DesktopTasks.SaveAsync(task, Cancellation);
-            Assert.True((await DesktopSession.SyncAsync(Cancellation)).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await DesktopSession.SyncAsync(Cancellation)).Value);
 
             return task;
         }
 
         public async Task<TaskItem> DesktopPullsAsync(Guid id)
         {
-            Assert.True((await DesktopSession.PullAsync(Cancellation)).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await DesktopSession.PullAsync(Cancellation)).Value);
             return (await DesktopTasks.GetAsync(id, Cancellation))!;
         }
 

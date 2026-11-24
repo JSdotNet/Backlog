@@ -46,6 +46,7 @@
 *@
 @namespace Backlog.Desktop.UI.Tasks
 @using Backlog.Modules.Tasks.Abstractions.Connectors
+@using Backlog.SharedKernel.Results
 @using Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @using Microsoft.Extensions.Logging
@@ -962,7 +963,11 @@
         try
         {
             var result = await disconnected.DeleteAsync(source.ConnectorId, source.Target, CancellationToken.None);
-            message = result.IsSuccess ? $"Deleted {TaskCount(result.Value)} from {source.Target}." : result.Error.Message;
+            message = result switch
+            {
+                Ok<int>(var count) => $"Deleted {TaskCount(count)} from {source.Target}.",
+                Error error => error.Message,
+            };
         }
         catch (Exception ex)
         {
@@ -1018,9 +1023,11 @@
         try
         {
             var result = await deleted.RestoreAsync(target.ConnectorId, target.Target, CancellationToken.None);
-            message = result.IsSuccess
-                ? $"Restored {TaskCount(result.Value)} from {target.Target}. The next sync brings {(result.Value == 1 ? "it" : "them")} up to date."
-                : result.Error.Message;
+            message = result switch
+            {
+                Ok<int>(var count) => $"Restored {TaskCount(count)} from {target.Target}. The next sync brings {(count == 1 ? "it" : "them")} up to date.",
+                Error error => error.Message,
+            };
         }
         catch (Exception ex)
         {

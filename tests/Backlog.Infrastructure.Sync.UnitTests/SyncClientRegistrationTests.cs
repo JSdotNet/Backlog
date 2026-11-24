@@ -495,11 +495,11 @@ public class SyncClientRegistrationTests
 
         return client switch
         {
-            nameof(TaskSyncClient) => await provider.GetRequiredService<TaskSyncClient>().PushAsync([], cancellationToken),
-            nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PushAsync([], cancellationToken),
-            nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], cancellationToken),
-            nameof(DevbookSubjectSyncClient) => await provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], cancellationToken),
-            nameof(KnowledgeEventSyncClient) => await provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], cancellationToken),
+            nameof(TaskSyncClient) => (await provider.GetRequiredService<TaskSyncClient>().PushAsync([], cancellationToken)).AsResult(),
+            nameof(SessionSyncClient) => (await provider.GetRequiredService<SessionSyncClient>().PushAsync([], cancellationToken)).AsResult(),
+            nameof(AnnotationSyncClient) => (await provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], cancellationToken)).AsResult(),
+            nameof(DevbookSubjectSyncClient) => (await provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], cancellationToken)).AsResult(),
+            nameof(KnowledgeEventSyncClient) => (await provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], cancellationToken)).AsResult(),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
     }
@@ -510,11 +510,11 @@ public class SyncClientRegistrationTests
 
         return client switch
         {
-            nameof(TaskSyncClient) => await provider.GetRequiredService<TaskSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
-            nameof(SessionSyncClient) => await provider.GetRequiredService<SessionSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
-            nameof(AnnotationSyncClient) => await provider.GetRequiredService<AnnotationSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
-            nameof(DevbookSubjectSyncClient) => await provider.GetRequiredService<DevbookSubjectSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
-            nameof(KnowledgeEventSyncClient) => await provider.GetRequiredService<KnowledgeEventSyncClient>().PullAsync(null, cancellationToken: cancellationToken),
+            nameof(TaskSyncClient) => (await provider.GetRequiredService<TaskSyncClient>().PullAsync(null, cancellationToken: cancellationToken)).AsResult(),
+            nameof(SessionSyncClient) => (await provider.GetRequiredService<SessionSyncClient>().PullAsync(null, cancellationToken: cancellationToken)).AsResult(),
+            nameof(AnnotationSyncClient) => (await provider.GetRequiredService<AnnotationSyncClient>().PullAsync(null, cancellationToken: cancellationToken)).AsResult(),
+            nameof(DevbookSubjectSyncClient) => (await provider.GetRequiredService<DevbookSubjectSyncClient>().PullAsync(null, cancellationToken: cancellationToken)).AsResult(),
+            nameof(KnowledgeEventSyncClient) => (await provider.GetRequiredService<KnowledgeEventSyncClient>().PullAsync(null, cancellationToken: cancellationToken)).AsResult(),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
     }

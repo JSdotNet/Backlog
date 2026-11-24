@@ -76,9 +76,9 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Unwrap().Id);
 
-        Assert.Equal(release.Value.Id, DateEditor(band).Milestone?.Id);
+        Assert.Equal(release.Unwrap().Id, DateEditor(band).Milestone?.Id);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
         Assert.Equal(
             "1.0",
@@ -92,10 +92,10 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Unwrap().Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
-            release.Value.Id,
+            release.Unwrap().Id,
             "1.1",
             new DateOnly(2026, 4, 30),
             MilestoneKind.Commitment,
@@ -104,7 +104,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         var milestone = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Milestones);
 
-        Assert.Equal(release.Value.Id, milestone.Id);
+        Assert.Equal(release.Unwrap().Id, milestone.Id);
         Assert.Equal("1.1", milestone.Title);
         Assert.Equal(new DateOnly(2026, 4, 30), milestone.On);
         Assert.Equal(MilestoneKind.Commitment, milestone.Kind);
@@ -132,9 +132,9 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Unwrap().Id);
 
-        await band.InvokeAsync(() => DateEditor(band).OnDelete.InvokeAsync(release.Value.Id));
+        await band.InvokeAsync(() => DateEditor(band).OnDelete.InvokeAsync(release.Unwrap().Id));
 
         Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Milestones);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-milestone-editor\"]"));
@@ -158,7 +158,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
 
-        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{freeze.Value.Id}\"]"));
+        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{freeze.Unwrap().Id}\"]"));
     }
 
     [Fact]
@@ -202,9 +202,9 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         // Down the band the date was filed under, and not down the whole chart: that is
         // what a plan-wide date is for.
-        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-backlog\"]"));
-        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}\"]"));
-        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-website\"]"));
+        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Unwrap().Id}-backlog\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Unwrap().Id}\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Unwrap().Id}-website\"]"));
     }
 
     [Fact]
@@ -215,14 +215,14 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Unwrap().Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(release.Value.Id, work.Value.Id, Added: true)));
+            new RoadmapDependencyChange(release.Unwrap().Id, work.Unwrap().Id, Added: true)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal([work.Value.Id], plan.Milestones.Single().DependsOn);
+        Assert.Equal([work.Unwrap().Id], plan.Milestones.Single().DependsOn);
     }
 
     // --- Band colours ---------------------------------------------------------

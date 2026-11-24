@@ -192,7 +192,7 @@ public sealed class AnnotationSyncWorker : IDisposable
 
             if (result.IsSuccess)
             {
-                LastSummary = result.Value;
+                LastSummary = result.Unwrap();
                 LastError = null;
             }
             else

@@ -36,15 +36,15 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
 
     private static Impediment Escalated(string title = "Bank sample files missing", DateTimeOffset? createdAt = null)
     {
-        var impediment = Impediment.Raise(Guid.NewGuid(), title, Wed14, createdAt).Value;
+        var impediment = Impediment.Raise(Guid.NewGuid(), title, Wed14, createdAt).Unwrap();
         Assert.True(impediment.MoveTo(ImpedimentState.Reported, Wed14.AddDays(1), "bank support").IsSuccess);
         Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Wed14.AddDays(2), "account manager").IsSuccess);
         impediment.SetCheckAgain(new DateOnly(2026, 10, 20));
         impediment.EditNote("Asked for the sample twice.\nNo answer yet.");
-        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
-        impediment.HoldBack(HeldBackItem.ForPullRequest("acme/payments", 412).Value);
-        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
-        impediment.HoldBack(HeldBackItem.ForPlan("goals-standup").Value);
+        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Unwrap());
+        impediment.HoldBack(HeldBackItem.ForPullRequest("acme/payments", 412).Unwrap());
+        impediment.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Unwrap());
+        impediment.HoldBack(HeldBackItem.ForPlan("goals-standup").Unwrap());
         return impediment;
     }
 
@@ -110,7 +110,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     [Fact]
     public async Task A_resolved_impediment_reads_back_resolved_on_its_day()
     {
-        var impediment = Impediment.Raise(Guid.NewGuid(), "Credit note numbering unclear", Wed14).Value;
+        var impediment = Impediment.Raise(Guid.NewGuid(), "Credit note numbering unclear", Wed14).Unwrap();
         Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Wed14.AddDays(1)).IsSuccess);
 
         await _repository.SaveAsync(impediment, Cancellation);
@@ -175,7 +175,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
 
         Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
 
-        Assert.Equal([HeldBackItem.ForTask(task).Value], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
+        Assert.Equal([HeldBackItem.ForTask(task).Unwrap()], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
 
         Assert.True(await _repository.TryWriteAsync(new ImpedimentReplicaCopyDto(id, "Bank", content, DateTimeOffset.UtcNow), Cancellation));
 
-        Assert.Equal([HeldBackItem.ForPlan("goals-standup").Value], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
+        Assert.Equal([HeldBackItem.ForPlan("goals-standup").Unwrap()], (await _repository.GetAsync(id, Cancellation))!.HoldsBack);
     }
 
     /// <summary>The carry-over rule (local ADR 0035 §9, Verification 11): a version 1 write
@@ -203,8 +203,8 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         var added = Guid.NewGuid();
         var local = Escalated();
         foreach (var item in local.HoldsBack.Where(item => item.Kind == HeldBackKind.Task).ToList()) local.Release(item);
-        local.HoldBack(HeldBackItem.ForTask(dropped).Value);
-        local.HoldBack(HeldBackItem.ForTask(kept).Value);
+        local.HoldBack(HeldBackItem.ForTask(dropped).Unwrap());
+        local.HoldBack(HeldBackItem.ForTask(kept).Unwrap());
         var inbound = Version1(
             local.Id,
             "Bank sample files still missing",
@@ -219,10 +219,10 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         Assert.Equal(ImpedimentState.Resolved, read.State);
         Assert.Equal(
             [
-                HeldBackItem.ForPullRequest("acme/payments", 412).Value,
-                HeldBackItem.ForPlan("goals-standup").Value,
-                HeldBackItem.ForTask(kept).Value,
-                HeldBackItem.ForTask(added).Value,
+                HeldBackItem.ForPullRequest("acme/payments", 412).Unwrap(),
+                HeldBackItem.ForPlan("goals-standup").Unwrap(),
+                HeldBackItem.ForTask(kept).Unwrap(),
+                HeldBackItem.ForTask(added).Unwrap(),
             ],
             read.HoldsBack);
     }
@@ -232,8 +232,8 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     {
         var local = Escalated();
         var inbound = Stored(Escalated());
-        var tasksOnly = Impediment.Raise(local.Id, "Bank sample files missing", Wed14).Value;
-        tasksOnly.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        var tasksOnly = Impediment.Raise(local.Id, "Bank sample files missing", Wed14).Unwrap();
+        tasksOnly.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Unwrap());
         var version1 = Version1(local.Id, "Bank", """{"state":"New","on":"2026-10-14"}""", Guid.NewGuid());
 
         Assert.Equal(inbound, ImpedimentDocument.CarryOver(Stored(local), inbound));
@@ -257,7 +257,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
 
         Assert.Equal(copy.UpdatedAt, (await _repository.ReadAsync(local.Id, Cancellation))!.UpdatedAt);
         Assert.Equal(
-            [HeldBackItem.ForPullRequest("acme/payments", 412).Value, HeldBackItem.ForPlan("goals-standup").Value, HeldBackItem.ForTask(task).Value],
+            [HeldBackItem.ForPullRequest("acme/payments", 412).Unwrap(), HeldBackItem.ForPlan("goals-standup").Unwrap(), HeldBackItem.ForTask(task).Unwrap()],
             (await _repository.GetAsync(local.Id, Cancellation))!.HoldsBack);
     }
 

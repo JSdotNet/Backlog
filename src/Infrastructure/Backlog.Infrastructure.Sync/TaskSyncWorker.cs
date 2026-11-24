@@ -630,7 +630,7 @@ public sealed class TaskSyncWorker : IDisposable
 
             if (result.IsSuccess)
             {
-                LastSummary = result.Value;
+                LastSummary = result.Unwrap();
                 LastError = null;
             }
             else

@@ -42,9 +42,9 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
             "Invoices settle in a day",
             Due,
             [
-                GoalAttachment.ForPlan("+bank-integration", Today).Value,
-                GoalAttachment.ForTask(Guid.NewGuid(), Today).Value,
-                GoalAttachment.ForPullRequest("JSdotNet/Backlog", 1352, Today.AddDays(1)).Value,
+                GoalAttachment.ForPlan("+bank-integration", Today).Unwrap(),
+                GoalAttachment.ForTask(Guid.NewGuid(), Today).Unwrap(),
+                GoalAttachment.ForPullRequest("JSdotNet/Backlog", 1352, Today.AddDays(1)).Unwrap(),
             ],
             createdAt);
     }

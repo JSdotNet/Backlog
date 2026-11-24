@@ -39,9 +39,9 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         });
         Assert.Null(_transcription.Sent[0].Prompt);
         Assert.Equal("part 1 words", _transcription.Sent[1].Prompt);
-        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Value.TranscriptMd);
-        Assert.Equal(answer.Value.TranscriptMd, Assert.Single(_summary.Asked));
-        Assert.Equal("Summary.", answer.Value.SummaryMd);
+        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Unwrap().TranscriptMd);
+        Assert.Equal(answer.Unwrap().TranscriptMd, Assert.Single(_summary.Asked));
+        Assert.Equal("Summary.", answer.Unwrap().SummaryMd);
     }
 
     [Theory]
@@ -63,7 +63,7 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         });
         Assert.Null(_transcription.Sent[0].Prompt);
         Assert.Equal("part 1 words", _transcription.Sent[1].Prompt);
-        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Value.TranscriptMd);
+        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Unwrap().TranscriptMd);
     }
 
     [Fact]

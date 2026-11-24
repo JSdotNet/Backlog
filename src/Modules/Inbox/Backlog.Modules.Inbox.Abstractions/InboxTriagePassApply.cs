@@ -245,9 +245,10 @@ public static class InboxTriagePassApply
             planTitle: plan.Title,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        if (result.IsFailure) return new Step(null, new Refusal(FirstItem(plan), result.Error, WholePlan: true));
-
-        var batch = result.Value;
+        if (result is not Ok<InboxBatchRoutedDto>(var batch))
+        {
+            return new Step(null, new Refusal(FirstItem(plan), (Error)result.Value!, WholePlan: true));
+        }
 
         // Tasks took the document whole or not at all: refused, nothing went,
         // and every member carries the same refusal — the plan is what failed.
@@ -292,14 +293,16 @@ public static class InboxTriagePassApply
         if (route.Repositories.Count > 0)
         {
             var assigned = await inbox.AssignRepositoriesAsync(route.ItemId, route.Repositories, cancellationToken).ConfigureAwait(false);
-            if (assigned.IsFailure) return new Step(null, new Refusal(route.ItemId, assigned.Error));
+            if (assigned is Error refused) return new Step(null, new Refusal(route.ItemId, refused));
         }
 
         var routed = await inbox.RouteToBacklogAsync(route.ItemId, route.EntryType, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return routed.IsSuccess
-            ? new Step(new InboxTriageApplied(route, Routed: routed.Value), null)
-            : new Step(null, new Refusal(route.ItemId, routed.Error));
+        return routed switch
+        {
+            Ok<InboxRoutedDto>(var value) => new Step(new InboxTriageApplied(route, Routed: value), null),
+            Error error => new Step(null, new Refusal(route.ItemId, error)),
+        };
     }
 
     /// <summary>Someday through To Brain with the <c>someday</c> area named, Done
@@ -310,32 +313,40 @@ public static class InboxTriagePassApply
         if (outcome.Outcome == InboxClarifyOutcome.Someday)
         {
             var kept = await inbox.RouteToBrainAsync(outcome.ItemId, InboxBrainDestinationDto.SomedayFolder, cancellationToken).ConfigureAwait(false);
-            return kept.IsSuccess
-                ? new Step(new InboxTriageApplied(outcome, Brain: kept.Value), null)
-                : new Step(null, new Refusal(outcome.ItemId, kept.Error));
+            return kept switch
+            {
+                Ok<InboxBrainRoutedDto>(var value) => new Step(new InboxTriageApplied(outcome, Brain: value), null),
+                Error error => new Step(null, new Refusal(outcome.ItemId, error)),
+            };
         }
 
         if (outcome.Outcome == InboxClarifyOutcome.WaitingFor)
         {
             var waiting = await inbox.RouteWaitingForAsync(outcome.ItemId, new InboxWaitingForDto(outcome.Who ?? string.Empty), cancellationToken: cancellationToken).ConfigureAwait(false);
-            return waiting.IsSuccess
-                ? new Step(new InboxTriageApplied(outcome, Routed: waiting.Value), null)
-                : new Step(null, new Refusal(outcome.ItemId, waiting.Error));
+            return waiting switch
+            {
+                Ok<InboxRoutedDto>(var value) => new Step(new InboxTriageApplied(outcome, Routed: value), null),
+                Error error => new Step(null, new Refusal(outcome.ItemId, error)),
+            };
         }
 
         var done = await inbox.RouteDoneNowAsync(outcome.ItemId, cancellationToken).ConfigureAwait(false);
-        return done.IsSuccess
-            ? new Step(new InboxTriageApplied(outcome, Routed: done.Value), null)
-            : new Step(null, new Refusal(outcome.ItemId, done.Error));
+        return done switch
+        {
+            Ok<InboxRoutedDto>(var value) => new Step(new InboxTriageApplied(outcome, Routed: value), null),
+            Error error => new Step(null, new Refusal(outcome.ItemId, error)),
+        };
     }
 
     private static async Task<Step> SimpleAsync(InboxTriageDecision decision, Guid itemId, Task<Result> act)
     {
         var result = await act.ConfigureAwait(false);
 
-        return result.IsSuccess
-            ? new Step(new InboxTriageApplied(decision), null)
-            : new Step(null, new Refusal(itemId, result.Error));
+        return result switch
+        {
+            Ok => new Step(new InboxTriageApplied(decision), null),
+            Error error => new Step(null, new Refusal(itemId, error)),
+        };
     }
 
     /// <summary>The item a decision is about — a plan's first member.</summary>

@@ -36,12 +36,11 @@ public sealed class AttachmentStoreHandlerTests
     {
         var bytes = Bytes(100);
 
-        var result = await Upload(Guid.CreateVersion7(), bytes, maxBytes: 1_000);
+        var result = Assert.IsType<Ok<StoreAttachmentOutcome>>((await Upload(Guid.CreateVersion7(), bytes, maxBytes: 1_000)).Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.Value.Created);
-        Assert.Equal(100, result.Value.Attachment.SizeBytes);
-        Assert.Equal(Sha256(bytes), result.Value.Attachment.Sha256);
+        Assert.True(result.Created);
+        Assert.Equal(100, result.Attachment.SizeBytes);
+        Assert.Equal(Sha256(bytes), result.Attachment.Sha256);
     }
 
     /// <summary>A body with no length that runs past the cap is stopped there,
@@ -51,17 +50,17 @@ public sealed class AttachmentStoreHandlerTests
     {
         var id = Guid.CreateVersion7();
 
-        var result = await Upload(id, Bytes(2_000), maxBytes: 1_000);
+        var result = Assert.IsType<Error>((await Upload(id, Bytes(2_000), maxBytes: 1_000)).Value);
 
-        Assert.Equal(SyncErrorCodes.AttachmentTooLarge, result.Error.Code);
-        Assert.Contains("Content-Length", result.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(SyncErrorCodes.AttachmentTooLarge, result.Code);
+        Assert.Contains("Content-Length", result.Message, StringComparison.Ordinal);
         Assert.Null(await _store.Find(Scope.OwnerId, id, Cancellation));
     }
 
     [Fact]
     public async Task An_upload_at_exactly_the_cap_is_stored()
     {
-        Assert.True((await Upload(Guid.CreateVersion7(), Bytes(1_000), maxBytes: 1_000)).IsSuccess);
+        Assert.IsType<Ok<StoreAttachmentOutcome>>((await Upload(Guid.CreateVersion7(), Bytes(1_000), maxBytes: 1_000)).Value);
     }
 
     [Fact]
@@ -69,10 +68,10 @@ public sealed class AttachmentStoreHandlerTests
     {
         var id = Guid.CreateVersion7();
 
-        var result = await Upload(id, Bytes(10), maxBytes: 1_000, sha256: Sha256(Bytes(10, seed: 2)));
+        var result = Assert.IsType<Error>((await Upload(id, Bytes(10), maxBytes: 1_000, sha256: Sha256(Bytes(10, seed: 2)))).Value);
 
-        Assert.Equal(SyncErrorCodes.AttachmentInvalid, result.Error.Code);
-        Assert.Contains(SyncRoutes.AttachmentSha256Header, result.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(SyncErrorCodes.AttachmentInvalid, result.Code);
+        Assert.Contains(SyncRoutes.AttachmentSha256Header, result.Message, StringComparison.Ordinal);
         Assert.Null(await _store.Find(Scope.OwnerId, id, Cancellation));
     }
 
@@ -85,12 +84,11 @@ public sealed class AttachmentStoreHandlerTests
         var bytes = Bytes(10);
         await Upload(id, bytes, maxBytes: 1_000);
 
-        var repeat = await new StoreAttachmentCommandHandler(_store).Handle(
+        var repeat = Assert.IsType<Ok<StoreAttachmentOutcome>>((await new StoreAttachmentCommandHandler(_store).Handle(
             new StoreAttachmentCommand(Scope, id, "image/png", Sha256(bytes), new UnreadableStream(), 1_000),
-            Cancellation);
+            Cancellation)).Value).Value;
 
-        Assert.True(repeat.IsSuccess);
-        Assert.False(repeat.Value.Created);
+        Assert.False(repeat.Created);
     }
 
     [Fact]
@@ -98,22 +96,21 @@ public sealed class AttachmentStoreHandlerTests
     {
         var missing = new AttachmentMetadata(Guid.CreateVersion7(), "a.png", "image/png", 10, Sha256(Bytes(10)));
 
-        var result = await Capture(new CaptureInboxItemCommand(Scope, "Keynote", "phone", Attachments: [missing]));
+        var result = Assert.IsType<Error>((await Capture(new CaptureInboxItemCommand(Scope, "Keynote", "phone", Attachments: [missing]))).Value);
 
-        Assert.Equal(SyncErrorCodes.CaptureAttachmentMissing, result.Error.Code);
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
-        Assert.Contains(missing.Id.ToString("D"), result.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(SyncErrorCodes.CaptureAttachmentMissing, result.Code);
+        Assert.Equal(ErrorType.Validation, result.Type);
+        Assert.Contains(missing.Id.ToString("D"), result.Message, StringComparison.Ordinal);
         Assert.Null(await _replica.Find(Scope.OwnerId, missing.Id, Cancellation));
     }
 
     [Fact]
     public async Task A_two_field_capture_needs_no_store_and_carries_no_attachments()
     {
-        var result = await Capture(new CaptureInboxItemCommand(Scope, "Call the dentist", "phone"));
+        var result = Assert.IsType<Ok<CaptureOutcome>>((await Capture(new CaptureInboxItemCommand(Scope, "Call the dentist", "phone"))).Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value.Item.Attachments);
-        Assert.Null((await _replica.Find(Scope.OwnerId, result.Value.Item.Id, Cancellation))!.Change.Task.Attachments);
+        Assert.Null(result.Item.Attachments);
+        Assert.Null((await _replica.Find(Scope.OwnerId, result.Item.Id, Cancellation))!.Change.Task.Attachments);
     }
 
     [Fact]
@@ -123,7 +120,7 @@ public sealed class AttachmentStoreHandlerTests
 
         var result = await Acknowledge(capture.Id, new CaptureAttachmentRelease(_store, new RecordingLogger()));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Null(await _store.Find(Scope.OwnerId, capture.Attachments![0].Id, Cancellation));
     }
 
@@ -256,7 +253,7 @@ public sealed class AttachmentStoreHandlerTests
 
         var result = await Acknowledge(capture.Id, new CaptureAttachmentRelease(new DeleteFailingStore(_store), logger));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.NotNull((await _replica.Find(Scope.OwnerId, capture.Id, Cancellation))!.Change.DeletedAt);
         Assert.Equal(LogLevel.Warning, Assert.Single(logger.Levels));
     }
@@ -278,10 +275,10 @@ public sealed class AttachmentStoreHandlerTests
         var id = Guid.CreateVersion7();
         await Upload(id, bytes, maxBytes: 1_000);
 
-        var result = await Capture(new CaptureInboxItemCommand(
-            Scope, "Keynote", "phone", Attachments: [new AttachmentMetadata(id, "slide.png", "image/png", bytes.Length, Sha256(bytes))]));
+        var result = Assert.IsType<Ok<CaptureOutcome>>((await Capture(new CaptureInboxItemCommand(
+            Scope, "Keynote", "phone", Attachments: [new AttachmentMetadata(id, "slide.png", "image/png", bytes.Length, Sha256(bytes))]))).Value).Value;
 
-        return result.Value.Item;
+        return result.Item;
     }
 
     private static byte[] Bytes(int length, int seed = 1)

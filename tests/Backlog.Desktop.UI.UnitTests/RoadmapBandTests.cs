@@ -145,7 +145,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var itemId = added.Value.Id;
+        var itemId = added.Unwrap().Id;
 
         using var context = Context();
         var band = Drawn(context);
@@ -182,7 +182,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
-        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Value.Id.ToString());
+        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Unwrap().Id.ToString());
         var migrationRow = timeline.Instance.Groups
             .SelectMany(group => group.RowList)
             .Single(row => row.Title == "migration");
@@ -191,7 +191,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             new RoadmapChange(bar.Id, migrationRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("migration", plan.Items.Single(item => item.Id == added.Value.Id).Lane);
+        Assert.Equal("migration", plan.Items.Single(item => item.Id == added.Unwrap().Id).Lane);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
-        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Value.Id.ToString());
+        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Unwrap().Id.ToString());
         var otherRow = timeline.Instance.Groups
             .SelectMany(group => group.RowList)
             .First(row => row.Id != bar.RowId);
@@ -223,7 +223,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             new RoadmapChange(bar.Id, otherRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("platform", plan.Items.Single(item => item.Id == added.Value.Id).Lane);
+        Assert.Equal("platform", plan.Items.Single(item => item.Id == added.Unwrap().Id).Lane);
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         Assert.NotNull(band.Find("[data-testid=\"roadmap-band-error\"]"));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        var stored = plan.Items.Single(item => item.Id == added.Value.Id);
+        var stored = plan.Items.Single(item => item.Id == added.Unwrap().Id);
         Assert.Equal(new DateOnly(2026, 1, 5), stored.Start);
         Assert.Equal(new DateOnly(2026, 1, 9), stored.End);
     }
@@ -310,15 +310,15 @@ public class RoadmapBandTests : RoadmapBandHarness
         Configure("JSdotNet/Backlog");
         var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
         var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await Planning.AddDependencyAsync(build.Unwrap().Id, design.Unwrap().Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
 
         var link = Assert.Single(timeline.Instance.Links);
-        Assert.Equal(design.Value.Id.ToString(), link.FromId);
-        Assert.Equal(build.Value.Id.ToString(), link.ToId);
+        Assert.Equal(design.Unwrap().Id.ToString(), link.FromId);
+        Assert.Equal(build.Unwrap().Id.ToString(), link.ToId);
     }
 
 }

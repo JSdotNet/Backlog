@@ -101,7 +101,7 @@ public partial class McpServerSettingsPage
 
             if (status.IsSuccess)
             {
-                _connectorStatus = status.Value;
+                _connectorStatus = status.Unwrap();
                 _connectorError = null;
             }
             else
@@ -149,12 +149,12 @@ public partial class McpServerSettingsPage
             if (_disposed) return null;
             if (created.IsFailure) return created.Error.Message;
 
-            _connectorSecret = created.Value.ClientSecret;
+            _connectorSecret = created.Unwrap().ClientSecret;
             // The service holds a secret now even if the read that follows fails, so the
             // card says so and the next press still asks before it replaces this one.
             if (_connectorStatus is { } status)
             {
-                _connectorStatus = status with { HasSecret = true, CreatedAt = created.Value.CreatedAt, LastUsedAt = null };
+                _connectorStatus = status with { HasSecret = true, CreatedAt = created.Unwrap().CreatedAt, LastUsedAt = null };
             }
 
             return null;

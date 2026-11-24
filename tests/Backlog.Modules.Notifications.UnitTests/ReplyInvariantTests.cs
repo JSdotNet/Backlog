@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using static Backlog.Modules.Notifications.UnitTests.Drafts;
 
@@ -27,11 +28,11 @@ public sealed class ReplyInvariantTests
     {
         var spec = YesNo();
 
-        Assert.True(ReplyValidation.Validate(spec, ["yes"], null).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["yes", "no"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["maybe"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], "yes please").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["yes"], null).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["yes", "no"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["maybe"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], "yes please").Value).Code);
     }
 
     [Fact]
@@ -39,12 +40,12 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys, AllowMultiple: true, MinChoices: 1, MaxChoices: 2);
 
-        Assert.True(ReplyValidation.Validate(spec, ["pair"], null).IsSuccess);
-        Assert.True(ReplyValidation.Validate(spec, ["pair", "pace"], null).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair", "capture", "pace"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair", "pair"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair", "other"], null).Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair"], null).Value);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair", "pace"], null).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair", "capture", "pace"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair", "pair"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair", "other"], null).Value).Code);
     }
 
     [Fact]
@@ -52,8 +53,8 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys, AllowMultiple: true, MinChoices: 0);
 
-        Assert.True(ReplyValidation.Validate(spec, [], null).IsSuccess);
-        Assert.True(ReplyValidation.Validate(spec, ["pair", "capture", "pace"], null).IsSuccess);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], null).Value);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair", "capture", "pace"], null).Value);
     }
 
     [Fact]
@@ -61,14 +62,14 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec([], Open: new OpenAnswer("Write an answer…", MaxLength: 200));
 
-        Assert.True(ReplyValidation.Validate(spec, [], new string('a', 200)).IsSuccess);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], new string('a', 200)).Value);
 
-        var tooLong = ReplyValidation.Validate(spec, [], new string('a', 250));
-        Assert.Equal("reply.invalid", tooLong.Error.Code);
-        Assert.Contains("too long", tooLong.Error.Message, StringComparison.Ordinal);
+        var tooLong = Assert.IsType<Error>(ReplyValidation.Validate(spec, [], new string('a', 250)).Value);
+        Assert.Equal("reply.invalid", tooLong.Code);
+        Assert.Contains("too long", tooLong.Message, StringComparison.Ordinal);
 
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["yes"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], "  ").Error.Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["yes"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], "  ").Value).Code);
     }
 
     [Fact]
@@ -77,8 +78,8 @@ public sealed class ReplyInvariantTests
         var spec = new AnswerSpec([], Open: new OpenAnswer());
 
         Assert.Equal(2000, spec.Open!.MaxLength);
-        Assert.True(ReplyValidation.Validate(spec, [], new string('a', 2000)).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], new string('a', 2001)).Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], new string('a', 2000)).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], new string('a', 2001)).Value).Code);
     }
 
     [Fact]
@@ -86,9 +87,9 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys, Open: new OpenAnswer());
 
-        Assert.True(ReplyValidation.Validate(spec, ["pair"], null).IsSuccess);
-        Assert.True(ReplyValidation.Validate(spec, [], "Signals").IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair"], "Signals").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair"], null).Value);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], "Signals").Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair"], "Signals").Value).Code);
     }
 
     // --- A choice that takes text comes with text ----------------------------------------
@@ -106,9 +107,9 @@ public sealed class ReplyInvariantTests
     {
         var spec = Validation();
 
-        Assert.True(ReplyValidation.Validate(spec, ["revise"], "Split the migration in two").IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], null).Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], "   ").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["revise"], "Split the migration in two").Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["revise"], null).Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["revise"], "   ").Value).Code);
     }
 
     [Fact]
@@ -116,8 +117,8 @@ public sealed class ReplyInvariantTests
     {
         var spec = Validation();
 
-        Assert.True(ReplyValidation.Validate(spec, ["approve"], null).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["approve"], "Looks good").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["approve"], null).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["approve"], "Looks good").Value).Code);
     }
 
     [Fact]
@@ -125,8 +126,8 @@ public sealed class ReplyInvariantTests
     {
         var spec = Validation();
 
-        Assert.True(ReplyValidation.Validate(spec, ["revise"], new string('a', 2000)).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], new string('a', 2001)).Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["revise"], new string('a', 2000)).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["revise"], new string('a', 2001)).Value).Code);
     }
 
     [Fact]
@@ -134,10 +135,10 @@ public sealed class ReplyInvariantTests
     {
         var spec = Validation(new OpenAnswer(MaxLength: 200));
 
-        Assert.True(ReplyValidation.Validate(spec, ["revise"], new string('a', 200)).IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], new string('a', 201)).Error.Code);
-        Assert.True(ReplyValidation.Validate(spec, [], "Signals").IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["approve"], "Signals").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["revise"], new string('a', 200)).Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["revise"], new string('a', 201)).Value).Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], "Signals").Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["approve"], "Signals").Value).Code);
     }
 
     [Fact]
@@ -145,11 +146,10 @@ public sealed class ReplyInvariantTests
     {
         var notification = Asking(Validation());
 
-        var answer = notification.Accept(Reply(notification, choices: ["revise"], text: "Split the migration in two"), Owner, Now);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, choices: ["revise"], text: "Split the migration in two"), Owner, Now).Value).Value;
 
-        Assert.True(answer.IsSuccess);
-        Assert.Equal(["revise"], answer.Value.ChoiceIds);
-        Assert.Equal("Split the migration in two", answer.Value.Text);
+        Assert.Equal(["revise"], answer.ChoiceIds);
+        Assert.Equal("Split the migration in two", answer.Text);
     }
 
     [Fact]
@@ -157,9 +157,9 @@ public sealed class ReplyInvariantTests
     {
         var notification = Asking(Validation());
 
-        var result = notification.Accept(Reply(notification, choices: ["revise"]), Owner, Now);
+        var result = Assert.IsType<Error>(notification.Accept(Reply(notification, choices: ["revise"]), Owner, Now).Value);
 
-        Assert.Equal("reply.invalid", result.Error.Code);
+        Assert.Equal("reply.invalid", result.Code);
         Assert.Equal(NotificationState.Open, notification.State);
     }
 
@@ -168,11 +168,10 @@ public sealed class ReplyInvariantTests
     {
         var notification = Asking(new AnswerSpec(Journeys, Open: new OpenAnswer()));
 
-        var answer = notification.Accept(Reply(notification, text: "Signals"), Owner, Now);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, text: "Signals"), Owner, Now).Value).Value;
 
-        Assert.True(answer.IsSuccess);
-        Assert.Equal("Signals", answer.Value.Text);
-        Assert.Empty(answer.Value.ChoiceIds);
+        Assert.Equal("Signals", answer.Text);
+        Assert.Empty(answer.ChoiceIds);
     }
 
     [Fact]
@@ -180,13 +179,13 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys, Open: new OpenAnswer(), Note: new OpenAnswer("Add a note", MaxLength: 40));
 
-        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, "Only on Wi-Fi").IsSuccess);
-        Assert.True(ReplyValidation.Validate(spec, [], "Signals", "Rename later").IsSuccess);
-        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, new string('n', 40)).IsSuccess);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair"], null, "Only on Wi-Fi").Value);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, [], "Signals", "Rename later").Value);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair"], null, new string('n', 40)).Value);
 
-        var tooLong = ReplyValidation.Validate(spec, ["pair"], null, new string('n', 41));
-        Assert.Equal("reply.invalid", tooLong.Error.Code);
-        Assert.Contains("note", tooLong.Error.Message, StringComparison.Ordinal);
+        var tooLong = Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair"], null, new string('n', 41)).Value);
+        Assert.Equal("reply.invalid", tooLong.Code);
+        Assert.Contains("note", tooLong.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -194,7 +193,7 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys, Note: new OpenAnswer());
 
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], null, "Just a note").Error.Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, [], null, "Just a note").Value).Code);
     }
 
     [Fact]
@@ -202,8 +201,8 @@ public sealed class ReplyInvariantTests
     {
         var spec = new AnswerSpec(Journeys);
 
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair"], null, "A note").Error.Code);
-        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, "   ").IsSuccess);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["pair"], null, "A note").Value).Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["pair"], null, "   ").Value);
     }
 
     [Fact]
@@ -211,11 +210,10 @@ public sealed class ReplyInvariantTests
     {
         var notification = Asking(new AnswerSpec(Journeys, Note: new OpenAnswer(MaxLength: 4000)));
 
-        var answer = notification.Accept(Reply(notification, choices: ["pace"], note: "  Only for Q4  "), Owner, Now);
+        var answer = Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, choices: ["pace"], note: "  Only for Q4  "), Owner, Now).Value).Value;
 
-        Assert.True(answer.IsSuccess);
-        Assert.Equal(["pace"], answer.Value.ChoiceIds);
-        Assert.Equal("Only for Q4", answer.Value.Note);
+        Assert.Equal(["pace"], answer.ChoiceIds);
+        Assert.Equal("Only for Q4", answer.Note);
         Assert.Equal("Only for Q4", notification.Answer!.Note);
     }
 
@@ -224,9 +222,9 @@ public sealed class ReplyInvariantTests
     {
         var spec = Validation() with { Note = new OpenAnswer(MaxLength: 40) };
 
-        Assert.True(ReplyValidation.Validate(spec, ["revise"], "Split the migration in two", "Only on Wi-Fi").IsSuccess);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], null, "Split the migration in two").Error.Code);
-        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["approve"], "Looks good", "Only on Wi-Fi").Error.Code);
+        Assert.IsType<Ok>(ReplyValidation.Validate(spec, ["revise"], "Split the migration in two", "Only on Wi-Fi").Value);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["revise"], null, "Split the migration in two").Value).Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(ReplyValidation.Validate(spec, ["approve"], "Looks good", "Only on Wi-Fi").Value).Code);
     }
 
     // --- A reply to a closed question is rejected ---------------------------------------
@@ -237,9 +235,9 @@ public sealed class ReplyInvariantTests
         var notification = Published();
         notification.Close(Owner, "No longer needed", Now);
 
-        var result = notification.Accept(Reply(notification, choices: ["yes"]), Owner, Now);
+        var result = Assert.IsType<Error>(notification.Accept(Reply(notification, choices: ["yes"]), Owner, Now).Value);
 
-        Assert.Equal("reply.closed", result.Error.Code);
+        Assert.Equal("reply.closed", result.Code);
         Assert.Null(notification.Answer);
     }
 
@@ -250,10 +248,10 @@ public sealed class ReplyInvariantTests
     {
         var notification = Asking(YesNo(AnswerOn.Owner));
 
-        Assert.Equal("reply.owner_only", notification.Accept(Reply(notification, from: Phone, choices: ["yes"]), Owner, Now).Error.Code);
+        Assert.Equal("reply.owner_only", Assert.IsType<Error>(notification.Accept(Reply(notification, from: Phone, choices: ["yes"]), Owner, Now).Value).Code);
         Assert.Equal(NotificationState.Open, notification.State);
 
-        Assert.True(notification.Accept(Reply(notification, from: Owner, choices: ["yes"]), Owner, Now).IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, from: Owner, choices: ["yes"]), Owner, Now).Value);
     }
 
     [Fact]
@@ -261,7 +259,7 @@ public sealed class ReplyInvariantTests
     {
         var notification = Published(Question() with { Severity = NotificationSeverity.Critical });
 
-        Assert.True(notification.Accept(Reply(notification, from: OtherDesktop, choices: ["no"]), Owner, Now).IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, from: OtherDesktop, choices: ["no"]), Owner, Now).Value);
     }
 
     // --- A reply comes from the same owner -----------------------------------------------
@@ -273,9 +271,9 @@ public sealed class ReplyInvariantTests
     {
         var notification = Published();
 
-        var result = notification.Accept(Reply(notification, choices: ["yes"], ownerInstance: OtherDesktop), Owner, Now);
+        var result = Assert.IsType<Error>(notification.Accept(Reply(notification, choices: ["yes"], ownerInstance: OtherDesktop), Owner, Now).Value);
 
-        Assert.Equal("reply.wrong_instance", result.Error.Code);
+        Assert.Equal("reply.wrong_instance", result.Code);
         Assert.Equal(NotificationState.Open, notification.State);
     }
 
@@ -285,7 +283,7 @@ public sealed class ReplyInvariantTests
         var notification = Published();
         var other = Published();
 
-        Assert.Equal("reply.invalid", notification.Accept(Reply(other, choices: ["yes"]), Owner, Now).Error.Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(notification.Accept(Reply(other, choices: ["yes"]), Owner, Now).Value).Code);
     }
 
     // --- The answer spec takes one of four shapes ----------------------------------------
@@ -312,14 +310,14 @@ public sealed class ReplyInvariantTests
     public void A_question_offers_two_to_eight_set_choices()
     {
         Assert.Equal(8, AnswerSpecRules.MaximumChoices);
-        Assert.True(AnswerSpecRules.Validate(new AnswerSpec(Choices(8))).IsSuccess);
-        Assert.Equal("notification.invalid_answer_spec", AnswerSpecRules.Validate(new AnswerSpec(Choices(9))).Error.Code);
+        Assert.IsType<Ok>(AnswerSpecRules.Validate(new AnswerSpec(Choices(8))).Value);
+        Assert.Equal("notification.invalid_answer_spec", Assert.IsType<Error>(AnswerSpecRules.Validate(new AnswerSpec(Choices(9))).Value).Code);
     }
 
     [Theory]
     [MemberData(nameof(Allowed))]
     public void A_question_offers_one_of_four_answer_shapes(AnswerSpec spec) =>
-        Assert.True(AnswerSpecRules.Validate(spec).IsSuccess);
+        Assert.IsType<Ok>(AnswerSpecRules.Validate(spec).Value);
 
     public static TheoryData<AnswerSpec> Refused() =>
     [
@@ -344,7 +342,7 @@ public sealed class ReplyInvariantTests
     [MemberData(nameof(Refused))]
     public void Any_other_answer_spec_is_refused(AnswerSpec spec)
     {
-        Assert.Equal("notification.invalid_answer_spec", AnswerSpecRules.Validate(spec).Error.Code);
-        Assert.Equal("notification.invalid_answer_spec", Notification.Publish(Guid.NewGuid(), Owner, Question(spec), Now).Error.Code);
+        Assert.Equal("notification.invalid_answer_spec", Assert.IsType<Error>(AnswerSpecRules.Validate(spec).Value).Code);
+        Assert.Equal("notification.invalid_answer_spec", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question(spec), Now).Value).Code);
     }
 }

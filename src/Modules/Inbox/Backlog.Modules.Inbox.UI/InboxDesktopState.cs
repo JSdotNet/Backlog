@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
@@ -559,10 +560,10 @@ public sealed class InboxDesktopState : IDisposable
     private async Task ResurfaceDueItemsAsync()
     {
         var resurfaced = await _inbox.ResurfaceDueAsync();
-        if (Report(resurfaced) || resurfaced.Value == 0) return;
+        if (Report(resurfaced, out var count) || count == 0) return;
 
         _toasts?.Publish(ToastMessage.Info(
-            $"{Counted(resurfaced.Value, "deferred item is", "deferred items are")} back in the inbox.",
+            $"{Counted(count, "deferred item is", "deferred items are")} back in the inbox.",
             ResurfacedTestId));
     }
 
@@ -776,7 +777,7 @@ public sealed class InboxDesktopState : IDisposable
         if (string.IsNullOrWhiteSpace(capture.Title)) return false;
 
         var captured = await _inbox.CaptureAsync(capture.Title.Trim(), capture.Notes);
-        if (Report(captured, AddErrorTestId)) return false;
+        if (Report(captured, out var capturedItem, AddErrorTestId)) return false;
 
         // A capture lands in the unfiled inbox. Opening it there rather than in
         // whatever list was showing, so the row the reader just made is on
@@ -785,7 +786,7 @@ public sealed class InboxDesktopState : IDisposable
         SelectedListId = null;
         DeferredSelected = false;
         _kindFilter.Clear();
-        SelectedItemId = captured.Value.Id;
+        SelectedItemId = capturedItem.Id;
         await ReloadAsync();
         return true;
     }
@@ -905,7 +906,11 @@ public sealed class InboxDesktopState : IDisposable
         // Another item was chosen, or a reload landed, while this was asked.
         if (!ReferenceEquals(item, _suggestionsFor)) return;
 
-        Suggestions = answer.IsSuccess ? answer.Value : [];
+        Suggestions = answer switch
+        {
+            Ok<IReadOnlyList<InboxSuggestionDto>>(var suggestions) => suggestions,
+            Error => [],
+        };
         Changed?.Invoke();
     }
 
@@ -1028,7 +1033,9 @@ public sealed class InboxDesktopState : IDisposable
                 try
                 {
                     var answer = await _inbox.SuggestManyAsync(stale);
-                    answers = answer.IsSuccess ? answer.Value : new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+                    answers = answer is Ok<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(var suggested)
+                        ? suggested
+                        : new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -1109,7 +1116,7 @@ public sealed class InboxDesktopState : IDisposable
         // Another item was chosen, or a reload landed, while this was asked.
         if (!ReferenceEquals(item, _relationsFor)) return;
 
-        Relations = answer.IsSuccess ? answer.Value : null;
+        Relations = answer is Ok<InboxRelationsDto>(var related) ? related : null;
         Changed?.Invoke();
     }
 
@@ -1257,9 +1264,9 @@ public sealed class InboxDesktopState : IDisposable
             if (_thumbnails.ContainsKey(attachment.Id)) continue;
 
             var read = await _inbox.ReadAttachmentAsync(item.Id, attachment.Id);
-            if (read.IsFailure) continue;
+            if (read is not Ok<byte[]>(var bytes)) continue;
 
-            _thumbnails[attachment.Id] = $"data:{attachment.ContentType};base64,{Convert.ToBase64String(read.Value)}";
+            _thumbnails[attachment.Id] = $"data:{attachment.ContentType};base64,{Convert.ToBase64String(bytes)}";
             loaded = true;
         }
 
@@ -1281,11 +1288,12 @@ public sealed class InboxDesktopState : IDisposable
     {
         var read = await _inbox.ReadAttachmentAsync(itemId, attachmentId, cancellationToken);
 
-        if (read.IsSuccess) return new MemoryStream(read.Value, writable: false);
-
-        return read.Error.Code == InboxErrors.AttachmentNotDownloaded.Code || read.Error.Code == InboxErrors.AttachmentNotFound.Code
-            ? null
-            : throw new IOException(read.Error.Message);
+        return read switch
+        {
+            Ok<byte[]>(var bytes) => new MemoryStream(bytes, writable: false),
+            Error error when error.Code == InboxErrors.AttachmentNotDownloaded.Code || error.Code == InboxErrors.AttachmentNotFound.Code => null,
+            Error error => throw new IOException(error.Message),
+        };
     }
 
     /// <summary>Opens one of the selected item's files with the machine's own
@@ -1407,7 +1415,7 @@ public sealed class InboxDesktopState : IDisposable
         {
             var schedule = ScheduleOf(item.Id);
             var routed = await _inbox.RouteToBacklogAsync(item.Id, schedule: schedule.IsEmpty ? null : schedule);
-            if (Report(routed)) return;
+            if (Report(routed, out var routedItem)) return;
 
             _routeSchedules.Remove(item.Id);
 
@@ -1415,7 +1423,7 @@ public sealed class InboxDesktopState : IDisposable
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            Routed?.Invoke(routed.Value);
+            Routed?.Invoke(routedItem);
         }
         finally
         {
@@ -1467,13 +1475,13 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var routed = await _inbox.RouteToBrainAsync(item.Id, string.IsNullOrWhiteSpace(folder) ? null : folder);
-            if (Report(routed, BrainErrorTestId)) return;
+            if (Report(routed, out var brainRouted, BrainErrorTestId)) return;
 
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToBrain, label, item.Id, DeleteTasks: false, DeferralOf(item)));
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            _toasts?.Publish(ToastMessage.Info(BrainRoutedMessage(ItemTitle(item), routed.Value), "inbox-brain-routed"));
+            _toasts?.Publish(ToastMessage.Info(BrainRoutedMessage(ItemTitle(item), brainRouted), "inbox-brain-routed"));
         }
         finally
         {
@@ -1502,7 +1510,7 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var routed = await _inbox.RouteDoneNowAsync(item.Id);
-            if (Report(routed)) return;
+            if (Report(routed, out var routedItem)) return;
 
             _routeSchedules.Remove(item.Id);
 
@@ -1510,7 +1518,7 @@ public sealed class InboxDesktopState : IDisposable
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            Routed?.Invoke(routed.Value);
+            Routed?.Invoke(routedItem);
             _toasts?.Publish(ToastMessage.Info($"Recorded \"{ItemTitle(item)}\" as done.", DoneNowToastTestId));
         }
         finally
@@ -1554,7 +1562,7 @@ public sealed class InboxDesktopState : IDisposable
         {
             var schedule = ScheduleOf(item.Id);
             var routed = await _inbox.RouteWaitingForAsync(item.Id, waitingFor, schedule.IsEmpty ? null : schedule);
-            if (Report(routed)) return false;
+            if (Report(routed, out var routedItem)) return false;
 
             _routeSchedules.Remove(item.Id);
 
@@ -1562,7 +1570,7 @@ public sealed class InboxDesktopState : IDisposable
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
-            Routed?.Invoke(routed.Value);
+            Routed?.Invoke(routedItem);
             _toasts?.Publish(ToastMessage.Info($"\"{ItemTitle(item)}\" is waiting on {waitingFor.Who.Trim()}.", WaitingForToastTestId));
             return true;
         }
@@ -1697,7 +1705,7 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var routed = await _inbox.RouteToEventAsync(item.Id);
-            if (Report(routed, EventErrorTestId)) return;
+            if (Report(routed, out _, EventErrorTestId)) return;
 
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.ToEvent, ToEventLabel, item.Id, DeleteTasks: false, DeferralOf(item)));
 
@@ -1743,17 +1751,17 @@ public sealed class InboxDesktopState : IDisposable
             // the reader can see any more.
             var startProjectNote = StartProjectNote && ToBrainUnavailableReason is null;
             var routed = await _inbox.CreatePlanAsync(item.Id, startProjectNote);
-            if (Report(routed)) return;
+            if (Report(routed, out var planned)) return;
 
             StartProjectNote = false;
             _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item))
             {
-                TakeBackPlan = routed.Value.ProjectNotePath is { Length: > 0 },
+                TakeBackPlan = planned.ProjectNotePath is { Length: > 0 },
             });
 
             await ReloadAsync();
-            _toasts?.Publish(ToastMessage.Info(PlanCreatedMessage(item.Title, routed.Value), "inbox-plan-created"));
-            Routed?.Invoke(routed.Value);
+            _toasts?.Publish(ToastMessage.Info(PlanCreatedMessage(item.Title, planned), "inbox-plan-created"));
+            Routed?.Invoke(planned);
         }
         finally
         {
@@ -1878,7 +1886,7 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var answer = await _inbox.AdviseTriageAsync(item.Id, ConfiguredRepositories());
-            advice = answer.IsSuccess ? answer.Value : null;
+            advice = answer is Ok<InboxTriageAdviceDto>(var advised) ? advised : null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1950,8 +1958,11 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var answer = await _inbox.ProposeTriagePassAsync(ids, ConfiguredRepositories());
-            if (answer.IsSuccess) pass = answer.Value;
-            else error = answer.Error.Message;
+            (pass, error) = answer switch
+            {
+                Ok<InboxTriagePassDto>(var proposed) => (proposed, null),
+                Error refused => ((InboxTriagePassDto?)null, refused.Message),
+            };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -2947,13 +2958,13 @@ public sealed class InboxDesktopState : IDisposable
                     continue;
                 }
 
-                if (result.IsSuccess)
+                if (result is not Error inverseRefused)
                 {
                     undone.Add(decision);
                     continue;
                 }
 
-                refusal ??= result.Error;
+                refusal ??= inverseRefused;
                 refused++;
             }
 
@@ -3028,7 +3039,7 @@ public sealed class InboxDesktopState : IDisposable
     {
         var result = await ModuleInverseAsync(step);
 
-        if (result.IsFailure || ItemOf(step) is not { } id) return result;
+        if (result is Error || ItemOf(step) is not { } id) return result;
 
         // The decision itself is taken back by now; repositories or a deferral
         // that will not go back on — refused or thrown — are said, but the undo
@@ -3435,7 +3446,7 @@ public sealed class InboxDesktopState : IDisposable
         try
         {
             var result = await _inbox.ProposeBatchAsync(Ids(pending), listId, planTitle);
-            if (Report(result, BulkResultTestId))
+            if (Report(result, out var proposed, BulkResultTestId))
             {
                 // The list went while the pane was open; the reload takes the
                 // pane off it.
@@ -3443,7 +3454,7 @@ public sealed class InboxDesktopState : IDisposable
                 return InboxBulkOutcome.Nothing;
             }
 
-            proposal = result.Value;
+            proposal = proposed;
         }
         finally
         {
@@ -3509,8 +3520,8 @@ public sealed class InboxDesktopState : IDisposable
 
             if (!ReferenceEquals(RouteDraft, draft)) return;
 
-            if (result.IsFailure) draft.InferenceRefused(result.Error.Message);
-            else draft.AddInferred(result.Value);
+            if (result is Ok<IReadOnlyList<ProposedDependency>>(var inferred)) draft.AddInferred(inferred);
+            else draft.InferenceRefused(((Error)result.Value!).Message);
         }
         finally
         {
@@ -3571,7 +3582,7 @@ public sealed class InboxDesktopState : IDisposable
             if (pending.Count > 0)
             {
                 var result = await _inbox.RouteToBacklogAsync(Ids(pending), listId, choices, planTitle);
-                if (Report(result, BulkResultTestId))
+                if (Report(result, out var routedBatch, BulkResultTestId))
                 {
                     // The list went while the dialog was open; the reload takes
                     // the pane off it.
@@ -3579,7 +3590,7 @@ public sealed class InboxDesktopState : IDisposable
                     return InboxBulkOutcome.Nothing;
                 }
 
-                batch = result.Value;
+                batch = routedBatch;
                 foreach (var failure in batch.Failed) refused[failure.Id] = failure.Error;
 
                 RecordGroup(
@@ -3807,16 +3818,16 @@ public sealed class InboxDesktopState : IDisposable
         var name = UniqueName(NewListName, Lists.Where(list => list.GroupId == groupId).Select(list => list.Name));
 
         var created = await _inbox.CreateListAsync(name, groupId);
-        if (Report(created)) return;
+        if (Report(created, out var list)) return;
 
         if (groupId is { } group) _collapsedGroups.Remove(group);
 
         ForgetSelection();
-        SelectedListId = created.Value.Id;
+        SelectedListId = list.Id;
         DeferredSelected = false;
         SelectedItemId = null;
         _kindFilter.Clear();
-        EditingId = ListNavId(created.Value.Id);
+        EditingId = ListNavId(list.Id);
         await ReloadAsync();
     }
 
@@ -3825,9 +3836,9 @@ public sealed class InboxDesktopState : IDisposable
         var name = UniqueName(NewGroupName, Groups.Select(group => group.Name));
 
         var created = await _inbox.CreateGroupAsync(name);
-        if (Report(created)) return;
+        if (Report(created, out var group)) return;
 
-        EditingId = GroupNavId(created.Value.Id);
+        EditingId = GroupNavId(group.Id);
         await ReloadAsync();
     }
 
@@ -3997,10 +4008,24 @@ public sealed class InboxDesktopState : IDisposable
     /// the control that failed is left as it was so the reader can try again.</summary>
     private bool Report(Result result, string testId = ErrorTestId)
     {
-        if (result.IsSuccess) return false;
+        if (result is not Error error) return false;
 
-        _toasts?.Publish(ToastMessage.Error(result.Error.Message, testId));
+        _toasts?.Publish(ToastMessage.Error(error.Message, testId));
         return true;
+    }
+
+    /// <summary>The same for a result that carries a value, handed out when
+    /// there is one.</summary>
+    private bool Report<TValue>(Result<TValue> result, [MaybeNullWhen(true)] out TValue value, string testId = ErrorTestId)
+    {
+        if (result is Ok<TValue>(var produced))
+        {
+            value = produced;
+            return false;
+        }
+
+        value = default;
+        return Report((Error)result.Value!, testId);
     }
 }
 

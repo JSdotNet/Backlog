@@ -5,6 +5,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.SharedKernel.Ai;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Progress.UI;
 
@@ -51,7 +52,7 @@ internal sealed class GoalsAiContentSource(IStandUp standUp) : IAiContentSource
         ArgumentNullException.ThrowIfNull(request);
 
         var read = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
-        if (read.IsFailure)
+        if (read is not Ok<StandUpDto>(var reading))
         {
             return AiContentBudget.Compose<GoalsRecord>(
                 AreaKey,
@@ -60,10 +61,8 @@ internal sealed class GoalsAiContentSource(IStandUp standUp) : IAiContentSource
                 record => record.Text,
                 request.Question,
                 request.BudgetCharacters,
-                note: $"The stand-up could not be read: {read.Error.Message}");
+                note: $"The stand-up could not be read: {((Error)read.Value!).Message}");
         }
-
-        var reading = read.Value;
 
         IReadOnlyList<GoalsRecord> records =
         [

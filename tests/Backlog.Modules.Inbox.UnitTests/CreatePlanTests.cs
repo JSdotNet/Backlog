@@ -29,8 +29,8 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, target, drafter: null, item.Id);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.plan.not_configured", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.plan.not_configured", error.Code);
         Assert.Empty(target.Imports);
         Assert.False(item.IsRouted);
     }
@@ -46,8 +46,8 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, target, drafter, item.Id);
 
-        Assert.Equal("inbox.plan.not_configured", result.Error.Code);
-        Assert.Equal("Configure Azure Foundry in Settings.", result.Error.Message);
+        Assert.Equal("inbox.plan.not_configured", Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal("Configure Azure Foundry in Settings.", Assert.IsType<Error>(result.Value).Message);
         Assert.Empty(drafter.Requests);
         Assert.Empty(target.Imports);
     }
@@ -63,7 +63,7 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, target, drafter, item.Id);
 
-        Assert.Equal("inbox.plan.empty", result.Error.Code);
+        Assert.Equal("inbox.plan.empty", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.Imports);
         Assert.False(item.IsRouted);
         Assert.Empty(store.ItemWrites);
@@ -79,7 +79,7 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, new FakeBacklogTarget(), drafter, item.Id);
 
-        Assert.Equal("inbox.plan.failed", result.Error.Code);
+        Assert.Equal("inbox.plan.failed", Assert.IsType<Error>(result.Value).Code);
         Assert.False(item.IsRouted);
     }
 
@@ -99,8 +99,8 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, target, drafter, item.Id);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.TaskIds.Count);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
+        Assert.Equal(2, ok.Value.TaskIds.Count);
 
         var request = Assert.Single(drafter.Requests);
         Assert.Equal(CreatePlanCommandHandler.PlanTag("Ship the thing!", item.Id), request.PlanTag);
@@ -114,7 +114,7 @@ public sealed class CreatePlanTests
         Assert.Equal(item.Id, import.SourceInboxId);
 
         Assert.Equal(InboxStatus.Triaged, item.Status);
-        Assert.Equal(result.Value.TaskIds, item.Routing!.TaskIds);
+        Assert.Equal(ok.Value.TaskIds, item.Routing!.TaskIds);
         Assert.Equal(Decision, item.Routing.RoutedAt);
     }
 
@@ -128,7 +128,7 @@ public sealed class CreatePlanTests
 
         var result = await Create(store, target, new FakePlanDrafter(), item.Id);
 
-        Assert.Equal("import.duplicate_item_id", result.Error.Code);
+        Assert.Equal("import.duplicate_item_id", Assert.IsType<Error>(result.Value).Code);
         Assert.False(item.IsRouted);
     }
 
@@ -150,8 +150,8 @@ public sealed class CreatePlanTests
         store.Seed(first);
         store.Seed(second);
 
-        Assert.True((await Create(store, target, drafter, first.Id)).IsSuccess);
-        Assert.True((await Create(store, target, drafter, second.Id)).IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>((await Create(store, target, drafter, first.Id)).Value);
+        Assert.IsType<Ok<InboxRoutedDto>>((await Create(store, target, drafter, second.Id)).Value);
 
         Assert.Equal(2, drafter.Requests.Count);
         Assert.NotEqual(drafter.Requests[0].PlanTag, drafter.Requests[1].PlanTag);

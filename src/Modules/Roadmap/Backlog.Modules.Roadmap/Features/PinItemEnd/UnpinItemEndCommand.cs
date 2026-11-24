@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -20,9 +21,9 @@ public sealed class UnpinItemEndCommandHandler(IRoadmapPlanRepository plans, Roa
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var unpinned = plan.UnpinEnd(command.ItemId);
-        if (unpinned.IsFailure) return Result.Failure<RoadmapItemDto>(unpinned.Error);
+        if (unpinned is not Ok<RoadmapItem>(var item)) return (Error)unpinned.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(unpinned.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

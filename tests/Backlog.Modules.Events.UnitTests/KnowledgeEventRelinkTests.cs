@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -21,7 +22,7 @@ public sealed class KnowledgeEventRelinkTests
 
         var result = techorama.ReplaceNoteLink(Moved, Found);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(["archive/techorama-2026.md", "areas/learning/aspire.md"], techorama.Notes.Select(note => note.Reference));
         Assert.Equal("Techorama 2026", techorama.Notes[0].Title);
     }
@@ -33,7 +34,7 @@ public sealed class KnowledgeEventRelinkTests
 
         var result = techorama.ReplaceNoteLink(Moved, Other);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(["areas/learning/aspire.md"], techorama.Notes.Select(note => note.Reference));
     }
 
@@ -44,7 +45,7 @@ public sealed class KnowledgeEventRelinkTests
 
         var result = techorama.ReplaceNoteLink(Moved, Found);
 
-        Assert.Equal("note_link.not_linked", result.Error.Code);
+        Assert.Equal("note_link.not_linked", Assert.IsType<Error>(result.Value).Code);
         Assert.Equal(["areas/learning/aspire.md"], techorama.Notes.Select(note => note.Reference));
     }
 
@@ -61,7 +62,7 @@ public sealed class KnowledgeEventRelinkTests
 
     private static KnowledgeEvent WithNotes(params NoteLink[] notes)
     {
-        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value;
+        var knowledgeEvent = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value).Value;
         foreach (var note in notes) knowledgeEvent.LinkNote(note);
         return knowledgeEvent;
     }

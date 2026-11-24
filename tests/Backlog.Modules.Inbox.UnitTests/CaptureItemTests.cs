@@ -1,8 +1,10 @@
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.CaptureItem;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -25,12 +27,12 @@ public sealed class CaptureItemTests
         var result = await new CaptureItemCommandHandler(store, Clock)
             .Handle(new CaptureItemCommand("Read this https://example.com/posts/local-first"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(InboxEnumMap.ManualChannel, result.Value.Channel);
-        Assert.Equal(InboxStatus.Unprocessed, result.Value.Status);
-        Assert.Equal(ContentKind.Article, result.Value.Kind);
-        Assert.Equal("https://example.com/posts/local-first", result.Value.SourceUrl);
-        Assert.Equal(Items.Noon, result.Value.CapturedAt);
+        var ok = Assert.IsType<Ok<InboxItemDto>>(result.Value);
+        Assert.Equal(InboxEnumMap.ManualChannel, ok.Value.Channel);
+        Assert.Equal(InboxStatus.Unprocessed, ok.Value.Status);
+        Assert.Equal(ContentKind.Article, ok.Value.Kind);
+        Assert.Equal("https://example.com/posts/local-first", ok.Value.SourceUrl);
+        Assert.Equal(Items.Noon, ok.Value.CapturedAt);
 
         var stored = Assert.Single(store.Items.Values);
         Assert.False(stored.ReplicaBacked);
@@ -51,10 +53,11 @@ public sealed class CaptureItemTests
             new CaptureItemCommand("Just a title", "   "),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal("Before Friday, and in writing.", withNotes.Value.BodyMd);
-        Assert.Equal(InboxEnumMap.ManualChannel, withNotes.Value.Channel);
-        Assert.Equal(string.Empty, bare.Value.BodyMd);
-        Assert.Equal("Before Friday, and in writing.", store.Items[withNotes.Value.Id].BodyMd);
+        var withNotesOk = Assert.IsType<Ok<InboxItemDto>>(withNotes.Value);
+        Assert.Equal("Before Friday, and in writing.", withNotesOk.Value.BodyMd);
+        Assert.Equal(InboxEnumMap.ManualChannel, withNotesOk.Value.Channel);
+        Assert.Equal(string.Empty, Assert.IsType<Ok<InboxItemDto>>(bare.Value).Value.BodyMd);
+        Assert.Equal("Before Friday, and in writing.", store.Items[withNotesOk.Value.Id].BodyMd);
     }
 
     [Fact]
@@ -65,7 +68,7 @@ public sealed class CaptureItemTests
         var result = await new CaptureItemCommandHandler(store, Clock)
             .Handle(new CaptureItemCommand("   "), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.item.needs_title", result.Error.Code);
+        Assert.Equal("inbox.item.needs_title", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.Items);
     }
 
@@ -82,10 +85,10 @@ public sealed class CaptureItemTests
                 new CaptureItemCommand("Watch the keynote", SourceUrl: "  https://www.youtube.com/watch?v=abc  "),
                 TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("https://www.youtube.com/watch?v=abc", result.Value.SourceUrl);
-        Assert.Equal(ContentKind.YouTube, result.Value.Kind);
-        Assert.Equal(InboxEnumMap.ManualChannel, result.Value.Channel);
+        var ok = Assert.IsType<Ok<InboxItemDto>>(result.Value);
+        Assert.Equal("https://www.youtube.com/watch?v=abc", ok.Value.SourceUrl);
+        Assert.Equal(ContentKind.YouTube, ok.Value.Kind);
+        Assert.Equal(InboxEnumMap.ManualChannel, ok.Value.Channel);
     }
 
     [Theory]
@@ -100,7 +103,7 @@ public sealed class CaptureItemTests
         var result = await new CaptureItemCommandHandler(store, Clock)
             .Handle(new CaptureItemCommand("Something", SourceUrl: sourceUrl), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.SourceUrlNotALink.Code, result.Error.Code);
+        Assert.Equal(InboxErrors.SourceUrlNotALink.Code, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.Items);
     }
 
@@ -114,7 +117,7 @@ public sealed class CaptureItemTests
         var result = await new SetTagsCommandHandler(store)
             .Handle(new SetTagsCommand(item.Id, ["deploy", "@bob"]), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.tag.person_not_a_tag", result.Error.Code);
+        Assert.Equal("inbox.tag.person_not_a_tag", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(item.Tags);
     }
 
@@ -129,7 +132,7 @@ public sealed class CaptureItemTests
         var result = await new ArchiveItemCommandHandler(store, Clock)
             .Handle(new ArchiveItemCommand(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        Assert.Equal("inbox.item.invalid_transition", Assert.IsType<Error>(result.Value).Code);
         Assert.Equal(InboxStatus.Triaged, item.Status);
     }
 

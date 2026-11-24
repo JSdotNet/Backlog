@@ -853,8 +853,8 @@ public sealed class SessionSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(2, result.Unwrap().Pulled);
+        Assert.Equal(1, result.Unwrap().Applied);
 
         var kept = Assert.Single(fixture.Replica.Saved);
         Assert.Equal(["mine", "theirs"], kept.Select(entry => entry.Record.SessionId));
@@ -914,7 +914,7 @@ public sealed class SessionSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
+        Assert.Equal(2, result.Unwrap().Pulled);
         Assert.Equal(3, fixture.Handler.Requests.Count);
 
         // Saved once the feed says it is done, at the last page's cursor: the pages
@@ -947,7 +947,7 @@ public sealed class SessionSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Value.Applied);
+        Assert.Equal(3, result.Unwrap().Applied);
         Assert.Equal(["one", "two", "three"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
         Assert.Equal(["records", "cursor cursor-3"], order);
     }
@@ -1022,7 +1022,7 @@ public sealed class SessionSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
+        Assert.Equal(1, result.Unwrap().Pulled);
         Assert.Null(fixture.State.Saved[0].PullCursor);
 
         // On disk before the retry, so a run that dies in between does not send it

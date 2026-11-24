@@ -54,7 +54,7 @@ public sealed class EventsTaskTargetTests
         var filed = await target.FileAsync("Book hotel in Antwerp", TestContext.Current.CancellationToken);
 
         var save = Assert.Single(tasks.Saves);
-        Assert.Equal(save.Id.ToString("D"), filed.Value);
+        Assert.Equal(save.Id.ToString("D"), filed.Unwrap());
         Assert.Null(save.EntryId);
         Assert.Equal(4, save.Order);
         Assert.Null(save.SourceInboxId);
@@ -84,7 +84,7 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama\nBelgium", TestContext.Current.CancellationToken);
 
-        Assert.True(filed.Value);
+        Assert.True(filed.Unwrap());
         var create = Assert.Single(tasks.Creates);
         Assert.Equal(id, create.Id);
         Assert.Equal("# Harvest Techorama Belgium\n`task`\n", create.RawText);
@@ -102,7 +102,7 @@ public sealed class EventsTaskTargetTests
         var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
 
         Assert.True(filed.IsSuccess);
-        Assert.False(filed.Value);
+        Assert.False(filed.Unwrap());
     }
 
     [Fact]

@@ -45,7 +45,7 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(SyncRoutes.Absolute(SyncRoutes.Annotations), request.Path);
@@ -76,8 +76,8 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Refused);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
     }
 
@@ -129,7 +129,7 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         Assert.Single(fixture.Handler.Requests);
         var change = Assert.Single(Pushed(fixture.Bodies[0]));
@@ -155,7 +155,7 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
         Assert.Equal(valid.Id, Assert.Single(Pushed(fixture.Bodies[0])).Id);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
     }
@@ -200,7 +200,7 @@ public sealed class AnnotationSyncSessionTests
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
         Assert.Empty(fixture.Handler.Requests);
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.Equal(0, result.Unwrap().Pushed);
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
     }
 
@@ -220,8 +220,8 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(0, result.Value.Skipped);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(0, result.Unwrap().Skipped);
 
         var tombstone = Assert.Single(Pushed(Assert.Single(fixture.Bodies)));
         Assert.Equal(deleted.Id, tombstone.Id);
@@ -247,7 +247,7 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(1, result.Unwrap().Refused);
     }
 
     /// <summary>A remark left out is said, once, at Warning — by id, chapter and
@@ -266,7 +266,7 @@ public sealed class AnnotationSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, result.Value.Skipped);
+        Assert.Equal(1, result.Unwrap().Skipped);
 
         var line = Assert.Single(log.Lines);
         Assert.Equal(LogLevel.Warning, line.Level);
@@ -293,8 +293,8 @@ public sealed class AnnotationSyncSessionTests
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
         Assert.Equal([HttpMethod.Post, HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Skipped);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Skipped);
         Assert.Equal("cursor-1", state.Current.PullCursor);
     }
 
@@ -391,8 +391,8 @@ public sealed class AnnotationSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(1, result.Unwrap().Pulled);
+        Assert.Equal(1, result.Unwrap().Applied);
 
         var listed = Assert.Single(store.List(Annotations.Repository, Annotations.Chapter));
         Assert.Equal("From the other machine", listed.Body);
@@ -415,7 +415,7 @@ public sealed class AnnotationSyncSessionTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal([HttpMethod.Post, HttpMethod.Get], ordered.Handler.Requests.Select(request => request.Method).ToArray());
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         store.Seed(Annotations.Local("Another", Noon.AddHours(2)));
 

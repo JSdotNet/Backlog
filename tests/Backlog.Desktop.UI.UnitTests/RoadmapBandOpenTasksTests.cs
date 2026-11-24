@@ -36,9 +36,9 @@ public sealed class RoadmapBandOpenTasksTests : RoadmapBandHarness
         Assert.True(added.IsSuccess);
 
         // Open in Tasks is offered for work tasks carry.
-        await CarriedByATaskAsync(added.Value.Tag);
+        await CarriedByATaskAsync(added.Unwrap().Tag);
 
-        return added.Value.Id;
+        return added.Unwrap().Id;
     }
 
     /// <summary>Opens the editor from <paramref name="barId"/> and presses Open in Tasks.</summary>

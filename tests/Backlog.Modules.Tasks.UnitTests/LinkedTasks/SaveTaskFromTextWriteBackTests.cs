@@ -1,7 +1,9 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests.LinkedTasks;
 
@@ -76,7 +78,7 @@ public sealed class SaveTaskFromTextWriteBackTests
         var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new SaveTaskFromTextCommand(task.Id, "# Ship the installer\n`task` `!done`\n", 0), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<SavedTaskDto>>(result.Value);
         Assert.Equal(EntryStatus.Done, store.Entries[task.Id].Status);
     }
 
@@ -113,7 +115,7 @@ public sealed class SaveTaskFromTextWriteBackTests
         var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory(), _writeBack)
             .Handle(new SaveTaskFromTextCommand(id, rawText, 0), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
+        Assert.IsType<Ok<SavedTaskDto>>(result.Value);
     }
 
     private static TaskItem Linked(EntryStatus status)

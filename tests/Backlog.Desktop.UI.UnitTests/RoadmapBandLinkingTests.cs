@@ -22,7 +22,7 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
         var then = await Planning.AddItemAsync(
             "Then", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["fincent"]);
 
-        return (first.Value.Id, then.Value.Id);
+        return (first.Unwrap().Id, then.Unwrap().Id);
     }
 
     private static Task Link(IRenderedComponent<RoadmapBand> band, string fromId, string toId)
@@ -71,7 +71,7 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
         var item = (await Planning.AddItemAsync(
             "Both", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog", "fincent"],
-            cancellationToken: TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Unwrap();
 
         using var context = Context();
         var band = Drawn(context);

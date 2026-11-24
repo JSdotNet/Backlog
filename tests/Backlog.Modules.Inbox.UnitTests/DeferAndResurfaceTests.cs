@@ -3,6 +3,7 @@ using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -111,7 +112,7 @@ public sealed class DeferAndResurfaceTests
         var result = await new DeferItemCommandHandler(store, Clock())
             .Handle(new DeferItemCommand(item.Id, Today.AddDays(3)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Deferred, store.Items[item.Id].Status);
         Assert.Equal(Today.AddDays(3), store.Items[item.Id].DeferredUntil);
         Assert.Equal([item.Id], store.ItemWrites);
@@ -128,8 +129,8 @@ public sealed class DeferAndResurfaceTests
         var result = await new DeferItemCommandHandler(store, Clock())
             .Handle(new DeferItemCommand(item.Id, null), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.item.invalid_transition", error.Code);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -139,7 +140,7 @@ public sealed class DeferAndResurfaceTests
         var result = await new DeferItemCommandHandler(new InMemoryInboxStore(), Clock())
             .Handle(new DeferItemCommand(Guid.CreateVersion7(), null), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.ItemNotFound, result.Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(result.Value));
     }
 
     [Fact]
@@ -153,7 +154,7 @@ public sealed class DeferAndResurfaceTests
         var result = await new ResurfaceItemCommandHandler(store, Clock())
             .Handle(new ResurfaceItemCommand(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Unprocessed, store.Items[item.Id].Status);
     }
 
@@ -167,7 +168,7 @@ public sealed class DeferAndResurfaceTests
         var result = await new ResurfaceItemCommandHandler(store, Clock())
             .Handle(new ResurfaceItemCommand(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -187,8 +188,8 @@ public sealed class DeferAndResurfaceTests
         var result = await new ResurfaceDueItemsCommandHandler(store, Clock())
             .Handle(new ResurfaceDueItemsCommand(), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value);
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        Assert.Equal(2, ok.Value);
         Assert.Equal(InboxStatus.Unprocessed, store.Items[past.Id].Status);
         Assert.Equal(InboxStatus.Unprocessed, store.Items[due.Id].Status);
         Assert.Equal(InboxStatus.Deferred, store.Items[future.Id].Status);
@@ -205,7 +206,7 @@ public sealed class DeferAndResurfaceTests
         var result = await new ResurfaceDueItemsCommandHandler(store, Clock())
             .Handle(new ResurfaceDueItemsCommand(), TestContext.Current.CancellationToken);
 
-        Assert.Equal(0, result.Value);
+        Assert.Equal(0, Assert.IsType<Ok<int>>(result.Value).Value);
         Assert.Empty(store.ItemWrites);
     }
 
