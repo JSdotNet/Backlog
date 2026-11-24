@@ -69,12 +69,20 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
     private readonly CancellationTokenSource _lifetime = new();
 
-    private int _cycleInFlight;
+    /// <summary>The guard: a cycle holds it from start to finish.</summary>
+    private const int CycleInFlight = 1;
 
     /// <summary>Set when the settle timer fired, cleared by the cycle that answers it, so a
     /// write met while a cycle holds the guard runs one more cycle rather than waiting for the
     /// tick — <see cref="TaskSyncWorker"/>'s arrangement.</summary>
-    private int _changeSettled;
+    private const int ChangeSettled = 2;
+
+    /// <summary><see cref="CycleInFlight"/> and <see cref="ChangeSettled"/> in one word, so a
+    /// settled-only request reads the flag and takes the guard in one step: one that finds
+    /// nothing never holds the guard, and never turns a full request away.</summary>
+    private int _cycleState;
+
+    private int _pendingRequests;
 
     private ITimer? _timer;
 
@@ -126,7 +134,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     public string? LastError { get; private set; }
 
     /// <summary>True while a cycle is in flight.</summary>
-    public bool IsSyncing => Volatile.Read(ref _cycleInFlight) == 1;
+    public bool IsSyncing => (Volatile.Read(ref _cycleState) & CycleInFlight) != 0;
 
     /// <summary>Where this device's knowledge event progress is kept.</summary>
     public string StorePath => _state.StorePath;
@@ -164,8 +172,54 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             if (_disposed) return Task.CompletedTask;
         }
 
-        return Task.Run(RunGuardedAsync, CancellationToken.None);
+        return DispatchAsync(settledOnly: false);
     }
+
+    /// <summary>What <see cref="RequestSettledSync"/> discards, so a test can wait for the
+    /// dispatch.</summary>
+    internal Task RequestSettledSyncAsync()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return Task.CompletedTask;
+        }
+
+        return DispatchAsync(settledOnly: true);
+    }
+
+    /// <summary>True while a request has been dispatched and not yet run or turned away, so a
+    /// test can let a request it cannot await drain.</summary>
+    internal bool HasPendingRequests => Volatile.Read(ref _pendingRequests) != 0;
+
+    private Task DispatchAsync(bool settledOnly)
+    {
+        Interlocked.Increment(ref _pendingRequests);
+
+        return Task.Run(
+            async () =>
+            {
+                try
+                {
+                    await RunGuardedAsync(settledOnly).ConfigureAwait(false);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _pendingRequests);
+                }
+            },
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// A cycle for writes that settled, which runs only if no cycle has carried them yet.
+    /// <para>
+    /// A settle asks twice: the settle timer itself, and a cycle that held the guard when it
+    /// fired, on its way out. Either may reach the guard first, and the other then finds
+    /// nothing left to send. Without the check the later one ran a cycle of its own — an
+    /// exchange that sent nothing, and a third cycle where one write had asked for one.
+    /// </para>
+    /// </summary>
+    private void RequestSettledSync() => _ = RequestSettledSyncAsync();
 
     /// <summary>All three gates: the <c>sync</c> feature every loop answers to, the
     /// <c>events</c> area this feed belongs to, and a paired device to replicate under.</summary>
@@ -256,8 +310,8 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     /// holding the guard runs one more on its way out.</summary>
     private void OnSettled()
     {
-        Volatile.Write(ref _changeSettled, 1);
-        RequestSync();
+        Interlocked.Or(ref _cycleState, ChangeSettled);
+        RequestSettledSync();
     }
 
     private void ApplyGates()
@@ -281,7 +335,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     {
         try
         {
-            await RunGuardedAsync().ConfigureAwait(false);
+            await RunGuardedAsync(settledOnly: false).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -289,11 +343,11 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
     }
 
-    private async Task RunGuardedAsync()
+    private async Task RunGuardedAsync(bool settledOnly)
     {
         try
         {
-            await RunCycleAsync().ConfigureAwait(false);
+            await RunCycleAsync(settledOnly).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -301,20 +355,16 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
     }
 
-    private async Task RunCycleAsync()
+    private async Task RunCycleAsync(bool settledOnly)
     {
         var full = ShouldRun;
         if (!full && !ShouldWithdraw) return;
 
-        if (Interlocked.CompareExchange(ref _cycleInFlight, 1, 0) != 0) return;
-
-        Changed?.Invoke();
+        if (!TryTakeGuard(settledOnly)) return;
 
         try
         {
-            // Inside the guard and before anything is read, so this cycle's push carries every
-            // write that fired the settle timer.
-            Interlocked.Exchange(ref _changeSettled, 0);
+            Changed?.Invoke();
 
             var session = ResolveSession();
 
@@ -349,7 +399,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
         finally
         {
-            Volatile.Write(ref _cycleInFlight, 0);
+            Interlocked.And(ref _cycleState, ~CycleInFlight);
             Changed?.Invoke();
 
             // A withdrawal sent leaves nothing for the loop to do while the area stays off.
@@ -360,7 +410,33 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
             // A write that settled while this cycle held the guard: its request was turned
             // away, so it runs now rather than on the next tick.
-            if (Volatile.Read(ref _changeSettled) == 1 && ShouldRun) RequestSync();
+            if ((Volatile.Read(ref _cycleState) & ChangeSettled) != 0 && ShouldRun) RequestSettledSync();
+        }
+    }
+
+    /// <summary>
+    /// Takes the guard, clearing <see cref="ChangeSettled"/> in the same step — before anything
+    /// is read, so the cycle's push carries every write that fired the settle timer.
+    /// <para>
+    /// A cycle in flight turns every request away; its way out asks again for a settle it met.
+    /// A settled-only request that finds the flag clear — the write carried already, by the
+    /// cycle that answered the settle's other ask — returns without ever holding the guard, so
+    /// a full request (a manual sync, a withdrawal) arriving at that moment is not turned away.
+    /// </para>
+    /// </summary>
+    private bool TryTakeGuard(bool settledOnly)
+    {
+        var seen = Volatile.Read(ref _cycleState);
+
+        while (true)
+        {
+            if ((seen & CycleInFlight) != 0) return false;
+            if (settledOnly && (seen & ChangeSettled) == 0) return false;
+
+            var was = Interlocked.CompareExchange(ref _cycleState, CycleInFlight, seen);
+            if (was == seen) return true;
+
+            seen = was;
         }
     }
 

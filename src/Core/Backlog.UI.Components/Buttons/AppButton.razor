@@ -51,7 +51,8 @@
        tabindex="@(inert ? "0" : null)"
        aria-disabled="@(inert ? "true" : null)"
        aria-busy="@(Busy ? "true" : null)"
-       @attributes="AdditionalAttributes">
+       @attributes="AdditionalAttributes"
+       @ref="_element">
         @if (Busy)
         {
             <Spinner Size="SpinnerSize.Small" Label="@BusyLabel" />
@@ -74,7 +75,8 @@ else
         @onclick="ClickAsync"
         @onclick:preventDefault="Busy"
         @onclick:stopPropagation="StopPropagation"
-        @attributes="AdditionalAttributes">
+        @attributes="AdditionalAttributes"
+        @ref="_element">
     @if (Busy)
     {
         <Spinner Size="SpinnerSize.Small" Label="@BusyLabel" />
@@ -160,6 +162,13 @@ else
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ElementReference _element;
+
+    /// <summary>Moves the keyboard focus to the button, for a host that replaced the control
+    /// the focus was on - a confirm that took a row's actions over, and the button it gives
+    /// way back to.</summary>
+    public ValueTask FocusAsync() => _element.FocusAsync();
 
     private string TypeAttribute => Type is "submit" ? "submit" : "button";
 

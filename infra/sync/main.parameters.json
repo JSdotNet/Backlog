@@ -16,6 +16,9 @@
     },
     "foundryAccountName": {
       "value": "${SYNC_FOUNDRY_ACCOUNT_NAME=}"
+    },
+    "ownerId": {
+      "value": "${SYNC_OWNER_ID=}"
     }
   }
 }

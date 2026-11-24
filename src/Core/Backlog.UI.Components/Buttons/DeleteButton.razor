@@ -38,7 +38,8 @@
            OnClick="OnClick"
            Icon="@(ShowIcon ? TrashGlyph : null)"
            IconAlone="@Bare"
-           @attributes="AttributeValues">
+           @attributes="AttributeValues"
+           @ref="_button">
     <ChildContent>
         @if (Bare)
         {
@@ -144,6 +145,11 @@
             return merged;
         }
     }
+
+    private AppButton? _button;
+
+    /// <summary>Moves the keyboard focus to the button; <see cref="AppButton.FocusAsync"/>.</summary>
+    public ValueTask FocusAsync() => _button?.FocusAsync() ?? ValueTask.CompletedTask;
 
     /// <summary>Bare drops the modifier as well as the word. It is derived from
     /// <see cref="BaseClass"/>, so on a host's own stem it would be a second name

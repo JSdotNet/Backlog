@@ -49,6 +49,9 @@ public sealed class InMemoryDeviceRegistry : IDeviceRegistry
     public Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_devices.Values.Any(device => device.OwnerId == ownerId));
 
+    public Task<bool> AnyOutside(OwnerId ownerId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_devices.Values.Any(device => device.OwnerId != ownerId));
+
     public Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<Device>>([.. _devices.Values.Where(device => device.OwnerId == ownerId)]);
 

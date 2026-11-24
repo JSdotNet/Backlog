@@ -925,7 +925,7 @@ public sealed class McpServerWorker : IDisposable
                 // lockout. An expired, revoked or superseded one was signed here, so its
                 // client is real and the headersHelper's next mint is the fix.
                 if (refusal == McpGrantRefusal.BadToken
-                    && _bearerLimiter.Fail(authorization[0]) is { } trippedByGrant)
+                    && _bearerLimiter.Fail() is { } trippedByGrant)
                 {
                     await RecordLockoutAsync(trippedByGrant).ConfigureAwait(false);
                 }
@@ -950,7 +950,7 @@ public sealed class McpServerWorker : IDisposable
             // a guesser reaches, and a session still sending the retired token would otherwise
             // lock every other session out the moment it restarted against this build.
             if (environmentToken is not null
-                && _bearerLimiter.Fail(authorization.Count == 0 ? null : authorization[0]) is { } tripped)
+                && _bearerLimiter.Fail() is { } tripped)
             {
                 await RecordLockoutAsync(tripped).ConfigureAwait(false);
             }
