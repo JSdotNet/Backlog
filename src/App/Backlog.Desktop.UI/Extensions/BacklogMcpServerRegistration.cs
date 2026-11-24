@@ -260,6 +260,8 @@ public static class BacklogMcpServerRegistration
                 throw new McpException(
                     McpScopePolicies.NeedsGrantToken(request.User, name)
                         ? $"The tool '{name}' needs a grant token, which a call with no token does not carry."
+                        : McpScopePolicies.IsRequesterTool(name)
+                            ? $"The tool '{name}' needs a grant that holds a scope beyond telemetry:write and notify:ask; ask with headersHelper --request."
                         : scope is null
                             ? $"The tool '{name}' is served under no scope, so no grant may call it."
                             : $"The tool '{name}' needs the scope '{scope}', which this caller does not hold.");
@@ -285,7 +287,7 @@ public static class BacklogMcpServerRegistration
                 var held = McpScopePolicies.ScopesOf(request.User);
 
                 result.Tools = [.. result.Tools.Where(tool =>
-                    !McpToolScopes.AnyCaller.Contains(tool.Name)
+                    !McpToolScopes.RequesterTools.Contains(tool.Name)
                     && McpToolScopes.ScopeOf(tool.Name) is { } scope
                     && McpScopes.IsUnauthenticatedOfferable(scope)
                     && held.Contains(scope))];

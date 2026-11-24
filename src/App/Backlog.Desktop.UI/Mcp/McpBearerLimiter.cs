@@ -55,53 +55,19 @@ public sealed class McpBearerLimiter(TimeProvider? time = null)
         }
     }
 
-    /// <summary>The token a Rotate replaced, and until when presenting it is not
-    /// counted as a failure.</summary>
-    private string? _retired;
-
-    private DateTimeOffset _retiredUntil;
-
     /// <summary>
-    /// Says the token was rotated away from <paramref name="previous"/>. For one
-    /// <see cref="Window"/> a request presenting it is refused but not counted: every
-    /// running registration sends it once more before its headers helper re-reads the
-    /// new one, and a person running ten sessions must not lock themselves out by
-    /// pressing Rotate.
+    /// Counts one failed attempt; a missing <c>Authorization</c> header counts too, since a
+    /// guesser need send none. Answers the audit record to write when this failure is the one
+    /// that trips the lockout, else null. Not counted: a failure that arrives while locked
+    /// out — one checked before the trip and answered after it.
     /// </summary>
-    public void Retire(string? previous)
-    {
-        if (string.IsNullOrEmpty(previous)) return;
-
-        var now = _time.GetUtcNow();
-
-        lock (_gate)
-        {
-            _retired = previous;
-            _retiredUntil = now + Window;
-        }
-    }
-
-    /// <summary>
-    /// Counts one failed attempt, whose <c>Authorization</c> header was
-    /// <paramref name="authorization"/>; a missing header counts too, since a guesser
-    /// need send none. Answers the audit record to write when this failure is the one
-    /// that trips the lockout, else null. Not counted: a failure that arrives while
-    /// locked out — one checked before the trip and answered after it — and one
-    /// presenting the token <see cref="Retire"/> named, within its grace.
-    /// </summary>
-    public McpAuditRecord? Fail(string? authorization = null)
+    public McpAuditRecord? Fail()
     {
         var now = _time.GetUtcNow();
 
         lock (_gate)
         {
             if (_lockedUntil is { } until && now < until) return null;
-
-            if (_retired is not null)
-            {
-                if (now >= _retiredUntil) _retired = null;
-                else if (McpLoopbackGuard.IsAuthorized(authorization, _retired)) return null;
-            }
 
             _lockedUntil = null;
             while (_failures.Count > 0 && now - _failures.Peek() >= Window) _failures.Dequeue();

@@ -16,8 +16,9 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <para>
 /// <b>Every caller is a principal.</b> The listener puts one on every request it admits: a
 /// grant token's own, or <see cref="SharedTokenCaller"/> for the <c>BACKLOG_MCP_TOKEN</c> escape
-/// hatch where a debug setting switched it on; the web harness, which asks for no token, puts
-/// <see cref="HarnessCaller"/> on. A request with none is refused by every policy here.
+/// hatch where a debug setting switched it on, which holds neither the telemetry route nor
+/// granting; the web harness, which asks for no token, puts <see cref="HarnessCaller"/> on. A
+/// request with none is refused by every policy here.
 /// </para>
 /// <para>
 /// <b>Fallback-deny.</b> A tool <see cref="McpToolScopes"/> does not name and a route
@@ -39,6 +40,12 @@ public static class McpScopePolicies
     /// scope's policy as well.</summary>
     public const string Caller = Prefix + "caller";
 
+    /// <summary>The policy of <c>request_access</c> (<see cref="McpToolScopes.RequesterTools"/>):
+    /// an admitted caller holding a grantable scope beyond <see cref="McpScopes.SinglePurpose"/>,
+    /// so a grant made for the logs route or the Question hook alone calls no tool (local ADR
+    /// 0024).</summary>
+    public const string Requester = Prefix + "requester";
+
     /// <summary>The claim naming who a principal is for the audit log.</summary>
     public const string CallerClaim = "backlog_mcp_caller";
 
@@ -50,9 +57,13 @@ public static class McpScopePolicies
 
     /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch (local ADR 0058, Phase 1): a dev or CI
     /// run's static token, accepted only where a debug setting switched it on. Every grantable
-    /// scope, as the harness's caller has, since it stands in for no particular agent; audited
-    /// as <see cref="McpAudit.SharedTokenCaller"/>, the name the retired shared token had.</summary>
-    public static ClaimsPrincipal SharedTokenCaller { get; } = Static(McpAudit.SharedTokenCaller, McpScopes.Grantable);
+    /// scope but <see cref="McpScopes.TelemetryWrite"/> and <see cref="McpScopes.AgentsGrant"/>:
+    /// it stands in for no particular agent, yet it is a static secret, so a leaked one neither
+    /// feeds the logs route nor makes grants. Audited as <see cref="McpAudit.SharedTokenCaller"/>,
+    /// the name the retired shared token had.</summary>
+    public static ClaimsPrincipal SharedTokenCaller { get; } = Static(
+        McpAudit.SharedTokenCaller,
+        McpScopes.Grantable.Where(scope => scope is not McpScopes.TelemetryWrite and not McpScopes.AgentsGrant));
 
     /// <summary>The web harness's caller, which presents nothing: every grantable scope, since
     /// the harness keeps no auth (ADR 0058) and its tools are QA's.</summary>
@@ -61,7 +72,7 @@ public static class McpScopePolicies
     /// <summary>
     /// Registers the authorization services and one policy per scope in
     /// <see cref="McpScopes.All"/> but <see cref="McpScopes.DevbookDecide"/>, plus
-    /// <see cref="Caller"/> and <see cref="Fallback"/>. Idempotent.
+    /// <see cref="Caller"/>, <see cref="Requester"/> and <see cref="Fallback"/>. Idempotent.
     /// </summary>
     public static IServiceCollection AddMcpScopePolicies(this IServiceCollection services)
     {
@@ -76,10 +87,19 @@ public static class McpScopePolicies
             services.AddSingleton<IAuthorizationHandler, ScopeHandler>();
         }
 
+        if (!services.Any(descriptor => descriptor.ImplementationType == typeof(RequesterHandler)))
+        {
+            services.AddSingleton<IAuthorizationHandler, RequesterHandler>();
+        }
+
         services.Configure<AuthorizationOptions>(options =>
         {
             options.AddPolicy(Fallback, policy => policy.AddRequirements(new DenyRequirement()));
             options.AddPolicy(Caller, policy => policy.RequireAuthenticatedUser().RequireClaim(CallerClaim));
+            options.AddPolicy(Requester, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireClaim(CallerClaim)
+                .AddRequirements(new RequesterRequirement()));
 
             foreach (var scope in McpScopes.Grantable)
             {
@@ -93,12 +113,12 @@ public static class McpScopePolicies
         return services;
     }
 
-    /// <summary>The policy a call to <paramref name="toolName"/> must pass: <see cref="Caller"/>
-    /// for a tool <see cref="McpToolScopes.AnyCaller"/> names, its scope's, or
+    /// <summary>The policy a call to <paramref name="toolName"/> must pass: <see cref="Requester"/>
+    /// for a tool <see cref="McpToolScopes.RequesterTools"/> names, its scope's, or
     /// <see cref="Fallback"/> for a tool no scope serves.</summary>
     public static string ToolPolicy(string? toolName) =>
-        toolName is not null && McpToolScopes.AnyCaller.Contains(toolName)
-            ? Caller
+        IsRequesterTool(toolName)
+            ? Requester
             : McpToolScopes.ScopeOf(toolName) is { } scope ? PolicyName(scope) : Fallback;
 
     /// <summary>
@@ -127,8 +147,9 @@ public static class McpScopePolicies
     }
 
     /// <summary>Whether <paramref name="user"/> may call <paramref name="toolName"/>. A tool
-    /// <see cref="McpToolScopes.AnyCaller"/> names - <c>request_access</c> - is refused to the
-    /// tokenless caller of local ADR 0059: it asks on behalf of a grant, and that caller has none.</summary>
+    /// <see cref="McpToolScopes.RequesterTools"/> names - <c>request_access</c> - passes
+    /// <see cref="Requester"/>, and is refused to the tokenless caller of local ADR 0059: it asks
+    /// on behalf of a grant, and that caller has none.</summary>
     public static async Task<bool> AuthorizeToolAsync(IAuthorizationService authorization, ClaimsPrincipal? user, string? toolName)
     {
         ArgumentNullException.ThrowIfNull(authorization);
@@ -195,10 +216,14 @@ public static class McpScopePolicies
         return Static(McpAudit.UnauthenticatedCaller, scopes.Where(McpScopes.IsUnauthenticatedOfferable));
     }
 
-    /// <summary>Whether <paramref name="toolName"/> is one any grant may call that
+    /// <summary>Whether <paramref name="toolName"/> is one a requester may call that
     /// <paramref name="user"/>, the tokenless caller, may not, for want of a grant token.</summary>
     public static bool NeedsGrantToken(ClaimsPrincipal? user, string? toolName) =>
-        toolName is not null && McpToolScopes.AnyCaller.Contains(toolName) && IsUnauthenticated(user);
+        IsRequesterTool(toolName) && IsUnauthenticated(user);
+
+    /// <summary>Whether <paramref name="toolName"/> is one <see cref="Requester"/> guards.</summary>
+    public static bool IsRequesterTool(string? toolName) =>
+        toolName is not null && McpToolScopes.RequesterTools.Contains(toolName);
 
     /// <summary>Whether <paramref name="user"/> is the tokenless caller of local ADR 0059.</summary>
     public static bool IsUnauthenticated(ClaimsPrincipal? user) =>
@@ -214,6 +239,25 @@ public static class McpScopePolicies
 
     /// <summary>The requirement nobody meets: <see cref="Fallback"/>'s.</summary>
     internal sealed class DenyRequirement : IAuthorizationRequirement;
+
+    /// <summary>The requirement <see cref="Requester"/> adds.</summary>
+    internal sealed class RequesterRequirement : IAuthorizationRequirement;
+
+    /// <summary>Meets a <see cref="RequesterRequirement"/> when the principal holds a grantable
+    /// scope beyond <see cref="McpScopes.SinglePurpose"/>, and never for the tokenless caller —
+    /// the second guard behind <see cref="NeedsGrantToken"/>.</summary>
+    internal sealed class RequesterHandler : AuthorizationHandler<RequesterRequirement>
+    {
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, RequesterRequirement requirement)
+        {
+            if (!IsUnauthenticated(context.User) && McpScopes.MayRequestAccess(ScopesOf(context.User)))
+            {
+                context.Succeed(requirement);
+            }
+
+            return Task.CompletedTask;
+        }
+    }
 
     /// <summary>Meets a <see cref="ScopeRequirement"/> when the principal holds the scope, and
     /// never one for <see cref="McpScopes.DevbookDecide"/>, whatever a token claims; nor, for

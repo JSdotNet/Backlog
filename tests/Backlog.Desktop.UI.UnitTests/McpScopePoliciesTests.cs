@@ -132,21 +132,37 @@ public sealed class McpScopePoliciesTests
     }
 
     [Fact]
-    public async Task Agents_grant_is_a_policy_with_no_tool_yet()
+    public async Task Agents_grant_admits_its_holder_and_refuses_the_rest()
     {
         Assert.True((await Authorization.AuthorizeAsync(Holding(McpScopes.AgentsGrant), McpScopePolicies.PolicyName(McpScopes.AgentsGrant))).Succeeded);
         Assert.False((await Authorization.AuthorizeAsync(Holding(McpScopes.TasksWrite), McpScopePolicies.PolicyName(McpScopes.AgentsGrant))).Succeeded);
     }
 
+    /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch stands in for no particular agent
+    /// (local ADR 0058, Phase 1), yet it is a static secret: it holds every grantable scope but
+    /// the telemetry route's and granting, so a leaked one neither feeds the logs route nor
+    /// makes grants.</summary>
     [Fact]
-    public void The_escape_hatch_and_the_harness_hold_every_grantable_scope()
+    public async Task The_escape_hatch_holds_every_grantable_scope_but_telemetry_and_granting()
     {
-        // The BACKLOG_MCP_TOKEN escape hatch stands in for no particular agent (local ADR 0058,
-        // Phase 1); the hook and telemetry callers went with the tokens they named.
-        Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller).Count);
+        var held = McpScopePolicies.ScopesOf(McpScopePolicies.SharedTokenCaller);
+
+        Assert.Equal(
+            McpScopes.Grantable.Where(scope => scope is not McpScopes.TelemetryWrite and not McpScopes.AgentsGrant).Order(StringComparer.Ordinal),
+            held.Order(StringComparer.Ordinal));
+        Assert.Equal(McpAudit.SharedTokenCaller, McpScopePolicies.CallerOf(McpScopePolicies.SharedTokenCaller));
+
+        Assert.False(await McpScopePolicies.AuthorizeRouteAsync(Authorization, McpScopePolicies.SharedTokenCaller, "/v1/logs"));
+        Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, McpScopePolicies.SharedTokenCaller, "grant_agent"));
+    }
+
+    /// <summary>The web harness keeps no auth (local ADR 0058 §9) and its tools are QA's, the
+    /// granting ones included: its caller holds every grantable scope.</summary>
+    [Fact]
+    public void The_harness_holds_every_grantable_scope()
+    {
         Assert.Equal(McpScopes.Grantable.Count, McpScopePolicies.ScopesOf(McpScopePolicies.HarnessCaller).Count);
 
-        Assert.Equal(McpAudit.SharedTokenCaller, McpScopePolicies.CallerOf(McpScopePolicies.SharedTokenCaller));
         Assert.Equal(McpAudit.HarnessCaller, McpScopePolicies.CallerOf(McpScopePolicies.HarnessCaller));
         Assert.Null(McpScopePolicies.CallerOf(new ClaimsPrincipal(new ClaimsIdentity())));
     }
@@ -209,16 +225,58 @@ public sealed class McpScopePoliciesTests
         Assert.True((await Authorization.AuthorizeAsync(Holding(scope), McpScopePolicies.PolicyName(scope))).Succeeded);
     }
 
-    /// <summary>The tools any admitted caller may call - <c>request_access</c> - are refused to
-    /// the tokenless caller, which has no grant to ask on behalf of; a grant holding nothing
-    /// still reaches them.</summary>
+    /// <summary><c>request_access</c> is refused to the tokenless caller, which has no grant to
+    /// ask on behalf of, whatever the row opened to it.</summary>
     [Fact]
-    public async Task Request_access_is_refused_to_the_unauthenticated_caller_and_open_to_any_grant()
+    public async Task Request_access_is_refused_to_the_unauthenticated_caller()
     {
         var everything = McpScopePolicies.Unauthenticated(McpScopes.UnauthenticatedOfferable);
 
         Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, everything, "request_access"));
-        Assert.True(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(), "request_access"));
+    }
+
+    public static TheoryData<string[]> SinglePurposeHoldings => new()
+    {
+        Array.Empty<string>(),
+        new[] { McpScopes.TelemetryWrite },
+        new[] { McpScopes.NotifyAsk },
+        new[] { McpScopes.TelemetryWrite, McpScopes.NotifyAsk },
+    };
+
+    /// <summary>A grant holding no tool scope - nothing, or only the single-purpose scopes the
+    /// Telemetry and Question hook grants hold - calls no tool, <c>request_access</c> included,
+    /// so a leaked block of either cannot ask for more (local ADR 0024).</summary>
+    [Theory]
+    [MemberData(nameof(SinglePurposeHoldings))]
+    public async Task Request_access_is_refused_to_a_grant_holding_no_tool_scope(string[] scopes)
+    {
+        Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(scopes), "request_access"));
+    }
+
+    public static TheoryData<string> Requesters => new()
+    {
+        "tasks:read",
+        "delivery preset",
+        "escape hatch",
+        "harness",
+    };
+
+    /// <summary>A caller holding any scope beyond the single-purpose ones may ask for more:
+    /// one tool scope, the Delivery flow preset, the escape hatch and the harness.</summary>
+    [Theory]
+    [MemberData(nameof(Requesters))]
+    public async Task Request_access_admits_a_caller_holding_a_tool_scope(string requester)
+    {
+        var user = requester switch
+        {
+            "tasks:read" => Holding(McpScopes.TasksRead),
+            "delivery preset" => Holding([.. McpTokenRetirement.DeliveryScopes]),
+            "escape hatch" => McpScopePolicies.SharedTokenCaller,
+            "harness" => McpScopePolicies.HarnessCaller,
+            _ => throw new ArgumentOutOfRangeException(nameof(requester), requester, null)
+        };
+
+        Assert.True(await McpScopePolicies.AuthorizeToolAsync(Authorization, user, "request_access"));
     }
 
     /// <summary>A tokenless call is audited as <c>unauthenticated</c>, the principal's own name

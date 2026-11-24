@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// hatch's token where a debug setting switched it on, a grant token, or none. The predicates
 /// <c>McpServerWorker.GuardAsync</c> refuses on.
 /// </summary>
-public sealed class McpTokenScopeTests
+public sealed class McpBearerCredentialTests
 {
     private const string Environment = "env-token-00000000000000000000000000000000000";
 
