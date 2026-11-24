@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// ADR 0021, after ADR 0018).
 /// <para>
 /// <b>The registry document</b> is <c>repos.json</c> itself — rows, rename record,
-/// removal record and its <c>updatedAt</c>. It never held a token or a path, so it
+/// alias moves (local ADR 0060), removal record and its <c>updatedAt</c>. It never held a token or a path, so it
 /// may travel as it is. <b>The accounts document</b> is built from the account list:
 /// one entry per login with its display name, host and endpoint, and nothing else.
 /// The credential kind and the token are this machine's and never enter it.
@@ -106,6 +106,12 @@ public sealed partial class GitHubSettingsStore
         // arrived, so one a newer build added survives until this build next saves.
         document["updatedAt"] = JsonValue.Create(inbound.UpdatedAt);
 
+        // The alias moves are a union rather than last-write-wins (local ADR 0060
+        // §2): a device that relabelled while another did has already re-keyed its
+        // replicated stores, and dropping its moves would leave that data under an
+        // alias nothing resolves. The rows still follow the newer copy.
+        var heldOnlyHere = UnionAliasMoves(document, inbound.Content);
+
         try
         {
             var path = RegistryPath;
@@ -122,9 +128,42 @@ public sealed partial class GitHubSettingsStore
         // in github.json joins its row again by id — the stamp and the baseline come
         // from the file too, so this is not announced as a local change.
         Current = Load();
+
+        // Moves only this device held are news to the device the copy came from, so
+        // the union is a new version of the registry and goes back out; the device
+        // that receives it holds every move already and sends nothing further.
+        if (heldOnlyHere)
+        {
+            _registrySignature = string.Empty;
+            _ = WriteRegistry(Current);
+        }
+
         Changed?.Invoke();
 
         return ReplicaOutcome.Taken;
+    }
+
+    /// <summary>Writes into <paramref name="document"/> the inbound alias moves plus
+    /// the ones this device holds that the copy lacks, once each, ordered by time.
+    /// True when this device held any the copy lacked.</summary>
+    private bool UnionAliasMoves(JsonObject document, string content)
+    {
+        var inbound = JsonSerializer.Deserialize<RegistryDto>(content, JsonOptions)?.AliasMoves ?? [];
+        var arrived = inbound.Select(AliasMoveFrom).OfType<AliasMove>().ToList();
+        var heldOnlyHere = _aliasMoves.Where(move => !arrived.Contains(move)).ToList();
+
+        if (heldOnlyHere.Count == 0) return false;
+
+        List<RegistryAliasMoveDto> union =
+        [
+            .. arrived.Concat(heldOnlyHere)
+                .Distinct()
+                .OrderBy(move => move.At)
+                .Select(move => new RegistryAliasMoveDto { From = move.OldAlias, To = move.NewAlias, Id = move.RepositoryId, At = move.At })
+        ];
+
+        document["aliasMoves"] = JsonSerializer.SerializeToNode(union, JsonOptions);
+        return true;
     }
 
     /// <summary>The registry file as a copy, or null when there is no document; and
@@ -211,6 +250,7 @@ public sealed partial class GitHubSettingsStore
     private static bool IsEmpty(RegistryDto dto) =>
         dto.Repositories.Count == 0
         && (dto.Renames is null || dto.Renames.Count == 0)
+        && (dto.AliasMoves is null || dto.AliasMoves.Count == 0)
         && (dto.Removals is null || dto.Removals.Count == 0);
 
     // --- The accounts -------------------------------------------------------------

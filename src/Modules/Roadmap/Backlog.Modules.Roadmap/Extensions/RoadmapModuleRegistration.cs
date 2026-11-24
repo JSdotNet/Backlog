@@ -16,6 +16,7 @@ using Backlog.Modules.Roadmap.Features.CompleteItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
 using Backlog.Modules.Roadmap.Features.UpdateItem;
 using Backlog.Modules.Roadmap.Services;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +91,14 @@ public static class RoadmapModuleRegistration
             sp.GetRequiredService<RoadmapPlanChanges>(),
             sp.GetService<IPlanningVelocitySettings>(),
             sp.GetRequiredService<RoadmapPlanGate>()));
+
+        // The plan as a store the repository alias follower re-keys (local ADR 0060 §3).
+        // Resolved only by a host that runs the follower, and that host registers the
+        // plan's repository.
+        services.AddSingleton<IRepositoryAliasKeyedStore>(sp => new RoadmapAliasKeyedStore(
+            sp.GetRequiredService<IRoadmapPlanRepository>(),
+            sp.GetRequiredService<RoadmapPlanGate>(),
+            sp.GetRequiredService<RoadmapPlanChanges>()));
 
         return services;
     }

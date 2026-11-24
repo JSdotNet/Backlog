@@ -26,4 +26,19 @@ public interface IRoadmapPlanRepository
     /// <summary>Writes the whole plan. Must be atomic from a reader's point of
     /// view — a half-written plan is worse than an out-of-date one.</summary>
     Task SaveAsync(RoadmapPlan plan, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes the whole plan at the stamp the stored plan already carries, so the write
+    /// is not a newer version of the replicated document (local ADR 0018). What a
+    /// repository-alias backstop move saves through (local ADR 0060 §3): every device
+    /// re-keys its own copy the same way, and a copy stamped now would outrank the
+    /// relabelling device's plan and lose its edits.
+    /// <para>
+    /// A repository that keeps no stamp has nothing to keep, and saves the way
+    /// <see cref="SaveAsync"/> does, which is what this default does. With nothing stored
+    /// yet there is no stamp to keep either, and the save is stamped as a new one.
+    /// </para>
+    /// </summary>
+    Task SaveKeepingStampAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
+        SaveAsync(plan, cancellationToken);
 }

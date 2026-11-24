@@ -79,8 +79,10 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Empty(errors);
         Assert.Null(store.SetRepositories(repositories));
 
+        // The old alias no longer labels a row; it resolves through the move the
+        // relabel recorded (local ADR 0060 §4) to the row it became.
         var reopened = Store();
-        Assert.Null(reopened.Current.Find("backlog"));
+        Assert.Equal("bl", reopened.Current.Find("backlog")!.Alias);
         Assert.Equal("JSdotNet", reopened.Current.Find("bl")!.Account);
     }
 

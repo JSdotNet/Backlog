@@ -187,6 +187,39 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         Assert.True((await plans.ReadAsync(Cancellation))!.UpdatedAt > ahead);
     }
 
+    /// <summary>
+    /// A repository-alias backstop move (local ADR 0060 §3) is the same re-key every
+    /// device makes to its own copy, so it is stored at the copy's own stamp: stamped
+    /// now, a stale copy would outrank the relabelling device's plan.
+    /// </summary>
+    [Fact]
+    public async Task A_save_keeping_the_stamp_stores_the_plan_at_the_stamp_it_already_had()
+    {
+        IRoadmapPlanRepository plans = new RootedSqliteRoadmapPlanRepository(() => Device("a"));
+        var replica = new SqliteRoadmapPlanRepository(Device("a"));
+        await replica.TryWriteAsync(new RoadmapReplicaCopyDto("""{"version":1}""", Morning), Cancellation);
+
+        var plan = await plans.LoadAsync(Cancellation);
+        plan.AddItem("Filed under the old alias", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)));
+        await plans.SaveKeepingStampAsync(plan, Cancellation);
+
+        Assert.Equal(Morning, (await replica.ReadAsync(Cancellation))!.UpdatedAt);
+        Assert.Equal("Filed under the old alias", (await plans.LoadAsync(Cancellation)).Items.Single().Title);
+    }
+
+    [Fact]
+    public async Task A_save_keeping_the_stamp_with_no_plan_stored_yet_stores_it_as_a_new_one()
+    {
+        var plans = new SqliteRoadmapPlanRepository(Device("a"));
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("First", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)));
+
+        await plans.SaveKeepingStampAsync(plan, Cancellation);
+
+        Assert.NotNull(await plans.ReadAsync(Cancellation));
+        Assert.Single((await plans.LoadAsync(Cancellation)).Items);
+    }
+
     [Fact]
     public async Task The_rooted_repository_answers_for_the_folder_it_points_at()
     {

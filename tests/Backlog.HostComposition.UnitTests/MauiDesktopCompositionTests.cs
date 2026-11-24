@@ -116,6 +116,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(BackupWorker),
             typeof(Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
             typeof(Backlog.Modules.Notifications.Services.NotificationsStartup),
+            typeof(RepositoryAliasFollower),
             typeof(Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher),
             typeof(BrainFolderWatch),
             typeof(Backlog.Modules.Notifications.UI.NotificationCentreRequests),
