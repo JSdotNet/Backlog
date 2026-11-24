@@ -397,6 +397,58 @@ jobs:
 
           throw "The sync service at $endpoint/ never reported release $env:RELEASE_NUMBER at commit $env:GITHUB_SHA; last answer: $last."
 
+      # A phone uploads a meeting recording as audio/aac (local ADR 0049). The compiled
+      # allowlist holds it, but a Modules:Sync:Attachments:AllowedContentTypes setting
+      # replaces that list rather than adding to it, so an override set on the app before
+      # recordings existed would refuse every upload. Signs in itself, as Keep the running
+      # service image does, because that step is skipped in service mode.
+      - name: Check the deployed attachment allowlist
+        if: env.RELEASE_NUMBER != ''
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $request = "$($env:ACTIONS_ID_TOKEN_REQUEST_URL)&audience=api://AzureADTokenExchange"
+          $oidc = Invoke-RestMethod -Uri $request -Headers @{ Authorization = "Bearer $env:ACTIONS_ID_TOKEN_REQUEST_TOKEN" }
+          az login --service-principal `
+            --username $env:AZURE_CLIENT_ID `
+            --tenant $env:AZURE_TENANT_ID `
+            --federated-token $oidc.value `
+            --allow-no-subscriptions `
+            --output none
+          if ($LASTEXITCODE -ne 0) { throw "The Azure CLI could not sign in with the federated credential." }
+          az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+          if ($LASTEXITCODE -ne 0) { throw "Could not select subscription $env:AZURE_SUBSCRIPTION_ID." }
+
+          # The app azd matches to the `sync` service, in this azd environment.
+          $apps = az resource list `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --resource-type 'Microsoft.App/containerApps' `
+            --output json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Could not list the container apps in $env:AZURE_RESOURCE_GROUP." }
+          $sync = @($apps | Where-Object {
+              $_.tags.'azd-service-name' -eq 'sync' -and $_.tags.'azd-env-name' -eq $env:AZURE_ENV_NAME
+            })
+          if ($sync.Count -ne 1) {
+            throw "Found $($sync.Count) container apps tagged as the sync service of '$env:AZURE_ENV_NAME' in $env:AZURE_RESOURCE_GROUP; expected one."
+          }
+
+          $app = az resource show --ids $sync[0].id --output json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Could not read the container app $($sync[0].name)." }
+
+          # The section's array, as environment variables: one per index. A value held as
+          # a secret reference cannot be read here and does not count as audio/aac.
+          $prefix = 'Modules__Sync__Attachments__AllowedContentTypes__'
+          $overrides = @($app.properties.template.containers[0].env | Where-Object { "$($_.name)".StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) })
+
+          if ($overrides.Count -gt 0 -and -not ($overrides | Where-Object { "$($_.value)".Trim() -eq 'audio/aac' })) {
+            $named = ($overrides | ForEach-Object { "$($_.name)=$($_.value)" }) -join ', '
+            throw "The sync app $($sync[0].name) overrides the attachment allowlist without audio/aac ($named); every phone recording upload would be refused."
+          }
+
+          $source = if ($overrides.Count -gt 0) { "an override of $($overrides.Count) types that includes it" } else { 'the compiled default list' }
+          "The deployed sync service accepts ``audio/aac`` uploads ($source)." >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "The sync service accepts audio/aac through $source."
+
       - name: Write deployment summary
         id: summary
         if: always()

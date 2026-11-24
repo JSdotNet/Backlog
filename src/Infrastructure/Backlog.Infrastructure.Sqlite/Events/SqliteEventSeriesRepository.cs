@@ -31,9 +31,7 @@ public sealed class SqliteEventSeriesRepository : IEventSeriesRepository, IEvent
     /// app-data folder when null — the same file the tasks use.</summary>
     public SqliteEventSeriesRepository(string? rootDir = null, TimeProvider? clock = null)
     {
-        var root = rootDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+        var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
         _clock = clock ?? TimeProvider.System;

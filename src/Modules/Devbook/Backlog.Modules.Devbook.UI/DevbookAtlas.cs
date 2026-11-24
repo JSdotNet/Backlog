@@ -27,6 +27,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// degrade to Markdown, and that is deliberate — a map of the references between
 /// chapters cannot be drawn from the handful of files on screen.</para>
 /// </summary>
+// Not a settings store: it reads a repository's devbook files, so JsonFileStore<T> does not apply.
 public sealed class DevbookAtlasService(IDevbookFolderSource source)
 {
     public event Action? Changed

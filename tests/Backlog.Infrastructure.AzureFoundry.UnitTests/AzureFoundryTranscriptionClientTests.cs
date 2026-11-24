@@ -39,12 +39,13 @@ public sealed class AzureFoundryTranscriptionClientTests
     }
 
     [Theory]
-    [InlineData("audio/mp4", "dictation.m4a")]
-    [InlineData("audio/x-m4a", "dictation.m4a")]
-    [InlineData("audio/webm", "dictation.webm")]
-    [InlineData("audio/wav", "dictation.wav")]
-    [InlineData("audio/mpeg", "dictation.mp3")]
-    [InlineData("AUDIO/WEBM", "dictation.webm")]
+    [InlineData("audio/mp4", "audio.m4a")]
+    [InlineData("audio/x-m4a", "audio.m4a")]
+    [InlineData("audio/webm", "audio.webm")]
+    [InlineData("audio/wav", "audio.wav")]
+    [InlineData("audio/mpeg", "audio.mp3")]
+    [InlineData("AUDIO/WEBM", "audio.webm")]
+    [InlineData("audio/aac", "audio.aac")]
     public async Task The_file_part_carries_an_ascii_name_derived_from_the_type(string contentType, string fileName)
     {
         var foundry = new Foundry(Text("x"));
@@ -520,6 +521,7 @@ public sealed class AzureFoundryTranscriptionClientTests
     }
 
     /// <summary>Every message logged, formatted, so a test can say what never appears.</summary>
+    // Differs from RecordingLogger: keeps each message as one string with the exception's text appended.
     private sealed class ListLogger<T> : ILogger<T>
     {
         public List<string> Messages { get; } = [];

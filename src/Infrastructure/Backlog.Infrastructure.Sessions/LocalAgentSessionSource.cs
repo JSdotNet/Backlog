@@ -64,6 +64,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// costs only those two facts: the Claude sessions still answer, unstamped.
 /// </para>
 /// </summary>
+// Not a settings store: it reads files other tools write, so JsonFileStore<T> does not apply.
 internal sealed class LocalAgentSessionSource : IAgentSessionSource
 {
     private readonly ClaudeSessionReader _claude;

@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Services;
@@ -317,6 +318,46 @@ public sealed class HomeInboxWiringTests
         component.WaitForAssertion(() => Assert.Equal(0, inbox.QueueHealth.Unprocessed), TimeSpan.FromSeconds(10));
         Assert.Equal(reading.Id, inbox.SelectedItemId);
         Assert.Equal(focusCalls, harness.Context.JSInterop.Invocations["backlogFocus"].Count);
+    }
+
+    /// <summary>
+    /// The recording transcription worker writes a note while it is open (local ADR 0049):
+    /// the transcript appended to the body and the recording taken off it in one save, then
+    /// the Inbox's change signal raised off the renderer's thread. The open note shows the
+    /// transcript and no recording row, and the reader is not moved.
+    /// </summary>
+    [Fact]
+    public async Task A_transcript_written_in_the_background_reaches_the_open_note_and_its_recording_row_goes()
+    {
+        using var harness = CreateHarness();
+        var note = harness.Inbox.Seed("Planning call", ContentKind.Note, channel: "mobile", bodyMd: "Agenda.");
+        var recording = new InboxAttachmentDto(Guid.NewGuid(), "Recording · 47:12", "audio/aac", 18_400_000, IsImage: false, Downloaded: true, LastError: null);
+        harness.Inbox.SeedAttachments(note.Id, recording);
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        await component.Find($"[data-testid='inbox-item-{note.Id:D}']").ClickAsync(new());
+
+        var inbox = harness.Context.Services.GetRequiredService<InboxDesktopState>();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='inbox-attachment-row-{recording.Id:N}']")));
+        Assert.Equal(note.Id, inbox.SelectedItemId);
+
+        // The store is written before the signal, as the worker's save is; the signal comes
+        // off the renderer's thread, as the worker's does. Written here, not inside the task,
+        // so the fake's list never changes while the renderer reads it.
+        harness.Inbox.Rewrite(note.Id, item => item with
+        {
+            BodyMd = "Agenda.\n\n## Transcript\n\n[00:00:00] We agreed the budget.\n\n## Summary\n\nThe budget was agreed.",
+            Attachments = [],
+        });
+        var signal = harness.Context.Services.GetRequiredService<IInboxChangeSignal>();
+        await Task.Run(signal.Raise, TestContext.Current.CancellationToken);
+
+        component.WaitForAssertion(
+            () => Assert.Contains("We agreed the budget.", component.Find("[data-testid='inbox-detail-body']").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(10));
+        Assert.Empty(component.FindAll($"[data-testid='inbox-attachment-row-{recording.Id:N}']"));
+        Assert.Equal(note.Id, inbox.SelectedItemId);
     }
 
     [Fact]

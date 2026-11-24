@@ -893,11 +893,6 @@ public sealed class NotificationSyncTests
         }
     }
 
-    private sealed class FixedIdentity : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = new(Instance, "WORKSHOP-PC");
-    }
-
     private sealed class Fixture : IDisposable
     {
         public static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
@@ -983,7 +978,7 @@ public sealed class NotificationSyncTests
             INotificationRepositorySource? repositories = null,
             IPairedDevices? devices = null,
             IMcpAuditLog? audit = null) =>
-            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new FixedIdentity(), clock ?? Clock, repositories: repositories, devices: devices, audit: audit);
+            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new StubDeviceIdentity(new(Instance, "WORKSHOP-PC")), clock ?? Clock, repositories: repositories, devices: devices, audit: audit);
 
         public Task NextCycle()
         {

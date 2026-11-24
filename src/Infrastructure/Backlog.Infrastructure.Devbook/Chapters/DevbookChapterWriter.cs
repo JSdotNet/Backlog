@@ -417,11 +417,10 @@ public sealed class DevbookChapterStatus
 /// about.
 /// <para>
 /// The fence format, the heading a fence belongs to and the slug that names that
-/// heading are all <see cref="DevbookHeadingDocument"/>'s, down to the
-/// duplicated <c>Slug</c>. Duplicated rather than shared because those helpers
-/// deliberately stay as they are, and the two have to agree exactly: an anchor these
-/// two spelled differently would be a fence this merge could not find and that one
-/// had already written to.
+/// heading are all <see cref="DevbookHeadingDocument"/>'s, and the slug is its
+/// <see cref="DevbookHeadingDocument.Slug"/> itself, because the two have to agree
+/// exactly: an anchor these two spelled differently would be a fence this merge could
+/// not find and that one had already written to.
 /// </para>
 /// <para>
 /// What <em>is</em> shared is the decision-record rule — which fields cannot stand
@@ -594,7 +593,7 @@ internal static class DevbookChapterStatusText
             var match = Heading.Match(lines[i]);
             if (match.Success)
             {
-                heading = Slug(match.Groups[2].Value.Trim());
+                heading = DevbookHeadingDocument.Slug(match.Groups[2].Value.Trim());
                 continue;
             }
 
@@ -624,26 +623,13 @@ internal static class DevbookChapterStatusText
         for (var i = 0; i < lines.Count; i++)
         {
             var match = Heading.Match(lines[i]);
-            if (match.Success && string.Equals(Slug(match.Groups[2].Value.Trim()), heading, StringComparison.OrdinalIgnoreCase))
+            if (match.Success && string.Equals(DevbookHeadingDocument.Slug(match.Groups[2].Value.Trim()), heading, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }
         }
 
         return -1;
-    }
-
-    /// <summary>The anchor a panel would use for a heading. Character for
-    /// character <see cref="DevbookHeadingDocument"/>'s, for the reason
-    /// given on this class.</summary>
-    private static string Slug(string heading)
-    {
-        var chars = heading
-            .ToLowerInvariant()
-            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
-            .ToArray();
-
-        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
     }
 
     /// <summary>One <c>meta</c> fence: whose heading it is under, where it opens,

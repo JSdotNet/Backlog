@@ -335,7 +335,9 @@ public sealed record AiModelUsage(
             new DevbookChapterLink(
                 DocumentDevbookFolder.Ai.AreaKey,
                 DocumentDevbookFolder.Ai.DocumentPath(file.FileName),
-                Slug(section.Heading)))
+                // The writer's run-collapsing slug, not HeadingAnchor.Of: the writer
+                // finds the heading again by comparing it.
+                DevbookHeadingDocument.Slug(section.Heading)))
         {
             EvidenceText = BulletOf(section, EvidenceLead)
         };
@@ -374,12 +376,4 @@ public sealed record AiModelUsage(
         MdTag tag => "#" + tag.Tag,
         _ => string.Empty
     };
-
-    /// <summary>The heading slug a chapter is addressed by — the same rule the
-    /// rating writer and the reference resolver use.</summary>
-    private static string Slug(string heading)
-    {
-        var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
-        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
-    }
 }

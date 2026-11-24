@@ -312,20 +312,12 @@ public sealed class McpScopePoliciesTests
     [Fact]
     public void The_grant_store_refuses_devbook_decide_and_any_scope_it_does_not_know()
     {
-        var root = Path.Combine(Path.GetTempPath(), "mcp-scope-policies-tests-" + Guid.NewGuid().ToString("N"));
+        using var root = new TemporaryDirectory("mcp-scope-policies-tests");
+        var store = new FileMcpGrantStore(root.Combine(FileMcpGrantStore.FileName), TimeProvider.System);
 
-        try
-        {
-            var store = new FileMcpGrantStore(Path.Combine(root, FileMcpGrantStore.FileName), TimeProvider.System);
-
-            Assert.Throws<ArgumentException>(() => store.Create("Agent", [McpScopes.TasksRead, McpScopes.DevbookDecide], "jobsc"));
-            Assert.Throws<ArgumentException>(() => store.Create("Agent", ["Tasks:Write"], "jobsc"));
-            Assert.Empty(store.List());
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Throws<ArgumentException>(() => store.Create("Agent", [McpScopes.TasksRead, McpScopes.DevbookDecide], "jobsc"));
+        Assert.Throws<ArgumentException>(() => store.Create("Agent", ["Tasks:Write"], "jobsc"));
+        Assert.Empty(store.List());
     }
 
     // Differs from FailableMcpGrantStore: answers one fixed grant and throws on every write.

@@ -121,7 +121,7 @@ public sealed class AttachmentStoreHandlerTests
     {
         var capture = await CaptureWithAttachment();
 
-        var result = await Acknowledge(capture.Id, new CaptureAttachmentRelease(_store, new RecordingLogger()));
+        var result = await Acknowledge(capture.Id, new CaptureAttachmentRelease(_store, new RecordingLogger<CaptureAttachmentRelease>()));
 
         Assert.True(result.IsSuccess);
         Assert.Null(await _store.Find(Scope.OwnerId, capture.Attachments![0].Id, Cancellation));
@@ -142,7 +142,7 @@ public sealed class AttachmentStoreHandlerTests
         var now = _clock.GetUtcNow();
         var push = new PushTasksCommandHandler(
             _replica,
-            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            new CaptureAttachmentRelease(_store, new RecordingLogger<CaptureAttachmentRelease>()),
             NullLogger<PushTasksCommandHandler>.Instance);
 
         await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now, null, file)]), Cancellation);
@@ -171,7 +171,7 @@ public sealed class AttachmentStoreHandlerTests
         await _replica.Upsert(Scope, [NoteChange(noteId, at.AddMinutes(1), null, recording, photo)], Cancellation);
         var push = new PushTasksCommandHandler(
             _replica,
-            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            new CaptureAttachmentRelease(_store, new RecordingLogger<CaptureAttachmentRelease>()),
             NullLogger<PushTasksCommandHandler>.Instance);
 
         // Stale: older than what the replica holds, so it is refused and nothing is released.
@@ -198,7 +198,7 @@ public sealed class AttachmentStoreHandlerTests
         var busy = new SyncReplicaException(SyncErrorCodes.ReplicaBusy, "The task replica is busy. Try again shortly.");
         var push = new PushTasksCommandHandler(
             new PartlyWrittenReplica(_replica, busy),
-            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            new CaptureAttachmentRelease(_store, new RecordingLogger<CaptureAttachmentRelease>()),
             NullLogger<PushTasksCommandHandler>.Instance);
         var at = _clock.GetUtcNow().AddMinutes(1);
 
@@ -219,7 +219,7 @@ public sealed class AttachmentStoreHandlerTests
         var busy = new SyncReplicaException(SyncErrorCodes.ReplicaBusy, "The task replica is busy. Try again shortly.");
         var push = new PushTasksCommandHandler(
             new PartlyWrittenReplica(_replica, busy, unreadableAfterward: true),
-            new CaptureAttachmentRelease(_store, new RecordingLogger()),
+            new CaptureAttachmentRelease(_store, new RecordingLogger<CaptureAttachmentRelease>()),
             NullLogger<PushTasksCommandHandler>.Instance);
         var at = _clock.GetUtcNow().AddMinutes(1);
 
@@ -252,7 +252,7 @@ public sealed class AttachmentStoreHandlerTests
     public async Task An_acknowledgement_succeeds_and_logs_when_the_release_fails()
     {
         var capture = await CaptureWithAttachment();
-        var logger = new RecordingLogger();
+        var logger = new RecordingLogger<CaptureAttachmentRelease>();
 
         var result = await Acknowledge(capture.Id, new CaptureAttachmentRelease(new DeleteFailingStore(_store), logger));
 
@@ -337,17 +337,5 @@ public sealed class AttachmentStoreHandlerTests
             _failed && unreadableAfterward
                 ? throw new SyncReplicaException(SyncErrorCodes.ReplicaUnavailable, "The task replica is not available yet. Try again shortly.")
                 : inner.Find(owner, id, cancellationToken);
-    }
-
-    private sealed class RecordingLogger : ILogger<CaptureAttachmentRelease>
-    {
-        internal List<LogLevel> Levels { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-            Levels.Add(logLevel);
     }
 }

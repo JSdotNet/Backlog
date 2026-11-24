@@ -143,7 +143,7 @@ than shaping the phone.
 
 The service calls
 `POST {Endpoint}/openai/deployments/{Deployment}/audio/transcriptions?api-version={ApiVersion}`.
-The body is multipart: `file`, with an ASCII file name such as `dictation.m4a`
+The body is multipart: `file`, with an ASCII file name such as `audio.m4a`
 derived from the content type, `response_format=json`, and `language` only when the
 phone sent one.
 

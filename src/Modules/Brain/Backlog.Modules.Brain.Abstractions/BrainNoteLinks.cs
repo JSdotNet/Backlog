@@ -349,6 +349,9 @@ public static partial class BrainNoteLinks
 
     private const string JsWhitespace = EcmaScriptWhitespace.CharacterClass;
 
+    /// <summary>The generator's fence marker. Not <see cref="MarkdownFence.Open"/>,
+    /// whose indentation is .NET whitespace (U+0085 in, U+FEFF out) where this port
+    /// of <c>metadata.mjs</c> takes JavaScript's.</summary>
     [GeneratedRegex("^[" + JsWhitespace + "]*(`{3,}|~{3,})")]
     private static partial Regex FenceMarker();
 

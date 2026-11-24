@@ -170,6 +170,9 @@
     <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
     <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
     <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingShellWindows.cs" Link="Shared\TestDoubles\RecordingShellWindows.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingLogger.cs" Link="Shared\TestDoubles\RecordingLogger.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubDeviceIdentity.cs" Link="Shared\TestDoubles\StubDeviceIdentity.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
     <!-- The race-safe gestures the Sessions pane's tests use too. -->

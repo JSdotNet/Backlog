@@ -35,8 +35,8 @@ public sealed class NotificationsSettingsTests : IDisposable
     {
         var store = new ObservedNotificationRepository(_inner);
         _owner = new OwnerNotifications(
-            store, new FixedDevice(Owner), new AnswerDelivery([new TestNotificationAnswers()], store, _time), _time);
-        _centre = new NotificationCentre(store, _owner, new FixedDevice(Owner), _time);
+            store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), new AnswerDelivery([new TestNotificationAnswers()], store, _time), _time);
+        _centre = new NotificationCentre(store, _owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), _time);
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _context.Services.AddSingleton<INotifications>(_owner);

@@ -25,8 +25,8 @@ public sealed class NotificationCentreTests
     public NotificationCentreTests()
     {
         _store = new ObservedNotificationRepository(_inner);
-        _owner = new OwnerNotifications(_store, new FixedDevice(Owner), new AnswerDelivery([], _store, _time), _time);
-        _centre = new NotificationCentre(_store, _owner, new FixedDevice(Owner), _time);
+        _owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), new AnswerDelivery([], _store, _time), _time);
+        _centre = new NotificationCentre(_store, _owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), _time);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -151,7 +151,7 @@ public sealed class NotificationCentreTests
     {
         var services = new ServiceCollection()
             .AddSingleton<INotificationRepository>(_inner)
-            .AddSingleton<IDeviceIdentitySource>(new FixedDevice(Owner))
+            .AddSingleton<IDeviceIdentitySource>(new StubDeviceIdentity(new(Owner, "WORKSTATION-01")))
             .AddNotificationsModule();
 
         using var provider = services.BuildServiceProvider();

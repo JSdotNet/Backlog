@@ -45,7 +45,8 @@ internal static partial class DevbookMarkdown
     internal static partial Regex Heading();
 
     /// <summary>The generator's fence marker: any indentation, and a closing
-    /// marker may carry text after it.</summary>
+    /// marker may carry text after it. Not <see cref="MarkdownFence.Open"/>, whose
+    /// indentation is .NET whitespace where the builder's parity needs JavaScript's.</summary>
     [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
     internal static partial Regex FenceMarker();
 
