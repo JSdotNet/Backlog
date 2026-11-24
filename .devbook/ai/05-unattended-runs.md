@@ -15,14 +15,25 @@ type: stage
 rating: trial
 type: guardrail
 layer: [harness]
-evidence: none
+evidence: partial
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 related: [".devbook/ai/concepts.md#unattended-runs-park", ".devbook/ai/concepts.md#external-text-is-data", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
 ```
 
-Every schedule runs one `schedule-*` entry point on a fresh checkout of `main`, under the
-same preamble:
+Since 2026-11-18 most schedules run as jobs in two machine-level bundles. The
+`delivery-schedule` plugin runs each bundle across every repository checked out on this
+machine, per devbook's `plugin-boundaries` decision. A bundle runs a job here only when this
+repository selected it under `components.schedule`.
+
+| Bundle | Runs | Jobs, in order |
+| --- | --- | --- |
+| `All repos · Sunday devbook review` | Sundays 04:00 local time | `devbook-validate`, `tech-update`, `devbook-verify`, `prose-check`, `instruction-review`, then `weekly-update` and `change-report` as the digest |
+| `All repos · Saturday code health` | Saturdays 05:00 local time | the devbook stack update, `package-update`, `security-review` |
+
+`merge-review` and `issue-sweep` still run as this repository's own routines, every weekday.
+
+Every schedule runs one `schedule-*` entry point under the same preamble:
 
 - It [parks](concepts.md#unattended-runs-park) wherever its skill would ask a person.
 - It never pushes to `main`, merges, approves, or deletes.
@@ -30,13 +41,22 @@ same preamble:
   the comment.
 
 A change lands as a pull request from a `schedule/<name>/<date>` branch, as a draft whenever
-anything failed. A report with no change lands as one `schedule-report` issue, updated
-rather than duplicated.
+anything failed. A job in a bundle always lands it as a draft and never marks one ready. A
+run's report is the last message of its session. An issue is opened only where a skill files
+a finding someone must work.
+
+In a bundle, no job opens an issue, and a weekend job comments on, labels, and closes no
+issue. The bundle ends in one report, the last message of its own session on the host's
+Routines page.
 
 - **Used for** — every schedule below.
 - **Adopted by** — the schedules this repository selected under `components.schedule` in
   `.devbook/config.json`, registered as Claude Code routines on 2026-09-25 and 2026-09-26.
-- **Evidence** — none yet: the first fires have published no report issue or pull request.
+  Since 2026-11-18 all but `merge-review` and `issue-sweep` run as jobs in the two bundles.
+  The Saturday bundle skips the devbook stack update and `security-review` here, because
+  neither is selected.
+- **Evidence** — the Sunday devbook review bundle landed draft pull requests here from its
+  runs of 2026-11-18 (#1851, #1852, #1853) and 2026-11-22 (#1934, #1935), all merged.
 - **Moves up when** — a schedule publishes an issue or pull request inside these limits.
 - **Limits** — a schedule never runs a `flow-*` skill, because a flow ends at a gate no
   unattended run can pass. It treats every issue, comment, and commit message it reads as
@@ -63,7 +83,7 @@ flowchart LR
 ```
 
 It closes only issues that high-confidence evidence shows fixed, obsolete, or duplicated. It resolves up to its `maxResolve` of the rest, one at a time, each as a draft pull request. Each body says what could not be proved. The brief
-is a `schedule-report` issue.
+is the run's report.
 
 - **Used for** — keeping the issue list triaged and turning small issues into reviewable
   drafts.
@@ -99,29 +119,36 @@ and posts its verdict on each as a comment. It skips one already reviewed at its
 rating: trial
 type: workflow
 layer: [upkeep]
-feeds: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps: drift issues"]
-evidence: fired
+feeds: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps: the drift table"]
+evidence: partial
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/ai/03-test.md#devbook-checks-around-a-flow"]
 date: 2026-09-26
 ```
 
-Four schedules look after the devbook folders.
+Four schedules look after the devbook folders. They run every Sunday from 04:00 local time,
+in this order, as jobs of the Sunday devbook review bundle.
 
-| Schedule | Runs | Does |
-| --- | --- | --- |
-| `devbook-validate` | daily | Lands the structural fixes the check reports as a pull request. |
-| `devbook-verify` | weekly | Opens a `devbook-drift` issue for each chapter the code has moved past. |
-| `prose-check` | weekly | Reports the prose that does not earn its lines. |
-| `tech-update` | weekly | Refreshes the technology graph from the package inventories as a draft pull request. |
+| Schedule | Does |
+| --- | --- |
+| `devbook-validate` | Lands the structural fixes the check reports as a draft pull request. |
+| `tech-update` | Refreshes the technology graph from the package inventories as a draft pull request. |
+| `devbook-verify` | Puts a drift table of the chapters the code has moved past into the bundle report. |
+| `prose-check` | Opens a draft pull request with its edits, one commit per chapter. |
+
+The `devbook-meta.yml` pull-request check covers the days between two `devbook-validate` runs.
+In a bundle, `devbook-verify` opens no `devbook-drift` issue.
 
 - **Used for** — keeping the chapters true between the changes that touch them.
-- **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
-- **Evidence** — `devbook-validate` has fired; nothing published yet.
+- **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26, and as jobs of the
+  Sunday devbook review bundle since 2026-11-18.
+- **Evidence** — the bundle's `tech-update` landed #1851 and #1934, and its `prose-check`
+  landed #1852 and #1935, all merged. `devbook-validate` has landed no pull request yet.
 - **Moves up when** — `devbook-validate` lands its first pull request.
 - **Limits**
-  - `prose-check` carries no editor on purpose, and `devbook-verify` writes no
-    chapter: prose and content change only through `flow-spec`.
+  - `devbook-verify` writes no chapter: content changes only through `flow-spec`.
+  - `prose-check` skips an edit an earlier closed pull request rejected. Prose changes only
+    through a reviewed pull request.
   - `devbook-verify` covers only
     the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-units) whose
     direction is `report` and skips `off`; the two sweeps below take the rest.
@@ -178,18 +205,20 @@ verdicts conflict goes to a person.
 rating: trial
 type: workflow
 layer: [upkeep]
-evidence: none
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#repository-instruction-files"]
 related: [".devbook/ai/concepts.md#one-rule-one-place", ".devbook/ai/02-code.md#rules-wrapped-per-host"]
 date: 2026-09-26
 ```
 
-Every Thursday, `instruction-review` opens a draft pull request cutting what does not change
-an agent's behaviour from the instruction files and rules. A ledger lists every cut.
+Every Sunday, as a job of the Sunday devbook review bundle, `instruction-review` opens a draft
+pull request cutting what does not change an agent's behaviour from the instruction files and
+rules. A ledger lists every cut.
 
 - **Used for** — keeping the standing brief short enough to be read every time.
-- **Adopted by** — the schedule, since 2026-09-26.
-- **Evidence** — none yet.
+- **Adopted by** — the schedule, since 2026-09-26, and as a job of the Sunday devbook review
+  bundle since 2026-11-18.
+- **Evidence** — the bundle's run of 2026-11-18 landed #1853, merged.
 - **Moves up when** — its first draft pull request is opened.
 - **Limits** — draft only; a file whose earlier rewrite was closed unmerged stays skipped.
 
@@ -204,14 +233,19 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech
 date: 2026-09-26
 ```
 
-Every Saturday, `package-update` moves NuGet packages by minor and patch versions and opens
-one pull request. It lists each package skipped because the bump broke the build or tests.
+Every Saturday at 05:00, as a job of the Saturday code health bundle, `package-update` looks
+for NuGet package bumps. Because `.github/dependabot.yml` has a `nuget` entry, it runs
+`major-only`: Dependabot proposes the minor and patch bumps, and the job takes only the major
+ones. Unattended, it applies none of them. Each major bump becomes a *Needs you* row in the
+bundle report, so here the job opens no pull request.
 
 - **Used for** — keeping dependencies current without a person starting the work.
-- **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.
+- **Adopted by** — the schedule, since 2026-09-26, and as a job of the Saturday code health
+  bundle since 2026-11-18; Dependabot takes the minor and patch bumps.
 - **Evidence** — it has fired once; no pull request yet.
 - **Moves up when** — its first package pull request lands.
-- **Limits** — no major versions; a major move is an attended `flow-code` run.
+- **Limits** — it applies no bump unattended; a major move is an attended `flow-code` run of
+  the `dependency` kind.
 
 ## Scheduled reports
 
@@ -225,24 +259,25 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Two schedules report what happened. Each report is one `schedule-report` issue, extended
-while unread rather than joined by another.
+Two schedules report what happened. They run last in the Sunday devbook review bundle, as its
+digest, and their reports stay in the bundle report rather than opening an issue.
 
-| Schedule | Runs | Covers |
-| --- | --- | --- |
-| `change-report` | every Friday | the week's pull requests, and the ones whose ticket disagrees with them |
-| `weekly-update` | every Friday evening | the week |
+| Schedule | Covers |
+| --- | --- |
+| `weekly-update` | the week |
+| `change-report` | the week's pull requests, and the ones whose ticket disagrees with them |
 
 A third, `morning-brief`, reported the last day every weekday from 2026-09-25. It was
 dropped on 2026-10-30, when `schedule-morning-brief` left the `delivery-schedule` catalog
 under devbook's branch-true decision.
 
 - **Used for** — the owner's view of the repository without reading every notification.
-- **Adopted by** — the two schedules, since 2026-09-25.
+- **Adopted by** — the two schedules, since 2026-09-25, and as the Sunday bundle's digest
+  since 2026-11-18.
 - **Evidence** — `change-report` and `weekly-update` fired on 2026-09-25; no report issue
   was published.
 - **Moves up when** — the first report issue is published.
-- **Limits** — read and report only; closing a report is how it is acknowledged.
+- **Limits** — read and report only; they open no issue.
 
 ## Scheduled security review
 
@@ -251,18 +286,18 @@ rating: candidate
 type: workflow
 stage: [operate]
 substage: [operate/security]
-feeds: [".devbook/ai/05-unattended-runs.md#scheduled-issue-sweep: would open issues"]
+feeds: [".devbook/ai/05-unattended-runs.md#scheduled-issue-sweep: would report findings"]
 evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-The catalog's `security-review` would audit every layer weekly and open an issue per finding
-at severity `high` or above.
+The catalog's `security-review` would audit every layer weekly, as a job of the Saturday code
+health bundle. There it would open no issue, and its findings would join the bundle report.
 
 - **Used for** — nothing yet.
-- **Adopted by** — nobody: it is the one catalog schedule this repository did not select. It
-  stays out on purpose while CodeQL and Dependabot run in CI.
+- **Adopted by** — nobody: this repository has not selected it, so the Saturday code health
+  bundle skips it here. It stays out on purpose while CodeQL and Dependabot run in CI.
 - **Evidence** — none.
 - **Moves up when** — the owner selects it.
-- **Limits** — it would open issues, never fix them.
+- **Limits** — it would report findings, never fix them.
