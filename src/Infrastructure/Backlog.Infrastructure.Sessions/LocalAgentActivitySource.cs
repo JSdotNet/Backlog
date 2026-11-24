@@ -36,6 +36,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// composed none still gets the same figures, slowly.
 /// </para>
 /// </summary>
+// Not a settings store: it reads files other tools write, so JsonFileStore<T> does not apply.
 internal sealed class LocalAgentActivitySource : IAgentActivitySource
 {
     private readonly string _claudeHome;

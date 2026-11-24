@@ -208,9 +208,10 @@ The speech-to-text model deployed on the `backlog-foundry` account, behind
 - **Desktop** — `AddAzureFoundryDesktopTranscriptionClient` reads the endpoint,
   the API key and `AzureFoundrySettings.TranscriptionDeployment` (default
   `gpt-4o-transcribe`) on every call; Settings › AI providers shows the deployment
-  as *Transcription deployment* on the Azure Foundry AI card. `AdtsRemuxer` remuxes
-  a recording's ADTS stream into M4A parts of at most five minutes, with no codec;
-  an MP4 or M4A recording is cut into the same parts (local ADR 0049, §3).
+  as *Transcription deployment* on the Azure Foundry AI card. `AdtsRemuxer` reads
+  the AAC frames of an ADTS recording and `Mp4AacReader` those of an MP4 or M4A
+  one; `AacRemuxer` cuts either into M4A parts of at most five minutes, with no
+  codec (local ADR 0049, §3).
   `AzureFoundryInboxRecordingTranscriber` sends them in order, then asks the
   chat deployment for the summary.
 - **Limits** — per Microsoft's documentation, read 2026-11-10: 25 MB per request;

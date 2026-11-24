@@ -11,12 +11,16 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DevbookMenuBranchTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "devbook-menu-branch-tests", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _temp = new("devbook-menu-branch-tests");
+
+    // A path inside the temp folder that is never created: the menu of a branch is drawn
+    // with nothing of the branch on disk, and the first test checks that.
+    private string BranchRoot => _temp.Combine("branch");
 
     [Fact]
     public async Task The_menu_of_a_branch_is_listed_from_the_index_with_nothing_on_disk()
     {
-        var source = new IndexedBranchSource(_root,
+        var source = new IndexedBranchSource(BranchRoot,
             ".domain/context-map.md",
             ".domain/inbox/model.md",
             ".domain/inbox/domain.md",
@@ -26,7 +30,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
 
         var tree = await new DevbookMenu(source).LoadAsync(["domain", "design"], "backlog", TestContext.Current.CancellationToken);
 
-        Assert.False(Directory.Exists(_root));
+        Assert.False(Directory.Exists(BranchRoot));
 
         var domain = Assert.Single(tree.Roots, node => node.AreaKey == "domain");
         Assert.True(domain.Available);
@@ -46,7 +50,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
     [Fact]
     public async Task The_menu_prepares_the_listing_and_never_the_content()
     {
-        var source = new IndexedBranchSource(_root, ".arc42/01-intro.md");
+        var source = new IndexedBranchSource(BranchRoot, ".arc42/01-intro.md");
 
         await new DevbookMenu(source).LoadAsync(["arc42", "domain"], "backlog", TestContext.Current.CancellationToken);
 
@@ -57,7 +61,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
     [Fact]
     public async Task The_instructions_area_of_a_branch_lists_its_agent_folders_from_the_index()
     {
-        var source = new IndexedBranchSource(_root,
+        var source = new IndexedBranchSource(BranchRoot,
             "CLAUDE.md",
             ".github/copilot-instructions.md",
             ".agents/rules/naming.md",
@@ -81,7 +85,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
     [Fact]
     public async Task A_listing_that_cannot_be_prepared_reports_why()
     {
-        var source = new IndexedBranchSource(_root, ".arc42/01-intro.md") { Failure = "GitHub refused the listing." };
+        var source = new IndexedBranchSource(BranchRoot, ".arc42/01-intro.md") { Failure = "GitHub refused the listing." };
 
         var tree = await new DevbookMenu(source).LoadAsync(["arc42"], "backlog", TestContext.Current.CancellationToken);
 
@@ -90,16 +94,7 @@ public sealed class DevbookMenuBranchTests : IDisposable
         Assert.Equal("GitHub refused the listing.", arc42.Message);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _temp.Dispose();
 
     /// <summary>A branch whose index is known and whose files are not here:
     /// every folder the index names resolves, the tree is the index, and both

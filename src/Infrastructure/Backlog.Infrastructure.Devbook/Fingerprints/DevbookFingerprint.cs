@@ -302,6 +302,9 @@ public static partial class DevbookFingerprint
         return name == "demo.html" || name.EndsWith(".demo.html", StringComparison.Ordinal);
     }
 
+    /// <summary><c>metadata.mjs</c>'s closer: the JavaScript-trimmed line is one run of
+    /// the marker. Not <see cref="MarkdownFence.IsClosedBy"/>, whose whitespace is .NET's
+    /// and a fingerprint must match the Node vectors.</summary>
     private static bool IsCloser(string line, char character, int length)
     {
         var trimmed = Trim(line);
@@ -338,6 +341,9 @@ public static partial class DevbookFingerprint
 
     private const string Space = "[" + DevbookMarkdown.JsWhitespaceClass + "]";
 
+    /// <summary><c>metadata.mjs</c>'s opener: JavaScript whitespace and a one-word
+    /// label. Not <see cref="MarkdownFence.Open"/>, which takes any info string and .NET
+    /// whitespace, so which lines a fingerprint hashes would move.</summary>
     [GeneratedRegex("^" + Space + "*(`{3,}|~{3,})" + Space + "*([^`~" + DevbookMarkdown.JsWhitespaceClass + "]*)" + Space + @"*\z")]
     private static partial Regex FenceOpener();
     [GeneratedRegex(@"<!--\s*template:begin\b[^>]*?-->[\s\S]*?(?:<!--\s*template:end\b[^>]*?-->|\z)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

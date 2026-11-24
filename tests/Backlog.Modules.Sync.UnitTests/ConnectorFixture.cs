@@ -19,9 +19,9 @@ namespace Backlog.Modules.Sync.UnitTests;
 /// </summary>
 internal sealed class ConnectorFixture
 {
-    internal const long OwnerGitHubId = 7655166;
-    internal const string OwnerCode = "code-from-the-owner";
-    internal const string StrangerCode = "code-from-someone-else";
+    internal const long OwnerGitHubId = StubGitHubOwnerSignIn.OwnerGitHubId;
+    internal const string OwnerCode = StubGitHubOwnerSignIn.OwnerCode;
+    internal const string StrangerCode = StubGitHubOwnerSignIn.StrangerCode;
     internal const string Resource = "https://sync.test/mcp";
     internal const string ClientState = "claude-state";
 
@@ -42,9 +42,9 @@ internal sealed class ConnectorFixture
         Settings = new ConnectorSettings(
             ConnectorSettings.DefaultClientId, ConnectorSettings.DefaultRedirectUri, Resource, TimeSpan.FromDays(30));
 
-        Start = new StartConnectorAuthorizationCommandHandler(Authorizations, Clients, new FakeGitHub(), Owner, Settings, Hasher, Clock);
+        Start = new StartConnectorAuthorizationCommandHandler(Authorizations, Clients, new StubGitHubOwnerSignIn(), Owner, Settings, Hasher, Clock);
         SignIn = new CompleteConnectorSignInCommandHandler(
-            Authorizations, new FakeGitHub(), Owner, Hasher, Clock, NullLogger<CompleteConnectorSignInCommandHandler>.Instance);
+            Authorizations, new StubGitHubOwnerSignIn(), Owner, Hasher, Clock, NullLogger<CompleteConnectorSignInCommandHandler>.Instance);
         DescribeConsent = new DescribeConnectorConsentQueryHandler(Authorizations, Settings, Hasher, Clock);
         Decide = new DecideConnectorConsentCommandHandler(Authorizations, Hasher, Clock);
         var tokenStore = refreshTokens?.Invoke(RefreshTokens) ?? RefreshTokens;
@@ -165,19 +165,6 @@ internal sealed class ConnectorFixture
             .Where(pair => pair[0] == name)
             .Select(pair => Uri.UnescapeDataString(pair.Length > 1 ? pair[1] : string.Empty))
             .FirstOrDefault();
-
-    private sealed class FakeGitHub : IGitHubOwnerSignIn
-    {
-        public Task<long?> ResolveUserIdAsync(string authorizationCode, CancellationToken cancellationToken = default) =>
-            Task.FromResult<long?>(authorizationCode switch
-            {
-                OwnerCode => OwnerGitHubId,
-                StrangerCode => 1,
-                _ => null,
-            });
-
-        public Uri AuthorizeAddress(string state) => new($"https://github.test/login/oauth/authorize?state={Uri.EscapeDataString(state)}");
-    }
 }
 
 /// <summary>Records the claims of every access token it was asked to sign.</summary>

@@ -65,9 +65,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     /// tasks use, and the same file inside it.</summary>
     public SqliteInboxRepository(string? rootDir = null)
     {
-        var root = rootDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+        var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
     }

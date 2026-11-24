@@ -19,6 +19,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// times a week by sweeps another process may have recorded.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: it writes through a temporary file and a move, which that store's plain write would drop.
 internal sealed class DevbookSyncVerdictStore : IDevbookSyncVerdicts
 {
     private static readonly JsonSerializerOptions Layout = new(JsonSerializerDefaults.Web)

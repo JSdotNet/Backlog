@@ -294,7 +294,7 @@ public sealed class ReplicatedAgentActivitySourceTests
             ]),
             new StubFeatureSettings(enabled: true),
             new InMemoryDeviceCredentialStore(new DeviceCredential(Guid.NewGuid(), self, "Workshop PC", "token")),
-            new FixedDeviceIdentity(new DeviceIdentity(local, "Workshop PC")));
+            new StubDeviceIdentity(new DeviceIdentity(local, "Workshop PC")));
 
         var sessions = (await source.GetActivityAsync(Noon.AddDays(-1), TestContext.Current.CancellationToken)).Sessions;
 
@@ -384,11 +384,6 @@ public sealed class ReplicatedAgentActivitySourceTests
         Assert.Equal(
             ["running", "waiting", "unsorted", "waits-only"],
             entries.Where(entry => SessionRecordMapping.HasActivityAfter(entry.Record, since)).Select(entry => entry.Record.SessionId));
-    }
-
-    private sealed class FixedDeviceIdentity(DeviceIdentity current) : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = current;
     }
 
     /// <summary>A source over a fixed set of records with the feature on.</summary>

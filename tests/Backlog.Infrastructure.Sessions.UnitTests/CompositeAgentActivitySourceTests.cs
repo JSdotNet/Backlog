@@ -233,11 +233,6 @@ public sealed class CompositeAgentActivitySourceTests
     private static AgentSessionActivity Folded(string id, AgentSessionOrigin origin) =>
         new(id, AgentSessionKind.Claude, "11111111-1111-1111-1111-111111111111", "Workshop PC", [], []) { Origin = origin };
 
-    private sealed class StubDeviceIdentity : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = new(Guid.Empty, "Workshop PC");
-    }
-
     private sealed class StubFeatures : IAppFeatureSettings
     {
         public event Action? Changed;

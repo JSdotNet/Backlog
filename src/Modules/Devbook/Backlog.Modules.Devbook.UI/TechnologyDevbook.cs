@@ -673,6 +673,10 @@ internal static class TechnologyDevbookReader
     /// <c>depends-on</c> edges missed a chapter sitting in the same file, and the
     /// graph invented an external placeholder for a technology it had already
     /// parsed. Punctuation is dropped, not replaced.</para>
+    ///
+    /// <para>Not <see cref="HeadingAnchor.Of"/>: this drops <c>\p{Nl}</c> and
+    /// <c>\p{No}</c> and takes .NET's whitespace, so a chapter id would move for a
+    /// heading holding one.</para>
     /// </summary>
     private static string Slug(string heading)
     {

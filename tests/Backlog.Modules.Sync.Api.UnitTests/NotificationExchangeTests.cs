@@ -281,7 +281,7 @@ public sealed class NotificationExchangeTests : IDisposable
     {
         var root = _temp.Combine("laptop");
         Directory.CreateDirectory(root);
-        var identity = new FixedIdentity(new DeviceIdentity(Guid.Parse("7f3a0000-0000-0000-0000-0000000000d2"), "LAPTOP"));
+        var identity = new StubDeviceIdentity(new DeviceIdentity(Guid.Parse("7f3a0000-0000-0000-0000-0000000000d2"), "LAPTOP"));
 
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceIdentitySource>(identity);
@@ -315,7 +315,7 @@ public sealed class NotificationExchangeTests : IDisposable
         var (phone, phoneDevice) = await PairAsync(desktopHttp, "Phone");
         var (laptop, laptopDevice) = await PairAsync(desktopHttp, "Laptop");
 
-        var identity = new FixedIdentity(new DeviceIdentity(DesktopInstance, "STUDY-DESKTOP"));
+        var identity = new StubDeviceIdentity(new DeviceIdentity(DesktopInstance, "STUDY-DESKTOP"));
 
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceIdentitySource>(identity);
@@ -400,10 +400,5 @@ public sealed class NotificationExchangeTests : IDisposable
             var latest = feed.Notifications.Last(record => record.Change.Id == id);
             return NotificationPayloads.Read(latest.Change)!;
         }
-    }
-
-    private sealed class FixedIdentity(DeviceIdentity identity) : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = identity;
     }
 }

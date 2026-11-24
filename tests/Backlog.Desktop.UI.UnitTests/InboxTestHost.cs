@@ -1220,6 +1220,13 @@ internal sealed class FakeInboxItems : IInboxItems
         return _items[index];
     }
 
+    /// <summary>Writes an item behind the pane's back, as a worker outside it does — the
+    /// recording transcription worker appending a transcript and taking the file off.</summary>
+    public void Rewrite(Guid itemId, Func<InboxItemDto, InboxItemDto> change)
+    {
+        if (Update(itemId, change).Result.Value is Error) throw new InvalidOperationException($"No seeded item {itemId}.");
+    }
+
     public async Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default)
     {
         Retried.Add(attachmentId);

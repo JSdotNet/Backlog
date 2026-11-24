@@ -216,7 +216,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_devbooks_pop_out_hands_its_scope_over_and_every_press_opens_another_window()
     {
-        var windows = new OpeningShellWindows();
+        var windows = new RecordingShellWindows();
         using var harness = CreateHarness(configureServices: services => services.AddSingleton<IShellWindows>(windows));
         var component = Render(harness);
 
@@ -249,6 +249,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal([DevbookSurfaceQuery.Scope], opened.Query.Keys);
             Assert.Equal(alias, opened.Query[DevbookSurfaceQuery.Scope]);
         });
+        Assert.Empty(windows.Closed);
+        Assert.Empty(windows.Titles);
 
         // This window is unchanged: the Devbook did not take its screen.
         Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
@@ -266,7 +268,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Every_header_item_pops_out_its_own_surface_and_leaves_this_window_as_it_was()
     {
-        var windows = new OpeningShellWindows();
+        var windows = new RecordingShellWindows();
         using var harness = CreateHarness(
             features => features.SetEnabled(AppFeatures.InboxPane, true),
             configureServices: services => services.AddSingleton<IShellWindows>(windows));
@@ -316,6 +318,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
         Assert.Equal(["roadmap", "tasks", "inbox"], windows.Opened.Select(opened => opened.SurfaceId));
         Assert.All(windows.Opened, opened => Assert.Empty(opened.Query));
+        Assert.Empty(windows.Closed);
+        Assert.Empty(windows.Titles);
 
         // This window is unchanged: Tasks is still its view, and no takeover took it.
         Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
@@ -335,26 +339,6 @@ public sealed class HomeWorkspaceSurfaceTests
         // The items are there all the same, so the header keeps one shape per host.
         Assert.NotEmpty(component.FindAll("[data-testid='tasks-header-item']"));
         Assert.Empty(component.FindAll(".header-surface-item__pop"));
-    }
-
-    private sealed class OpeningShellWindows : IShellWindows
-    {
-        public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Opened { get; } = [];
-
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
-            Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
-
-        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
-        {
-            Open(surfaceId, query);
-            return Task.FromResult(true);
-        }
-
-        public void Close(string windowKey) => throw new NotSupportedException("Home closes no window.");
-
-        public void SetTitle(string windowKey, string title) => throw new NotSupportedException("Home titles no window.");
-
-        public void ActivateMainWindow() { }
     }
 
     /// <summary>The same from the workspace, where the reader spends most of their

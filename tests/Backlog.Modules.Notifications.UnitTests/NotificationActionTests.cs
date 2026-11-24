@@ -97,8 +97,8 @@ public sealed class NotificationActionTests
     {
         var time = new FakeTimeProvider(Now);
         var store = new ObservedNotificationRepository(new InMemoryNotificationRepository());
-        using var owner = new OwnerNotifications(store, new FixedDevice(Owner), new AnswerDelivery([], store, time), time);
-        using var centre = new NotificationCentre(store, owner, new FixedDevice(Owner), time);
+        using var owner = new OwnerNotifications(store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), new AnswerDelivery([], store, time), time);
+        using var centre = new NotificationCentre(store, owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), time);
 
         await owner.PublishAsync(Alert() with { Actions = [OpenRun, OpenSchedules] }, Ct);
 

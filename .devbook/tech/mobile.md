@@ -106,8 +106,9 @@ foreground service of type microphone for a meeting recording.
   microphone, and only a visible foreground service of that type keeps it with
   the screen off. `AudioRecord` would need an encoder of our own; a wrapper
   package hides the output format this choice depends on.
-- **Rating** — `adopted` for dictation. The meeting recorder and its service are
-  not built yet.
+- **Rating** — `adopted` for dictation and for meeting recording.
+  `AndroidMeetingRecorder` writes the ADTS stream through a pipe into 24 MiB part
+  files, and `RecordingService` holds the microphone in the background.
 
 ## Xamarin.Firebase.Messaging
 

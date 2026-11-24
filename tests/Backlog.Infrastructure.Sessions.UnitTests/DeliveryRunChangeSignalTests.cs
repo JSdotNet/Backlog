@@ -22,10 +22,7 @@ public sealed class DeliveryRunChangeSignalTests : IDisposable
 
     private static readonly string[] Stages = ["Scope Discovery", "Implementation", "Summary"];
 
-    private readonly string _home = Path.Combine(
-        Path.GetTempPath(),
-        "backlog-delivery-run-signal-tests",
-        Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _home = new("backlog-delivery-run-signal-tests");
 
     private readonly DeliveryRunChangeSignal _signal = new();
 
@@ -166,7 +163,7 @@ public sealed class DeliveryRunChangeSignalTests : IDisposable
     [Fact]
     public async Task A_lifecycle_composed_without_the_signal_still_writes()
     {
-        var surface = new LocalDeliverySurfaceLifecycle(_home, "machine", "Workshop PC");
+        var surface = new LocalDeliverySurfaceLifecycle(_home.Path, "machine", "Workshop PC");
 
         var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: Cancellation);
         await surface.UpdateStageAsync(Worktree, started.RunId, 0, "done", cancellationToken: Cancellation);
@@ -218,7 +215,7 @@ public sealed class DeliveryRunChangeSignalTests : IDisposable
     }
 
     private LocalDeliverySurfaceLifecycle Surface() =>
-        new(_home, "machine", "Workshop PC", changes: _signal);
+        new(_home.Path, "machine", "Workshop PC", changes: _signal);
 
     private async Task<(LocalDeliverySurfaceLifecycle Surface, string RunId)> Started()
     {
@@ -229,13 +226,5 @@ public sealed class DeliveryRunChangeSignalTests : IDisposable
         return (surface, started.RunId);
     }
 
-    private sealed class StubDeviceIdentity : IDeviceIdentitySource
-    {
-        public DeviceIdentity Current { get; } = new(Guid.Empty, "Workshop PC");
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_home)) Directory.Delete(_home, recursive: true);
-    }
+    public void Dispose() => _home.Dispose();
 }

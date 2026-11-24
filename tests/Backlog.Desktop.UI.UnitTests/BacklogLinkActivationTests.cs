@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 
 using Backlog.Desktop.UI.Shell;
 
-using Microsoft.Extensions.Logging;
-
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -16,7 +14,7 @@ public sealed class BacklogLinkActivationTests
     private sealed class Component;
 
     private readonly RecordingShellWindows _windows = new();
-    private readonly RecordingLogger _logger = new();
+    private readonly RecordingLogger<BacklogLinkActivation> _logger = new();
 
     private BacklogLinkActivation Activation(params string[] offered) =>
         new(_windows, new Catalog(offered), _logger);
@@ -166,47 +164,6 @@ public sealed class BacklogLinkActivationTests
         {
             surface = Surfaces.FirstOrDefault(candidate => string.Equals(candidate.Id, surfaceId, StringComparison.Ordinal));
             return surface is not null;
-        }
-    }
-
-    private sealed class RecordingShellWindows : IShellWindows
-    {
-        public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Opened { get; } = [];
-
-        /// <summary>Every call, in order: the surface for an open, <c>main</c> for a
-        /// call that brings the main window back.</summary>
-        public List<string> Calls { get; } = [];
-
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
-        {
-            Calls.Add(surfaceId);
-            Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
-        }
-
-        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
-        {
-            Open(surfaceId, query);
-            return Task.FromResult(true);
-        }
-
-        public void Close(string windowKey) { }
-
-        public void SetTitle(string windowKey, string title) { }
-
-        public void ActivateMainWindow() => Calls.Add("main");
-    }
-
-    private sealed class RecordingLogger : ILogger<BacklogLinkActivation>
-    {
-        public List<string> Warnings { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        {
-            if (logLevel == LogLevel.Warning) Warnings.Add(formatter(state, exception));
         }
     }
 }

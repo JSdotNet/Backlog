@@ -24,6 +24,10 @@ public static class DevbookLayout
     /// <summary>The generated rollup's directory, beside the folders it indexes.</summary>
     public const string MetaDirectory = "_meta";
 
+    /// <summary>The folder of rendered diagram artifacts another repository may still
+    /// keep beside a chapter (local ADR 0057 §4): generated, never authored.</summary>
+    public const string RenderedArtifactsDirectory = "_archify";
+
     /// <summary>
     /// A path in the root layout's spelling: <c>.devbook/arc42/05.md</c> becomes
     /// <c>.arc42/05.md</c>; anything else comes back with forward slashes and no

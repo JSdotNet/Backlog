@@ -136,7 +136,7 @@ public static partial class ScenarioPageParser
         var journeys = new List<MutableJourney>();
         var shots = new List<ScenarioShotPoint>();
 
-        string? fence = null;
+        MarkdownFence? fence = null;
         MutableJourney? journey = null;
         MutablePart? part = null;
         var inList = false;
@@ -146,16 +146,18 @@ public static partial class ScenarioPageParser
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
-            var marker = FenceMarker().Match(line);
-            if (fence is not null)
+            // The generator's closer may carry text after its run, so the run alone
+            // is compared rather than MarkdownFence.IsClosedBy.
+            var marker = MarkdownFence.Open(line);
+            if (fence is { } open)
             {
-                if (marker.Success && marker.Groups[1].Value[0] == fence[0] && marker.Groups[1].Value.Length >= fence.Length) fence = null;
+                if (marker is { } close && close.Marker == open.Marker && close.Length >= open.Length) fence = null;
                 continue;
             }
 
-            if (marker.Success)
+            if (marker is not null)
             {
-                fence = marker.Groups[1].Value;
+                fence = marker;
                 continue;
             }
 
@@ -401,9 +403,6 @@ public static partial class ScenarioPageParser
 
     [GeneratedRegex(@"^scenarios(?:\.[^./]+)?\.md$", RegexOptions.IgnoreCase)]
     private static partial Regex ScenariosFileName();
-
-    [GeneratedRegex(@"^\s*(`{3,}|~{3,})")]
-    private static partial Regex FenceMarker();
 
     [GeneratedRegex(@"^(#{1,6})\s+(.*)$")]
     private static partial Regex Heading();

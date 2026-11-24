@@ -203,13 +203,13 @@ public sealed partial class AzureFoundryTranscriptionClient(
     /// <summary>The ASCII file name Foundry wants, from the media type it names.</summary>
     internal static string FileName(string contentType) => contentType.Trim().ToLowerInvariant() switch
     {
-        "audio/mp4" or "audio/x-m4a" or "audio/m4a" => "dictation.m4a",
-        "audio/webm" => "dictation.webm",
-        "audio/wav" or "audio/x-wav" or "audio/wave" => "dictation.wav",
-        "audio/mpeg" or "audio/mp3" => "dictation.mp3",
+        "audio/mp4" or "audio/x-m4a" or "audio/m4a" => "audio.m4a",
+        "audio/webm" => "audio.webm",
+        "audio/wav" or "audio/x-wav" or "audio/wave" => "audio.wav",
+        "audio/mpeg" or "audio/mp3" => "audio.mp3",
         var other when other.Split('/') is [_, var subtype] && subtype.Length is > 0 and <= 8 && subtype.All(char.IsAsciiLetterOrDigit)
-            => $"dictation.{subtype}",
-        _ => "dictation.bin",
+            => $"audio.{subtype}",
+        _ => "audio.bin",
     };
 
     private static Uri RequestUri(AzureFoundryTranscriptionOptions settings) => new(

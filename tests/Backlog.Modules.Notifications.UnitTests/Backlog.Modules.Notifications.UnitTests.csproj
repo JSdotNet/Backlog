@@ -22,6 +22,8 @@
        says why. Linked per project because only the bUnit projects reference bUnit. -->
   <ItemGroup>
     <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
+    <!-- This machine's identity, fixed per test. -->
+    <Compile Include="..\Shared\TestDoubles\StubDeviceIdentity.cs" Link="Shared\TestDoubles\StubDeviceIdentity.cs" />
   </ItemGroup>
 
 </Project>

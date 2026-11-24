@@ -784,6 +784,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>The head's windows, which a test cannot open.</summary>
+    // Differs from RecordingShellWindows: answers every open as not built and records nothing.
     private sealed class NoShellWindows : Backlog.Desktop.UI.Shell.IShellWindows
     {
         public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)

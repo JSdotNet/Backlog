@@ -22,12 +22,12 @@ public sealed class NotificationsTests
     private readonly FakeTimeProvider _time = new(Now);
 
     private OwnerNotifications Owner_(params INotificationAnswerHandler[] handlers) =>
-        new(_store, new FixedDevice(Owner), Delivery(handlers), _time);
+        new(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(handlers), _time);
 
     private AnswerDelivery Delivery(params INotificationAnswerHandler[] handlers) => new(handlers, _store, _time);
 
     private NotificationsStartup Startup(OwnerNotifications owner, INotificationAnswerHandler[] handlers, params INotificationSubjectProbe[] probes) =>
-        new(_store, owner, new FixedDevice(Owner), Delivery(handlers), probes);
+        new(_store, owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(handlers), probes);
 
     private static NotificationReply ReplyTo(Guid id, string choice, Guid? from = null) =>
         new(Guid.NewGuid(), id, Owner, from ?? Phone, [choice], null, Now);
@@ -57,7 +57,7 @@ public sealed class NotificationsTests
     [Fact]
     public async Task Publishing_is_refused_while_the_flag_is_off_on_this_device()
     {
-        var owner = new OwnerNotifications(_store, new FixedDevice(Owner), Delivery(), _time, new Flags(enabled: false));
+        var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(), _time, new Flags(enabled: false));
 
         var result = Assert.IsType<Error>((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value);
 
@@ -68,7 +68,7 @@ public sealed class NotificationsTests
     [Fact]
     public async Task Publishing_goes_ahead_while_the_flag_is_on()
     {
-        var owner = new OwnerNotifications(_store, new FixedDevice(Owner), Delivery(), _time, new Flags(enabled: true));
+        var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(), _time, new Flags(enabled: true));
 
         Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value);
     }
@@ -321,8 +321,8 @@ public sealed class NotificationsTests
 
         var handler = new ConcurrentRecordingHandler();
         var delivery = Delivery(handler);
-        var owner = new OwnerNotifications(_store, new FixedDevice(Owner), delivery, _time);
-        var startup = new NotificationsStartup(_store, owner, new FixedDevice(Owner), delivery, []);
+var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), delivery, _time);
+        var startup = new NotificationsStartup(_store, owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), delivery, []);
         var fresh = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         await Task.WhenAll(
@@ -492,7 +492,7 @@ public sealed class NotificationsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<INotificationRepository>(_store);
-        services.AddSingleton<IDeviceIdentitySource>(new FixedDevice(Owner));
+        services.AddSingleton<IDeviceIdentitySource>(new StubDeviceIdentity(new(Owner, "WORKSTATION-01")));
         services.AddNotificationsModule();
         services.AddNotificationAnswerHandler<StaticHandler>();
         services.AddNotificationAnswerHandler<StaticHandler>();
@@ -521,7 +521,7 @@ public sealed class NotificationsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<INotificationRepository>(_store);
-        services.AddSingleton<IDeviceIdentitySource>(new FixedDevice(Owner));
+        services.AddSingleton<IDeviceIdentitySource>(new StubDeviceIdentity(new(Owner, "WORKSTATION-01")));
         services.AddNotificationsModule();
         await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 

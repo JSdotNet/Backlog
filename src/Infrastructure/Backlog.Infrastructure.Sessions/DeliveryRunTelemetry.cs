@@ -38,6 +38,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// absorb the whole conversation that came before it as its first stage.
 /// </para>
 /// </summary>
+// Not a settings store: it reads files other tools write, so JsonFileStore<T> does not apply.
 internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
 {
     /// <summary>The dashboard's caps, so a very long run cannot grow its file without

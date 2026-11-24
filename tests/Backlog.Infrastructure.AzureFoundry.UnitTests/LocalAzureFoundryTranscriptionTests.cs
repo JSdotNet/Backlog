@@ -59,7 +59,7 @@ public sealed class LocalAzureFoundryTranscriptionTests : IDisposable
     [InlineData("text")]
     public async Task A_body_that_does_not_ask_for_json_is_a_400(string? format)
     {
-        var body = new MultipartFormDataContent { { new ByteArrayContent(new byte[3]), "file", "dictation.m4a" } };
+        var body = new MultipartFormDataContent { { new ByteArrayContent(new byte[3]), "file", "audio.m4a" } };
         if (format is not null) body.Add(new StringContent(format), "response_format");
 
         var response = await _standIn.CreateClient().PostAsync(string.Format(null, Route, "gpt-4o-transcribe"), body, Cancellation);
@@ -85,7 +85,7 @@ public sealed class LocalAzureFoundryTranscriptionTests : IDisposable
     {
         var body = new MultipartFormDataContent
         {
-            { new ByteArrayContent(new byte[3]), "file", "dictation.m4a" },
+            { new ByteArrayContent(new byte[3]), "file", "audio.m4a" },
             { new StringContent("json"), "response_format" },
         };
 

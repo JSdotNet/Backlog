@@ -69,7 +69,7 @@ public sealed class SyncActivityLogTests
     [Fact]
     public void Every_entry_is_written_to_the_logger_with_its_direction_and_kind_as_properties()
     {
-        var logger = new CapturingLogger();
+        var logger = new CapturingLogger<SyncActivityLog>();
         var log = new SyncActivityLog(logger);
 
         log.Record(SyncDirection.Received, SyncItemKind.Capture, "c-1", "Buy milk", "withdrawn");
@@ -184,7 +184,7 @@ public sealed class SyncActivityLogTests
     [Fact]
     public void Every_entry_of_a_batch_is_written_to_the_logger()
     {
-        var logger = new CapturingLogger();
+        var logger = new CapturingLogger<SyncActivityLog>();
         var log = new SyncActivityLog(logger);
 
         log.RecordRange(
@@ -212,23 +212,5 @@ public sealed class SyncActivityLogTests
 
         Assert.Equal(new SyncActivityEntry(Noon, SyncDirection.Sent, SyncItemKind.Session, "s", "A session"), entry);
         Assert.Empty(log.Snapshot());
-    }
-
-    private sealed class CapturingLogger : ILogger<SyncActivityLog>
-    {
-        public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        {
-            var properties = state is IReadOnlyList<KeyValuePair<string, object?>> pairs
-                ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
-                : [];
-
-            Lines.Add((logLevel, formatter(state, exception), properties));
-        }
     }
 }

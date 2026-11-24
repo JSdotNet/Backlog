@@ -55,6 +55,7 @@ public sealed class AzureFoundrySettings
 /// empty key field to fill in again.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: the key is sealed with DPAPI on write and opened on read, and a CryptographicException is a refused write too.
 public sealed class AzureFoundrySettingsStore
 {
     public const string DefaultApiVersion = "2024-10-21";

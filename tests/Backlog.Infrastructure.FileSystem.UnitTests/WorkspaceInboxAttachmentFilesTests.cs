@@ -81,6 +81,43 @@ public sealed class WorkspaceInboxAttachmentFilesTests : IDisposable
         Assert.IsType<Error>(files.Open(outside).Value);
     }
 
+    [Fact]
+    public async Task Removing_a_file_deletes_it_and_leaves_the_rest_of_the_items_folder()
+    {
+        var files = new WorkspaceInboxAttachmentFiles(() => _inbox);
+        var recording = await files.WriteAsync(Item, "recording.aac", [1, 2, 3], TestContext.Current.CancellationToken);
+        var photo = await files.WriteAsync(Item, "board.jpg", [4, 5], TestContext.Current.CancellationToken);
+
+        await files.RemoveFileAsync(recording, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(recording));
+        Assert.True(File.Exists(photo));
+    }
+
+    [Fact]
+    public async Task Removing_a_file_outside_the_attachments_folder_leaves_it_alone()
+    {
+        var files = new WorkspaceInboxAttachmentFiles(() => _inbox);
+        Directory.CreateDirectory(_inbox);
+        var outside = Path.Combine(_inbox, "elsewhere.txt");
+        await File.WriteAllTextAsync(outside, "not an attachment", TestContext.Current.CancellationToken);
+
+        await files.RemoveFileAsync(outside, TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(outside));
+    }
+
+    [Fact]
+    public async Task Removing_a_file_already_gone_does_nothing()
+    {
+        var files = new WorkspaceInboxAttachmentFiles(() => _inbox);
+        var missing = files.PathFor(Item, "gone.aac");
+
+        var failure = await Record.ExceptionAsync(() => files.RemoveFileAsync(missing, TestContext.Current.CancellationToken));
+
+        Assert.Null(failure);
+    }
+
     [Theory]
     [InlineData("../escape.txt")]
     [InlineData("sub/file.txt")]

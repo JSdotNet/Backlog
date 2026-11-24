@@ -84,7 +84,7 @@ public sealed class DesktopSurfaceWindowHostTests
     [Fact]
     public void No_link_while_the_listener_is_not_listening()
     {
-        var log = new RecordingLogger();
+        var log = new RecordingLogger<DesktopSurfaceWindowHost>();
         var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), new WindowLinkTokens(), () => null, log);
 
         Assert.Null(host.WebLink("tasks", PlanQuery, "test-client"));
@@ -100,7 +100,7 @@ public sealed class DesktopSurfaceWindowHostTests
     public void Every_minted_link_is_logged_with_its_surface_caller_and_expiry_and_never_its_token()
     {
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 11, 11, 9, 30, 0, TimeSpan.Zero));
-        var log = new RecordingLogger();
+        var log = new RecordingLogger<DesktopSurfaceWindowHost>();
         var host = new DesktopSurfaceWindowHost(new RecordingShellWindows(), new WindowLinkTokens(clock), () => 5757, log);
 
         var link = host.WebLink("tasks", PlanQuery, "claude-code 2.1.0");
@@ -109,37 +109,18 @@ public sealed class DesktopSurfaceWindowHostTests
 
         var entry = Assert.Single(log.Entries);
         Assert.Equal(LogLevel.Information, entry.Level);
-        Assert.Equal("tasks", entry.Values["SurfaceId"]);
-        Assert.Equal("claude-code 2.1.0", entry.Values["Caller"]);
-        Assert.Equal(clock.GetUtcNow() + WindowLinkTokens.Lifetime, entry.Values["Expires"]);
+        Assert.Equal("tasks", entry.Fields["SurfaceId"]);
+        Assert.Equal("claude-code 2.1.0", entry.Fields["Caller"]);
+        Assert.Equal(clock.GetUtcNow() + WindowLinkTokens.Lifetime, entry.Fields["Expires"]);
         Assert.Contains("tasks", entry.Message, StringComparison.Ordinal);
         Assert.Contains("claude-code 2.1.0", entry.Message, StringComparison.Ordinal);
         Assert.Contains("2026-11-11T09:40:00", entry.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(token, entry.Message, StringComparison.Ordinal);
-        Assert.All(entry.Values.Values, value => Assert.DoesNotContain(token, value?.ToString() ?? string.Empty, StringComparison.Ordinal));
+        Assert.All(entry.Fields.Values, value => Assert.DoesNotContain(token, value?.ToString() ?? string.Empty, StringComparison.Ordinal));
 
         host.WebLink("devbook", new Dictionary<string, string>(), "another-client");
         Assert.Equal(2, log.Entries.Count);
-        Assert.Equal("devbook", log.Entries[1].Values["SurfaceId"]);
-    }
-
-    private sealed record LogEntry(LogLevel Level, string Message, IReadOnlyDictionary<string, object?> Values);
-
-    private sealed class RecordingLogger : ILogger<DesktopSurfaceWindowHost>
-    {
-        public List<LogEntry> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        {
-            var values = state is IEnumerable<KeyValuePair<string, object?>> pairs
-                ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
-                : new Dictionary<string, object?>(StringComparer.Ordinal);
-            Entries.Add(new LogEntry(logLevel, formatter(state, exception), values));
-        }
+        Assert.Equal("devbook", log.Entries[1].Fields["SurfaceId"]);
     }
 
     [Fact]
@@ -154,33 +135,5 @@ public sealed class DesktopSurfaceWindowHostTests
         Assert.Single(link.Query.Split('&'), part => part.StartsWith("t=", StringComparison.Ordinal) || part.StartsWith("?t=", StringComparison.Ordinal));
         Assert.DoesNotContain("forged", link.Query, StringComparison.Ordinal);
         Assert.NotNull(tokens.Redeem(SurfaceWindowRoute.QueryOf(link.AbsoluteUri)[WindowLinkTokens.QueryKey]));
-    }
-
-    /// <summary>Records every window asked for, and answers each with
-    /// <paramref name="answer"/> — built, unless a test says otherwise.</summary>
-    private sealed class RecordingShellWindows(Task<bool>? answer = null) : IShellWindows
-    {
-        public List<(string SurfaceId, IReadOnlyDictionary<string, string>? Query)> Opened { get; } = [];
-
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
-            throw new NotSupportedException("open_window awaits OpenAsync; it never opens fire and forget.");
-
-        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
-        {
-            Opened.Add((surfaceId, query));
-            return answer ?? Task.FromResult(true);
-        }
-
-        public void Close(string windowKey)
-        {
-        }
-
-        public void SetTitle(string windowKey, string title)
-        {
-        }
-
-        public void ActivateMainWindow()
-        {
-        }
     }
 }
