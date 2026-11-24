@@ -44,13 +44,13 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                 AnswerOn: AnswerOn.Owner),
             "backlog://sessions/sess-91",
             IsPrivate: true),
-        at ?? Now).Value;
+        at ?? Now).Unwrap();
 
     private static Notification Alert() => Notification.Publish(
         Guid.NewGuid(),
         Owner,
         new NotificationDraft(new NotificationSource("devbook", "remark-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Remark left", "", ""),
-        Now).Value;
+        Now).Unwrap();
 
     private static NotificationReply Reply(Notification question, string choice) =>
         new(Guid.NewGuid(), question.Id, Owner, Owner, [choice], null, Now);
@@ -90,7 +90,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(new NotificationSource("sessions", "run-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Run done", "", "", Origin: origin),
-            Now).Value;
+            Now).Unwrap();
 
         await _repository.SaveAsync(alert, Cancellation);
 
@@ -109,7 +109,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(new NotificationSource("sessions", "held:schedule:sweep:run-1"), null, NotificationKind.Alert, NotificationSeverity.Warning, "Issue sweep is held", "", "", Actions: actions),
-            Now).Value;
+            Now).Unwrap();
 
         await _repository.SaveAsync(alert, Cancellation);
 
@@ -207,7 +207,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                     new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
                     new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
                 ])),
-            Now).Value;
+            Now).Unwrap();
 
         await _repository.SaveAsync(question, Cancellation);
         var read = await _repository.GetAsync(question.Id, Cancellation);
@@ -260,7 +260,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                     new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
                     new AnswerChoice("dismiss", "Dismiss", Quiet: true)
                 ])),
-            Now).Value;
+            Now).Unwrap();
 
         await _repository.SaveAsync(question, Cancellation);
         var read = await _repository.GetAsync(question.Id, Cancellation);

@@ -229,7 +229,7 @@ public sealed class PairingSubjects : IDisposable
                 return;
             }
 
-            foreach (var device in listed.Value.Devices.Where(device => device.PairedBy == listed.Value.CallerDeviceId))
+            foreach (var device in listed.Unwrap().Devices.Where(device => device.PairedBy == listed.Unwrap().CallerDeviceId))
             {
                 if (_claimed.ContainsKey(device.DeviceId)) continue;
 

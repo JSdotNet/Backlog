@@ -184,14 +184,14 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
         // The editor loaded the stored tag and knowledge, and hands them back on save.
         Assert.Equal("original", Editor(band).Item?.Tag);
         Assert.Equal(["a.md"], Editor(band).Item?.Knowledge);
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
-            itemId: added.Value.Id,
+            itemId: added.Unwrap().Id,
             title: "After",
             repositories: ["backlog"],
             tag: "retagged",
@@ -199,7 +199,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
-        Assert.Equal(added.Value.Id, item.Id);
+        Assert.Equal(added.Unwrap().Id, item.Id);
         Assert.Equal("retagged", item.Tag);
         Assert.Equal(["a.md", "b.md#section"], item.Knowledge);
     }
@@ -212,9 +212,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
-        Assert.Equal(added.Value.Id, Editor(band).Item?.Id);
+        Assert.Equal(added.Unwrap().Id, Editor(band).Item?.Id);
         Assert.Equal(
             "Already planned",
             band.WaitForElement("[data-testid=\"roadmap-editor-title\"] input").GetAttribute("value"));
@@ -228,17 +228,17 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
-            itemId: added.Value.Id,
+            itemId: added.Unwrap().Id,
             title: "After",
             priority: PlanningPriority.Critical,
             repositories: ["backlog"])));
 
         var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
-        Assert.Equal(added.Value.Id, item.Id);
+        Assert.Equal(added.Unwrap().Id, item.Id);
         Assert.Equal("After", item.Title);
         Assert.Equal(new DateOnly(2026, 4, 6), item.Start);
         Assert.Equal(PlanningPriority.Critical, item.Priority);
@@ -270,9 +270,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
-        await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Value.Id));
+        await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Unwrap().Id));
 
         Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
@@ -288,14 +288,14 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, build.Value.Id);
+        await Activate(band, build.Unwrap().Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: true)));
+            new RoadmapDependencyChange(build.Unwrap().Id, design.Unwrap().Id, Added: true)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal([design.Value.Id], plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
+        Assert.Equal([design.Unwrap().Id], plan.Items.Single(item => item.Id == build.Unwrap().Id).DependsOn);
     }
 
     [Fact]
@@ -304,18 +304,18 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         Configure("JSdotNet/Backlog");
         var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
         var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await Planning.AddDependencyAsync(build.Unwrap().Id, design.Unwrap().Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, build.Value.Id);
+        await Activate(band, build.Unwrap().Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: false)));
+            new RoadmapDependencyChange(build.Unwrap().Id, design.Unwrap().Id, Added: false)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Empty(plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
+        Assert.Empty(plan.Items.Single(item => item.Id == build.Unwrap().Id).DependsOn);
     }
 
     [Fact]
@@ -324,20 +324,20 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         Configure("JSdotNet/Backlog");
         var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
         var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await Planning.AddDependencyAsync(build.Unwrap().Id, design.Unwrap().Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, design.Value.Id);
+        await Activate(band, design.Unwrap().Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(design.Value.Id, build.Value.Id, Added: true)));
+            new RoadmapDependencyChange(design.Unwrap().Id, build.Unwrap().Id, Added: true)));
 
         // Reported in the dialog, and the stored plan is untouched.
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor-error\"]"));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Empty(plan.Items.Single(item => item.Id == design.Value.Id).DependsOn);
+        Assert.Empty(plan.Items.Single(item => item.Id == design.Unwrap().Id).DependsOn);
     }
 
     [Fact]
@@ -349,11 +349,11 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, first.Value.Id);
+        await Activate(band, first.Unwrap().Id);
 
         var options = Editor(band).DependencyOptions;
 
-        Assert.DoesNotContain(first.Value.Id.ToString(), options.Select(option => option.Value));
+        Assert.DoesNotContain(first.Unwrap().Id.ToString(), options.Select(option => option.Value));
         Assert.Contains("Second", options.Select(option => option.Label));
     }
 
@@ -366,7 +366,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, work.Value.Id);
+        await Activate(band, work.Unwrap().Id);
 
         Assert.Contains("Code freeze", Editor(band).DependencyOptions.Select(option => option.Label));
     }
@@ -383,7 +383,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         // A milestone has no editor of its own yet. Showing the item dialog for one
         // would offer a start date, an end date and a lane for something that has none.
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Unwrap().Id);
 
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
     }
@@ -396,7 +396,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
         Assert.Equal(
             ["backlog", "fincent"],
@@ -443,15 +443,15 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.False(string.IsNullOrEmpty(added.Value.Tag));
-        await CarriedByATaskAsync(added.Value.Tag);
+        Assert.False(string.IsNullOrEmpty(added.Unwrap().Tag));
+        await CarriedByATaskAsync(added.Unwrap().Tag);
 
         using var context = Context();
         var band = context.Render<RoadmapBand>(parameters => parameters
             .Add(component => component.OnOpenTasks, (RoadmapTasksRequest _) => { }));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
         var button = band.WaitForElement(OpenInTasks);
         Assert.Equal("Open in Tasks", button.TextContent.Trim());
@@ -467,7 +467,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
 
         band.WaitForElement("[data-testid=\"roadmap-editor\"]");
         Assert.Empty(band.FindAll(OpenInTasks));
@@ -756,7 +756,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         var band = context.Render<RoadmapBand>(parameters => parameters.Add(component => component.Today, PaceToday));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
         band.WaitForElement(Complete).Click();
 
         band.WaitForAssertion(() =>
@@ -777,13 +777,13 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.CompleteItemAsync(added.Value.Id, new DateOnly(2026, 9, 4), TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await Planning.CompleteItemAsync(added.Unwrap().Id, new DateOnly(2026, 9, 4), TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = context.Render<RoadmapBand>(parameters => parameters.Add(component => component.Today, PaceToday));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Unwrap().Id);
         band.WaitForElement(Reopen).Click();
 
         band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]")));

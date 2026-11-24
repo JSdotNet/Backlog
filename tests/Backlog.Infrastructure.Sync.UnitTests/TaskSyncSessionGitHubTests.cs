@@ -44,7 +44,7 @@ public sealed class TaskSyncSessionGitHubTests
         var result = await fixture.Session.PushAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Value.Pushed);
+        Assert.Equal(3, result.Unwrap().Pushed);
         Assert.Equal(3, fixture.Bodies.Count);
         Assert.Equal("roadmap-plan", Assert.Single(Pushed(fixture.Bodies[0])).Task.Type);
 
@@ -94,7 +94,7 @@ public sealed class TaskSyncSessionGitHubTests
         var result = await fixture.Session.PushAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.Equal(0, result.Unwrap().Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -113,8 +113,8 @@ public sealed class TaskSyncSessionGitHubTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(0, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Refused);
         Assert.Empty(activity.Snapshot());
         Assert.Equal(Morning, state.Current.DocumentWatermark(GitHubReplicaDocuments.RegistryType));
     }
@@ -176,9 +176,9 @@ public sealed class TaskSyncSessionGitHubTests
         var result = await fixture.Session.PullAsync(Cancellation);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
-        Assert.Equal(0, result.Value.Applied);
-        Assert.Equal(2, result.Value.Skipped);
+        Assert.Equal(2, result.Unwrap().Pulled);
+        Assert.Equal(0, result.Unwrap().Applied);
+        Assert.Equal(2, result.Unwrap().Skipped);
         Assert.Empty(tasks.Writes);
         Assert.Equal("cursor-after-the-page", state.Current.PullCursor);
     }

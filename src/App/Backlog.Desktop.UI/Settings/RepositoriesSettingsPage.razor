@@ -1095,8 +1095,8 @@
             }
 
             var done = drop
-                ? $"{Plural(result.Value, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
-                : $"{Plural(result.Value, "open task", "open tasks")} moved to {moveTo}.";
+                ? $"{Plural(result.Unwrap(), "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
+                : $"{Plural(result.Unwrap(), "open task", "open tasks")} moved to {moveTo}.";
 
             CloseOffer();
             if (offer.Archiving) Archive(offer.Repository, $"Archived. {done}");
@@ -1369,7 +1369,7 @@
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {
             var result = await rewrite;
-            if (result.IsSuccess) return result.Value;
+            if (result.IsSuccess) return result.Unwrap();
 
             var message = $"{what} could not follow the rename: {result.Error.Message}";
             _repoError = _repoError is null ? message : $"{_repoError} {message}";

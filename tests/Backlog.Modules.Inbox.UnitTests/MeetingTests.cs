@@ -6,6 +6,7 @@ using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.ListPendingNotes;
 using Backlog.Modules.Inbox.Features.ReceiveNote;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -48,9 +49,9 @@ public sealed class MeetingTests
         var edited = await new EditNoteCommandHandler(store, new FakeTimeProvider(Arrival))
             .Handle(new EditNoteCommand(meeting.Id, "Weekly sync", "decided to ship"), Cancellation);
 
-        Assert.True(edited.IsSuccess);
+        Assert.IsType<Ok>(edited.Value);
         var pending = await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation);
-        var pushed = Assert.Single(pending.Value);
+        var pushed = Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>(pending.Value).Value);
         Assert.Equal("decided to ship", pushed.BodyMd);
         Assert.Equal("meeting", pushed.Kind);
     }
@@ -65,7 +66,7 @@ public sealed class MeetingTests
 
         var pending = await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation);
 
-        Assert.Equal("note", Assert.Single(pending.Value).Kind);
+        Assert.Equal("note", Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>(pending.Value).Value).Kind);
     }
 
     [Fact]

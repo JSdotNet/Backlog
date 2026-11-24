@@ -38,7 +38,7 @@ public sealed class InboxBrainTargetTests : IDisposable
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Standup", "- shipped sync", null), Cancellation);
 
         Assert.True(written.IsSuccess);
-        Assert.Equal(new InboxBrainNoteWrittenDto("_inbox/standup.md", "Inbox"), written.Value);
+        Assert.Equal(new InboxBrainNoteWrittenDto("_inbox/standup.md", "Inbox"), written.Unwrap());
         Assert.Equal(
             BrainNoteText.Compose("Standup", "- shipped sync", BrainNoteSource.Inbox),
             await File.ReadAllTextAsync(Path.Combine(Brain, "_inbox", "standup.md"), Cancellation));
@@ -54,7 +54,7 @@ public sealed class InboxBrainTargetTests : IDisposable
 
         var written = await Target().WriteNoteAsync(new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Odd", "```meta\ntype: x\n```\n# Heading", null), Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Unwrap().NotePath), Cancellation);
         Assert.Equal(1, text.Split("\n```meta\n").Length - 1);
         Assert.Contains("\n\u200B```meta\n", text, StringComparison.Ordinal);
         Assert.Contains("\n\u200B# Heading\n", text, StringComparison.Ordinal);
@@ -72,7 +72,7 @@ public sealed class InboxBrainTargetTests : IDisposable
             new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Event sourcing in practice", "Why the log is the truth.", "https://example.com/es"),
             Cancellation);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Value.NotePath), Cancellation);
+        var text = await File.ReadAllTextAsync(Path.Combine(Brain, written.Unwrap().NotePath), Cancellation);
         Assert.EndsWith("\nWhy the log is the truth.\n\nSource: <https://example.com/es>\n", text, StringComparison.Ordinal);
     }
 
@@ -181,7 +181,7 @@ public sealed class InboxBrainTargetTests : IDisposable
             new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Retry budget", "", null, "projects/launch"),
             Cancellation);
 
-        Assert.Equal(new InboxBrainNoteWrittenDto("projects/launch/retry-budget.md", "Projects"), written.Value);
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/launch/retry-budget.md", "Projects"), written.Unwrap());
         Assert.True(File.Exists(Path.Combine(Brain, "projects", "launch", "retry-budget.md")));
     }
 
@@ -200,7 +200,7 @@ public sealed class InboxBrainTargetTests : IDisposable
             new InboxBrainNoteRequestDto(Guid.CreateVersion7(), "Ship the thing", "Why now.", "https://example.com/launch", IntoProjects: true, RoadmapTag: "ship-the-thing-5e6f7a8b"),
             Cancellation);
 
-        Assert.Equal(new InboxBrainNoteWrittenDto("projects/ship-the-thing.md", "Projects"), written.Value);
+        Assert.Equal(new InboxBrainNoteWrittenDto("projects/ship-the-thing.md", "Projects"), written.Unwrap());
         Assert.Equal(
             "# Ship the thing\n\n```meta\ntype: note\nstatus: draft\nsource: inbox\nroadmap: [ship-the-thing-5e6f7a8b]\n```\n\nWhy now.\n\nSource: <https://example.com/launch>\n",
             await File.ReadAllTextAsync(Path.Combine(Brain, "projects", "ship-the-thing.md"), Cancellation));

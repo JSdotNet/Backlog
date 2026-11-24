@@ -135,9 +135,9 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             RepositoryScope.Of(["backlog", "fincent"]),
             PlanningLane.Of("platform"),
             taskId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            notes: "Spike first.").Value;
-        var build = plan.AddItem("Build it", Window(12, 23)).Value;
-        var release = plan.AddMilestone("1.0", new DateOnly(2026, 2, 2), MilestoneKind.Release).Value;
+            notes: "Spike first.").Unwrap();
+        var build = plan.AddItem("Build it", Window(12, 23)).Unwrap();
+        var release = plan.AddMilestone("1.0", new DateOnly(2026, 2, 2), MilestoneKind.Release).Unwrap();
         plan.AddDependency(build.Id, design.Id);
         plan.AddDependency(release.Id, build.Id);
 
@@ -279,7 +279,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             "Freeze",
             new DateOnly(2026, 2, 2),
             MilestoneKind.Freeze,
-            isPlanWide: true).Value;
+            isPlanWide: true).Unwrap();
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
 
         await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
@@ -299,7 +299,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             Window(5, 9),
             tag: PlanningTag.Of("sync"),
             knowledgeRefs: KnowledgeReferences.Of(
-                [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
+                [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Unwrap();
 
         await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
@@ -449,7 +449,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task APinnedEndSurvivesTheRoundTrip_UnderAnExplicitKey()
     {
         var plan = RoadmapPlan.Empty();
-        var pinned = plan.AddItem("Pinned", Window(5, 9)).Value;
+        var pinned = plan.AddItem("Pinned", Window(5, 9)).Unwrap();
         plan.AddItem("Free", Window(5, 9));
         plan.PinEnd(pinned.Id, new DateOnly(2026, 3, 20));
 
@@ -489,7 +489,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task ACompletionDaySurvivesTheRoundTrip_UnderAnExplicitKey()
     {
         var plan = RoadmapPlan.Empty();
-        var completed = plan.AddItem("Completed", Window(5, 9)).Value;
+        var completed = plan.AddItem("Completed", Window(5, 9)).Unwrap();
         plan.AddItem("Open", Window(5, 9));
         plan.CompleteItem(completed.Id, new DateOnly(2026, 3, 12));
 
@@ -508,7 +508,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task AReopenedItemWritesNoCompletionKey()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Reopened", Window(5, 9)).Value;
+        var item = plan.AddItem("Reopened", Window(5, 9)).Unwrap();
         plan.CompleteItem(item.Id, new DateOnly(2026, 3, 12));
         plan.ReopenItem(item.Id);
 

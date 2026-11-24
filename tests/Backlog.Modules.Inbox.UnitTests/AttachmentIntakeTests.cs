@@ -314,7 +314,7 @@ public sealed class AttachmentIntakeTests
         var handler = new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Arrival));
         var result = await handler.Handle(new ReceiveCaptureCommand(Capture(jpeg)), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxIntakeOutcome.Received, result.Value);
+        Assert.Equal(InboxIntakeOutcome.Received, Assert.IsType<Ok<InboxIntakeOutcome>>(result.Value).Value);
         var attachment = Assert.Single(Assert.Single(store.Items.Values).Attachments);
         Assert.True(attachment.IsWaiting);
     }
@@ -369,7 +369,7 @@ public sealed class AttachmentIntakeTests
         var result = await new RetryAttachmentCommandHandler(store, new FakeTimeProvider(Arrival), source, files)
             .Handle(new RetryAttachmentCommand(capture.Id, pdf.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var attachment = Assert.Single(store.Items[capture.Id].Attachments);
         Assert.True(attachment.IsDownloaded);
         Assert.Null(attachment.LastError);
@@ -389,9 +389,9 @@ public sealed class AttachmentIntakeTests
         var result = await new RetryAttachmentCommandHandler(store, new FakeTimeProvider(Arrival), source, new FakeAttachmentFiles())
             .Handle(new RetryAttachmentCommand(capture.Id, pdf.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("The sync service could not be reached.", result.Error.Message);
-        Assert.Equal(result.Error.Message, Assert.Single(store.Items[capture.Id].Attachments).LastError);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("The sync service could not be reached.", error.Message);
+        Assert.Equal(error.Message, Assert.Single(store.Items[capture.Id].Attachments).LastError);
     }
 
     [Fact]
@@ -405,7 +405,7 @@ public sealed class AttachmentIntakeTests
         var result = await new RetryAttachmentCommandHandler(store, new FakeTimeProvider(Arrival))
             .Handle(new RetryAttachmentCommand(capture.Id, pdf.Id), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.AttachmentsUnavailable, result.Error);
+        Assert.Equal(InboxErrors.AttachmentsUnavailable, Assert.IsType<Error>(result.Value));
     }
 
     [Fact]
@@ -426,10 +426,10 @@ public sealed class AttachmentIntakeTests
         var notThere = await new ReadAttachmentQueryHandler(store, files)
             .Handle(new ReadAttachmentQuery(capture.Id, pdf.Id), TestContext.Current.CancellationToken);
 
-        Assert.Equal(jpeg.Bytes, read.Value);
-        Assert.True(opened.IsSuccess);
+        Assert.Equal(jpeg.Bytes, Assert.IsType<Ok<byte[]>>(read.Value).Value);
+        Assert.IsType<Ok>(opened.Value);
         Assert.Equal([store.Items[capture.Id].Attachments[0].LocalPath!], files.OpenedPaths);
-        Assert.Equal(InboxErrors.AttachmentNotDownloaded, notThere.Error);
+        Assert.Equal(InboxErrors.AttachmentNotDownloaded, Assert.IsType<Error>(notThere.Value));
     }
 
     // --- Routing ------------------------------------------------------------
@@ -519,8 +519,8 @@ public sealed class AttachmentIntakeTests
         var handler = new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Arrival), source, files, logger);
         var result = await handler.Handle(new ReceiveCaptureCommand(capture), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<InboxIntakeOutcome>>(result.Value);
+        return ok.Value;
     }
 
     /// <summary>A file store that, on the first write, checks the store

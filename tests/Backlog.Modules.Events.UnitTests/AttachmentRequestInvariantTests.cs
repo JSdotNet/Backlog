@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -19,7 +20,7 @@ public sealed class AttachmentRequestInvariantTests
     {
         var result = AttachmentRequest.Create(Request, Guid.Empty, Note, "Keynote");
 
-        Assert.Equal("attachment_request.incomplete", result.Error.Code);
+        Assert.Equal("attachment_request.incomplete", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -27,13 +28,13 @@ public sealed class AttachmentRequestInvariantTests
     {
         var result = AttachmentRequest.Create(Request, Event, Guid.Empty, "Keynote");
 
-        Assert.Equal("attachment_request.incomplete", result.Error.Code);
+        Assert.Equal("attachment_request.incomplete", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
     public void A_request_naming_one_event_and_one_note_keeps_both_and_the_title_trimmed()
     {
-        var request = AttachmentRequest.Create(Request, Event, Note, "  Keynote: Aspire in production ").Value;
+        var request = Assert.IsType<Ok<AttachmentRequest>>(AttachmentRequest.Create(Request, Event, Note, "  Keynote: Aspire in production ").Value).Value;
 
         Assert.Equal(Request, request.Id);
         Assert.Equal(Event, request.EventId);
@@ -44,7 +45,7 @@ public sealed class AttachmentRequestInvariantTests
     [Fact]
     public void A_request_without_a_title_keeps_an_empty_one()
     {
-        var request = AttachmentRequest.Create(Request, Event, Note, null).Value;
+        var request = Assert.IsType<Ok<AttachmentRequest>>(AttachmentRequest.Create(Request, Event, Note, null).Value).Value;
 
         Assert.Equal(string.Empty, request.NoteTitle);
     }
@@ -52,7 +53,7 @@ public sealed class AttachmentRequestInvariantTests
     [Fact]
     public void A_request_links_its_note_as_a_talk_note_by_the_note_id()
     {
-        var request = AttachmentRequest.Create(Request, Event, Note, "Keynote").Value;
+        var request = Assert.IsType<Ok<AttachmentRequest>>(AttachmentRequest.Create(Request, Event, Note, "Keynote").Value).Value;
 
         var link = request.ToNoteLink();
 
@@ -82,7 +83,7 @@ public sealed class AttachmentRequestInvariantTests
     [Fact]
     public void Linking_a_request_leaves_it_as_it_was()
     {
-        var request = AttachmentRequest.Create(Request, Event, Note, "Keynote").Value;
+        var request = Assert.IsType<Ok<AttachmentRequest>>(AttachmentRequest.Create(Request, Event, Note, "Keynote").Value).Value;
 
         _ = request.ToNoteLink();
         _ = request.ToNoteLink();

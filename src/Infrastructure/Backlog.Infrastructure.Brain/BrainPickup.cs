@@ -140,7 +140,7 @@ public sealed class BrainPickup : IBrainPickup
                     : await LinkTasksAsync(note.Path, created, $"Only {created.Count} of {targets.Count} tasks were created: {saved.Error.Message}", cancellationToken).ConfigureAwait(false);
             }
 
-            var id = saved.Value.Entry.Id;
+            var id = saved.Unwrap().Entry.Id;
             created.Add(id);
 
             var referenced = await tasks.SetDevbookReferencesAsync(id, [reference], cancellationToken).ConfigureAwait(false);
@@ -179,7 +179,7 @@ public sealed class BrainPickup : IBrainPickup
             cancellationToken).ConfigureAwait(false);
         if (draft.IsFailure) return BrainPickupResult.Failed($"The plan was not drafted: {draft.Error.Message}");
 
-        var steps = EntryTextParser.SplitSegments(draft.Value.PlanMarkdown)
+        var steps = EntryTextParser.SplitSegments(draft.Unwrap().PlanMarkdown)
             .Where(segment => EntryTextParser.Parse(segment) is { Kind: not EntryKind.Plan } parsed && !string.IsNullOrWhiteSpace(parsed.Title))
             .Select(step => AsStep(step, tag))
             .ToList();
@@ -198,8 +198,8 @@ public sealed class BrainPickup : IBrainPickup
         var imported = await tasks.ImportPlanAsync(document, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (imported.IsFailure) return BrainPickupResult.Failed($"The plan was not imported: {imported.Error.Message}");
 
-        var taskIds = imported.Value.Entries.Select(entry => entry.Id).ToList();
-        var roadmapNote = imported.Value.Roadmap?.Refusal is { } refusal ? $" {refusal}" : string.Empty;
+        var taskIds = imported.Unwrap().Entries.Select(entry => entry.Id).ToList();
+        var roadmapNote = imported.Unwrap().Roadmap?.Refusal is { } refusal ? $" {refusal}" : string.Empty;
 
         var link = await _links.AppendRoadmapTagAsync(note.Path, tag, cancellationToken).ConfigureAwait(false);
         return link.Succeeded

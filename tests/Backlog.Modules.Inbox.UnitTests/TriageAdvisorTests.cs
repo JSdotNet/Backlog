@@ -28,7 +28,7 @@ public sealed class TriageAdvisorTests
 
         var result = await Advise(store, advisor: null, item.Id);
 
-        Assert.Equal("inbox.triage.not_configured", result.Error.Code);
+        Assert.Equal("inbox.triage.not_configured", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class TriageAdvisorTests
 
         var result = await Advise(store, advisor, item.Id);
 
-        Assert.Equal("inbox.triage.not_configured", result.Error.Code);
+        Assert.Equal("inbox.triage.not_configured", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(advisor.AdviceRequests);
     }
 
@@ -52,8 +52,8 @@ public sealed class TriageAdvisorTests
         store.Seed(decided);
         var advisor = new FakeTriageAdvisor();
 
-        Assert.Equal(InboxErrors.ItemNotFound.Code, (await Advise(store, advisor, Guid.NewGuid())).Error.Code);
-        Assert.Equal(InboxErrors.ItemAlreadyDecided.Code, (await Advise(store, advisor, decided.Id)).Error.Code);
+        Assert.Equal(InboxErrors.ItemNotFound.Code, Assert.IsType<Error>((await Advise(store, advisor, Guid.NewGuid())).Value).Code);
+        Assert.Equal(InboxErrors.ItemAlreadyDecided.Code, Assert.IsType<Error>((await Advise(store, advisor, decided.Id)).Value).Code);
         Assert.Empty(advisor.AdviceRequests);
     }
 
@@ -96,7 +96,7 @@ public sealed class TriageAdvisorTests
                 ["ACME/web", "evil/repo"]),
         };
 
-        var advice = (await Advise(store, advisor, item.Id, new FakeTaskReferences(open))).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advise(store, advisor, item.Id, new FakeTaskReferences(open))).Value).Value;
 
         Assert.Equal(item.Id, advice.ItemId);
         Assert.Equal("Fix the login page", advice.Duplicate?.TargetTitle);
@@ -120,7 +120,7 @@ public sealed class TriageAdvisorTests
                 Advice = new InboxTriageAdviceDto(Guid.Empty, new InboxTriageDuplicateDto(kind, id, "x", "y"), null, []),
             };
 
-            var advice = (await Advise(store, advisor, item.Id)).Value;
+            var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advise(store, advisor, item.Id)).Value).Value;
 
             Assert.Null(advice.Duplicate);
         }
@@ -135,12 +135,12 @@ public sealed class TriageAdvisorTests
             Advice = new InboxTriageAdviceDto(Guid.Empty, null, new InboxTriagePlanGroupingDto("Login work", [other.Id, Guid.NewGuid()], "Both are login."), []),
         };
 
-        var advice = (await Advise(store, advisor, item.Id)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advise(store, advisor, item.Id)).Value).Value;
 
         Assert.Equal([item.Id, other.Id], advice.Plan?.ItemIds);
 
         advisor.Advice = new InboxTriageAdviceDto(Guid.Empty, null, new InboxTriagePlanGroupingDto("Alone", [Guid.NewGuid()], "No."), []);
-        Assert.Null((await Advise(store, advisor, item.Id)).Value.Plan);
+        Assert.Null(Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advise(store, advisor, item.Id)).Value).Value.Plan);
     }
 
     [Fact]
@@ -151,8 +151,8 @@ public sealed class TriageAdvisorTests
 
         var result = await Advise(store, advisor, item.Id);
 
-        Assert.Equal("inbox.triage.failed", result.Error.Code);
-        Assert.Equal("Azure Foundry returned 503: busy", result.Error.Message);
+        Assert.Equal("inbox.triage.failed", Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal("Azure Foundry returned 503: busy", Assert.IsType<Error>(result.Value).Message);
     }
 
     // --- The pass -----------------------------------------------------------------
@@ -164,7 +164,7 @@ public sealed class TriageAdvisorTests
 
         var result = await Pass(store, advisor: null, [item.Id]);
 
-        Assert.Equal("inbox.triage.not_configured", result.Error.Code);
+        Assert.Equal("inbox.triage.not_configured", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public sealed class TriageAdvisorTests
 
         var result = await Pass(store, advisor, [decided.Id]);
 
-        Assert.Same(InboxTriagePassDto.Nothing, result.Value);
+        Assert.Same(InboxTriagePassDto.Nothing, Assert.IsType<Ok<InboxTriagePassDto>>(result.Value).Value);
         Assert.Empty(advisor.PassRequests);
     }
 
@@ -238,7 +238,7 @@ public sealed class TriageAdvisorTests
                 Unplaced: []),
         };
 
-        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id, fourth.Id, fifth.Id], new FakeTaskReferences(open))).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Pass(store, advisor, [item.Id, other.Id, third.Id, fourth.Id, fifth.Id], new FakeTaskReferences(open))).Value).Value;
 
         var plan = Assert.Single(pass.Plans);
         Assert.Equal([item.Id, other.Id], plan.ItemIds);
@@ -270,7 +270,7 @@ public sealed class TriageAdvisorTests
             },
         };
 
-        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id])).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Pass(store, advisor, [item.Id, other.Id, third.Id])).Value).Value;
 
         Assert.Single(pass.Plans);
         Assert.Empty(pass.Duplicates);
@@ -296,7 +296,7 @@ public sealed class TriageAdvisorTests
             },
         };
 
-        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id], new FakeTaskReferences(open))).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Pass(store, advisor, [item.Id, other.Id, third.Id], new FakeTaskReferences(open))).Value).Value;
 
         Assert.Equal(2, pass.Duplicates.Count);
         Assert.Equal(("Fix the login page", "in progress"), (pass.Duplicates[0].TargetTitle, pass.Duplicates[0].TargetStatus));
@@ -314,7 +314,7 @@ public sealed class TriageAdvisorTests
             Advice = InboxTriageAdviceDto.None(item.Id) with { Outcome = new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, "Two minutes.") },
         };
 
-        var advice = (await Advise(store, advisor, item.Id)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advise(store, advisor, item.Id)).Value).Value;
 
         Assert.Equal(new InboxTriageOutcomeDto(InboxClarifyOutcome.DoneNow, "Two minutes."), advice.Outcome);
         Assert.True(advice.HasCards);
@@ -342,7 +342,7 @@ public sealed class TriageAdvisorTests
             },
         };
 
-        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id])).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Pass(store, advisor, [item.Id, other.Id, third.Id])).Value).Value;
 
         var kept = Assert.Single(pass.Outcomes);
         Assert.Equal((third.Id, InboxClarifyOutcome.Someday, 1.0), (kept.ItemId, kept.Outcome, kept.Confidence));
@@ -357,7 +357,7 @@ public sealed class TriageAdvisorTests
 
         var result = await Pass(store, advisor, [item.Id]);
 
-        Assert.Equal("inbox.triage.failed", result.Error.Code);
+        Assert.Equal("inbox.triage.failed", Assert.IsType<Error>(result.Value).Code);
     }
 
     private static (InMemoryInboxStore Store, InboxItem Item, InboxItem Other) Inbox()

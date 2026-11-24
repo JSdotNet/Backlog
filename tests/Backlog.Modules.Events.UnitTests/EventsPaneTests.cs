@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -16,13 +17,13 @@ public sealed class EventsPaneTests : EventsPaneFixture
     {
         var added = await Pane.AddAsync("dotNET Friday, 27 November", cancellationToken: Token);
 
-        Assert.True(added.IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>(added.Value);
         var groups = await Pane.ListAsync(Token);
         var group = Assert.Single(groups);
         Assert.Equal(KnowledgeEventState.Spotted, group.State);
         var listed = Assert.Single(group.Events);
         Assert.Equal("dotNET Friday, 27 November", listed.Title);
-        Assert.Equal(added.Value.Id, listed.Id);
+        Assert.Equal(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, listed.Id);
     }
 
     [Fact]
@@ -30,7 +31,7 @@ public sealed class EventsPaneTests : EventsPaneFixture
     {
         var added = await Pane.AddAsync("  ", cancellationToken: Token);
 
-        Assert.Equal("knowledge_event.title_missing", added.Error.Code);
+        Assert.Equal("knowledge_event.title_missing", Assert.IsType<Error>(added.Value).Code);
         Assert.Empty(await Pane.ListAsync(Token));
         Assert.Equal(0, Store.Saves);
     }
@@ -40,7 +41,7 @@ public sealed class EventsPaneTests : EventsPaneFixture
     {
         var read = await Pane.GetAsync(Guid.NewGuid(), Token);
 
-        Assert.Equal("knowledge_event.not_found", read.Error.Code);
+        Assert.Equal("knowledge_event.not_found", Assert.IsType<Error>(read.Value).Code);
     }
 
     // --- AC-11 Grouped by state, upcoming first -----------------------------------------
@@ -81,9 +82,9 @@ public sealed class EventsPaneTests : EventsPaneFixture
     public async Task An_event_still_running_today_counts_as_upcoming_and_one_that_ended_yesterday_as_past()
     {
         var running = await Add("Running since yesterday");
-        Assert.True((await Pane.SetDatesAsync(running, new EventDateDto(new DateOnly(2026, 11, 9)), new EventDateDto(new DateOnly(2026, 11, 10)), Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetDatesAsync(running, new EventDateDto(new DateOnly(2026, 11, 9)), new EventDateDto(new DateOnly(2026, 11, 10)), Token)).Value);
         var ended = await Add("Ended yesterday");
-        Assert.True((await Pane.SetDatesAsync(ended, new EventDateDto(new DateOnly(2026, 11, 8)), new EventDateDto(new DateOnly(2026, 11, 9)), Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetDatesAsync(ended, new EventDateDto(new DateOnly(2026, 11, 8)), new EventDateDto(new DateOnly(2026, 11, 9)), Token)).Value);
         await Dated("Next month", new DateOnly(2026, 12, 4));
         await Add("Undated");
 
@@ -122,7 +123,7 @@ public sealed class EventsPaneTests : EventsPaneFixture
         var elsewhere = 0;
         Elsewhere().Changed += () => elsewhere++;
 
-        var id = (await Pane.AddAsync(new NewKnowledgeEventDto("Techorama", SeriesName: "Techorama"), Token)).Value.Id;
+        var id = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.AddAsync(new NewKnowledgeEventDto("Techorama", SeriesName: "Techorama"), Token)).Value).Value.Id;
         await Pane.RenameAsync(id, "Techorama Belgium", Token);
         await Pane.StartSeriesAsync("NDC", cancellationToken: Token);
         await Pane.RemoveAsync(id, Token);
@@ -162,7 +163,7 @@ public sealed class EventsPaneTests : EventsPaneFixture
 
         var added = await Elsewhere().AddAsync(new NewKnowledgeEventDto("NDC Oslo"), Token);
 
-        Assert.True(added.IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>(added.Value);
         Assert.Equal(1, heard);
     }
 
@@ -176,12 +177,12 @@ public sealed class EventsPaneTests : EventsPaneFixture
         Tasks.FileGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var adding = Pane.AddPrepTaskAsync(id, "Book hotel in Antwerp", Token);
-        Assert.True((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).Value);
         Tasks.FileGate.SetResult();
         var added = await adding;
 
-        Assert.True(added.IsSuccess);
-        var saved = (await Pane.GetAsync(id, Token)).Value;
+        Assert.IsType<Ok<KnowledgeEventDto>>(added.Value);
+        var saved = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value;
         Assert.Equal("Techorama Belgium", saved.Title);
         Assert.Single(saved.Tasks);
     }

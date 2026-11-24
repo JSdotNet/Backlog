@@ -167,7 +167,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         Assert.False(port.IsOffered);
         // In the order the stored item names them, which is the order the roadmap's own
         // plan icon starts its session from.
-        Assert.Equal(added.Value.RepositoryAliases, repositories["plan-session"]);
+        Assert.Equal(added.Unwrap().RepositoryAliases, repositories["plan-session"]);
         Assert.Equal(["backlog", "tools"], repositories["PLAN-SESSION"].Order(StringComparer.Ordinal));
         Assert.Empty(await port.OpenAsync(TestContext.Current.CancellationToken));
     }

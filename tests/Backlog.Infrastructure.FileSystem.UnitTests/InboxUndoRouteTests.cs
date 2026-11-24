@@ -100,7 +100,7 @@ public sealed class InboxUndoRouteTests : IDisposable
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(saved.IsSuccess, saved.IsFailure ? saved.Error.Message : null);
-        return saved.Value.Entry;
+        return saved.Unwrap().Entry;
     }
 
     public void Dispose()

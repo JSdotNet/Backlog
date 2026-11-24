@@ -42,7 +42,7 @@ public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
         // All or nothing on the roadmap's side: a refusal left the plan as it was.
         if (imported.IsFailure) return RoadmapIntakeResultDto.Refused(imported.Error.Message);
 
-        var result = imported.Value;
+        var result = imported.Unwrap();
         return new RoadmapIntakeResultDto(
             result.Created.Count,
             result.Updated.Count,

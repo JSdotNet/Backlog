@@ -159,8 +159,8 @@ public sealed class DevbookSubjectSyncSession
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
                 if (response.IsFailure) return Result.Failure<DevbookSubjectSyncSummary>(response.Error);
 
-                pushed += response.Value.Accepted;
-                refused += Math.Max(0, changes.Count - response.Value.Accepted);
+                pushed += response.Unwrap().Accepted;
+                refused += Math.Max(0, changes.Count - response.Unwrap().Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, subject => subject.UpdatedAt) is { } advanced)
@@ -209,13 +209,13 @@ public sealed class DevbookSubjectSyncSession
                 continue;
             }
 
-            pulled += page.Value.Subjects.Count;
-            applied += _merge.Apply(page.Value.Subjects).Applied;
+            pulled += page.Unwrap().Subjects.Count;
+            applied += _merge.Apply(page.Unwrap().Subjects).Applied;
 
-            cursor = page.Value.Since;
+            cursor = page.Unwrap().Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!page.Value.HasMore) break;
+            if (!page.Unwrap().HasMore) break;
         }
 
         return Result.Success(new DevbookSubjectSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -233,13 +233,13 @@ public sealed class DevbookSubjectSyncSession
         if (pull.IsFailure) return NotYetOr(pull.Error);
 
         return Result.Success(new DevbookSubjectSyncSummary(
-            push.Value.Pushed,
-            pull.Value.Pulled,
-            pull.Value.Applied,
+            push.Unwrap().Pushed,
+            pull.Unwrap().Pulled,
+            pull.Unwrap().Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Value.Refused,
-            Skipped = push.Value.Skipped,
+            Refused = push.Unwrap().Refused,
+            Skipped = push.Unwrap().Skipped,
         });
     }
 

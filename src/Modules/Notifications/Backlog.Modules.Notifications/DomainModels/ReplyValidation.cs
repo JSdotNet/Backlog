@@ -82,7 +82,7 @@ internal static class ReplyValidation
     }
 
     private static Result? TooLong(string words, int maxLength) =>
-        words.Length > maxLength ? Invalid($"The answer is too long: at most {maxLength} characters.") : null;
+        words.Length > maxLength ? Invalid($"The answer is too long: at most {maxLength} characters.") : default(Result?);
 
     private static Result Invalid(string reason) => Result.Failure(NotificationsErrors.ReplyInvalid(reason));
 }

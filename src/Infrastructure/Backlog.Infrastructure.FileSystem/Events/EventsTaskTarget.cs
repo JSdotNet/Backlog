@@ -40,7 +40,7 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
 
         return saved.IsFailure
             ? Result.Failure<string>(saved.Error)
-            : Result.Success(saved.Value.Entry.Id.ToString("D"));
+            : Result.Success(saved.Unwrap().Entry.Id.ToString("D"));
     }
 
     public async Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default)

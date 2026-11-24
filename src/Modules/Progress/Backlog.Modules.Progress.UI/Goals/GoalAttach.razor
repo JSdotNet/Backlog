@@ -100,11 +100,11 @@
             var item = GoalSubjects.ToItem(Subject);
             var held = await port.FindGoalOfAsync(item);
             var listed = await port.ListAsync();
-            if (held.IsSuccess && listed.IsSuccess)
+            if (held is Ok<GoalDto?>(var heldBy) && listed is Ok<IReadOnlyList<GoalSummaryDto>>(var all))
             {
                 shown = true;
-                current = held.Value;
-                goals = GoalSubjects.OpenGoals(listed.Value, current?.Id);
+                current = heldBy;
+                goals = GoalSubjects.OpenGoals(all, current?.Id);
             }
         }
 
@@ -135,10 +135,10 @@
         if (_created is { } earlier && earlier.Draft == draft) return await AttachToAsync(port, earlier.Id);
 
         var created = await port.CreateAsync(new SetGoalRequest(draft.Title, null, draft.DueDate));
-        if (created.IsFailure) return created;
+        if (created is not Ok<GoalDto>(var goal)) return created;
 
-        _created = (draft, created.Value.Id);
-        return await AttachToAsync(port, created.Value.Id);
+        _created = (draft, goal.Id);
+        return await AttachToAsync(port, goal.Id);
     });
 
     private async Task<Result<GoalDto>> AttachToAsync(IGoals port, Guid goalId)
@@ -155,16 +155,16 @@
         try
         {
             var written = await write(port);
-            if (written.IsFailure)
+            if (written is not Ok<GoalDto>(var goal))
             {
-                _error = written.Error.Message;
+                _error = ((Error)written.Value!).Message;
                 return;
             }
 
             _error = null;
             _picking = false;
             _created = null;
-            _current = written.Value;
+            _current = goal;
         }
         finally
         {

@@ -43,7 +43,7 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(2, result.Value.Pushed);
+        Assert.Equal(2, result.Unwrap().Pushed);
 
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(SyncRoutes.Absolute(SyncRoutes.KnowledgeEvents), request.Path);
@@ -118,7 +118,7 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(51, result.Value.Pushed);
+        Assert.Equal(51, result.Unwrap().Pushed);
         Assert.Equal([50, 1], fixture.Bodies.Select(body => Pushed(body).Count).ToArray());
         Assert.Equal([Noon.AddMinutes(49), Noon.AddMinutes(51)], state.Saved.Select(saved => saved.PushWatermark).ToArray());
     }
@@ -140,8 +140,8 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Skipped);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Skipped);
         Assert.Equal(kept.Id, Assert.Single(Pushed(Assert.Single(fixture.Bodies))).Id);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
 
@@ -223,8 +223,8 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(2, result.Unwrap().Pulled);
+        Assert.Equal(1, result.Unwrap().Applied);
         Assert.Equal(Noon, replication.Event(arriving.Id)!.UpdatedAt);
         Assert.Equal("Techorama 2026", replication.Event(arriving.Id)!.Title);
         Assert.Equal("Edited here later", replication.Event(heldNewer.Id)!.Title);
@@ -243,7 +243,7 @@ public sealed class KnowledgeEventSyncSessionTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal([HttpMethod.Post, HttpMethod.Get], ordered.Handler.Requests.Select(request => request.Method).ToArray());
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         replication.Seed(KnowledgeEventCopies.Event("Build", Noon.AddHours(2)));
 
@@ -271,7 +271,7 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value.AreaSent);
+        Assert.True(result.Unwrap().AreaSent);
         Assert.Equal([HttpMethod.Post, HttpMethod.Post, HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
 
         var change = Assert.Single(Pushed(fixture.Bodies[1]));
@@ -283,7 +283,7 @@ public sealed class KnowledgeEventSyncSessionTests
         using var again = Fixture.Create(replication, state, AsTheServiceAnswers);
         var quiet = await again.Session.PushAreaAsync(TestContext.Current.CancellationToken);
 
-        Assert.False(quiet.Value);
+        Assert.False(quiet.Unwrap());
         Assert.Empty(again.Handler.Requests);
     }
 
@@ -306,8 +306,8 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.False(result.Value.AreaSent);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.False(result.Unwrap().AreaSent);
         Assert.Equal("cursor-1", state.Current.PullCursor);
         Assert.False(state.Current.Area!.Sent);
     }
@@ -323,7 +323,7 @@ public sealed class KnowledgeEventSyncSessionTests
 
         var sent = await fixture.Session.PushAreaAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(sent.Value);
+        Assert.True(sent.Unwrap());
         Assert.Equal(ThisOwner, state.Current.OwnerId);
         Assert.Null(state.Current.PullCursor);
         Assert.Equal(unsent with { Sent = true }, state.Current.Area);
@@ -344,8 +344,8 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Value.NotYetServed);
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.True(result.Unwrap().NotYetServed);
+        Assert.Equal(0, result.Unwrap().Pushed);
         Assert.Single(fixture.Handler.Requests);
         Assert.Equal(Noon, state.Current.PushWatermark);
     }
@@ -360,7 +360,7 @@ public sealed class KnowledgeEventSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Value.NotYetServed);
+        Assert.True(result.Unwrap().NotYetServed);
         Assert.Equal([HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
         Assert.Null(state.Current.PullCursor);
     }

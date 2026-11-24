@@ -276,7 +276,7 @@ public sealed class QuestionRelay : IQuestionRelay
             try
             {
                 var result = await PublishIfDueAsync(question.Id, cancellationToken).ConfigureAwait(false);
-                if (result is { IsSuccess: true, Value.State: WaitingQuestionState.Notified }) published++;
+                if (result is Ok<WaitingQuestion> { Value.State: WaitingQuestionState.Notified }) published++;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -512,7 +512,7 @@ public sealed class QuestionRelay : IQuestionRelay
 
     private static QuestionRelayResult ToPort(Result<WaitingQuestion> result) =>
         result.IsSuccess
-            ? QuestionRelayResult.Of(result.Value)
+            ? QuestionRelayResult.Of(result.Unwrap())
             : QuestionRelayResult.Refused(result.Error.Code, result.Error.Message);
 
     /// <summary>Completes and drops the completion source a held wait on <paramref name="id"/> awaits.</summary>
@@ -572,7 +572,7 @@ public sealed class QuestionRelay : IQuestionRelay
                     return Result.Failure<WaitingQuestion>(published.Error);
                 }
 
-                ids.Add(published.Value);
+                ids.Add(published.Unwrap());
             }
 
             var outcome = await _store.ChangeAsync(id, held => WaitingQuestions.Notify(held, ids), cancellationToken).ConfigureAwait(false);

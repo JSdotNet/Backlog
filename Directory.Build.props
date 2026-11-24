@@ -91,6 +91,18 @@
     <Copyright>Copyright © JSdotNet 2026</Copyright>
   </PropertyGroup>
 
+  <!--
+    TEMPORARY (plan app-defaults-rollout, step 14 removes it). Result is a C#
+    union read with an exhaustive switch (app-defaults ADR 0005). src/Core,
+    src/Modules and their unit tests are migrated; every other project still
+    reads IsSuccess, Error and TryGetValue through the compatibility members,
+    so only those projects import them (Directory.Build.targets).
+  -->
+  <PropertyGroup>
+    <_BacklogProjectPath>$(MSBuildProjectDirectory.Replace('/', '\'))\</_BacklogProjectPath>
+    <_BacklogResultMigrated Condition="$(_BacklogProjectPath.Contains('\src\Core\')) or $(_BacklogProjectPath.Contains('\src\Modules\')) or $(_BacklogProjectPath.Contains('\tests\Backlog.Modules.')) or $(_BacklogProjectPath.Contains('\tests\Backlog.SharedKernel.'))">true</_BacklogResultMigrated>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- The MAUI heads and Microsoft.Maui.Core in ServiceDefaults must move in
          lockstep, so the workload version is a property rather than three

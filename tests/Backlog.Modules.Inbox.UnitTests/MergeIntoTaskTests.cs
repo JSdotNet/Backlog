@@ -32,7 +32,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, target, item.Id, Existing.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var comment = Assert.Single(target.Comments);
         Assert.Equal(new InboxMergeRequestDto(item.Id, Existing.Id, "Scroll jumps to top when phone edits an entry", "https://example.com/report/7", "Seen twice on the Pixel."), comment);
 
@@ -54,7 +54,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, new FakeBacklogTarget(), item.Id, Existing.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Archived, item.Status);
         Assert.Null(item.DeferredUntil);
     }
@@ -70,8 +70,8 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, target, item.Id, Existing.Id);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.item.invalid_transition", error.Code);
         Assert.Empty(target.Comments);
         Assert.Null(item.DuplicateOf);
         Assert.Empty(store.ItemWrites);
@@ -84,7 +84,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(new InMemoryInboxStore(), target, Guid.CreateVersion7(), Existing.Id);
 
-        Assert.Equal(InboxErrors.ItemNotFound, result.Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(result.Value));
         Assert.Empty(target.Comments);
     }
 
@@ -98,7 +98,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, target, item.Id, Guid.CreateVersion7(), new FakeTaskReferences(Existing));
 
-        Assert.Equal(InboxErrors.MergeTaskNotFound, result.Error);
+        Assert.Equal(InboxErrors.MergeTaskNotFound, Assert.IsType<Error>(result.Value));
         Assert.Empty(target.Comments);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Empty(store.ItemWrites);
@@ -114,7 +114,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, target, item.Id, Existing.Id);
 
-        Assert.Equal(InboxErrors.MergeTaskNotFound, result.Error);
+        Assert.Equal(InboxErrors.MergeTaskNotFound, Assert.IsType<Error>(result.Value));
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Empty(store.ItemWrites);
     }
@@ -130,7 +130,7 @@ public sealed class MergeIntoTaskTests
 
         var result = await Merge(store, target, item.Id, Existing.Id);
 
-        Assert.Equal(refused, result.Error);
+        Assert.Equal(refused, Assert.IsType<Error>(result.Value));
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.DuplicateOf);
         Assert.Empty(store.ItemWrites);
@@ -148,7 +148,7 @@ public sealed class MergeIntoTaskTests
         var result = await new ArchiveItemCommandHandler(store, new FakeTimeProvider(Decision))
             .Handle(new ArchiveItemCommand(item.Id, Existing.Id, DuplicateOfTask: true), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(Existing.Id, item.DuplicateOf);
         Assert.True(item.DuplicateOfTask);
     }
@@ -168,7 +168,7 @@ public sealed class MergeIntoTaskTests
         var result = await new ArchiveItemCommandHandler(store, new FakeTimeProvider(Decision))
             .Handle(new ArchiveItemCommand(later.Id, merged.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(merged.Id, later.DuplicateOf);
         Assert.False(later.DuplicateOfTask);
     }

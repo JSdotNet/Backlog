@@ -123,7 +123,7 @@ public sealed class KnowledgeEventSyncSession
         if (response.IsFailure) return Result.Failure<bool>(response.Error);
 
         // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
-        if (response.Value.Accepted == 0)
+        if (response.Unwrap().Accepted == 0)
         {
             _log.LogInformation("The events switch was not taken: the replica holds a later one from another desktop.");
         }
@@ -186,8 +186,8 @@ public sealed class KnowledgeEventSyncSession
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
                 if (response.IsFailure) return Result.Failure<KnowledgeEventSyncSummary>(response.Error);
 
-                pushed += response.Value.Accepted;
-                refused += Math.Max(0, changes.Count - response.Value.Accepted);
+                pushed += response.Unwrap().Accepted;
+                refused += Math.Max(0, changes.Count - response.Unwrap().Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, change => change.UpdatedAt) is { } advanced)
@@ -235,13 +235,13 @@ public sealed class KnowledgeEventSyncSession
                 continue;
             }
 
-            pulled += page.Value.Events.Count;
-            applied += (await _merge.ApplyAsync(page.Value.Events, cancellationToken).ConfigureAwait(false)).Applied;
+            pulled += page.Unwrap().Events.Count;
+            applied += (await _merge.ApplyAsync(page.Unwrap().Events, cancellationToken).ConfigureAwait(false)).Applied;
 
-            cursor = page.Value.Since;
+            cursor = page.Unwrap().Since;
             _state.Update(state => state with { PullCursor = cursor });
 
-            if (!page.Value.HasMore) break;
+            if (!page.Unwrap().HasMore) break;
         }
 
         return Result.Success(new KnowledgeEventSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -260,7 +260,7 @@ public sealed class KnowledgeEventSyncSession
 
         if (sent.IsSuccess)
         {
-            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = sent.Value });
+            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = sent.Unwrap() });
         }
 
         if (string.Equals(sent.Error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
@@ -292,14 +292,14 @@ public sealed class KnowledgeEventSyncSession
         if (pull.IsFailure) return NotYetOr(pull.Error);
 
         return Result.Success(new KnowledgeEventSyncSummary(
-            push.Value.Pushed,
-            pull.Value.Pulled,
-            pull.Value.Applied,
+            push.Unwrap().Pushed,
+            pull.Unwrap().Pulled,
+            pull.Unwrap().Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Value.Refused,
-            Skipped = push.Value.Skipped,
-            AreaSent = area.IsSuccess && area.Value,
+            Refused = push.Unwrap().Refused,
+            Skipped = push.Unwrap().Skipped,
+            AreaSent = area.IsSuccess && area.Unwrap(),
         });
     }
 

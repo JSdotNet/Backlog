@@ -283,6 +283,6 @@ public sealed class SpecManagerNotificationSyncTests
     private static async Task<Guid> PublishAsync(NotificationScenario scenario, NotificationDraft draft)
     {
         var published = await scenario.Ledger.PublishAsync(draft, Token);
-        return published.Value;
+        return published.Unwrap();
     }
 }

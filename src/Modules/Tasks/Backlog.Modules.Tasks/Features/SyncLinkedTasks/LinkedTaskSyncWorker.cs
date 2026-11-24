@@ -283,21 +283,21 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                     .Handle(new SyncLinkedTasksCommand(connectorId, target), _stopping)
                     .ConfigureAwait(false);
 
-                if (result.IsFailure)
+                if (result is not Ok<LinkedTaskSyncSummary>(var summary))
                 {
+                    var error = (Error)result.Value!;
                     _log.LogWarning(
                         "Linked task sync for {Connector} {Target} did not complete: {Code} {Message}",
-                        connectorId, target, result.Error.Code, result.Error.Message);
-                    return Failed(result.Error, target);
+                        connectorId, target, error.Code, error.Message);
+                    return Failed(error, target);
                 }
 
                 // Information, not Debug: the Aspire dashboard shows nothing below
                 // it, and a sync that worked must leave a trace there too.
-                var summary = result.Value;
                 _log.LogInformation(
                     "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Restored} restored, {Updated} updated, {Archived} archived",
                     connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
-                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(result.Value)}.");
+                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)

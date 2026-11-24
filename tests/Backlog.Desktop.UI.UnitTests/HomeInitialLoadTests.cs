@@ -125,7 +125,7 @@ public sealed class HomeInitialLoadTests
             gitHubSettings.SetRepositories(repositories);
 
             var linked = await TasksTestHost.EntriesFor(store).LinkToIssueAsync(
-                saved.Value!.Entry.Id,
+                saved.Unwrap()!.Entry.Id,
                 "JSdotNet/Backlog",
                 number.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 EntryProjectionDto.PullRequestTargetType,

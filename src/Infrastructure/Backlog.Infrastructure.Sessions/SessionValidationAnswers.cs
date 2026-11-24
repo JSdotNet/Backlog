@@ -103,7 +103,7 @@ public sealed class SessionValidationAnswers(
             .FileAfterAsync(new TaskFollowUpRequest(gated, answer.Text!.Trim(), answer.NotificationId), cancellationToken)
             .ConfigureAwait(false);
 
-        if (filed.IsSuccess) return filed.Value;
+        if (filed.IsSuccess) return filed.Unwrap();
 
         _logger.LogWarning(
             "The follow-up asked for on run {Run} was not filed ({Error}); the approval is recorded with its words and no follow-up.",

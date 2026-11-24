@@ -27,7 +27,7 @@ public sealed class CreateTaskIfAbsentTests
 
         var result = await Handle(store, "# Harvest Techorama Belgium\n`task`\n", order: 7);
 
-        Assert.True(result.Value);
+        Assert.True(Assert.IsType<Ok<bool>>(result.Value).Value);
         var created = store.Entries[Id];
         Assert.Equal("Harvest Techorama Belgium", created.Title);
         Assert.Equal(EntryType.Task, created.Type);
@@ -42,8 +42,8 @@ public sealed class CreateTaskIfAbsentTests
 
         var result = await Handle(store, "# Harvest Techorama Belgium\n`task`\n");
 
-        Assert.True(result.IsSuccess);
-        Assert.False(result.Value);
+        var ok = Assert.IsType<Ok<bool>>(result.Value);
+        Assert.False(ok.Value);
         Assert.Equal(0, store.Writes);
         Assert.Equal("Harvest Techorama", store.Entries[Id].Title);
     }
@@ -57,8 +57,8 @@ public sealed class CreateTaskIfAbsentTests
 
         var result = await Handle(store, "# Harvest Techorama Belgium\n`task`\n");
 
-        Assert.True(result.IsSuccess);
-        Assert.False(result.Value);
+        var ok = Assert.IsType<Ok<bool>>(result.Value);
+        Assert.False(ok.Value);
         Assert.Equal(0, store.Writes);
         Assert.NotNull(store.Entries[Id].DeletedAt);
     }
@@ -71,7 +71,7 @@ public sealed class CreateTaskIfAbsentTests
         // A heading marker with nothing typed after it: the editor's half-typed state.
         var result = await Handle(store, "# \n`task`\n");
 
-        Assert.Equal("entry.needs_title", result.Error.Code);
+        Assert.Equal("entry.needs_title", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.Entries);
     }
 
@@ -82,7 +82,7 @@ public sealed class CreateTaskIfAbsentTests
 
         var result = await Handle(store, "# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n");
 
-        Assert.Equal(TaskEntryErrorCodes.PlanBelongsToImport, result.Error.Code);
+        Assert.Equal(TaskEntryErrorCodes.PlanBelongsToImport, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.Entries);
     }
 

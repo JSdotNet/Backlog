@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -19,7 +20,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var result = KnowledgeEvent.Create(Guid.NewGuid(), title);
 
-        Assert.Equal("knowledge_event.title_missing", result.Error.Code);
+        Assert.Equal("knowledge_event.title_missing", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -27,7 +28,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var id = Guid.NewGuid();
 
-        var spotted = KnowledgeEvent.Create(id, "  dotNET Friday  ").Value;
+        var spotted = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(id, "  dotNET Friday  ").Value).Value;
 
         Assert.Equal(id, spotted.Id);
         Assert.Equal("dotNET Friday", spotted.Title);
@@ -55,7 +56,7 @@ public sealed class KnowledgeEventInvariantTests
 
         var result = spotted.Rename(" ");
 
-        Assert.Equal("knowledge_event.title_missing", result.Error.Code);
+        Assert.Equal("knowledge_event.title_missing", Assert.IsType<Error>(result.Value).Code);
         Assert.Equal("Techorama", spotted.Title);
     }
 
@@ -64,7 +65,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var spotted = Spotted();
 
-        Assert.True(spotted.Rename("  Techorama 2026 ").IsSuccess);
+        Assert.IsType<Ok>(spotted.Rename("  Techorama 2026 ").Value);
         Assert.Equal("Techorama 2026", spotted.Title);
     }
 
@@ -77,7 +78,7 @@ public sealed class KnowledgeEventInvariantTests
 
         var result = spotted.SetDates(Day(2026, 10, 28), Day(2026, 10, 26), DateSource.EventPage);
 
-        Assert.Equal("knowledge_event.dates_out_of_order", result.Error.Code);
+        Assert.Equal("knowledge_event.dates_out_of_order", Assert.IsType<Error>(result.Value).Code);
         Assert.Null(spotted.Start);
     }
 
@@ -85,10 +86,10 @@ public sealed class KnowledgeEventInvariantTests
     public void An_end_on_the_start_day_is_accepted_whatever_the_times()
     {
         var spotted = Spotted();
-        var afternoon = EventDate.Create(new DateOnly(2026, 11, 20), new TimeOnly(16, 30), TimeSpan.FromHours(1)).Value;
-        var noon = EventDate.Create(new DateOnly(2026, 11, 20), new TimeOnly(12, 0), TimeSpan.FromHours(1)).Value;
+        var afternoon = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 11, 20), new TimeOnly(16, 30), TimeSpan.FromHours(1)).Value).Value;
+        var noon = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 11, 20), new TimeOnly(12, 0), TimeSpan.FromHours(1)).Value).Value;
 
-        Assert.True(spotted.SetDates(afternoon, noon, DateSource.Typed).IsSuccess);
+        Assert.IsType<Ok>(spotted.SetDates(afternoon, noon, DateSource.Typed).Value);
         Assert.Equal(noon, spotted.End);
     }
 
@@ -97,7 +98,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var result = Spotted().SetDates(start: null, Day(2026, 10, 28), DateSource.Typed);
 
-        Assert.Equal("knowledge_event.dates_out_of_order", result.Error.Code);
+        Assert.Equal("knowledge_event.dates_out_of_order", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -105,7 +106,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var spotted = Spotted();
 
-        Assert.True(spotted.SetDates(Day(2026, 10, 26), end: null, DateSource.EventPage).IsSuccess);
+        Assert.IsType<Ok>(spotted.SetDates(Day(2026, 10, 26), end: null, DateSource.EventPage).Value);
         Assert.Equal(Day(2026, 10, 26), spotted.Start);
         Assert.Null(spotted.End);
         Assert.Equal(DateSource.EventPage, spotted.DateSource);
@@ -118,7 +119,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var result = Spotted().SetDates(Day(2026, 10, 26), Day(2026, 10, 28), source: null);
 
-        Assert.Equal("knowledge_event.date_source_mismatch", result.Error.Code);
+        Assert.Equal("knowledge_event.date_source_mismatch", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var result = Spotted().SetDates(start: null, end: null, DateSource.Typed);
 
-        Assert.Equal("knowledge_event.date_source_mismatch", result.Error.Code);
+        Assert.Equal("knowledge_event.date_source_mismatch", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -135,7 +136,7 @@ public sealed class KnowledgeEventInvariantTests
         var spotted = Spotted();
         spotted.SetDates(Day(2026, 10, 26), Day(2026, 10, 28), DateSource.EventPage);
 
-        Assert.True(spotted.SetDates(start: null, end: null, source: null).IsSuccess);
+        Assert.IsType<Ok>(spotted.SetDates(start: null, end: null, source: null).Value);
         Assert.Null(spotted.Start);
         Assert.Null(spotted.End);
         Assert.Null(spotted.DateSource);
@@ -177,7 +178,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(from);
 
-        Assert.True(knowledgeEvent.MoveTo(to).IsSuccess);
+        Assert.IsType<Ok>(knowledgeEvent.MoveTo(to).Value);
         Assert.Equal(to, knowledgeEvent.State);
     }
 
@@ -187,7 +188,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(from);
 
-        Assert.Equal("knowledge_event.state_backward", knowledgeEvent.MoveTo(to).Error.Code);
+        Assert.Equal("knowledge_event.state_backward", Assert.IsType<Error>(knowledgeEvent.MoveTo(to).Value).Code);
         Assert.Equal(from, knowledgeEvent.State);
     }
 
@@ -200,7 +201,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(from);
 
-        var refused = knowledgeEvent.MoveTo(KnowledgeEventState.Skipped).Error;
+        var refused = Assert.IsType<Error>(knowledgeEvent.MoveTo(KnowledgeEventState.Skipped).Value);
 
         Assert.Equal("knowledge_event.state_backward", refused.Code);
         Assert.Equal("Skipped is reached by skipping the event, with a reason.", refused.Message);
@@ -217,7 +218,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(from);
 
-        Assert.True(knowledgeEvent.Skip("Cancelled by the organiser").IsSuccess);
+        Assert.IsType<Ok>(knowledgeEvent.Skip("Cancelled by the organiser").Value);
         Assert.Equal(KnowledgeEventState.Skipped, knowledgeEvent.State);
         Assert.Equal("Cancelled by the organiser", knowledgeEvent.SkipReason?.Text);
     }
@@ -227,7 +228,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var attended = At(KnowledgeEventState.Attended);
 
-        Assert.Equal("knowledge_event.cannot_skip", attended.Skip("Changed my mind").Error.Code);
+        Assert.Equal("knowledge_event.cannot_skip", Assert.IsType<Error>(attended.Skip("Changed my mind").Value).Code);
         Assert.Equal(KnowledgeEventState.Attended, attended.State);
         Assert.Null(attended.SkipReason);
     }
@@ -241,7 +242,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var spotted = Spotted();
 
-        Assert.Equal("knowledge_event.skip_reason_missing", spotted.Skip(reason).Error.Code);
+        Assert.Equal("knowledge_event.skip_reason_missing", Assert.IsType<Error>(spotted.Skip(reason).Value).Code);
         Assert.Equal(KnowledgeEventState.Spotted, spotted.State);
         Assert.Null(spotted.SkipReason);
     }
@@ -279,7 +280,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(final);
 
-        Assert.Equal("knowledge_event.state_final", knowledgeEvent.MoveTo(target).Error.Code);
+        Assert.Equal("knowledge_event.state_final", Assert.IsType<Error>(knowledgeEvent.MoveTo(target).Value).Code);
         Assert.Equal(final, knowledgeEvent.State);
     }
 
@@ -290,7 +291,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(final);
 
-        Assert.Equal("knowledge_event.state_final", knowledgeEvent.Skip("Once more").Error.Code);
+        Assert.Equal("knowledge_event.state_final", Assert.IsType<Error>(knowledgeEvent.Skip("Once more").Value).Code);
         Assert.Equal(final, knowledgeEvent.State);
     }
 
@@ -308,7 +309,7 @@ public sealed class KnowledgeEventInvariantTests
         var knowledgeEvent = At(state);
         knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep));
 
-        Assert.True(knowledgeEvent.Remove().IsSuccess);
+        Assert.IsType<Ok>(knowledgeEvent.Remove().Value);
         Assert.True(knowledgeEvent.IsRemoved);
         Assert.Equal(state, knowledgeEvent.State);
     }
@@ -319,7 +320,7 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkHarvestTask("task-harvest");
 
-        Assert.Equal("knowledge_event.has_harvest_task", going.Remove().Error.Code);
+        Assert.Equal("knowledge_event.has_harvest_task", Assert.IsType<Error>(going.Remove().Value).Code);
         Assert.False(going.IsRemoved);
         Assert.Equal("task-harvest", Assert.Single(going.Tasks).TaskId);
     }
@@ -330,7 +331,7 @@ public sealed class KnowledgeEventInvariantTests
         var spotted = Spotted();
         spotted.Remove();
 
-        Assert.True(spotted.Remove().IsSuccess);
+        Assert.IsType<Ok>(spotted.Remove().Value);
         Assert.True(spotted.IsRemoved);
         Assert.Equal(KnowledgeEventState.Spotted, spotted.State);
     }
@@ -346,7 +347,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(state);
 
-        Assert.Equal("knowledge_event.verdict_too_early", knowledgeEvent.SetVerdict("Worth it").Error.Code);
+        Assert.Equal("knowledge_event.verdict_too_early", Assert.IsType<Error>(knowledgeEvent.SetVerdict("Worth it").Value).Code);
         Assert.Null(knowledgeEvent.Verdict);
     }
 
@@ -357,7 +358,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var knowledgeEvent = At(state);
 
-        Assert.True(knowledgeEvent.SetVerdict("  Worth it for the Aspire talk  ").IsSuccess);
+        Assert.IsType<Ok>(knowledgeEvent.SetVerdict("  Worth it for the Aspire talk  ").Value);
         Assert.Equal("Worth it for the Aspire talk", knowledgeEvent.Verdict?.Text);
     }
 
@@ -367,14 +368,14 @@ public sealed class KnowledgeEventInvariantTests
         var attended = At(KnowledgeEventState.Attended);
         attended.SetVerdict("Worth it");
 
-        Assert.True(attended.SetVerdict(" ").IsSuccess);
+        Assert.IsType<Ok>(attended.SetVerdict(" ").Value);
         Assert.Null(attended.Verdict);
     }
 
     [Fact]
     public void Clearing_a_verdict_waits_for_the_event_too()
     {
-        Assert.Equal("knowledge_event.verdict_too_early", Spotted().SetVerdict(null).Error.Code);
+        Assert.Equal("knowledge_event.verdict_too_early", Assert.IsType<Error>(Spotted().SetVerdict(null).Value).Code);
     }
 
     // --- An event holds at most one harvest task ----------------------------------------
@@ -384,7 +385,7 @@ public sealed class KnowledgeEventInvariantTests
     {
         var going = At(KnowledgeEventState.Going);
 
-        Assert.True(going.LinkHarvestTask("task-harvest").IsSuccess);
+        Assert.IsType<Ok>(going.LinkHarvestTask("task-harvest").Value);
         Assert.Equal(EventTaskLink.Create("task-harvest", TaskPurpose.Harvest), Assert.Single(going.Tasks));
         Assert.Equal(TaskPurpose.Harvest, going.Tasks[0].Purpose);
     }
@@ -395,7 +396,7 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkHarvestTask("task-harvest");
 
-        Assert.Equal("knowledge_event.harvest_task_exists", going.LinkHarvestTask("task-other").Error.Code);
+        Assert.Equal("knowledge_event.harvest_task_exists", Assert.IsType<Error>(going.LinkHarvestTask("task-other").Value).Code);
         Assert.Equal("task-harvest", Assert.Single(going.Tasks).TaskId);
     }
 
@@ -405,7 +406,7 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkHarvestTask("task-harvest");
 
-        Assert.True(going.LinkHarvestTask("task-harvest").IsSuccess);
+        Assert.IsType<Ok>(going.LinkHarvestTask("task-harvest").Value);
         Assert.Single(going.Tasks);
     }
 
@@ -415,7 +416,7 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkTask(EventTaskLink.Create("task-1", TaskPurpose.Linked));
 
-        Assert.True(going.LinkHarvestTask("task-1").IsSuccess);
+        Assert.IsType<Ok>(going.LinkHarvestTask("task-1").Value);
 
         Assert.Equal(TaskPurpose.Harvest, Assert.Single(going.Tasks).Purpose);
     }
@@ -427,7 +428,7 @@ public sealed class KnowledgeEventInvariantTests
         going.LinkHarvestTask("task-harvest");
         going.LinkTask(EventTaskLink.Create("task-1", TaskPurpose.Prep));
 
-        Assert.Equal("knowledge_event.harvest_task_exists", going.LinkHarvestTask("task-1").Error.Code);
+        Assert.Equal("knowledge_event.harvest_task_exists", Assert.IsType<Error>(going.LinkHarvestTask("task-1").Value).Code);
         Assert.Equal(TaskPurpose.Prep, going.Tasks.Single(task => task.TaskId == "task-1").Purpose);
     }
 
@@ -439,7 +440,7 @@ public sealed class KnowledgeEventInvariantTests
 
         var result = going.LinkTask(EventTaskLink.Create("task-other", TaskPurpose.Harvest));
 
-        Assert.Equal("knowledge_event.harvest_task_exists", result.Error.Code);
+        Assert.Equal("knowledge_event.harvest_task_exists", Assert.IsType<Error>(result.Value).Code);
         Assert.Single(going.Tasks);
     }
 
@@ -449,8 +450,8 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkHarvestTask("task-harvest");
 
-        Assert.True(going.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).IsSuccess);
-        Assert.True(going.LinkTask(EventTaskLink.Create("task-slides", TaskPurpose.Linked)).IsSuccess);
+        Assert.IsType<Ok>(going.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).Value);
+        Assert.IsType<Ok>(going.LinkTask(EventTaskLink.Create("task-slides", TaskPurpose.Linked)).Value);
         Assert.Equal(["task-harvest", "task-hotel", "task-slides"], going.Tasks.Select(link => link.TaskId));
     }
 
@@ -462,7 +463,7 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-7", "Keynote"));
 
-        Assert.True(going.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-7", "Keynote, retitled")).IsSuccess);
+        Assert.IsType<Ok>(going.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-7", "Keynote, retitled")).Value);
         Assert.Equal("Keynote", Assert.Single(going.Notes).Title);
     }
 
@@ -508,11 +509,11 @@ public sealed class KnowledgeEventInvariantTests
         var going = At(KnowledgeEventState.Going);
         going.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep));
 
-        Assert.True(going.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Linked)).IsSuccess);
+        Assert.IsType<Ok>(going.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Linked)).Value);
         Assert.Equal(TaskPurpose.Prep, Assert.Single(going.Tasks).Purpose);
     }
 
-    private static KnowledgeEvent Spotted() => KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value;
+    private static KnowledgeEvent Spotted() => Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value).Value;
 
     /// <summary>An event brought to <paramref name="state"/> the way the person would: by a
     /// forward move, or by skipping it with a reason.</summary>
@@ -525,10 +526,10 @@ public sealed class KnowledgeEventInvariantTests
             case KnowledgeEventState.Spotted:
                 break;
             case KnowledgeEventState.Skipped:
-                Assert.True(knowledgeEvent.Skip("Not this year").IsSuccess);
+                Assert.IsType<Ok>(knowledgeEvent.Skip("Not this year").Value);
                 break;
             case KnowledgeEventState.Considering or KnowledgeEventState.Going or KnowledgeEventState.Attended or KnowledgeEventState.Harvested:
-                Assert.True(knowledgeEvent.MoveTo(state).IsSuccess);
+                Assert.IsType<Ok>(knowledgeEvent.MoveTo(state).Value);
                 break;
         }
 
@@ -536,5 +537,5 @@ public sealed class KnowledgeEventInvariantTests
     }
 
     private static EventDate Day(int year, int month, int day) =>
-        EventDate.Create(new DateOnly(year, month, day), time: null, utcOffset: null).Value;
+        Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(year, month, day), time: null, utcOffset: null).Value).Value;
 }

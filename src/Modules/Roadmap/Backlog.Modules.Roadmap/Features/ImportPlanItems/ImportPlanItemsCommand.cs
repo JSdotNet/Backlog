@@ -93,11 +93,10 @@ public sealed class ImportPlanItemsCommandHandler(
 
             var tag = PlanningTag.Of(entry.Tag);
             var matched = Match(plan, entry, tag, ambiguous);
-            if (matched.IsFailure) return Result.Failure<PlanImportResultDto>(matched.Error);
+            if (matched is not Ok<Touched>(var current)) return (Error)matched.Value!;
 
             // Two entries of one document sharing a tag speak for one item, and the
             // later one wins — but an item this import created stays created.
-            var current = matched.Value;
             var earlier = touched.Find(other => other.Item.Id == current.Item.Id);
             if (earlier is not null)
             {
@@ -129,7 +128,7 @@ public sealed class ImportPlanItemsCommandHandler(
                 // The aggregate's own invariant decides. A refusal ends the import
                 // before anything is saved: the whole batch, not the one edge.
                 var added = plan.AddDependency(current.Item.Id, dependsOn.Value);
-                if (added.IsFailure) return Result.Failure<PlanImportResultDto>(added.Error);
+                if (added is Error refused) return refused;
             }
         }
 
@@ -148,7 +147,7 @@ public sealed class ImportPlanItemsCommandHandler(
             var (window, placement) = Place(plan, item, current.Entry.Due, gathered, paces, today, current.Entry.Start);
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
-            if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
+            if (placed is Error unplaced) return unplaced;
 
             // A start a person chose makes the window theirs, as dragging a bar does: the
             // keep-up projection would otherwise slide it back to today the next time the
@@ -156,7 +155,7 @@ public sealed class ImportPlanItemsCommandHandler(
             if (current.Entry.Start is not null)
             {
                 var kept = plan.KeepAsPlaced(item.Id);
-                if (kept.IsFailure) return Result.Failure<PlanImportResultDto>(kept.Error);
+                if (kept is Error unkept) return unkept;
             }
 
             if (current.Previous is null || current.Previous != item.Window)
@@ -236,7 +235,7 @@ public sealed class ImportPlanItemsCommandHandler(
             if (window == previous) continue;
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
-            if (placed.IsFailure) continue;
+            if (placed is Error) continue;
 
             scheduled.Add(item.Scheduled(previous));
             relengthened.Add(item.ToDto());
@@ -346,9 +345,11 @@ public sealed class ImportPlanItemsCommandHandler(
                 entry.Notes,
                 KnowledgeReferences.Of(entry.KnowledgeRefs));
 
-            return added.IsFailure
-                ? Result.Failure<Touched>(added.Error)
-                : Result.Success(new Touched(entry, added.Value, Previous: null));
+            return added switch
+            {
+                Ok<RoadmapItem>(var created) => Result.Success(new Touched(entry, created, Previous: null)),
+                Error error => Result.Failure<Touched>(error),
+            };
         }
 
         var first = carrying[0];
@@ -360,9 +361,11 @@ public sealed class ImportPlanItemsCommandHandler(
         var previous = first.Window;
         var revised = plan.ReviseFromImport(first.Id, entry.Title, entry.Priority, scope, entry.Notes);
 
-        return revised.IsFailure
-            ? Result.Failure<Touched>(revised.Error)
-            : Result.Success(new Touched(entry, revised.Value, previous));
+        return revised switch
+        {
+            Ok<RoadmapItem>(var item) => Result.Success(new Touched(entry, item, previous)),
+            Error error => Result.Failure<Touched>(error),
+        };
     }
 
     /// <summary>An entry's <c>id:</c>, defaulting to its tag so a roadmap document need

@@ -83,7 +83,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         if (reading.IsFailure) return new Dictionary<Guid, GoalForecastPayload>();
 
         var forecasts = new Dictionary<Guid, GoalForecastPayload>();
-        foreach (var goal in reading.Value.Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
+        foreach (var goal in reading.Unwrap().Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
 
         return forecasts;
     }

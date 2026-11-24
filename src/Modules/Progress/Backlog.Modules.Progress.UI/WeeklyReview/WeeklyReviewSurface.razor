@@ -2,6 +2,7 @@
 @using global::Backlog.UI.Components.Feedback
 @using global::Backlog.UI.Components.Icons
 @using global::Backlog.UI.Components.Layout
+@using global::Backlog.SharedKernel.Results
 @implements IDisposable
 @inject IServiceProvider Services
 
@@ -236,9 +237,9 @@
         try
         {
             var done = await _source.ActAsync(action, _disposed.Token);
-            if (done.IsFailure)
+            if (done is Error error)
             {
-                _message = done.Error.Message;
+                _message = error.Message;
                 return;
             }
 

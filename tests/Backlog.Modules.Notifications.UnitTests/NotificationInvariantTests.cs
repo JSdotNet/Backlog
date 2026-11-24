@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using static Backlog.Modules.Notifications.UnitTests.Drafts;
 
@@ -27,9 +28,9 @@ public sealed class NotificationInvariantTests
     {
         var notification = Published();
 
-        var result = notification.Close(OtherDesktop, "Not needed", Now);
+        var result = Assert.IsType<Error>(notification.Close(OtherDesktop, "Not needed", Now).Value);
 
-        Assert.Equal("notification.not_owner", result.Error.Code);
+        Assert.Equal("notification.not_owner", result.Code);
         Assert.Equal(NotificationState.Open, notification.State);
     }
 
@@ -38,9 +39,9 @@ public sealed class NotificationInvariantTests
     {
         var notification = Published();
 
-        var result = notification.Accept(Reply(notification, choices: ["yes"]), OtherDesktop, Now);
+        var result = Assert.IsType<Error>(notification.Accept(Reply(notification, choices: ["yes"]), OtherDesktop, Now).Value);
 
-        Assert.Equal("notification.not_owner", result.Error.Code);
+        Assert.Equal("notification.not_owner", result.Code);
         Assert.Null(notification.Answer);
     }
 
@@ -49,8 +50,8 @@ public sealed class NotificationInvariantTests
     {
         var alert = Published(Alert());
 
-        Assert.Equal("notification.not_owner", alert.Acknowledge(Phone, Now).Error.Code);
-        Assert.Equal("notification.not_owner", alert.CloseForSubject(Session, "gone", Phone, Now).Error.Code);
+        Assert.Equal("notification.not_owner", Assert.IsType<Error>(alert.Acknowledge(Phone, Now).Value).Code);
+        Assert.Equal("notification.not_owner", Assert.IsType<Error>(alert.CloseForSubject(Session, "gone", Phone, Now).Value).Code);
     }
 
     // --- A question has an answer spec and a subject -------------------------------------
@@ -60,9 +61,9 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question() with { Subject = null };
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, draft, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value);
 
-        Assert.Equal("notification.question_incomplete", result.Error.Code);
+        Assert.Equal("notification.question_incomplete", result.Code);
     }
 
     [Fact]
@@ -70,16 +71,16 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question() with { Answer = null };
 
-        Assert.Equal("notification.question_incomplete", Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Error.Code);
+        Assert.Equal("notification.question_incomplete", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value).Code);
     }
 
     [Fact]
     public void An_alert_may_have_no_subject_and_carries_no_answer_spec()
     {
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Alert(subject: null), Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Alert(subject: null), Now).Value);
 
         var withSpec = Alert() with { Answer = YesNo() };
-        Assert.Equal("notification.alert_with_answer_spec", Notification.Publish(Guid.NewGuid(), Owner, withSpec, Now).Error.Code);
+        Assert.Equal("notification.alert_with_answer_spec", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, withSpec, Now).Value).Code);
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question(subject: new NotificationSubject("sessions", " ", "sess-91"));
 
-        Assert.Equal("notification.subject_incomplete", Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Error.Code);
+        Assert.Equal("notification.subject_incomplete", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value).Code);
     }
 
     [Fact]
@@ -95,7 +96,7 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question() with { Source = new NotificationSource("sessions", "") };
 
-        Assert.Equal("notification.source_required", Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Error.Code);
+        Assert.Equal("notification.source_required", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value).Code);
     }
 
     // --- Kind and severity come from their fixed sets ----------------------------------
@@ -105,7 +106,7 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question() with { Kind = (NotificationKind)7 };
 
-        Assert.Equal("notification.unknown_kind", Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Error.Code);
+        Assert.Equal("notification.unknown_kind", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value).Code);
     }
 
     [Fact]
@@ -113,7 +114,7 @@ public sealed class NotificationInvariantTests
     {
         var draft = Question() with { Severity = (NotificationSeverity)7 };
 
-        Assert.Equal("notification.unknown_severity", Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Error.Code);
+        Assert.Equal("notification.unknown_severity", Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value).Code);
     }
 
     [Theory]
@@ -124,7 +125,7 @@ public sealed class NotificationInvariantTests
     {
         var draft = (kind == NotificationKind.Question ? Question() : Alert()) with { Severity = severity };
 
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, draft, Now).Value);
     }
 
     // --- No deadline and no default answer ---------------------------------------------
@@ -153,7 +154,7 @@ public sealed class NotificationInvariantTests
 
         Assert.Equal(NotificationState.Open, notification.State);
         Assert.Null(notification.Answer);
-        Assert.True(notification.Accept(Reply(notification, choices: ["no"]), Owner, aDayLater).IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, choices: ["no"]), Owner, aDayLater).Value);
     }
 
     // --- State moves only forward from Open --------------------------------------------
@@ -163,12 +164,12 @@ public sealed class NotificationInvariantTests
     {
         var alert = Published(Alert());
 
-        Assert.True(alert.Acknowledge(Owner, Now).IsSuccess);
+        Assert.IsType<Ok>(alert.Acknowledge(Owner, Now).Value);
         Assert.Equal(NotificationState.Acknowledged, alert.State);
         Assert.Equal(Now, alert.SettledAt);
 
-        Assert.Equal("notification.already_settled", alert.Acknowledge(Owner, Now).Error.Code);
-        Assert.Equal("notification.already_settled", alert.Close(Owner, null, Now).Error.Code);
+        Assert.Equal("notification.already_settled", Assert.IsType<Error>(alert.Acknowledge(Owner, Now).Value).Code);
+        Assert.Equal("notification.already_settled", Assert.IsType<Error>(alert.Close(Owner, null, Now).Value).Code);
         Assert.Equal(NotificationState.Acknowledged, alert.State);
     }
 
@@ -177,7 +178,7 @@ public sealed class NotificationInvariantTests
     {
         var question = Published();
 
-        Assert.Equal("notification.wrong_kind", question.Acknowledge(Owner, Now).Error.Code);
+        Assert.Equal("notification.wrong_kind", Assert.IsType<Error>(question.Acknowledge(Owner, Now).Value).Code);
     }
 
     [Fact]
@@ -185,9 +186,9 @@ public sealed class NotificationInvariantTests
     {
         var alert = Published(Alert());
 
-        var result = alert.Accept(Reply(alert, choices: ["yes"]), Owner, Now);
+        var result = Assert.IsType<Error>(alert.Accept(Reply(alert, choices: ["yes"]), Owner, Now).Value);
 
-        Assert.Equal("notification.wrong_kind", result.Error.Code);
+        Assert.Equal("notification.wrong_kind", result.Code);
     }
 
     [Fact]
@@ -195,12 +196,12 @@ public sealed class NotificationInvariantTests
     {
         var notification = Published();
 
-        Assert.True(notification.Close(Owner, "Run finished", Now).IsSuccess);
+        Assert.IsType<Ok>(notification.Close(Owner, "Run finished", Now).Value);
         Assert.Equal(NotificationState.Closed, notification.State);
         Assert.Equal("Run finished", notification.CloseReason);
 
-        Assert.Equal("notification.already_settled", notification.Close(Owner, "again", Now).Error.Code);
-        Assert.Equal("notification.already_settled", notification.CloseForSubject(Session, "again", Owner, Now).Error.Code);
+        Assert.Equal("notification.already_settled", Assert.IsType<Error>(notification.Close(Owner, "again", Now).Value).Code);
+        Assert.Equal("notification.already_settled", Assert.IsType<Error>(notification.CloseForSubject(Session, "again", Owner, Now).Value).Code);
     }
 
     [Fact]
@@ -209,7 +210,7 @@ public sealed class NotificationInvariantTests
         var notification = Published();
         notification.Accept(Reply(notification, choices: ["yes"]), Owner, Now);
 
-        Assert.Equal("notification.already_settled", notification.Close(Owner, null, Now).Error.Code);
+        Assert.Equal("notification.already_settled", Assert.IsType<Error>(notification.Close(Owner, null, Now).Value).Code);
         Assert.Equal(NotificationState.Answered, notification.State);
     }
 
@@ -218,8 +219,8 @@ public sealed class NotificationInvariantTests
     {
         var notification = Published();
 
-        Assert.Equal("notification.other_subject", notification.CloseForSubject(new("tasks", "task", "T-1"), "Task done", Owner, Now).Error.Code);
-        Assert.True(notification.CloseForSubject(Session, "Session archived", Owner, Now).IsSuccess);
+        Assert.Equal("notification.other_subject", Assert.IsType<Error>(notification.CloseForSubject(new("tasks", "task", "T-1"), "Task done", Owner, Now).Value).Code);
+        Assert.IsType<Ok>(notification.CloseForSubject(Session, "Session archived", Owner, Now).Value);
         Assert.Equal("Session archived", notification.CloseReason);
     }
 
@@ -231,10 +232,10 @@ public sealed class NotificationInvariantTests
         var notification = Published();
 
         var first = notification.Accept(Reply(notification, from: Phone, choices: ["yes"]), Owner, Now);
-        var second = notification.Accept(Reply(notification, from: OtherDesktop, choices: ["no"]), Owner, Now);
+        var second = Assert.IsType<Error>(notification.Accept(Reply(notification, from: OtherDesktop, choices: ["no"]), Owner, Now).Value);
 
-        Assert.True(first.IsSuccess);
-        Assert.Equal("notification.already_answered", second.Error.Code);
+        Assert.IsType<Ok<NotificationAnswer>>(first.Value);
+        Assert.Equal("notification.already_answered", second.Code);
         Assert.Equal(NotificationState.Answered, notification.State);
         Assert.Equal(["yes"], notification.Answer!.ChoiceIds);
         Assert.Equal(Phone, notification.Answer.FromDeviceId);
@@ -245,9 +246,9 @@ public sealed class NotificationInvariantTests
     {
         var notification = Published();
 
-        Assert.Equal("reply.invalid", notification.Accept(Reply(notification, choices: ["maybe"]), Owner, Now).Error.Code);
+        Assert.Equal("reply.invalid", Assert.IsType<Error>(notification.Accept(Reply(notification, choices: ["maybe"]), Owner, Now).Value).Code);
         Assert.Equal(NotificationState.Open, notification.State);
-        Assert.True(notification.Accept(Reply(notification, choices: ["no"]), Owner, Now).IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(notification.Accept(Reply(notification, choices: ["no"]), Owner, Now).Value);
     }
 
     // --- Title and summary stay within their bounds -------------------------------------
@@ -255,32 +256,32 @@ public sealed class NotificationInvariantTests
     [Fact]
     public void A_title_holds_at_most_80_characters()
     {
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = new string('t', 80) }, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = new string('t', 80) }, Now).Value);
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = new string('t', 81) }, Now);
-        Assert.Equal("notification.content_too_long", result.Error.Code);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = new string('t', 81) }, Now).Value);
+        Assert.Equal("notification.content_too_long", result.Code);
     }
 
     [Fact]
     public void A_summary_holds_at_most_180_characters()
     {
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Summary = new string('s', 180) }, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Summary = new string('s', 180) }, Now).Value);
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Summary = new string('s', 181) }, Now);
-        Assert.Equal("notification.content_too_long", result.Error.Code);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Summary = new string('s', 181) }, Now).Value);
+        Assert.Equal("notification.content_too_long", result.Code);
     }
 
     [Fact]
     public void A_body_holds_at_most_32_KB_of_Markdown()
     {
-        Assert.True(Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('b', 32 * 1024) }, Now).IsSuccess);
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('b', 32 * 1024) }, Now).Value);
 
-        var tooLong = Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('b', (32 * 1024) + 1) }, Now);
-        Assert.Equal("notification.content_too_long", tooLong.Error.Code);
+        var tooLong = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('b', (32 * 1024) + 1) }, Now).Value);
+        Assert.Equal("notification.content_too_long", tooLong.Code);
 
         // Measured in bytes: 11,000 three-byte characters are 33,000 bytes.
-        var wide = Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('€', 11_000) }, Now);
-        Assert.Equal("notification.content_too_long", wide.Error.Code);
+        var wide = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { BodyMarkdown = new string('€', 11_000) }, Now).Value);
+        Assert.Equal("notification.content_too_long", wide.Code);
     }
 
     [Theory]
@@ -289,9 +290,9 @@ public sealed class NotificationInvariantTests
     [InlineData("Two\nlines")]
     public void A_title_is_one_line_of_text(string title)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = title }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = title }, Now).Value);
 
-        Assert.Equal("notification.title_required", result.Error.Code);
+        Assert.Equal("notification.title_required", result.Code);
     }
 
     [Theory]
@@ -301,8 +302,8 @@ public sealed class NotificationInvariantTests
     [InlineData("Two\u2029lines")]
     public void A_title_broken_by_any_line_break_is_refused(string title)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = title }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Title = title }, Now).Value);
 
-        Assert.Equal("notification.title_required", result.Error.Code);
+        Assert.Equal("notification.title_required", result.Code);
     }
 }

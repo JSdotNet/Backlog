@@ -37,8 +37,8 @@ public class SaveTaskFromTextPlanEntryTests
     {
         var result = await Save(null, PlanEntry);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, error);
     }
 
     /// <summary>The message has one job: say where the entry does belong, so the
@@ -49,9 +49,9 @@ public class SaveTaskFromTextPlanEntryTests
     {
         var result = await Save(null, PlanEntry);
 
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
-        Assert.Contains("Import", result.Error.Message, StringComparison.Ordinal);
-        Assert.Contains("roadmap", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ErrorType.Validation, Assert.IsType<Error>(result.Value).Type);
+        Assert.Contains("Import", Assert.IsType<Error>(result.Value).Message, StringComparison.Ordinal);
+        Assert.Contains("roadmap", Assert.IsType<Error>(result.Value).Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>An update is refused on the same terms as a create: retyping an
@@ -62,8 +62,8 @@ public class SaveTaskFromTextPlanEntryTests
     {
         var result = await Save(Guid.NewGuid(), PlanEntry);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, error);
     }
 
     /// <summary>The whole line is read before the kind is judged, so a plan entry
@@ -80,8 +80,8 @@ public class SaveTaskFromTextPlanEntryTests
             + "`after:capture-adapters` `repo:backlog` `due:2026-10-31`\n\n"
             + "What the plan is about.\n");
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SaveTaskFromTextCommandHandler.PlanBelongsToImport, error);
     }
 
     private static Task<Result<SavedTaskDto>> Save(Guid? id, string rawText) =>

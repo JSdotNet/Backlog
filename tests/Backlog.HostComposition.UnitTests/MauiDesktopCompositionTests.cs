@@ -493,7 +493,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             .SpotAsync(new Backlog.Modules.Events.Abstractions.SpotKnowledgeEventDto("Techorama 2026", null, null, null, null, null, null), ct);
         var noteId = Guid.NewGuid();
         var change = EventAttachmentReplicaDocuments.ToChange(
-            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), spotted.Value.EventId, noteId, "Keynote"),
+            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), spotted.Unwrap().EventId, noteId, "Keynote"),
             new DateTimeOffset(2026, 10, 27, 9, 40, 0, TimeSpan.Zero));
         var record = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1);
 

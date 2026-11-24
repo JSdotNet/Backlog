@@ -190,8 +190,8 @@ public sealed class NotificationSyncTests
         var second = await fixture.Session().SyncAsync(Cancellation);
 
         Assert.True(first.IsSuccess);
-        Assert.Equal(1, first.Value.Pushed);
-        Assert.Equal(0, second.Value.Pushed);
+        Assert.Equal(1, first.Unwrap().Pushed);
+        Assert.Equal(0, second.Unwrap().Pushed);
         Assert.All(fixture.Handler.Requests, request => Assert.Equal(HttpMethod.Post, request.Method));
         Assert.Single(fixture.Handler.Requests);
     }
@@ -212,10 +212,10 @@ public sealed class NotificationSyncTests
         var settling = await fixture.Session().SyncAsync(Cancellation);
         var quiet = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(settling.Value.PolledReplies);
-        Assert.Equal(1, settling.Value.Pushed);
-        Assert.False(quiet.Value.PolledReplies);
-        Assert.Equal(0, quiet.Value.Pushed);
+        Assert.True(settling.Unwrap().PolledReplies);
+        Assert.Equal(1, settling.Unwrap().Pushed);
+        Assert.False(quiet.Unwrap().PolledReplies);
+        Assert.Equal(0, quiet.Unwrap().Pushed);
         Assert.Contains("\"state\":\"closed\"", fixture.PushedBodies.Last(), StringComparison.Ordinal);
     }
 
@@ -250,8 +250,8 @@ public sealed class NotificationSyncTests
         fixture.Clock.Advance(TimeSpan.FromDays(2));
         var pastIt = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(0, withinTheWeek.Value.Pushed);
-        Assert.Equal(1, pastIt.Value.Pushed);
+        Assert.Equal(0, withinTheWeek.Unwrap().Pushed);
+        Assert.Equal(1, pastIt.Unwrap().Pushed);
     }
 
     /// <summary>An open question is pushed again every ten minutes, so a phone reading its
@@ -270,8 +270,8 @@ public sealed class NotificationSyncTests
         fixture.Clock.Advance(TimeSpan.FromMinutes(2));
         var past = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(0, within.Value.Pushed);
-        Assert.Equal(1, past.Value.Pushed);
+        Assert.Equal(0, within.Unwrap().Pushed);
+        Assert.Equal(1, past.Unwrap().Pushed);
         Assert.True(NotificationSyncSession.PresenceWindow > NotificationSyncSession.PresenceRefresh + NotificationSyncWorker.CyclePeriod);
         Assert.Contains("\"ownerName\":\"Workshop PC\"", fixture.PushedBodies.Last(), StringComparison.Ordinal);
     }
@@ -298,7 +298,7 @@ public sealed class NotificationSyncTests
         fixture.Credentials.Save(Paired with { DeviceId = Guid.CreateVersion7() });
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Equal(1, synced.Unwrap().Pushed);
         Assert.Equal(rejection, Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies));
         Assert.Contains(rejection.ReplyId.ToString(), fixture.PushedBodies.Last(), StringComparison.OrdinalIgnoreCase);
     }
@@ -326,7 +326,7 @@ public sealed class NotificationSyncTests
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
         Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
-        Assert.Equal(1, synced.Value.Rejected);
+        Assert.Equal(1, synced.Unwrap().Rejected);
         Assert.Empty(fixture.Replies.Accepted);
 
         var rejection = Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies);
@@ -367,8 +367,8 @@ public sealed class NotificationSyncTests
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
         Assert.True(synced.IsSuccess);
-        Assert.Equal(0, synced.Value.Accepted);
-        Assert.Equal(0, synced.Value.Rejected);
+        Assert.Equal(0, synced.Unwrap().Accepted);
+        Assert.Equal(0, synced.Unwrap().Rejected);
         Assert.Empty(fixture.Replies.Accepted);
         Assert.Contains(fixture.Handler.Requests, request => request.Method == HttpMethod.Delete);
     }
@@ -589,7 +589,7 @@ public sealed class NotificationSyncTests
         var synced = await fixture.Session(repositories: new FailingRepositories()).SyncAsync(Cancellation);
 
         Assert.True(synced.IsSuccess);
-        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Equal(1, synced.Unwrap().Pushed);
         Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
     }
 

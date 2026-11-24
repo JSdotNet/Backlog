@@ -90,7 +90,7 @@ internal sealed record GoalDocument
         {
             var attachment = GoalAttachment.Of(stored.Kind, stored.Plan, stored.TaskId, stored.Repository, stored.Number, stored.AttachedOn);
             if (attachment.IsFailure) throw new JsonException($"A goal document holds an attachment that does not read: {attachment.Error.Code}.");
-            attachments.Add(attachment.Value);
+            attachments.Add(attachment.Unwrap());
         }
 
         return Goal.Restore(Id, Title, Outcome, ProgressDocuments.StoredDueDate(DueDate), attachments, CreatedAt ?? setAt, Rank);

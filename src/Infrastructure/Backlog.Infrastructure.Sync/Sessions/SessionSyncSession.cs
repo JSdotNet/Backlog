@@ -221,7 +221,7 @@ public sealed class SessionSyncSession
 
             if (response.IsFailure) return Result.Failure<SessionSyncSummary>(response.Error);
 
-            pushed += response.Value.Accepted;
+            pushed += response.Unwrap().Accepted;
             sent += batch.Count;
 
             // One RecordRange per batch, so the footer redraws once per request.
@@ -461,7 +461,7 @@ public sealed class SessionSyncSession
                     continue;
                 }
 
-                pulled += page.Value.Sessions.Count;
+                pulled += page.Unwrap().Sessions.Count;
 
                 // Every record is kept, this machine's own included. The service holds
                 // them for a year and the transcript behind one is gone after a month,
@@ -470,19 +470,19 @@ public sealed class SessionSyncSession
                 // that read the held set give way to the local reader for a session it
                 // can still read — see CompositeAgentSessionSource. Only the other
                 // machines' records count as received.
-                kept.AddRange(page.Value.Sessions);
+                kept.AddRange(page.Unwrap().Sessions);
 
-                var theirs = page.Value.Sessions
+                var theirs = page.Unwrap().Sessions
                     .Where(entry => self is null || entry.MachineId != self)
                     .ToList();
 
                 applied += theirs.Count;
                 received.AddRange(theirs);
 
-                cursor = page.Value.Since;
+                cursor = page.Unwrap().Since;
                 moved = true;
 
-                if (!page.Value.HasMore) break;
+                if (!page.Unwrap().HasMore) break;
             }
         }
         finally
@@ -530,9 +530,9 @@ public sealed class SessionSyncSession
         if (pull.IsFailure) return pull;
 
         return Result.Success(new SessionSyncSummary(
-            push.Value.Pushed,
-            pull.Value.Pulled,
-            pull.Value.Applied,
+            push.Unwrap().Pushed,
+            pull.Unwrap().Pulled,
+            pull.Unwrap().Applied,
             _time.GetUtcNow()));
     }
 

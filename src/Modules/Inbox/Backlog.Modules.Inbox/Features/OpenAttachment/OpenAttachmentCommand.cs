@@ -1,5 +1,6 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -20,9 +21,9 @@ public sealed class OpenAttachmentCommandHandler(IInboxItemRepository items, IIn
         ArgumentNullException.ThrowIfNull(command);
 
         var found = await DownloadedAttachment.FindAsync(items, command.Id, command.AttachmentId, cancellationToken).ConfigureAwait(false);
-        if (found.IsFailure) return Result.Failure(found.Error);
+        if (found is not Ok<InboxAttachment>(var attachment)) return Result.Failure((Error)found.Value!);
         if (attachmentFiles is null) return Result.Failure(InboxErrors.AttachmentsUnavailable);
 
-        return attachmentFiles.Open(found.Value.LocalPath!);
+        return attachmentFiles.Open(attachment.LocalPath!);
     }
 }

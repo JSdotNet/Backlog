@@ -64,7 +64,7 @@ public sealed class QuestionRelayDeviceTests
     public async Task An_answer_from_a_paired_device_nobody_polls_for_becomes_the_managers_delivery()
     {
         _devices.Standing = DeviceStanding.Paired;
-        var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Ship it?")], Ct)).Value;
+        var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Ship it?")], Ct)).Unwrap();
 
         await _relay.HandleAnswerAsync(Answer(asked, Phone, [], "Yes"), Ct);
         var answered = (await _relay.GetAsync(asked.Id, Ct))!;
@@ -137,7 +137,7 @@ public sealed class QuestionRelayDeviceTests
 
     private async Task<WaitingQuestion> AskWithHookPollingAsync()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
         await _relay.RecordPollAsync(asked.Id, Ct);
         return asked;
     }

@@ -139,7 +139,7 @@ internal static class ValidationQuestions
 
                 run[Key] = new JsonObject
                 {
-                    ["notificationId"] = published.Value.ToString("D"),
+                    ["notificationId"] = published.Unwrap().ToString("D"),
                     ["askedAt"] = Stamp(DateTimeOffset.UtcNow),
                     ["answered"] = false,
                     ["closed"] = false,

@@ -27,7 +27,7 @@ public sealed class SessionSyncClientTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Accepted);
+        Assert.Equal(2, result.Unwrap().Accepted);
         Assert.Equal(HttpMethod.Post, fixture.Handler.Requests[0].Method);
         Assert.Equal("/api/sync/sessions", fixture.Handler.Requests[0].Path);
         Assert.Contains("\"first\"", fixture.LastBody, StringComparison.Ordinal);
@@ -43,8 +43,8 @@ public sealed class SessionSyncClientTests
         var result = await fixture.Client.PullAsync(since: null, maxItems: 25, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("cursor-1", result.Value.Since);
-        Assert.False(result.Value.HasMore);
+        Assert.Equal("cursor-1", result.Unwrap().Since);
+        Assert.False(result.Unwrap().HasMore);
         Assert.Equal(HttpMethod.Get, fixture.Handler.Requests[0].Method);
         Assert.Equal("maxItems=25", fixture.LastQuery.TrimStart('?'));
     }

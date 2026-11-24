@@ -2,6 +2,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -252,8 +253,8 @@ public class ReconcileRepositoryIdsTests
         var result = await new ReconcileRepositoryIdsCommandHandler(store, directory)
             .Handle(new ReconcileRepositoryIdsCommand());
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        return ok.Value;
     }
 
     private static InMemoryTaskRepository StoreWith(IEnumerable<string> repoIds)

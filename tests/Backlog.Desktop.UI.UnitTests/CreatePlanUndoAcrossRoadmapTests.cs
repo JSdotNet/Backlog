@@ -145,7 +145,7 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
             .ImportPlanAsync(Plan, InboxItemId, [], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(imported.IsSuccess, imported.IsFailure ? imported.Error.Message : null);
-        return imported.Value;
+        return imported.Unwrap();
     }
 
     private async Task<Backlog.SharedKernel.Results.Result> UndoAsync(IReadOnlyList<Guid> taskIds)

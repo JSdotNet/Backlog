@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -13,10 +14,10 @@ public class RoadmapPlanTests
     private static readonly DateOnly January = new(2026, 1, 5);
 
     private static PlannedWindow Window(int startDay, int endDay) =>
-        PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value;
+        Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value).Value;
 
     private static RoadmapItem Add(RoadmapPlan plan, string title, int startDay = 5, int endDay = 9) =>
-        plan.AddItem(title, Window(startDay, endDay)).Value;
+        Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(title, Window(startDay, endDay)).Value).Value;
 
     [Fact]
     public void EmptyPlan_IsAValidPlan()
@@ -34,7 +35,7 @@ public class RoadmapPlanTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem("Extract the sync service", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Extract the sync service", Window(5, 9)).Value).Value;
 
         Assert.Equal("Extract the sync service", item.Title);
         Assert.Equal(new DateOnly(2026, 1, 5), item.Window.Start);
@@ -55,8 +56,8 @@ public class RoadmapPlanTests
 
         var added = plan.AddItem(title, Window(5, 9));
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.title_required", added.Error.Code);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.title_required", Assert.IsType<Error>(added.Value).Code);
         Assert.Empty(plan.Items);
     }
 
@@ -65,7 +66,7 @@ public class RoadmapPlanTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem("  Ship 1.0  ", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("  Ship 1.0  ", Window(5, 9)).Value).Value;
 
         Assert.Equal("Ship 1.0", item.Title);
     }
@@ -74,11 +75,11 @@ public class RoadmapPlanTests
     public void RescheduleMovesTheDates_AndLeavesTheLaneAloneWhenNoneIsGiven()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Migrate storage", Window(5, 9), lane: PlanningLane.Of("platform")).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Migrate storage", Window(5, 9), lane: PlanningLane.Of("platform")).Value).Value;
 
         var rescheduled = plan.Reschedule(item.Id, Window(12, 23));
 
-        Assert.True(rescheduled.IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(rescheduled.Value);
         Assert.Equal(new DateOnly(2026, 1, 12), item.Window.Start);
         Assert.Equal(new DateOnly(2026, 1, 23), item.Window.End);
         Assert.Equal("platform", item.Lane.Name);
@@ -88,7 +89,7 @@ public class RoadmapPlanTests
     public void RescheduleOntoAnotherLane_RefilesIt()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Migrate storage", Window(5, 9), lane: PlanningLane.Of("platform")).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Migrate storage", Window(5, 9), lane: PlanningLane.Of("platform")).Value).Value;
 
         plan.Reschedule(item.Id, Window(5, 9), PlanningLane.Of("migration"));
 
@@ -102,8 +103,8 @@ public class RoadmapPlanTests
 
         var rescheduled = plan.Reschedule(Guid.NewGuid(), Window(5, 9));
 
-        Assert.True(rescheduled.IsFailure);
-        Assert.Equal("roadmap.item_not_found", rescheduled.Error.Code);
+        Assert.IsType<Error>(rescheduled.Value);
+        Assert.Equal("roadmap.item_not_found", Assert.IsType<Error>(rescheduled.Value).Code);
     }
 
     [Fact]
@@ -111,7 +112,7 @@ public class RoadmapPlanTests
     {
         var entryId = Guid.NewGuid();
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Refine the backlog", Window(5, 9), taskId: entryId).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Refine the backlog", Window(5, 9), taskId: entryId).Value).Value;
 
         plan.Prioritise(item.Id, PlanningPriority.Critical);
 
@@ -140,7 +141,7 @@ public class RoadmapPlanTests
     public void RemovingAMilestone_AlsoForgetsEveryDependencyOnIt()
     {
         var plan = RoadmapPlan.Empty();
-        var freeze = plan.AddMilestone("Code freeze", January, MilestoneKind.Freeze).Value;
+        var freeze = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("Code freeze", January, MilestoneKind.Freeze).Value).Value;
         var item = Add(plan, "Release notes", 12, 16);
         plan.AddDependency(item.Id, freeze.Id);
 
@@ -155,7 +156,7 @@ public class RoadmapPlanTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var milestone = plan.AddMilestone("1.0", January).Value;
+        var milestone = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("1.0", January).Value).Value;
 
         Assert.Equal(January, milestone.On);
         Assert.Equal(MilestoneKind.Release, milestone.Kind);

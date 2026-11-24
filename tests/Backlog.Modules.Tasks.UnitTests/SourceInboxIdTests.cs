@@ -1,7 +1,9 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -24,7 +26,7 @@ public sealed class SourceInboxIdTests
         var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new SaveTaskFromTextCommand(null, "# Ship it\n`task` `!draft`\n", 0, InboxItem), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<SavedTaskDto>>(result.Value);
         Assert.Equal(InboxItem, store.Entries.Values.Single().SourceInboxId);
     }
 
@@ -47,10 +49,10 @@ public sealed class SourceInboxIdTests
 
         var created = await handler.Handle(new SaveTaskFromTextCommand(null, "# Ship it\n`task`\n", 0), TestContext.Current.CancellationToken);
         var updated = await handler.Handle(
-            new SaveTaskFromTextCommand(created.Value.Entry.Id, "# Ship it now\n`task`\n", 0, InboxItem),
+            new SaveTaskFromTextCommand(Assert.IsType<Ok<SavedTaskDto>>(created.Value).Value.Entry.Id, "# Ship it now\n`task`\n", 0, InboxItem),
             TestContext.Current.CancellationToken);
 
-        Assert.True(updated.IsSuccess);
+        Assert.IsType<Ok<SavedTaskDto>>(updated.Value);
         Assert.Equal("Ship it now", store.Entries.Values.Single().Title);
         Assert.Null(store.Entries.Values.Single().SourceInboxId);
     }
@@ -70,9 +72,9 @@ public sealed class SourceInboxIdTests
         const string second = first + "\n# Second prompt\n`prompt` `#myplan` `id:second`\n";
         var result = await handler.Handle(new ImportPlanCommand(second, SourceInboxId: InboxItem), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Created);
-        Assert.Equal(1, result.Value.Updated);
+        var ok = Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
+        Assert.Equal(1, ok.Value.Created);
+        Assert.Equal(1, ok.Value.Updated);
 
         var live = store.Entries.Values.Where(entry => entry.DeletedAt is null).ToList();
         Assert.Null(live.Single(entry => entry.Title == "First prompt").SourceInboxId);
@@ -97,8 +99,8 @@ public sealed class SourceInboxIdTests
 
         var result = await handler.Handle(new ImportPlanCommand(plan, SourceInboxId: InboxItem), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Value.Created);
+        var ok = Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
+        Assert.Equal(3, ok.Value.Created);
         Assert.All(store.Entries.Values, entry =>
         {
             Assert.Equal(EntryStatus.Draft, entry.Status);
@@ -129,7 +131,7 @@ public sealed class SourceInboxIdTests
                 SourceInboxIds: new Dictionary<string, string> { ["first"] = InboxItem, ["second/owner/repo"] = other }),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
         var byTitle = store.Entries.Values.ToDictionary(entry => entry.Title);
         Assert.Equal(InboxItem, byTitle["From the first item"].SourceInboxId);
         Assert.Equal(other, byTitle["From the second item"].SourceInboxId);

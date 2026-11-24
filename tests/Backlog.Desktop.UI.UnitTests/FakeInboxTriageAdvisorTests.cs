@@ -25,7 +25,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var task = new InboxTriageTaskDto(Guid.NewGuid(), "Fix the login page redirect", ["acme/web"], "ready");
         var item = Item("Login page redirect loops forever");
 
-        var advice = (await Advisor.AdviseAsync(item, Context(tasks: [task]), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor.AdviseAsync(item, Context(tasks: [task]), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.NotNull(advice.Duplicate);
         Assert.Equal(InboxTriageTargetKind.Task, advice.Duplicate.TargetKind);
@@ -39,7 +39,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var task = new InboxTriageTaskDto(Guid.NewGuid(), "Fix the login page", [], "ready");
         var item = Item("The login page and the footer");
 
-        var advice = (await Advisor.AdviseAsync(item, Context(tasks: [task]), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor.AdviseAsync(item, Context(tasks: [task]), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Null(advice.Duplicate);
     }
@@ -50,7 +50,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var other = Item("Export the weekly sales report");
         var item = Item("Weekly sales report export broken");
 
-        var advice = (await Advisor.AdviseAsync(item, Context(others: [other]), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor.AdviseAsync(item, Context(others: [other]), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(InboxTriageTargetKind.InboxItem, advice.Duplicate?.TargetKind);
         Assert.Equal(other.Id, advice.Duplicate?.TargetId);
@@ -63,7 +63,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var sibling = Item("Record the welcome video", tags: ["Onboarding"]);
         var stranger = Item("Renew the domain", tags: ["ops"]);
 
-        var advice = (await Advisor.AdviseAsync(item, Context(others: [sibling, stranger]), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor.AdviseAsync(item, Context(others: [sibling, stranger]), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.NotNull(advice.Plan);
         Assert.Equal([item.Id, sibling.Id], advice.Plan.ItemIds);
@@ -72,7 +72,7 @@ public sealed class FakeInboxTriageAdvisorTests
     [Fact]
     public async Task An_item_with_nothing_in_common_gets_no_cards()
     {
-        var advice = (await Advisor.AdviseAsync(Item("Call the dentist"), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = (await Advisor.AdviseAsync(Item("Call the dentist"), Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.False(advice.HasCards);
     }
@@ -92,7 +92,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var unplaced = Item("Think about the roadmap again");
         IReadOnlyList<InboxTriageItemDto> items = [duplicate, planA, planB, filed, prompt, personal, archived, unplaced];
 
-        var pass = (await Advisor.ProposePassAsync(items, Context(tasks: [task], lists: [list]), TestContext.Current.CancellationToken)).Value;
+        var pass = (await Advisor.ProposePassAsync(items, Context(tasks: [task], lists: [list]), TestContext.Current.CancellationToken)).Unwrap();
 
         var pair = Assert.Single(pass.Duplicates);
         Assert.Equal((duplicate.Id, task.Id, InboxDuplicateAction.MergeIntoTask), (pair.ItemId, pair.TargetId, pair.Action));
@@ -120,7 +120,7 @@ public sealed class FakeInboxTriageAdvisorTests
         var planA = Item("Draft the onboarding email", tags: ["onboarding"]);
         var planB = Item("Record the welcome video", tags: ["onboarding"]);
 
-        var pass = (await Advisor.ProposePassAsync([planA, planB], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = (await Advisor.ProposePassAsync([planA, planB], Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(FakeInboxTriageAdvisor.LowConfidence, Assert.Single(pass.Plans).Confidence);
     }
@@ -130,8 +130,8 @@ public sealed class FakeInboxTriageAdvisorTests
     {
         var items = new[] { Item("Add a dark theme", repoIds: ["acme/web"]), Item("lunch?") };
 
-        var first = (await Advisor.ProposePassAsync(items, Context(), TestContext.Current.CancellationToken)).Value;
-        var second = (await Advisor.ProposePassAsync(items, Context(), TestContext.Current.CancellationToken)).Value;
+        var first = (await Advisor.ProposePassAsync(items, Context(), TestContext.Current.CancellationToken)).Unwrap();
+        var second = (await Advisor.ProposePassAsync(items, Context(), TestContext.Current.CancellationToken)).Unwrap();
 
         Assert.Equal(first.Routes, second.Routes);
         Assert.Equal(first.Archives, second.Archives);

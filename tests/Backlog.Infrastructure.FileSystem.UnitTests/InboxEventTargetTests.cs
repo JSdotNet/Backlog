@@ -48,7 +48,7 @@ public sealed class InboxEventTargetTests
 
         var spotted = await new InboxEventTarget(events, new Flags(on: true)).SpotEventAsync(request, Cancellation);
 
-        Assert.Equal(events.EventId, spotted.Value);
+        Assert.Equal(events.EventId, spotted.Unwrap());
         var asked = Assert.Single(events.Requests);
         Assert.Equal(new SpotKnowledgeEventDto(
             "dotNET Friday Q4",

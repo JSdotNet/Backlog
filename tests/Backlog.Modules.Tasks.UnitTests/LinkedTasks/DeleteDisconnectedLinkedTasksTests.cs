@@ -139,8 +139,8 @@ public sealed class DeleteDisconnectedLinkedTasksTests
 
         var result = await DeleteAsync(StubTaskConnector.Id, Repo);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        Assert.Equal(3, result.Value);
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        Assert.Equal(3, ok.Value);
         Assert.All([ready, done, archived], task => Assert.NotNull(task.DeletedAt));
         Assert.All([otherSource, local, connected], task => Assert.Null(task.DeletedAt));
 
@@ -161,9 +161,9 @@ public sealed class DeleteDisconnectedLinkedTasksTests
 
         var result = await DeleteAsync(StubTaskConnector.Id, Repo);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DeleteDisconnectedLinkedTasksCommand.StillConnectedCode, result.Error.Code);
-        Assert.Contains(Repo, result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DeleteDisconnectedLinkedTasksCommand.StillConnectedCode, error.Code);
+        Assert.Contains(Repo, error.Message, StringComparison.Ordinal);
         Assert.Null(task.DeletedAt);
         Assert.Equal(0, _tasks.Writes);
     }
@@ -177,7 +177,7 @@ public sealed class DeleteDisconnectedLinkedTasksTests
 
         var result = await DeleteAsync(connectorId, target);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(0, _tasks.Writes);
     }
 
@@ -197,7 +197,7 @@ public sealed class DeleteDisconnectedLinkedTasksTests
         Assert.Equal(2, first.Created);
 
         _targets.Remove(StubTaskConnector.Id, Repo);
-        Assert.Equal(2, (await DeleteAsync(StubTaskConnector.Id, Repo)).Value);
+        Assert.Equal(2, Assert.IsType<Ok<int>>((await DeleteAsync(StubTaskConnector.Id, Repo)).Value).Value);
         var tombstonedAt = _tasks.Entries.Values.ToDictionary(task => task.Id, task => task.UpdatedAt);
 
         connector.Items[0] = connector.Items[0] with { Title = "Renamed at the source" };
@@ -253,8 +253,8 @@ public sealed class DeleteDisconnectedLinkedTasksTests
         var result = await new SyncLinkedTasksCommandHandler([connector], _tasks, _targets, new ManualTimeProvider(Now))
             .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        return result.Value;
+        var ok = Assert.IsType<Ok<LinkedTaskSyncSummary>>(result.Value);
+        return ok.Value;
     }
 
     private TaskItem Seed(TaskItem task)

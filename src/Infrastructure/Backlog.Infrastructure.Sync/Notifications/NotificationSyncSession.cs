@@ -151,10 +151,10 @@ public sealed class NotificationSyncSession
         // Replies are listed while a question is open, and once more in the cycle that pushes a
         // notification as settled: a reply that reached the service before the question closed
         // here is then rejected as closed rather than left waiting for the backstop expiry.
-        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushed.Value.Settled)
+        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushed.Unwrap().Settled)
         {
             Prune();
-            return Result.Success(new NotificationSyncSummary(pushed.Value.Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
+            return Result.Success(new NotificationSyncSummary(pushed.Unwrap().Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
         }
 
         var processed = await ProcessRepliesAsync(me, cancellationToken).ConfigureAwait(false);
@@ -166,9 +166,9 @@ public sealed class NotificationSyncSession
         Prune();
 
         return Result.Success(new NotificationSyncSummary(
-            pushed.Value.Pushed + pushedAfter.Value.Pushed,
-            processed.Value.Accepted,
-            processed.Value.Rejected,
+            pushed.Unwrap().Pushed + pushedAfter.Unwrap().Pushed,
+            processed.Unwrap().Accepted,
+            processed.Unwrap().Rejected,
             PolledReplies: true,
             _time.GetUtcNow()));
     }
@@ -293,9 +293,9 @@ public sealed class NotificationSyncSession
             var response = await _client.PushAsync([.. batch.Select(item => item.Change)], cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<(int, bool)>(response.Error);
 
-            pushed += response.Value.Accepted;
+            pushed += response.Unwrap().Accepted;
 
-            var notOwned = (response.Value.NotOwned ?? []).ToHashSet();
+            var notOwned = (response.Unwrap().NotOwned ?? []).ToHashSet();
 
             foreach (var id in notOwned)
             {
@@ -392,7 +392,7 @@ public sealed class NotificationSyncSession
 
         // The order the service took them in; its stamp is in seconds, so two replies in the
         // same second are put in the order the people made them.
-        foreach (var record in listed.Value.Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
+        foreach (var record in listed.Unwrap().Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
         {
             var reply = record.Reply;
             var snapshot = await _notifications.GetAsync(reply.NotificationId, cancellationToken).ConfigureAwait(false);

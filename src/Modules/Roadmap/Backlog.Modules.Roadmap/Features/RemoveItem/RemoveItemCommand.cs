@@ -19,7 +19,7 @@ public sealed class RemoveItemCommandHandler(IRoadmapPlanRepository plans, Roadm
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveItem(command.ItemId);
 
-        if (removed.IsFailure) return removed;
+        if (removed is Error) return removed;
 
         await plans.SaveAsync(plan, cancellationToken);
         return Result.Success();

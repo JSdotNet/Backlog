@@ -1148,9 +1148,9 @@ public sealed class SyncLinkedTasksTests
         _connector.Failure = new HttpRequestException("offline");
         var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("linked_tasks.fetch_failed", result.Error.Code);
-        Assert.Equal($"Stub could not be reached for {Repo}.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("linked_tasks.fetch_failed", error.Code);
+        Assert.Equal($"Stub could not be reached for {Repo}.", error.Message);
         Assert.Equal(writes, _tasks.Writes);
         Assert.Equal(EntryStatus.Ready, Assert.Single(_tasks.Entries.Values).Status);
         Assert.Equal(target!.LastSyncedAt, _targets.Get(StubTaskConnector.Id, Repo)!.LastSyncedAt);
@@ -1172,9 +1172,9 @@ public sealed class SyncLinkedTasksTests
 
         var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(code, result.Error.Code);
-        Assert.Equal("The connector's own sentence.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(code, error.Code);
+        Assert.Equal("The connector's own sentence.", error.Message);
     }
 
     [Fact]
@@ -1184,8 +1184,8 @@ public sealed class SyncLinkedTasksTests
 
         var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.Equal("linked_tasks.fetch_failed", result.Error.Code);
-        Assert.Equal($"Stub could not be reached for {Repo}.", result.Error.Message);
+        Assert.Equal("linked_tasks.fetch_failed", Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal($"Stub could not be reached for {Repo}.", Assert.IsType<Error>(result.Value).Message);
     }
 
     [Fact]
@@ -1389,7 +1389,7 @@ public sealed class SyncLinkedTasksTests
     {
         var result = await Handler().Handle(new SyncLinkedTasksCommand("unknown", Repo), TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncLinkedTasksCommandHandler.ConnectorNotFound, result.Error);
+        Assert.Equal(SyncLinkedTasksCommandHandler.ConnectorNotFound, Assert.IsType<Error>(result.Value));
         Assert.Equal(0, _tasks.Writes);
     }
 
@@ -1398,7 +1398,7 @@ public sealed class SyncLinkedTasksTests
     {
         var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, "JSdotNet/Other"), TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncLinkedTasksCommandHandler.TargetNotFound, result.Error);
+        Assert.Equal(SyncLinkedTasksCommandHandler.TargetNotFound, Assert.IsType<Error>(result.Value));
         Assert.Empty(_connector.Fetches);
     }
 
@@ -1409,7 +1409,7 @@ public sealed class SyncLinkedTasksTests
 
         var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncLinkedTasksCommandHandler.TargetDisabled, result.Error);
+        Assert.Equal(SyncLinkedTasksCommandHandler.TargetDisabled, Assert.IsType<Error>(result.Value));
         Assert.Empty(_connector.Fetches);
         Assert.Equal(0, _tasks.Writes);
     }
@@ -1428,7 +1428,7 @@ public sealed class SyncLinkedTasksTests
         var result = await Handler(repositories: registry)
             .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, result.Error);
+        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, Assert.IsType<Error>(result.Value));
         Assert.Empty(_connector.Fetches);
         Assert.Equal(0, _tasks.Writes);
         Assert.Equal(0, _targets.Updates);
@@ -1449,7 +1449,7 @@ public sealed class SyncLinkedTasksTests
         var result = await Handler(repositories: registry)
             .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, result.Error);
+        Assert.Equal(SyncLinkedTasksCommandHandler.RepositoryArchived, Assert.IsType<Error>(result.Value));
         Assert.Empty(_connector.Fetches);
     }
 
@@ -1789,8 +1789,8 @@ public sealed class SyncLinkedTasksTests
         Result<LinkedTaskSyncSummary> result = await Handler(tasks, targets, repositories)
             .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        return result.Value;
+        var ok = Assert.IsType<Ok<LinkedTaskSyncSummary>>(result.Value);
+        return ok.Value;
     }
 
     private static SourceItem Item(

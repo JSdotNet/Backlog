@@ -65,7 +65,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
             knowledgeRefs: knowledgeRefs,
             cancellationToken: Ct);
         Assert.True(added.IsSuccess, added.IsFailure ? added.Error.Message : null);
-        return added.Value;
+        return added.Unwrap();
     }
 
     private static RoadmapGatheredLink Entry(bool done) =>
@@ -107,7 +107,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
         var archived = await archive.ArchiveAsync(note, Ct);
 
         Assert.True(archived.IsSuccess, archived.IsFailure ? archived.Error.Message : null);
-        Assert.Equal("archive/house.md", archived.Value);
+        Assert.Equal("archive/house.md", archived.Unwrap());
         Assert.False(File.Exists(source));
         Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(BrainRoot, "archive", "house.md"), Ct));
 

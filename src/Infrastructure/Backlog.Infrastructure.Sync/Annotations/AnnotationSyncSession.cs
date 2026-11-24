@@ -153,8 +153,8 @@ public sealed class AnnotationSyncSession
                 // version of the rest. The watermark still moves past them — offering
                 // them again would be refused again — so the count is the one place
                 // the loss is said.
-                pushed += response.Value.Accepted;
-                refused += Math.Max(0, changes.Count - response.Value.Accepted);
+                pushed += response.Unwrap().Accepted;
+                refused += Math.Max(0, changes.Count - response.Unwrap().Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, annotation => annotation.UpdatedAt) is { } advanced)
@@ -205,13 +205,13 @@ public sealed class AnnotationSyncSession
                 continue;
             }
 
-            pulled += page.Value.Annotations.Count;
-            applied += _merge.Apply(page.Value.Annotations).Applied;
+            pulled += page.Unwrap().Annotations.Count;
+            applied += _merge.Apply(page.Unwrap().Annotations).Applied;
 
-            cursor = page.Value.Since;
+            cursor = page.Unwrap().Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!page.Value.HasMore) break;
+            if (!page.Unwrap().HasMore) break;
         }
 
         return Result.Success(new AnnotationSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -228,13 +228,13 @@ public sealed class AnnotationSyncSession
         if (pull.IsFailure) return pull;
 
         return Result.Success(new AnnotationSyncSummary(
-            push.Value.Pushed,
-            pull.Value.Pulled,
-            pull.Value.Applied,
+            push.Unwrap().Pushed,
+            pull.Unwrap().Pulled,
+            pull.Unwrap().Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Value.Refused,
-            Skipped = push.Value.Skipped,
+            Refused = push.Unwrap().Refused,
+            Skipped = push.Unwrap().Skipped,
         });
     }
 }

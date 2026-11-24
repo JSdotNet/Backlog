@@ -253,7 +253,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
                 List<PlannedHoursDto> blocks = [.. Enumerable.Range(0, 10).Select(day => new PlannedHoursDto(today.AddDays(day), 24m))];
                 var planned = await tasks.SetPlannedHoursAsync(entry.Id, blocks, TestContext.Current.CancellationToken);
                 Assert.True(planned.IsSuccess, planned.IsFailure ? planned.Error.Message : null);
-                Assert.Equal(10, planned.Value.PlannedHours.Count);
+                Assert.Equal(10, planned.Unwrap().PlannedHours.Count);
             }
         }
 
@@ -345,7 +345,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
             .ImportPlanAsync(document, layOutOnRoadmap: layOut, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
-        return result.Value;
+        return result.Unwrap();
     }
 
     private async Task<RoadmapPlanDto> PlanAsync()

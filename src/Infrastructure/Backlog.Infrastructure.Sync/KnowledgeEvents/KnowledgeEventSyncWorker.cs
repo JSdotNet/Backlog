@@ -327,7 +327,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
             if (result.IsSuccess)
             {
-                LastSummary = result.Value;
+                LastSummary = result.Unwrap();
                 LastError = null;
             }
             else

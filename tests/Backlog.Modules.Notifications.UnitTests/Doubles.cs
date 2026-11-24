@@ -1,6 +1,7 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Notifications.UnitTests;
 
@@ -28,7 +29,7 @@ internal static class Drafts
             "Remark left on Storage and sync", "Does the reply container need its own TTL?", string.Empty);
 
     public static Notification Published(NotificationDraft? draft = null) =>
-        Notification.Publish(Guid.NewGuid(), Owner, draft ?? Question(), Now).Value;
+        Assert.IsType<Ok<Notification>>(Notification.Publish(Guid.NewGuid(), Owner, draft ?? Question(), Now).Value).Value;
 
     public static NotificationReply Reply(
         Notification notification,

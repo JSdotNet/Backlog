@@ -368,7 +368,7 @@ public interface IInboxItems
         foreach (var id in ids.Distinct())
         {
             var answer = await SuggestAsync(id, cancellationToken).ConfigureAwait(false);
-            if (answer.IsSuccess) answers[id] = answer.Value;
+            if (answer is Ok<IReadOnlyList<InboxSuggestionDto>>(var suggestions)) answers[id] = suggestions;
         }
 
         return Result.Success<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(answers);

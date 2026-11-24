@@ -1,6 +1,7 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
 using Backlog.Modules.Notifications.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -38,17 +39,17 @@ public sealed class NotificationActionTests
     [Fact]
     public void A_question_with_actions_is_refused()
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Question() with { Actions = [OpenRun] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Question() with { Actions = [OpenRun] }, Now).Value);
 
-        Assert.Equal("notification.action_invalid", result.Error.Code);
+        Assert.Equal("notification.action_invalid", result.Code);
     }
 
     [Fact]
     public void More_than_three_actions_are_refused()
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun, OpenRun, OpenRun, OpenRun] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun, OpenRun, OpenRun, OpenRun] }, Now).Value);
 
-        Assert.Equal("notification.action_invalid", result.Error.Code);
+        Assert.Equal("notification.action_invalid", result.Code);
     }
 
     [Theory]
@@ -58,9 +59,9 @@ public sealed class NotificationActionTests
     [InlineData("/window/sessions")]
     public void A_link_that_is_no_backlog_window_link_is_refused(string link)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Link = link }] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Link = link }] }, Now).Value);
 
-        Assert.Equal("notification.action_invalid", result.Error.Code);
+        Assert.Equal("notification.action_invalid", result.Code);
     }
 
     [Fact]
@@ -68,9 +69,9 @@ public sealed class NotificationActionTests
     {
         var link = "backlog://window/sessions?session=" + new string('x', NotificationAction.MaxLinkLength);
 
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Link = link }] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Link = link }] }, Now).Value);
 
-        Assert.Equal("notification.action_invalid", result.Error.Code);
+        Assert.Equal("notification.action_invalid", result.Code);
     }
 
     [Theory]
@@ -78,17 +79,17 @@ public sealed class NotificationActionTests
     [InlineData("Open\nrun")]
     public void A_blank_or_multi_line_label_is_refused(string label)
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Label = label }] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Label = label }] }, Now).Value);
 
-        Assert.Equal("notification.action_invalid", result.Error.Code);
+        Assert.Equal("notification.action_invalid", result.Code);
     }
 
     [Fact]
     public void A_label_past_forty_characters_is_refused()
     {
-        var result = Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Label = new string('x', 41) }] }, Now);
+        var result = Assert.IsType<Error>(Notification.Publish(Guid.NewGuid(), Owner, Alert() with { Actions = [OpenRun with { Label = new string('x', 41) }] }, Now).Value);
 
-        Assert.Equal("notification.content_too_long", result.Error.Code);
+        Assert.Equal("notification.content_too_long", result.Code);
     }
 
     [Fact]

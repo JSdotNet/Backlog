@@ -39,14 +39,14 @@ public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans, Roadm
         ArgumentNullException.ThrowIfNull(command);
 
         var window = PlannedWindow.Create(command.Start, command.End);
-        if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
+        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
 
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var updated = plan.UpdateItem(
             command.ItemId,
             command.Title,
-            window.Value,
+            planned,
             command.Priority,
             RepositoryScope.Of(command.RepositoryAliases),
             PlanningLane.Of(command.Lane),
@@ -56,9 +56,9 @@ public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans, Roadm
             string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),
             KnowledgeReferences.Of(command.KnowledgeRefs));
 
-        if (updated.IsFailure) return Result.Failure<RoadmapItemDto>(updated.Error);
+        if (updated is not Ok<RoadmapItem>(var item)) return (Error)updated.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(updated.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

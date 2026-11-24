@@ -315,7 +315,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         var synced = await b.SyncAsync();
 
         Assert.True(synced.IsSuccess);
-        Assert.Equal(0, synced.Value.Pushed);
+        Assert.Equal(0, synced.Unwrap().Pushed);
         Assert.Equal(0, _replica.PushesFrom(b.DeviceId));
         Assert.Equal(aPlan, await b.PlanCopyAsync());
         Assert.Equal(9m, b.Pace.StoryPointsPerWeek);
@@ -456,14 +456,14 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         {
             var pushed = await _session.PushAsync(Cancellation);
             Assert.True(pushed.IsSuccess);
-            return pushed.Value;
+            return pushed.Unwrap();
         }
 
         public async Task<TaskSyncSummary> PullAsync()
         {
             var pulled = await _session.PullAsync(Cancellation);
             Assert.True(pulled.IsSuccess);
-            return pulled.Value;
+            return pulled.Unwrap();
         }
 
         public void Dispose()

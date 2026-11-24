@@ -34,7 +34,7 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
             notes: "Needs the Cosmos emulator.",
             tag: "sync",
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(await planning.AddDependencyAsync(milestone.Value.Id, item.Value.Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
+        Assert.True(await planning.AddDependencyAsync(milestone.Unwrap().Id, item.Unwrap().Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
 
         var content = await new RoadmapAiContentSource(planning).ComposeAsync(new AiContentRequest("when does sync ship?", 6000), TestContext.Current.CancellationToken);
 
@@ -54,7 +54,7 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
         var planning = Planning();
         var milestone = await planning.AddMilestoneAsync("Freeze", new DateOnly(2026, 4, 1), MilestoneKind.Freeze, cancellationToken: TestContext.Current.CancellationToken);
         var item = await planning.AddItemAsync("Polish", new DateOnly(2026, 4, 2), new DateOnly(2026, 4, 3), cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(await planning.AddDependencyAsync(item.Value.Id, milestone.Value.Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
+        Assert.True(await planning.AddDependencyAsync(item.Unwrap().Id, milestone.Unwrap().Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
 
         var content = await new RoadmapAiContentSource(planning).ComposeAsync(new AiContentRequest("polish", 6000), TestContext.Current.CancellationToken);
 

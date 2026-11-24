@@ -150,7 +150,7 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
         // Heard by an open Inbox, which reloads; the pane learns of no other way.
         changes?.Raise();
 
-        return InboxItemSummaryPayload.From(captured.Value);
+        return InboxItemSummaryPayload.From(captured.Unwrap());
     }
 
     private async Task<InboxItemDto> FindAsync(Guid id, CancellationToken cancellationToken)

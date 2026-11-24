@@ -150,16 +150,16 @@ public sealed class DevicePairingClient : IDeviceRoster
 
         if (started.IsFailure) return Result.Failure<DeviceCredential>(started.Error);
 
-        var answer = await SignInAsync(loopback, started.Value.SignInAddress, cancellationToken).ConfigureAwait(false);
+        var answer = await SignInAsync(loopback, started.Unwrap().SignInAddress, cancellationToken).ConfigureAwait(false);
         if (answer.IsFailure) return Result.Failure<DeviceCredential>(answer.Error);
 
-        var code = ReadAnswer(answer.Value, state);
+        var code = ReadAnswer(answer.Unwrap(), state);
         if (code.IsFailure) return Result.Failure<DeviceCredential>(code.Error);
 
         return await StoreAsync(
             () => _http.PostAsJsonAsync(
                 SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-                new RegisterDeviceRequest(name, code.Value, verifier, PublicKeyOrNull()),
+                new RegisterDeviceRequest(name, code.Unwrap(), verifier, PublicKeyOrNull()),
                 cancellationToken),
             registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
             cancellationToken).ConfigureAwait(false);
@@ -246,7 +246,7 @@ public sealed class DevicePairingClient : IDeviceRoster
             () => _http.PostAsync(SyncRoutes.Absolute(SyncRoutes.PairingCodes), content: null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        if (issued.IsSuccess) _pairings?.Issued(issued.Value);
+        if (issued.IsSuccess) _pairings?.Issued(issued.Unwrap());
 
         return issued;
     }
@@ -363,7 +363,7 @@ public sealed class DevicePairingClient : IDeviceRoster
         var response = await SyncHttp.SendAsync<DeviceRegistrationResponse>(send, cancellationToken).ConfigureAwait(false);
         if (response.IsFailure) return Result.Failure<DeviceCredential>(response.Error);
 
-        var credential = toCredential(response.Value);
+        var credential = toCredential(response.Unwrap());
 
         try
         {

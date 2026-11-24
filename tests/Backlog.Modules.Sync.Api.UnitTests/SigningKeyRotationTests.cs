@@ -1,6 +1,7 @@
 using System.Net;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api.Security;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
@@ -53,8 +54,8 @@ public class SigningKeyRotationTests
         var closed = new SigningKeyRing(new Rotated(DateTimeOffset.UtcNow.AddMinutes(-1)), TimeProvider.System);
         await closed.RefreshAsync(Cancellation);
 
-        Assert.True(new HmacSyncCursorCodec(open).Verify(minted, owner).IsSuccess);
-        Assert.False(new HmacSyncCursorCodec(closed).Verify(minted, owner).IsSuccess);
+        Assert.IsType<Ok<Backlog.Modules.Sync.DomainModels.SyncCursor>>(new HmacSyncCursorCodec(open).Verify(minted, owner).Value);
+        Assert.IsType<Error>(new HmacSyncCursorCodec(closed).Verify(minted, owner).Value);
     }
 
     [Theory]

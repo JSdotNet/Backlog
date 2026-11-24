@@ -50,15 +50,14 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
         ArgumentNullException.ThrowIfNull(command.Request);
 
         var raised = Impediment.Raise(Guid.NewGuid(), command.Request.Title, Today, clock.GetUtcNow());
-        if (raised.IsFailure) return raised.Error;
+        if (raised is not Ok<Impediment>(var impediment)) return (Error)raised.Value!;
 
-        var impediment = raised.Value;
         foreach (var requested in command.Request.HoldsBack ?? [])
         {
             var item = ItemOf(requested);
-            if (item.IsFailure) return item.Error;
+            if (item is not Ok<HeldBackItem>(var held)) return (Error)item.Value!;
 
-            impediment.HoldBack(item.Value);
+            impediment.HoldBack(held);
         }
 
         impediment.EditNote(command.Request.Note);
@@ -103,17 +102,18 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var item = ItemOf(command.Item);
-        if (item.IsFailure) return item.Error;
-
-        return await changes.ChangeAsync(
-            command.ImpedimentId,
-            impediment =>
-            {
-                impediment.HoldBack(item.Value);
-                return Result.Success();
-            },
-            cancellationToken).ConfigureAwait(false);
+        return ItemOf(command.Item) switch
+        {
+            Ok<HeldBackItem>(var item) => await changes.ChangeAsync(
+                command.ImpedimentId,
+                impediment =>
+                {
+                    impediment.HoldBack(item);
+                    return Result.Success();
+                },
+                cancellationToken).ConfigureAwait(false),
+            Error error => error,
+        };
     }
 
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
                 {
                     case ImpedimentEditKind.State:
                         var moved = impediment.MoveTo(edit.State!.Value, today, Clean(edit.With));
-                        if (moved.IsFailure) outcome = ImpedimentEditOutcome.Refused;
+                        if (moved is Error) outcome = ImpedimentEditOutcome.Refused;
                         return moved;
 
                     case ImpedimentEditKind.CheckAgain:
@@ -158,8 +158,11 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
             },
             cancellationToken).ConfigureAwait(false);
 
-        if (changed.IsSuccess) return ImpedimentEditOutcome.Applied;
-        return changed.Error.Code == ProgressErrors.ImpedimentNotFound(edit.ImpedimentId).Code ? ImpedimentEditOutcome.Unknown : outcome;
+        return changed switch
+        {
+            Ok<ImpedimentDto> => ImpedimentEditOutcome.Applied,
+            Error error => error.Code == ProgressErrors.ImpedimentNotFound(edit.ImpedimentId).Code ? ImpedimentEditOutcome.Unknown : outcome,
+        };
     }
 
     /// <summary>Whether the impediment already says what <paramref name="edit"/> asks: in the
@@ -189,17 +192,18 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var item = ItemOf(command.Item);
-        if (item.IsFailure) return item.Error;
-
-        return await changes.ChangeAsync(
-            command.ImpedimentId,
-            impediment =>
-            {
-                impediment.Release(item.Value);
-                return Result.Success();
-            },
-            cancellationToken).ConfigureAwait(false);
+        return ItemOf(command.Item) switch
+        {
+            Ok<HeldBackItem>(var item) => await changes.ChangeAsync(
+                command.ImpedimentId,
+                impediment =>
+                {
+                    impediment.Release(item);
+                    return Result.Success();
+                },
+                cancellationToken).ConfigureAwait(false),
+            Error error => error,
+        };
     }
 
     /// <summary>The held-back item a caller named, or why it names none.</summary>

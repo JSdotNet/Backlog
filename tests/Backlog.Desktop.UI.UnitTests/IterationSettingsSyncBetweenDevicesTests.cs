@@ -248,7 +248,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         {
             var pushed = await _session.PushAsync(TestContext.Current.CancellationToken);
             Assert.True(pushed.IsSuccess);
-            return pushed.Value;
+            return pushed.Unwrap();
         }
 
         public void Dispose()

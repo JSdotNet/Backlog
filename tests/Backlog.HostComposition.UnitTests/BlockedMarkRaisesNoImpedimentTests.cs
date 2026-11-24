@@ -57,7 +57,7 @@ public sealed class BlockedMarkRaisesNoImpedimentTests
         await tracker.SetBlockedAsync(entry.Id, blocked: true, Ct);
         await tracker.CommentAsync(entry.Id, "Waiting on the bank.", Ct);
 
-        Assert.Empty((await impediments.ListAsync(cancellationToken: Ct)).Value);
+        Assert.Empty((await impediments.ListAsync(cancellationToken: Ct)).Unwrap());
     }
 
     [Fact]
@@ -71,16 +71,16 @@ public sealed class BlockedMarkRaisesNoImpedimentTests
 
         var entry = await tracker.CreateItemAsync("# Bank import mapping\n`task` `blocked:2026-10-16`\n", cancellationToken: Ct);
         var raised = (await impediments.RaiseAsync(
-            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(entry.Id)]), Ct)).Value;
+            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(entry.Id)]), Ct)).Unwrap();
         Assert.True((await impediments.MoveAsync(raised.Id, ImpedimentState.Reported, "bank support", Ct)).IsSuccess);
-        var handled = (await impediments.MoveAsync(raised.Id, ImpedimentState.BeingHandled, "bank support", Ct)).Value;
+        var handled = (await impediments.MoveAsync(raised.Id, ImpedimentState.BeingHandled, "bank support", Ct)).Unwrap();
 
         var stored = Assert.Single(await tasks.ListAsync(Ct), task => task.Id == entry.Id);
         var unmarked = await tasks.SaveFromTextAsync(entry.Id, "# Bank import mapping\n`task`\n", stored.Order, cancellationToken: Ct);
         Assert.True(unmarked.IsSuccess);
-        Assert.Null(unmarked.Value.Entry.BlockedSince);
+        Assert.Null(unmarked.Unwrap().Entry.BlockedSince);
 
-        var still = Assert.Single((await impediments.ListAsync(cancellationToken: Ct)).Value);
+        var still = Assert.Single((await impediments.ListAsync(cancellationToken: Ct)).Unwrap());
         Assert.Equal(handled.Id, still.Id);
         Assert.Equal(ImpedimentState.BeingHandled, still.State);
         Assert.Equal(handled.History, still.History);

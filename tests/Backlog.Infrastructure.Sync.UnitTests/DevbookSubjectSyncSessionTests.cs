@@ -46,7 +46,7 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(SyncRoutes.Absolute(SyncRoutes.DevbookSubjects), request.Path);
@@ -72,8 +72,8 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Refused);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
     }
 
@@ -94,8 +94,8 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Skipped);
+        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, result.Unwrap().Skipped);
         Assert.Equal(valid.Id, Assert.Single(Pushed(Assert.Single(fixture.Bodies))).Id);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
 
@@ -190,8 +190,8 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(1, result.Unwrap().Pulled);
+        Assert.Equal(1, result.Unwrap().Applied);
         Assert.Equal("planned", store.Get(Subjects.Repository, Subjects.Debt)?.State);
     }
 
@@ -208,7 +208,7 @@ public sealed class DevbookSubjectSyncSessionTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal([HttpMethod.Post, HttpMethod.Get], ordered.Handler.Requests.Select(request => request.Method).ToArray());
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Unwrap().Pushed);
 
         store.Seed(Subjects.Local("draft", Noon.AddHours(2), Proposal));
 
@@ -237,8 +237,8 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Value.NotYetServed);
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.True(result.Unwrap().NotYetServed);
+        Assert.Equal(0, result.Unwrap().Pushed);
         Assert.Single(fixture.Handler.Requests);
         Assert.Equal(Noon, state.Current.PushWatermark);
     }
@@ -255,7 +255,7 @@ public sealed class DevbookSubjectSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Value.NotYetServed);
+        Assert.True(result.Unwrap().NotYetServed);
         Assert.Equal([HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
         Assert.Null(state.Current.PullCursor);
     }

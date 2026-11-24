@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.DescribeOwner;
@@ -8,6 +9,7 @@ using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
@@ -79,12 +81,11 @@ internal sealed class SyncModuleFixture
     internal async Task<RegisterFirstDeviceCommand> Enrolled(string name)
     {
         var verifier = EnrolmentPkce.CreateVerifier();
-        var started = await StartEnrolment.Handle(
+        var started = Assert.IsType<Ok<EnrolmentStartResponse>>((await StartEnrolment.Handle(
             new StartEnrolmentCommand(new Uri("http://127.0.0.1:49152/"), EnrolmentPkce.Challenge(verifier), EnrolmentPkce.Method, "state"),
-            TestContext.Current.CancellationToken);
-        Assert.True(started.IsSuccess);
+            TestContext.Current.CancellationToken)).Value).Value;
 
-        var code = started.Value.SignInAddress.Query.TrimStart('?').Split('&')
+        var code = started.SignInAddress.Query.TrimStart('?').Split('&')
             .Select(pair => pair.Split('=', 2))
             .Single(pair => pair[0] == "code")[1];
 
@@ -103,11 +104,10 @@ internal sealed class SyncModuleFixture
     /// token would carry.</summary>
     internal async Task<(OwnerScope Scope, string Credential)> RegisterFirstDevice(string name = "Study desktop")
     {
-        var result = await Register.Handle(await Enrolled(name), TestContext.Current.CancellationToken);
-        Assert.True(result.IsSuccess);
+        var result = Assert.IsType<Ok<DeviceRegistrationResponse>>((await Register.Handle(await Enrolled(name), TestContext.Current.CancellationToken)).Value).Value;
 
-        var scope = new OwnerScope(new OwnerId(result.Value.OwnerId), new DeviceId(result.Value.DeviceId));
-        return (scope, result.Value.Credential!);
+        var scope = new OwnerScope(new OwnerId(result.OwnerId), new DeviceId(result.DeviceId));
+        return (scope, result.Credential!);
     }
 }
 

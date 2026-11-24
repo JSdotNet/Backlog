@@ -38,9 +38,11 @@ public sealed class SetGoalCommandHandler(GoalChanges changes, TimeProvider cloc
             command.Request.DueDate,
             clock.GetUtcNow());
 
-        if (created.IsFailure) return created.Error;
-
-        return await changes.AddAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        return created switch
+        {
+            Ok<Goal>(var goal) => await changes.AddAsync(goal, cancellationToken).ConfigureAwait(false),
+            Error error => error,
+        };
     }
 
     public Task<Result<GoalDto>> Handle(EditGoalCommand command, CancellationToken cancellationToken = default)
@@ -50,7 +52,7 @@ public sealed class SetGoalCommandHandler(GoalChanges changes, TimeProvider cloc
 
         // Checked whole on a copy first, so a refused outcome never leaves a renamed goal.
         var check = Goal.Create(command.GoalId, command.Request.Title, command.Request.Outcome, command.Request.DueDate);
-        if (check.IsFailure) return Task.FromResult(Result.Failure<GoalDto>(check.Error));
+        if (check is Error error) return Task.FromResult(Result.Failure<GoalDto>(error));
 
         return changes.ChangeAsync(
             command.GoalId,
@@ -63,10 +65,10 @@ public sealed class SetGoalCommandHandler(GoalChanges changes, TimeProvider cloc
                     goal.ChangeDueDate(command.Request.DueDate),
                 };
 
-                var failed = steps.FirstOrDefault(step => step.IsFailure);
-                return failed is null
+                var failed = steps.Select(step => step.Value).OfType<Error>().ToList();
+                return failed.Count == 0
                     ? Result.Success<IReadOnlyList<Goal>>([])
-                    : Result.Failure<IReadOnlyList<Goal>>(failed.Error);
+                    : Result.Failure<IReadOnlyList<Goal>>(failed[0]);
             },
             cancellationToken);
     }

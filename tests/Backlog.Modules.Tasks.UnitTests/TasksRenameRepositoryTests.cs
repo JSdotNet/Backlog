@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.RenameRepository;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -118,8 +119,8 @@ public class TasksRenameRepositoryTests
 
         var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, "jsdotnet/backlog"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value);
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        Assert.Equal(0, ok.Value);
         Assert.Equal(0, store.Writes);
     }
 
@@ -130,8 +131,8 @@ public class TasksRenameRepositoryTests
 
         var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, " "), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(RenameRepositoryCommand.BlankId, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(RenameRepositoryCommand.BlankId, error);
         Assert.Equal(0, store.Writes);
     }
 
@@ -139,8 +140,8 @@ public class TasksRenameRepositoryTests
     {
         var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, NewId));
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        return ok.Value;
     }
 
     private static TaskItem Entry(IEnumerable<string> repoIds)

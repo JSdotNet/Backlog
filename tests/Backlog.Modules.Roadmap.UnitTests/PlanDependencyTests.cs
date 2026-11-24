@@ -12,10 +12,10 @@ namespace Backlog.Modules.Roadmap.UnitTests;
 public class PlanDependencyTests
 {
     private static PlannedWindow Window(int startDay, int endDay) =>
-        PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value;
+        Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value).Value;
 
     private static RoadmapItem Add(RoadmapPlan plan, string title, int startDay = 5, int endDay = 9) =>
-        plan.AddItem(title, Window(startDay, endDay)).Value;
+        Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(title, Window(startDay, endDay)).Value).Value;
 
     [Fact]
     public void ADependencyIsRecordedOnTheWaitingSide()
@@ -26,7 +26,7 @@ public class PlanDependencyTests
 
         var added = plan.AddDependency(build.Id, design.Id);
 
-        Assert.True(added.IsSuccess);
+        Assert.IsType<Ok>(added.Value);
         Assert.Contains(design.Id, build.Dependencies.All);
         Assert.Empty(design.Dependencies.All);
     }
@@ -41,7 +41,7 @@ public class PlanDependencyTests
 
         var again = plan.AddDependency(build.Id, design.Id);
 
-        Assert.True(again.IsSuccess);
+        Assert.IsType<Ok>(again.Value);
         Assert.Equal(1, build.Dependencies.Count);
     }
 
@@ -53,8 +53,8 @@ public class PlanDependencyTests
 
         var added = plan.AddDependency(item.Id, item.Id);
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.self_dependency", added.Error.Code);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.self_dependency", Assert.IsType<Error>(added.Value).Code);
         Assert.Empty(item.Dependencies.All);
     }
 
@@ -68,9 +68,9 @@ public class PlanDependencyTests
 
         var added = plan.AddDependency(design.Id, build.Id);
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.cyclic_dependency", added.Error.Code);
-        Assert.Equal(ErrorType.Conflict, added.Error.Type);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.cyclic_dependency", Assert.IsType<Error>(added.Value).Code);
+        Assert.Equal(ErrorType.Conflict, Assert.IsType<Error>(added.Value).Type);
         Assert.Empty(design.Dependencies.All);
         Assert.Equal(1, build.Dependencies.Count);
     }
@@ -92,8 +92,8 @@ public class PlanDependencyTests
         // for First.
         var added = plan.AddDependency(first.Id, fourth.Id);
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.cyclic_dependency", added.Error.Code);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.cyclic_dependency", Assert.IsType<Error>(added.Value).Code);
         Assert.Empty(first.Dependencies.All);
     }
 
@@ -102,14 +102,14 @@ public class PlanDependencyTests
     {
         var plan = RoadmapPlan.Empty();
         var work = Add(plan, "Finish the work");
-        var release = plan.AddMilestone("1.0", new DateOnly(2026, 2, 1)).Value;
+        var release = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("1.0", new DateOnly(2026, 2, 1)).Value).Value;
 
-        Assert.True(plan.AddDependency(release.Id, work.Id).IsSuccess);
+        Assert.IsType<Ok>(plan.AddDependency(release.Id, work.Id).Value);
 
         var added = plan.AddDependency(work.Id, release.Id);
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.cyclic_dependency", added.Error.Code);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.cyclic_dependency", Assert.IsType<Error>(added.Value).Code);
     }
 
     [Fact]
@@ -121,10 +121,10 @@ public class PlanDependencyTests
         var right = Add(plan, "Right", 12, 16);
         var join = Add(plan, "Join", 19, 23);
 
-        Assert.True(plan.AddDependency(left.Id, root.Id).IsSuccess);
-        Assert.True(plan.AddDependency(right.Id, root.Id).IsSuccess);
-        Assert.True(plan.AddDependency(join.Id, left.Id).IsSuccess);
-        Assert.True(plan.AddDependency(join.Id, right.Id).IsSuccess);
+        Assert.IsType<Ok>(plan.AddDependency(left.Id, root.Id).Value);
+        Assert.IsType<Ok>(plan.AddDependency(right.Id, root.Id).Value);
+        Assert.IsType<Ok>(plan.AddDependency(join.Id, left.Id).Value);
+        Assert.IsType<Ok>(plan.AddDependency(join.Id, right.Id).Value);
 
         Assert.Equal(2, join.Dependencies.Count);
     }
@@ -137,8 +137,8 @@ public class PlanDependencyTests
 
         var added = plan.AddDependency(item.Id, Guid.NewGuid());
 
-        Assert.True(added.IsFailure);
-        Assert.Equal("roadmap.node_not_found", added.Error.Code);
+        Assert.IsType<Error>(added.Value);
+        Assert.Equal("roadmap.node_not_found", Assert.IsType<Error>(added.Value).Code);
         Assert.Empty(item.Dependencies.All);
     }
 
@@ -150,7 +150,7 @@ public class PlanDependencyTests
 
         var removed = plan.RemoveDependency(item.Id, Guid.NewGuid());
 
-        Assert.True(removed.IsSuccess);
+        Assert.IsType<Ok>(removed.Value);
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class PlanDependencyTests
 
         var added = plan.AddDependency(build.Id, design.Id);
 
-        Assert.True(added.IsSuccess);
+        Assert.IsType<Ok>(added.Value);
 
         var contradiction = Assert.Single(plan.Contradictions());
         Assert.Equal(build.Id, contradiction.NodeId);

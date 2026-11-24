@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -19,19 +20,19 @@ public sealed class EventsPaneRemoveTests : EventsPaneFixture
 
         var removed = await Pane.RemoveAsync(duplicate, Token);
 
-        Assert.True(removed.IsSuccess);
+        Assert.IsType<Ok>(removed.Value);
         Assert.Equal([kept], (await Pane.ListAsync(Token)).SelectMany(group => group.Events).Select(e => e.Id));
-        Assert.Equal("knowledge_event.not_found", (await Pane.GetAsync(duplicate, Token)).Error.Code);
-        Assert.Equal("knowledge_event.not_found", (await Pane.RemoveAsync(duplicate, Token)).Error.Code);
+        Assert.Equal("knowledge_event.not_found", Assert.IsType<Error>((await Pane.GetAsync(duplicate, Token)).Value).Code);
+        Assert.Equal("knowledge_event.not_found", Assert.IsType<Error>((await Pane.RemoveAsync(duplicate, Token)).Value).Code);
     }
 
     [Fact]
     public async Task Removing_leaves_the_prep_task_in_tasks()
     {
         var id = await Add("Techorama Belgium");
-        var prep = Assert.Single((await Pane.AddPrepTaskAsync(id, "Book the hotel", Token)).Value.Tasks).TaskId;
+        var prep = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.AddPrepTaskAsync(id, "Book the hotel", Token)).Value).Value.Tasks).TaskId;
 
-        Assert.True((await Pane.RemoveAsync(id, Token)).IsSuccess);
+        Assert.IsType<Ok>((await Pane.RemoveAsync(id, Token)).Value);
 
         Assert.Equal(new EventTaskFactsDto(prep, "Book the hotel", "Draft"), Tasks.Held[prep]);
         Assert.Empty(Tasks.Completed);
@@ -48,10 +49,10 @@ public sealed class EventsPaneRemoveTests : EventsPaneFixture
         var removed = await Pane.RemoveAsync(id, Token);
 
         var opened = await Pane.GetAsync(id, Token);
-        Assert.Equal("knowledge_event.has_harvest_task", removed.Error.Code);
+        Assert.Equal("knowledge_event.has_harvest_task", Assert.IsType<Error>(removed.Value).Code);
         Assert.Equal(saves, Store.Saves);
-        Assert.False(opened.Value.RemoveOffered);
-        Assert.Equal(KnowledgeEventState.Going, opened.Value.State);
+        Assert.False(Assert.IsType<Ok<KnowledgeEventDto>>(opened.Value).Value.RemoveOffered);
+        Assert.Equal(KnowledgeEventState.Going, Assert.IsType<Ok<KnowledgeEventDto>>(opened.Value).Value.State);
         Assert.Contains(id, (await Pane.ListAsync(Token)).SelectMany(group => group.Events).Select(e => e.Id));
     }
 
@@ -62,6 +63,6 @@ public sealed class EventsPaneRemoveTests : EventsPaneFixture
 
         var read = await Pane.AddPrepTaskAsync(id, "Book the hotel", Token);
 
-        Assert.True(read.Value.RemoveOffered);
+        Assert.True(Assert.IsType<Ok<KnowledgeEventDto>>(read.Value).Value.RemoveOffered);
     }
 }

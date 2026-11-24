@@ -110,7 +110,7 @@ internal sealed record KnowledgeEventDocument(
     /// <summary>The value a stored value object's own rules give, or the reason they refuse it,
     /// as the exception that skips the row.</summary>
     internal static T Valid<T>(Result<T> result, string what) =>
-        result.IsSuccess ? result.Value : throw new JsonException($"A knowledge event document's {what} is not valid: {result.Error}.");
+        result.IsSuccess ? result.Unwrap() : throw new JsonException($"A knowledge event document's {what} is not valid: {result.Error}.");
 }
 
 /// <summary>An <see cref="EventDate"/> as stored.</summary>

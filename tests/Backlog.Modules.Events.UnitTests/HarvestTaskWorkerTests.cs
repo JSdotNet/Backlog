@@ -2,6 +2,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Extensions;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -128,9 +129,9 @@ public sealed class HarvestTaskWorkerTests : IDisposable
 
     private async Task Going(string title, DateOnly lastDay)
     {
-        var e = KnowledgeEvent.Create(Guid.NewGuid(), title).Value;
-        Assert.True(e.SetDates(EventDate.Create(lastDay.AddDays(-1), null, null).Value, EventDate.Create(lastDay, null, null).Value, DateSource.Typed).IsSuccess);
-        Assert.True(e.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        var e = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), title).Value).Value;
+        Assert.IsType<Ok>(e.SetDates(Assert.IsType<Ok<EventDate>>(EventDate.Create(lastDay.AddDays(-1), null, null).Value).Value, Assert.IsType<Ok<EventDate>>(EventDate.Create(lastDay, null, null).Value).Value, DateSource.Typed).Value);
+        Assert.IsType<Ok>(e.MoveTo(KnowledgeEventState.Going).Value);
         await _store.SaveAsync(e, Token);
     }
 }

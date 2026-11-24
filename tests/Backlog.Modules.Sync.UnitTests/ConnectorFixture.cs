@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.Connector;
@@ -106,9 +107,8 @@ internal sealed class ConnectorFixture
     /// <summary>The owner makes a secret and the test keeps its plaintext.</summary>
     internal async Task<string> Secret()
     {
-        var created = await CreateSecret.Handle(new CreateConnectorSecretCommand(OwnerDevice), Cancellation);
-        Assert.True(created.IsSuccess);
-        return created.Value.ClientSecret;
+        var created = Assert.IsType<Ok<ConnectorSecretResponse>>((await CreateSecret.Handle(new CreateConnectorSecretCommand(OwnerDevice), Cancellation)).Value).Value;
+        return created.ClientSecret;
     }
 
     /// <summary>A well-formed authorize request for <paramref name="verifier"/>.</summary>
@@ -125,28 +125,25 @@ internal sealed class ConnectorFixture
     /// <summary>The authorize request through GitHub, answered with the service state GitHub carried.</summary>
     internal async Task<string> StartedSignIn(string verifier)
     {
-        var started = await Start.Handle(Authorize(verifier), Cancellation);
-        Assert.True(started.IsSuccess);
-        Assert.Equal("github.test", started.Value.Host);
-        return Query(started.Value, "state")!;
+        var started = Assert.IsType<Ok<Uri>>((await Start.Handle(Authorize(verifier), Cancellation)).Value).Value;
+        Assert.Equal("github.test", started.Host);
+        return Query(started, "state")!;
     }
 
     /// <summary>The owner's sign-in up to the consent page, answered with its ticket.</summary>
     internal async Task<string> ConsentTicket(string verifier)
     {
         var state = await StartedSignIn(verifier);
-        var outcome = await SignIn.Handle(new CompleteConnectorSignInCommand(state, OwnerCode), Cancellation);
-        Assert.True(outcome.IsSuccess);
-        return outcome.Value.ConsentTicket!;
+        var outcome = Assert.IsType<Ok<ConnectorSignInOutcome>>((await SignIn.Handle(new CompleteConnectorSignInCommand(state, OwnerCode), Cancellation)).Value).Value;
+        return outcome.ConsentTicket!;
     }
 
     /// <summary>The whole authorization as the owner, ending in the code claude.ai receives.</summary>
     internal async Task<string> AuthorizationCode(string verifier)
     {
         var ticket = await ConsentTicket(verifier);
-        var decided = await Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: true), Cancellation);
-        Assert.True(decided.IsSuccess);
-        return Query(decided.Value, "code")!;
+        var decided = Assert.IsType<Ok<Uri>>((await Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: true), Cancellation)).Value).Value;
+        return Query(decided, "code")!;
     }
 
     /// <summary>A code exchanged for tokens under <paramref name="secret"/>.</summary>

@@ -84,14 +84,20 @@ public sealed class InferBatchOrderQueryHandler(
                 repositories[item.Id]))]);
 
         var draft = await drafter.DraftAsync(request, cancellationToken).ConfigureAwait(false);
-        if (draft.IsFailure) return draft.Error;
+        if (draft is not Ok<InboxPlanDraftDto>(var drafted))
+        {
+            return (Error)draft.Value!;
+        }
 
-        var edges = target.ReadDraftedOrder(draft.Value.PlanMarkdown, [.. batch.Select(item => item.Id)], allowed);
-        if (edges.IsFailure) return edges.Error;
+        var read = target.ReadDraftedOrder(drafted.PlanMarkdown, [.. batch.Select(item => item.Id)], allowed);
+        if (read is not Ok<IReadOnlyList<InboxBatchEdge>>(var edges))
+        {
+            return (Error)read.Value!;
+        }
 
         var titles = batch.ToDictionary(item => item.Id, item => item.Title);
 
-        return Result.Success<IReadOnlyList<ProposedDependency>>([.. edges.Value.Select(edge => new ProposedDependency(
+        return Result.Success<IReadOnlyList<ProposedDependency>>([.. edges.Select(edge => new ProposedDependency(
             edge.From,
             DependencyTarget.ForItem(edge.To, titles[edge.To]),
             Reason,

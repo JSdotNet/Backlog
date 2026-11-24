@@ -29,8 +29,8 @@ public sealed class SetPlannedHoursTests
 
         var result = await Handle(store, entry.Id, [new(Monday.AddDays(2), 2m), new(Monday, 3m)]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([new PlannedHoursDto(Monday, 3m), new PlannedHoursDto(Monday.AddDays(2), 2m)], result.Value.PlannedHours);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal([new PlannedHoursDto(Monday, 3m), new PlannedHoursDto(Monday.AddDays(2), 2m)], ok.Value.PlannedHours);
         Assert.Equal([Monday, Monday.AddDays(2)], store.Entries[entry.Id].PlannedHours.Select(block => block.On));
         Assert.Equal(1, store.Writes);
     }
@@ -45,7 +45,7 @@ public sealed class SetPlannedHoursTests
 
         var result = await Handle(store, entry.Id, [new(Monday, 3m), new(Monday, 5m)]);
 
-        Assert.Equal([new PlannedHoursDto(Monday, 5m)], result.Value.PlannedHours);
+        Assert.Equal([new PlannedHoursDto(Monday, 5m)], Assert.IsType<Ok<TaskItemDto>>(result.Value).Value.PlannedHours);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class SetPlannedHoursTests
 
         var result = await Handle(store, entry.Id, [new(Monday, 2.4m)]);
 
-        Assert.Equal(2.5m, Assert.Single(result.Value.PlannedHours).Hours);
+        Assert.Equal(2.5m, Assert.Single(Assert.IsType<Ok<TaskItemDto>>(result.Value).Value.PlannedHours).Hours);
     }
 
     [Fact]
@@ -70,8 +70,8 @@ public sealed class SetPlannedHoursTests
 
         var result = await Handle(store, entry.Id, []);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.PlannedHours);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Empty(ok.Value.PlannedHours);
         Assert.Empty(store.Entries[entry.Id].PlannedHours);
     }
 
@@ -91,9 +91,9 @@ public sealed class SetPlannedHoursTests
 
         var result = await Handle(store, entry.Id, [new(Monday.AddDays(1), 2m), new(Monday.AddDays(2), (decimal)hours)]);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
-        Assert.Equal(SetPlannedHoursCommandHandler.InvalidHoursCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(SetPlannedHoursCommandHandler.InvalidHoursCode, error.Code);
         Assert.Equal(0, store.Writes);
         Assert.Equal([PlannedHoursBlock.Create(Monday, 3m)], store.Entries[entry.Id].PlannedHours);
     }
@@ -103,8 +103,8 @@ public sealed class SetPlannedHoursTests
     {
         var result = await Handle(new InMemoryTaskRepository(), Guid.NewGuid(), [new(Monday, 3m)]);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.NotFound, error.Type);
     }
 
     /// <summary>The blocks are not in the text, so a save of the text leaves them where
@@ -121,8 +121,8 @@ public sealed class SetPlannedHoursTests
             new SaveTaskFromTextCommand(entry.Id, "# Refactor sync, renamed\n`task` `!ready`\n\nA new body.\n", 0),
             TestContext.Current.CancellationToken);
 
-        Assert.True(saved.IsSuccess);
-        Assert.Equal([new PlannedHoursDto(Monday, 3m)], saved.Value.Entry.PlannedHours);
+        var savedOk = Assert.IsType<Ok<SavedTaskDto>>(saved.Value);
+        Assert.Equal([new PlannedHoursDto(Monday, 3m)], savedOk.Value.Entry.PlannedHours);
         Assert.Equal([PlannedHoursBlock.Create(Monday, 3m)], store.Entries[entry.Id].PlannedHours);
         Assert.DoesNotContain("3h", store.Entries[entry.Id].ContentMd, StringComparison.Ordinal);
         Assert.DoesNotContain("2026-10-12", store.Entries[entry.Id].ContentMd, StringComparison.Ordinal);

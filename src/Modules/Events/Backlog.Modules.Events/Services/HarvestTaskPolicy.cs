@@ -129,11 +129,11 @@ internal sealed class HarvestTaskPolicy(
         var taskId = HarvestTaskId(due.Id).ToString("D");
 
         var filed = await tasks.FileOnceAsync(taskId, TitlePrefix + due.Title, cancellationToken).ConfigureAwait(false);
-        if (filed.IsFailure) return false;
+        if (filed is not Ok<bool>(var filedNow)) return false;
 
         if (await events.GetAsync(due.Id, cancellationToken).ConfigureAwait(false) is not { } current
             || !IsDue(current, today)
-            || current.LinkHarvestTask(taskId).IsFailure)
+            || current.LinkHarvestTask(taskId) is Error)
         {
             _log.LogWarning("Harvest task {TaskId} is held but event {EventId} changed meanwhile, so it was not linked.", taskId, due.Id);
             return false;
@@ -141,7 +141,7 @@ internal sealed class HarvestTaskPolicy(
 
         await events.SaveAsync(current, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
-        return filed.Value;
+        return filedNow;
     }
 
     /// <summary>Not removed, Going, and its last day — the end, else the start — is before

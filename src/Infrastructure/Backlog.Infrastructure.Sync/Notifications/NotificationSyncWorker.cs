@@ -232,7 +232,7 @@ public sealed class NotificationSyncWorker : IDisposable, INotificationNudgeTarg
 
             if (result.IsSuccess)
             {
-                LastSummary = result.Value;
+                LastSummary = result.Unwrap();
                 LastError = null;
             }
             else

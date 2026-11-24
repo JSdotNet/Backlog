@@ -22,36 +22,36 @@ public sealed class AttachWorkCommandHandler(GoalChanges changes, TimeProvider c
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var item = AttachmentOf(command.Item, DateOnly.FromDateTime(clock.GetLocalNow().DateTime));
-        if (item.IsFailure) return Task.FromResult(Result.Failure<GoalDto>(item.Error));
-
-        return changes.ChangeAsync(
-            command.GoalId,
-            (all, goal) =>
-            {
-                var assigned = GoalAssignment.Assign(all, goal, item.Value, command.MoveFromOtherGoal);
-                if (assigned.IsFailure) return Result.Failure<IReadOnlyList<Goal>>(assigned.Error);
-
-                return Result.Success<IReadOnlyList<Goal>>(assigned.Value is { } movedFrom ? [movedFrom] : []);
-            },
-            cancellationToken);
+        return AttachmentOf(command.Item, DateOnly.FromDateTime(clock.GetLocalNow().DateTime)) switch
+        {
+            Ok<GoalAttachment>(var item) => changes.ChangeAsync(
+                command.GoalId,
+                (all, goal) => GoalAssignment.Assign(all, goal, item, command.MoveFromOtherGoal) switch
+                {
+                    Ok<Goal?>(var moved) => Result.Success<IReadOnlyList<Goal>>(moved is { } movedFrom ? [movedFrom] : []),
+                    Error error => Result.Failure<IReadOnlyList<Goal>>(error),
+                },
+                cancellationToken),
+            Error error => Task.FromResult(Result.Failure<GoalDto>(error)),
+        };
     }
 
     public Task<Result<GoalDto>> Handle(DetachFromGoalCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var item = AttachmentOf(command.Item, DateOnly.MinValue);
-        if (item.IsFailure) return Task.FromResult(Result.Failure<GoalDto>(item.Error));
-
-        return changes.ChangeAsync(
-            command.GoalId,
-            (_, goal) =>
-            {
-                goal.Detach(item.Value);
-                return Result.Success<IReadOnlyList<Goal>>([]);
-            },
-            cancellationToken);
+        return AttachmentOf(command.Item, DateOnly.MinValue) switch
+        {
+            Ok<GoalAttachment>(var item) => changes.ChangeAsync(
+                command.GoalId,
+                (_, goal) =>
+                {
+                    goal.Detach(item);
+                    return Result.Success<IReadOnlyList<Goal>>([]);
+                },
+                cancellationToken),
+            Error error => Task.FromResult(Result.Failure<GoalDto>(error)),
+        };
     }
 
     /// <summary>The attachment a caller's item names.</summary>

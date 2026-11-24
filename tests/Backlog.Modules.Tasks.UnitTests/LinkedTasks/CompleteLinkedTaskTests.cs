@@ -310,8 +310,8 @@ public sealed class CompleteLinkedTaskTests
             new CompleteLinkedTaskCommand(taskId),
             cancellationToken ?? TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<LinkedTaskWriteBackOutcome>>(result.Value);
+        return ok.Value;
     }
 
     private TaskItem Seed(TaskItem task)

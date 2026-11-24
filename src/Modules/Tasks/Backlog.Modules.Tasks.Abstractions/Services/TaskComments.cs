@@ -134,11 +134,14 @@ public static class TaskComments
             .SaveFromTextAsync(entry.Id, EntryTextParser.ReplaceParentText(raw, appended), entry.Order, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        if (saved.IsFailure) return Result.Failure<TaskItemDto>(saved.Error);
+        if (saved is not Ok<SavedTaskDto>(var savedTask))
+        {
+            return (Error)saved.Value!;
+        }
 
         await entries.RecordUsageAsync(entry.Id, usageAction, cancellationToken).ConfigureAwait(false);
 
-        return saved.Value.Entry;
+        return savedTask.Entry;
     }
 
     private static string Normalize(string? text) =>

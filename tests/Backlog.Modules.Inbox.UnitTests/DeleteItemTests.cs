@@ -5,6 +5,7 @@ using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -28,7 +29,7 @@ public sealed class DeleteItemTests
 
         var result = await Delete(store, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Empty(store.Items);
         Assert.Empty(store.DeletedCaptures);
         Assert.Empty(await new InboxCaptureOutbox(store).ListPendingAsync(TestContext.Current.CancellationToken));
@@ -39,7 +40,7 @@ public sealed class DeleteItemTests
     {
         var result = await Delete(new InMemoryInboxStore(), Guid.CreateVersion7());
 
-        Assert.Equal(InboxErrors.ItemNotFound, result.Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(result.Value));
     }
 
     /// <summary>The acknowledgement is part of the change: an open item from the
@@ -184,7 +185,7 @@ public sealed class DeleteItemTests
         var result = await new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Items.Noon.AddMinutes(5)))
             .Handle(new ReceiveCaptureCommand(capture), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<InboxIntakeOutcome>>(result.Value);
+        return ok.Value;
     }
 }

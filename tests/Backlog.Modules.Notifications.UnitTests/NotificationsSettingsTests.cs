@@ -2,6 +2,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Services;
 using Backlog.Modules.Notifications.UI;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Bunit;
 
@@ -205,7 +206,7 @@ public sealed class NotificationsSettingsTests : IDisposable
         var accepted = await _owner.AcceptReplyAsync(
             new NotificationReply(Guid.NewGuid(), question.Id, Owner, Phone, [TestNotifications.ItWorksChoiceId], null, Now),
             Ct);
-        Assert.True(accepted.IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(accepted.Value);
 
         page.WaitForAssertion(() => Assert.StartsWith(
             "Answered: It works — from another device",
@@ -229,7 +230,7 @@ public sealed class NotificationsSettingsTests : IDisposable
         var accepted = await _owner.AcceptReplyAsync(
             new NotificationReply(Guid.NewGuid(), question.Id, Owner, Phone, [], "Buzzed on the lock screen", Now),
             Ct);
-        Assert.True(accepted.IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(accepted.Value);
 
         page.WaitForAssertion(() => Assert.StartsWith(
             "Answered: “Buzzed on the lock screen” — from another device",

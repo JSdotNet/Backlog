@@ -542,7 +542,7 @@
         {
             _errors.Remove(field);
             _saved = true;
-            await OnSaved.InvokeAsync(saved.Value);
+            await OnSaved.InvokeAsync(saved);
         });
         if (refused is not { } error) return;
 
@@ -551,19 +551,36 @@
     }
 
     /// <summary>Runs one write through the pane's queue, counted while it is out, and hands
-    /// what held to <paramref name="held"/>. Answers why it did not hold, or null when it did;
+    /// the value it saved to <paramref name="held"/>. Answers why it did not hold, or null when it did;
     /// a write that threw answers the same way, its words led by <paramref name="threw"/>.</summary>
-    private async Task<Error?> RunWriteAsync<TResult>(Func<Task<TResult>> write, string threw, Func<TResult, Task> held)
-        where TResult : Result
+    private Task<Error?> RunWriteAsync<TValue>(Func<Task<Result<TValue>>> write, string threw, Func<TValue, Task> held) =>
+        RunCountedAsync(async () =>
+        {
+            var result = await Writes.RunAsync(write);
+            if (result is not Ok<TValue>(var value)) return (Error)result.Value!;
+
+            await held(value);
+            return null;
+        }, threw);
+
+    /// <inheritdoc cref="RunWriteAsync{TValue}"/>
+    private Task<Error?> RunWriteAsync(Func<Task<Result>> write, string threw, Func<Task> held) =>
+        RunCountedAsync(async () =>
+        {
+            if (await Writes.RunAsync(write) is Error error) return error;
+
+            await held();
+            return null;
+        }, threw);
+
+    /// <summary>Runs <paramref name="run"/> counted while it is out; a run that threw answers
+    /// why, its words led by <paramref name="threw"/>.</summary>
+    private async Task<Error?> RunCountedAsync(Func<Task<Error?>> run, string threw)
     {
         _inFlight++;
         try
         {
-            var result = await Writes.RunAsync(write);
-            if (result.IsFailure) return result.Error;
-
-            await held(result);
-            return null;
+            return await run();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -692,7 +709,7 @@
         await FlushOnLeaveAsync();
 
         var id = Event.Id;
-        var refused = await RunWriteAsync(() => Pane.RemoveAsync(id), "Could not remove: ", _ => OnRemoved.InvokeAsync(id));
+        var refused = await RunWriteAsync(() => Pane.RemoveAsync(id), "Could not remove: ", () => OnRemoved.InvokeAsync(id));
         if (refused is { } error && error.Code == EventsErrors.KnowledgeEventNotFound(id).Code)
         {
             await OnRemoved.InvokeAsync(id);
@@ -883,15 +900,15 @@
                 _seriesName,
                 string.IsNullOrWhiteSpace(_seriesOrganiser) ? null : _seriesOrganiser,
                 string.IsNullOrWhiteSpace(_seriesLink) ? null : _seriesLink);
-            if (started.IsFailure)
+            if (started is not Ok<EventSeriesDto>(var series))
             {
-                _errors["series"] = started.Error.Message;
+                _errors["series"] = ((Error)started.Value!).Message;
                 return;
             }
 
             await LoadSeriesAsync();
             var id = Event.Id;
-            var seriesId = started.Value.Id;
+            var seriesId = series.Id;
             await WriteAsync("series", () => Pane.SetSeriesAsync(id, seriesId));
             if (Error("series") is null) _startingSeries = false;
         }
