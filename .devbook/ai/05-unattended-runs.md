@@ -41,13 +41,11 @@ Every schedule runs one `schedule-*` entry point under the same preamble:
   the comment.
 
 A change lands as a pull request from a `schedule/<name>/<date>` branch, as a draft whenever
-anything failed. A job in a bundle always lands it as a draft and never marks one ready. A
-run's report is the last message of its session. An issue is opened only where a skill files
-a finding someone must work.
+anything failed. A run's report is the last message of its session on the host's Routines
+page, and an issue is opened only where a skill files a finding someone must work.
 
-In a bundle, no job opens an issue, and a weekend job comments on, labels, and closes no
-issue. The bundle ends in one report, the last message of its own session on the host's
-Routines page.
+A bundle is stricter. Every change it lands stays a draft, no job opens an issue, a weekend
+job comments on, labels, and closes no issue, and the whole bundle ends in one report.
 
 - **Used for** — every schedule below.
 - **Adopted by** — the schedules this repository selected under `components.schedule` in
@@ -286,7 +284,6 @@ rating: candidate
 type: workflow
 stage: [operate]
 substage: [operate/security]
-feeds: [".devbook/ai/05-unattended-runs.md#scheduled-issue-sweep: would report findings"]
 evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26

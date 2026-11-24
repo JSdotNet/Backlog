@@ -97,9 +97,8 @@ graph LR
     u17 -->|drift found| u18
     u20 -->|would enter Decide| u10
     u22 -->|draft pull requests park here| u18
-    u24 -->|drift issues| u25
+    u24 -->|the drift table| u25
     u25 -->|draft pull requests| u18
-    u29 -->|would open issues| u22
     classDef adopted fill:#1a3a22,stroke:#72c086,color:#f8f9fa
     classDef trial fill:#3d2e00,stroke:#d4a72c,color:#f8f9fa
     classDef candidate fill:#202023,stroke:#737379,stroke-dasharray:4 3,color:#f8f9fa
@@ -134,10 +133,11 @@ hand-off its `feeds` records.
   usage of its own. The emptiness is the finding, not a gap to fill.
 - **Production does not reach `decide` yet.** Alerts to work items would close the loop
   from `operate`, but it is a `candidate` whose workflow fails its preflight. The security
-  review would open issues for the issue sweep, and is kept out on purpose.
+  review would only add its findings to a bundle report, and is kept out on purpose.
 - **The layers carry the rest.** The spec ↔ code thread is written at `specify` and checked
   at `verify`; the sync sweeps that would level it between runs are a `candidate`. The
-  upkeep loop's three schedules land pull requests at `integrate`. The harness holds what
+  upkeep loop's devbook and instruction schedules land draft pull requests at `integrate`;
+  package update leaves each major bump to a person. The harness holds what
   every session stands on: roles, worktrees, rules, run tracking, and telemetry. It also
   holds the limits every schedule runs under, and the retired guidance servers.
 
