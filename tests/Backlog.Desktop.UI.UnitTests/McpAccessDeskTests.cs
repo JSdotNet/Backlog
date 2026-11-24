@@ -358,10 +358,10 @@ public sealed class McpAccessDeskTests : IDisposable
     }
 
     [Fact]
-    public void Request_access_meets_the_caller_policy_and_no_scope_s()
+    public void Request_access_meets_the_requester_policy_and_no_scope_s()
     {
-        Assert.Equal(McpScopePolicies.Caller, McpScopePolicies.ToolPolicy("request_access"));
-        Assert.Equal(McpScopePolicies.Caller, McpScopePolicies.ToolPolicy("REQUEST_ACCESS"));
+        Assert.Equal(McpScopePolicies.Requester, McpScopePolicies.ToolPolicy("request_access"));
+        Assert.Equal(McpScopePolicies.Requester, McpScopePolicies.ToolPolicy("REQUEST_ACCESS"));
         Assert.Equal(McpScopePolicies.PolicyName(McpScopes.AgentsGrant), McpScopePolicies.ToolPolicy("grant_agent"));
         Assert.Equal(McpScopePolicies.Fallback, McpScopePolicies.ToolPolicy("no_such_tool"));
     }

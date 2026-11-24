@@ -116,6 +116,16 @@ public sealed class CosmosOptions
     public string ConnectorCredentialsContainerName { get; set; } = "connectorCredentials";
 
     /// <summary>
+    /// The container holding spent device assertion ids (local ADR 0058 §2), partitioned
+    /// on <c>/id</c> — the hash of the device id and the assertion's <c>jti</c>. Spending
+    /// is one create, so every instance of the service sees what another took. Each
+    /// document carries its own <c>ttl</c>, from the last moment the assertion could be
+    /// taken plus a grace, so it is derived rather than configured here.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string AssertionReplaysContainerName { get; set; } = "assertionReplays";
+
+    /// <summary>
     /// How long a tombstone is kept, in seconds — 180 days by default.
     /// <para>
     /// The bound is how long a device may be offline and still converge. Below

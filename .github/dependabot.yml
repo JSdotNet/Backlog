@@ -45,6 +45,11 @@ updates:
           - xunit.*
           - bunit
           - Microsoft.Testing.*
+      # ModelContextProtocol.AspNetCore pins ModelContextProtocol to its own exact version,
+      # so bumping one alone is an NU1107 conflict in Backlog.Desktop.
+      mcp:
+        patterns:
+          - ModelContextProtocol*
     ignore:
       # MauiVersion in Directory.Build.props owns these; they move in lockstep with the workload.
       - dependency-name: Microsoft.Maui.*
@@ -56,6 +61,9 @@ updates:
       - dependency-name: Aspire.*
         update-types:
           - version-update:semver-major
+      # Pinned to the version Aspire.Microsoft.Azure.Cosmos resolves (Directory.Packages.props):
+      # it moves with that package, by hand, never on its own.
+      - dependency-name: Microsoft.Azure.Cosmos
 
   - package-ecosystem: npm
     directory: /src/App/Backlog.Ide.VsCode

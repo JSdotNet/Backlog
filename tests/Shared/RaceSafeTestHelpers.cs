@@ -5,7 +5,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Tests;
 
 /// <summary>
 /// Gestures and file reads for a test whose component is still busy when the test acts.
@@ -22,6 +22,12 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The gestures here therefore find the control and dispatch to it in one turn of the
 /// renderer, and await the handler. When one returns, the event has been handled and its
 /// render has landed. This follows commits 2538f244 and 090eeff3.
+/// </para>
+/// <para>
+/// Linked by the projects that render a busy pane rather than from
+/// <c>tests/Directory.Build.props</c>, because it needs bUnit:
+/// <c>Backlog.Desktop.UI.UnitTests</c> and <c>Backlog.Modules.Sessions.UnitTests</c>, whose
+/// Sessions pane keeps landing renders from its sources' background raises.
 /// </para>
 /// <para>
 /// A file a component writes is read through <see cref="ReadOrNull"/> inside a

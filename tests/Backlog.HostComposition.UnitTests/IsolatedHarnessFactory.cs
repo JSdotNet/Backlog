@@ -82,6 +82,16 @@ internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFact
     protected virtual void ConfigureHarness(IWebHostBuilder builder)
     {
     }
+
+    /// <summary>Stops the host, then lets go of the databases it pooled in this
+    /// factory's workspace, so they close now rather than at the process's exit; see
+    /// <see cref="HarnessDatabases"/>. <c>Dispose()</c> comes here as well.</summary>
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync().ConfigureAwait(false);
+
+        HarnessDatabases.Release(_workspace);
+    }
 }
 
 /// <summary>
@@ -146,9 +156,14 @@ internal static class HarnessIsolation
             Environment.SetEnvironmentVariable(variable, path);
         }
 
-        // Best effort: a pooled SQLite connection may still hold a database open,
-        // and a temporary folder left behind is the operating system's to clear.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => Temp.Dispose();
+        // Each factory lets go of its own workspace's databases; the machine files are
+        // shared by every factory, so theirs go here, once nothing runs. Best effort
+        // still: a temporary folder left behind is the operating system's to clear.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            HarnessDatabases.Release(machine);
+            Temp.Dispose();
+        };
     }
 
     /// <summary>

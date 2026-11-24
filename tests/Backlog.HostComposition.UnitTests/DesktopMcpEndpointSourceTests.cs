@@ -102,7 +102,7 @@ public sealed class DesktopMcpEndpointSourceTests : IDisposable
     /// until it says the listener holds <paramref name="port"/>.</summary>
     private static async Task ListeningAsync(IMcpEndpointSource source, int port)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var deadline = DateTime.UtcNow + ListenerPatience.Bound;
         var changed = new SemaphoreSlim(0);
         void OnChanged() => changed.Release();
         source.Changed += OnChanged;

@@ -532,6 +532,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     public void Dispose()
     {
         _provider?.Dispose();
+        HarnessDatabases.Release(_temp.Path);
         _temp.Dispose();
     }
 
