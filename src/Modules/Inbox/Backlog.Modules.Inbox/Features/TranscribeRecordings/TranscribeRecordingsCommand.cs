@@ -17,18 +17,20 @@ public sealed record TranscribeRecordingsCommand(Guid NoteId);
 /// A note's recordings, from download to removal (local ADR 0049): each recording whose
 /// sha256 this desktop has not transcribed is sent, once downloaded, to the transcriber;
 /// the note is read again after it answers, <c>## Transcript</c> and <c>## Summary</c> are
-/// appended to that body, the recording is taken off the note in the same save, and the
-/// sha256 is recorded with the sections written.
+/// appended to that body, the recording is taken off the note in the same save, the
+/// sha256 is recorded with the sections written, and the recording's copy on this machine
+/// is deleted — best effort, since the record alone keeps it from being sent again.
 /// <para>
 /// <b>Never on failure.</b> A refused part, a failed summary, a file that cannot be read,
-/// a failed save, or Foundry not configured leaves the body and the file as they were and
-/// marks nothing transcribed, so the next request — the next pull, the next start — tries
-/// again and the recording still plays.
+/// a failed save, Foundry not configured, or a file not downloaded yet leaves the body and
+/// the file as they were and marks nothing transcribed, so the next request — the next
+/// pull, the next start — tries again and the recording still plays.
 /// </para>
 /// <para>
-/// <b>At most three attempts.</b> Each of those failures but the last — Foundry not
-/// configured, or the file not downloaded yet — counts one attempt in the file's failure
-/// record. After the third the file is not sent until a person's Retry
+/// <b>At most three attempts.</b> A refused part, a failed summary, a file that cannot be
+/// read, or a failed save counts one attempt in the file's failure record; Foundry not
+/// configured and a file not downloaded yet count none, because nothing was tried. After
+/// the third the file is not sent until a person's Retry
 /// (<see cref="RetryTranscription.RetryTranscriptionCommand"/>), and a success removes
 /// the record. This is a budget per file across take-ups, not a retry loop: the adapter
 /// keeps guideline ADR 0015's transient retry per call, and answers one
@@ -76,7 +78,12 @@ public sealed partial class TranscribeRecordingsCommandHandler(
             var record = await records.FindAsync(recording.Sha256, cancellationToken).ConfigureAwait(false);
             if (record is not null)
             {
-                if (await WriteAsync(command.NoteId, recording.Id, record.SectionsMd, cancellationToken).ConfigureAwait(false)) written++;
+                if (await WriteAsync(command.NoteId, recording.Id, record.SectionsMd, cancellationToken).ConfigureAwait(false))
+                {
+                    written++;
+                    await RemoveLocalCopyAsync(recording.LocalPath, recording.Id, command.NoteId, cancellationToken).ConfigureAwait(false);
+                }
+
                 continue;
             }
 
@@ -98,7 +105,9 @@ public sealed partial class TranscribeRecordingsCommandHandler(
     {
         if (transcriber is not { IsAvailable: true } || files is null || !recording.IsDownloaded) return false;
 
-        var audio = await files.ReadAsync(recording.LocalPath!, cancellationToken).ConfigureAwait(false);
+        // Held from here: once the note is saved without the recording, the path is nowhere else.
+        var localPath = recording.LocalPath!;
+        var audio = await files.ReadAsync(localPath, cancellationToken).ConfigureAwait(false);
         if (audio is null)
         {
             LogUnreadable(_logger, recording.Id, noteId);
@@ -118,6 +127,10 @@ public sealed partial class TranscribeRecordingsCommandHandler(
         // the transcript is appended to that body, not to the one read before sending.
         var current = await items.GetAsync(noteId, cancellationToken).ConfigureAwait(false);
         if (current is null || current.Attachments.All(attachment => attachment.Id != recording.Id)) return false;
+
+        // The copy to delete is the one the saved note names: the intake may have downloaded
+        // the recording again, under a moved workspace, while it was out.
+        localPath = current.Attachments.First(attachment => attachment.Id == recording.Id).LocalPath ?? localPath;
 
         var sections = Sections(current.BodyMd, answer.Value);
         try
@@ -148,8 +161,27 @@ public sealed partial class TranscribeRecordingsCommandHandler(
             LogFailureRecordUnwritable(_logger, failure, recording.Id);
         }
 
+        await RemoveLocalCopyAsync(localPath, recording.Id, noteId, cancellationToken).ConfigureAwait(false);
+
         LogWritten(_logger, recording.Id, noteId);
         return true;
+    }
+
+    /// <summary>Deletes the recording's copy on this machine once the note no longer names it.
+    /// Best effort, for the reason clearing the failure record is: the transcript is written and
+    /// recorded, and a file left behind costs disk space, not a second transcription.</summary>
+    private async Task RemoveLocalCopyAsync(string? localPath, Guid recordingId, Guid noteId, CancellationToken cancellationToken)
+    {
+        if (files is null || string.IsNullOrWhiteSpace(localPath)) return;
+
+        try
+        {
+            await files.RemoveFileAsync(localPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (IsFileFailure(failure))
+        {
+            LogLocalCopyUndeletable(_logger, failure, recordingId, noteId);
+        }
     }
 
     internal const string UnreadableReason = "The recording could not be read on this machine.";
@@ -208,6 +240,9 @@ public sealed partial class TranscribeRecordingsCommandHandler(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The failed attempts at recording {AttachmentId} could not be written; its attempt count is not current.")]
     private static partial void LogFailureRecordUnwritable(ILogger logger, Exception exception, Guid attachmentId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The local copy of recording {AttachmentId} of note {NoteId} could not be deleted; its transcript is written and it is not sent again.")]
+    private static partial void LogLocalCopyUndeletable(ILogger logger, Exception exception, Guid attachmentId, Guid noteId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Recording {AttachmentId} of note {NoteId} is marked downloaded but could not be read.")]
     private static partial void LogUnreadable(ILogger logger, Guid attachmentId, Guid noteId);

@@ -14,10 +14,6 @@ namespace Backlog.Infrastructure.AzureFoundry;
 /// </summary>
 public static class AdtsRemuxer
 {
-    /// <summary>The part length ADR 0049 §3 sends: under the 15-to-30-minute synchronous limit
-    /// with room to spare.</summary>
-    public static readonly TimeSpan DefaultPartLength = AacRemuxer.DefaultPartLength;
-
     /// <summary>AAC-LC and its siblings code 1024 samples per raw data block.</summary>
     private const int SamplesPerBlock = 1024;
 

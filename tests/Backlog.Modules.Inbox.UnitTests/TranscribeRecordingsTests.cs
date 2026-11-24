@@ -10,6 +10,7 @@ using Backlog.Modules.Inbox.Features.TranscribeRecordings;
 using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Inbox.UnitTests;
@@ -52,6 +53,25 @@ public sealed class TranscribeRecordingsTests
         Assert.Equal(recording.Sha256, record.Sha256);
         Assert.Equal(note.Id, record.NoteId);
         Assert.EndsWith("- [ ] Send the minutes", record.SectionsMd);
+
+        Assert.Equal([Path(note, recording)], _files.RemovedFiles);
+        Assert.DoesNotContain(Path(note, recording), _files.Files.Keys);
+    }
+
+    [Fact]
+    public async Task A_file_that_cannot_be_deleted_still_counts_the_recording_transcribed_and_logs_a_warning()
+    {
+        var (note, recording) = NoteWithRecording();
+        _files.ThrowOnRemove = new IOException("The file is in use.");
+        var logger = new RecordingLogger<TranscribeRecordingsCommandHandler>();
+
+        var written = await new TranscribeRecordingsCommandHandler(_store, new FakeTimeProvider(Now), _records, _transcriber, _files, logger)
+            .Handle(new TranscribeRecordingsCommand(note.Id), Cancellation);
+
+        Assert.Equal(1, written.Value);
+        Assert.Equal(recording.Sha256, Assert.Single(_records.Saved).Sha256);
+        Assert.DoesNotContain(_store.Items[note.Id].Attachments, attachment => attachment.Id == recording.Id);
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Exception is IOException);
     }
 
     [Fact]
@@ -91,6 +111,8 @@ public sealed class TranscribeRecordingsTests
         Assert.Contains(kept.Attachments, attachment => attachment.Id == recording.Id);
         Assert.False(kept.NotePushPending);
         Assert.Empty(_records.Saved);
+        Assert.Empty(_files.RemovedFiles);
+        Assert.Equal(recording.Bytes, _files.Files[Path(note, recording)]);
 
         var failure = await _records.FindFailureAsync(recording.Sha256, Cancellation);
         Assert.Equal(1, failure?.Attempts);
@@ -332,6 +354,18 @@ public sealed class TranscribeRecordingsTests
 
         Assert.Empty(_transcriber.Sent);
         Assert.DoesNotContain(_store.Items[note.Id].Attachments, attachment => attachment.Id == recording.Id);
+    }
+
+    [Fact]
+    public async Task A_repaired_recording_that_was_downloaded_again_is_deleted_from_disk()
+    {
+        var (note, recording) = NoteWithRecording();
+        _records.Seed(recording.Sha256, note.Id, recording.Id, "## Transcript\n\n[00:00:00] Earlier.\n\n## Summary\n\nEarlier.");
+
+        Assert.Equal(1, await Handle(note.Id));
+
+        Assert.Equal([Path(note, recording)], _files.RemovedFiles);
+        Assert.DoesNotContain(Path(note, recording), _files.Files.Keys);
     }
 
     [Fact]
