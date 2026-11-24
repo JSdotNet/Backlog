@@ -57,7 +57,7 @@
     control whose something is off screen is a dead button: the GitHub check
     refreshes the task list, and Ask AI answers from the content of an open area —
     so each of them renders only while what it acts on does. The view switch, the
-    Inbox and Devbook toggles, the takeover groups and the identity region stay,
+    Inbox and Devbook toggles, the takeover groups and the repository scope stay,
     because they are true of the screen whatever is on it; during a takeover the
     view switch is the way back, since pressing a view closes the takeover and
     shows the workspace.
@@ -74,9 +74,9 @@
 @{ _drawnShellInputs = ReadShellInputs(); }
 
 <div class="shell shell--wide">
-    @* The header is four regions rather than one row of controls: who you are and
-       over which repositories, what you are looking at, how the workspace is
-       doing, and the things that cut across all of it.
+    @* The header is three regions rather than one row of controls: what you are
+       looking at and over which repositories, how the workspace is doing, and the
+       things that cut across all of it.
 
        They used to be one flat strip of near-identical pills, which made a
        multi-select, an exclusive view switch, a panel disclosure and two modal
@@ -93,98 +93,16 @@
        says what it does on hover. Only when every tier is folded and the row still does
        not fit does the header wrap. *@
     <header class="app-header" @ref="_header">
-        @* Region A. It used to open with a "Backlog" wordmark, set smaller than the
-           other screens' `.app-header h1` to say it was chrome rather than a page
-           title. The window border says the name already, so the wordmark was the
-           app telling you twice which app you were in and spending the width of the
-           word to do it — the region now opens on the repository scope, which is
-           what the identity region was actually for. *@
-        <div class="app-header__identity">
-            @* The scope renders always, with the Brain chip alone when no repository is
-               configured (local ADR 0027): the Brain depends on no machine and no
-               repository, so a person with only the Brain still has a working header. *@
-            @{
-                @* One repository on a plain press, one more with Ctrl held — while the
-                   task list, the dashboard or the session list is on screen; see ScopeRepository below.
-                   The anchor — the first one taken, the one Devbook reads — is marked only
-                   once a second chip is pressed: with one chip there is nothing for it
-                   to be distinct from, and the markup stays exactly what the single
-                   select produced.
-
-                   Fused, because the repositories are siblings read as one control,
-                   several of which can be on at once — see Region B for what each
-                   shape says. The scope used to be loose chips, which said "related
-                   only by kind" of options that are one set. The shared ButtonGroup
-                   wears the same header-group shape the view switch does; the chips
-                   inside keep their chip
-                   classes, because the active fill, the identity edge and the anchor
-                   mark all key on those. *@
-                <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
-                    @* The Brain leads the scope, first and permanent: the scope of
-                       everything filed against no repository (local ADR 0027). It presses
-                       as a repository chip does, Ctrl included, and the anchor rules are
-                       the repositories' own. It wears band 2 as its identity edge whether
-                       or not the Colors switch is on, because it marks a place that is
-                       always there rather than a hue somebody chose
-                       (.devbook/design/color-scheme.md#the-brains-accent); the word and the
-                       first place carry the meaning, never the colour alone. No remove
-                       control: there is nothing to remove it from. *@
-                    @{
-                        var brainSelected = State.BrainInScope;
-                        var brainAnchor = brainSelected && State.SelectedRepositoryAliases.Count > 1 && State.BrainIsAnchor;
-                    }
-                    <ToggleButton BaseClass="chip chip--scope"
-                                  CssClass="@BrainScopeChipClass(brainAnchor)"
-                                  PressedCssClass="chip--active"
-                                  Pressed="brainSelected"
-                                  TestId="brain-scope-option"
-                                  Title="@BrainScopeChipTitle(brainSelected, brainAnchor)"
-                                  aria-current="@(brainAnchor ? "true" : null)"
-                                  OnClick="ScopeBrain">
-                        <BrainIcon CssClass="chip__icon" />@BrainChipLabel
-                    </ToggleButton>
-                    @* The divider that sets the Brain off from the repositories, inside
-                       the same border: one fused set, its leading member apart. Only
-                       while there is a repository to set it off from. *@
-                    @if (State.Repositories.Count > 0)
-                    {
-                        <span class="app-header__scope-divider" aria-hidden="true" data-testid="brain-scope-divider"></span>
-                    }
-                    @foreach (var repository in State.Repositories)
-                    {
-                        var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
-                        var anchor = selected && State.SelectedRepositoryAliases.Count > 1
-                            && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
-                        @* An archived repository is only here while show archived is on,
-                           and then says so in words, not by a shade alone (local ADR 0029). *@
-                        <ToggleButton BaseClass="chip chip--scope"
-                                      CssClass="@RepositoryScopeChipClass(repository, anchor)"
-                                      PressedCssClass="chip--active"
-                                      Pressed="selected"
-                                      TestId="repository-filter-option"
-                                      Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
-                                      aria-current="@(anchor ? "true" : null)"
-                                      data-archived="@(repository.Archived ? "true" : null)"
-                                      OnClick="args => ScopeRepository(repository.Alias, args)">
-                            @repository.Alias
-                            @if (repository.Archived)
-                            {
-                                <span class="app-header__scope-archived">@ArchivedRepositoryLabel.Suffix</span>
-                            }
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
-        </div>
-
-        @* Region B — navigation, and nothing else. Left to right: the Inbox
-           toggle, the view switch, the Devbook toggle, then the takeovers in two
-           groups — the Goals group, and the rest.
+        @* Navigation, with the repository scope it reads through. Left to right:
+           the Inbox and Weekly review toggles, the view switch, the repository
+           scope, the Devbook toggle, the Calendar tab, the other registered
+           takeovers, then the takeovers in two groups — the Goals group, and the
+           rest (interaction-guidelines.md#shell-header).
 
            The view switch is the one question every screen answers: which main
            view the workspace shows. Exactly one is always showing, so the switch has
            no "off" and pressing the pressed option changes nothing. The Inbox leads
-           the row and the Devbook follows the switch, and both are takeovers: each
+           the row and the Devbook follows the scope, and both are takeovers: each
            takes the whole screen in place of the view — triage reads one item at a
            time and wants the width, and a chapter, its diagrams and the Brain read
            full width too — and pressing it again returns to the view that was
@@ -198,7 +116,7 @@
            control — the view switch, and the Goals group (Goals,
            Sessions and Pull requests) — and the pressed
            state says which is on. A standalone option is one on-or-off of its own:
-           the Inbox and the Devbook. The loose group is the remaining takeovers,
+           the Inbox, the Weekly review and the Devbook. The loose group is the remaining takeovers,
            related to each other only by being takeovers.
 
            The view options are also the way back from a takeover: pressing one
@@ -254,7 +172,7 @@
 
                 @* The view switch. Tasks and Board are always offered; the
                    Roadmap while its flag is on. The Calendar is a view too, but its
-                   option stands alone right after the switch. Tasks' option is still the way back
+                   option stands alone after the Devbook. Tasks' option is still the way back
                    from a takeover. Goals is a view too, but its option is the
                    first of the Goals group further along, not one of these.
                    Each option, and each of that group's, leads with a glyph from
@@ -306,8 +224,88 @@
                     }
                 </ButtonGroup>
 
+                @* The repository scope, after the views it filters: it is no
+                   destination, so it follows the view switch rather than leading the
+                   header (interaction-guidelines.md#shell-header). One repository on a
+                   plain press, one more with Ctrl held — while the task list, the
+                   dashboard or the session list is on screen; see ScopeRepository below.
+                   The anchor — the first one taken, the one Devbook reads — is marked
+                   only once a second chip is pressed. Fused, because the repositories
+                   are siblings read as one control, several of which can be on at once.
+                   The chips keep their chip classes, because the active fill, the
+                   identity edge and the anchor mark all key on those. It renders
+                   always, with the Brain chip alone when no repository is configured
+                   (local ADR 0027), so a person with only the Brain still has it. *@
+                <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope" TestId="repository-scope">
+                    @* The Brain leads the scope, first and permanent: the scope of
+                       everything filed against no repository (local ADR 0027). It presses
+                       as a repository chip does, Ctrl included, and the anchor rules are
+                       the repositories' own. It wears band 2 as its identity edge whether
+                       or not the Colors switch is on, because it marks a place that is
+                       always there rather than a hue somebody chose
+                       (.devbook/design/color-scheme.md#the-brains-accent); the word and the
+                       first place carry the meaning, never the colour alone. No remove
+                       control: there is nothing to remove it from. *@
+                    @{
+                        var brainSelected = State.BrainInScope;
+                        var brainAnchor = brainSelected && State.SelectedRepositoryAliases.Count > 1 && State.BrainIsAnchor;
+                    }
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  CssClass="@BrainScopeChipClass(brainAnchor)"
+                                  PressedCssClass="chip--active"
+                                  Pressed="brainSelected"
+                                  TestId="brain-scope-option"
+                                  Title="@BrainScopeChipTitle(brainSelected, brainAnchor)"
+                                  aria-current="@(brainAnchor ? "true" : null)"
+                                  OnClick="ScopeBrain">
+                        <BrainIcon CssClass="chip__icon" />@BrainChipLabel
+                    </ToggleButton>
+                    @* The divider that sets the Brain off from the repositories, inside
+                       the same border: one fused set, its leading member apart. Only
+                       while there is a repository to set it off from. *@
+                    @if (State.Repositories.Count > 0)
+                    {
+                        <span class="app-header__scope-divider" aria-hidden="true" data-testid="brain-scope-divider"></span>
+                    }
+                    @foreach (var repository in State.Repositories)
+                    {
+                        var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
+                        var anchor = selected && State.SelectedRepositoryAliases.Count > 1
+                            && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
+                        @* An archived repository is only here while show archived is on,
+                           and then says so in words, not by a shade alone (local ADR 0029). *@
+                        <ToggleButton BaseClass="chip chip--scope"
+                                      CssClass="@RepositoryScopeChipClass(repository, anchor)"
+                                      PressedCssClass="chip--active"
+                                      Pressed="selected"
+                                      TestId="repository-filter-option"
+                                      Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
+                                      aria-current="@(anchor ? "true" : null)"
+                                      data-archived="@(repository.Archived ? "true" : null)"
+                                      OnClick="args => ScopeRepository(repository.Alias, args)">
+                            @repository.Alias
+                            @if (repository.Archived)
+                            {
+                                <span class="app-header__scope-archived">@ArchivedRepositoryLabel.Suffix</span>
+                            }
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+
+                @* The registered takeovers, from the surface catalog (local ADR 0043
+                   §1): the Devbook first, right after the repository scope it reads,
+                   then the Calendar tab, then the rest in catalog order (Events). Each option's id,
+                   test id and the surface it controls are its surface id's, so the
+                   Devbook keeps the ids selectors and scenarios find it by. Named for
+                   what the Devbook shows, open or not: the Brain's name and its
+                   accent while it reads the Brain, Devbook otherwise. *@
+                @foreach (var surface in RegisteredTakeoversOffered.Where(IsDevbook))
+                {
+                    @RegisteredTakeoverItem(surface)
+                }
+
                 @* The Calendar tab: its own module's view (local ADR 0056 §7), drawing
-                   its own grid in its own region. It stands outside the switch, whose
+                   its own grid in its own region, after the Devbook. It stands outside the switch, whose
                    options are readings of the same tasks, in the loose option shape; it
                    acts as a view option does — pressing it again changes nothing, and a
                    takeover hides it (interaction-guidelines.md#shell-header). *@
@@ -323,35 +321,11 @@
                     <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                 </ToggleButton>)
 
-                @* The registered takeovers, from the surface catalog (local ADR 0043
-                   §1): today the Devbook, which follows the switch. Each option's id,
-                   test id and the surface it controls are its surface id's, so the
-                   Devbook keeps the ids selectors and scenarios find it by. Named for
-                   what the Devbook shows, open or not: the Brain's name and its
-                   accent while it reads the Brain, Devbook otherwise. *@
-                @foreach (var surface in RegisteredTakeoversOffered)
+                @* The other registered takeovers, after the Calendar, in catalog
+                   order: today Events. Drawn as the Devbook is above. *@
+                @foreach (var surface in RegisteredTakeoversOffered.Where(surface => !IsDevbook(surface)))
                 {
-                    var surfaceId = surface.Id;
-                    @* Each pops out like every other header item (local ADR 0043 §4):
-                       a ⧉ button under its option, shown on hover and on keyboard
-                       focus, and every press opens one more window. *@
-                    @HeaderItem(surfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
-                                  PressedCssClass="header-group__option--selected"
-                                  CssClass="@SurfaceOptionCssClass(surface)"
-                                  Pressed="@(RegisteredSurfaceOnScreen?.Id == surfaceId)"
-                                  id="@($"{surfaceId}-pane-option")"
-                                  TestId="@($"{surfaceId}-pane-option")"
-                                  aria-controls="@($"{surfaceId}-surface")"
-                                  Title="@SurfaceOptionTitle(surface)"
-                                  OnClick="() => ToggleRegisteredSurface(surfaceId)">
-                        @SurfaceOptionName(surface)
-                        @if (surface.FeatureKey is { } featureKey)
-                        {
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(featureKey)"
-                                                Title="@FeatureStatusTitle(featureKey)"
-                                                TestId="@($"{surfaceId}-feature-status")" />
-                        }
-                    </ToggleButton>)
+                    @RegisteredTakeoverItem(surface)
                 }
             </div>
 
@@ -2172,6 +2146,38 @@
     /// <summary>What a registered takeover's option press will do.</summary>
     private string SurfaceOptionTitle(ShellSurface surface) =>
         RegisteredSurfaceOnScreen?.Id == surface.Id ? $"Back to {EffectiveViewTitle}" : $"Open the {SurfaceOptionName(surface)}";
+
+    /// <summary>
+    /// A registered takeover's header option: the Devbook's right after the repository
+    /// scope, every other one after the Calendar. Each pops out like every other header
+    /// item (local ADR 0043 §4): a ⧉ button under its option, shown on hover and on
+    /// keyboard focus, and every press opens one more window.
+    /// </summary>
+    private RenderFragment RegisteredTakeoverItem(ShellSurface surface)
+    {
+        var surfaceId = surface.Id;
+        return HeaderItem(surfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                  PressedCssClass="header-group__option--selected"
+                                  CssClass="@SurfaceOptionCssClass(surface)"
+                                  Pressed="@(RegisteredSurfaceOnScreen?.Id == surfaceId)"
+                                  id="@($"{surfaceId}-pane-option")"
+                                  TestId="@($"{surfaceId}-pane-option")"
+                                  aria-controls="@($"{surfaceId}-surface")"
+                                  Title="@SurfaceOptionTitle(surface)"
+                                  OnClick="() => ToggleRegisteredSurface(surfaceId)">
+                        @SurfaceOptionName(surface)
+                        @if (surface.FeatureKey is { } featureKey)
+                        {
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(featureKey)"
+                                                Title="@FeatureStatusTitle(featureKey)"
+                                                TestId="@($"{surfaceId}-feature-status")" />
+                        }
+                    </ToggleButton>);
+    }
+
+    /// <summary>Whether a registered takeover is the Devbook, which the header draws
+    /// apart from the rest, beside the repository scope.</summary>
+    private static bool IsDevbook(ShellSurface surface) => surface.Id == DevbookSurfaceId;
 
     /// <summary>The Brain's accent on the Devbook's option while it reads the Brain.</summary>
     private string? SurfaceOptionCssClass(ShellSurface surface) =>

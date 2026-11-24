@@ -655,7 +655,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The header's nav, left to right, as the design draws it: the Inbox toggle, the
-    /// fused view switch, the Devbook toggle; then the fused Goals group —
+    /// fused view switch, the repository scope, the Devbook toggle, the Calendar tab;
+    /// then the fused Goals group —
     /// Goals, Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
     /// toggle, and no "Workspace" option anywhere.
     /// </summary>
@@ -675,8 +676,10 @@ public sealed class HomeWorkspaceSurfaceTests
                 .Select(child => child.GetAttribute("data-testid")).ToList();
             // Each option stands in its header item, beside its ⧉ where the host
             // opens windows (local ADR 0043 §4).
-            // The Calendar tab stands alone right after the switch (local ADR 0056 §7).
-            Assert.Equal(["inbox-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
+            // The repository scope follows the views it filters, the Devbook that reads
+            // it follows the scope, and the Calendar tab stands alone after the Devbook
+            // (interaction-guidelines.md#shell-header).
+            Assert.Equal(["inbox-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item"], workspace);
             Assert.Equal("inbox-pane-option",
                 component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
             Assert.Equal("devbook-pane-option",
@@ -1995,7 +1998,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "calendar-header-item", "devbook-header-item"], workspace);
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item"], workspace);
 
             var badge = component.Find("[data-testid='weekly-review-feature-status']");
             Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());

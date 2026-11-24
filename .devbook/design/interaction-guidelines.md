@@ -770,39 +770,42 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-weekly-review", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
 ```
 
-The desktop shell's header is four regions in reading order, each answering one
+The desktop shell's header is three regions in reading order, each answering one
 question. Below it the workspace shows exactly one **main view**, unless a
 **takeover**, the Inbox or the Devbook has the screen (local ADR 0022).
 
 | Region | Answers | Holds |
 |---|---|---|
-| Identity | Over which repositories? | The repository scope, a fused group of chips led by the **Brain** chip, and nothing else. |
-| Navigation | What am I looking at? | Left to right: **Inbox**, the view switch, **Calendar**, **Devbook**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at, over which repositories? | Left to right: **Inbox**, **Weekly review** (while its flag is on), the view switch, the repository scope, **Devbook**, **Calendar**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view, Tasks or Board, is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
-- **Identity:** see `#focus-and-selection`, *Modifier-click scope*. The
-  repository chips follow the Brain chip. The scope renders always, with the
-  Brain chip alone when no repository is configured (local ADR 0027).
+- **Repository scope:** a fused group of chips led by the **Brain** chip; see
+  `#focus-and-selection`, *Modifier-click scope*. The repository chips follow
+  the Brain chip. The scope renders always, with the Brain chip alone when no
+  repository is configured (local ADR 0027).
+  - It sits in the navigation row but is not a destination: it filters what the
+    views show, which is why it follows the view switch.
 - **Status:** ambient, the quietest region. Its auto margin carries it and the
   utilities to the right edge.
 - **Utilities:** **Ask AI** is the one accented control in the header. The
   **Settings** gear is not in the header: it closes the footer band (*The gear
   holds the occasional switches*).
 
-The navigation region holds three kinds of control, and each MUST look and act
-as its kind:
+Besides the repository scope, the navigation region holds three kinds of
+control, and each MUST look and act as its kind:
 
 | Control | Members | Behaves as |
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
-| Calendar tab | `Calendar`, after the view switch, before the Devbook | A view option standing alone: pressed while the Calendar is the main view, never closed. |
-| Inbox toggle | `Inbox`, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
-| Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
-| Events toggle | `Events`, after the Devbook, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
+| Calendar tab | `Calendar`, after the Devbook | A view option standing alone: pressed while the Calendar is the main view, never closed. |
+| Inbox toggle | `Inbox`, first, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
+| Weekly review toggle | `Weekly review`, after the Inbox, under `weekly-review` | An on-or-off giving the weekly review the whole screen; a second press or Escape returns. |
+| Devbook toggle | `Devbook`, after the repository scope; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
+| Events toggle | `Events`, after the Calendar, under `events` | An on-or-off giving the Events pane the whole screen; a second press, its close button or Escape returns. |
 | Goals group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight; it always renders. |
 | Remaining takeovers | `Dashboard`, `Notifications`, `Tools`, `Atlas` | A loose group, each under its own flag, rendered while one of them is offered. |
 
@@ -829,12 +832,12 @@ as its kind:
   atlas](../domain/brain/features.md#lobes-atlas)). **Notifications** opens the
   notification centre and wears the count of questions waiting, in the
   question's gold, and no count while none wait. Each takeover a module
-  registers that the header does not place itself draws after the Devbook, in
+  registers that the header does not place itself draws after the Calendar, in
   its registered order. Today that is Events.
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, view switch, Calendar tab, Devbook toggle and Events toggle MUST sit at the tighter `spacing-xs` gap. |
+| The workspace cluster sits close | The Inbox and Weekly review toggles, view switch, repository scope, Devbook toggle, Calendar tab and Events toggle MUST sit at the tighter `spacing-xs` gap. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view underneath. |
 | Every way back works | A takeover MUST close on Escape and on a second press of its option. |
 | A surface draws no close of its own | A surface MUST NOT draw a close (✕) button that leaves the surface itself, in the main window or a popped-out one. A close for something inside it — an entry panel, a dialog, a sheet — stays. |
@@ -854,8 +857,8 @@ as its kind:
 | Views and work lead with a glyph | Each view-switch option, the Calendar tab and each Goals group member MUST lead with a decorative glyph before its word. |
 
 - **The workspace cluster sits close:** the groups after it sit at the wider
-  navigation gap, so the Inbox, the Devbook and Events read as belonging to the
-  views.
+  navigation gap, so the Inbox, the scope, the Devbook, the Calendar and Events
+  read as belonging to the views.
 - **A takeover hides, it does not close:** closing it shows the view as it was.
   The Devbook is a takeover.
 - **Every way back works:** pressing a view option during a takeover MUST close
@@ -977,7 +980,7 @@ as its kind:
 - **A control acts on what is on screen:** the GitHub check renders only beside
   a task view, and Ask AI only with an area to ask about. While the Calendar
   shows, no task list is on screen, so there is no GitHub check and Ask AI has
-  no Tasks area. The view switch, the Calendar tab, the Inbox and Devbook toggles, the takeover groups and the identity region stay on
+  no Tasks area. The view switch, the Calendar tab, the Inbox and Devbook toggles, the takeover groups and the repository scope stay on
   every screen, since they are the way to everything else.
 - **The shell reopens where it was left:** this includes after Settings and
   back. The scope comes back in its order, so the anchor is still first and Brain
