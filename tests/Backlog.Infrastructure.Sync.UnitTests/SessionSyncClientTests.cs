@@ -3,6 +3,7 @@ using System.Net;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -26,8 +27,8 @@ public sealed class SessionSyncClientTests
             [Record("first"), Record("second")],
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Unwrap().Accepted);
+        var response = Assert.IsType<Ok<PushSessionsResponse>>(result.Value).Value;
+        Assert.Equal(2, response.Accepted);
         Assert.Equal(HttpMethod.Post, fixture.Handler.Requests[0].Method);
         Assert.Equal("/api/sync/sessions", fixture.Handler.Requests[0].Path);
         Assert.Contains("\"first\"", fixture.LastBody, StringComparison.Ordinal);
@@ -42,9 +43,9 @@ public sealed class SessionSyncClientTests
 
         var result = await fixture.Client.PullAsync(since: null, maxItems: 25, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("cursor-1", result.Unwrap().Since);
-        Assert.False(result.Unwrap().HasMore);
+        var response = Assert.IsType<Ok<PullSessionsResponse>>(result.Value).Value;
+        Assert.Equal("cursor-1", response.Since);
+        Assert.False(response.HasMore);
         Assert.Equal(HttpMethod.Get, fixture.Handler.Requests[0].Method);
         Assert.Equal("maxItems=25", fixture.LastQuery.TrimStart('?'));
     }
@@ -82,8 +83,8 @@ public sealed class SessionSyncClientTests
 
         var result = await fixture.Client.PushAsync([Record("first")], TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(code, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(code, error.Code);
     }
 
     [Fact]
@@ -96,9 +97,9 @@ public sealed class SessionSyncClientTests
 
         var result = await fixture.Client.PullAsync("v1.stale", cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorExpired, result.Error.Code);
-        Assert.Equal("Start again from the beginning.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.SyncCursorExpired, error.Code);
+        Assert.Equal("Start again from the beginning.", error.Message);
     }
 
     /// <summary>
@@ -114,10 +115,10 @@ public sealed class SessionSyncClientTests
         var push = await fixture.Client.PushAsync([Record("first")], TestContext.Current.CancellationToken);
         var pull = await fixture.Client.PullAsync(null, cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(push.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, push.Error.Code);
-        Assert.True(pull.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, pull.Error.Code);
+        var error = Assert.IsType<Error>(push.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, error.Code);
+        var pullError = Assert.IsType<Error>(pull.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, pullError.Code);
     }
 
     private static SessionRecord Record(string id) =>

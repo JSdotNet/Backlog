@@ -120,10 +120,10 @@ public sealed class KnowledgeEventSyncSession
         var change = KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, area.On, area.At));
 
         var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
-        if (response.IsFailure) return Result.Failure<bool>(response.Error);
+        if (response is not Ok<PushKnowledgeEventsResponse>(var answer)) return (Error)response.Value!;
 
         // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
-        if (response.Unwrap().Accepted == 0)
+        if (answer.Accepted == 0)
         {
             _log.LogInformation("The events switch was not taken: the replica holds a later one from another desktop.");
         }
@@ -184,10 +184,10 @@ public sealed class KnowledgeEventSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response.IsFailure) return Result.Failure<KnowledgeEventSyncSummary>(response.Error);
+                if (response is not Ok<PushKnowledgeEventsResponse>(var answer)) return (Error)response.Value!;
 
-                pushed += response.Unwrap().Accepted;
-                refused += Math.Max(0, changes.Count - response.Unwrap().Accepted);
+                pushed += answer.Accepted;
+                refused += Math.Max(0, changes.Count - answer.Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, change => change.UpdatedAt) is { } advanced)
@@ -219,11 +219,12 @@ public sealed class KnowledgeEventSyncSession
                 .PullAsync(cursor, KnowledgeEventSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page.IsFailure)
+            if (page is not Ok<PullKnowledgeEventsResponse>(var feed))
             {
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                var error = (Error)page.Value!;
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
                 {
-                    return Result.Failure<KnowledgeEventSyncSummary>(page.Error);
+                    return error;
                 }
 
                 startedOver = true;
@@ -235,13 +236,13 @@ public sealed class KnowledgeEventSyncSession
                 continue;
             }
 
-            pulled += page.Unwrap().Events.Count;
-            applied += (await _merge.ApplyAsync(page.Unwrap().Events, cancellationToken).ConfigureAwait(false)).Applied;
+            pulled += feed.Events.Count;
+            applied += (await _merge.ApplyAsync(feed.Events, cancellationToken).ConfigureAwait(false)).Applied;
 
-            cursor = page.Unwrap().Since;
+            cursor = feed.Since;
             _state.Update(state => state with { PullCursor = cursor });
 
-            if (!page.Unwrap().HasMore) break;
+            if (!feed.HasMore) break;
         }
 
         return Result.Success(new KnowledgeEventSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -258,18 +259,19 @@ public sealed class KnowledgeEventSyncSession
     {
         var sent = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
 
-        if (sent.IsSuccess)
+        if (sent is not Ok<bool>(var areaSent))
         {
-            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = sent.Unwrap() });
+            var error = (Error)sent.Value!;
+            if (string.Equals(error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
+            {
+                _log.LogInformation("The sync service refused the events switch ({Code}); it goes again next exchange.", error.Code);
+                return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
+            }
+
+            return NotYetOr(error);
         }
 
-        if (string.Equals(sent.Error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
-        {
-            _log.LogInformation("The sync service refused the events switch ({Code}); it goes again next exchange.", sent.Error.Code);
-            return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
-        }
-
-        return NotYetOr(sent.Error);
+        return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = areaSent });
     }
 
     /// <summary>Push, then the switch, then pull; a failed push stops the exchange. A bare 404
@@ -279,27 +281,27 @@ public sealed class KnowledgeEventSyncSession
     public async Task<Result<KnowledgeEventSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return NotYetOr(push.Error);
+        if (push is not Ok<KnowledgeEventSyncSummary>(var pushSummary)) return NotYetOr((Error)push.Value!);
 
         var area = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
-        if (area.IsFailure)
+        if (area is Error areaError)
         {
             _log.LogInformation(
-                "The events switch was not sent and goes again next exchange: {Code} {Message}", area.Error.Code, area.Error.Message);
+                "The events switch was not sent and goes again next exchange: {Code} {Message}", areaError.Code, areaError.Message);
         }
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return NotYetOr(pull.Error);
+        if (pull is not Ok<KnowledgeEventSyncSummary>(var pullSummary)) return NotYetOr((Error)pull.Value!);
 
         return Result.Success(new KnowledgeEventSyncSummary(
-            push.Unwrap().Pushed,
-            pull.Unwrap().Pulled,
-            pull.Unwrap().Applied,
+            pushSummary.Pushed,
+            pullSummary.Pulled,
+            pullSummary.Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Unwrap().Refused,
-            Skipped = push.Unwrap().Skipped,
-            AreaSent = area.IsSuccess && area.Unwrap(),
+            Refused = pushSummary.Refused,
+            Skipped = pushSummary.Skipped,
+            AreaSent = area is Ok<bool>(true),
         });
     }
 

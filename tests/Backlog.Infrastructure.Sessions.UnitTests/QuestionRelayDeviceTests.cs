@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
+using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 using Microsoft.Extensions.Time.Testing;
 
@@ -64,7 +65,7 @@ public sealed class QuestionRelayDeviceTests
     public async Task An_answer_from_a_paired_device_nobody_polls_for_becomes_the_managers_delivery()
     {
         _devices.Standing = DeviceStanding.Paired;
-        var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Ship it?")], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Ship it?")], Ct)).Value).Value;
 
         await _relay.HandleAnswerAsync(Answer(asked, Phone, [], "Yes"), Ct);
         var answered = (await _relay.GetAsync(asked.Id, Ct))!;
@@ -137,7 +138,7 @@ public sealed class QuestionRelayDeviceTests
 
     private async Task<WaitingQuestion> AskWithHookPollingAsync()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         await _relay.RecordPollAsync(asked.Id, Ct);
         return asked;
     }

@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -710,7 +711,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         var plan = await ImportedAsync("plan-a", "backlog");
         var moved = await Planning.RescheduleItemAsync(
             plan.Id, plan.Start, plan.End.AddDays(2), cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(moved.IsSuccess);
+        Assert.IsNotType<Error>(moved.Value);
 
         using var context = GatheringContext(14);
         var band = Banded(context);
@@ -832,7 +833,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan", tag, RepositoryAliases: [repository])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
         return await StoredAsync(tag);
     }
 
@@ -841,7 +842,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan", tag, RepositoryAliases: [])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
         return await StoredAsync(tag);
     }
 

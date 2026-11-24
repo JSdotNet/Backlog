@@ -241,16 +241,17 @@ public sealed class NotificationNudgeListener : IDisposable
     {
         var negotiated = await NegotiateAsync(cancellationToken).ConfigureAwait(false);
 
-        if (negotiated.IsFailure)
+        if (negotiated is not Ok<Uri?>(var hub))
         {
+            var error = (Error)negotiated.Value!;
             _log.LogInformation(
                 "The notification nudge could not be negotiated, so replies wait for the two-minute poll: {Code} {Message}",
-                negotiated.Error.Code,
-                negotiated.Error.Message);
+                error.Code,
+                error.Message);
             return Attempt.Failed;
         }
 
-        if (negotiated.Unwrap() is not { } url)
+        if (hub is not { } url)
         {
             _log.LogInformation("The sync service runs without a nudge hub, so replies arrive on the two-minute poll.");
             return Attempt.Unavailable;
@@ -307,9 +308,11 @@ public sealed class NotificationNudgeListener : IDisposable
         var result = await RefusedTokenRerun.RunAsync(
             _services, () => client.NegotiateNudgeAsync(cancellationToken), _log, "notification nudge").ConfigureAwait(false);
 
-        return result.IsSuccess
-            ? Result.Success(result.Unwrap().Url)
-            : Result.Failure<Uri?>(result.Error);
+        return result switch
+        {
+            Ok<NotificationNudgeNegotiateResponse>(var negotiated) => Result.Success(negotiated.Url),
+            Error error => Result.Failure<Uri?>(error),
+        };
     }
 
     private void SetOpen(bool open)

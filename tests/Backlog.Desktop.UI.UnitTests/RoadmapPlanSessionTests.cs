@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Roadmap;
 
@@ -40,15 +41,14 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
 
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Session dispatch",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: repositories,
-            cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
-        return (added.Unwrap().Id, added.Unwrap().Tag);
+        return (added.Id, added.Tag);
     }
 
     /// <summary>The tag with its plan sigil, <c>+&lt;slug&gt;</c>: what the plan row copies and names.</summary>

@@ -4,8 +4,10 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,7 +59,7 @@ public sealed class BlockedMarkRaisesNoImpedimentTests
         await tracker.SetBlockedAsync(entry.Id, blocked: true, Ct);
         await tracker.CommentAsync(entry.Id, "Waiting on the bank.", Ct);
 
-        Assert.Empty((await impediments.ListAsync(cancellationToken: Ct)).Unwrap());
+        Assert.Empty(Assert.IsType<Ok<IReadOnlyList<ImpedimentDto>>>((await impediments.ListAsync(cancellationToken: Ct)).Value).Value);
     }
 
     [Fact]
@@ -70,17 +72,16 @@ public sealed class BlockedMarkRaisesNoImpedimentTests
         var impediments = scope.ServiceProvider.GetRequiredService<IImpediments>();
 
         var entry = await tracker.CreateItemAsync("# Bank import mapping\n`task` `blocked:2026-10-16`\n", cancellationToken: Ct);
-        var raised = (await impediments.RaiseAsync(
-            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(entry.Id)]), Ct)).Unwrap();
-        Assert.True((await impediments.MoveAsync(raised.Id, ImpedimentState.Reported, "bank support", Ct)).IsSuccess);
-        var handled = (await impediments.MoveAsync(raised.Id, ImpedimentState.BeingHandled, "bank support", Ct)).Unwrap();
+        var raised = Assert.IsType<Ok<ImpedimentDto>>((await impediments.RaiseAsync(
+            new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(entry.Id)]), Ct)).Value).Value;
+        Assert.IsType<Ok<ImpedimentDto>>((await impediments.MoveAsync(raised.Id, ImpedimentState.Reported, "bank support", Ct)).Value);
+        var handled = Assert.IsType<Ok<ImpedimentDto>>((await impediments.MoveAsync(raised.Id, ImpedimentState.BeingHandled, "bank support", Ct)).Value).Value;
 
         var stored = Assert.Single(await tasks.ListAsync(Ct), task => task.Id == entry.Id);
         var unmarked = await tasks.SaveFromTextAsync(entry.Id, "# Bank import mapping\n`task`\n", stored.Order, cancellationToken: Ct);
-        Assert.True(unmarked.IsSuccess);
-        Assert.Null(unmarked.Unwrap().Entry.BlockedSince);
+        Assert.Null(Assert.IsType<Ok<SavedTaskDto>>(unmarked.Value).Value.Entry.BlockedSince);
 
-        var still = Assert.Single((await impediments.ListAsync(cancellationToken: Ct)).Unwrap());
+        var still = Assert.Single(Assert.IsType<Ok<IReadOnlyList<ImpedimentDto>>>((await impediments.ListAsync(cancellationToken: Ct)).Value).Value);
         Assert.Equal(handled.Id, still.Id);
         Assert.Equal(ImpedimentState.BeingHandled, still.State);
         Assert.Equal(handled.History, still.History);

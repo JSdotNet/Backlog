@@ -7,6 +7,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -94,7 +95,7 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         var a = new SqliteRoadmapPlanRepository(Device("a"));
         var b = new SqliteRoadmapPlanRepository(Device("b"));
         var plan = RoadmapPlan.Empty();
-        var id = plan.AddItem("Move devbook", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Unwrap().Id;
+        var id = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Move devbook", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value).Value.Id;
         plan.PinEnd(id, new DateOnly(2026, 10, 30));
         await a.SaveAsync(plan, Cancellation);
 
@@ -117,7 +118,7 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         var a = new SqliteRoadmapPlanRepository(Device("a"));
         var b = new SqliteRoadmapPlanRepository(Device("b"));
         var plan = RoadmapPlan.Empty();
-        var id = plan.AddItem("Write the launch post", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Unwrap().Id;
+        var id = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Write the launch post", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value).Value.Id;
         plan.CompleteItem(id, new DateOnly(2026, 10, 7));
         await a.SaveAsync(plan, Cancellation);
 

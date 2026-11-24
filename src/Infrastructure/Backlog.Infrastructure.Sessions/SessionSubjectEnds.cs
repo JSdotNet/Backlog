@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sessions;
@@ -39,9 +40,9 @@ internal static class SessionSubjectEnds
 
             var closed = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
-            if (closed.IsFailure)
+            if (closed is Error error)
             {
-                logger.LogDebug("Notifications about {Type} {Id} were not closed: {Error}", subject.Type, subject.Id, closed.Error.Message);
+                logger.LogDebug("Notifications about {Type} {Id} were not closed: {Error}", subject.Type, subject.Id, error.Message);
             }
         }
         catch (Exception exception)

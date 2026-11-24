@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 using Microsoft.Extensions.Time.Testing;
 
@@ -46,7 +47,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         Assert.Equal(WaitingQuestionRoute.Backlog, asked.Route);
         Assert.Equal(WaitingQuestionState.Notified, asked.State);
@@ -57,7 +58,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task Asked_at_the_keyboard_it_is_routed_to_the_session_and_held()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         Assert.Equal(WaitingQuestionRoute.Session, asked.Route);
         Assert.Equal(WaitingQuestionState.InSession, asked.State);
@@ -69,7 +70,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task A_held_question_is_published_by_the_escalation_timer_once_the_delay_passes()
     {
         using var escalation = new QuestionRelayEscalation(_relay, _clock);
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         _clock.Advance(NotifyAfter - TimeSpan.FromSeconds(30));
         await escalation.Idle;
@@ -97,7 +98,7 @@ public sealed class QuestionRelayTests : IDisposable
         var gated = new GatedNotifications();
         var first = new QuestionRelay(_store, _presence, () => NotifyAfter, () => gated, _clock);
         var second = new QuestionRelay(_store, _presence, () => NotifyAfter, () => gated, _clock);
-        var asked = (await first.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await first.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         _clock.Advance(NotifyAfter);
 
         var publishing = first.EscalateDueAsync(Ct);
@@ -118,7 +119,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_claim_left_by_a_crashed_publisher_lapses_and_the_question_is_published()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         _clock.Advance(NotifyAfter);
         var now = _clock.GetUtcNow();
         await _store.ChangeAsync(asked.Id, held => WaitingQuestions.ClaimPublish(held, now, now + WaitingQuestions.PublishLease), Ct);
@@ -243,7 +244,7 @@ public sealed class QuestionRelayTests : IDisposable
             await Task.Delay(10, Ct);
         }
 
-        Assert.Equal(WaitingQuestionState.Notified, (await asking).Unwrap().State);
+        Assert.Equal(WaitingQuestionState.Notified, Assert.IsType<Ok<WaitingQuestion>>((await asking).Value).Value.State);
         Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
     }
 
@@ -254,7 +255,7 @@ public sealed class QuestionRelayTests : IDisposable
 
         var asked = await Relay(new ThrowingSource()).AskAsync("session-1", "toolu_1", [Pick], Ct);
 
-        Assert.Equal(WaitingQuestionState.Notified, asked.Unwrap().State);
+        Assert.Equal(WaitingQuestionState.Notified, Assert.IsType<Ok<WaitingQuestion>>(asked.Value).Value.State);
         Assert.Equal("Database", Assert.Single(_notifications.Published).Draft.Title);
     }
 
@@ -333,7 +334,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_question_answered_in_the_session_before_the_delay_is_never_published()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         await _relay.CloseAsync(asked.Id, WaitingQuestionCloseReason.AnsweredInSession, [new RelayAnswer(["SQLite"])], Ct);
 
         _clock.Advance(NotifyAfter);
@@ -348,8 +349,8 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        var first = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
-        var second = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var first = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
+        var second = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         Assert.Equal(first.Id, second.Id);
         Assert.Single(_notifications.Published);
@@ -361,7 +362,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Value).Value;
 
         Assert.Equal(2, _notifications.Published.Count);
 
@@ -388,7 +389,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
 
-        var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Shall I merge it?")], Ct)).Value).Value;
 
         Assert.Equal(WaitingQuestionKind.Prose, asked.Kind);
         var spec = Assert.Single(_notifications.Published).Draft.Answer!;
@@ -401,7 +402,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         var refused = await _relay.AskAsync("session-1", null, [Pick], Ct);
 
-        Assert.True(refused.IsFailure);
+        Assert.IsType<Error>(refused.Value);
         Assert.Empty(await _store.ListAsync(cancellationToken: Ct));
     }
 
@@ -410,7 +411,7 @@ public sealed class QuestionRelayTests : IDisposable
     {
         _presence.IsAway = true;
         var handler = new SessionValidationAnswers(new LocalDeliverySurfaceLifecycle(Path.GetTempPath(), "m", "PC"), relay: _relay);
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Value).Value;
 
         await handler.HandleAnswerAsync(Answer(asked, 1, ["option-1", "option-3"]), Ct);
         Assert.Equal(WaitingQuestionState.Notified, (await _relay.GetAsync(asked.Id, Ct))!.State);
@@ -426,7 +427,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task A_replayed_answer_changes_nothing()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         var answer = Answer(asked, 0, ["option-2"]);
 
         Assert.True(await _relay.HandleAnswerAsync(answer, Ct));
@@ -440,7 +441,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task An_answer_goes_to_the_hook_that_is_still_polling()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         _clock.Advance(TimeSpan.FromMinutes(30));
         await _relay.RecordPollAsync(asked.Id, Ct);
@@ -457,7 +458,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task An_answer_nobody_polls_for_becomes_a_pending_delivery()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         await _relay.RecordPollAsync(asked.Id, Ct);
 
         _clock.Advance(TimeSpan.FromMinutes(3));
@@ -469,7 +470,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task An_answer_to_an_escalated_dialog_becomes_a_pending_delivery()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         _clock.Advance(NotifyAfter);
         await _relay.EscalateDueAsync(Ct);
 
@@ -482,7 +483,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task Answered_in_the_session_closes_its_notifications_with_the_answers()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Value).Value;
 
         var closed = await _relay.CloseAsync(
             asked.Id,
@@ -490,8 +491,9 @@ public sealed class QuestionRelayTests : IDisposable
             [new RelayAnswer(["SQLite"]), new RelayAnswer(["ui", "api"])],
             Ct);
 
-        Assert.Equal(WaitingQuestionState.Answered, closed.Unwrap().State);
-        Assert.Null(closed.Unwrap().Delivery);
+        var ok = Assert.IsType<Ok<WaitingQuestion>>(closed.Value);
+        Assert.Equal(WaitingQuestionState.Answered, ok.Value.State);
+        Assert.Null(ok.Value.Delivery);
         Assert.Equal(
             [(asked.NotificationIds[0], "Answered in the session: SQLite"), (asked.NotificationIds[1], "Answered in the session: ui, api")],
             _notifications.ClosedById);
@@ -503,14 +505,15 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task Timed_out_or_session_ended_closes_its_notifications(WaitingQuestionCloseReason reason, string because)
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         var closed = await _relay.CloseAsync(asked.Id, reason, null, Ct);
 
-        Assert.Equal(WaitingQuestionState.Closed, closed.Unwrap().State);
-        Assert.Equal(reason, closed.Unwrap().CloseReason);
+        var ok = Assert.IsType<Ok<WaitingQuestion>>(closed.Value);
+        Assert.Equal(WaitingQuestionState.Closed, ok.Value.State);
+        Assert.Equal(reason, ok.Value.CloseReason);
         Assert.Equal([(asked.NotificationIds[0], because)], _notifications.ClosedById);
-        Assert.True((await _relay.CloseAsync(asked.Id, reason, null, Ct)).IsFailure);
+        Assert.IsType<Error>((await _relay.CloseAsync(asked.Id, reason, null, Ct)).Value);
     }
 
     [Fact]
@@ -530,7 +533,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_finished_idle_session_keeps_its_question_open()
     {
-        var asked = (await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Merge it?")], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", null, [RelayQuestion.Prose("Merge it?")], Ct)).Value).Value;
         var idle = new WaitingSessionSource(new StubSessionSource(Session("session-1", AgentSessionState.Finished)), () => _relay);
 
         Assert.Equal(AgentSessionState.Finished, (await idle.GetSessionsAsync(Ct)).Sessions[0].State);
@@ -541,7 +544,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task Archiving_the_session_closes_its_questions_as_session_ended()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         var open = Session("session-1", AgentSessionState.Running) with { Archived = false };
         var watching = new StubSessionSource(open);
         var source = new SessionEndWatchingSource(watching, () => _notifications, relay: () => _relay);
@@ -563,8 +566,8 @@ public sealed class QuestionRelayTests : IDisposable
 
         var asked = await off.AskAsync("session-1", "toolu_1", [Pick], Ct);
 
-        Assert.True(asked.IsFailure);
-        Assert.Equal("notifications.not_available", asked.Error.Code);
+        var error = Assert.IsType<Error>(asked.Value);
+        Assert.Equal("notifications.not_available", error.Code);
         Assert.Empty(await _store.ListAsync(cancellationToken: Ct));
         Assert.Equal(0, await off.EscalateDueAsync(Ct));
     }
@@ -578,7 +581,7 @@ public sealed class QuestionRelayTests : IDisposable
 
         var asked = await relay.AskAsync("session-1", "toolu_1", [Pick], Ct);
 
-        Assert.True(asked.IsFailure);
+        Assert.IsType<Error>(asked.Value);
         var held = Assert.Single(await _store.ListAsync(cancellationToken: Ct));
         Assert.Equal(WaitingQuestionState.InSession, held.State);
         Assert.Equal(Noon + NotifyAfter, held.EscalateAt);
@@ -594,7 +597,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task An_answer_that_outruns_its_publish_is_left_for_the_replay()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         var early = new NotificationAnswer(Guid.NewGuid(), new NotificationSource("sessions", asked.Id.ToString("D")), Guid.NewGuid(), Guid.NewGuid(), ["option-1"], null, Noon);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _relay.HandleAnswerAsync(early, Ct));
@@ -612,7 +615,7 @@ public sealed class QuestionRelayTests : IDisposable
     public async Task A_held_wait_is_released_the_moment_the_last_answer_is_accepted()
     {
         _presence.IsAway = true;
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Value).Value;
 
         var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
         Assert.False(held.IsCompleted, "The wait holds while the question is open.");
@@ -630,7 +633,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_held_wait_is_released_by_a_close()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
         Assert.False(held.IsCompleted);
@@ -643,7 +646,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_held_wait_answers_the_open_question_once_it_runs_out_and_records_the_poll()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
 
         var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(30), Ct);
 
@@ -660,7 +663,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_wait_on_a_question_already_ended_or_unknown_answers_at_once()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         await _relay.CloseAsync(asked.Id, WaitingQuestionCloseReason.SessionEnded, cancellationToken: Ct);
 
         var ended = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
@@ -674,7 +677,7 @@ public sealed class QuestionRelayTests : IDisposable
     [Fact]
     public async Task A_cancelled_wait_leaves_the_next_wait_to_be_released()
     {
-        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Unwrap();
+        var asked = Assert.IsType<Ok<WaitingQuestion>>((await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value).Value;
         using var cancel = new CancellationTokenSource();
 
         var cancelled = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), cancel.Token);

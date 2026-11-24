@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Sync.DevbookSubjects;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -45,8 +46,8 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Unwrap().Pushed);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
 
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(SyncRoutes.Absolute(SyncRoutes.DevbookSubjects), request.Path);
@@ -71,9 +72,9 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Unwrap().Pushed);
-        Assert.Equal(1, result.Unwrap().Refused);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
+        Assert.Equal(1, summary.Refused);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
     }
 
@@ -93,9 +94,10 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.Equal(1, result.Unwrap().Pushed);
-        Assert.Equal(1, result.Unwrap().Skipped);
+        Assert.True(result is Ok<DevbookSubjectSyncSummary>, result is Error error ? error.Code : null);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
+        Assert.Equal(1, summary.Skipped);
         Assert.Equal(valid.Id, Assert.Single(Pushed(Assert.Single(fixture.Bodies))).Id);
         Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
 
@@ -116,7 +118,7 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value);
         Assert.Empty(fixture.Handler.Requests);
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
     }
@@ -133,8 +135,8 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.ReplicaUnavailable, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.ReplicaUnavailable, error.Code);
         Assert.Equal(Noon, state.Current.PushWatermark);
         Assert.Empty(state.Saved);
     }
@@ -169,7 +171,7 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value);
         Assert.DoesNotContain("since=", fixture.Queries[1], StringComparison.Ordinal);
         Assert.Equal("cursor-1", state.Current.PullCursor);
     }
@@ -189,9 +191,9 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Unwrap().Pulled);
-        Assert.Equal(1, result.Unwrap().Applied);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pulled);
+        Assert.Equal(1, summary.Applied);
         Assert.Equal("planned", store.Get(Subjects.Repository, Subjects.Debt)?.State);
     }
 
@@ -206,9 +208,9 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await ordered.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
         Assert.Equal([HttpMethod.Post, HttpMethod.Get], ordered.Handler.Requests.Select(request => request.Method).ToArray());
-        Assert.Equal(1, result.Unwrap().Pushed);
+        Assert.Equal(1, summary.Pushed);
 
         store.Seed(Subjects.Local("draft", Noon.AddHours(2), Proposal));
 
@@ -217,7 +219,7 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var stopped = await failing.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(stopped.IsFailure);
+        Assert.IsType<Error>(stopped.Value);
         Assert.Single(failing.Handler.Requests);
     }
 
@@ -236,9 +238,10 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Unwrap().NotYetServed);
-        Assert.Equal(0, result.Unwrap().Pushed);
+        Assert.True(result is Ok<DevbookSubjectSyncSummary>, result is Error error ? error.Code : null);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.True(summary.NotYetServed);
+        Assert.Equal(0, summary.Pushed);
         Assert.Single(fixture.Handler.Requests);
         Assert.Equal(Noon, state.Current.PushWatermark);
     }
@@ -254,8 +257,9 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-        Assert.True(result.Unwrap().NotYetServed);
+        Assert.True(result is Ok<DevbookSubjectSyncSummary>, result is Error error ? error.Code : null);
+        var summary = Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value).Value;
+        Assert.True(summary.NotYetServed);
         Assert.Equal([HttpMethod.Get], fixture.Handler.Requests.Select(request => request.Method).ToArray());
         Assert.Null(state.Current.PullCursor);
     }
@@ -277,8 +281,8 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("sync.owner_not_found", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("sync.owner_not_found", error.Code);
         Assert.Equal(Noon, state.Current.PushWatermark);
     }
 
@@ -292,8 +296,8 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("sync.owner_not_found", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("sync.owner_not_found", error.Code);
     }
 
     [Fact]
@@ -307,7 +311,7 @@ public sealed class DevbookSubjectSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DevbookSubjectSyncSummary>>(result.Value);
         Assert.DoesNotContain("the-old-owners-cursor", fixture.Queries[0], StringComparison.Ordinal);
         Assert.Equal(ThisOwner, state.Current.OwnerId);
         Assert.Equal(DateTimeOffset.MinValue, state.Saved[0].PushWatermark);

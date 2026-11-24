@@ -61,8 +61,8 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
         Assert.Null(a.Settings.SetRepositories(GitHubSettings.ParseText(SpecManager).Repositories));
         Assert.Null(a.Settings.SetRepositoryAccount("spec-manager", Work));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.Equal(Work, b.Settings.Current.AccountForPath($"repos/{SpecManager}/issues").Login);
         var account = Assert.Single(b.Settings.Current.Accounts);
@@ -78,7 +78,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
         Assert.DoesNotContain("ghp_stays_on_a", _replica.Held(GitHubReplicaDocuments.RegistryId)!.Task.ContentMd, StringComparison.Ordinal);
 
         // A's own credential is untouched by its own echo coming back.
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         Assert.Equal("ghp_stays_on_a", Assert.Single(a.Settings.Current.Accounts).Token);
     }
 
@@ -89,20 +89,20 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
     {
         using var a = Device("a");
         Assert.Null(a.Settings.SetRepositories(GitHubSettings.ParseText($"{SpecManager}\nJSdotNet/Backlog").Repositories));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using (var b = Device("b"))
         {
-            Assert.True((await b.SyncAsync()).IsSuccess);
+            Assert.IsNotType<Error>((await b.SyncAsync()).Value);
             Assert.Equal(2, b.Settings.Current.Repositories.Count);
         }
 
         Assert.Null(a.Settings.RemoveRepository("spec-manager"));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using (var b = Device("b"))
         {
-            Assert.True((await b.SyncAsync()).IsSuccess);
+            Assert.IsNotType<Error>((await b.SyncAsync()).Value);
         }
 
         using var restarted = Device("b");
@@ -119,14 +119,14 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
         using var a = Device("a");
         Assert.Null(a.Settings.SetAccounts([new GitHubAccount(Work)]));
         Assert.Null(a.Settings.SetRepositories(GitHubSettings.ParseText(SpecManager).Repositories));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using var fresh = Device("fresh");
         var pushed = await fresh.PushAsync();
         Assert.Equal(0, pushed.Pushed);
         Assert.Equal(0, _replica.PushesFrom(fresh.DeviceId));
 
-        Assert.True((await fresh.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await fresh.SyncAsync()).Value);
 
         Assert.Equal(SpecManager, Assert.Single(fresh.Settings.Current.Repositories).FullName);
         Assert.Equal(Work, Assert.Single(fresh.Settings.Current.Accounts).Login);
@@ -147,9 +147,9 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
         b.Clock.Advance(TimeSpan.FromMinutes(2));
         Assert.Null(b.Settings.SetRepositories(GitHubSettings.ParseText("JSdotNet/Later").Repositories));
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
         Assert.Equal(1, (await a.PushAsync()).Refused);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         Assert.Equal("JSdotNet/Later", Assert.Single(a.Settings.Current.Repositories).FullName);
         Assert.Equal("JSdotNet/Later", Assert.Single(b.Settings.Current.Repositories).FullName);
@@ -209,9 +209,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
 
         public async Task<TaskSyncSummary> PushAsync()
         {
-            var pushed = await _session.PushAsync(Cancellation);
-            Assert.True(pushed.IsSuccess);
-            return pushed.Unwrap();
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PushAsync(Cancellation)).Value).Value;
         }
 
         public void Dispose()

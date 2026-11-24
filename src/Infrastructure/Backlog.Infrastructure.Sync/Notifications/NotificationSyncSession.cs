@@ -146,29 +146,29 @@ public sealed class NotificationSyncSession
         MarkLocalChanges(open);
 
         var pushed = await PushDirtyAsync(cancellationToken).ConfigureAwait(false);
-        if (pushed.IsFailure) return Result.Failure<NotificationSyncSummary>(pushed.Error);
+        if (pushed is not Ok<(int Pushed, bool Settled)>(var pushCounts)) return (Error)pushed.Value!;
 
         // Replies are listed while a question is open, and once more in the cycle that pushes a
         // notification as settled: a reply that reached the service before the question closed
         // here is then rejected as closed rather than left waiting for the backstop expiry.
-        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushed.Unwrap().Settled)
+        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushCounts.Settled)
         {
             Prune();
-            return Result.Success(new NotificationSyncSummary(pushed.Unwrap().Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
+            return Result.Success(new NotificationSyncSummary(pushCounts.Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
         }
 
         var processed = await ProcessRepliesAsync(me, cancellationToken).ConfigureAwait(false);
-        if (processed.IsFailure) return Result.Failure<NotificationSyncSummary>(processed.Error);
+        if (processed is not Ok<(int Accepted, int Rejected)>(var replyCounts)) return (Error)processed.Value!;
 
         var pushedAfter = await PushDirtyAsync(cancellationToken).ConfigureAwait(false);
-        if (pushedAfter.IsFailure) return Result.Failure<NotificationSyncSummary>(pushedAfter.Error);
+        if (pushedAfter is not Ok<(int Pushed, bool Settled)>(var laterPushCounts)) return (Error)pushedAfter.Value!;
 
         Prune();
 
         return Result.Success(new NotificationSyncSummary(
-            pushed.Unwrap().Pushed + pushedAfter.Unwrap().Pushed,
-            processed.Unwrap().Accepted,
-            processed.Unwrap().Rejected,
+            pushCounts.Pushed + laterPushCounts.Pushed,
+            replyCounts.Accepted,
+            replyCounts.Rejected,
             PolledReplies: true,
             _time.GetUtcNow()));
     }
@@ -291,11 +291,11 @@ public sealed class NotificationSyncSession
             if (batch.Count == 0) continue;
 
             var response = await _client.PushAsync([.. batch.Select(item => item.Change)], cancellationToken).ConfigureAwait(false);
-            if (response.IsFailure) return Result.Failure<(int, bool)>(response.Error);
+            if (response is not Ok<PushNotificationsResponse>(var answer)) return (Error)response.Value!;
 
-            pushed += response.Unwrap().Accepted;
+            pushed += answer.Accepted;
 
-            var notOwned = (response.Unwrap().NotOwned ?? []).ToHashSet();
+            var notOwned = (answer.NotOwned ?? []).ToHashSet();
 
             foreach (var id in notOwned)
             {
@@ -360,7 +360,7 @@ public sealed class NotificationSyncSession
         foreach (var id in notOwned)
         {
             var closed = await _owner.CloseAsync(id, OwnedElsewhereReason, cancellationToken).ConfigureAwait(false);
-            if (closed.IsFailure) continue;
+            if (closed is Error) continue;
 
             if (_state.Current.Tracked.TryGetValue(id, out var entry))
             {
@@ -383,7 +383,7 @@ public sealed class NotificationSyncSession
     private async Task<Result<(int Accepted, int Rejected)>> ProcessRepliesAsync(DeviceCredential me, CancellationToken cancellationToken)
     {
         var listed = await _client.ListRepliesAsync(_identity.Current.Id, NotificationSyncClient.DefaultMaxReplies, cancellationToken).ConfigureAwait(false);
-        if (listed.IsFailure) return Result.Failure<(int, int)>(listed.Error);
+        if (listed is not Ok<PullNotificationRepliesResponse>(var replyPage)) return (Error)listed.Value!;
 
         _state.Save(_state.Current with { LastReplyPoll = _time.GetUtcNow() });
 
@@ -392,7 +392,7 @@ public sealed class NotificationSyncSession
 
         // The order the service took them in; its stamp is in seconds, so two replies in the
         // same second are put in the order the people made them.
-        foreach (var record in listed.Unwrap().Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
+        foreach (var record in replyPage.Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
         {
             var reply = record.Reply;
             var snapshot = await _notifications.GetAsync(reply.NotificationId, cancellationToken).ConfigureAwait(false);
@@ -403,34 +403,35 @@ public sealed class NotificationSyncSession
                     ? Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyForeignOwner())
                     : await _replies.AcceptReplyAsync(ToReply(record, me), cancellationToken).ConfigureAwait(false);
 
-                if (outcome.IsSuccess)
+                switch (outcome)
                 {
-                    accepted++;
-                    MarkDirty(reply.NotificationId);
-                }
-                else
-                {
-                    rejected++;
+                    case Ok<NotificationAnswer>:
+                        accepted++;
+                        MarkDirty(reply.NotificationId);
+                        break;
+                    case Error refusal:
+                        rejected++;
 
-                    // Logged by id and code only: an open answer is the person's own text.
-                    _log.LogInformation(
-                        "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.",
-                        reply.Id,
-                        reply.NotificationId,
-                        outcome.Error.Code);
+                        // Logged by id and code only: an open answer is the person's own text.
+                        _log.LogInformation(
+                            "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.",
+                            reply.Id,
+                            reply.NotificationId,
+                            refusal.Code);
 
-                    // A reply to a notification this instance does not hold has nowhere to
-                    // say so; it is only deleted.
-                    if (snapshot is not null) Reject(record, outcome.Error);
+                        // A reply to a notification this instance does not hold has nowhere to
+                        // say so; it is only deleted.
+                        if (snapshot is not null) Reject(record, refusal);
+                        break;
                 }
             }
 
             var deleted = await _client.DeleteReplyAsync(reply.Id, cancellationToken).ConfigureAwait(false);
-            if (deleted.IsFailure && deleted.Error.Code != SyncErrorCodes.NotificationReplyNotFound)
+            if (deleted is Error notDeleted && notDeleted.Code != SyncErrorCodes.NotificationReplyNotFound)
             {
                 // Stop here: the reply is still listed next time, and processing it again
                 // only deletes it.
-                return Result.Failure<(int, int)>(deleted.Error);
+                return notDeleted;
             }
         }
 

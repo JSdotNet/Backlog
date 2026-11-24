@@ -5,8 +5,10 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Brain;
 
@@ -133,20 +135,21 @@ public sealed class BrainPickup : IBrainPickup
         foreach (var repo in targets)
         {
             var saved = await tasks.SaveFromTextAsync(null, TaskText(title, repo), order++, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (saved.IsFailure)
+            if (saved is not Ok<SavedTaskDto>(var savedTask))
             {
+                var refused = (Error)saved.Value!;
                 return created.Count == 0
-                    ? BrainPickupResult.Failed($"The task was not created: {saved.Error.Message}")
-                    : await LinkTasksAsync(note.Path, created, $"Only {created.Count} of {targets.Count} tasks were created: {saved.Error.Message}", cancellationToken).ConfigureAwait(false);
+                    ? BrainPickupResult.Failed($"The task was not created: {refused.Message}")
+                    : await LinkTasksAsync(note.Path, created, $"Only {created.Count} of {targets.Count} tasks were created: {refused.Message}", cancellationToken).ConfigureAwait(false);
             }
 
-            var id = saved.Unwrap().Entry.Id;
+            var id = savedTask.Entry.Id;
             created.Add(id);
 
             var referenced = await tasks.SetDevbookReferencesAsync(id, [reference], cancellationToken).ConfigureAwait(false);
-            if (referenced.IsFailure)
+            if (referenced is Error error)
             {
-                return await LinkTasksAsync(note.Path, created, $"The task does not point back at the note: {referenced.Error.Message}", cancellationToken).ConfigureAwait(false);
+                return await LinkTasksAsync(note.Path, created, $"The task does not point back at the note: {error.Message}", cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -177,9 +180,9 @@ public sealed class BrainPickup : IBrainPickup
         var draft = await drafter.DraftAsync(
             new InboxPlanDraftRequestDto(planId, note.Title, body, SourceUrl: null, NoteKind, [], note.Repos, tag),
             cancellationToken).ConfigureAwait(false);
-        if (draft.IsFailure) return BrainPickupResult.Failed($"The plan was not drafted: {draft.Error.Message}");
+        if (draft is not Ok<InboxPlanDraftDto>(var drafted)) return BrainPickupResult.Failed($"The plan was not drafted: {((Error)draft.Value!).Message}");
 
-        var steps = EntryTextParser.SplitSegments(draft.Unwrap().PlanMarkdown)
+        var steps = EntryTextParser.SplitSegments(drafted.PlanMarkdown)
             .Where(segment => EntryTextParser.Parse(segment) is { Kind: not EntryKind.Plan } parsed && !string.IsNullOrWhiteSpace(parsed.Title))
             .Select(step => AsStep(step, tag))
             .ToList();
@@ -196,10 +199,10 @@ public sealed class BrainPickup : IBrainPickup
 
         var document = string.Join("\n\n", [PlanText(note, tag), .. steps.Select(step => step.Trim('\r', '\n'))]) + "\n";
         var imported = await tasks.ImportPlanAsync(document, cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (imported.IsFailure) return BrainPickupResult.Failed($"The plan was not imported: {imported.Error.Message}");
+        if (imported is not Ok<ImportPlanResultDto>(var plan)) return BrainPickupResult.Failed($"The plan was not imported: {((Error)imported.Value!).Message}");
 
-        var taskIds = imported.Unwrap().Entries.Select(entry => entry.Id).ToList();
-        var roadmapNote = imported.Unwrap().Roadmap?.Refusal is { } refusal ? $" {refusal}" : string.Empty;
+        var taskIds = plan.Entries.Select(entry => entry.Id).ToList();
+        var roadmapNote = plan.Roadmap?.Refusal is { } refusal ? $" {refusal}" : string.Empty;
 
         var link = await _links.AppendRoadmapTagAsync(note.Path, tag, cancellationToken).ConfigureAwait(false);
         return link.Succeeded

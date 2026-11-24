@@ -664,8 +664,8 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
             new InboxPlanDraftRequestDto(itemId, "Fix the login page", "The login page 500s.", "https://example.com/bug", "article", ["auth"], ["acme/web"], "fix-login"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(chat.Plan, result.Unwrap().PlanMarkdown);
+        var ok = Assert.IsType<Ok<InboxPlanDraftDto>>(result.Value);
+        Assert.Equal(chat.Plan, ok.Value.PlanMarkdown);
 
         var request = Assert.Single(chat.Requests);
         Assert.Equal("Fix the login page", request.ItemTitle);
@@ -717,10 +717,10 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
             new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.plan.failed", result.Error.Code);
-        Assert.Equal("Azure Foundry returned 503: busy", result.Error.Message);
-        Assert.Equal(ErrorType.Failure, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.plan.failed", error.Code);
+        Assert.Equal("Azure Foundry returned 503: busy", error.Message);
+        Assert.Equal(ErrorType.Failure, error.Type);
     }
 
     /// <summary>A refused or unresolved endpoint is what HttpClient throws
@@ -736,10 +736,10 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
             new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.plan.failed", result.Error.Code);
-        Assert.Equal("Could not reach Azure Foundry: No connection could be made because the target machine actively refused it.", result.Error.Message);
-        Assert.Equal(ErrorType.Failure, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.plan.failed", error.Code);
+        Assert.Equal("Could not reach Azure Foundry: No connection could be made because the target machine actively refused it.", error.Message);
+        Assert.Equal(ErrorType.Failure, error.Type);
     }
 
     /// <summary>HttpClient reports its own timeout as a cancellation on a
@@ -756,10 +756,10 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
             new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
             callerCancellation.Token);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.plan.failed", result.Error.Code);
-        Assert.Equal("Azure Foundry did not answer before the request timed out.", result.Error.Message);
-        Assert.Equal(ErrorType.Failure, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.plan.failed", error.Code);
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", error.Message);
+        Assert.Equal(ErrorType.Failure, error.Type);
     }
 
     /// <summary>The caller's own cancellation is not dressed up as a failed

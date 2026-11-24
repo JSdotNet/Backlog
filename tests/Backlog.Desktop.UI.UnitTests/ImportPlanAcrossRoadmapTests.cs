@@ -14,6 +14,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.SharedKernel.Results;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -251,9 +252,8 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
             foreach (var entry in await tasks.ListAsync(TestContext.Current.CancellationToken))
             {
                 List<PlannedHoursDto> blocks = [.. Enumerable.Range(0, 10).Select(day => new PlannedHoursDto(today.AddDays(day), 24m))];
-                var planned = await tasks.SetPlannedHoursAsync(entry.Id, blocks, TestContext.Current.CancellationToken);
-                Assert.True(planned.IsSuccess, planned.IsFailure ? planned.Error.Message : null);
-                Assert.Equal(10, planned.Unwrap().PlannedHours.Count);
+                var planned = Assert.IsType<Ok<TaskItemDto>>((await tasks.SetPlannedHoursAsync(entry.Id, blocks, TestContext.Current.CancellationToken)).Value).Value;
+                Assert.Equal(10, planned.PlannedHours.Count);
             }
         }
 
@@ -344,8 +344,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         var result = await scope.ServiceProvider.GetRequiredService<ITaskItems>()
             .ImportPlanAsync(document, layOutOnRoadmap: layOut, cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
-        return result.Unwrap();
+        return Assert.IsType<Ok<ImportPlanResultDto>>(result.Value).Value;
     }
 
     private async Task<RoadmapPlanDto> PlanAsync()

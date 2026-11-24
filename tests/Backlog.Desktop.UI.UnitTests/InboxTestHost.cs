@@ -684,8 +684,15 @@ internal sealed class FakeInboxItems : IInboxItems
         {
             var result = Refuse.TryGetValue(id, out var error) ? Result.Failure(error) : await one(id);
 
-            if (result.IsSuccess) changed.Add(id);
-            else failed.Add(new InboxBatchFailureDto(id, result.Error));
+            switch (result)
+            {
+                case Ok:
+                    changed.Add(id);
+                    break;
+                case Error refused:
+                    failed.Add(new InboxBatchFailureDto(id, refused));
+                    break;
+            }
         }
 
         return new InboxBatchResultDto(changed, failed);
@@ -1227,7 +1234,12 @@ internal sealed class FakeInboxItems : IInboxItems
                 : attachment with { Downloaded = error is null, LastError = error?.Message })],
         });
 
-        return updated.IsFailure || error is null ? updated : Result.Failure(error.Value);
+        return updated switch
+        {
+            Ok when error is { } retryError => Result.Failure(retryError),
+            Ok => updated,
+            Error => updated,
+        };
     }
 
     /// <summary>The recordings Retry sent to transcription again, in order.</summary>

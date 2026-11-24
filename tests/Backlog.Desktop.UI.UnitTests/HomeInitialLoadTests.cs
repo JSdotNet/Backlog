@@ -114,8 +114,7 @@ public sealed class HomeInitialLoadTests
 
         // Written through the real use case, so the store is left exactly as the
         // app leaves it — index and all.
-        var saved = await TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, entryText, 0);
-        Assert.True(saved.IsSuccess);
+        var saved = Assert.IsType<Ok<SavedTaskDto>>((await TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, entryText, 0)).Value).Value;
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
 
@@ -125,12 +124,12 @@ public sealed class HomeInitialLoadTests
             gitHubSettings.SetRepositories(repositories);
 
             var linked = await TasksTestHost.EntriesFor(store).LinkToIssueAsync(
-                saved.Unwrap()!.Entry.Id,
+                saved.Entry.Id,
                 "JSdotNet/Backlog",
                 number.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 EntryProjectionDto.PullRequestTargetType,
                 TestContext.Current.CancellationToken);
-            Assert.True(linked.IsSuccess);
+            Assert.IsNotType<Error>(linked.Value);
         }
 
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));

@@ -56,6 +56,10 @@ public sealed class RemoteConnectorClient : IRemoteConnector
             (_, _) => Task.FromResult(true),
             cancellationToken).ConfigureAwait(false);
 
-        return revoked.IsSuccess ? Result.Success() : Result.Failure(revoked.Error);
+        return revoked switch
+        {
+            Ok<bool> => Result.Success(),
+            Error error => error,
+        };
     }
 }

@@ -243,7 +243,7 @@ public sealed class QuestionRelay : IQuestionRelay
             if (!string.Equals(question.SessionId, sessionId, StringComparison.Ordinal)) continue;
 
             var result = await CloseAsync(question.Id, WaitingQuestionCloseReason.SessionEnded, null, cancellationToken).ConfigureAwait(false);
-            if (result.IsSuccess) closed++;
+            if (result is Ok<WaitingQuestion>) closed++;
         }
 
         return closed;
@@ -511,9 +511,11 @@ public sealed class QuestionRelay : IQuestionRelay
         ToPort(await CloseAsync(id, reason, answers, cancellationToken).ConfigureAwait(false));
 
     private static QuestionRelayResult ToPort(Result<WaitingQuestion> result) =>
-        result.IsSuccess
-            ? QuestionRelayResult.Of(result.Unwrap())
-            : QuestionRelayResult.Refused(result.Error.Code, result.Error.Message);
+        result switch
+        {
+            Ok<WaitingQuestion>(var question) => QuestionRelayResult.Of(question),
+            Error error => QuestionRelayResult.Refused(error.Code, error.Message),
+        };
 
     /// <summary>Completes and drops the completion source a held wait on <paramref name="id"/> awaits.</summary>
     private void Release(Guid id)
@@ -559,9 +561,10 @@ public sealed class QuestionRelay : IQuestionRelay
             {
                 var published = await notifications.PublishAsync(Draft(question, i, session), cancellationToken).ConfigureAwait(false);
 
-                if (published.IsFailure)
+                if (published is not Ok<Guid>(var notificationId))
                 {
-                    _logger.LogDebug("Waiting question {Question} was not published: {Error}", id, published.Error.Message);
+                    var refused = (Error)published.Value!;
+                    _logger.LogDebug("Waiting question {Question} was not published: {Error}", id, refused.Message);
                     await CloseAllAsync(notifications, ids, "Not published", cancellationToken).ConfigureAwait(false);
 
                     // Held in the session and tried again once per notify delay, never on
@@ -569,10 +572,10 @@ public sealed class QuestionRelay : IQuestionRelay
                     var later = Now + _notifyAfter();
                     await _store.ChangeAsync(id, held => WaitingQuestions.Postpone(held, later), cancellationToken).ConfigureAwait(false);
 
-                    return Result.Failure<WaitingQuestion>(published.Error);
+                    return refused;
                 }
 
-                ids.Add(published.Unwrap());
+                ids.Add(notificationId);
             }
 
             var outcome = await _store.ChangeAsync(id, held => WaitingQuestions.Notify(held, ids), cancellationToken).ConfigureAwait(false);
@@ -629,10 +632,10 @@ public sealed class QuestionRelay : IQuestionRelay
             var closed = await notifications.CloseAsync(question.NotificationIds[i], CloseReasonFor(question, i), cancellationToken).ConfigureAwait(false);
 
             // One already answered in Backlog is settled, and stays as it was answered.
-            if (closed.IsFailure)
+            if (closed is Error error)
             {
                 _logger.LogDebug("Notification {Notification} of waiting question {Question} was not closed: {Error}",
-                    question.NotificationIds[i], question.Id, closed.Error.Message);
+                    question.NotificationIds[i], question.Id, error.Message);
             }
         }
     }
@@ -642,7 +645,7 @@ public sealed class QuestionRelay : IQuestionRelay
         foreach (var notificationId in ids)
         {
             var closed = await notifications.CloseAsync(notificationId, reason, cancellationToken).ConfigureAwait(false);
-            if (closed.IsFailure) _logger.LogDebug("Notification {Notification} was not closed: {Error}", notificationId, closed.Error.Message);
+            if (closed is Error error) _logger.LogDebug("Notification {Notification} was not closed: {Error}", notificationId, error.Message);
         }
     }
 

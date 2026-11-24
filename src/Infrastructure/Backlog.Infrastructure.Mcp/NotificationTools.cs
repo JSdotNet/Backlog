@@ -279,7 +279,7 @@ public sealed class NotificationTools(
         _ = await OwnStatusAsync(id, sessionId, cancellationToken).ConfigureAwait(false);
 
         var closed = await notifications.CloseAsync(id, reason, cancellationToken).ConfigureAwait(false);
-        if (closed.IsFailure) throw RepositoryScope.Failure(closed.Error);
+        if (closed is Error error) throw RepositoryScope.Failure(error);
 
         return NotificationAnswerPayload.From(
             (await statuses.GetStatusAsync(id, cancellationToken).ConfigureAwait(false)).ValueOrThrow());

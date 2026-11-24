@@ -678,11 +678,13 @@ return await handler.Handle(command, ct) switch
 - **Mapping to HTTP:** `ErrorType` picks the status of the Problem Details answer that
   guideline ADR 0017 defines.
 
-`src/Core`, `src/Modules` and their unit tests read results this way. Every other
-project still reads `IsSuccess`, `Error`, `Unwrap()` and `TryGetValue` from a
-temporary compatibility namespace, `Backlog.SharedKernel.Results.Compatibility`.
-`Directory.Build.targets` imports it only into those projects, so a module cannot
-reach for it. The next step of the app-defaults rollout migrates them and deletes it.
+- **Asserting:** a test reads the case with `Assert.IsType<Ok<T>>(result.Value).Value`
+  or `Assert.IsType<Error>(result.Value)`.
+
+Every project reads results this way; the class-based members `IsSuccess`, `Error`,
+`Unwrap()` and `TryGetValue` are gone. A `switch` statement over the cases compiles
+without the CS8509 check, so the few call sites that branch into several statements,
+the sync workers among them, are where a new case would pass unnoticed.
 
 ## Shared Data Types
 

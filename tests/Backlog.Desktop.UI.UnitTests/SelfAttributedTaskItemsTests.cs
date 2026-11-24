@@ -24,7 +24,7 @@ public sealed class SelfAttributedTaskItemsTests
 
         var result = await items.SetDueAsync(id, Monday, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsNotType<Error>(result.Value);
         Assert.Equal((id, (DateOnly?)Monday, true), inner.Asked);
     }
 

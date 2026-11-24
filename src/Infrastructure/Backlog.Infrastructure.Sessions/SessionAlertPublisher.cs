@@ -5,6 +5,7 @@ using System.Text;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -234,8 +235,8 @@ public sealed class SessionAlertPublisher(
                 : SessionAlerts.ClosedReason(subject.Id);
             var result = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
-            if (result.IsSuccess) closed += result.Unwrap();
-            else _logger.LogDebug("The alert {Key} was not closed: {Error}", subject.Id, result.Error.Message);
+            if (result is Ok<int>(var count)) closed += count;
+            else _logger.LogDebug("The alert {Key} was not closed: {Error}", subject.Id, ((Error)result.Value!).Message);
         }
 
         // Open, acknowledged or closed, an alert the owner holds is not raised again. The one
@@ -253,7 +254,7 @@ public sealed class SessionAlertPublisher(
 
             var result = await port.PublishAsync(Draft(alert, sessionIdOf) with { Id = id.Value }, cancellationToken).ConfigureAwait(false);
 
-            if (result.IsFailure) _logger.LogDebug("No alert was raised for {Key}: {Error}", alert.Key, result.Error.Message);
+            if (result is Error error) _logger.LogDebug("No alert was raised for {Key}: {Error}", alert.Key, error.Message);
             else published++;
         }
 

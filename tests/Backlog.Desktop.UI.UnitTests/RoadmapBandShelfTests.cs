@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 
 using Bunit;
 
@@ -161,7 +162,7 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
         var written = await TasksTestHost.EntriesFor(Settings).ImportPlanAsync(
             "# One\n`prompt` `+shelf` `effort:5`\n\n# Two\n`prompt` `+shelf` `effort:3`\n\n# Three\n`prompt` `+shelf`\n",
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(written.IsSuccess);
+        Assert.IsNotType<Error>(written.Value);
 
         using var context = ContextWith(Shelf, Release);
         var band = Loaded(context);

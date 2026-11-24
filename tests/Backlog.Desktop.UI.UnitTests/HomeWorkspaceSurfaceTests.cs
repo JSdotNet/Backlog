@@ -24,6 +24,7 @@ using Backlog.Modules.Tasks.Extensions;
 using ITaskLookupCandidates = Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates;
 using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion;
 using Backlog.SharedKernel.Ai;
+using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -3022,7 +3023,7 @@ public sealed class HomeWorkspaceSurfaceTests
             taskId: linked,
             tag: "plan-a",
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+        Assert.IsNotType<Error>(added.Value);
 
         OpenTheRoadmap(component);
 
@@ -3061,7 +3062,7 @@ public sealed class HomeWorkspaceSurfaceTests
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+        Assert.IsNotType<Error>(added.Value);
 
         var component = Render(harness);
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
@@ -3821,7 +3822,7 @@ public sealed class HomeWorkspaceSurfaceTests
             // the item id exactly as an import leaves them.
             var saved = TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, seeds[order], order).GetAwaiter().GetResult();
 
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         }
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));

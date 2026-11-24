@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Ai;
 
@@ -23,8 +24,8 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
     public async Task Milestones_come_first_and_each_record_names_the_dates_and_the_scope()
     {
         var planning = Planning();
-        var milestone = await planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), MilestoneKind.Release, ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var item = await planning.AddItemAsync(
+        var milestone = Assert.IsType<Ok<RoadmapMilestoneDto>>((await planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), MilestoneKind.Release, ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var item = Assert.IsType<Ok<RoadmapItemDto>>((await planning.AddItemAsync(
             "Ship sync",
             new DateOnly(2026, 3, 2),
             new DateOnly(2026, 3, 20),
@@ -33,8 +34,8 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
             lane: "Platform",
             notes: "Needs the Cosmos emulator.",
             tag: "sync",
-            cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(await planning.AddDependencyAsync(milestone.Unwrap().Id, item.Unwrap().Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.True(await planning.AddDependencyAsync(milestone.Id, item.Id, TestContext.Current.CancellationToken) is Ok);
 
         var content = await new RoadmapAiContentSource(planning).ComposeAsync(new AiContentRequest("when does sync ship?", 6000), TestContext.Current.CancellationToken);
 
@@ -52,9 +53,9 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
     public async Task An_item_that_waits_on_a_milestone_names_it()
     {
         var planning = Planning();
-        var milestone = await planning.AddMilestoneAsync("Freeze", new DateOnly(2026, 4, 1), MilestoneKind.Freeze, cancellationToken: TestContext.Current.CancellationToken);
-        var item = await planning.AddItemAsync("Polish", new DateOnly(2026, 4, 2), new DateOnly(2026, 4, 3), cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(await planning.AddDependencyAsync(item.Unwrap().Id, milestone.Unwrap().Id, TestContext.Current.CancellationToken) is { IsSuccess: true });
+        var milestone = Assert.IsType<Ok<RoadmapMilestoneDto>>((await planning.AddMilestoneAsync("Freeze", new DateOnly(2026, 4, 1), MilestoneKind.Freeze, cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var item = Assert.IsType<Ok<RoadmapItemDto>>((await planning.AddItemAsync("Polish", new DateOnly(2026, 4, 2), new DateOnly(2026, 4, 3), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.True(await planning.AddDependencyAsync(item.Id, milestone.Id, TestContext.Current.CancellationToken) is Ok);
 
         var content = await new RoadmapAiContentSource(planning).ComposeAsync(new AiContentRequest("polish", 6000), TestContext.Current.CancellationToken);
 
@@ -68,9 +69,9 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
     public async Task An_item_sized_by_its_effort_is_written_with_the_end_its_effort_reaches_at_the_pace_in_use()
     {
         var planning = Planning();
-        Assert.True((await planning.ImportPlanItemsAsync(
+        Assert.IsNotType<Error>((await planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Ship sync", "sync", RepositoryAliases: ["backlog"])],
-            cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
+            cancellationToken: TestContext.Current.CancellationToken)).Value);
         var stored = Assert.Single((await planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         // Nothing gathered at import: one working week from the first worked day.
         Assert.Equal(EffortWindow.EndFrom(stored.Start, 0, 7m, WorkingHours.Default), stored.End);
@@ -91,9 +92,9 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
     public async Task An_item_sized_by_its_effort_nobody_began_is_written_from_the_day_it_is_read()
     {
         var planning = Planning();
-        Assert.True((await planning.ImportPlanItemsAsync(
+        Assert.IsNotType<Error>((await planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Ship sync", "sync", RepositoryAliases: ["backlog"])],
-            cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
+            cancellationToken: TestContext.Current.CancellationToken)).Value);
         var stored = Assert.Single((await planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         var later = stored.Start.AddDays(14);
         var clock = new FakeTimeProvider(new DateTimeOffset(later.ToDateTime(new TimeOnly(9, 0)), TimeSpan.Zero));
