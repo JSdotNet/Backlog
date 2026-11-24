@@ -35,7 +35,7 @@ public sealed class PairingGateTests
 
         // No page is drawn behind the gate, and no tabs lead to one: every one of
         // them would come back to this box.
-        Assert.Empty(app.FindAll("[data-testid='capture-field']"));
+        Assert.Empty(app.FindAll("[data-testid='inbox-new-note']"));
         Assert.Empty(app.FindAll("[data-testid='notes']"));
         Assert.Empty(app.FindAll("[data-testid='tasks-empty']"));
         Assert.Empty(app.FindAll("[data-testid='tab-bar']"));
@@ -77,7 +77,7 @@ public sealed class PairingGateTests
         app.Find("[data-testid='pairing-code-field'] input").Input("K7MN-9PQR");
         app.Find("[data-testid='pairing-submit']").Click();
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-note']")));
         app.WaitForAssertion(() => Assert.Equal(1, host.InboxRequests));
         Assert.Empty(app.FindAll("[data-testid='pairing-code-field']"));
     }

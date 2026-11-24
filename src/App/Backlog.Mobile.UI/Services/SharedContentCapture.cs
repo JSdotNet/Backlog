@@ -10,9 +10,9 @@ namespace Backlog.Mobile.UI.Services;
 /// <remarks>
 /// <para>
 /// A share is the person saying "keep this" from somewhere else — a YouTube video,
-/// a browser tab — and they are usually on their way back there. Leaving it in
-/// the quick-capture field for a Capture press they may never make lost it, so
-/// it goes into the device outbox exactly as a pressed Capture does, and the
+/// a browser tab — and they are usually on their way back there. Leaving it
+/// waiting for a Capture press they may never make would lose it, so it goes
+/// into the device outbox exactly as a pressed Capture does, and the
 /// app lands on the Inbox where the new row is.
 /// </para>
 /// <para>
@@ -20,10 +20,6 @@ namespace Backlog.Mobile.UI.Services;
 /// the Inbox was ever listening: on the Note or Tasks tab the payload sat in the
 /// receiver's buffer until the person happened to go back. The layout is the
 /// one component that is always mounted, so it starts this once per scope.
-/// </para>
-/// <para>
-/// It never touches <see cref="CaptureDraft"/>. Whatever the person was typing
-/// before they left to share something is still theirs to finish.
 /// </para>
 /// </remarks>
 public sealed class SharedContentCapture : IDisposable

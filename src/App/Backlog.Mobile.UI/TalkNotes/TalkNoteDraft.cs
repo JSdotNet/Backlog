@@ -5,8 +5,7 @@ namespace Backlog.Mobile.UI.TalkNotes;
 /// <para>
 /// The Router remounts a page on every navigation, so a note kept in the Note
 /// page's own fields would be gone after a glance at the Inbox — and a talk does
-/// not pause while someone looks something up. Scoped, like the Inbox's
-/// <see cref="Services.CaptureDraft"/>: it lives as long as the app's circuit or
+/// not pause while someone looks something up. Scoped: it lives as long as the app's circuit or
 /// web view, which on a phone includes time spent in the background. The picked
 /// files themselves are staged on disk by <see cref="TalkNoteFiles"/>; this holds
 /// where they are.

@@ -45,7 +45,7 @@ public sealed class ForgetDeviceTests
         using var host = ShellHost.Paired();
         var app = host.Open();
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-note']")));
 
         app.Find("[data-testid='sync-status-button']").Click();
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='forget-device-dialog']")));
@@ -53,7 +53,7 @@ public sealed class ForgetDeviceTests
 
         app.WaitForAssertion(() => Assert.Empty(app.FindAll("[data-testid='forget-device-dialog']")));
         Assert.NotNull(host.Credentials.Current);
-        Assert.NotNull(app.Find("[data-testid='capture-field'] input"));
+        Assert.NotNull(app.Find("[data-testid='inbox-new-note']"));
         Assert.Empty(app.FindAll("[data-testid='pairing-code-field']"));
     }
 
@@ -63,7 +63,7 @@ public sealed class ForgetDeviceTests
         using var host = ShellHost.Paired();
         var app = host.Open();
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-note']")));
 
         app.Find("[data-testid='sync-status-button']").Click();
 
@@ -82,8 +82,7 @@ public sealed class ForgetDeviceTests
         var app = host.Open();
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
-        app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
-        app.Find("[data-testid='capture-submit']").Click();
+        host.Capture(app, "Ask the speaker for the slides");
         app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='inbox-row']").GetAttribute("data-state")));
 
         // The question says what happens to it before anything is forgotten.

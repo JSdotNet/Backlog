@@ -574,6 +574,49 @@
     }
 
     /*
+        The phone's Back key, for whatever is open over the page.
+
+        A sheet or a dialog opens without a navigation, so the WebView's history
+        does not know it is there: Android's Back went one page back — from the
+        Inbox with a capture open to whichever tab came before — and left the sheet
+        to be torn down with the page. The Android head asks this first, and only
+        when it answers false does Back walk the history as it always did.
+
+        The topmost open layer is a native `dialog` when one is open: it is shown
+        in the top layer, above every sheet wherever it sits in the document, and
+        a dialog opened from a dialog comes after it. With none, it is the last
+        drawn sheet. A layer is drawn when it has a box, is not `visibility:
+        hidden`, and sits under no `inert` ancestor — a closed sheet stays in the
+        document, hidden and inert. It is handed Escape, the
+        key every one of them already closes on, so Back closes it by the same path
+        and with the same guards: a sheet that will not close on an unsaved edit
+        stays open, and so does a dialog that has switched Escape off. Either way
+        Back is consumed: leaving the page under an open modal is what it must not
+        do. The key goes to the focus when it is inside the layer, else to the
+        layer's own keyed panel — a `Modal`'s keys are held by the panel inside its
+        native `dialog`, which a key dispatched on the `dialog` itself never reaches.
+    */
+    function backlogIsDrawn(element) {
+        if (element.getClientRects().length === 0) return false;
+        if (element.closest('[inert]')) return false;
+        return getComputedStyle(element).visibility !== 'hidden';
+    }
+
+    window.backlogBack = () => {
+        const last = (selector) => Array.from(document.querySelectorAll(selector)).filter(backlogIsDrawn).pop();
+        const layer = last('dialog[open]') ?? last('[role="dialog"][aria-modal="true"]');
+        if (!layer) return false;
+
+        const active = document.activeElement;
+        const target = active && layer.contains(active)
+            ? active
+            : (layer instanceof HTMLDialogElement ? layer.querySelector('[tabindex="-1"]') : null) ?? layer;
+
+        target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+        return true;
+    };
+
+    /*
         `ownsEscape` is the region closing on Escape — a detail sheet does unless
         its host says otherwise — and holds Escape for it as described above.
     */

@@ -4,7 +4,6 @@
 @inject DeviceOutbox Outbox
 @inject IDeviceStore Store
 @inject NoteViewProjection Notes
-@inject CaptureDraft Draft
 @inject SyncStatusTracker Status
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
@@ -32,11 +31,11 @@
     row opens it in the note editor.
 
     The kind chips — All, Captures, Notes, Meetings — are one fused group with exactly
-    one pressed, and one tab stop the arrows move (data-roving-buttons). The page has
-    one +, beside the quick field: with words in the field it adds them as a capture,
-    as Enter does; with the field empty it is New, a menu of Note and Meeting. Note
-    opens an empty editor, Meeting a new meeting already recording. /notes opens this
-    page on the Notes chip (?kind=notes).
+    one pressed, and one tab stop the arrows move (data-roving-buttons). Under them the
+    add bar is two buttons side by side, each half the row: Note opens an empty editor,
+    Meeting a new meeting already recording. A capture is made in the quick capture sheet
+    (/capture) or shared in from another app, not typed here. /notes opens this page on the Notes
+    chip (?kind=notes).
 *@
 
 @{
@@ -79,31 +78,24 @@
     </ButtonGroup>
 </div>
 
-@* The one + on the page. With words in the field it adds them as a capture, as
-   Enter does; with the field empty it is New, a menu of Note and Meeting. Its
-   name follows what it will do, and only the menu mode says it opens a menu. *@
-<div class="capture">
-    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…" Id="@CaptureFieldId"
-               CssClass="capture__field" TestId="capture-field" @onkeydown="OnFieldKeyDownAsync" />
-    <IconButton AriaLabel="@PlusLabel" Title="@PlusLabel" OnClick="OnPlusAsync"
-                CssClass="capture__add" TestId="capture-submit" id="@PlusId"
-                aria-haspopup="@(HasDraft ? null : "menu")"
-                aria-expanded="@(HasDraft ? null : _newMenuOpen ? "true" : "false")">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4"
-             stroke-linecap="round" aria-hidden="true" focusable="false">
-            <path d="M12 5v14M5 12h14" />
-        </svg>
-    </IconButton>
-    <ContextMenu Open="_newMenuOpen" OpenChanged="open => _newMenuOpen = open"
-                 X="@_newMenuX" Y="@_newMenuY" AlignEnd="true" Items="@NewItems" AriaLabel="New"
-                 TestId="inbox-new-menu" OnItemSelected="OnNewChosen" />
+@* What the page makes: two standalone buttons, each with its icon and its word,
+   rather than a + menu of the two. Asked for so a note and a meeting are each one
+   tap away, on targets half the row wide, rather than a small + and a menu. *@
+<div class="inbox-new" role="group" aria-label="New">
+    <AppButton OnClick="NewNote" CssClass="inbox-new__button" TestId="inbox-new-note" id="@NewNoteId">
+        <Icon><StickyNoteIcon Size="20" /></Icon>
+        <ChildContent>Note</ChildContent>
+    </AppButton>
+    <AppButton OnClick="NewMeeting" CssClass="inbox-new__button" TestId="inbox-new-meeting">
+        <Icon><MicIcon Size="20" /></Icon>
+        <ChildContent>Meeting</ChildContent>
+    </AppButton>
 </div>
 
 @if (SharedCapture.Status is { } shareStatus)
 {
     @* A share is captured the moment it arrives, wherever the app was; this line
-       is what says where the new row at the top came from. The field is left as
-       it was — a draft being typed is not the share's to touch. *@
+       is what says where the new row at the top came from. *@
     <Alert Message="@shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
 }
 
@@ -127,22 +119,10 @@ else if (_notesNotice is not null)
            ActionLabel="OK" OnAction="DealtWith.Clear" TestId="inbox-dealt-with" />
 }
 
-@if (everything.Count > 0)
-{
-    <SearchBox Value="@_query" ValueChanged="OnSearch" Placeholder="Search the inbox" AriaLabel="Search the inbox"
-               DebounceMilliseconds="0" CssClass="inbox__search" TestId="inbox-search" />
-}
-
 <section class="inbox" @ref="_listElement" aria-label="Inbox items">
     @if (_items is null && everything.Count == 0)
     {
         <Spinner Label="Loading the inbox" />
-    }
-    else if (shown.Count == 0 && !string.IsNullOrWhiteSpace(_query))
-    {
-        <EmptyState Title="Nothing matches"
-                    Description="@($"Nothing in a title or a body says “{_query.Trim()}”.")"
-                    TestId="inbox-no-match" />
     }
     else if (shown.Count == 0)
     {
@@ -150,12 +130,12 @@ else if (_notesNotice is not null)
         {
             case PhoneInboxFilter.Notes:
                 <EmptyState Title="No notes yet"
-                            Description="Write one with Note in the + menu. Notes you take on the desktop show here too."
+                            Description="Write one with Note above. Notes you take on the desktop show here too."
                             TestId="notes-empty" />
                 break;
             case PhoneInboxFilter.Meetings:
                 <EmptyState Title="No meetings yet"
-                            Description="Start one with Meeting in the + menu: it opens already recording."
+                            Description="Start one with Meeting above: it opens already recording."
                             TestId="meetings-empty" />
                 break;
             default:
@@ -285,13 +265,8 @@ else if (_notesNotice is not null)
         new(PhoneInboxFilter.Meetings, "meetings", "Meetings")
     ];
 
-    /// <summary>The + menu: two items, which earn a menu where one would not
-    /// (interaction-guidelines.md#action-density-and-overflow).</summary>
-    private static readonly IReadOnlyList<MenuItem> NewItems =
-    [
-        new("note", "Note"),
-        new("meeting", "Meeting")
-    ];
+    /// <summary>The address of a new note: the note editor, empty.</summary>
+    public const string NewNoteRoute = "notes/new";
 
     /// <summary>The address of a new meeting: the note editor, told to open a meeting
     /// already recording.</summary>
@@ -311,11 +286,6 @@ else if (_notesNotice is not null)
     /// arrows, and a re-render that wrote the pressed chip's stop instead would leave
     /// the group with two (accessibility.md#roving-button-groups).</summary>
     private PhoneInboxFilter? _firstStop;
-    private string _query = string.Empty;
-
-    private bool _newMenuOpen;
-    private double _newMenuX;
-    private double _newMenuY;
 
     /// <summary>The last list the service answered with — this device's cached
     /// copy until the first pull of this visit lands. Null only when the phone
@@ -371,29 +341,30 @@ else if (_notesNotice is not null)
     private int _generation;
 
     /// <summary>Where the focus goes after a Delete: the capture row that took the
-    /// deleted one's place, or the capture field when none is left.</summary>
+    /// deleted one's place, or the Note button when none is left.</summary>
     private string? _focusAfterDelete;
 
     /// <summary>This render's captures, overlays laid on, and the rows it drew.</summary>
     private IReadOnlyList<PhoneCaptureRow>? _captures;
     private IReadOnlyList<PhoneInboxRow> _shownRows = [];
 
-    private const string CaptureFieldId = "inbox-capture-field";
+    /// <summary>The Note button's id: where the focus goes after a Delete leaves no
+    /// capture row to take it.</summary>
+    private const string NewNoteId = "inbox-new-note";
 
     private ElementReference _listElement;
     private IJSObjectReference? _pullModule;
     private IJSObjectReference? _pullGesture;
     private DotNetObjectReference<Inbox>? _self;
 
-    /// <summary>Every row before the chips and the search narrow them, and the rows on
-    /// screen: the chip pressed, then the words searched for. Both from one read of the
-    /// captures and the notes.</summary>
+    /// <summary>Every row before the chip narrows them, and the rows on screen under
+    /// the chip pressed. Both from one read of the captures and the notes.</summary>
     private (IReadOnlyList<PhoneInboxRow> Everything, IReadOnlyList<PhoneInboxRow> Shown) Lists()
     {
         var captures = Captures;
         var notes = Notes.Notes();
 
-        return (PhoneInboxList.Of(captures, notes, PhoneInboxFilter.All), PhoneInboxList.Of(captures, notes, _filter, _query));
+        return (PhoneInboxList.Of(captures, notes, PhoneInboxFilter.All), PhoneInboxList.Of(captures, notes, _filter));
     }
 
     /// <summary>
@@ -569,64 +540,11 @@ else if (_notesNotice is not null)
     /// <summary>Exactly one chip is pressed: a press on the pressed one leaves it on.</summary>
     private void Choose(PhoneInboxFilter filter) => _filter = filter;
 
-    private void OnSearch(string query) => _query = query ?? string.Empty;
+    /// <summary>Note opens an empty editor.</summary>
+    private void NewNote() => Navigation.NavigateTo(NewNoteRoute);
 
-    /// <summary>Whether the quick field holds words: the + then adds them.</summary>
-    private bool HasDraft => !string.IsNullOrWhiteSpace(Draft.Text);
-
-    private string PlusLabel => HasDraft ? "Add to inbox" : "New";
-
-    /// <summary>The + button's id, which the menu is anchored to.</summary>
-    private const string PlusId = "inbox-plus";
-
-    /// <summary>
-    /// Adds the words as a capture, or with none opens New under the +, its end edge
-    /// on the button's (ContextMenu.AlignEnd), so the menu opens inward from the
-    /// window's right edge. Anchored to the button for a tap and a key alike: a key's
-    /// click has no pointer, and a tap's point would put the menu's corner under the
-    /// finger. The pointer stands in only when the page cannot say where the + is.
-    /// </summary>
-    private async Task OnPlusAsync(MouseEventArgs e)
-    {
-        if (HasDraft)
-        {
-            await CaptureAsync();
-            return;
-        }
-
-        (_newMenuX, _newMenuY) = (e.ClientX, e.ClientY);
-
-        try
-        {
-            if (await Js.InvokeAsync<double[]?>("backlogAnchorBelow", PlusId, true) is [var x, var y])
-            {
-                (_newMenuX, _newMenuY) = (x, y);
-            }
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
-        {
-            // No browser to ask: the pointer's position stands.
-        }
-
-        _newMenuOpen = true;
-    }
-
-    /// <summary>
-    /// Enter adds the words, once. The field binds on input, not on change, so the
-    /// change event Enter also raises commits nothing; and the capture clears the
-    /// draft, so a second Enter on the same words finds nothing to add.
-    /// </summary>
-    private Task OnFieldKeyDownAsync(KeyboardEventArgs e) =>
-        e is { Key: "Enter", ShiftKey: false, AltKey: false, CtrlKey: false, MetaKey: false, Repeat: false }
-            ? CaptureAsync()
-            : Task.CompletedTask;
-
-    /// <summary>Note opens an empty editor; Meeting opens a new meeting already recording.</summary>
-    private void OnNewChosen(MenuItem item)
-    {
-        _newMenuOpen = false;
-        Navigation.NavigateTo(item.Id == "meeting" ? NewMeetingRoute : "notes/new");
-    }
+    /// <summary>Meeting opens a new meeting already recording.</summary>
+    private void NewMeeting() => Navigation.NavigateTo(NewMeetingRoute);
 
     /// <summary>The share itself is already in the outbox, and its row arrives
     /// through <see cref="OnOutboxChanged"/>; this only redraws the line that
@@ -808,23 +726,6 @@ else if (_notesNotice is not null)
             : "Nothing has been pulled to this phone yet.";
 
         return $"{reason} {showing} New captures are kept here and sent when it answers.";
-    }
-
-    /// <summary>
-    /// Keeps the capture before anything else happens. The outbox writes it to
-    /// the device, starts sending it, and returns — so the field clears and the
-    /// row appears at once, marked waiting, whether or not there is a network.
-    /// </summary>
-    private async Task CaptureAsync()
-    {
-        var title = Draft.Text.Trim();
-        if (title.Length == 0) return;
-
-        var capture = CaptureOutboxKind.Create(title);
-        await Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture));
-
-        Draft.Text = string.Empty;
-        SharedCapture.ClearStatus();
     }
 
     private Task RetryAsync(PhoneCaptureRow row) => row.Waiting is { } waiting ? Outbox.RetryAsync(waiting.Id) : Task.CompletedTask;
@@ -1027,19 +928,19 @@ else if (_notesNotice is not null)
     }
 
     /// <summary>The capture row that will stand nearest where <paramref name="deleted"/>
-    /// stood on screen — the next one down, else the one above — or the capture field
+    /// stood on screen — the next one down, else the one above — or the Note button
     /// when no capture row is left. A note or meeting row between is passed over: its
     /// row is a link to the editor, with no id of its own to take the focus.</summary>
     private string FocusAfterDelete(Guid deleted)
     {
         var rows = _shownRows;
         var index = rows.ToList().FindIndex(row => row.Id == deleted);
-        if (index < 0) return CaptureFieldId;
+        if (index < 0) return NewNoteId;
 
         var next = rows.Skip(index + 1).FirstOrDefault(row => row.Capture is not null)
             ?? rows.Take(index).LastOrDefault(row => row.Capture is not null);
 
-        return next is null ? CaptureFieldId : RowId(next.Id);
+        return next is null ? NewNoteId : RowId(next.Id);
     }
 
     private string Ago(DateTimeOffset at) => SyncStatusLine.Relative(Clock.GetUtcNow() - at);

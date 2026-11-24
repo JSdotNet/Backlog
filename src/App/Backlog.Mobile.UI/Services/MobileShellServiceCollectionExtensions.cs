@@ -28,7 +28,6 @@ public static class MobileShellServiceCollectionExtensions
     public static IServiceCollection AddMobileShell(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
-        services.AddScoped<CaptureDraft>();
         services.AddScoped<TalkNoteDraft>();
         services.AddScoped<SyncStatusTracker>();
 

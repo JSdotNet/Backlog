@@ -7,8 +7,8 @@ namespace Backlog.Mobile.UI.UnitTests;
 ///
 /// <para>A share is a capture, made the moment it arrives: it goes into the
 /// device outbox exactly as a pressed Capture does, the app lands on the Inbox
-/// whichever tab it was on, and a line there says where the new row came from.
-/// Whatever the person was typing in the quick-capture field is left alone.
+/// whichever tab it was on, and a line there says where the new row came from
+/// until the person makes a capture of their own.
 /// These tests drive the whole shell — Router, layout, page — through the same
 /// abstraction both hosts register, so they hold for the Android share target
 /// and the browser harness alike.</para>
@@ -91,23 +91,6 @@ public sealed class InboxShareTargetTests
     }
 
     [Fact]
-    public void A_draft_being_typed_is_left_as_it_was()
-    {
-        using var host = ShellHost.Paired();
-        var app = host.Open();
-
-        app.Find("[data-testid='capture-field'] input").Input("watch later");
-
-        host.Share.Share("https://youtu.be/abc123");
-
-        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Created));
-
-        Assert.Equal("https://youtu.be/abc123", Assert.Single(host.Inbox.Received).Title);
-        Assert.Equal("watch later", host.Service<CaptureDraft>().Text);
-        Assert.Equal("watch later", app.Find("[data-testid='capture-field'] input").GetAttribute("value"));
-    }
-
-    [Fact]
     public void An_empty_share_captures_nothing()
     {
         using var host = ShellHost.Paired();
@@ -131,7 +114,6 @@ public sealed class InboxShareTargetTests
 
         Assert.Empty(app.FindAll("[data-testid='share-status']"));
         Assert.Empty(host.Outbox.Entries);
-        Assert.True(string.IsNullOrEmpty(app.Find("[data-testid='capture-field'] input").GetAttribute("value")));
     }
 
     [Fact]
@@ -155,8 +137,12 @@ public sealed class InboxShareTargetTests
         host.Share.Share("https://example.test/article");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='share-status']")));
 
-        app.Find("[data-testid='capture-field'] input").Input("Call the plumber");
-        app.Find("[data-testid='capture-submit']").Click();
+        // The Inbox has no field of its own: a capture is made in the capture sheet,
+        // drawn over the Inbox it was opened from.
+        host.Navigation.NavigateTo("capture?from=inbox");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-sheet']")));
+        app.Find("[data-testid='capture-sheet-text'] textarea").Input("Call the plumber");
+        app.Find("[data-testid='capture-sheet-save']").Click();
 
         app.WaitForAssertion(() =>
         {
