@@ -144,6 +144,10 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.LoadUsageEvent)] = task => task.LoadUsageEvent(new UsageEvent(Stamped, "copilot-cli")),
         [nameof(TaskItem.LoadStamps)] = task => task.LoadStamps(Stamped, deletedAt: null),
 
+        // Storage recording which version it holds, the concurrency token a later
+        // save is checked against. Saying where the store stands is not an edit.
+        [nameof(TaskItem.MarkPersisted)] = task => task.MarkPersisted(),
+
         // Restoring a task nobody deleted says nothing new, the way deleting a
         // deleted one does not; a stamp moved here would win last-write-wins
         // with no edit to show for it.

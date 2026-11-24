@@ -3990,6 +3990,11 @@
                                     OnChanged="value => OnStatusChangedAsync(row, value)" />
                 </StatusContent>
                 <Filing>
+                    @* Beside the editor, and staying until the row's next save lands:
+                       a save refused because the entry changed somewhere else, and
+                       the entry reloaded as the store holds it. *@
+                    <Alert Message="@row.StaleWriteNotice" BaseClass="entry-doc__gh-error" TestId="@TasksDesktopState.StaleWriteTestId" Role="status" />
+
                     @if (IsFeatureEnabled(TasksFeatures.GitHubIntegration))
                     {
                         <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />

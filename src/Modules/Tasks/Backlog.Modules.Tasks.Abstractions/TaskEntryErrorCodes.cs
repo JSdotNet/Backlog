@@ -25,4 +25,15 @@ public static class TaskEntryErrorCodes
     /// person about this one.
     /// </summary>
     public const string PlanBelongsToImport = "entry.plan_belongs_to_import";
+
+    /// <summary>
+    /// The entry changed in the store between the save's read of it and its write —
+    /// another session, an agent, or this pane in another window saved it first —
+    /// so the save was refused and nothing was written. The writer reads the entry
+    /// again and, if its change still applies, makes it on the version it now
+    /// reads. The editor reloads the entry, keeping the reader's unsaved edit
+    /// merged onto it, and says so; an MCP tool answers with a refusal that says to
+    /// read and retry.
+    /// </summary>
+    public const string StaleWrite = "tasks.stale_write";
 }
