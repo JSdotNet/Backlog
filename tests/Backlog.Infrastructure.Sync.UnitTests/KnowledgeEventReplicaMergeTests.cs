@@ -100,7 +100,7 @@ public sealed class KnowledgeEventReplicaMergeTests
             id,
             KnowledgeEventKinds.KnowledgeEvent,
             Noon,
-            JsonDocument.Parse(json.Replace("IDENTITY", id.ToString(), StringComparison.Ordinal)).RootElement.Clone());
+            JsonElement.Parse(json.Replace("IDENTITY", id.ToString(), StringComparison.Ordinal)).Clone());
 
         Assert.Null(KnowledgeEventDocuments.ReadEvent(change));
     }
@@ -114,7 +114,7 @@ public sealed class KnowledgeEventReplicaMergeTests
             id,
             KnowledgeEventKinds.KnowledgeEvent,
             Noon,
-            JsonDocument.Parse($$"""{"id":"{{id}}","title":"A meetup","state":"spotted"}""").RootElement.Clone());
+            JsonElement.Parse($$"""{"id":"{{id}}","title":"A meetup","state":"spotted"}""").Clone());
 
         var read = KnowledgeEventDocuments.ReadEvent(change);
 
@@ -169,7 +169,7 @@ public sealed class KnowledgeEventReplicaMergeTests
             Guid.NewGuid(),
             KnowledgeEventKinds.KnowledgeEvent,
             Noon,
-            JsonDocument.Parse("""{"title":"No id"}""").RootElement.Clone());
+            JsonElement.Parse("""{"title":"No id"}""").Clone());
         var blank = KnowledgeEventDocuments.ToChange(KnowledgeEventCopies.Event(" ", Noon));
         var kept = KnowledgeEventDocuments.ToChange(KnowledgeEventCopies.Event("Kept", Noon));
 
@@ -213,7 +213,7 @@ public sealed class KnowledgeEventReplicaMergeTests
         Assert.Null(KnowledgeEventDocuments.ReadArea(change with { Id = Guid.NewGuid() }));
         Assert.Null(KnowledgeEventDocuments.ReadArea(change with
         {
-            Document = JsonDocument.Parse("""{"id":"e7e47a5e-0000-4000-8000-0000000000a1"}""").RootElement.Clone(),
+            Document = JsonElement.Parse("""{"id":"e7e47a5e-0000-4000-8000-0000000000a1"}""").Clone(),
         }));
     }
 }

@@ -1,21 +1,14 @@
 {
   "version": 2,
   "dependencies": {
-    "net10.0": {
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Direct",
-        "requested": "[11.0.0, )",
-        "resolved": "11.0.0",
-        "contentHash": "a2c4Kp55miXT6G+DSb75pczXQJHgNMzPyZEyMxrrKxuQrgvctcDWJWD9fVe/uGbQdu4Z0c3B7AVKp1DXmD64nQ=="
-      },
+    "net11.0": {
       "ModelContextProtocol.Core": {
         "type": "Direct",
         "requested": "[2.2.0, )",
         "resolved": "2.2.0",
         "contentHash": "FeBfXU6T8k+jw4afg4sfxdEX2rL/e5oKOk9ROOGztu9k47+7Bz08sdaToYt2XvMY1opNbwxYQOFMj6wH9TInhA==",
         "dependencies": {
-          "Microsoft.Extensions.AI.Abstractions": "10.8.3",
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.10"
+          "Microsoft.Extensions.AI.Abstractions": "10.8.3"
         }
       },
       "Microsoft.Extensions.AI.Abstractions": {
@@ -76,15 +69,6 @@
       },
       "backlog.sharedkernel": {
         "type": "Project"
-      },
-      "Microsoft.Extensions.Logging.Abstractions": {
-        "type": "CentralTransitive",
-        "requested": "[11.0.0, )",
-        "resolved": "10.0.10",
-        "contentHash": "zkFxGYUvdxAvIKTyXHrmW+Sux53D4SezD9dMyZ6hrwwzPQJNuwCRy1f5W7AvYTqacEGhWF2XderRQG1OvbV8og==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10"
-        }
       }
     }
   }

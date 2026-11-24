@@ -304,8 +304,8 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
         var runId = await StartRunAsync(stageInProgress: 0);
         var telemetry = Telemetry();
 
-        await telemetry.RecordAsync(JsonDocument.Parse("[]").RootElement, Ct);
-        await telemetry.RecordAsync(JsonDocument.Parse("""{"hook_event_name": 7}""").RootElement, Ct);
+        await telemetry.RecordAsync(JsonElement.Parse("[]"), Ct);
+        await telemetry.RecordAsync(JsonElement.Parse("""{"hook_event_name": 7}"""), Ct);
         await telemetry.RecordAsync(Event("Stop", transcript: _temp.Combine("missing.jsonl")), Ct);
 
         Assert.Null(Document(runId)["insights"]);
@@ -426,7 +426,7 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
             payload[key] = value?.DeepClone();
         }
 
-        return JsonDocument.Parse(payload.ToJsonString()).RootElement;
+        return JsonElement.Parse(payload.ToJsonString());
     }
 
     private static string Assistant(

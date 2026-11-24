@@ -93,7 +93,7 @@ Playwright needs a browser. Install the one it ships with once per machine (the 
 `playwright.ps1` beside the test assembly):
 
 ```powershell
-pwsh tests\Backlog.EndToEndTests\bin\Debug\net10.0\playwright.ps1 install chromium
+pwsh tests\Backlog.EndToEndTests\bin\Debug\net11.0\playwright.ps1 install chromium
 ```
 
 Or skip the download and use an installed browser with `BACKLOG_E2E_BROWSER_CHANNEL`

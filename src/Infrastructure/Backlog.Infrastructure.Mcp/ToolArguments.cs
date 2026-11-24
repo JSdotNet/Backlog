@@ -128,7 +128,7 @@ public static class ToolArguments
             ? parameter
             : EmptySchema;
 
-    private static readonly JsonElement EmptySchema = JsonDocument.Parse("{}").RootElement.Clone();
+    private static readonly JsonElement EmptySchema = JsonElement.Parse("{}").Clone();
 
     /// <summary>The value as the parameter's schema allows it, decoded from a JSON
     /// string where that is what makes it so, or a refusal naming the argument. An

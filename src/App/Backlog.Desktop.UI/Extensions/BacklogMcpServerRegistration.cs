@@ -28,7 +28,7 @@ namespace Backlog.Desktop.UI.Extensions;
 /// cannot live there, and writing it twice is what local ADR 0012 §2 rules out
 /// when it says the two hosts keep "the tools one implementation with two
 /// hosts". This project is the only one both of them already reference that
-/// nothing on the <c>net10.0-android</c> path does: the mobile head reaches
+/// nothing on the <c>net11.0-android</c> path does: the mobile head reaches
 /// <c>ServiceDefaults</c>, <c>Backlog.Mobile.UI</c>,
 /// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Tasks</c>, and
 /// none of those reaches back here.

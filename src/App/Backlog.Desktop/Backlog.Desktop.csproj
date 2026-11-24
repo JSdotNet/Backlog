@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetFramework>net11.0-windows10.0.26100.0</TargetFramework>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Backlog.Desktop</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -67,7 +67,7 @@
       Microsoft.AspNetCore.App in Backlog.Desktop.csproj "and nowhere else —
       never Backlog.Desktop.UI, never a module, an infrastructure project or
       ServiceDefaults, because every one of those is on a path the mobile head
-      compiles". Eleven projects reach net10.0-android through
+      compiles". Eleven projects reach net11.0-android through
       Backlog.Mobile — ServiceDefaults, Backlog.Mobile.UI, Backlog.UI.Components,
       Backlog.Infrastructure.Sync, Backlog.SharedKernel, Backlog.Modules.Tasks
       and the Tasks/Sync/Inbox/Devbook/Sessions abstractions — and that head

@@ -116,15 +116,20 @@ public partial class BuildPolicyTests
         Assert.Equal(["src/Infrastructure/**.cs"], scoped);
     }
 
+    /// <summary>
+    /// Org ADR 0001: <c>global.json</c> pins the SDK and rolls forward to the
+    /// latest feature band, so a machine with a newer band of the same major still
+    /// builds while an older major never does.
+    /// </summary>
     [Fact]
-    public void Global_json_pins_the_sdk_to_a_patch_band()
+    public void Global_json_pins_the_sdk_and_rolls_forward_to_the_latest_feature_band()
     {
         using var json = JsonDocument.Parse(File.ReadAllText(RepositoryRoot.File("global.json")));
         var root = json.RootElement;
 
         Assert.True(root.TryGetProperty("sdk", out var sdk), "global.json must pin the SDK.");
         Assert.Matches(@"^\d+\.\d+\.\d{3}$", sdk.GetProperty("version").GetString());
-        Assert.Equal("latestPatch", sdk.GetProperty("rollForward").GetString());
+        Assert.Equal("latestFeature", sdk.GetProperty("rollForward").GetString());
 
         // The test runner opt-in `dotnet test` depends on stays beside the pin.
         Assert.Equal("Microsoft.Testing.Platform", root.GetProperty("test").GetProperty("runner").GetString());

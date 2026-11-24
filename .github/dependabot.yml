@@ -51,8 +51,8 @@ updates:
       - dependency-name: Microsoft.AspNetCore.Components.WebView.Maui
       # The Aspire family moves in lockstep: Aspire.Hosting.Foundry and Aspire.Hosting.Maui ship
       # one preview build per Aspire release and bind against the Aspire.Hosting the AppHost
-      # resolves, and Aspire.AppHost.Sdk is an <Sdk> element Dependabot never moves. A major
-      # Aspire move is therefore an attended flow-code run, never a grouped PR.
+      # resolves. A major Aspire move also rewrites the AppHost by hand (Aspire 17 retired
+      # Aspire.AppHost.Sdk and AddProject), so it is an attended flow-code run, never a grouped PR.
       - dependency-name: Aspire.*
         update-types:
           - version-update:semver-major

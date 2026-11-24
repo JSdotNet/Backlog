@@ -34,10 +34,10 @@ public class AspireAppModelTests
     /// ones ship one build per Aspire release, and mixing releases fails when the
     /// host starts rather than when it restores.</summary>
     private static readonly string[] AspireHostingPackages =
-        ["Aspire.Hosting.Foundry", "Aspire.Hosting.Maui", "Aspire.Hosting.DevTunnels"];
+        ["Aspire.Hosting.Foundry", "Aspire.Hosting.Maui", "Aspire.Hosting.DevTunnels", "Aspire.Hosting.Dotnet"];
 
     /// <summary>The MAUI heads. A <c>ProjectReference</c> to one of them makes the
-    /// AppHost build resolve <c>net10.0-android</c>, which it cannot, so every
+    /// AppHost build resolve <c>net11.0-android</c>, which it cannot, so every
     /// registration that names a head names it by path.</summary>
     private static readonly string[] MauiHeads = ["Backlog.Mobile", "Backlog.Desktop"];
 
@@ -155,6 +155,29 @@ public class AspireAppModelTests
     }
 
     /// <summary>
+    /// Aspire 17 builds every <c>AddDotnetProject</c> resource in one traversal
+    /// before any of them starts, explicit-start ones included. A MAUI head
+    /// registered that way is built on every run, and on a machine without the
+    /// MAUI workload that build fails and no resource starts. So the heads are
+    /// processes that build when they are started.
+    /// </summary>
+    [Fact]
+    public void No_maui_head_joins_the_coordinated_project_build()
+    {
+        var registrations = Regex.Matches(AppModelSource(), @"AddDotnetProject\([^)]*\)")
+            .Select(match => match.Value)
+            .ToList();
+
+        Assert.NotEmpty(registrations);
+
+        foreach (var head in MauiHeads)
+        {
+            Assert.DoesNotContain(registrations, registration =>
+                registration.Contains(head + ".csproj", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
     /// <c>WithExplicitStart()</c> does not hold Foundry Local back, and the app
     /// model does not pretend it does. Registering it unconditionally was tried on
     /// a machine without the CLI: <c>RunAsFoundryLocal()</c> launched
@@ -207,9 +230,9 @@ public class AspireAppModelTests
     [Fact]
     public void The_azure_foundry_harness_stays_registered_beside_foundry_local()
     {
-        Assert.Contains("AddProject(\"azure-foundry-test\"", AppModelSource(), StringComparison.Ordinal);
+        Assert.Contains("AddDotnetProject(\"azure-foundry-test\"", AppModelSource(), StringComparison.Ordinal);
 
-        var harness = Registration("AddProject(\"desktop-web-harness\"");
+        var harness = Registration("AddDotnetProject(\"desktop-web-harness\"");
 
         Assert.Contains("WithReference(azureFoundryTest)", harness, StringComparison.Ordinal);
         Assert.Contains("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", harness, StringComparison.Ordinal);
@@ -258,7 +281,7 @@ public class AspireAppModelTests
     }
 
     /// <summary>
-    /// The head used to be pinned to <c>net10.0-android</c> in the argument list,
+    /// The head used to be pinned to its Android target framework in the argument list,
     /// so running it against anything else meant editing the app model. Aspire 13.5
     /// lets a resource command take arguments, which is where that choice belongs.
     /// </summary>
@@ -273,7 +296,7 @@ public class AspireAppModelTests
         var registration = Registration("\"mobile-android\"");
 
         Assert.Contains("WithCommand(", registration, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"-f\", \"net10.0-android\"", registration, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"-f\", \"net11.0-android\"", registration, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -297,8 +320,8 @@ public class AspireAppModelTests
 
     /// <summary>
     /// The reset command copies the workspace folder name out of
-    /// <c>WorkspaceSettingsStore</c> rather than referencing it, so that an AppHost
-    /// <c>ProjectReference</c> does not drag infrastructure into the app model. A
+    /// <c>WorkspaceSettingsStore</c> rather than referencing it, so that the AppHost,
+    /// which adds every project by path and references none, builds no infrastructure. A
     /// copy silently drifts, and this one drifts destructively: if the AppHost
     /// resolves <c>Backlog.Debug</c> while the harness beside it reads
     /// <c>Backlog</c>, the reset reports success against a store nothing is using

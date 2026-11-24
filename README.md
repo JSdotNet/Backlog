@@ -319,7 +319,7 @@ folder, since some tests resolve files relative to the working directory:
 
 ```powershell
 Get-ChildItem tests -Directory | ForEach-Object {
-    $exe = Join-Path $_.FullName "bin\Debug\net10.0\$($_.Name).exe"
+    $exe = Join-Path $_.FullName "bin\Debug\net11.0\$($_.Name).exe"
     if (Test-Path $exe) { Push-Location $_.FullName; & $exe; Pop-Location }
 }
 ```

@@ -446,7 +446,7 @@ public class SurfaceToolsTests
         { "mode": "delegate", "agent": "csharp-coding:coding", "model": "opus", "runs": [{ "agent": "csharp-coding:coding", "slice": "backend" }] }
         """;
 
-    private static JsonElement Element(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    private static JsonElement Element(string json) => JsonElement.Parse(json).Clone();
 
     [Fact]
     public async Task List_runs_projects_every_run_and_counts_them()

@@ -1,5 +1,8 @@
 {
   "appHost": {
     "path": "src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj"
+  },
+  "sdk": {
+    "version": "17.0.0"
   }
 }

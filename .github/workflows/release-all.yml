@@ -401,7 +401,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           dotnet publish src\App\Backlog.Desktop\Backlog.Desktop.csproj `
-            -f net10.0-windows10.0.26100.0 `
+            -f net11.0-windows10.0.26100.0 `
             -c Release `
             -p:RuntimeIdentifierOverride=win-x64 `
             -p:ApplicationDisplayVersion=${{ needs.plan.outputs.display }} `
@@ -494,9 +494,9 @@ jobs:
           $sdkManager = Join-Path $sdkRoot 'cmdline-tools/latest/bin/sdkmanager'
           if (-not (Test-Path -LiteralPath $sdkManager)) { throw "sdkmanager was not found at $sdkManager." }
 
-          # net10.0-android targets API 36; install it explicitly rather than relying
+          # net11.0-android targets API 37; install it explicitly rather than relying
           # on whatever the runner image happens to preinstall this month.
-          & $sdkManager --install 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+          & $sdkManager --install 'platform-tools' 'platforms;android-37' 'build-tools;37.0.0'
           if ($LASTEXITCODE -ne 0) { throw "Installing Android SDK components failed." }
 
           "ANDROID_HOME=$sdkRoot" >> $env:GITHUB_ENV
@@ -554,7 +554,7 @@ jobs:
           # APK, not AAB: this package is sideloaded from GitHub Releases straight onto
           # a device, and .aab is only consumable by Google Play.
           dotnet publish src/App/Backlog.Mobile/Backlog.Mobile.csproj `
-            -f net10.0-android `
+            -f net11.0-android `
             -c Release `
             -p:AndroidPackageFormat=apk `
             -p:ApplicationDisplayVersion=${{ needs.plan.outputs.display }} `

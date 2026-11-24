@@ -178,7 +178,7 @@ public sealed class ClaudeAccountProbeTests
 
             if (answer is Exception exception) throw exception;
 
-            return Task.FromResult(JsonDocument.Parse((string)answer).RootElement.Clone());
+            return Task.FromResult(JsonElement.Parse((string)answer).Clone());
         }
     }
 }
