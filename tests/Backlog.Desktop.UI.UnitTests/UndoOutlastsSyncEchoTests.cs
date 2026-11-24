@@ -70,14 +70,14 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         await _desktop.SyncAsync();
 
         _clock.Advance(TimeSpan.FromMinutes(5));
-        Assert.True((await _desktop.ArchiveAsync(id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.ArchiveAsync(id)).Value);
         await _desktop.PushAsync();
         Assert.NotNull(_replica.Held(id)!.DeletedAt);
 
         // The reader undoes before the pull that would have found the item
         // still archived and taken the echo for what it is.
         _clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.True((await _desktop.RestoreAsync(id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.RestoreAsync(id)).Value);
         var echo = await _desktop.PullAsync();
 
         Assert.Equal(0, echo.Applied);
@@ -101,7 +101,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         Assert.Equal(InboxStatus.Archived, (await _desktop.ItemAsync(id))!.Status);
 
         _clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.True((await _desktop.RestoreAsync(id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.RestoreAsync(id)).Value);
         await _desktop.SyncAsync();
 
         _clock.Advance(TimeSpan.FromDays(3));
@@ -123,7 +123,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         Assert.NotNull(_replica.Held(id)!.DeletedAt);
 
         _clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.True((await _desktop.ReturnAsync(id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.ReturnAsync(id)).Value);
         await _desktop.SyncAsync();
 
         var item = await _desktop.ItemAsync(id);
@@ -164,13 +164,13 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         await _desktop.SyncAsync();
 
         _clock.Advance(TimeSpan.FromMinutes(5));
-        Assert.True((await _desktop.ArchiveAsync(made.Id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.ArchiveAsync(made.Id)).Value);
         await _desktop.PushAsync();
         await phone.Notes.PullAsync(Cancellation);
         Assert.Empty(phone.Notes.Notes());
 
         _clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.True((await _desktop.RestoreAsync(made.Id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.RestoreAsync(made.Id)).Value);
         await _desktop.PullAsync();
         Assert.Equal(InboxStatus.Unprocessed, (await _desktop.ItemAsync(made.Id))!.Status);
 
@@ -192,7 +192,7 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
     {
         using var http = new HttpClient(_replica.For(Guid.NewGuid())) { BaseAddress = new Uri("https://sync.test") };
         var pushed = await new TaskSyncClient(http).PushAsync([change], Cancellation);
-        Assert.True(pushed.IsSuccess);
+        Assert.IsNotType<Error>(pushed.Value);
     }
 
     /// <summary>A capture document the way the service writes one for the phone.</summary>
@@ -326,20 +326,18 @@ public sealed class UndoOutlastsSyncEchoTests : IDisposable
         public async Task PushAsync()
         {
             var pushed = await _session.PushAsync(Cancellation);
-            Assert.True(pushed.IsSuccess, pushed.IsFailure ? pushed.Error.Message : null);
+            Assert.True(pushed is not Error, (pushed.Value as Error?)?.Message);
         }
 
         public async Task<TaskSyncSummary> PullAsync()
         {
-            var pulled = await _session.PullAsync(Cancellation);
-            Assert.True(pulled.IsSuccess, pulled.IsFailure ? pulled.Error.Message : null);
-            return pulled.Value;
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PullAsync(Cancellation)).Value).Value;
         }
 
         public async Task SyncAsync()
         {
             var synced = await _session.SyncAsync(Cancellation);
-            Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
+            Assert.True(synced is not Error, (synced.Value as Error?)?.Message);
         }
 
         /// <summary>What the session itself does with a cursor the service retired.</summary>

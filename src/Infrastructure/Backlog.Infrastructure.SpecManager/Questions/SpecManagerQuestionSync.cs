@@ -4,6 +4,7 @@ using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -195,15 +196,15 @@ internal sealed class SpecManagerQuestionSync
         var draft = SpecManagerQuestionMapper.ToDraft(question, product, _client.Root, _defaultInstallation, me, linked) with { Id = id };
         var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
 
-        if (published.IsFailure)
+        if (published is Error error)
         {
             // Never the question's text: only which one, and the rule it broke.
             _log.LogWarning(
                 "spec-manager question {QuestionId} of {Product} was not published: {Code} {Message}",
                 question.Id,
                 product,
-                published.Error.Code,
-                published.Error.Message);
+                error.Code,
+                error.Message);
         }
     }
 

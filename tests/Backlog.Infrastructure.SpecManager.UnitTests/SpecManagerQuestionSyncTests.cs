@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.SpecManager.Questions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.SpecManager.UnitTests;
 
@@ -210,7 +211,7 @@ public sealed class SpecManagerQuestionSyncTests
         scenario.Connector.Targets.Save(new Backlog.Modules.Tasks.Abstractions.Connectors.ConnectedTarget(SpecManagerConnector.ConnectorId, "notification"));
         scenario.Connector.Server.Route(HttpMethod.Get, "/api/products/notification/backlog-questions", (_, _) => StubSpecManager.Respond(System.Net.HttpStatusCode.OK, "[]"));
         var alert = SpecManagerNotificationMapper.ToDraft(NotificationScenario.Fixture(NotificationScenario.Reply), scenario.Root, false, null);
-        var id = (await scenario.Ledger.PublishAsync(alert, Token)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await scenario.Ledger.PublishAsync(alert, Token)).Value).Value;
 
         Assert.True(await scenario.Sync.PullAsync(whole: true, Token));
 

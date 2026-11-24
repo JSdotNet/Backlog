@@ -48,8 +48,11 @@ public sealed class AdviseTriageQueryHandler(
         var subject = InboxTriageItemDto.From(item.ToDto());
 
         var advice = await advisor.AdviseAsync(subject, context, cancellationToken).ConfigureAwait(false);
-        if (advice.IsFailure) return advice.Error;
 
-        return InboxTriageContext.Hold(advice.Value, subject, context);
+        return advice switch
+        {
+            Ok<InboxTriageAdviceDto>(var held) => InboxTriageContext.Hold(held, subject, context),
+            Error error => error,
+        };
     }
 }

@@ -80,9 +80,9 @@ public sealed partial class IssueDeviceTokenCommandHandler(
                 ? await ByMigration(command, device, cancellationToken)
                 : ByCredential(command, device);
 
-        if (proven.IsFailure)
+        if (proven is Error error)
         {
-            return proven.Error;
+            return error;
         }
 
         var token = tokens.Issue(new OwnerScope(device.OwnerId, device.Id));
@@ -129,21 +129,21 @@ public sealed partial class IssueDeviceTokenCommandHandler(
             return Result.Failure(CredentialInvalid);
         }
 
-        var key = DevicePublicKey.Validate(command.PublicKey!);
-        if (key.IsFailure)
+        var validated = DevicePublicKey.Validate(command.PublicKey!);
+        if (validated is not Ok<string>(var key))
         {
-            return Result.Failure(key.Error);
+            return Result.Failure((Error)validated.Value!);
         }
 
-        var possession = await ByAssertion(command, device.Id, key.Value, cancellationToken);
-        if (possession.IsFailure)
+        var possession = await ByAssertion(command, device.Id, key, cancellationToken);
+        if (possession is Error)
         {
             return possession;
         }
 
         // False only when another fetch bound a key first: that one migrated, and
         // this credential is no longer good.
-        if (!await devices.BindKey(device.Id, key.Value, cancellationToken))
+        if (!await devices.BindKey(device.Id, key, cancellationToken))
         {
             return Result.Failure(CredentialInvalid);
         }

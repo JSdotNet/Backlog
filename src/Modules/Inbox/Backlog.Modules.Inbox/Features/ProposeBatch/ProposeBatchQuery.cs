@@ -44,8 +44,8 @@ public sealed class ProposeBatchQueryHandler(
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(query.Ids);
 
-        var planTag = await RouteBatchToBacklogCommandHandler.MintPlanTagAsync(organizer, query.ListId, query.PlanTitle, cancellationToken).ConfigureAwait(false);
-        if (planTag.IsFailure) return Result.Failure<InboxBatchProposalDto>(planTag.Error);
+        var minted = await RouteBatchToBacklogCommandHandler.MintPlanTagAsync(organizer, query.ListId, query.PlanTitle, cancellationToken).ConfigureAwait(false);
+        if (minted is not Ok<string>(var planTag)) return Result.Failure<InboxBatchProposalDto>((Error)minted.Value!);
 
         var (failed, routable) = await RouteBatchToBacklogCommandHandler.SortAsync(items, query.Ids, cancellationToken).ConfigureAwait(false);
         var batch = routable.Select(entry => entry.Item).ToList();
@@ -76,7 +76,7 @@ public sealed class ProposeBatchQueryHandler(
         }
 
         return new InboxBatchProposalDto(
-            planTag.Value,
+            planTag,
             [.. batch.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, [.. item.RepoIds]))],
             dependencies,
             [.. failed.OrderBy(entry => entry.Position).Select(entry => entry.Failure)],

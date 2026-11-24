@@ -161,8 +161,11 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
 
         if (!IsIdShaped(value) || repositories.WasRemoved(value)) return value;
 
-        var registered = repositories.Register(value);
-        return registered.IsSuccess ? registered.Value.Id : value;
+        return repositories.Register(value) switch
+        {
+            Ok<TasksRepositoryRef>(var registered) => registered.Id,
+            Error => value,
+        };
     }
 
     /// <summary>Whether a value is an <c>owner/name</c> coordinate: exactly two

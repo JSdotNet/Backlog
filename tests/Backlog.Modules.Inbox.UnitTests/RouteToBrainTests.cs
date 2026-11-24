@@ -44,8 +44,8 @@ public sealed class RouteToBrainTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("_inbox/event-sourcing-in-practice.md", result.Value.NotePath);
+        var ok = Assert.IsType<Ok<InboxBrainRoutedDto>>(result.Value);
+        Assert.Equal("_inbox/event-sourcing-in-practice.md", ok.Value.NotePath);
 
         var request = Assert.Single(target.Requests);
         Assert.Equal(item.Id, request.InboxItemId);
@@ -80,8 +80,9 @@ public sealed class RouteToBrainTests
         var result = await Route(store, target, item.Id, "someday");
 
         Assert.Equal("someday", Assert.Single(target.Requests).Folder);
-        Assert.Equal("someday/learn-the-cello.md", result.Value.NotePath);
-        Assert.Equal("Someday", result.Value.Area);
+        var ok = Assert.IsType<Ok<InboxBrainRoutedDto>>(result.Value);
+        Assert.Equal("someday/learn-the-cello.md", ok.Value.NotePath);
+        Assert.Equal("Someday", ok.Value.Area);
         Assert.Equal(RoutingDomain.Devbook, item.Routing!.Domain);
     }
 
@@ -97,7 +98,7 @@ public sealed class RouteToBrainTests
         var result = await Route(store, target, item.Id);
 
         Assert.Null(Assert.Single(target.Requests).Folder);
-        Assert.Equal("Inbox", result.Value.Area);
+        Assert.Equal("Inbox", Assert.IsType<Ok<InboxBrainRoutedDto>>(result.Value).Value.Area);
     }
 
     /// <summary>The requirement's second scenario, and the second requirement: a
@@ -121,7 +122,7 @@ public sealed class RouteToBrainTests
 
         var result = await Route(store, target, note.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxBrainRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal("Standup", request.Title);
         Assert.Equal("- shipped sync", request.BodyMd);
@@ -154,9 +155,9 @@ public sealed class RouteToBrainTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(InboxErrors.BrainUnavailableCode, result.Error.Code);
-        Assert.Equal("Pick a folder for your Brain in Settings › Storage.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.BrainUnavailableCode, error.Code);
+        Assert.Equal("Pick a folder for your Brain in Settings › Storage.", error.Message);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.Routing);
     }
@@ -171,7 +172,7 @@ public sealed class RouteToBrainTests
         var result = await new RouteToBrainCommandHandler(store, new FakeTimeProvider(Decision), target: null)
             .Handle(new RouteToBrainCommand(item.Id), Cancellation);
 
-        Assert.Equal(InboxErrors.BrainUnavailableCode, result.Error.Code);
+        Assert.Equal(InboxErrors.BrainUnavailableCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Null(item.Routing);
     }
 
@@ -186,7 +187,7 @@ public sealed class RouteToBrainTests
 
         var again = await Route(store, target, item.Id);
 
-        Assert.True(again.IsFailure);
+        Assert.IsType<Error>(again.Value);
         Assert.Single(target.Requests);
     }
 
@@ -201,7 +202,7 @@ public sealed class RouteToBrainTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Empty(target.Requests);
     }
 
@@ -210,7 +211,7 @@ public sealed class RouteToBrainTests
     {
         var result = await Route(new InMemoryInboxStore(), new FakeBrainTarget(), Guid.CreateVersion7());
 
-        Assert.Equal(InboxErrors.ItemNotFound, result.Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(result.Value));
     }
 
     /// <summary>Undo puts the item back in the queue; the note it became is the
@@ -227,7 +228,7 @@ public sealed class RouteToBrainTests
         var result = await new ReturnToInboxCommandHandler(store, backlog, new FakeTimeProvider(Decision.AddMinutes(1)))
             .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: false), Cancellation);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.Routing);
     }

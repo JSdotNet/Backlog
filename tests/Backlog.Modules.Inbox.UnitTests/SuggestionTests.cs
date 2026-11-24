@@ -273,16 +273,16 @@ public sealed class SuggestionTests
 
         var first = await query.Handle(new SuggestQuery(item.Id), ct);
 
-        Assert.True(first.IsSuccess);
-        Assert.Equal(["tag:sync", "repository:jsdotnet/phone", "destination:tasks"], first.Value.Select(s => s.Key));
+        var firstOk = Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(first.Value);
+        Assert.Equal(["tag:sync", "repository:jsdotnet/phone", "destination:tasks"], firstOk.Value.Select(s => s.Key));
         Assert.Empty(store.ItemWrites);
 
         var dismissed = await new DismissSuggestionCommandHandler(store).Handle(new DismissSuggestionCommand(item.Id, "tag:sync"), ct);
         var second = await query.Handle(new SuggestQuery(item.Id), ct);
 
-        Assert.True(dismissed.IsSuccess);
+        Assert.IsType<Ok>(dismissed.Value);
         Assert.Equal([item.Id], store.ItemWrites);
-        Assert.Equal(["repository:jsdotnet/phone", "destination:tasks"], second.Value.Select(s => s.Key));
+        Assert.Equal(["repository:jsdotnet/phone", "destination:tasks"], Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(second.Value).Value.Select(s => s.Key));
     }
 
     [Fact]
@@ -299,11 +299,11 @@ public sealed class SuggestionTests
         var blank = await handler.Handle(new DismissSuggestionCommand(item.Id, " "), ct);
         var missing = await handler.Handle(new DismissSuggestionCommand(Guid.CreateVersion7(), "tag:sync"), ct);
 
-        Assert.True(again.IsSuccess);
+        Assert.IsType<Ok>(again.Value);
         Assert.Single(store.ItemWrites);
         Assert.Equal(["tag:sync"], item.DismissedSuggestions);
-        Assert.Equal(InboxErrors.SuggestionKeyRequired, blank.Error);
-        Assert.Equal(InboxErrors.ItemNotFound, missing.Error);
+        Assert.Equal(InboxErrors.SuggestionKeyRequired, Assert.IsType<Error>(blank.Value));
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>(missing.Value));
     }
 
     [Fact]
@@ -315,7 +315,7 @@ public sealed class SuggestionTests
 
         var answer = await new SuggestQueryHandler(store).Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.Equal(["tag:sync", "destination:tasks"], answer.Value.Select(s => s.Key));
+        Assert.Equal(["tag:sync", "destination:tasks"], Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(answer.Value).Value.Select(s => s.Key));
     }
 
     /// <summary>The list's markers ask for every row at once: each item gets
@@ -335,10 +335,10 @@ public sealed class SuggestionTests
 
         var answer = await query.Handle(new SuggestManyQuery([sync.Id, note.Id, missing]), TestContext.Current.CancellationToken);
 
-        Assert.True(answer.IsSuccess);
-        Assert.Equal(new[] { sync.Id, note.Id }.Order(), answer.Value.Keys.Order());
-        Assert.Contains("tag:sync", answer.Value[sync.Id].Select(s => s.Key));
-        Assert.DoesNotContain("tag:sync", answer.Value[note.Id].Select(s => s.Key));
+        var answerOk = Assert.IsType<Ok<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>(answer.Value);
+        Assert.Equal(new[] { sync.Id, note.Id }.Order(), answerOk.Value.Keys.Order());
+        Assert.Contains("tag:sync", answerOk.Value[sync.Id].Select(s => s.Key));
+        Assert.DoesNotContain("tag:sync", answerOk.Value[note.Id].Select(s => s.Key));
         Assert.Equal(1, tags.Reads);
     }
 
@@ -361,9 +361,10 @@ public sealed class SuggestionTests
 
         Assert.Equal(1, store.GetManyReads);
         Assert.Equal(0, store.GetReads);
-        Assert.Equal([open.Id, archived.Id], answer.Value.Keys);
-        Assert.Contains("tag:sync", answer.Value[open.Id].Select(s => s.Key));
-        Assert.Empty(answer.Value[archived.Id]);
+        var answerOk = Assert.IsType<Ok<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>(answer.Value);
+        Assert.Equal([open.Id, archived.Id], answerOk.Value.Keys);
+        Assert.Contains("tag:sync", answerOk.Value[open.Id].Select(s => s.Key));
+        Assert.Empty(answerOk.Value[archived.Id]);
     }
 
     /// <summary>A batch whose items are all decided never reads the backlog's
@@ -381,7 +382,7 @@ public sealed class SuggestionTests
             new SuggestManyQuery([archived.Id]),
             TestContext.Current.CancellationToken);
 
-        Assert.Empty(answer.Value[archived.Id]);
+        Assert.Empty(Assert.IsType<Ok<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>(answer.Value).Value[archived.Id]);
         Assert.Equal(0, tags.Reads);
     }
 
@@ -491,11 +492,12 @@ public sealed class SuggestionTests
         var one = await query.Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
         var many = await query.Handle(new SuggestManyQuery([item.Id, task.Id]), TestContext.Current.CancellationToken);
 
-        var keep = Assert.Single(one.Value, s => s.Key == "destination:devbook");
+        var keep = Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(one.Value).Value, s => s.Key == "destination:devbook");
         Assert.False(keep.Available);
         Assert.Equal("Pick a folder for your Brain in Settings › Storage.", keep.UnavailableReason);
-        Assert.False(Assert.Single(many.Value[item.Id], s => s.Key == "destination:devbook").Available);
-        Assert.True(Assert.Single(many.Value[task.Id], s => s.Key == "destination:tasks").Available);
+        var manyOk = Assert.IsType<Ok<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>(many.Value);
+        Assert.False(Assert.Single(manyOk.Value[item.Id], s => s.Key == "destination:devbook").Available);
+        Assert.True(Assert.Single(manyOk.Value[task.Id], s => s.Key == "destination:tasks").Available);
         // Once per query, not once per item: the batch asks for the lot.
         Assert.Equal(2, target.Asked);
     }
@@ -510,7 +512,7 @@ public sealed class SuggestionTests
         var answer = await new SuggestQueryHandler(store, brainTarget: new StubBrain(null))
             .Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(Assert.Single(answer.Value, s => s.Key == "destination:devbook").Available);
+        Assert.True(Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(answer.Value).Value, s => s.Key == "destination:devbook").Available);
     }
 
     /// <summary>A host with no Brain at all answers the route with its refusal, and
@@ -524,7 +526,7 @@ public sealed class SuggestionTests
 
         var answer = await new SuggestQueryHandler(store).Handle(new SuggestQuery(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.NoBrainHere, Assert.Single(answer.Value, s => s.Key == "destination:devbook").UnavailableReason);
+        Assert.Equal(InboxErrors.NoBrainHere, Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxSuggestionDto>>>(answer.Value).Value, s => s.Key == "destination:devbook").UnavailableReason);
     }
 
     private sealed class StubBrain(string? unavailable) : IInboxBrainTarget

@@ -30,11 +30,10 @@ public sealed class EditCaptureHandlerTests
     {
         var id = await Captured("Call the dentist", "before noon");
 
-        var result = await Edit(id, "Call the dentist about the crown", "Ask for Thursday.");
+        var result = Assert.IsType<Ok<InboxItem>>((await Edit(id, "Call the dentist about the crown", "Ask for Thursday.")).Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("Call the dentist about the crown", result.Value.Title);
-        Assert.Equal("Ask for Thursday.", result.Value.BodyMd);
+        Assert.Equal("Call the dentist about the crown", result.Title);
+        Assert.Equal("Ask for Thursday.", result.BodyMd);
 
         var document = (await _replica.Find(Phone.OwnerId, id, Cancellation))!.Change;
         Assert.Equal("Call the dentist about the crown", document.Task.Title);
@@ -58,7 +57,7 @@ public sealed class EditCaptureHandlerTests
 
         var result = await Edit(id, "Call the dentist today", null);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxItem>>(result.Value);
         var document = (await _replica.Find(Phone.OwnerId, id, Cancellation))!.Change;
         Assert.Equal(_clock.GetUtcNow().AddMinutes(5).AddTicks(1), document.UpdatedAt);
         Assert.Equal("Call the dentist today", document.Task.Title);
@@ -95,9 +94,9 @@ public sealed class EditCaptureHandlerTests
         var result = await new EditCaptureCommandHandler(_replica, _clock)
             .Handle(new EditCaptureCommand(scope, id, "Reworded", null), Cancellation);
 
-        Assert.True(result.IsFailure, what);
-        Assert.Equal(SyncErrorCodes.InboxItemNotFound, result.Error.Code);
-        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+        Assert.True(result is Error, what);
+        Assert.Equal(SyncErrorCodes.InboxItemNotFound, Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal(ErrorType.NotFound, Assert.IsType<Error>(result.Value).Type);
         Assert.Equal(before, await _replica.Find(Phone.OwnerId, id, Cancellation));
     }
 
@@ -110,10 +109,10 @@ public sealed class EditCaptureHandlerTests
         var id = await Captured("Call the dentist", null);
         var racing = new TombstoneBeforeUpsert(_replica, Stored.AddSeconds(1));
 
-        var result = await new EditCaptureCommandHandler(racing, _clock)
-            .Handle(new EditCaptureCommand(Phone, id, "Reworded", null), Cancellation);
+        var result = Assert.IsType<Error>((await new EditCaptureCommandHandler(racing, _clock)
+            .Handle(new EditCaptureCommand(Phone, id, "Reworded", null), Cancellation)).Value);
 
-        Assert.Equal(SyncErrorCodes.InboxItemNotFound, result.Error.Code);
+        Assert.Equal(SyncErrorCodes.InboxItemNotFound, result.Code);
         var document = (await _replica.Find(Phone.OwnerId, id, Cancellation))!.Change;
         Assert.NotNull(document.DeletedAt);
         Assert.Equal("Call the dentist", document.Task.Title);

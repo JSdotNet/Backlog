@@ -79,9 +79,9 @@ public sealed class ArchivedRepositoryTests
 
         Assert.All(results, result =>
         {
-            Assert.True(result.IsFailure);
-            Assert.Equal(PullRequestErrors.ArchivedCode, result.Error.Code);
-            Assert.Equal(ErrorType.Conflict, result.Error.Type);
+            var error = Assert.IsType<Error>(result.Value);
+            Assert.Equal(PullRequestErrors.ArchivedCode, error.Code);
+            Assert.Equal(ErrorType.Conflict, error.Type);
         });
         Assert.Empty(_github.Calls);
         Assert.Equal(0, raised);

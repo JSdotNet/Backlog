@@ -18,7 +18,7 @@ public sealed class RemoveDependencyCommandHandler(IRoadmapPlanRepository plans,
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveDependency(command.NodeId, command.DependsOnId);
 
-        if (removed.IsFailure) return removed;
+        if (removed is Error) return removed;
 
         await plans.SaveAsync(plan, cancellationToken);
         return Result.Success();

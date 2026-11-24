@@ -1,6 +1,7 @@
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Progress.UnitTests;
 
@@ -38,7 +39,7 @@ internal static class MakeImpediment
     public static readonly DateOnly Fri16 = new(2026, 10, 16);
 
     public static Impediment Raised(string title = "Bank sample files missing", DateOnly? on = null) =>
-        Impediment.Raise(Guid.NewGuid(), title, on ?? Wed14).Value;
+        Assert.IsType<Ok<Impediment>>(Impediment.Raise(Guid.NewGuid(), title, on ?? Wed14).Value).Value;
 
     /// <summary>An impediment moved through <paramref name="path"/>, one step a day from
     /// <see cref="Wed14"/>.</summary>
@@ -49,7 +50,7 @@ internal static class MakeImpediment
         foreach (var state in path)
         {
             day = day.AddDays(1);
-            Assert.True(impediment.MoveTo(state, day, "someone").IsSuccess);
+            Assert.IsType<Ok>(impediment.MoveTo(state, day, "someone").Value);
         }
 
         return impediment;

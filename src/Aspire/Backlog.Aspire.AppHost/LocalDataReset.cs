@@ -42,11 +42,10 @@ internal static class LocalDataReset
     ///
     /// <para>It is a copy rather than a project reference deliberately, and not
     /// because the reference is impossible — <c>Backlog.Infrastructure.FileSystem</c>
-    /// and <c>Backlog.Infrastructure.Sqlite</c> are both plain <c>net10.0</c>. Aspire
-    /// reads an AppHost's <c>ProjectReference</c>s as the project resources of the app
-    /// model unless each one is marked otherwise, so referencing infrastructure here
-    /// would pull a slice of the application graph into the host to share three
-    /// constants. The price of the copy is that it has to stay in step with those two
+    /// and <c>Backlog.Infrastructure.Sqlite</c> are both plain <c>net11.0</c>. The
+    /// AppHost adds every project by path and references none, so referencing
+    /// infrastructure here would pull a slice of the application graph into the
+    /// host's own build to share three constants. The price of the copy is that it has to stay in step with those two
     /// files, which is what <c>AspireAppModelTests</c> asserts.</para></summary>
 #if DEBUG
     private const string WorkspaceFolderName = "Backlog.Debug";

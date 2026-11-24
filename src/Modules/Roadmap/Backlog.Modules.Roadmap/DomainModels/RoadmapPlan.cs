@@ -183,9 +183,9 @@ public sealed class RoadmapPlan
         if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
 
         var window = PlannedWindow.Create(end < item.Window.Start ? end : item.Window.Start, end);
-        if (window.IsFailure) return Result.Failure<RoadmapItem>(window.Error);
+        if (window is not Ok<PlannedWindow>(var pinned)) return (Error)window.Value!;
 
-        item.PinEnd(window.Value);
+        item.PinEnd(pinned);
         return Result.Success(item);
     }
 
@@ -301,7 +301,7 @@ public sealed class RoadmapPlan
         ArgumentNullException.ThrowIfNull(tag);
 
         var added = AddItem(title, window, priority, scope, notes: notes, tag: tag, knowledgeRefs: knowledgeRefs);
-        if (added.IsSuccess) added.Value.PlaceByImport(window, placement);
+        if (added is Ok<RoadmapItem>(var item)) item.PlaceByImport(window, placement);
         return added;
     }
 

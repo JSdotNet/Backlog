@@ -1,6 +1,7 @@
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.Services;
 
@@ -19,9 +20,8 @@ internal sealed class EventAttachmentRequests(IKnowledgeEventRepository events, 
         ArgumentNullException.ThrowIfNull(request);
 
         var created = AttachmentRequest.Create(request.RequestId, request.EventId, request.NoteId, request.NoteTitle);
-        if (created.IsFailure) return EventAttachmentOutcome.Incomplete;
+        if (created is not Ok<AttachmentRequest>(var attachment)) return EventAttachmentOutcome.Incomplete;
 
-        var attachment = created.Value;
         if (await events.GetAsync(attachment.EventId, cancellationToken).ConfigureAwait(false) is not { } knowledgeEvent)
         {
             // Absent and removed read alike through GetAsync; only an absent event may still arrive.

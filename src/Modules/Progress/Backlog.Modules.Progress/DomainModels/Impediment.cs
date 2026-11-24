@@ -91,19 +91,20 @@ public sealed class Impediment
         DateOnly raisedOn,
         DateTimeOffset? createdAt = null)
     {
-        var clean = CleanTitle(title);
-        if (clean.IsFailure) return clean.Error;
-
-        return new Impediment(
-            id,
-            clean.Value,
-            null,
-            null,
-            null,
-            null,
-            [new ImpedimentStateChange(ImpedimentState.New, raisedOn, null)],
-            [],
-            createdAt);
+        return CleanTitle(title) switch
+        {
+            Ok<string>(var clean) => new Impediment(
+                id,
+                clean,
+                null,
+                null,
+                null,
+                null,
+                [new ImpedimentStateChange(ImpedimentState.New, raisedOn, null)],
+                [],
+                createdAt),
+            Error error => error,
+        };
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules
@@ -139,10 +140,10 @@ public sealed class Impediment
 
     public Result Rename(string? title)
     {
-        var clean = CleanTitle(title);
-        if (clean.IsFailure) return Result.Failure(clean.Error);
+        var cleaned = CleanTitle(title);
+        if (cleaned is not Ok<string>(var clean)) return Result.Failure((Error)cleaned.Value!);
 
-        Title = clean.Value;
+        Title = clean;
         return Result.Success();
     }
 

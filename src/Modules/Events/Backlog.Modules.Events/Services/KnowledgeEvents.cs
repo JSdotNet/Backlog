@@ -24,9 +24,8 @@ internal sealed class KnowledgeEvents(
         ArgumentNullException.ThrowIfNull(request);
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(), request.Title);
-        if (created.IsFailure) return created.Error;
+        if (created is not Ok<KnowledgeEvent>(var knowledgeEvent)) return (Error)created.Value!;
 
-        var knowledgeEvent = created.Value;
         knowledgeEvent.SetLink(request.Link);
         SetFoundDates(knowledgeEvent, request.Start, request.End);
         knowledgeEvent.SetPlace(PlaceOf(request.Place));
@@ -48,7 +47,7 @@ internal sealed class KnowledgeEvents(
         if (DateOf(start) is not { } from) return;
 
         var to = DateOf(end);
-        if (knowledgeEvent.SetDates(from, to, DateSource.EventPage).IsFailure)
+        if (knowledgeEvent.SetDates(from, to, DateSource.EventPage) is Error)
             knowledgeEvent.SetDates(from, null, DateSource.EventPage);
     }
 
@@ -57,7 +56,11 @@ internal sealed class KnowledgeEvents(
         if (date is null) return null;
 
         var exact = EventDate.Create(date.Date, date.Time, date.UtcOffset);
-        return exact.IsSuccess ? exact.Value : EventDate.Create(date.Date, null, null).Value;
+        return exact switch
+        {
+            Ok<EventDate>(var value) => value,
+            Error => ((Ok<EventDate>)EventDate.Create(date.Date, null, null).Value!).Value,
+        };
     }
 
     private static Place? PlaceOf(string? written)
@@ -66,7 +69,7 @@ internal sealed class KnowledgeEvents(
 
         return string.Equals(written.Trim(), "Online", StringComparison.OrdinalIgnoreCase)
             ? Place.Online
-            : Place.AtVenue(written).Value;
+            : ((Ok<Place>)Place.AtVenue(written).Value!).Value;
     }
 
     /// <summary>The series whose page is the watched page, or a new one named after it; none
@@ -80,7 +83,7 @@ internal sealed class KnowledgeEvents(
         if (known.FirstOrDefault(each => SamePage(each.Link, page)) is { } match) return (match.Id, false);
 
         var name = string.IsNullOrWhiteSpace(request.SeriesPageTitle) ? HostOf(page) : request.SeriesPageTitle;
-        var started = EventSeries.Create(Guid.CreateVersion7(), name, organiser: null, link: page).Value;
+        var started = ((Ok<EventSeries>)EventSeries.Create(Guid.CreateVersion7(), name, organiser: null, link: page).Value!).Value;
         await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
 
         return (started.Id, true);

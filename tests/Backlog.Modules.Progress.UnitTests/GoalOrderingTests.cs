@@ -1,6 +1,7 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.DomainModels;
 using Backlog.Modules.Progress.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Progress.UnitTests;
 
@@ -16,7 +17,7 @@ public sealed class GoalOrderingTests
 
     /// <summary>Goals set a minute apart, in the order given.</summary>
     private static List<Goal> Set(params string[] titles) =>
-        [.. titles.Select((title, index) => Goal.Create(Guid.NewGuid(), title, null, null, Monday.AddMinutes(index)).Value)];
+        [.. titles.Select((title, index) => Assert.IsType<Ok<Goal>>(Goal.Create(Guid.NewGuid(), title, null, null, Monday.AddMinutes(index)).Value).Value)];
 
     private static List<string> Order(IEnumerable<Goal> goals) =>
         [.. GoalOrder.Sort(goals, goal => goal.Rank, goal => goal.CreatedAt, goal => goal.Id).Select(goal => goal.Title)];
@@ -124,7 +125,7 @@ public sealed class GoalOrderingTests
 
     // --- A new goal lands last -----------------------------------------------------
 
-    private static Goal SetAt(string title, DateTimeOffset at) => Goal.Create(Guid.NewGuid(), title, null, null, at).Value;
+    private static Goal SetAt(string title, DateTimeOffset at) => Assert.IsType<Ok<Goal>>(Goal.Create(Guid.NewGuid(), title, null, null, at).Value).Value;
 
     [Fact]
     public void A_new_goal_set_after_every_key_is_last_already_and_is_left_unranked()

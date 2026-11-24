@@ -1,6 +1,7 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Progress.DomainModels;
 using Backlog.Modules.Progress.Features.AttachWork;
 using Backlog.Modules.Progress.Services;
 using Backlog.SharedKernel.Handlers;
@@ -71,10 +72,11 @@ public sealed class ListGoalsQueryHandler(IGoalRepository repository, IProgressT
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var item = AttachWorkCommandHandler.AttachmentOf(query.Item, DateOnly.MinValue);
-        if (item.IsFailure) return Result.Failure<GoalDto?>(item.Error);
-
-        var all = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
-        return Result.Success(GoalAssignment.HolderOf(all, item.Value)?.ToDto());
+        return AttachWorkCommandHandler.AttachmentOf(query.Item, DateOnly.MinValue) switch
+        {
+            Ok<GoalAttachment>(var item) => Result.Success(
+                GoalAssignment.HolderOf(await repository.ListAsync(cancellationToken).ConfigureAwait(false), item)?.ToDto()),
+            Error error => Result.Failure<GoalDto?>(error),
+        };
     }
 }

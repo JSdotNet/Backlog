@@ -20,11 +20,6 @@
        DevToolProvider rely on are set once in the root Directory.Build.props;
        BuildPolicyTests keeps them from being restated here. -->
 
-  <ItemGroup>
-    <!-- The listing logs a CLI it could not read rather than losing it. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <!-- The port it answers, and the catalog language it reads. The direction is

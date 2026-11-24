@@ -96,9 +96,11 @@ internal static class AuthorizationServerEndpoints
                 RedirectedAuthorizeParameters.FirstOrDefault(name => query[name].Count > 1)),
             cancellationToken);
 
-        return result.IsSuccess
-            ? Results.Redirect(result.Value.AbsoluteUri)
-            : ConnectorPages.Refusal(context, settings, result.Error.Message);
+        return result switch
+        {
+            Ok<Uri>(var redirect) => Results.Redirect(redirect.AbsoluteUri),
+            Error error => ConnectorPages.Refusal(context, settings, error.Message),
+        };
     }
 
     private static async Task<IResult> ShowConsent(
@@ -110,9 +112,11 @@ internal static class AuthorizationServerEndpoints
     {
         var result = await handler.Handle(new DescribeConnectorConsentQuery(ticket), cancellationToken);
 
-        return result.IsSuccess
-            ? ConnectorPages.Consent(context, settings, result.Value)
-            : ConnectorPages.Refusal(context, settings, result.Error.Message);
+        return result switch
+        {
+            Ok<ConnectorConsentPrompt>(var prompt) => ConnectorPages.Consent(context, settings, prompt),
+            Error error => ConnectorPages.Refusal(context, settings, error.Message),
+        };
     }
 
     private static async Task<IResult> DecideConsent(
@@ -139,9 +143,11 @@ internal static class AuthorizationServerEndpoints
 
         var result = await handler.Handle(new DecideConnectorConsentCommand(Single(form["ticket"]), allow), cancellationToken);
 
-        return result.IsSuccess
-            ? Results.Redirect(result.Value.AbsoluteUri)
-            : ConnectorPages.Refusal(context, settings, result.Error.Message);
+        return result switch
+        {
+            Ok<Uri>(var redirect) => Results.Redirect(redirect.AbsoluteUri),
+            Error error => ConnectorPages.Refusal(context, settings, error.Message),
+        };
     }
 
     private static async Task<IResult> Token(
@@ -186,9 +192,11 @@ internal static class AuthorizationServerEndpoints
             _ => Unsupported(),
         };
 
-        return result.IsSuccess
-            ? Results.Json(result.Value)
-            : OAuthError(context, result.Error.Code, result.Error.Message, usedBasic: basic is not null);
+        return result switch
+        {
+            Ok<ConnectorTokenResponse>(var response) => Results.Json(response),
+            Error error => OAuthError(context, error.Code, error.Message, usedBasic: basic is not null),
+        };
     }
 
     /// <summary>A refusal the endpoint makes itself, before any handler: counted, then answered.</summary>

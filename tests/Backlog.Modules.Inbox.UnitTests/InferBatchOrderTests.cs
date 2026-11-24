@@ -28,7 +28,7 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, target, drafter: null, [first.Id, second.Id]);
 
-        Assert.Equal("inbox.plan.not_configured", result.Error.Code);
+        Assert.Equal("inbox.plan.not_configured", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.OrderReads);
     }
 
@@ -40,8 +40,8 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, new FakeBacklogTarget(), drafter, [first.Id, second.Id]);
 
-        Assert.Equal("inbox.plan.not_configured", result.Error.Code);
-        Assert.Equal("Configure Azure Foundry in Settings to create plans.", result.Error.Message);
+        Assert.Equal("inbox.plan.not_configured", Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal("Configure Azure Foundry in Settings to create plans.", Assert.IsType<Error>(result.Value).Message);
         Assert.Empty(drafter.Requests);
     }
 
@@ -92,7 +92,7 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, target, new FakePlanDrafter(), [first.Id, second.Id]);
 
-        var dependency = Assert.Single(result.Value);
+        var dependency = Assert.Single(Assert.IsType<Ok<IReadOnlyList<ProposedDependency>>>(result.Value).Value);
         Assert.Equal(second.Id, dependency.From);
         Assert.Equal(DependencyTargetKind.Item, dependency.To.Kind);
         Assert.Equal(first.Id, dependency.To.Id);
@@ -113,8 +113,8 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, target, new FakePlanDrafter(), [first.Id, second.Id]);
 
-        Assert.Equal("inbox.order.unknown_repository", result.Error.Code);
-        Assert.Contains("made/up", result.Error.Message, StringComparison.Ordinal);
+        Assert.Equal("inbox.order.unknown_repository", Assert.IsType<Error>(result.Value).Code);
+        Assert.Contains("made/up", Assert.IsType<Error>(result.Value).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, target, drafter, [first.Id, second.Id]);
 
-        Assert.Equal("inbox.plan.failed", result.Error.Code);
+        Assert.Equal("inbox.plan.failed", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.OrderReads);
     }
 
@@ -141,8 +141,8 @@ public sealed class InferBatchOrderTests
 
         var result = await Infer(store, new FakeBacklogTarget(), drafter, [first.Id, routed.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value);
+        var ok = Assert.IsType<Ok<IReadOnlyList<ProposedDependency>>>(result.Value);
+        Assert.Empty(ok.Value);
         Assert.Empty(drafter.Requests);
     }
 

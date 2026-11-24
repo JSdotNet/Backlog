@@ -174,12 +174,12 @@ internal sealed class EventsPane(
             return EventsErrors.SeriesNotFound(named);
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(clock.GetUtcNow()), title);
-        if (created.IsFailure) return created.Error;
+        if (created is not Ok<KnowledgeEvent>(var added)) return (Error)created.Value!;
 
-        created.Value.SetSeries(seriesId);
-        await events.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        added.SetSeries(seriesId);
+        await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
-        return await ReadAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
     }
 
     // Built whole on the aggregate before anything is saved, so a field the rules refuse leaves
@@ -191,14 +191,12 @@ internal sealed class EventsPane(
         using var mark = BeginWrite();
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(clock.GetUtcNow()), request.Title);
-        if (created.IsFailure) return created.Error;
+        if (created is not Ok<KnowledgeEvent>(var added)) return (Error)created.Value!;
 
-        var added = created.Value;
-        var filled = Fill(added, request);
-        if (filled.IsFailure) return filled.Error;
+        if (Fill(added, request) is Error filledError) return filledError;
 
         var joined = await SeriesNamedAsync(request.SeriesName, cancellationToken).ConfigureAwait(false);
-        if (joined.IsFailure) return joined.Error;
+        if (joined is not Ok<(EventSeries Series, bool IsNew)?>(var seriesNamed)) return (Error)joined.Value!;
 
         // The stores have no transaction and a series no delete, so a series started here stays
         // if the event's save then fails. It is announced either way, so the sync loop pushes it
@@ -206,7 +204,7 @@ internal sealed class EventsPane(
         var startedSeries = false;
         try
         {
-            if (joined.Value is { } named)
+            if (seriesNamed is { } named)
             {
                 if (named.IsNew)
                 {
@@ -249,7 +247,7 @@ internal sealed class EventsPane(
             return Result.Failure(EventsErrors.KnowledgeEventNotFound(id));
 
         var removed = found.Remove();
-        if (removed.IsFailure) return removed;
+        if (removed is Error) return removed;
 
         await events.SaveAsync(found, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
@@ -286,8 +284,8 @@ internal sealed class EventsPane(
             foreach (var keyDate in keyDates)
             {
                 var one = KeyDate.Create(keyDate.Date, keyDate.Label);
-                if (one.IsFailure) return Result.Failure(one.Error);
-                made.Add(one.Value);
+                if (one is not Ok<KeyDate>(var madeOne)) return (Error)one.Value!;
+                made.Add(madeOne);
             }
 
             e.SetKeyDates(made);
@@ -319,11 +317,11 @@ internal sealed class EventsPane(
     {
         using var mark = BeginWrite();
         var created = EventSeries.Create(Guid.CreateVersion7(clock.GetUtcNow()), name, organiser, link);
-        if (created.IsFailure) return created.Error;
+        if (created is not Ok<EventSeries>(var started)) return (Error)created.Value!;
 
-        await series.SaveAsync(created.Value, cancellationToken).ConfigureAwait(false);
+        await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
         saved?.Raise();
-        return SeriesDto(created.Value);
+        return SeriesDto(started);
     }
 
     public async Task<Result<KnowledgeEventDto>> SetSeriesAsync(Guid id, Guid? seriesId, CancellationToken cancellationToken = default)
@@ -378,10 +376,10 @@ internal sealed class EventsPane(
 
         // The title alone: the task never names the event (ADR 0050 §3).
         var filed = await tasks.FileAsync(trimmed, cancellationToken).ConfigureAwait(false);
-        if (filed.IsFailure) return filed.Error;
+        if (filed is not Ok<string>(var taskId)) return (Error)filed.Value!;
 
         // Loaded again: filing waits on Tasks, and a change saved elsewhere meanwhile is kept.
-        return await ChangeAsync(id, e => e.LinkTask(EventTaskLink.Create(filed.Value, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false);
+        return await ChangeAsync(id, e => e.LinkTask(EventTaskLink.Create(taskId, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<KnowledgeEventDto>> LinkExistingTaskAsync(Guid id, string taskId, CancellationToken cancellationToken = default)
@@ -408,7 +406,7 @@ internal sealed class EventsPane(
 
     private async Task<Result<KnowledgeEventDto>> SaveAsync(KnowledgeEvent changed, Result outcome, CancellationToken cancellationToken, Func<KnowledgeEvent, Task>? afterSave = null)
     {
-        if (outcome.IsFailure) return outcome.Error;
+        if (outcome is Error error) return error;
 
         using var mark = BeginWrite();
 
@@ -521,8 +519,11 @@ internal sealed class EventsPane(
     {
         if (day is null) return Result.Success<EventDate?>(null);
 
-        var made = EventDate.Create(day.Date, day.Time, day.UtcOffset);
-        return made.IsFailure ? Result.Failure<EventDate?>(made.Error) : Result.Success<EventDate?>(made.Value);
+        return EventDate.Create(day.Date, day.Time, day.UtcOffset) switch
+        {
+            Ok<EventDate>(var made) => Result.Success<EventDate?>(made),
+            Error error => Result.Failure<EventDate?>(error),
+        };
     }
 
     /// <summary>Sets every field a new event's request carries, in the editor's terms: the dates
@@ -531,13 +532,13 @@ internal sealed class EventsPane(
     private static Result Fill(KnowledgeEvent e, NewKnowledgeEventDto request)
     {
         var dated = ApplyTypedDates(e, request.Start, request.End);
-        if (dated.IsFailure) return dated;
+        if (dated is Error) return dated;
 
         var placed = ApplyPlace(e, request.Place);
-        if (placed.IsFailure) return placed;
+        if (placed is Error) return placed;
 
         var costed = ApplyCost(e, request.Cost);
-        if (costed.IsFailure) return costed;
+        if (costed is Error) return costed;
 
         e.SetLink(request.Link);
         e.SetWhatToLearn(request.WhatToLearn);
@@ -550,12 +551,12 @@ internal sealed class EventsPane(
     private static Result ApplyTypedDates(KnowledgeEvent e, EventDateDto? start, EventDateDto? end)
     {
         var from = ToDate(start);
-        if (from.IsFailure) return Result.Failure(from.Error);
+        if (from is not Ok<EventDate?>(var fromDate)) return (Error)from.Value!;
 
         var to = ToDate(end);
-        if (to.IsFailure) return Result.Failure(to.Error);
+        if (to is not Ok<EventDate?>(var toDate)) return (Error)to.Value!;
 
-        return e.SetDates(from.Value, to.Value, from.Value is null ? null : DateSource.Typed);
+        return e.SetDates(fromDate, toDate, fromDate is null ? null : DateSource.Typed);
     }
 
     /// <summary>Sets the place, or clears it with null.</summary>
@@ -568,9 +569,9 @@ internal sealed class EventsPane(
         }
 
         var made = Place.Create(place.Venue, place.IsOnline);
-        if (made.IsFailure) return Result.Failure(made.Error);
+        if (made is not Ok<Place>(var placed)) return (Error)made.Value!;
 
-        e.SetPlace(made.Value);
+        e.SetPlace(placed);
         return Result.Success();
     }
 
@@ -584,9 +585,9 @@ internal sealed class EventsPane(
         }
 
         var made = Cost.Create(cost.Amount, cost.Currency);
-        if (made.IsFailure) return Result.Failure(made.Error);
+        if (made is not Ok<Cost>(var priced)) return (Error)made.Value!;
 
-        e.SetCost(made.Value);
+        e.SetCost(priced);
         return Result.Success();
     }
 
@@ -607,9 +608,11 @@ internal sealed class EventsPane(
         if (matches.Count == 1) return Result.Success<(EventSeries, bool)?>((matches[0], false));
 
         var started = EventSeries.Create(Guid.CreateVersion7(clock.GetUtcNow()), trimmed, organiser: null, link: null);
-        return started.IsFailure
-            ? Result.Failure<(EventSeries, bool)?>(started.Error)
-            : Result.Success<(EventSeries, bool)?>((started.Value, true));
+        return started switch
+        {
+            Ok<EventSeries>(var newSeries) => Result.Success<(EventSeries, bool)?>((newSeries, true)),
+            Error error => Result.Failure<(EventSeries, bool)?>(error),
+        };
     }
 
     /// <summary>A Brain note's path as an event stores it (<see cref="NoteLink.BrainPath"/>).

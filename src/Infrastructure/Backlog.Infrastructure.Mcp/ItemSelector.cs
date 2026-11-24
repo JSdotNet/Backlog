@@ -71,8 +71,10 @@ internal static class ItemSelector
     {
         var resolved = RepositoryScope.Resolve(repositories, repository);
 
-        return resolved.IsSuccess ? resolved.Value.Id
-            : registeredOnly ? throw RepositoryScope.Failure(resolved.Error)
-            : repository.Trim();
+        return resolved switch
+        {
+            Ok<TasksRepositoryRef>(var registered) => registered.Id,
+            Error error => registeredOnly ? throw RepositoryScope.Failure(error) : repository.Trim(),
+        };
     }
 }

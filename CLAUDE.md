@@ -48,7 +48,10 @@ the source of the gate and `.agents/rules/context-loading.md` as the detail.
 This repository ships no repo-native `flow-*` skill; every flow comes from the `delivery`
 plugin. It, `delivery-schedule` and `devbook` are installed at user scope from the
 `jsdotnet-devbook` marketplace `.claude/settings.json` declares; their hooks pick the repository
-up from its `.devbook/` markers, so no project-scope `enabledPlugins` list is committed.
+up from its `.devbook/` markers, so the project-scope `enabledPlugins` list does not name them.
+That list holds only the agent skills org ADR 0013 installs for every session: the Aspire skills
+`aspire agent init --skills aspire` wrote (CLI first, its MCP not configured by it) and the
+`dotnet/skills` plugins. `.github/copilot/settings.json` carries the same list for Copilot.
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than

@@ -134,5 +134,5 @@ internal sealed class RoutingTransport : IGitHubTransport
     public int CallsTo(string fragment) =>
         Paths.Count(path => path.Contains(fragment, StringComparison.OrdinalIgnoreCase));
 
-    private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    private static JsonElement Parse(string json) => JsonElement.Parse(json).Clone();
 }

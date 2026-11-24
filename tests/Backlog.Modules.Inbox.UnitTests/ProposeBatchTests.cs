@@ -33,19 +33,19 @@ public sealed class ProposeBatchTests
 
         var result = await Propose(store, [first.Id, routed.Id, second.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Matches(TagShape, result.Value.PlanTag);
-        Assert.StartsWith("+inbox-batch-", result.Value.PlanTag, StringComparison.Ordinal);
-        Assert.Equal([first.Id, second.Id], result.Value.Items.Select(item => item.Id));
-        Assert.Equal(["a/one"], result.Value.Items[0].RepoIds);
-        Assert.Equal("Deploy the preview", result.Value.Items[1].Title);
+        var ok = Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value);
+        Assert.Matches(TagShape, ok.Value.PlanTag);
+        Assert.StartsWith("+inbox-batch-", ok.Value.PlanTag, StringComparison.Ordinal);
+        Assert.Equal([first.Id, second.Id], ok.Value.Items.Select(item => item.Id));
+        Assert.Equal(["a/one"], ok.Value.Items[0].RepoIds);
+        Assert.Equal("Deploy the preview", ok.Value.Items[1].Title);
 
-        var dependency = Assert.Single(result.Value.Dependencies);
+        var dependency = Assert.Single(ok.Value.Dependencies);
         Assert.Equal((second.Id, first.Id), (dependency.From, dependency.To.Id));
         Assert.Equal("set up the pipeline", dependency.Reason);
 
-        Assert.Equal(routed.Id, Assert.Single(result.Value.Refused).Id);
-        Assert.Null(result.Value.Deferred);
+        Assert.Equal(routed.Id, Assert.Single(ok.Value.Refused).Id);
+        Assert.Null(ok.Value.Deferred);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -60,7 +60,7 @@ public sealed class ProposeBatchTests
 
         var result = await Propose(store, [item.Id], references: references);
 
-        var dependency = Assert.Single(result.Value.Dependencies);
+        var dependency = Assert.Single(Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value).Value.Dependencies);
         Assert.Equal(DependencyTargetKind.Task, dependency.To.Kind);
         Assert.Equal(task.Id.ToString("D"), dependency.To.After);
         Assert.Equal(1, references.Calls);
@@ -75,8 +75,8 @@ public sealed class ProposeBatchTests
 
         var result = await Propose(store, [item.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Dependencies);
+        var ok = Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value);
+        Assert.Empty(ok.Value.Dependencies);
     }
 
     [Fact]
@@ -98,8 +98,9 @@ public sealed class ProposeBatchTests
 
         var result = await Propose(store, [open.Id], list.Id);
 
-        Assert.StartsWith("+reading-list-", result.Value.PlanTag, StringComparison.Ordinal);
-        Assert.Equal(1, result.Value.Deferred);
+        var ok = Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value);
+        Assert.StartsWith("+reading-list-", ok.Value.PlanTag, StringComparison.Ordinal);
+        Assert.Equal(1, ok.Value.Deferred);
     }
 
     /// <summary>"Make the plan" on a triage card names the plan: the card's
@@ -117,8 +118,8 @@ public sealed class ProposeBatchTests
         var titled = await Propose(store, [item.Id], planTitle: "Tasks sync polish");
         var titledInList = await Propose(store, [item.Id], list.Id, planTitle: "Tasks sync polish");
 
-        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", titled.Value.PlanTag);
-        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", titledInList.Value.PlanTag);
+        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", Assert.IsType<Ok<InboxBatchProposalDto>>(titled.Value).Value.PlanTag);
+        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", Assert.IsType<Ok<InboxBatchProposalDto>>(titledInList.Value).Value.PlanTag);
     }
 
     [Theory]
@@ -132,7 +133,7 @@ public sealed class ProposeBatchTests
 
         var result = await Propose(store, [item.Id], planTitle: planTitle);
 
-        Assert.StartsWith("+inbox-batch-", result.Value.PlanTag, StringComparison.Ordinal);
+        Assert.StartsWith("+inbox-batch-", Assert.IsType<Ok<InboxBatchProposalDto>>(result.Value).Value.PlanTag, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -140,7 +141,7 @@ public sealed class ProposeBatchTests
     {
         var result = await Propose(new InMemoryInboxStore(), [Guid.CreateVersion7()], Guid.CreateVersion7());
 
-        Assert.Equal(InboxErrors.ListNotFound, result.Error);
+        Assert.Equal(InboxErrors.ListNotFound, Assert.IsType<Error>(result.Value));
     }
 
     [Fact]
@@ -153,7 +154,7 @@ public sealed class ProposeBatchTests
         var first = await Propose(store, [item.Id]);
         var second = await Propose(store, [item.Id]);
 
-        Assert.NotEqual(first.Value.PlanTag, second.Value.PlanTag);
+        Assert.NotEqual(Assert.IsType<Ok<InboxBatchProposalDto>>(first.Value).Value.PlanTag, Assert.IsType<Ok<InboxBatchProposalDto>>(second.Value).Value.PlanTag);
     }
 
     private static Task<Result<InboxBatchProposalDto>> Propose(

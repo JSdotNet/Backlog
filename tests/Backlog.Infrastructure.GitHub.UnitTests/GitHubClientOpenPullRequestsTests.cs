@@ -365,7 +365,7 @@ public sealed class GitHubClientOpenPullRequestsTests
     [
         .. transport.Bodies
             .Where(sent => sent!.Contains("pullRequests(states: OPEN", StringComparison.Ordinal))
-            .Select(sent => JsonDocument.Parse(sent!).RootElement.GetProperty("variables").Clone())
+            .Select(sent => JsonElement.Parse(sent!).GetProperty("variables").Clone())
     ];
 
     private static string Node(

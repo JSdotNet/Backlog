@@ -309,9 +309,9 @@
             if (_test is { IsOpen: true } previous)
             {
                 var withdrawn = await Notifications.CloseAsync(previous.Id, TestNotifications.ReplacedReason);
-                if (withdrawn.IsFailure && withdrawn.Error.Code != "notification.already_settled")
+                if (withdrawn is Error withdrawError && withdrawError.Code != "notification.already_settled")
                 {
-                    _error = withdrawn.Error.Message;
+                    _error = withdrawError.Message;
                     return;
                 }
             }
@@ -319,18 +319,18 @@
             var subject = TestNotifications.NewSubject();
             var draft = kind == NotificationKind.Question ? TestNotifications.Question(subject) : TestNotifications.Alert(subject);
             var published = await Notifications.PublishAsync(draft);
-            if (published.IsFailure)
+            if (published is not Ok<Guid>(var publishedId))
             {
-                _error = published.Error.Message;
+                _error = ((Error)published.Value!).Message;
                 return;
             }
 
             // The Changed event usually lands first, and may already carry a later state; reading
             // the centre covers a store that raised none.
-            if (_test?.Id != published.Value)
+            if (_test?.Id != publishedId)
             {
                 var listed = await Centre.ListAsync();
-                if (listed.FirstOrDefault(view => view.Id == published.Value) is { } view) _test = view;
+                if (listed.FirstOrDefault(view => view.Id == publishedId) is { } view) _test = view;
             }
         }
         finally
@@ -349,7 +349,7 @@
         try
         {
             var closed = await Notifications.CloseAsync(test.Id, TestNotifications.ClearedReason);
-            if (closed.IsFailure) _error = closed.Error.Message;
+            if (closed is Error error) _error = error.Message;
         }
         finally
         {

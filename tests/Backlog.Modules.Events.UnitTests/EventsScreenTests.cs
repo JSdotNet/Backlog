@@ -98,7 +98,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         var later = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
         var sooner = await Dated("dotNET Friday", new DateOnly(2026, 11, 27));
         var going = await Dated("NDC Oslo", new DateOnly(2027, 6, 7));
-        Assert.True((await Pane.MoveToAsync(going, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(going, KnowledgeEventState.Going, Token)).Value);
 
         var pane = RenderPane();
 
@@ -137,7 +137,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     [Fact]
     public async Task A_blank_title_is_refused_in_the_modules_words_and_nothing_is_added()
     {
-        var refusal = (await Pane.AddAsync("  ", cancellationToken: Token)).Error.Message;
+        var refusal = Assert.IsType<Error>((await Pane.AddAsync("  ", cancellationToken: Token)).Value).Message;
         var pane = RenderPane();
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-add-open']"));
 
@@ -179,7 +179,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
         pane.WaitForAssertion(() => Assert.Equal("Going", State(pane)));
         Assert.Equal(["Going", "Attended", "Harvested", "Skip…"], StateChoices(pane));
-        Assert.Equal(KnowledgeEventState.Going, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal(KnowledgeEventState.Going, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find(StateSelect).Change("Attended");
 
         Assert.Equal("Move to Attended", Text(pane, "events-state-apply"));
-        Assert.Equal(KnowledgeEventState.Spotted, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal(KnowledgeEventState.Spotted, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
 
         pane.Find("[data-testid='events-state-cancel']").Click();
 
@@ -204,7 +204,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task Skip_asks_why_refuses_a_blank_reason_and_shows_the_reason_once_skipped()
     {
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Considering, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Considering, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find(StateSelect));
 
@@ -212,7 +212,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-skip-confirm']").Click();
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='events-skip-dialog'] .app-error-message, [data-testid='events-skip-dialog'] .field__error")));
-        Assert.Equal(KnowledgeEventState.Considering, (await Pane.GetAsync(id, Token)).Value.State);
+        Assert.Equal(KnowledgeEventState.Considering, Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.State);
 
         pane.Find("[data-testid='events-skip-reason'] textarea").Input("Clashes with the release");
         pane.Find("[data-testid='events-skip-confirm']").Click();
@@ -264,7 +264,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-remove-cancel']").Click();
 
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='events-remove-dialog']")));
-        Assert.True((await Pane.GetAsync(duplicate, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(duplicate, Token)).Value);
         Assert.NotNull(pane.Find($"[data-testid='events-row-{duplicate:N}']"));
 
         pane.Find("[data-testid='events-remove']").Click();
@@ -274,7 +274,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='events-row-{duplicate:N}']")));
         Assert.NotNull(pane.Find("[data-testid='events-pane-nothing-picked']"));
         Assert.Empty(pane.FindAll("[data-testid='events-remove-dialog']"));
-        Assert.Equal("knowledge_event.not_found", (await Pane.GetAsync(duplicate, Token)).Error.Code);
+        Assert.Equal("knowledge_event.not_found", Assert.IsType<Error>((await Pane.GetAsync(duplicate, Token)).Value).Code);
         Assert.NotNull(pane.Find($"[data-testid='events-row-{kept:N}']"));
         var addEventId = pane.Find("[data-testid='events-add-open']").Id;
         pane.WaitForAssertion(() => Assert.Equal(addEventId, FocusCalls().LastOrDefault()));
@@ -317,7 +317,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Empty(pane.FindAll("[data-testid='events-editor-save'].save-indicator--error"));
         Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title"));
         Assert.NotNull(pane.Find($"[data-testid='events-row-{going:N}']"));
-        Assert.True((await Pane.GetAsync(going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(going, Token)).Value);
 
         // Read again, the event no longer offers Remove; the refusal still says why, and a
         // save that holds afterwards reads saved.
@@ -364,7 +364,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove']"));
 
         // Another desktop removed it, and the replica caught up, after the editor read it.
-        Assert.True((await Pane.RemoveAsync(duplicate, Token)).IsSuccess);
+        Assert.IsType<Ok>((await Pane.RemoveAsync(duplicate, Token)).Value);
         pane.Find("[data-testid='events-remove']").Click();
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-remove-confirm']"));
         pane.Find("[data-testid='events-remove-confirm']").Click();
@@ -380,7 +380,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     private async Task<Guid> GoingWithItsHarvestTaskDue(string title)
     {
         var id = await Dated(title, new DateOnly(2026, 11, 7));
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         return id;
     }
 
@@ -396,7 +396,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         input.Change("Techorama Belgium");
 
         pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
-        Assert.Equal("Techorama Belgium", (await Pane.GetAsync(id, Token)).Value.Title);
+        Assert.Equal("Techorama Belgium", Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Title);
     }
 
     [Fact]
@@ -411,7 +411,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.WaitForAssertion(() => Assert.Equal(
             "27 Nov 2026",
             pane.Find($"[data-testid='events-row-{id:N}'] [data-testid='events-row-line']").TextContent));
-        var saved = (await Pane.GetAsync(id, Token)).Value;
+        var saved = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value;
         Assert.Equal(new DateOnly(2026, 11, 27), saved.Start!.Date);
         Assert.Equal(DateSource.Typed, saved.DateSource);
     }
@@ -423,8 +423,8 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         Brain.Notes["areas/learning/aspire.md"] = "Aspire takeaways";
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.LinkBrainNoteAsync(id, "areas/learning/aspire.md", cancellationToken: Token)).IsSuccess);
-        Assert.True((await Pane.LinkBrainNoteAsync(id, "areas/learning/techorama.md", "Techorama", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkBrainNoteAsync(id, "areas/learning/aspire.md", cancellationToken: Token)).Value);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkBrainNoteAsync(id, "areas/learning/techorama.md", "Techorama", Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='events-note']").Count));
 
@@ -447,7 +447,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         Brain.Notes["areas/events/techorama.md"] = "Techorama notes";
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.LinkBrainNoteAsync(id, "areas/learning/techorama.md", "Techorama", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkBrainNoteAsync(id, "areas/learning/techorama.md", "Techorama", Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-note-relink']"));
 
@@ -457,7 +457,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         picker.KeyDown(new KeyboardEventArgs { Key = "Enter" });
 
         pane.WaitForAssertion(() => Assert.Equal("false", pane.Find("[data-testid='events-note']").GetAttribute("data-missing")));
-        var note = Assert.Single((await Pane.GetAsync(id, Token)).Value.Notes);
+        var note = Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Notes);
         Assert.Equal("areas/events/techorama.md", note.Reference);
     }
 
@@ -495,7 +495,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task Add_prep_task_files_the_title_alone_and_lists_it_with_its_status()
     {
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-prep-title'] input"));
 
@@ -521,7 +521,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var taskId = Tasks.Hold("Ask about training budget", "Ready");
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.LinkExistingTaskAsync(id, taskId, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkExistingTaskAsync(id, taskId, Token)).Value);
         Tasks.Held.Remove(taskId);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-task']"));
@@ -547,7 +547,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
             "No task with that id in this backlog",
             pane.Find("[data-testid='events-link-task-id']").TextContent,
             StringComparison.Ordinal));
-        Assert.Empty((await Pane.GetAsync(id, Token)).Value.Tasks);
+        Assert.Empty(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Tasks);
     }
 
     [Fact]
@@ -555,7 +555,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var taskId = Tasks.Hold("Book hotel", "Draft");
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.LinkExistingTaskAsync(id, taskId, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkExistingTaskAsync(id, taskId, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => Assert.Equal("Draft", Text(pane, "events-task-status")));
 
@@ -571,7 +571,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task Picking_another_event_starts_its_sections_fresh()
     {
         var first = await Add("Techorama Belgium");
-        Assert.True((await Pane.LinkBrainNoteAsync(first, "areas/learning/techorama.md", "Techorama", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.LinkBrainNoteAsync(first, "areas/learning/techorama.md", "Techorama", Token)).Value);
         var second = await Add("dotNET Friday");
         var pane = RenderOn(first);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-note-relink']"));
@@ -606,7 +606,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.Equal(ToastSeverity.Error, toast.Severity);
         Assert.Equal("events-editor-left-refusal", toast.TestId);
         Assert.StartsWith("Techorama Belgium: not saved.", toast.Message, StringComparison.Ordinal);
-        Assert.Equal("Techorama Belgium", (await Pane.GetAsync(first, Token)).Value.Title);
+        Assert.Equal("Techorama Belgium", Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(first, Token)).Value).Value.Title);
     }
 
     [Fact]
@@ -646,7 +646,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task Emptying_the_amount_of_a_saved_cost_clears_the_cost()
     {
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.SetCostAsync(id, new CostDto(100m, "EUR"), Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetCostAsync(id, new CostDto(100m, "EUR"), Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-cost'] input"));
 
@@ -665,7 +665,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-field-cost'] input").Change("749");
 
         Assert.Empty(pane.FindAll("[data-testid='events-editor-save'].save-indicator--error"));
-        Assert.Null((await Pane.GetAsync(id, Token)).Value.Cost);
+        Assert.Null(Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value.Cost);
 
         pane.Find("[data-testid='events-field-currency'] input").Change("eur");
 
@@ -676,7 +676,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task A_rename_while_a_prep_task_is_being_filed_waits_for_it_and_is_not_undone()
     {
         var id = await Add("Techorama");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-prep-title'] input"));
 
@@ -730,14 +730,14 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     }
 
     /// <summary>The event as stored now. The stores in memory answer at once, so a wait can poll it.</summary>
-    private KnowledgeEventDto Saved(Guid id) => Pane.GetAsync(id, Token).GetAwaiter().GetResult().Value;
+    private KnowledgeEventDto Saved(Guid id) => Assert.IsType<Ok<KnowledgeEventDto>>(Pane.GetAsync(id, Token).GetAwaiter().GetResult().Value).Value;
 
     [Fact]
     public async Task The_series_page_is_a_link_wearing_the_panes_link_style_that_opens_outside()
     {
-        var series = (await Pane.StartSeriesAsync("Techorama", "Techorama vzw", "https://techorama.be", Token)).Value;
+        var series = Assert.IsType<Ok<EventSeriesDto>>((await Pane.StartSeriesAsync("Techorama", "Techorama vzw", "https://techorama.be", Token)).Value).Value;
         var id = await Add("Techorama Belgium 2027");
-        Assert.True((await Pane.SetSeriesAsync(id, series.Id, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetSeriesAsync(id, series.Id, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-series-link']"));
 
@@ -794,7 +794,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task The_dates_show_where_they_came_from_and_an_undated_event_shows_no_source()
     {
         var paged = await Add("dotNET Friday");
-        var start = EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value;
+        var start = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value).Value;
         await Change(paged, e => e.SetDates(start, null, DateSource.EventPage));
         var typed = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
         var undated = await Add("NDC Oslo");
@@ -814,7 +814,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task A_date_typed_over_the_event_pages_reads_typed()
     {
         var id = await Add("dotNET Friday");
-        var start = EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value;
+        var start = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 11, 27), new TimeOnly(16, 30), Cet).Value).Value;
         await Change(id, e => e.SetDates(start, null, DateSource.EventPage));
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => Assert.Equal("Source: Event page", Text(pane, "events-date-source")));
@@ -829,7 +829,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task Emptying_the_currency_of_a_saved_cost_keeps_the_cost_and_says_a_currency_is_needed()
     {
         var id = await Add("Techorama Belgium");
-        Assert.True((await Pane.SetCostAsync(id, new CostDto(749m, "EUR"), Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetCostAsync(id, new CostDto(749m, "EUR"), Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-currency'] input"));
 
@@ -919,7 +919,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var stored = await Store.GetAsync(id, Token);
         Assert.NotNull(stored);
-        Assert.True(change(stored).IsSuccess);
+        Assert.IsType<Ok>(change(stored).Value);
         await Store.SaveAsync(stored, Token);
     }
 
@@ -955,7 +955,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
         pane.WaitForAssertion(() => Assert.Equal(
             "NDC Oslo",
-            pane.Find($"[data-testid='events-row-{added.Value.Id:N}'] .events-list__title").TextContent));
+            pane.Find($"[data-testid='events-row-{Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id:N}'] .events-list__title").TextContent));
         Assert.Equal("2 events", Text(pane, "events-pane-subtitle"));
     }
 
@@ -969,7 +969,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         var title = pane.Find("[data-testid='events-field-title'] input");
         title.Input("Techorama Belgium 2027");
 
-        Assert.True((await Elsewhere().MoveToAsync(id, KnowledgeEventState.Considering, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().MoveToAsync(id, KnowledgeEventState.Considering, Token)).Value);
 
         pane.WaitForAssertion(() => Assert.Equal("Considering", State(pane)));
         Assert.Equal("Techorama Belgium 2027", pane.Find("[data-testid='events-field-title'] input").GetAttribute("value"));
@@ -986,7 +986,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task A_change_elsewhere_while_the_editor_has_a_write_out_reloads_the_list_and_is_kept_once_the_write_lands()
     {
         var id = await Add("Techorama");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-prep-title'] input"));
 
@@ -994,7 +994,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-prep-title'] input").Input("Book hotel in Antwerp");
         pane.Find("[data-testid='events-prep-add']").Click();
 
-        Assert.True((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).Value);
 
         pane.WaitForAssertion(() => Assert.Equal(
             "Techorama Belgium",
@@ -1014,7 +1014,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task A_change_elsewhere_landing_while_the_editors_answer_is_out_is_read_once_the_answer_is_in()
     {
         var id = await Add("Techorama");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-prep-title'] input"));
 
@@ -1024,7 +1024,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-prep-add']").Click();
         pane.WaitForAssertion(() => Assert.Single(Store.GetAsync(id, Token).GetAwaiter().GetResult()!.Tasks));
 
-        Assert.True((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).Value);
         pane.WaitForAssertion(() => Assert.Equal(
             "Techorama Belgium",
             pane.Find($"[data-testid='events-row-{id:N}'] .events-list__title").TextContent));
@@ -1044,7 +1044,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     public async Task A_change_elsewhere_skipped_during_a_write_that_is_refused_is_read_once_the_queue_is_empty()
     {
         var id = await Add("Techorama");
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Going, Token)).Value);
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-prep-title'] input"));
 
@@ -1053,7 +1053,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-prep-title'] input").Input("Book hotel in Antwerp");
         pane.Find("[data-testid='events-prep-add']").Click();
 
-        Assert.True((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().RenameAsync(id, "Techorama Belgium", Token)).Value);
         pane.WaitForAssertion(() => Assert.Equal(
             "Techorama Belgium",
             pane.Find($"[data-testid='events-row-{id:N}'] .events-list__title").TextContent));

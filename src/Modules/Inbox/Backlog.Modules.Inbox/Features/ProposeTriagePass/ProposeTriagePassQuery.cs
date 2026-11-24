@@ -54,8 +54,11 @@ public sealed class ProposeTriagePassQueryHandler(
             all, organizer, taskReferences, [.. batch.Select(item => item.Id)], query.Repositories, cancellationToken).ConfigureAwait(false);
 
         var pass = await advisor.ProposePassAsync(batch, context, cancellationToken).ConfigureAwait(false);
-        if (pass.IsFailure) return pass.Error;
 
-        return InboxTriageContext.Hold(pass.Value, batch, context);
+        return pass switch
+        {
+            Ok<InboxTriagePassDto>(var proposed) => InboxTriageContext.Hold(proposed, batch, context),
+            Error error => error,
+        };
     }
 }

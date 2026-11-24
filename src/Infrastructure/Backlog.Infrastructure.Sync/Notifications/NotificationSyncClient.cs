@@ -71,6 +71,10 @@ public sealed class NotificationSyncClient
             (_, _) => Task.FromResult(true),
             cancellationToken).ConfigureAwait(false);
 
-        return deleted.IsSuccess ? Result.Success() : Result.Failure(deleted.Error);
+        return deleted switch
+        {
+            Ok<bool> => Result.Success(),
+            Error error => error,
+        };
     }
 }

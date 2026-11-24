@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -10,19 +11,19 @@ namespace Backlog.Modules.Roadmap.UnitTests;
 public class PlanEditingTests
 {
     private static PlannedWindow Window(int startDay, int endDay) =>
-        PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value;
+        Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value).Value;
 
     private static (RoadmapPlan Plan, RoadmapItem Item) Planned()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem(
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Original title",
             Window(5, 9),
             PlanningPriority.Low,
             RepositoryScope.Of(["backlog"]),
             PlanningLane.Of("platform"),
             Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            "Original notes").Value;
+            "Original notes").Value).Value;
 
         return (plan, item);
     }
@@ -43,7 +44,7 @@ public class PlanEditingTests
             entry,
             "Edited notes");
 
-        Assert.True(updated.IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(updated.Value);
         Assert.Equal("Edited title", item.Title);
         Assert.Equal(new DateOnly(2026, 1, 12), item.Window.Start);
         Assert.Equal(new DateOnly(2026, 1, 23), item.Window.End);
@@ -74,8 +75,8 @@ public class PlanEditingTests
     public void TheIdSurvivesAnEdit_SoDependenciesOnItDoToo()
     {
         var plan = RoadmapPlan.Empty();
-        var design = plan.AddItem("Design", Window(5, 9)).Value;
-        var build = plan.AddItem("Build", Window(12, 16)).Value;
+        var design = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Design", Window(5, 9)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Build", Window(12, 16)).Value).Value;
         plan.AddDependency(build.Id, design.Id);
 
         plan.UpdateItem(design.Id, "Design, renamed", Window(2, 6), PlanningPriority.High);
@@ -93,8 +94,8 @@ public class PlanEditingTests
 
         var updated = plan.UpdateItem(item.Id, title, Window(12, 23), PlanningPriority.Critical);
 
-        Assert.True(updated.IsFailure);
-        Assert.Equal("roadmap.title_required", updated.Error.Code);
+        Assert.IsType<Error>(updated.Value);
+        Assert.Equal("roadmap.title_required", Assert.IsType<Error>(updated.Value).Code);
         Assert.Equal("Original title", item.Title);
         Assert.Equal(new DateOnly(2026, 1, 5), item.Window.Start);
         Assert.Equal(PlanningPriority.Low, item.Priority);
@@ -107,16 +108,16 @@ public class PlanEditingTests
 
         var updated = plan.UpdateItem(Guid.NewGuid(), "Anything", Window(5, 9), PlanningPriority.Low);
 
-        Assert.True(updated.IsFailure);
-        Assert.Equal("roadmap.item_not_found", updated.Error.Code);
+        Assert.IsType<Error>(updated.Value);
+        Assert.Equal("roadmap.item_not_found", Assert.IsType<Error>(updated.Value).Code);
     }
 
     [Fact]
     public void EditingDatesIntoAContradiction_IsAllowedAndReported()
     {
         var plan = RoadmapPlan.Empty();
-        var design = plan.AddItem("Design", Window(5, 9)).Value;
-        var build = plan.AddItem("Build", Window(12, 16)).Value;
+        var design = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Design", Window(5, 9)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Build", Window(12, 16)).Value).Value;
         plan.AddDependency(build.Id, design.Id);
 
         // Pulling the predecessor's end past the successor's start. The plan takes it
@@ -124,7 +125,7 @@ public class PlanEditingTests
         // the point.
         var updated = plan.UpdateItem(design.Id, "Design", Window(5, 20), PlanningPriority.Low);
 
-        Assert.True(updated.IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(updated.Value);
         Assert.Single(plan.Contradictions());
     }
 
@@ -132,8 +133,8 @@ public class PlanEditingTests
     public void EditingDoesNotTouchDependencies()
     {
         var plan = RoadmapPlan.Empty();
-        var design = plan.AddItem("Design", Window(5, 9)).Value;
-        var build = plan.AddItem("Build", Window(12, 16)).Value;
+        var design = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Design", Window(5, 9)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Build", Window(12, 16)).Value).Value;
         plan.AddDependency(build.Id, design.Id);
 
         plan.UpdateItem(build.Id, "Build, edited", Window(19, 23), PlanningPriority.High);

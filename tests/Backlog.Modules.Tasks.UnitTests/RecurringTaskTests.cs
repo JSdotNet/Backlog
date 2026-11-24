@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -322,7 +323,7 @@ public sealed class RecurringTaskTests
         var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new SaveTaskFromTextCommand(id, rawText, 0));
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<SavedTaskDto>>(result.Value);
+        return ok.Value;
     }
 }

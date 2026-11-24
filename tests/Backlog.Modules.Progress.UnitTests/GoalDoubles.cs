@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.DomainModels;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Progress.UnitTests;
 
@@ -98,15 +99,15 @@ internal static class MakeGoal
 
     public static Goal Named(string title = "Customers get paid faster", params GoalAttachment[] holds)
     {
-        var goal = Goal.Create(Guid.NewGuid(), title, null, Due).Value;
+        var goal = Assert.IsType<Ok<Goal>>(Goal.Create(Guid.NewGuid(), title, null, Due).Value).Value;
         foreach (var item in holds) goal.Attach(item);
         return goal;
     }
 
-    public static GoalAttachment Plan(string tag) => GoalAttachment.ForPlan(tag, Today).Value;
+    public static GoalAttachment Plan(string tag) => Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForPlan(tag, Today).Value).Value;
 
-    public static GoalAttachment Task(Guid id) => GoalAttachment.ForTask(id, Today).Value;
+    public static GoalAttachment Task(Guid id) => Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForTask(id, Today).Value).Value;
 
     public static GoalAttachment PullRequest(string repository, int number) =>
-        GoalAttachment.ForPullRequest(repository, number, Today).Value;
+        Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForPullRequest(repository, number, Today).Value).Value;
 }

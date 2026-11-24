@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -155,14 +156,14 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         var draft = SpecManagerNotificationMapper.ToDraft(notification, _client.Root, _defaultInstallation, place);
         var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
 
-        if (published.IsFailure)
+        if (published is Error error)
         {
             // Never the notification's subject or text: only which one, and the rule it broke.
             _log.LogWarning(
                 "spec-manager notification {NotificationId} was not published: {Code} {Message}",
                 notification.Id,
-                published.Error.Code,
-                published.Error.Message);
+                error.Code,
+                error.Message);
         }
     }
 
@@ -204,12 +205,12 @@ internal sealed class SpecManagerNotificationSync : IDisposable
             if (unread.Contains(notificationId)) continue;
 
             var closed = await _notifications.CloseAsync(open.Id, SpecManagerNotificationMapper.ReadReason, cancellationToken).ConfigureAwait(false);
-            if (closed.IsFailure)
+            if (closed is Error error)
             {
                 _log.LogInformation(
                     "The alert of spec-manager notification {NotificationId} was not closed: {Code}",
                     notificationId,
-                    closed.Error.Code);
+                    error.Code);
             }
         }
     }

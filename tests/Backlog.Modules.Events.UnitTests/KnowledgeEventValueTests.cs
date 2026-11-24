@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -20,13 +21,13 @@ public sealed class KnowledgeEventValueTests
     {
         var result = EventDate.Create(MeetupDay, new TimeOnly(16, 30), utcOffset: null);
 
-        Assert.Equal("event_date.offset_missing", result.Error.Code);
+        Assert.Equal("event_date.offset_missing", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
     public void A_date_alone_is_an_event_date()
     {
-        var date = EventDate.Create(MeetupDay, time: null, utcOffset: null).Value;
+        var date = Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, time: null, utcOffset: null).Value).Value;
 
         Assert.Equal(MeetupDay, date.Date);
         Assert.Null(date.Time);
@@ -36,7 +37,7 @@ public sealed class KnowledgeEventValueTests
     [Fact]
     public void A_date_with_a_time_and_its_offset_is_an_event_date()
     {
-        var date = EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value;
+        var date = Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value).Value;
 
         Assert.Equal(new TimeOnly(16, 30), date.Time);
         Assert.Equal(TimeSpan.FromHours(1), date.UtcOffset);
@@ -45,7 +46,7 @@ public sealed class KnowledgeEventValueTests
     [Fact]
     public void An_offset_without_a_time_is_kept()
     {
-        var date = EventDate.Create(MeetupDay, time: null, CentralEuropean).Value;
+        var date = Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, time: null, CentralEuropean).Value).Value;
 
         Assert.Null(date.Time);
         Assert.Equal(TimeSpan.FromHours(1), date.UtcOffset);
@@ -55,11 +56,11 @@ public sealed class KnowledgeEventValueTests
     public void Two_event_dates_with_the_same_parts_are_equal()
     {
         Assert.Equal(
-            EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value,
-            EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value);
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value).Value,
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value).Value);
         Assert.NotEqual(
-            EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value,
-            EventDate.Create(MeetupDay, new TimeOnly(17, 0), CentralEuropean).Value);
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, new TimeOnly(16, 30), CentralEuropean).Value).Value,
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(MeetupDay, new TimeOnly(17, 0), CentralEuropean).Value).Value);
     }
 
     // --- A place is a venue or online ---------------------------------------------------
@@ -67,7 +68,7 @@ public sealed class KnowledgeEventValueTests
     [Fact]
     public void A_place_that_is_both_a_venue_and_online_is_refused()
     {
-        Assert.Equal("place.invalid", Place.Create("Kinepolis Antwerp", online: true).Error.Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create("Kinepolis Antwerp", online: true).Value).Code);
     }
 
     [Theory]
@@ -76,23 +77,23 @@ public sealed class KnowledgeEventValueTests
     [InlineData("  ")]
     public void A_place_that_is_neither_a_venue_nor_online_is_refused(string? venue)
     {
-        Assert.Equal("place.invalid", Place.Create(venue, online: false).Error.Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create(venue, online: false).Value).Code);
     }
 
     [Fact]
     public void A_blank_venue_is_refused()
     {
-        Assert.Equal("place.invalid", Place.AtVenue(" ").Error.Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.AtVenue(" ").Value).Code);
     }
 
     [Fact]
     public void A_venue_is_a_place_with_its_name_trimmed()
     {
-        var place = Place.AtVenue("  Kinepolis Antwerp ").Value;
+        var place = Assert.IsType<Ok<Place>>(Place.AtVenue("  Kinepolis Antwerp ").Value).Value;
 
         Assert.Equal("Kinepolis Antwerp", place.Venue);
         Assert.False(place.IsOnline);
-        Assert.Equal(place, Place.Create("Kinepolis Antwerp", online: false).Value);
+        Assert.Equal(place, Assert.IsType<Ok<Place>>(Place.Create("Kinepolis Antwerp", online: false).Value).Value);
     }
 
     [Fact]
@@ -100,7 +101,7 @@ public sealed class KnowledgeEventValueTests
     {
         Assert.True(Place.Online.IsOnline);
         Assert.Null(Place.Online.Venue);
-        Assert.Equal(Place.Online, Place.Create(venue: null, online: true).Value);
+        Assert.Equal(Place.Online, Assert.IsType<Ok<Place>>(Place.Create(venue: null, online: true).Value).Value);
     }
 
     // --- A key date has a label ---------------------------------------------------------
@@ -110,17 +111,17 @@ public sealed class KnowledgeEventValueTests
     [InlineData("   ")]
     public void A_key_date_without_a_label_is_refused(string label)
     {
-        Assert.Equal("key_date.label_missing", KeyDate.Create(new DateOnly(2026, 9, 1), label).Error.Code);
+        Assert.Equal("key_date.label_missing", Assert.IsType<Error>(KeyDate.Create(new DateOnly(2026, 9, 1), label).Value).Code);
     }
 
     [Fact]
     public void A_key_date_keeps_its_date_and_its_label_trimmed()
     {
-        var earlyBird = KeyDate.Create(new DateOnly(2026, 9, 1), " Early bird ends ").Value;
+        var earlyBird = Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 9, 1), " Early bird ends ").Value).Value;
 
         Assert.Equal(new DateOnly(2026, 9, 1), earlyBird.Date);
         Assert.Equal("Early bird ends", earlyBird.Label);
-        Assert.Equal(earlyBird, KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value);
+        Assert.Equal(earlyBird, Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value).Value);
     }
 
     // --- A cost is not negative and names its currency ----------------------------------
@@ -128,7 +129,7 @@ public sealed class KnowledgeEventValueTests
     [Fact]
     public void A_negative_cost_is_refused()
     {
-        Assert.Equal("cost.invalid", Cost.Create(-0.01m, "EUR").Error.Code);
+        Assert.Equal("cost.invalid", Assert.IsType<Error>(Cost.Create(-0.01m, "EUR").Value).Code);
     }
 
     [Theory]
@@ -136,22 +137,22 @@ public sealed class KnowledgeEventValueTests
     [InlineData("  ")]
     public void A_cost_without_a_currency_is_refused(string currency)
     {
-        Assert.Equal("cost.invalid", Cost.Create(150m, currency).Error.Code);
+        Assert.Equal("cost.invalid", Assert.IsType<Error>(Cost.Create(150m, currency).Value).Code);
     }
 
     [Fact]
     public void A_free_event_costs_zero()
     {
-        Assert.Equal(0m, Cost.Create(0m, "EUR").Value.Amount);
+        Assert.Equal(0m, Assert.IsType<Ok<Cost>>(Cost.Create(0m, "EUR").Value).Value.Amount);
     }
 
     [Fact]
     public void A_cost_writes_its_currency_trimmed_and_upper_cased()
     {
-        var ticket = Cost.Create(895m, " eur ").Value;
+        var ticket = Assert.IsType<Ok<Cost>>(Cost.Create(895m, " eur ").Value).Value;
 
         Assert.Equal("EUR", ticket.Currency);
-        Assert.Equal(ticket, Cost.Create(895m, "EUR").Value);
+        Assert.Equal(ticket, Assert.IsType<Ok<Cost>>(Cost.Create(895m, "EUR").Value).Value);
     }
 
     // --- Note and task links: equal when they name the same note or task ----------------

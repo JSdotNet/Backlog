@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -127,14 +128,14 @@ public class KnowledgeReferencesTests
 public class PlanTaggingTests
 {
     private static PlannedWindow Window(int startDay, int endDay) =>
-        PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value;
+        Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, startDay), new DateOnly(2026, 1, endDay)).Value).Value;
 
     [Fact]
     public void AnItemAddedWithoutATag_GetsOneDerivedFromItsTitle()
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem("Extract the sync service", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Extract the sync service", Window(5, 9)).Value).Value;
 
         Assert.Equal("extract-the-sync-service", item.Tag.Value);
     }
@@ -144,10 +145,10 @@ public class PlanTaggingTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem(
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Extract the sync service",
             Window(5, 9),
-            tag: PlanningTag.Of("sync")).Value;
+            tag: PlanningTag.Of("sync")).Value).Value;
 
         Assert.Equal("sync", item.Tag.Value);
     }
@@ -156,7 +157,7 @@ public class PlanTaggingTests
     public void RenamingTheTitle_LeavesTheTagAlone()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Original title", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Original title", Window(5, 9)).Value).Value;
         var tagBefore = item.Tag;
 
         plan.Rename(item.Id, "A completely different title");
@@ -170,7 +171,7 @@ public class PlanTaggingTests
     public void UpdatingWithAnExplicitTag_MovesItOnlyThen()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Original title", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Original title", Window(5, 9)).Value).Value;
 
         plan.UpdateItem(
             item.Id,
@@ -186,7 +187,7 @@ public class PlanTaggingTests
     public void UpdatingWithNoTag_RederivesFromTheTitle_BecauseTheFieldWasCleared()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Original title", Window(5, 9), tag: PlanningTag.Of("old")).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Original title", Window(5, 9), tag: PlanningTag.Of("old")).Value).Value;
 
         plan.UpdateItem(item.Id, "Fresh title", Window(5, 9), PlanningPriority.Medium, tag: null);
 
@@ -198,10 +199,10 @@ public class PlanTaggingTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem(
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Work",
             Window(5, 9),
-            knowledgeRefs: KnowledgeReferences.Of([" a.md ", "a.md", "b.md#x"])).Value;
+            knowledgeRefs: KnowledgeReferences.Of([" a.md ", "a.md", "b.md#x"])).Value).Value;
 
         Assert.Equal(["a.md", "b.md#x"], item.KnowledgeRefs.Refs);
     }
@@ -210,7 +211,7 @@ public class PlanTaggingTests
     public void KnowledgeReferencesAreWrittenBack_OnUpdate()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Work", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Work", Window(5, 9)).Value).Value;
 
         plan.UpdateItem(
             item.Id,
@@ -230,10 +231,10 @@ public class PlanTaggingTests
         // and its slug survive both writes untouched.
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem(
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Work",
             Window(5, 9),
-            knowledgeRefs: KnowledgeReferences.Of(["#brain:projects/sync.md", ".devbook/domain/tasks/domain.md#task"])).Value;
+            knowledgeRefs: KnowledgeReferences.Of(["#brain:projects/sync.md", ".devbook/domain/tasks/domain.md#task"])).Value).Value;
 
         Assert.Equal(["#brain:projects/sync.md", ".devbook/domain/tasks/domain.md#task"], item.KnowledgeRefs.Refs);
 
@@ -262,9 +263,9 @@ public class PlanTaggingTests
     public void TwoItemsMayShareATag_AndBothAreFound()
     {
         var plan = RoadmapPlan.Empty();
-        var first = plan.AddItem("Alpha", Window(5, 9), tag: PlanningTag.Of("shared")).Value;
+        var first = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Alpha", Window(5, 9), tag: PlanningTag.Of("shared")).Value).Value;
         plan.AddItem("Beta", Window(5, 9), tag: PlanningTag.Of("solo"));
-        var second = plan.AddItem("Gamma", Window(5, 9), tag: PlanningTag.Of("shared")).Value;
+        var second = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Gamma", Window(5, 9), tag: PlanningTag.Of("shared")).Value).Value;
 
         var shared = plan.ItemsTagged(PlanningTag.Of("shared"));
 

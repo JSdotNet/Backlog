@@ -6,6 +6,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -523,7 +524,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         var result = await context.Services.GetRequiredService<IPullRequests>()
             .MergeAsync(new PullRequestReference("JSdotNet/Backlog", 1), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsNotType<Error>(result.Value);
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(["JSdotNet/Almanac#2"], RowKeys(pane));

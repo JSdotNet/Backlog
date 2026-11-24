@@ -3,6 +3,7 @@ using Backlog.Modules.Progress;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -42,9 +43,9 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
             "Invoices settle in a day",
             Due,
             [
-                GoalAttachment.ForPlan("+bank-integration", Today).Value,
-                GoalAttachment.ForTask(Guid.NewGuid(), Today).Value,
-                GoalAttachment.ForPullRequest("JSdotNet/Backlog", 1352, Today.AddDays(1)).Value,
+                Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForPlan("+bank-integration", Today).Value).Value,
+                Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForTask(Guid.NewGuid(), Today).Value).Value,
+                Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForPullRequest("JSdotNet/Backlog", 1352, Today.AddDays(1)).Value).Value,
             ],
             createdAt);
     }

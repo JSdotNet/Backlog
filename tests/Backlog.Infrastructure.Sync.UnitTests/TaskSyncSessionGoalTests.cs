@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -44,7 +45,7 @@ public sealed class TaskSyncSessionGoalTests
 
         var first = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(2, first.Value.Pushed);
+        Assert.Equal(2, Assert.IsType<Ok<TaskSyncSummary>>(first.Value).Value.Pushed);
         var sent = Assert.Single(Pushed(fixture.Bodies[0]));
         Assert.Equal(paid.Id, sent.Id);
         Assert.Equal("goal", sent.Task.Type);
@@ -70,7 +71,7 @@ public sealed class TaskSyncSessionGoalTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, result.Value.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -90,7 +91,7 @@ public sealed class TaskSyncSessionGoalTests
 
         var result = await fixture.Session.PullAsync(Cancellation);
 
-        Assert.Equal(1, result.Value.Applied);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Applied);
         Assert.Equal(sent, Assert.Single(goals.Offered));
     }
 

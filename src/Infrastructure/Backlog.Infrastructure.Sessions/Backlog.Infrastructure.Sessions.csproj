@@ -17,15 +17,6 @@
     <RootNamespace>Backlog.Infrastructure.Sessions</RootNamespace>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- For AddAgentSessionSource() and AddAgentActivitySource(): the host composes
-         the readers, so the registration extension lives beside the adapters it
-         registers. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <!-- A notification that could not be closed is logged, and never fails the session
-         reading or the run write that noticed the end. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <!-- What a session file says and what a row shows is where a timestamp, a

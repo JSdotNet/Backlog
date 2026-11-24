@@ -2,6 +2,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Toasts;
 using Backlog.Modules.Notifications.UI;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Windows.AppNotifications;
@@ -197,12 +198,12 @@ internal sealed class WindowsAppNotifications(
             {
                 case NotificationToastActionKind.Answer:
                     var answered = await centre.AnswerAsync(action.NotificationId, action.ChoiceIds, action.Text).ConfigureAwait(false);
-                    if (answered.IsFailure) OpenCentre(action.NotificationId);
+                    if (answered is Error) OpenCentre(action.NotificationId);
                     break;
 
                 case NotificationToastActionKind.Acknowledge:
                     var acknowledged = await centre.AcknowledgeAsync(action.NotificationId).ConfigureAwait(false);
-                    if (acknowledged.IsFailure) OpenCentre(action.NotificationId);
+                    if (acknowledged is Error) OpenCentre(action.NotificationId);
                     break;
 
                 default:

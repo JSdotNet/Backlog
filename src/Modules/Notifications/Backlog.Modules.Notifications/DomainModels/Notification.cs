@@ -156,7 +156,7 @@ public sealed class Notification
             if (draft.Answer is null || draft.Subject is null) return NotificationsErrors.QuestionIncomplete();
 
             var shape = AnswerSpecRules.Validate(draft.Answer);
-            if (shape.IsFailure) return shape.Error;
+            if (shape is Error shapeError) return shapeError;
         }
         else if (draft.Answer is not null)
         {
@@ -175,10 +175,10 @@ public sealed class Notification
         if (Encoding.UTF8.GetByteCount(body) > MaxBodyBytes) return NotificationsErrors.ContentTooLong("body", MaxBodyBytes, "bytes of Markdown");
 
         var origin = Checked(draft.Origin);
-        if (origin.IsFailure) return origin.Error;
+        if (origin is not Ok<NotificationOrigin?>(var checkedOrigin)) return (Error)origin.Value!;
 
         var actions = Checked(draft.Actions, draft.Kind);
-        if (actions.IsFailure) return actions.Error;
+        if (actions is not Ok<IReadOnlyList<NotificationAction>>(var checkedActions)) return (Error)actions.Value!;
 
         return new Notification(
             id,
@@ -194,8 +194,8 @@ public sealed class Notification
             string.IsNullOrWhiteSpace(draft.DeepLink) ? null : draft.DeepLink.Trim(),
             draft.IsPrivate,
             createdAt,
-            origin.Value,
-            actions.Value);
+            checkedOrigin,
+            checkedActions);
     }
 
     /// <summary>
@@ -350,7 +350,7 @@ public sealed class Notification
             return NotificationsErrors.ReplyOwnerOnly();
 
         var fits = ReplyValidation.Validate(AnswerSpec, reply.ChoiceIds, reply.Text, reply.Note);
-        if (fits.IsFailure) return fits.Error;
+        if (fits is Error fitsError) return fitsError;
 
         var answer = new NotificationAnswer(
             Id,

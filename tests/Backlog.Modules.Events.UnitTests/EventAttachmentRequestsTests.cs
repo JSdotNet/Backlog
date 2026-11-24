@@ -3,6 +3,7 @@ using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Extensions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,7 +39,7 @@ public sealed class EventAttachmentRequestsTests : IDisposable
 
     private async Task<KnowledgeEvent> SavedAsync(params NoteLink[] notes)
     {
-        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
+        var knowledgeEvent = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value).Value;
         foreach (var note in notes) knowledgeEvent.LinkNote(note);
 
         await _events.SaveAsync(knowledgeEvent, Cancellation);
@@ -54,7 +55,7 @@ public sealed class EventAttachmentRequestsTests : IDisposable
     public async Task A_request_for_a_removed_event_is_retired_unapplied()
     {
         var removed = await SavedAsync();
-        Assert.True(removed.Remove().IsSuccess);
+        Assert.IsType<Ok>(removed.Remove().Value);
         await _events.SaveAsync(removed, Cancellation);
         var saves = _events.Saves;
 

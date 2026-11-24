@@ -24,14 +24,22 @@ internal sealed class InboxNoteReplication(
 
         var result = await receive.Handle(new ReceiveNoteCommand(note), cancellationToken).ConfigureAwait(false);
 
-        return result.Value;
+        return result switch
+        {
+            Ok<InboxIntakeOutcome>(var outcome) => outcome,
+            Error => throw new InvalidOperationException("A failed result has no value."),
+        };
     }
 
     public async Task<IReadOnlyList<InboxNoteDto>> ListPendingAsync(CancellationToken cancellationToken = default)
     {
         var result = await pending.Handle(new ListPendingNotesQuery(), cancellationToken).ConfigureAwait(false);
 
-        return result.Value;
+        return result switch
+        {
+            Ok<IReadOnlyList<InboxNoteDto>>(var notes) => notes,
+            Error => throw new InvalidOperationException("A failed result has no value."),
+        };
     }
 
     public Task MarkPushedAsync(IReadOnlyList<InboxNoteDto> notes, CancellationToken cancellationToken = default)

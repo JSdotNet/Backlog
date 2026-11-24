@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 
 namespace Backlog.Modules.Roadmap.UI;
@@ -139,9 +140,11 @@ public sealed class ProjectNoteArchiveOffers : IDisposable
         try
         {
             var archived = await _archive.ArchiveAsync(note).ConfigureAwait(false);
-            _toasts.Publish(archived.IsSuccess
-                ? ToastMessage.Info($"Moved {note.NoteTitle} to {archived.Value}.", TestId + "-moved")
-                : ToastMessage.Error(archived.Error.Message, TestId + "-failed"));
+            _toasts.Publish(archived switch
+            {
+                Ok<string>(var movedTo) => ToastMessage.Info($"Moved {note.NoteTitle} to {movedTo}.", TestId + "-moved"),
+                Error error => ToastMessage.Error(error.Message, TestId + "-failed"),
+            });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {

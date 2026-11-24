@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -17,12 +18,12 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
 
-        var first = await Planning.AddItemAsync(
-            "First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"]);
-        var then = await Planning.AddItemAsync(
-            "Then", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["fincent"]);
+        var first = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
+            "First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"])).Value).Value;
+        var then = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
+            "Then", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["fincent"])).Value).Value;
 
-        return (first.Value.Id, then.Value.Id);
+        return (first.Id, then.Id);
     }
 
     private static Task Link(IRenderedComponent<RoadmapBand> band, string fromId, string toId)
@@ -53,7 +54,7 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
     public async Task ALinkThatWouldCloseACycle_IsRefusedAndSaidSo()
     {
         var (first, then) = await TwoItemsAsync();
-        Assert.True((await Planning.AddDependencyAsync(then, first, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsNotType<Error>((await Planning.AddDependencyAsync(then, first, TestContext.Current.CancellationToken)).Value);
 
         using var context = Context();
         var band = Drawn(context);
@@ -69,9 +70,9 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
     public async Task LinkingTwoPartsOfOneItem_ChangesNothingAndSaysWhy()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
-        var item = (await Planning.AddItemAsync(
+        var item = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Both", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog", "fincent"],
-            cancellationToken: TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);

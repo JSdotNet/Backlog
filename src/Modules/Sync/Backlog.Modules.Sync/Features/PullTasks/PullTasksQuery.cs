@@ -51,17 +51,19 @@ public sealed class PullTasksQueryHandler(ITaskReplica replica, ISyncCursorCodec
         if (!string.IsNullOrWhiteSpace(query.Since))
         {
             var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
-            if (verified.IsFailure)
+            if (verified is not Ok<SyncCursor>(var since))
             {
+                var error = (Error)verified.Value!;
+
                 SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(
-                    SyncTelemetry.ReasonTag, verified.Error.Code));
+                    SyncTelemetry.ReasonTag, error.Code));
 
-                activity?.SetStatus(ActivityStatusCode.Error, verified.Error.Code);
+                activity?.SetStatus(ActivityStatusCode.Error, error.Code);
 
-                return verified.Error;
+                return error;
             }
 
-            cursor = new TaskReplicaCursor(verified.Value);
+            cursor = new TaskReplicaCursor(since);
         }
 
         var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);

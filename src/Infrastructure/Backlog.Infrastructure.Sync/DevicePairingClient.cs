@@ -148,18 +148,18 @@ public sealed class DevicePairingClient : IDeviceRoster
                 cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        if (started.IsFailure) return Result.Failure<DeviceCredential>(started.Error);
+        if (started is not Ok<EnrolmentStartResponse>(var enrolment)) return (Error)started.Value!;
 
-        var answer = await SignInAsync(loopback, started.Value.SignInAddress, cancellationToken).ConfigureAwait(false);
-        if (answer.IsFailure) return Result.Failure<DeviceCredential>(answer.Error);
+        var answer = await SignInAsync(loopback, enrolment.SignInAddress, cancellationToken).ConfigureAwait(false);
+        if (answer is not Ok<Uri>(var redirect)) return (Error)answer.Value!;
 
-        var code = ReadAnswer(answer.Value, state);
-        if (code.IsFailure) return Result.Failure<DeviceCredential>(code.Error);
+        var code = ReadAnswer(redirect, state);
+        if (code is not Ok<string>(var authorizationCode)) return (Error)code.Value!;
 
         return await StoreAsync(
             () => _http.PostAsJsonAsync(
                 SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-                new RegisterDeviceRequest(name, code.Value, verifier, PublicKeyOrNull()),
+                new RegisterDeviceRequest(name, authorizationCode, verifier, PublicKeyOrNull()),
                 cancellationToken),
             registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
             cancellationToken).ConfigureAwait(false);
@@ -239,14 +239,14 @@ public sealed class DevicePairingClient : IDeviceRoster
                 "No pairing code was made",
                 cancellationToken).ConfigureAwait(false);
 
-            if (confirmed.IsFailure) return Result.Failure<PairingCodeResponse>(confirmed.Error);
+            if (confirmed is Error notConfirmed) return notConfirmed;
         }
 
         var issued = await SyncHttp.SendAsync<PairingCodeResponse>(
             () => _http.PostAsync(SyncRoutes.Absolute(SyncRoutes.PairingCodes), content: null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        if (issued.IsSuccess) _pairings?.Issued(issued.Value);
+        if (issued is Ok<PairingCodeResponse>(var code)) _pairings?.Issued(code);
 
         return issued;
     }
@@ -313,7 +313,7 @@ public sealed class DevicePairingClient : IDeviceRoster
                 "The device was not revoked",
                 cancellationToken).ConfigureAwait(false);
 
-            if (confirmed.IsFailure) return confirmed;
+            if (confirmed is Error notConfirmed) return notConfirmed;
         }
 
         return await DeleteDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
@@ -330,7 +330,11 @@ public sealed class DevicePairingClient : IDeviceRoster
             (_, _) => Task.FromResult(true),
             cancellationToken).ConfigureAwait(false);
 
-        return revoked.IsSuccess ? Result.Success() : Result.Failure(revoked.Error);
+        return revoked switch
+        {
+            Ok<bool> => Result.Success(),
+            Error error => error,
+        };
     }
 
     /// <summary>This device's public key to bind, or null to be handed a credential
@@ -361,9 +365,9 @@ public sealed class DevicePairingClient : IDeviceRoster
         CancellationToken cancellationToken)
     {
         var response = await SyncHttp.SendAsync<DeviceRegistrationResponse>(send, cancellationToken).ConfigureAwait(false);
-        if (response.IsFailure) return Result.Failure<DeviceCredential>(response.Error);
+        if (response is not Ok<DeviceRegistrationResponse>(var registered)) return (Error)response.Value!;
 
-        var credential = toCredential(response.Value);
+        var credential = toCredential(registered);
 
         try
         {

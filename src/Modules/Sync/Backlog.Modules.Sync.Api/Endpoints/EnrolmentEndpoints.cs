@@ -68,9 +68,9 @@ internal static class EnrolmentEndpoints
     {
         var connectorResult = await connector.Handle(new CompleteConnectorSignInCommand(state, code), cancellationToken);
 
-        if (connectorResult.IsSuccess)
+        if (connectorResult is Ok<ConnectorSignInOutcome>(var outcome))
         {
-            return connectorResult.Value switch
+            return outcome switch
             {
                 { ConsentTicket: { } ticket } => Results.Redirect($"{SyncRoutes.ConnectorConsent}?ticket={Uri.EscapeDataString(ticket)}"),
                 { Redirect: { } back } => Results.Redirect(back.AbsoluteUri),
@@ -78,9 +78,10 @@ internal static class EnrolmentEndpoints
             };
         }
 
-        if (connectorResult.Error.Code != SyncErrorCodes.ConnectorSignInUnknown)
+        var connectorError = (Error)connectorResult.Value!;
+        if (connectorError.Code != SyncErrorCodes.ConnectorSignInUnknown)
         {
-            return ConnectorPages.Refusal(context, connectorSettings, connectorResult.Error.Message);
+            return ConnectorPages.Refusal(context, connectorSettings, connectorError.Message);
         }
 
         var result = await handler.Handle(new CompleteOwnerSignInCommand(state, code), cancellationToken);

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -103,8 +104,8 @@ public sealed class NoteSyncTests
 
         var pushed = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(pushed.IsSuccess);
-        Assert.Equal(2, pushed.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(pushed.Value).Value;
+        Assert.Equal(2, summary.Pushed);
         var sent = Pushed(Assert.Single(fixture.Bodies));
         Assert.Equal([first.Id, second.Id], sent.Select(change => change.Id));
         Assert.All(sent, change => Assert.Equal("note", change.Task.Type));
@@ -116,7 +117,7 @@ public sealed class NoteSyncTests
         // Nothing pending since: the next push sends nothing.
         var again = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, again.Value.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<TaskSyncSummary>>(again.Value).Value.Pushed);
         Assert.Single(fixture.Bodies);
     }
 
@@ -153,7 +154,7 @@ public sealed class NoteSyncTests
 
         var pushed = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(pushed.IsFailure);
+        Assert.IsType<Error>(pushed.Value);
         Assert.Empty(notes.MarkedPushed);
         Assert.Single(notes.Pending);
     }

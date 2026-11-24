@@ -8,6 +8,7 @@ using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 
 using Bunit;
 
@@ -179,7 +180,7 @@ public abstract class RoadmapBandHarness : IDisposable
         var written = await entries.ImportPlanAsync(
             $"# Step\n`task` `+{tag}` `id:step-{tag}`\n",
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(written.IsSuccess, written.IsFailure ? written.Error.Message : null);
+        Assert.True(written is not Error, (written.Value as Error?)?.Message);
     }
 
     /// <summary>

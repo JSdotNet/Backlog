@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -147,7 +148,7 @@ public sealed class RootedSqliteTaskRepository(
                 if (_notifications?.Invoke() is not { } notifications) return;
 
                 var closed = await notifications.CloseForSubjectAsync(subject, TaskNotificationSubjects.EndedReason, cancellationToken).ConfigureAwait(false);
-                if (closed.IsFailure) _logger.LogDebug("Notifications about task {Id} were not closed: {Error}", id, closed.Error.Message);
+                if (closed is Error error) _logger.LogDebug("Notifications about task {Id} were not closed: {Error}", id, error.Message);
             }
             catch (Exception exception)
             {

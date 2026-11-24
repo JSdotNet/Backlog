@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -17,7 +18,7 @@ public sealed class EventSeriesInvariantTests
     {
         var result = EventSeries.Create(Guid.NewGuid(), name, organiser: null, link: null);
 
-        Assert.Equal("event_series.name_missing", result.Error.Code);
+        Assert.Equal("event_series.name_missing", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -25,7 +26,7 @@ public sealed class EventSeriesInvariantTests
     {
         var id = Guid.NewGuid();
 
-        var series = EventSeries.Create(id, "  Techorama ", " Techorama vzw ", " https://techorama.be ").Value;
+        var series = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(id, "  Techorama ", " Techorama vzw ", " https://techorama.be ").Value).Value;
 
         Assert.Equal(id, series.Id);
         Assert.Equal("Techorama", series.Name);
@@ -36,7 +37,7 @@ public sealed class EventSeriesInvariantTests
     [Fact]
     public void A_name_alone_makes_a_series()
     {
-        var series = EventSeries.Create(Guid.NewGuid(), "dotNET Friday", organiser: " ", link: null).Value;
+        var series = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "dotNET Friday", organiser: " ", link: null).Value).Value;
 
         Assert.Null(series.Organiser);
         Assert.Null(series.Link);
@@ -45,18 +46,18 @@ public sealed class EventSeriesInvariantTests
     [Fact]
     public void Renaming_to_a_blank_name_is_refused_and_keeps_the_name()
     {
-        var series = EventSeries.Create(Guid.NewGuid(), "Techorama", organiser: null, link: null).Value;
+        var series = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", organiser: null, link: null).Value).Value;
 
-        Assert.Equal("event_series.name_missing", series.Rename("  ").Error.Code);
+        Assert.Equal("event_series.name_missing", Assert.IsType<Error>(series.Rename("  ").Value).Code);
         Assert.Equal("Techorama", series.Name);
     }
 
     [Fact]
     public void Renaming_trims_the_new_name()
     {
-        var series = EventSeries.Create(Guid.NewGuid(), "Techorama", organiser: null, link: null).Value;
+        var series = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", organiser: null, link: null).Value).Value;
 
-        Assert.True(series.Rename(" Techorama Belgium ").IsSuccess);
+        Assert.IsType<Ok>(series.Rename(" Techorama Belgium ").Value);
         Assert.Equal("Techorama Belgium", series.Name);
     }
 

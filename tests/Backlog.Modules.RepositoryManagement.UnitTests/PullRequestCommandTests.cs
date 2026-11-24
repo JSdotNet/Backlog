@@ -46,7 +46,7 @@ public sealed class PullRequestCommandTests
 
         var result = await Run(module, command, Ref(4));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var calls = _github.Calls.Skip(before).ToList();
         Assert.Equal($"{act} {BacklogRepository}#4", calls[0]);
         Assert.Equal(1, calls.Count(call => call == $"list {BacklogRepository}"));
@@ -74,7 +74,7 @@ public sealed class PullRequestCommandTests
         var panePins = await module.ReadAsync([Ref(4), Ref(5)], cancellationToken: TestContext.Current.CancellationToken);
         var progress = await module.ReadAsync([Ref(4)], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(merged.IsSuccess);
+        Assert.IsType<Ok>(merged.Value);
         Assert.Equal([5], paneList.PullRequests.Select(pull => pull.Number));
         Assert.Equal(PullRequestState.Merged, panePins.PullRequests.Single(pull => pull.Number == 4).State);
         Assert.Equal(PullRequestState.Merged, Assert.Single(progress.PullRequests).State);
@@ -92,9 +92,9 @@ public sealed class PullRequestCommandTests
 
         var result = await module.MergeAsync(Ref(4), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(PullRequestErrors.RefusedCode, result.Error.Code);
-        Assert.Equal("Pull request #4 is not mergeable: the base branch requires a review.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(PullRequestErrors.RefusedCode, error.Code);
+        Assert.Equal("Pull request #4 is not mergeable: the base branch requires a review.", error.Message);
         Assert.Contains($"list {BacklogRepository}", _github.Calls);
         Assert.Equal(1, raised);
     }
@@ -109,7 +109,7 @@ public sealed class PullRequestCommandTests
 
         var result = await module.UpdateBranchAsync(Ref(8), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal([$"read {BacklogRepository} 8", $"update {BacklogRepository}#8", $"list {BacklogRepository}"], _github.Calls);
     }
 
@@ -120,8 +120,8 @@ public sealed class PullRequestCommandTests
 
         var result = await module.MergeAsync(Ref(99), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(PullRequestErrors.NotFoundCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(PullRequestErrors.NotFoundCode, error.Code);
         Assert.Equal([$"read {BacklogRepository} 99"], _github.Calls);
     }
 
@@ -195,8 +195,8 @@ public sealed class PullRequestCommandTests
         var read = await module.ReadAsync([Ref(1), Ref(2)], cancellationToken: TestContext.Current.CancellationToken);
         var open = await module.ListOpenAsync([BacklogRepository], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(firstResult.IsSuccess);
-        Assert.True(second.IsSuccess);
+        Assert.IsType<Ok>(firstResult.Value);
+        Assert.IsType<Ok>(second.Value);
         Assert.Equal([PullRequestState.Merged, PullRequestState.Merged], read.PullRequests.Select(pull => pull.State));
         Assert.Equal([3], open.PullRequests.Select(pull => pull.Number));
         Assert.Equal(calls, _github.Calls.Count);
@@ -254,7 +254,7 @@ public sealed class PullRequestCommandTests
         var before = _github.Calls.Count;
         var read = await module.ReadAsync([Ref(4)], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(1, heard);
         Assert.Equal([$"read {BacklogRepository} 4"], _github.Calls.Skip(before));
         Assert.Equal(PullRequestState.Merged, Assert.Single(read.PullRequests).State);
@@ -274,7 +274,7 @@ public sealed class PullRequestCommandTests
 
         var result = await module.MergeAsync(Ref(4), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(1, heard);
     }
 
@@ -307,7 +307,7 @@ public sealed class PullRequestCommandTests
 
         var result = await module.MergeAsync(Ref(4), TestContext.Current.CancellationToken);
 
-        Assert.Equal(PullRequestErrors.NotConfiguredCode, result.Error.Code);
+        Assert.Equal(PullRequestErrors.NotConfiguredCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(_github.Calls);
     }
 

@@ -904,10 +904,10 @@ public sealed class InboxTriagePassTests
             var waiting = new[] { duplicate, planA, planB, routeLow, routeTask, filed, archived, left };
 
             var context = new InboxTriageContextDto([task], [], ["acme/web"], [new InboxTriageListDto(reading.Id, reading.Name)]);
-            var pass = (await new FakeInboxTriageAdvisor().ProposePassAsync(
+            var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await new FakeInboxTriageAdvisor().ProposePassAsync(
                 [.. waiting.Select(InboxTriageItemDto.From)],
                 context,
-                TestContext.Current.CancellationToken)).Value;
+                TestContext.Current.CancellationToken)).Value).Value;
 
             Inbox.TriageAdvisorAvailable = true;
             Inbox.TriagePassAnswer = Result.Success(pass with

@@ -4,6 +4,7 @@ using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.PushNotifications;
 using Backlog.Modules.Sync.Ports;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
@@ -34,12 +35,11 @@ public class PushNotificationsSendBudgetTests
             clock,
             NullLogger<PushNotificationsCommandHandler>.Instance);
 
-        var result = await handler.Handle(
+        var result = Assert.IsType<Ok<PushNotificationsResponse>>((await handler.Handle(
             new PushNotificationsCommand(Desktop, [.. Enumerable.Range(0, 5).Select(_ => Published())]),
-            Cancellation);
+            Cancellation)).Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(5, result.Value.Accepted);
+        Assert.Equal(5, result.Accepted);
 
         // Ten seconds a call against a fifteen-second budget: the second call spends it.
         Assert.Equal(2, hub.Sent);

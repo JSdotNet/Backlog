@@ -157,10 +157,10 @@ public sealed class DevbookSubjectSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response.IsFailure) return Result.Failure<DevbookSubjectSyncSummary>(response.Error);
+                if (response is not Ok<PushDevbookSubjectsResponse>(var answer)) return (Error)response.Value!;
 
-                pushed += response.Value.Accepted;
-                refused += Math.Max(0, changes.Count - response.Value.Accepted);
+                pushed += answer.Accepted;
+                refused += Math.Max(0, changes.Count - answer.Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, subject => subject.UpdatedAt) is { } advanced)
@@ -193,11 +193,12 @@ public sealed class DevbookSubjectSyncSession
                 .PullAsync(cursor, DevbookSubjectSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page.IsFailure)
+            if (page is not Ok<PullDevbookSubjectsResponse>(var feed))
             {
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                var error = (Error)page.Value!;
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
                 {
-                    return Result.Failure<DevbookSubjectSyncSummary>(page.Error);
+                    return error;
                 }
 
                 startedOver = true;
@@ -209,13 +210,13 @@ public sealed class DevbookSubjectSyncSession
                 continue;
             }
 
-            pulled += page.Value.Subjects.Count;
-            applied += _merge.Apply(page.Value.Subjects).Applied;
+            pulled += feed.Subjects.Count;
+            applied += _merge.Apply(feed.Subjects).Applied;
 
-            cursor = page.Value.Since;
+            cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!page.Value.HasMore) break;
+            if (!feed.HasMore) break;
         }
 
         return Result.Success(new DevbookSubjectSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -227,19 +228,19 @@ public sealed class DevbookSubjectSyncSession
     public async Task<Result<DevbookSubjectSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return NotYetOr(push.Error);
+        if (push is not Ok<DevbookSubjectSyncSummary>(var pushSummary)) return NotYetOr((Error)push.Value!);
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return NotYetOr(pull.Error);
+        if (pull is not Ok<DevbookSubjectSyncSummary>(var pullSummary)) return NotYetOr((Error)pull.Value!);
 
         return Result.Success(new DevbookSubjectSyncSummary(
-            push.Value.Pushed,
-            pull.Value.Pulled,
-            pull.Value.Applied,
+            pushSummary.Pushed,
+            pullSummary.Pulled,
+            pullSummary.Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Value.Refused,
-            Skipped = push.Value.Skipped,
+            Refused = pushSummary.Refused,
+            Skipped = pushSummary.Skipped,
         });
     }
 

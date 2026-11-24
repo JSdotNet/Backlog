@@ -77,6 +77,7 @@
                     @for (var index = 0; index < draft.Plans.Count; index++)
                     {
                         var plan = draft.Plans[index];
+                        var planIndex = index;
                         var titleId = $"inbox-pass-plan-{index}-title";
                         var kept = plan.Kept;
                         <Card @key="plan" CssClass="inbox-pass__card" TestId="inbox-pass-plan" aria-labelledby="@titleId">
@@ -101,7 +102,7 @@
                                                Value="@plan.Title"
                                                ValueChanged="value => plan.Title = value"
                                                Disabled="@busy"
-                                               Id="@($"inbox-pass-plan-{index}-title-field")"
+                                               Id="@($"inbox-pass-plan-{planIndex}-title-field")"
                                                TestId="inbox-pass-plan-title-field" />
                                     <ol class="inbox-pass__members inbox-pass__members--editing" aria-label="Items in the plan">
                                         @foreach (var member in plan.Members)

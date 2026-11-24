@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Features.RenameRepository;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Inbox.UnitTests;
 
@@ -109,15 +110,15 @@ public sealed class InboxRenameRepositoryTests
 
         var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(" ", NewId), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(RenameRepositoryCommand.BlankId, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(RenameRepositoryCommand.BlankId, error);
     }
 
     private static async Task<int> Rename(InMemoryInboxStore store)
     {
         var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, NewId));
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        return ok.Value;
     }
 }

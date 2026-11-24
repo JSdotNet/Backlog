@@ -4,6 +4,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -60,7 +61,7 @@ public sealed class PullRequestSubjects(
                 : SessionNotificationSubjects.PullRequestClosedReason;
 
             var closed = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
-            if (closed.IsFailure) _logger.LogDebug("Notifications about pull request {Id} were not closed: {Error}", id, closed.Error.Message);
+            if (closed is Error error) _logger.LogDebug("Notifications about pull request {Id} were not closed: {Error}", id, error.Message);
         }
         catch (Exception exception)
         {

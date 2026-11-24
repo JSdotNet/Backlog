@@ -37,7 +37,7 @@ The build engine, and the directory-scoped property files that configure it.
 
 | File | Sets | Why there |
 |---|---|---|
-| `Directory.Build.props` | `net10.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, and `$(MauiVersion)` | Every project needs them. |
+| `Directory.Build.props` | `net11.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, `$(MauiVersion)`, and the warning policy: `AnalysisLevel` latest, `EnforceCodeStyleInBuild`, `TreatWarningsAsErrors` in every build, CS8509 an error | Every project needs them; org ADR 0001 puts the warning policy in every build, not only the pull request's. |
 | `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `tests/Shared/` helpers `RepositoryRoot.cs`, `Polling.cs` and `TemporaryDirectory.cs` | Every test project runs the same way. |
 | `src/Harness/Directory.Build.props` | The non-publishable flags | An accidental `dotnet publish` of a harness fails loudly. |
 
@@ -224,6 +224,10 @@ The local orchestration and diagnostics entry point.
 
 - **Used for** — `aspire start --isolated --non-interactive --apphost …` for
   local runs. During QA it also gives logs, traces, and deployment artifacts.
+  `aspire resource <resource> <command>` runs the AppHost's resource commands:
+  `reset-local-data` on `desktop-web-harness` and `forget-pairing` on
+  `mobile-web-harness`, which the end-to-end suite runs too. `aspire agent init`
+  installed the [Aspire agent skills](ai-development.md#aspire-agent-skills).
 - **Why** — the paired CLI for the app model. `--isolated` keeps parallel
   worktree sessions from fighting over ports and user-secrets state. How
   `dotnet run` reaches this CLI is in [.NET Aspire](shared.md#net-aspire).
@@ -280,7 +284,9 @@ related: [".devbook/tech/tooling.md#central-package-management"]
 Automated dependency and security updates.
 
 - **Used for** — keeping NuGet, npm, and GitHub Actions dependencies current
-  (`.github/dependabot.yml`).
+  (`.github/dependabot.yml`), weekly. NuGet updates are grouped, with an `aspire`
+  group for `Aspire.*` whose major versions are ignored: a major Aspire move
+  rewrites the AppHost by hand.
 - **Why** — low-effort supply-chain hygiene for a single-maintainer project.
 
 ## devbook-meta Generator

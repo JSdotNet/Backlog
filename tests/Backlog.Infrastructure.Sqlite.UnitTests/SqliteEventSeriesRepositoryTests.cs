@@ -3,6 +3,7 @@ using System.Globalization;
 using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Modules.Events.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 
@@ -30,7 +31,7 @@ public sealed class SqliteEventSeriesRepositoryTests : IDisposable
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     private static EventSeries Series(string name = "Techorama", string? organiser = "Techorama BV", string? link = "https://techorama.nl") =>
-        EventSeries.Create(Guid.NewGuid(), name, organiser, link).Value;
+        Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), name, organiser, link).Value).Value;
 
     [Fact]
     public async Task A_first_run_has_no_series()
@@ -74,7 +75,7 @@ public sealed class SqliteEventSeriesRepositoryTests : IDisposable
         await _repository.SaveAsync(series, Cancellation);
 
         _clock.SetUtcNow(Noon.AddMinutes(5));
-        Assert.True(series.Rename("Techorama NL").IsSuccess);
+        Assert.IsType<Ok>(series.Rename("Techorama NL").Value);
         await _repository.SaveAsync(series, Cancellation);
 
         Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM events_series;"));

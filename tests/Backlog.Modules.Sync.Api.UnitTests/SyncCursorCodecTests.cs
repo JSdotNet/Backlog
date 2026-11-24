@@ -29,11 +29,10 @@ public class SyncCursorCodecTests
     {
         var codec = Codec();
 
-        var verified = codec.Verify(codec.Mint(Mine, "continuation-from-the-store"), Mine);
+        var verified = Assert.IsType<Ok<SyncCursor>>(codec.Verify(codec.Mint(Mine, "continuation-from-the-store"), Mine).Value).Value;
 
-        Assert.True(verified.IsSuccess);
-        Assert.Equal(Mine, verified.Value.Owner);
-        Assert.Equal("continuation-from-the-store", verified.Value.Continuation);
+        Assert.Equal(Mine, verified.Owner);
+        Assert.Equal("continuation-from-the-store", verified.Continuation);
     }
 
     /// <summary>A continuation is opaque and the store is free to put anything
@@ -45,10 +44,9 @@ public class SyncCursorCodecTests
         var codec = Codec();
         const string awkward = """{"V":2,"Rid":"abc==","Continuation":[{"token":"\"42\"","range":{"min":"","max":"FF"}}]}""";
 
-        var verified = codec.Verify(codec.Mint(Mine, awkward), Mine);
+        var verified = Assert.IsType<Ok<SyncCursor>>(codec.Verify(codec.Mint(Mine, awkward), Mine).Value).Value;
 
-        Assert.True(verified.IsSuccess);
-        Assert.Equal(awkward, verified.Value.Continuation);
+        Assert.Equal(awkward, verified.Continuation);
     }
 
     [Fact]
@@ -60,9 +58,9 @@ public class SyncCursorCodecTests
         {
             var verified = codec.Verify(nonsense, Mine);
 
-            Assert.True(verified.IsFailure, nonsense);
-            Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Error.Code);
-            Assert.Equal(ErrorType.Validation, verified.Error.Type);
+            Assert.True(verified is Error, nonsense);
+            Assert.Equal(SyncErrorCodes.SyncCursorMalformed, Assert.IsType<Error>(verified.Value).Code);
+            Assert.Equal(ErrorType.Validation, Assert.IsType<Error>(verified.Value).Type);
         }
     }
 
@@ -74,10 +72,9 @@ public class SyncCursorCodecTests
         var codec = Codec();
         var minted = codec.Mint(Mine, "continuation");
 
-        var verified = codec.Verify(Tamper(minted), Mine);
+        var verified = Assert.IsType<Error>(codec.Verify(Tamper(minted), Mine).Value);
 
-        Assert.True(verified.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Error.Code);
+        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Code);
     }
 
     /// <summary>A payload edited to name another owner does not verify either,
@@ -94,10 +91,9 @@ public class SyncCursorCodecTests
 
         var forged = $"{parts[0]}.{Base64Url.EncodeToString(Encoding.UTF8.GetBytes(payload))}.{parts[2]}";
 
-        var verified = codec.Verify(forged, Theirs);
+        var verified = Assert.IsType<Error>(codec.Verify(forged, Theirs).Value);
 
-        Assert.True(verified.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Error.Code);
+        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Code);
     }
 
     /// <summary>
@@ -112,10 +108,9 @@ public class SyncCursorCodecTests
     {
         var codec = Codec();
 
-        var verified = codec.Verify(codec.Mint(Theirs, "continuation"), Mine);
+        var verified = Assert.IsType<Error>(codec.Verify(codec.Mint(Theirs, "continuation"), Mine).Value);
 
-        Assert.True(verified.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, verified.Error.Code);
+        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, verified.Code);
     }
 
     /// <summary>Two services with different keys mint cursors the other will not
@@ -126,10 +121,9 @@ public class SyncCursorCodecTests
     {
         var minted = Codec(SyncServiceFactory.OtherSigningKey).Mint(Mine, "continuation");
 
-        var verified = Codec().Verify(minted, Mine);
+        var verified = Assert.IsType<Error>(Codec().Verify(minted, Mine).Value);
 
-        Assert.True(verified.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Error.Code);
+        Assert.Equal(SyncErrorCodes.SyncCursorMalformed, verified.Code);
     }
 
     private static string Tamper(string cursor)

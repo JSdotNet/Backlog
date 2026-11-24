@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 
@@ -36,35 +37,35 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
     /// public rules rather than restored, so what is stored is what the module writes.</summary>
     private static KnowledgeEvent Attended()
     {
-        var knowledgeEvent = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value;
+        var knowledgeEvent = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value).Value;
 
         knowledgeEvent.SetSeries(Guid.NewGuid());
-        Assert.True(knowledgeEvent.SetDates(
-            EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Value,
-            EventDate.Create(new DateOnly(2026, 10, 28), null, null).Value,
-            DateSource.EventPage).IsSuccess);
-        knowledgeEvent.SetPlace(Place.AtVenue("Kinepolis Utrecht").Value);
+        Assert.IsType<Ok>(knowledgeEvent.SetDates(
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(8, 30), Amsterdam).Value).Value,
+            Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 28), null, null).Value).Value,
+            DateSource.EventPage).Value);
+        knowledgeEvent.SetPlace(Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Utrecht").Value).Value);
         knowledgeEvent.SetLink("https://techorama.nl/2026");
         knowledgeEvent.SetWhatToLearn("Aspire in production; what .NET 11 changes for MAUI");
         knowledgeEvent.SetKeyDates(
         [
-            KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Value,
-            KeyDate.Create(new DateOnly(2026, 9, 1), "Registration closes").Value,
+            Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 6, 30), "Early bird ends").Value).Value,
+            Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 9, 1), "Registration closes").Value).Value,
         ]);
         knowledgeEvent.SetTicket(TicketState.Bought);
-        knowledgeEvent.SetCost(Cost.Create(1295.50m, "eur").Value);
-        Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Brain, "knowledge/aspire.md", "Aspire")).IsSuccess);
-        Assert.True(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-42", null)).IsSuccess);
-        Assert.True(knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).IsSuccess);
-        Assert.True(knowledgeEvent.LinkHarvestTask("task-harvest").IsSuccess);
-        Assert.True(knowledgeEvent.MoveTo(KnowledgeEventState.Attended).IsSuccess);
-        Assert.True(knowledgeEvent.SetVerdict("Worth it for the Aspire track alone").IsSuccess);
+        knowledgeEvent.SetCost(Assert.IsType<Ok<Cost>>(Cost.Create(1295.50m, "eur").Value).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Brain, "knowledge/aspire.md", "Aspire")).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkNote(NoteLink.Create(NoteLinkKind.Talk, "inbox-42", null)).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkTask(EventTaskLink.Create("task-hotel", TaskPurpose.Prep)).Value);
+        Assert.IsType<Ok>(knowledgeEvent.LinkHarvestTask("task-harvest").Value);
+        Assert.IsType<Ok>(knowledgeEvent.MoveTo(KnowledgeEventState.Attended).Value);
+        Assert.IsType<Ok>(knowledgeEvent.SetVerdict("Worth it for the Aspire track alone").Value);
 
         return knowledgeEvent;
     }
 
     private static KnowledgeEvent TitleOnly(string title = "dotNET Friday") =>
-        KnowledgeEvent.Create(Guid.NewGuid(), title).Value;
+        Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), title).Value).Value;
 
     [Fact]
     public async Task A_first_run_has_no_event()
@@ -144,7 +145,7 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
     {
         var stored = TitleOnly("A webinar on nothing in particular");
         stored.SetPlace(Place.Online);
-        Assert.True(stored.Skip("Clashes with the sprint review").IsSuccess);
+        Assert.IsType<Ok>(stored.Skip("Clashes with the sprint review").Value);
 
         await _repository.SaveAsync(stored, Cancellation);
         var read = await _repository.GetAsync(stored.Id, Cancellation);
@@ -161,7 +162,7 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
         await _repository.SaveAsync(knowledgeEvent, Cancellation);
 
         _clock.SetUtcNow(Noon.AddMinutes(5));
-        Assert.True(knowledgeEvent.Rename("dotNET Friday Q4").IsSuccess);
+        Assert.IsType<Ok>(knowledgeEvent.Rename("dotNET Friday Q4").Value);
         await _repository.SaveAsync(knowledgeEvent, Cancellation);
 
         Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM events_knowledge_events;"));
@@ -195,7 +196,7 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
         await _repository.SaveAsync(kept, Cancellation);
         await _repository.SaveAsync(removed, Cancellation);
 
-        Assert.True(removed.Remove().IsSuccess);
+        Assert.IsType<Ok>(removed.Remove().Value);
         await _repository.SaveAsync(removed, Cancellation);
 
         Assert.Null(await _repository.GetAsync(removed.Id, Cancellation));
@@ -209,7 +210,7 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
         var kept = TitleOnly("Kept");
         var removed = TitleOnly("Added twice");
         await _repository.SaveAsync(kept, Cancellation);
-        Assert.True(removed.Remove().IsSuccess);
+        Assert.IsType<Ok>(removed.Remove().Value);
         await _repository.SaveAsync(removed, Cancellation);
 
         Assert.True(await _repository.IsRemovedAsync(removed.Id, Cancellation));

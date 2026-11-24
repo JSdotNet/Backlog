@@ -81,7 +81,7 @@ Diagram-as-text notation embedded directly in Markdown.
 ```meta
 rating: adopted
 type: runtime
-version: "10.0"
+version: "11.0"
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/09-architecture-decisions.md"]
 alternatives: ["Node.js only", "Rust + Tauri"]
 ```
@@ -89,7 +89,7 @@ alternatives: ["Node.js only", "Rust + Tauri"]
 The primary managed runtime for the desktop, mobile, IDE (Visual Studio), and
 cloud channels.
 
-- **Used for** — hosting every C# component. `net10.0` is set once in the root
+- **Used for** — hosting every C# component. `net11.0` is set once in the root
   `Directory.Build.props`; only the MAUI heads override it with a platform target
   framework moniker (TFM).
 - **Why** — the organization's governed .NET guidance applies to the cloud
@@ -155,7 +155,7 @@ The implementation language for the VS Code channel.
 ```meta
 rating: adopted
 type: framework
-version: "10.0.110"
+version: "11.0.10"
 depends-on: [".devbook/tech/desktop.md#winui-3", ".devbook/tech/mobile.md#android", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 alternatives: ["Plain WinUI 3", "Blazor WebAssembly PWA", "Kotlin native"]
@@ -201,7 +201,7 @@ Razor Components rendered inside the MAUI shell's embedded WebView, through
 ```meta
 rating: adopted
 type: framework
-version: "10.0.14"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/testing.md#bunit", ".devbook/design/component-libraries.md"]
 ```
@@ -257,7 +257,7 @@ The web host underneath every HTTP surface in the solution
 ```meta
 rating: adopted
 type: framework
-version: "13.6.5"
+version: "17.0.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/tooling.md#aspire-cli", ".devbook/tech/shared.md#opentelemetry", ".devbook/arc42/07-deployment-view.md"]
 alternatives: ["Docker Compose only", "no orchestration"]
@@ -303,11 +303,27 @@ flowchart LR
   documented here and not in `cloud.md`.
 - **How** — ports are always dynamic (`localhost:0`). Worktree sessions run
   `aspire start --isolated` for independent ports and user-secrets state. The
-  AppHost opts in to the Aspire CLI bundle (`AspireUseCliBundle=true`). So
-  `dotnet run` on it acquires through dnx the CLI pinned to the
-  `Aspire.AppHost.Sdk` version, not a differently versioned CLI or none, and
+  AppHost is a plain `Microsoft.NET.Sdk` project on the `Aspire.Hosting.AppHost`
+  and `Aspire.Hosting.Dotnet` packages, and adds each project by path with
+  `AddDotnetProject`; Aspire 17 retired `Aspire.AppHost.Sdk` and `AddProject`.
+  Aspire builds those projects in one traversal before any of them starts,
+  explicit-start ones included, so the `desktop` head is a `dotnet run` process
+  that builds only when started, like `mobile-android`. The AppHost opts in to
+  the Aspire CLI bundle (`AspireUseCliBundle=true`), which a C# AppHost requires
+  since Aspire 17. So `dotnet run` on it acquires through dnx the CLI matching
+  `Aspire.Hosting.AppHost`, not a differently versioned CLI or none, and
   delegates to `aspire run`. `ASPIRE010`, the advisory for staying opted out, is
   not suppressed.
+- **Browser logs** — the three harnesses call `.WithBrowserLogs()` (org ADR 0002),
+  from the preview `Aspire.Hosting.Browsers` of the same release. Each gets a
+  child resource whose command opens a tracked Chromium browser and forwards its
+  console, errors and network failures to the dashboard. The API is marked for
+  evaluation (`ASPIREBROWSERLOGS001`); the AppHost acknowledges that one
+  diagnostic until the package ships stable.
+- **Resource commands** — routine development actions are AppHost commands, not
+  scripts: `reset-local-data` on `desktop-web-harness` returns the shared
+  workspace to first-run state, and `forget-pairing` on `mobile-web-harness` makes
+  the phone one that was never paired.
 
 ## OpenTelemetry
 
@@ -362,7 +378,7 @@ The embedded database that is the canonical local store for tasks.
 ```meta
 rating: adopted
 type: package
-version: "10.0.12"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#net-runtime"]
 ```
 

@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -40,9 +41,8 @@ public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
             cancellationToken).ConfigureAwait(false);
 
         // All or nothing on the roadmap's side: a refusal left the plan as it was.
-        if (imported.IsFailure) return RoadmapIntakeResultDto.Refused(imported.Error.Message);
+        if (imported is not Ok<PlanImportResultDto>(var result)) return RoadmapIntakeResultDto.Refused(((Error)imported.Value!).Message);
 
-        var result = imported.Value;
         return new RoadmapIntakeResultDto(
             result.Created.Count,
             result.Updated.Count,

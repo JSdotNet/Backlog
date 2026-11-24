@@ -1,6 +1,8 @@
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Features.CompleteItem;
 using Backlog.Modules.Roadmap.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
@@ -25,8 +27,8 @@ public class CompleteItemTests
     private Guid Added()
     {
         var added = _plans.Plan.AddItem("Write the launch post", PlannedWindow.Of(Day(2), Day(6)));
-        Assert.True(added.IsSuccess);
-        return added.Value.Id;
+        Assert.IsType<Ok<RoadmapItem>>(added.Value);
+        return Assert.IsType<Ok<RoadmapItem>>(added.Value).Value.Id;
     }
 
     [Fact]
@@ -40,9 +42,9 @@ public class CompleteItemTests
 
         var completed = _plans.Plan.CompleteItem(id, Day(9));
 
-        Assert.True(completed.IsSuccess);
-        Assert.Equal(Day(9), completed.Value.CompletedOn);
-        Assert.Equal(PlannedWindow.Of(Day(2), Day(6)), completed.Value.Window);
+        Assert.IsType<Ok<RoadmapItem>>(completed.Value);
+        Assert.Equal(Day(9), Assert.IsType<Ok<RoadmapItem>>(completed.Value).Value.CompletedOn);
+        Assert.Equal(PlannedWindow.Of(Day(2), Day(6)), Assert.IsType<Ok<RoadmapItem>>(completed.Value).Value.Window);
     }
 
     [Fact]
@@ -53,13 +55,13 @@ public class CompleteItemTests
 
         var again = _plans.Plan.CompleteItem(id, Day(4));
 
-        Assert.True(again.IsSuccess);
-        Assert.Equal(Day(4), again.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItem>>(again.Value);
+        Assert.Equal(Day(4), Assert.IsType<Ok<RoadmapItem>>(again.Value).Value.CompletedOn);
     }
 
     [Fact]
     public void CompleteItem_RefusesAnUnknownItem() =>
-        Assert.Equal("roadmap.item_not_found", _plans.Plan.CompleteItem(Guid.NewGuid(), Day(9)).Error.Code);
+        Assert.Equal("roadmap.item_not_found", Assert.IsType<Error>(_plans.Plan.CompleteItem(Guid.NewGuid(), Day(9)).Value).Code);
 
     [Fact]
     public void ReopenItem_ClearsTheDay()
@@ -69,8 +71,8 @@ public class CompleteItemTests
 
         var reopened = _plans.Plan.ReopenItem(id);
 
-        Assert.True(reopened.IsSuccess);
-        Assert.Null(reopened.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItem>>(reopened.Value);
+        Assert.Null(Assert.IsType<Ok<RoadmapItem>>(reopened.Value).Value.CompletedOn);
     }
 
     [Fact]
@@ -80,8 +82,8 @@ public class CompleteItemTests
 
         var reopened = _plans.Plan.ReopenItem(id);
 
-        Assert.True(reopened.IsSuccess);
-        Assert.Null(reopened.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItem>>(reopened.Value);
+        Assert.Null(Assert.IsType<Ok<RoadmapItem>>(reopened.Value).Value.CompletedOn);
     }
 
     /// <summary>Moving or editing a completed item keeps it completed: only Reopen takes the
@@ -107,13 +109,13 @@ public class CompleteItemTests
             _ => _plans.Plan.Prioritise(id, Abstractions.PlanningPriority.Low)
         };
 
-        Assert.True(changed.IsSuccess);
-        Assert.Equal(Day(9), changed.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItem>>(changed.Value);
+        Assert.Equal(Day(9), Assert.IsType<Ok<RoadmapItem>>(changed.Value).Value.CompletedOn);
     }
 
     [Fact]
     public void ReopenItem_RefusesAnUnknownItem() =>
-        Assert.Equal("roadmap.item_not_found", _plans.Plan.ReopenItem(Guid.NewGuid()).Error.Code);
+        Assert.Equal("roadmap.item_not_found", Assert.IsType<Error>(_plans.Plan.ReopenItem(Guid.NewGuid()).Value).Code);
 
     [Fact]
     public async Task TheCompleteCommand_StoresTheDay_AndReportsItOnTheDto()
@@ -123,8 +125,8 @@ public class CompleteItemTests
         var result = await Completing()
             .Handle(new CompleteItemCommand(id, Day(9)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Day(9), result.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItemDto>>(result.Value);
+        Assert.Equal(Day(9), Assert.IsType<Ok<RoadmapItemDto>>(result.Value).Value.CompletedOn);
         Assert.Equal(1, _plans.Saves);
     }
 
@@ -134,7 +136,7 @@ public class CompleteItemTests
         var result = await Completing()
             .Handle(new CompleteItemCommand(Guid.NewGuid(), Day(9)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(0, _plans.Saves);
     }
 
@@ -146,8 +148,8 @@ public class CompleteItemTests
         var result = await Completing()
             .Handle(new CompleteItemCommand(id, Day(10)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Day(10), result.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItemDto>>(result.Value);
+        Assert.Equal(Day(10), Assert.IsType<Ok<RoadmapItemDto>>(result.Value).Value.CompletedOn);
     }
 
     [Fact]
@@ -158,8 +160,8 @@ public class CompleteItemTests
         var result = await Completing()
             .Handle(new CompleteItemCommand(id, Day(11)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("roadmap.completed_in_future", result.Error.Code);
+        Assert.IsType<Error>(result.Value);
+        Assert.Equal("roadmap.completed_in_future", Assert.IsType<Error>(result.Value).Code);
         Assert.Equal(0, _plans.Saves);
         Assert.Null(_plans.Plan.Items.Single().CompletedOn);
     }
@@ -173,8 +175,8 @@ public class CompleteItemTests
         var result = await new ReopenItemCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new ReopenItemCommand(id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value.CompletedOn);
+        Assert.IsType<Ok<RoadmapItemDto>>(result.Value);
+        Assert.Null(Assert.IsType<Ok<RoadmapItemDto>>(result.Value).Value.CompletedOn);
         Assert.Equal(1, _plans.Saves);
     }
 
@@ -184,7 +186,7 @@ public class CompleteItemTests
         var result = await new ReopenItemCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new ReopenItemCommand(Guid.NewGuid()), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(0, _plans.Saves);
     }
 

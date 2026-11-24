@@ -1,6 +1,7 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -103,12 +104,12 @@ public sealed class SessionValidationAnswers(
             .FileAfterAsync(new TaskFollowUpRequest(gated, answer.Text!.Trim(), answer.NotificationId), cancellationToken)
             .ConfigureAwait(false);
 
-        if (filed.IsSuccess) return filed.Value;
+        if (filed is Ok<Guid>(var followUpId)) return followUpId;
 
         _logger.LogWarning(
             "The follow-up asked for on run {Run} was not filed ({Error}); the approval is recorded with its words and no follow-up.",
             runId,
-            filed.Error.Code);
+            ((Error)filed.Value!).Code);
         return null;
     }
 }

@@ -49,12 +49,12 @@ public sealed class ReturnToInboxCommandHandler(
         {
             var plan = new InboxLaidOutPlanDto(InboxPlanTag.For(item.Title, item.Id), item.Title, routing.RepoIds);
             var deleted = await target.DeleteRoutedPlanAsync(routing.TaskIds, plan, cancellationToken).ConfigureAwait(false);
-            if (deleted.IsFailure) return deleted;
+            if (deleted is Error) return deleted;
         }
         else if (command.DeleteTasks && routing.TaskIds.Count > 0)
         {
             var deleted = await target.DeleteRoutedTasksAsync(routing.TaskIds, command.MadeDone, cancellationToken).ConfigureAwait(false);
-            if (deleted.IsFailure) return deleted;
+            if (deleted is Error) return deleted;
         }
 
         item.ReturnFromBacklog(clock.GetUtcNow());

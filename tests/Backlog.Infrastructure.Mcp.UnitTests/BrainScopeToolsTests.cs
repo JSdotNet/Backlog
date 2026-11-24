@@ -2,6 +2,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 
+using Backlog.SharedKernel.Results;
 using ModelContextProtocol;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
@@ -363,10 +364,10 @@ public sealed class BrainScopeToolsTests : IDisposable
     {
         var refused = RepositoryScope.Resolve(new FakeRepositoryDirectory([Backlog]), " ");
 
-        Assert.True(refused.IsFailure);
-        Assert.Equal(RepositoryScope.RequiredCode, refused.Error.Code);
-        Assert.Equal(RepositoryScope.RequiredMessage, refused.Error.Message);
-        Assert.DoesNotContain(BrainMcpScope.Value, refused.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(refused.Value);
+        Assert.Equal(RepositoryScope.RequiredCode, error.Code);
+        Assert.Equal(RepositoryScope.RequiredMessage, error.Message);
+        Assert.DoesNotContain(BrainMcpScope.Value, error.Message, StringComparison.Ordinal);
     }
 
     private DevbookTools Tools(

@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -72,13 +73,13 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     public async Task OpeningADateEditsThatDate_NotAnItem()
     {
         await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken);
+        var release = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Id);
 
-        Assert.Equal(release.Value.Id, DateEditor(band).Milestone?.Id);
+        Assert.Equal(release.Id, DateEditor(band).Milestone?.Id);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
         Assert.Equal(
             "1.0",
@@ -88,14 +89,14 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     [Fact]
     public async Task EditingADateStoresIt_AndKeepsTheSameDate()
     {
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken);
+        var release = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
-            release.Value.Id,
+            release.Id,
             "1.1",
             new DateOnly(2026, 4, 30),
             MilestoneKind.Commitment,
@@ -104,7 +105,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         var milestone = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Milestones);
 
-        Assert.Equal(release.Value.Id, milestone.Id);
+        Assert.Equal(release.Id, milestone.Id);
         Assert.Equal("1.1", milestone.Title);
         Assert.Equal(new DateOnly(2026, 4, 30), milestone.On);
         Assert.Equal(MilestoneKind.Commitment, milestone.Kind);
@@ -128,13 +129,13 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     [Fact]
     public async Task DeletingADateRemovesIt()
     {
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken);
+        var release = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Id);
 
-        await band.InvokeAsync(() => DateEditor(band).OnDelete.InvokeAsync(release.Value.Id));
+        await band.InvokeAsync(() => DateEditor(band).OnDelete.InvokeAsync(release.Id));
 
         Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Milestones);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-milestone-editor\"]"));
@@ -149,16 +150,16 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var freeze = await Planning.AddMilestoneAsync(
+        var freeze = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync(
             "Freeze",
             new DateOnly(2026, 2, 2),
             MilestoneKind.Freeze,
-            isPlanWide: true, cancellationToken: TestContext.Current.CancellationToken);
+            isPlanWide: true, cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
 
-        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{freeze.Value.Id}\"]"));
+        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{freeze.Id}\"]"));
     }
 
     [Fact]
@@ -192,37 +193,37 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["website"], cancellationToken: TestContext.Current.CancellationToken);
-        var target = await Planning.AddMilestoneAsync(
+        var target = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync(
             "Heerlen Target",
             new DateOnly(2026, 2, 2),
-            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
 
         // Down the band the date was filed under, and not down the whole chart: that is
         // what a plan-wide date is for.
-        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-backlog\"]"));
-        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}\"]"));
-        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-website\"]"));
+        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Id}-backlog\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Id}\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Id}-website\"]"));
     }
 
     [Fact]
     public async Task ADateWaitsForThingsJustAsWorkDoes()
     {
-        var work = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken);
+        var work = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var release = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(release.Value.Id, work.Value.Id, Added: true)));
+            new RoadmapDependencyChange(release.Id, work.Id, Added: true)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal([work.Value.Id], plan.Milestones.Single().DependsOn);
+        Assert.Equal([work.Id], plan.Milestones.Single().DependsOn);
     }
 
     // --- Band colours ---------------------------------------------------------

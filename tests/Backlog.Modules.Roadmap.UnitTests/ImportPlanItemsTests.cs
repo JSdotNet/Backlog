@@ -79,8 +79,8 @@ public class ImportPlanItemsTests
         params PlanTagEffortDto[] effort)
     {
         var result = await ImportAsync(entries, effort);
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        return result.Value;
+        Assert.True(result is Ok<PlanImportResultDto>, result is Error error ? error.ToString() : null);
+        return Assert.IsType<Ok<PlanImportResultDto>>(result.Value).Value;
     }
 
     private static PlanImportEntryDto Entry(
@@ -367,7 +367,7 @@ public class ImportPlanItemsTests
         var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
             new ImportPlanItemsCommand([Entry("plan-a") with { Start = monday }], [new PlanTagEffortDto("plan-a", 14, 0)]),
             TestContext.Current.CancellationToken);
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
+        Assert.True(result is Ok<PlanImportResultDto>, result is Error error ? error.ToString() : null);
 
         var item = Stored("plan-a");
         Assert.Equal(monday, item.Window.Start);
@@ -385,7 +385,7 @@ public class ImportPlanItemsTests
         var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
             new ImportPlanItemsCommand([Entry("plan-a") with { Start = Today }], [new PlanTagEffortDto("plan-a", 7, 0)]),
             TestContext.Current.CancellationToken);
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
+        Assert.True(result is Ok<PlanImportResultDto>, result is Error error ? error.ToString() : null);
 
         Assert.Equal(Today, Stored("plan-a").Window.Start);
     }
@@ -436,9 +436,9 @@ public class ImportPlanItemsTests
     public async Task AnAfterMayNameAnItemAlreadyOnThePlan_ByItsTag()
     {
         var plan = RoadmapPlan.Empty();
-        var existing = plan.AddItem(
+        var existing = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Hand-made", PlannedWindow.Of(new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 10)),
-            tag: PlanningTag.Of("hand-made")).Value;
+            tag: PlanningTag.Of("hand-made")).Value).Value;
         _plans.Current = plan;
 
         await ImportedAsync([Entry("plan-a", after: "hand-made")]);
@@ -473,8 +473,8 @@ public class ImportPlanItemsTests
             Entry("plan-c")
         ]);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("roadmap.cyclic_dependency", result.Error.Code);
+        Assert.IsType<Error>(result.Value);
+        Assert.Equal("roadmap.cyclic_dependency", Assert.IsType<Error>(result.Value).Code);
         // Not half-applied: none of the three was created, not even the one with no
         // part in the cycle.
         Assert.Equal(["Untouched"], _plans.Current.Items.Select(item => item.Title));
@@ -489,7 +489,7 @@ public class ImportPlanItemsTests
 
         var result = await ImportAsync([Entry("plan-c", after: "plan-b"), Entry("plan-a", after: "plan-c")]);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(saves, _plans.Saves);
         Assert.Empty(Stored("plan-a").Dependencies.All);
     }
@@ -548,7 +548,7 @@ public class ImportPlanItemsTests
         var moved = await new RescheduleItemCommandHandler(_plans, new RoadmapPlanGate()).Handle(
             new RescheduleItemCommand(id, new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 30)),
             TestContext.Current.CancellationToken);
-        Assert.True(moved.IsSuccess);
+        Assert.IsType<Ok<RoadmapItemDto>>(moved.Value);
 
         var result = await ImportedAsync([Entry("plan-a", "Second title")], new PlanTagEffortDto("plan-a", 2, 0));
 
@@ -586,8 +586,8 @@ public class ImportPlanItemsTests
     {
         var plan = RoadmapPlan.Empty();
         var window = PlannedWindow.Of(Today, Today.AddDays(3));
-        var first = plan.AddItem("First", window, tag: PlanningTag.Of("shared")).Value;
-        var second = plan.AddItem("Second", window, tag: PlanningTag.Of("shared")).Value;
+        var first = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("First", window, tag: PlanningTag.Of("shared")).Value).Value;
+        var second = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Second", window, tag: PlanningTag.Of("shared")).Value).Value;
         _plans.Current = plan;
 
         var result = await ImportedAsync([Entry("shared", "Imported")]);
@@ -664,7 +664,7 @@ public class ImportPlanItemsTests
         var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
             new ImportPlanItemsCommand([], [new PlanTagEffortDto("plan-a", 14, 0)]),
             TestContext.Current.CancellationToken);
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<PlanImportResultDto>>(result.Value);
 
         var item = Stored("plan-a");
         Assert.Equal(new DateOnly(2026, 3, 3), item.Window.Start);
@@ -708,8 +708,8 @@ public class ImportPlanItemsTests
     {
         var result = await ImportAsync([], [Entry("plan-a", "Plan a")], new PlanTagEffortDto("plan-a", 3, 0));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("Plan a", Assert.Single(result.Value.Created).Title);
+        Assert.IsType<Ok<PlanImportResultDto>>(result.Value);
+        Assert.Equal("Plan a", Assert.Single(Assert.IsType<Ok<PlanImportResultDto>>(result.Value).Value.Created).Title);
         Assert.Equal(PlannedWindow.Of(Today, Today.AddDays(2)), Stored("plan-a").Window);
     }
 
@@ -722,10 +722,10 @@ public class ImportPlanItemsTests
 
         var result = await ImportAsync([], [Entry("plan-a", "Plan a")], new PlanTagEffortDto("plan-a", 8, 0));
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Created);
+        Assert.IsType<Ok<PlanImportResultDto>>(result.Value);
+        Assert.Empty(Assert.IsType<Ok<PlanImportResultDto>>(result.Value).Value.Created);
         Assert.Equal("Chosen by a person", Stored("plan-a").Title);
-        Assert.Single(result.Value.Relengthened);
+        Assert.Single(Assert.IsType<Ok<PlanImportResultDto>>(result.Value).Value.Relengthened);
     }
 
     [Fact]
@@ -733,8 +733,8 @@ public class ImportPlanItemsTests
     {
         var result = await ImportAsync([Entry("plan-a", "Written")], [Entry("plan-a", "Made up")]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("Written", Assert.Single(result.Value.Created).Title);
+        Assert.IsType<Ok<PlanImportResultDto>>(result.Value);
+        Assert.Equal("Written", Assert.Single(Assert.IsType<Ok<PlanImportResultDto>>(result.Value).Value.Created).Title);
     }
 
     // --- The person's own gestures ----------------------------------------
@@ -750,7 +750,7 @@ public class ImportPlanItemsTests
                 Tag: item.Tag.Value),
             TestContext.Current.CancellationToken);
 
-        Assert.True(edited.IsSuccess);
+        Assert.IsType<Ok<RoadmapItemDto>>(edited.Value);
         Assert.Null(Stored("plan-a").PlacedByImport);
     }
 

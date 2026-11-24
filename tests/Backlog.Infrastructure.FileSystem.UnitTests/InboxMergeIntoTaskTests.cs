@@ -63,7 +63,7 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
                 "Seen twice on the Pixel.\nBoth times after a sync."),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
 
         var stored = await EntryAsync(task.Id);
         var raw = EntryTextParser.ToRawText(stored);
@@ -90,7 +90,7 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
             new InboxMergeRequestDto(Guid.CreateVersion7(), task.Id, "Ship the parser", null, string.Empty),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.EndsWith(
             "2026-10-08: Ship the parser",
             EntryTextParser.GetParentText(EntryTextParser.ToRawText(await EntryAsync(task.Id))).TrimEnd('\n', '\r'),
@@ -107,8 +107,8 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
             new InboxMergeRequestDto(Guid.CreateVersion7(), task.Id, "Ship the parser", null, "## A heading\n- [ ] a step"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(TaskComments.NotProseCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(TaskComments.NotProseCode, error.Code);
         Assert.Equal(before, EntryTextParser.ToRawText(await EntryAsync(task.Id)));
     }
 
@@ -119,15 +119,15 @@ public sealed class InboxMergeIntoTaskTests : IDisposable
             new InboxMergeRequestDto(Guid.CreateVersion7(), Guid.CreateVersion7(), "Ship the parser", null, string.Empty),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(TaskComments.NotFoundCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(TaskComments.NotFoundCode, error.Code);
         Assert.Empty(await Tasks.ListAsync(TestContext.Current.CancellationToken));
     }
 
     private async Task<TaskItemDto> TaskAsync(string text)
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);
-        return saved.Value.Entry;
+        return Assert.IsType<Ok<SavedTaskDto>>(saved.Value).Value.Entry;
     }
 
     private async Task<TaskItemDto> EntryAsync(Guid id) =>

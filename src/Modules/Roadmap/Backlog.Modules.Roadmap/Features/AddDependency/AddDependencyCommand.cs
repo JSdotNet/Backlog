@@ -29,7 +29,7 @@ public sealed class AddDependencyCommandHandler(IRoadmapPlanRepository plans, Ro
         var plan = await plans.LoadAsync(cancellationToken);
         var added = plan.AddDependency(command.NodeId, command.DependsOnId);
 
-        if (added.IsFailure) return added;
+        if (added is Error) return added;
 
         await plans.SaveAsync(plan, cancellationToken);
         return Result.Success();

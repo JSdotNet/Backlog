@@ -77,15 +77,19 @@ public sealed class MergeIntoTaskCommandHandler(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (commented.IsFailure)
+        if (commented is Error commentError)
         {
-            return Result.Failure(commented.Error.Code == CommentTaskNotFound ? InboxErrors.MergeTaskNotFound : commented.Error);
+            return Result.Failure(commentError.Code == CommentTaskNotFound ? InboxErrors.MergeTaskNotFound : commentError);
         }
 
         var archived = await archive
             .Handle(new ArchiveItemCommand(item.Id, command.TaskId, DuplicateOfTask: true), cancellationToken)
             .ConfigureAwait(false);
 
-        return archived.IsSuccess ? archived : Result.Failure(InboxErrors.MergeArchiveFailed(archived.Error.Message));
+        return archived switch
+        {
+            Ok => archived,
+            Error error => Result.Failure(InboxErrors.MergeArchiveFailed(error.Message)),
+        };
     }
 }

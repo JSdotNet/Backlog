@@ -5,6 +5,7 @@ using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -481,7 +482,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             "# Ship it\n`prompt` `!in-progress` `repo:backlog`\n\nDo it. The agent's note.\n\n## Step one\n`task` `!in-progress`\n",
             0,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(agentWrote.IsSuccess);
+        Assert.IsNotType<Error>(agentWrote.Value);
         await harness.State.ReloadFromStoreAsync();
         Assert.NotSame(row, harness.State.Rows.Single(r => r.Id == id));
 

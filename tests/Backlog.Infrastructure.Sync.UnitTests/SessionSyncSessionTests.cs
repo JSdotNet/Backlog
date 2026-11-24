@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -58,7 +59,7 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<SessionSyncSummary>>(result.Value);
 
         // The literal strings, so the assertion fails on a field that carried them
         // under any name at all - "workingFolder", "path", "cwd".
@@ -716,7 +717,7 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<SessionSyncSummary>>(result.Value);
         Assert.Equal(2, fixture.Handler.Requests.Count);
         Assert.Equal([4, 1], fixture.BatchSizes);
     }
@@ -828,8 +829,8 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.SessionInvalid, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.SessionInvalid, error.Code);
         Assert.Equal(DateTimeOffset.MinValue, fixture.State.Current.PushWatermark);
         Assert.Empty(fixture.State.Saved);
     }
@@ -852,9 +853,9 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        var summary = Assert.IsType<Ok<SessionSyncSummary>>(result.Value).Value;
+        Assert.Equal(2, summary.Pulled);
+        Assert.Equal(1, summary.Applied);
 
         var kept = Assert.Single(fixture.Replica.Saved);
         Assert.Equal(["mine", "theirs"], kept.Select(entry => entry.Record.SessionId));
@@ -876,7 +877,7 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<SessionSyncSummary>>(result.Value);
         Assert.DoesNotContain("since=", fixture.Queries[0], StringComparison.Ordinal);
         Assert.Null(fixture.State.Saved[0].PullCursor);
         Assert.True(fixture.State.Saved[0].KeepsOwnRecords);
@@ -913,8 +914,8 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pulled);
+        var summary = Assert.IsType<Ok<SessionSyncSummary>>(result.Value).Value;
+        Assert.Equal(2, summary.Pulled);
         Assert.Equal(3, fixture.Handler.Requests.Count);
 
         // Saved once the feed says it is done, at the last page's cursor: the pages
@@ -946,8 +947,8 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Value.Applied);
+        var summary = Assert.IsType<Ok<SessionSyncSummary>>(result.Value).Value;
+        Assert.Equal(3, summary.Applied);
         Assert.Equal(["one", "two", "three"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
         Assert.Equal(["records", "cursor cursor-3"], order);
     }
@@ -970,7 +971,7 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(["one"], Assert.Single(fixture.Replica.Saved).Select(entry => entry.Record.SessionId));
         Assert.Equal(["records", "cursor cursor-1"], order);
     }
@@ -1021,8 +1022,8 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
+        var summary = Assert.IsType<Ok<SessionSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pulled);
         Assert.Null(fixture.State.Saved[0].PullCursor);
 
         // On disk before the retry, so a run that dies in between does not send it
@@ -1046,8 +1047,8 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, error.Code);
         Assert.Single(fixture.Handler.Requests);
     }
 
@@ -1064,7 +1065,7 @@ public sealed class SessionSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Single(fixture.Handler.Requests);
     }
 

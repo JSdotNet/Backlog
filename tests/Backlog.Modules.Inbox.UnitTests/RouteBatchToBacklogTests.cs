@@ -32,18 +32,18 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [first.Id, second.Id]);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         var request = Assert.Single(target.BatchRequests);
         Assert.Empty(target.Requests);
         Assert.Matches(TagShape, request.PlanTag);
         Assert.StartsWith("+inbox-batch-", request.PlanTag, StringComparison.Ordinal);
-        Assert.Equal(request.PlanTag, result.Value.PlanTag);
+        Assert.Equal(request.PlanTag, ok.Value.PlanTag);
         Assert.Equal([first.Id, second.Id], request.Items.Select(item => item.InboxItemId));
 
-        Assert.Equal([first.Id, second.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
-        Assert.Empty(result.Value.Failed);
+        Assert.Equal([first.Id, second.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
+        Assert.Empty(ok.Value.Failed);
 
-        foreach (var (item, routed) in new[] { first, second }.Zip(result.Value.Routed))
+        foreach (var (item, routed) in new[] { first, second }.Zip(ok.Value.Routed))
         {
             Assert.Equal(InboxStatus.Triaged, item.Status);
             Assert.Equal(routed.TaskIds, item.Routing!.TaskIds);
@@ -78,7 +78,7 @@ public sealed class RouteBatchToBacklogTests
         Assert.Equal(2, both.Routing!.TaskIds.Count);
         Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], both.Routing.RepoIds);
         Assert.Single(none.Routing!.TaskIds);
-        Assert.Equal(result.Value.Routed[0].TaskIds, both.Routing.TaskIds);
+        Assert.Equal(Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value).Value.Routed[0].TaskIds, both.Routing.TaskIds);
     }
 
     /// <summary>A batch carries each item whole — its id and every repository —
@@ -124,14 +124,14 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [routed.Id, open.Id, gone, archived.Id]);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         Assert.Equal([open.Id], Assert.Single(target.BatchRequests).Items.Select(item => item.InboxItemId));
-        Assert.Equal([open.Id], result.Value.Routed.Select(item => item.InboxItemId));
+        Assert.Equal([open.Id], ok.Value.Routed.Select(item => item.InboxItemId));
 
-        Assert.Equal([routed.Id, gone, archived.Id], result.Value.Failed.Select(failure => failure.Id));
-        Assert.Equal("inbox.item.invalid_transition", result.Value.Failed[0].Error.Code);
-        Assert.Equal(InboxErrors.ItemNotFound, result.Value.Failed[1].Error);
-        Assert.Equal("inbox.item.invalid_transition", result.Value.Failed[2].Error.Code);
+        Assert.Equal([routed.Id, gone, archived.Id], ok.Value.Failed.Select(failure => failure.Id));
+        Assert.Equal("inbox.item.invalid_transition", ok.Value.Failed[0].Error.Code);
+        Assert.Equal(InboxErrors.ItemNotFound, ok.Value.Failed[1].Error);
+        Assert.Equal("inbox.item.invalid_transition", ok.Value.Failed[2].Error.Code);
 
         Assert.Equal(InboxStatus.Triaged, open.Status);
         Assert.Equal(InboxStatus.Archived, archived.Status);
@@ -153,17 +153,17 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [first.Id, routed.Id, second.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Routed);
-        Assert.Equal([first.Id, routed.Id, second.Id], result.Value.Failed.Select(failure => failure.Id));
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Empty(ok.Value.Routed);
+        Assert.Equal([first.Id, routed.Id, second.Id], ok.Value.Failed.Select(failure => failure.Id));
 
-        var refusal = result.Value.Failed[0].Error;
+        var refusal = ok.Value.Failed[0].Error;
         Assert.Equal("inbox.batch.refused", refusal.Code);
         Assert.Contains("nothing was routed", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("every item is still in the Inbox", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("Two entries both claim it.", refusal.Message, StringComparison.Ordinal);
-        Assert.Equal(refusal, result.Value.Failed[2].Error);
-        Assert.Equal("inbox.item.invalid_transition", result.Value.Failed[1].Error.Code);
+        Assert.Equal(refusal, ok.Value.Failed[2].Error);
+        Assert.Equal("inbox.item.invalid_transition", ok.Value.Failed[1].Error.Code);
 
         Assert.False(first.IsRouted);
         Assert.False(second.IsRouted);
@@ -189,9 +189,9 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [first.Id, odd.Id, last.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([first.Id, last.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
-        var failure = Assert.Single(result.Value.Failed);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Equal([first.Id, last.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
+        var failure = Assert.Single(ok.Value.Failed);
         Assert.Equal(odd.Id, failure.Id);
         Assert.Equal(InboxErrors.BatchUnknownRepository("gone/away"), failure.Error);
         Assert.False(odd.IsRouted);
@@ -213,8 +213,9 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [sent.Id, left.Id]);
 
-        Assert.Equal(InboxErrors.BatchRefusedCode, result.Value.Failed[0].Error.Code);
-        Assert.Equal(InboxErrors.BatchItemNotSeparable, result.Value.Failed[1].Error);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Equal(InboxErrors.BatchRefusedCode, ok.Value.Failed[0].Error.Code);
+        Assert.Equal(InboxErrors.BatchItemNotSeparable, ok.Value.Failed[1].Error);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -232,7 +233,7 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id]);
 
-        Assert.Equal(missing, Assert.Single(result.Value.Failed).Error);
+        Assert.Equal(missing, Assert.Single(Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value).Value.Failed).Error);
         Assert.Equal("inbox.batch.item_missing", missing.Code);
     }
 
@@ -254,11 +255,11 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [first.Id, second.Id, third.Id]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([first.Id, third.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
+        Assert.Equal([first.Id, third.Id], ok.Value.Routed.Select(routed => routed.InboxItemId));
         Assert.Equal([first.Id, third.Id], store.ItemWrites);
 
-        var failure = Assert.Single(result.Value.Failed);
+        var failure = Assert.Single(ok.Value.Failed);
         Assert.Equal(second.Id, failure.Id);
         Assert.Equal("inbox.batch.save_failed", failure.Error.Code);
         Assert.Contains("The disk is full.", failure.Error.Message, StringComparison.Ordinal);
@@ -290,7 +291,7 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id], list.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         var tag = Assert.Single(target.BatchRequests).PlanTag;
         Assert.Matches(TagShape, tag);
         Assert.StartsWith("+reading-list-", tag, StringComparison.Ordinal);
@@ -313,7 +314,7 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id], list.Id, planTitle: "Tasks sync polish");
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", Assert.Single(target.BatchRequests).PlanTag);
     }
 
@@ -380,8 +381,8 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id], Guid.CreateVersion7());
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(InboxErrors.ListNotFound, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.ListNotFound, error);
         Assert.Empty(target.BatchRequests);
         Assert.False(item.IsRouted);
     }
@@ -397,10 +398,10 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [routed.Id]);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value);
         Assert.Empty(target.BatchRequests);
-        Assert.Empty(result.Value.Routed);
-        Assert.Equal(routed.Id, Assert.Single(result.Value.Failed).Id);
+        Assert.Empty(ok.Value.Routed);
+        Assert.Equal(routed.Id, Assert.Single(ok.Value.Failed).Id);
     }
 
     // --- The panel's choices ----------------------------------------------------
@@ -416,7 +417,7 @@ public sealed class RouteBatchToBacklogTests
         var result = await Route(store, target, [item.Id], choices: new InboxBatchRouteChoicesDto(PlanTag: " +inbox-batch-1a2b3c4d "));
 
         Assert.Equal("+inbox-batch-1a2b3c4d", Assert.Single(target.BatchRequests).PlanTag);
-        Assert.Equal("+inbox-batch-1a2b3c4d", result.Value.PlanTag);
+        Assert.Equal("+inbox-batch-1a2b3c4d", Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value).Value.PlanTag);
     }
 
     [Theory]
@@ -432,7 +433,7 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id], choices: new InboxBatchRouteChoicesDto(PlanTag: tag));
 
-        Assert.Equal("inbox.batch.plan_tag_invalid", result.Error.Code);
+        Assert.Equal("inbox.batch.plan_tag_invalid", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.BatchRequests);
         Assert.False(item.IsRouted);
     }
@@ -489,7 +490,7 @@ public sealed class RouteBatchToBacklogTests
         Assert.Equal(["0199a3f2-7c41-7d1a-9d0f-3d2c5e6f7a8b"], request.Items[1].AfterTasks);
 
         // Named back in the order asked, whatever order the document took.
-        Assert.Equal([later.Id, first.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
+        Assert.Equal([later.Id, first.Id], Assert.IsType<Ok<InboxBatchRoutedDto>>(result.Value).Value.Routed.Select(routed => routed.InboxItemId));
     }
 
     [Fact]
@@ -529,10 +530,10 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [notes.Id, ship.Id], choices: choices);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.batch.dependency_loop", result.Error.Code);
-        Assert.Contains("Write the release notes → Ship the release → Write the release notes", result.Error.Message, StringComparison.Ordinal);
-        Assert.Contains("nothing was routed", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.batch.dependency_loop", error.Code);
+        Assert.Contains("Write the release notes → Ship the release → Write the release notes", error.Message, StringComparison.Ordinal);
+        Assert.Contains("nothing was routed", error.Message, StringComparison.Ordinal);
         Assert.Empty(target.BatchRequests);
         Assert.Empty(store.ItemWrites);
     }
@@ -559,9 +560,9 @@ public sealed class RouteBatchToBacklogTests
 
         var result = await Route(store, target, [item.Id], choices: choices);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.batch.dependency_invalid", result.Error.Code);
-        Assert.Contains("A task", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.batch.dependency_invalid", error.Code);
+        Assert.Contains("A task", error.Message, StringComparison.Ordinal);
         Assert.Empty(target.BatchRequests);
         Assert.False(item.IsRouted);
     }

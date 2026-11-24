@@ -53,9 +53,11 @@ internal sealed class InboxEventTarget(IKnowledgeEvents? events = null, IAppFeat
             return Result.Failure<Guid>(InboxErrors.EventNotMade(failure.Message));
         }
 
-        return spotted.IsSuccess
-            ? Result.Success(spotted.Value.EventId)
-            : Result.Failure<Guid>(InboxErrors.EventNotMade(spotted.Error.Message));
+        return spotted switch
+        {
+            Ok<SpottedKnowledgeEventDto>(var spot) => spot.EventId,
+            Error error => InboxErrors.EventNotMade(error.Message),
+        };
     }
 
     private static EventDateDto? DateOf(InboxEventDateDto? date) =>

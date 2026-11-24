@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.DomainModels;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -114,11 +115,11 @@ public sealed class PhoneProgressTests : IDisposable
     public async Task The_context_carries_the_pull_requests_open_impediments_hold_back_even_with_no_goal()
     {
         var open = MakeImpediment.Raised("Bank sandbox down");
-        open.HoldBack(HeldBackItem.ForPullRequest("acme/invoicing", 1344).Value);
-        open.HoldBack(HeldBackItem.ForPullRequest("acme/legacy-billing", 77).Value);
+        open.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPullRequest("acme/invoicing", 1344).Value).Value);
+        open.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPullRequest("acme/legacy-billing", 77).Value).Value);
         var resolved = MakeImpediment.Raised("Old blocker");
-        resolved.HoldBack(HeldBackItem.ForPullRequest("acme/invoicing", 9).Value);
-        Assert.True(resolved.MoveTo(ImpedimentState.Resolved, MakeImpediment.Thu15).IsSuccess);
+        resolved.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPullRequest("acme/invoicing", 9).Value).Value);
+        Assert.IsType<Ok>(resolved.MoveTo(ImpedimentState.Resolved, MakeImpediment.Thu15).Value);
         await _impediments.SaveAsync(open, Cancellation);
         await _impediments.SaveAsync(resolved, Cancellation);
         _pulls.Known.Add(new GoalPullRequestDto("acme/invoicing", "1344", LinkedPullRequestState.Closed, null, null, new GoalPullRequestApprovalsDto(0, null)));
@@ -137,7 +138,7 @@ public sealed class PhoneProgressTests : IDisposable
     public async Task There_is_no_context_to_send_with_no_goal_and_no_impediment_holding_back_a_pull_request()
     {
         var tasksOnly = MakeImpediment.Raised();
-        tasksOnly.HoldBack(HeldBackItem.ForTask(Guid.NewGuid()).Value);
+        tasksOnly.HoldBack(Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(Guid.NewGuid()).Value).Value);
         await _impediments.SaveAsync(tasksOnly, Cancellation);
 
         Assert.Null(await Context.ReadAsync(Cancellation));

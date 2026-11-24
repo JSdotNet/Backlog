@@ -24,10 +24,10 @@ public sealed class ReadAttachmentQueryHandler(IInboxItemRepository items, IInbo
         ArgumentNullException.ThrowIfNull(query);
 
         var found = await DownloadedAttachment.FindAsync(items, query.Id, query.AttachmentId, cancellationToken).ConfigureAwait(false);
-        if (found.IsFailure) return Result.Failure<byte[]>(found.Error);
+        if (found is not Ok<InboxAttachment>(var attachment)) return Result.Failure<byte[]>((Error)found.Value!);
         if (attachmentFiles is null) return Result.Failure<byte[]>(InboxErrors.AttachmentsUnavailable);
 
-        var bytes = await attachmentFiles.ReadAsync(found.Value.LocalPath!, cancellationToken).ConfigureAwait(false);
+        var bytes = await attachmentFiles.ReadAsync(attachment.LocalPath!, cancellationToken).ConfigureAwait(false);
 
         return bytes is null
             ? Result.Failure<byte[]>(InboxErrors.AttachmentNotDownloaded)

@@ -1,6 +1,8 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -33,8 +35,8 @@ public class LinkTaskToIssueTests
         var result = await new LinkTaskToIssueCommandHandler(store)
             .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], result.Value.RepoIds!);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], ok.Value.RepoIds!);
     }
 
     /// <summary>A push to a repository the entry did not name adds it rather than
@@ -51,8 +53,8 @@ public class LinkTaskToIssueTests
         var result = await new LinkTaskToIssueCommandHandler(store)
             .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], result.Value.RepoIds!);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], ok.Value.RepoIds!);
     }
 
     /// <summary>Two casings are one target, so the stored spelling — which came
@@ -68,7 +70,7 @@ public class LinkTaskToIssueTests
         var result = await new LinkTaskToIssueCommandHandler(store)
             .Handle(new LinkTaskToIssueCommand(entry.Id, "jsdotnet/backlog", "42", "issue"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["JSdotNet/Backlog"], result.Value.RepoIds!);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal(["JSdotNet/Backlog"], ok.Value.RepoIds!);
     }
 }

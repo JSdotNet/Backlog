@@ -23,14 +23,6 @@
     <ProjectReference Include="..\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddSyncModule(); the domain and the handlers know nothing
-         about the container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <!-- For the attachment release, which logs and carries on when the store
-         cannot be reached rather than failing the acknowledgement. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Modules.Sync.UnitTests" />

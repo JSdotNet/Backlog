@@ -7,7 +7,7 @@
 
     The tool classes and their payloads live here rather than in Backlog.Desktop,
     which is where §2 of that record puts them, for the reason §2 actually cares
-    about: the framework reference must never reach the net10.0-android head. A
+    about: the framework reference must never reach the net11.0-android head. A
     leaf library nothing mobile references satisfies that and gains one thing the
     desktop project cannot - the tools become testable without a host, and the
     harness and the desktop head map the same implementation instead of one of
@@ -36,7 +36,6 @@
          absent: it carries a Microsoft.AspNetCore.App framework reference, and
          taking it here would put that reference one project reference away from
          anything that ever wants to read a tool. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="ModelContextProtocol.Core" />
   </ItemGroup>
 

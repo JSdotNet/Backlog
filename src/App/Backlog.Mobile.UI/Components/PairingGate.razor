@@ -1,5 +1,6 @@
 @using Backlog.Infrastructure.Sync
 @using Backlog.Mobile.UI.Outbox
+@using global::Backlog.SharedKernel.Results
 @inject DevicePairingClient Pairing
 @inject DeviceOutbox Outbox
 @inject TimeProvider Clock
@@ -109,9 +110,9 @@
         {
             var result = await Pairing.PairAsync(_pairingCode, DeviceName, timeout.Token);
 
-            if (result.IsFailure)
+            if (result is Error error)
             {
-                _pairingError = result.Error.Message;
+                _pairingError = error.Message;
                 return;
             }
 

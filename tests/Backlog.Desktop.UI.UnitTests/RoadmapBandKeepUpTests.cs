@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -37,12 +38,12 @@ public sealed class RoadmapBandKeepUpTests : RoadmapBandHarness
         var written = await TasksTestHost.EntriesFor(Settings).ImportPlanAsync(
             tasks,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(written.IsSuccess);
+        Assert.IsNotType<Error>(written.Value);
 
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan A", "plan-a", RepositoryAliases: ["backlog"])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
 
         var item = await StoredAsync();
         Assert.True(item.End < Monday, "The import placed the item before the band is opened.");
@@ -126,7 +127,7 @@ public sealed class RoadmapBandKeepUpTests : RoadmapBandHarness
             "# One\n`task` `+plan-a` `effort:7` `!done` `completed:2026-10-12`\n",
             one.Order,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(done.IsSuccess);
+        Assert.IsNotType<Error>(done.Value);
 
         WorkChanges.Raise();
 
@@ -175,7 +176,7 @@ public sealed class RoadmapBandKeepUpTests : RoadmapBandHarness
             "# One\n`task` `+plan-a` `effort:7` `!done` `completed:2026-10-12`\n",
             one.Order,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(done.IsSuccess);
+        Assert.IsNotType<Error>(done.Value);
 
         WorkChanges.Raise();
     }

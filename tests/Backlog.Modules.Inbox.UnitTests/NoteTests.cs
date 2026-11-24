@@ -7,6 +7,7 @@ using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.ListPendingNotes;
 using Backlog.Modules.Inbox.Features.ReceiveNote;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -230,14 +231,14 @@ public sealed class NoteTests
         var result = await new EditNoteCommandHandler(store, new FakeTimeProvider(Arrival))
             .Handle(new EditNoteCommand(item.Id, "  Standup   notes ", " edited on the desktop "), Cancellation);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal("Standup notes", item.Title);
         Assert.Equal("edited on the desktop", item.BodyMd);
         Assert.Equal(Arrival, item.EditedAt);
 
         Assert.True(item.NotePushPending);
         var pending = await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation);
-        var pushed = Assert.Single(pending.Value);
+        var pushed = Assert.Single(Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>(pending.Value).Value);
         Assert.Equal("edited on the desktop", pushed.BodyMd);
         Assert.Equal(Arrival, pushed.UpdatedAt);
         Assert.Null(pushed.DeletedAt);
@@ -258,9 +259,9 @@ public sealed class NoteTests
         var gone = await handler.Handle(new EditNoteCommand(archived.Id, "Changed", null), Cancellation);
         var blank = await handler.Handle(new EditNoteCommand(archived.Id, " ", null), Cancellation);
 
-        Assert.Equal(InboxErrors.NotANote, notNote.Error);
-        Assert.Equal("inbox.item.invalid_transition", gone.Error.Code);
-        Assert.Equal(InboxErrors.ItemNeedsTitle, blank.Error);
+        Assert.Equal(InboxErrors.NotANote, Assert.IsType<Error>(notNote.Value));
+        Assert.Equal("inbox.item.invalid_transition", Assert.IsType<Error>(gone.Value).Code);
+        Assert.Equal(InboxErrors.ItemNeedsTitle, Assert.IsType<Error>(blank.Value));
         Assert.Equal("A plain thought", text.Title);
     }
 
@@ -283,7 +284,7 @@ public sealed class NoteTests
 
         var pending = await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation);
 
-        Assert.Equal(["Older", "Newer"], pending.Value.Select(note => note.Title));
+        Assert.Equal(["Older", "Newer"], Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>(pending.Value).Value.Select(note => note.Title));
     }
 
     [Fact]
@@ -298,13 +299,13 @@ public sealed class NoteTests
         Assert.False(item.NotePushPending);
 
         item.EditNote("Standup", "desk", Items.Noon.AddMinutes(20));
-        var pending = (await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation)).Value;
+        var pending = Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>((await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation)).Value).Value;
         item.EditNote("Standup", "desk, again", Items.Noon.AddMinutes(21));
 
         await new MarkNotesPushedCommandHandler(store).Handle(new MarkNotesPushedCommand(pending), Cancellation);
         Assert.True(item.NotePushPending);
 
-        var again = (await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation)).Value;
+        var again = Assert.IsType<Ok<IReadOnlyList<InboxNoteDto>>>((await new ListPendingNotesQueryHandler(store).Handle(new ListPendingNotesQuery(), Cancellation)).Value).Value;
         await new MarkNotesPushedCommandHandler(store).Handle(new MarkNotesPushedCommand(again), Cancellation);
         Assert.False(item.NotePushPending);
     }

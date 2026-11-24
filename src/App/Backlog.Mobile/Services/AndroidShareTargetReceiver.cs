@@ -10,7 +10,7 @@ namespace Backlog.Mobile.Services;
 /// <remarks>
 /// <para>
 /// The platform API is used directly rather than through a wrapper package: the
-/// head targets <c>net10.0-android</c> only, so there is no second platform to
+/// head targets <c>net11.0-android</c> only, so there is no second platform to
 /// abstract over, and a new central package version would be carrying a
 /// dependency for two <c>GetStringExtra</c> calls.
 /// </para>

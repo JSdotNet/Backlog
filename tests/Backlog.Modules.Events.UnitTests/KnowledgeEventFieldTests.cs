@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -63,8 +64,8 @@ public sealed class KnowledgeEventFieldTests
     public void The_key_dates_are_replaced_and_cleared()
     {
         var spotted = Spotted();
-        var earlyBird = KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value;
-        var registration = KeyDate.Create(new DateOnly(2026, 10, 1), "Registration closes").Value;
+        var earlyBird = Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value).Value;
+        var registration = Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 10, 1), "Registration closes").Value).Value;
 
         spotted.SetKeyDates([earlyBird, registration]);
         Assert.Equal([earlyBird, registration], spotted.KeyDates);
@@ -89,7 +90,7 @@ public sealed class KnowledgeEventFieldTests
     public void The_cost_is_set_and_cleared()
     {
         var spotted = Spotted();
-        var ticket = Cost.Create(895m, "EUR").Value;
+        var ticket = Assert.IsType<Ok<Cost>>(Cost.Create(895m, "EUR").Value).Value;
 
         spotted.SetCost(ticket);
         Assert.Equal(ticket, spotted.Cost);
@@ -103,11 +104,11 @@ public sealed class KnowledgeEventFieldTests
     {
         var id = Guid.NewGuid();
         var series = Guid.NewGuid();
-        var start = EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(9, 0), TimeSpan.FromHours(1)).Value;
-        var end = EventDate.Create(new DateOnly(2026, 10, 28), time: null, utcOffset: null).Value;
-        var place = Place.AtVenue("Kinepolis Antwerp").Value;
-        var earlyBird = KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value;
-        var cost = Cost.Create(895m, "EUR").Value;
+        var start = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 26), new TimeOnly(9, 0), TimeSpan.FromHours(1)).Value).Value;
+        var end = Assert.IsType<Ok<EventDate>>(EventDate.Create(new DateOnly(2026, 10, 28), time: null, utcOffset: null).Value).Value;
+        var place = Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Antwerp").Value).Value;
+        var earlyBird = Assert.IsType<Ok<KeyDate>>(KeyDate.Create(new DateOnly(2026, 9, 1), "Early bird ends").Value).Value;
+        var cost = Assert.IsType<Ok<Cost>>(Cost.Create(895m, "EUR").Value).Value;
         var note = NoteLink.Create(NoteLinkKind.Brain, "events/techorama-2026.md", "Techorama 2026");
         var task = EventTaskLink.Create("task-harvest", TaskPurpose.Harvest);
 
@@ -176,5 +177,5 @@ public sealed class KnowledgeEventFieldTests
         Assert.Equal("Stored before the rule", restored.Verdict?.Text);
     }
 
-    private static KnowledgeEvent Spotted() => KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value;
+    private static KnowledgeEvent Spotted() => Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama").Value).Value;
 }

@@ -27,10 +27,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.5" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.5" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.5" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="17.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="17.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="17.0.0" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="17.0.0" />
+    <!-- AddDotnetProject: registers a project resource by path (Aspire 17, org ADR 0002). -->
+    <PackageVersion Include="Aspire.Hosting.Dotnet" Version="17.0.0" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -40,14 +42,16 @@
     <!-- The sync service reads its device-token signing key, with its versions, from Key Vault (local ADR 0058). -->
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.12.0" />
     <!--
-      Foundry Local and the MAUI project resource ship one preview build per
-      Aspire release, so their versions are that release's preview build rather than a
-      version of their own. They move with Aspire.Hosting.AppHost above; a
-      hosting package from another release binds against a different
-      Aspire.Hosting than the AppHost resolves.
+      Foundry Local, the MAUI project resource and the tracked browser behind
+      WithBrowserLogs (org ADR 0002) ship one preview build per Aspire release,
+      so their versions are that release's preview build rather than a version of
+      their own. They move with Aspire.Hosting.AppHost above; a hosting package
+      from another release binds against a different Aspire.Hosting than the
+      AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.5-preview.1.26559.7" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.5-preview.1.26559.7" />
+    <PackageVersion Include="Aspire.Hosting.Browsers" Version="17.0.0-preview.1.26567.5" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="17.0.0-preview.1.26567.5" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="17.0.0-preview.1.26567.5" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -55,7 +59,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="17.0.0" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -63,7 +67,7 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="17.0.0" />
 
     <!--
       The client-side half of the realtime nudge (local ADR 0039 §4): it registers the
@@ -71,7 +75,7 @@
       URLs and publishes "pull now" through, with the managed identity as its
       credential. Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.5" />
+    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="17.0.0" />
 
     <!--
       The Android push (local ADR 0039 §4): the Notification Hubs data-plane client that
@@ -105,7 +109,7 @@
       web assets) at the SDK's own bundled ASP.NET Core patch: KnownAspNetCorePack in
       Microsoft.NETCoreSdk.BundledVersions.props, so SDK 10.0.301 asks for 10.0.9,
       10.0.302 for 10.0.10 and 10.0.402 for 10.0.13. packages.lock.json records that
-      version, and with global.json rolling forward to the latest patch a restore on
+      version, and with global.json rolling forward to the latest feature band a restore on
       any other SDK (a newer runner image, an older local install) rewrites the lock
       file or fails CI's locked restore with NU1004. An explicit PackageReference of
       the same id replaces the implicit one, so the version is this line's.
@@ -116,12 +120,12 @@
       pages are served in a Debug build only (local ADR 0043 §7); keep the version at the ASP.NET
       Core patch of the SDK CI installs, and regenerate the lock files with it.
     -->
-    <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="11.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
 
     <!--
       Pinned to the version Aspire.Microsoft.Azure.Cosmos above already resolves
@@ -140,14 +144,13 @@
       here has to match the SDK's own compiler version.
     -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="11.0.0" />
     <!--
       The container itself, for a test that composes a module the way a host
       does (AddInboxModule() over in-memory ports) rather than newing its
       handlers one by one. Products get it from their host; only tests name it.
     -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
     <!--
       A HostApplicationBuilder in a test. Backlog.Infrastructure.Cosmos's
@@ -164,8 +167,7 @@
       has to name it.
     -->
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
 
     <!--
       ValidateDataAnnotations(), for a project that is a plain library rather than
@@ -182,7 +184,7 @@
       Part of the Windows Desktop shared framework, which the MAUI head does not take, so
       it is named here; only Backlog.Desktop references it.
     -->
-    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="11.0.0" />
 
     <!--
       Pinned to the version Microsoft.AspNetCore.Authentication.JwtBearer 10.0.11
@@ -204,7 +206,7 @@
       The MCP server ADR 0012 decided. .Core is the transport-neutral half the tool
       classes are attributed with; .AspNetCore is the Streamable HTTP host, referenced
       only by Backlog.Desktop and the web harness so the framework reference it pulls
-      in never reaches the net10.0-android head.
+      in never reaches the net11.0-android head.
     -->
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
@@ -231,7 +233,7 @@
       the MAUI head, the browser harness and the unit tests run one codec.
     -->
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
     <!--
       The Android push (local ADR 0039 §4): Firebase Cloud Messaging's token and
       the data messages Notification Hubs relays, in the Android head only. The

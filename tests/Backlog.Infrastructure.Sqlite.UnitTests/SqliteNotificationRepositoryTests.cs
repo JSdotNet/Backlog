@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Sqlite.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -27,7 +28,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    private static Notification Question(DateTimeOffset? at = null) => Notification.Publish(
+    private static Notification Question(DateTimeOffset? at = null) => Assert.IsType<Ok<Notification>>(Notification.Publish(
         Guid.NewGuid(),
         Owner,
         new NotificationDraft(
@@ -44,13 +45,13 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                 AnswerOn: AnswerOn.Owner),
             "backlog://sessions/sess-91",
             IsPrivate: true),
-        at ?? Now).Value;
+        at ?? Now).Value).Value;
 
-    private static Notification Alert() => Notification.Publish(
+    private static Notification Alert() => Assert.IsType<Ok<Notification>>(Notification.Publish(
         Guid.NewGuid(),
         Owner,
         new NotificationDraft(new NotificationSource("devbook", "remark-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Remark left", "", ""),
-        Now).Value;
+        Now).Value).Value;
 
     private static NotificationReply Reply(Notification question, string choice) =>
         new(Guid.NewGuid(), question.Id, Owner, Owner, [choice], null, Now);
@@ -86,11 +87,11 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     public async Task A_stored_origin_reads_back_unchanged()
     {
         var origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada", "Agent session", "https://example.test/s/1");
-        var alert = Notification.Publish(
+        var alert = Assert.IsType<Ok<Notification>>(Notification.Publish(
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(new NotificationSource("sessions", "run-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Run done", "", "", Origin: origin),
-            Now).Value;
+            Now).Value).Value;
 
         await _repository.SaveAsync(alert, Cancellation);
 
@@ -105,11 +106,11 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
             new("Open run", "backlog://window/sessions?session=run-1"),
             new("Open Schedules", "backlog://window/sessions?page=schedules")
         ];
-        var alert = Notification.Publish(
+        var alert = Assert.IsType<Ok<Notification>>(Notification.Publish(
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(new NotificationSource("sessions", "held:schedule:sweep:run-1"), null, NotificationKind.Alert, NotificationSeverity.Warning, "Issue sweep is held", "", "", Actions: actions),
-            Now).Value;
+            Now).Value).Value;
 
         await _repository.SaveAsync(alert, Cancellation);
 
@@ -155,7 +156,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     public async Task An_accepted_answer_is_stored_and_waits_for_its_handler_until_marked_delivered()
     {
         var question = Question();
-        Assert.True(question.Accept(Reply(question, "yes"), Owner, Now).IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(question.Accept(Reply(question, "yes"), Owner, Now).Value);
         await _repository.SaveAsync(question, Cancellation);
 
         var waiting = Assert.Single(await _repository.ListAwaitingDeliveryAsync(Cancellation));
@@ -191,7 +192,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     [Fact]
     public async Task A_choice_that_takes_text_reads_back_with_its_placeholder()
     {
-        var question = Notification.Publish(
+        var question = Assert.IsType<Ok<Notification>>(Notification.Publish(
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(
@@ -207,7 +208,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                     new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
                     new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
                 ])),
-            Now).Value;
+            Now).Value).Value;
 
         await _repository.SaveAsync(question, Cancellation);
         var read = await _repository.GetAsync(question.Id, Cancellation);
@@ -244,7 +245,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     [Fact]
     public async Task A_quiet_choice_reads_back_quiet()
     {
-        var question = Notification.Publish(
+        var question = Assert.IsType<Ok<Notification>>(Notification.Publish(
             Guid.NewGuid(),
             Owner,
             new NotificationDraft(
@@ -260,7 +261,7 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
                     new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
                     new AnswerChoice("dismiss", "Dismiss", Quiet: true)
                 ])),
-            Now).Value;
+            Now).Value).Value;
 
         await _repository.SaveAsync(question, Cancellation);
         var read = await _repository.GetAsync(question.Id, Cancellation);

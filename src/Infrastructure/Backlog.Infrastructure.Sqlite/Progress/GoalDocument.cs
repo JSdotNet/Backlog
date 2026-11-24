@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Sqlite.Progress;
 
@@ -89,8 +90,11 @@ internal sealed record GoalDocument
         foreach (var stored in Attachments ?? [])
         {
             var attachment = GoalAttachment.Of(stored.Kind, stored.Plan, stored.TaskId, stored.Repository, stored.Number, stored.AttachedOn);
-            if (attachment.IsFailure) throw new JsonException($"A goal document holds an attachment that does not read: {attachment.Error.Code}.");
-            attachments.Add(attachment.Value);
+            attachments.Add(attachment switch
+            {
+                Ok<GoalAttachment>(var read) => read,
+                Error error => throw new JsonException($"A goal document holds an attachment that does not read: {error.Code}."),
+            });
         }
 
         return Goal.Restore(Id, Title, Outcome, ProgressDocuments.StoredDueDate(DueDate), attachments, CreatedAt ?? setAt, Rank);

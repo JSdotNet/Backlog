@@ -160,9 +160,12 @@ public sealed class ImportPlanCommandHandler(
         foreach (var parsed in parsedEntries)
         {
             var resolved = ResolveRepos(parsed, resolver, command.RepoMatches);
-            if (resolved.IsFailure) return resolved.Error;
+            if (resolved is not Ok<EntryTextParser.ParsedEntry>(var entry))
+            {
+                return (Error)resolved.Value!;
+            }
 
-            resolvedEntries.Add(resolved.Value);
+            resolvedEntries.Add(entry);
         }
 
         parsedEntries = resolvedEntries;
@@ -842,10 +845,11 @@ public sealed class ImportPlanCommandHandler(
     {
         if ((parsed.RepoIds?.Count ?? 0) == 0) return parsed;
 
-        var repoIds = resolver.ResolveOrRegister(parsed.RepoIds, matches);
-        if (repoIds.IsFailure) return repoIds.Error;
-
-        return parsed with { RepoIds = repoIds.Value };
+        return resolver.ResolveOrRegister(parsed.RepoIds, matches) switch
+        {
+            Ok<IReadOnlyList<string>>(var repoIds) => parsed with { RepoIds = repoIds },
+            Error error => error,
+        };
     }
 
     private enum OutcomeKind { Create, Update, Skip }

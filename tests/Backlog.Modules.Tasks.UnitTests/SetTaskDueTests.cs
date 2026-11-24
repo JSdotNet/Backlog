@@ -27,8 +27,8 @@ public sealed class SetTaskDueTests
 
         var result = await Handle(store, entry.Id, Monday);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Monday, result.Value.DueOn);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal(Monday, ok.Value.DueOn);
         Assert.Equal(Monday, store.Entries[entry.Id].DueOn);
         Assert.Equal(1, store.Writes);
     }
@@ -43,8 +43,8 @@ public sealed class SetTaskDueTests
 
         var result = await Handle(store, entry.Id, null);
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value.DueOn);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Null(ok.Value.DueOn);
         Assert.Null(store.Entries[entry.Id].DueOn);
     }
 
@@ -55,8 +55,8 @@ public sealed class SetTaskDueTests
 
         var result = await Handle(store, Guid.NewGuid(), Monday);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.NotFound, error.Type);
         Assert.Equal(0, store.Writes);
     }
 
@@ -77,7 +77,7 @@ public sealed class SetTaskDueTests
 
         var result = await Handle(store, entry.Id, Monday.AddDays(3));
 
-        Assert.Equal(before with { DueOn = Monday.AddDays(3) }, result.Value, new SameEntry());
+        Assert.Equal(before with { DueOn = Monday.AddDays(3) }, Assert.IsType<Ok<TaskItemDto>>(result.Value).Value, new SameEntry());
     }
 
     /// <summary>A host or a double that keeps no due-date command still composes, and
@@ -89,8 +89,8 @@ public sealed class SetTaskDueTests
 
         var result = await port.SetDueAsync(Guid.NewGuid(), Monday, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("entry.due_unavailable", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("entry.due_unavailable", error.Code);
     }
 
     private static Task<Result<TaskItemDto>> Handle(InMemoryTaskRepository store, Guid id, DateOnly? dueOn) =>

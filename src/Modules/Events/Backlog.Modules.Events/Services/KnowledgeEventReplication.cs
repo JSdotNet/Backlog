@@ -135,22 +135,22 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
         Place? place = null;
         if (copy.Venue is not null || copy.Online)
         {
-            if (Place.Create(copy.Venue, copy.Online) is not { IsSuccess: true } placed) return null;
-            place = placed.Value;
+            if (Place.Create(copy.Venue, copy.Online) is not Ok<Place>(var placed)) return null;
+            place = placed;
         }
 
         Cost? cost = null;
         if (copy.Cost is { } costCopy)
         {
-            if (Cost.Create(costCopy.Amount, costCopy.Currency) is not { IsSuccess: true } priced) return null;
-            cost = priced.Value;
+            if (Cost.Create(costCopy.Amount, costCopy.Currency) is not Ok<Cost>(var priced)) return null;
+            cost = priced;
         }
 
         var keyDates = new List<KeyDate>();
         foreach (var keyDate in copy.KeyDates ?? [])
         {
-            if (keyDate is null || KeyDate.Create(keyDate.Date, keyDate.Label) is not { IsSuccess: true } made) return null;
-            keyDates.Add(made.Value);
+            if (keyDate is null || KeyDate.Create(keyDate.Date, keyDate.Label) is not Ok<KeyDate>(var made)) return null;
+            keyDates.Add(made);
         }
 
         var notes = new List<NoteLink>();
@@ -193,10 +193,9 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
         date = null;
         if (copy is null) return true;
 
-        Result<EventDate> made = EventDate.Create(copy.Date, copy.Time, copy.UtcOffset);
-        if (made.IsFailure) return false;
+        if (EventDate.Create(copy.Date, copy.Time, copy.UtcOffset) is not Ok<EventDate>(var made)) return false;
 
-        date = made.Value;
+        date = made;
         return true;
     }
 }

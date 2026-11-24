@@ -1097,18 +1097,19 @@
         {
             var moveTo = drop ? null : _moveToId;
             var result = await tasks.RefileRepositoryTasksAsync(offer.Repository.FullName, moveTo, drop);
-            if (result.IsFailure)
+            if (result is not Ok<int>(var refiled))
             {
                 // Said on the dialog while it is up; on the page's status line if
                 // it has gone, so a refusal is never said to nobody.
-                if (_offer is null) _repoError = result.Error.Message;
-                else _offerError = result.Error.Message;
+                var error = (Error)result.Value!;
+                if (_offer is null) _repoError = error.Message;
+                else _offerError = error.Message;
                 return;
             }
 
             var done = drop
-                ? $"{Plural(result.Value, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
-                : $"{Plural(result.Value, "open task", "open tasks")} moved to {moveTo}.";
+                ? $"{Plural(refiled, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
+                : $"{Plural(refiled, "open task", "open tasks")} moved to {moveTo}.";
 
             CloseOffer();
             if (offer.Archiving) Archive(offer.Repository, $"Archived. {done}");
@@ -1453,9 +1454,9 @@
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {
             var result = await rewrite;
-            if (result.IsSuccess) return result.Value;
+            if (result is Ok<int>(var count)) return count;
 
-            var message = $"{what} could not follow the rename: {result.Error.Message}";
+            var message = $"{what} could not follow the rename: {((Error)result.Value!).Message}";
             _repoError = _repoError is null ? message : $"{_repoError} {message}";
             return 0;
         }

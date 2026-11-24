@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -55,8 +56,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(2, summary.Pushed);
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
         Assert.NotEqual(clock.GetUtcNow(), state.Current.PushWatermark);
     }
@@ -80,9 +81,9 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
+        Assert.Equal(1, summary.Refused);
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
     }
 
@@ -130,8 +131,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
 
         var change = Assert.Single(Pushed(fixture.Bodies[0]));
         Assert.Equal(Noon.AddHours(1), change.DeletedAt);
@@ -176,7 +177,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
 
         // The last distinct stamp below the boundary, so both tasks carrying the
         // shared one are selected again next run.
@@ -206,7 +207,7 @@ public sealed class TaskSyncSessionTests
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":2}"""));
 
-        Assert.True((await fixture.Session.PushAsync(TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await fixture.Session.PushAsync(TestContext.Current.CancellationToken)).Value);
 
         Assert.Equal(shared, state.Current.PushWatermark);
         Assert.Empty(await store.ListChangedSinceAsync(state.Current.PushWatermark, TestContext.Current.CancellationToken));
@@ -233,7 +234,7 @@ public sealed class TaskSyncSessionTests
         using var fixture = Fixture.Create(deviceA, new InMemoryTaskSyncStateStore(), new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
 
-        Assert.True((await fixture.Session.PushAsync(TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await fixture.Session.PushAsync(TestContext.Current.CancellationToken)).Value);
 
         // What the replica would hand B: exactly the changes A put on the wire.
         var feed = Pushed(fixture.Bodies[0])
@@ -266,8 +267,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.ReplicaUnavailable, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.ReplicaUnavailable, error.Code);
         Assert.Equal(DateTimeOffset.MinValue, state.Current.PushWatermark);
         Assert.Empty(state.Saved);
     }
@@ -294,12 +295,12 @@ public sealed class TaskSyncSessionTests
 
         var interrupted = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(interrupted.IsFailure);
+        Assert.IsType<Error>(interrupted.Value);
         Assert.Equal("cursor-1", state.Current.PullCursor);
 
         var resumed = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(resumed.IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>(resumed.Value);
         Assert.Contains("since=cursor-1", fixture.Queries[2], StringComparison.Ordinal);
         Assert.Equal("cursor-2", state.Current.PullCursor);
     }
@@ -350,7 +351,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>(result.Value);
 
         // From the beginning: no cursor on the second request at all.
         Assert.DoesNotContain("since=", fixture.Queries[1], StringComparison.Ordinal);
@@ -378,7 +379,7 @@ public sealed class TaskSyncSessionTests
             _ => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"tasks":[],"since":"cursor-1","hasMore":false}"""),
         });
 
-        Assert.True((await fixture.Session.PullAsync(TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await fixture.Session.PullAsync(TestContext.Current.CancellationToken)).Value);
         Assert.Equal("cursor-1", state.Current.PullCursor);
     }
 
@@ -397,8 +398,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorExpired, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.SyncCursorExpired, error.Code);
         Assert.Equal(2, fixture.Handler.Requests.Count);
     }
 
@@ -420,8 +421,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.SyncCursorNotYours, error.Code);
         Assert.Single(fixture.Handler.Requests);
         Assert.Equal("somebody-elses-cursor", state.Current.PullCursor);
     }
@@ -448,9 +449,9 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
-        Assert.Equal(1, result.Value.Applied);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pulled);
+        Assert.Equal(1, summary.Applied);
         Assert.Equal("From the other machine", store.Tasks[change.Id].Title);
     }
 
@@ -481,10 +482,10 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pulled);
-        Assert.Equal(0, result.Value.Applied);
-        Assert.Equal(1, result.Value.Skipped);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pulled);
+        Assert.Equal(0, summary.Applied);
+        Assert.Equal(1, summary.Skipped);
         Assert.Equal("cursor-1", state.Current.PullCursor);
         Assert.Empty(store.Tasks);
     }
@@ -508,9 +509,9 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
-        Assert.Equal(Noon.AddHours(6), result.Value.At);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
+        Assert.Equal(Noon.AddHours(6), summary.At);
         Assert.Equal(HttpMethod.Post, fixture.Handler.Requests[0].Method);
         Assert.Equal(HttpMethod.Get, fixture.Handler.Requests[1].Method);
     }
@@ -529,7 +530,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Single(fixture.Handler.Requests);
     }
 
@@ -559,8 +560,8 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(2, summary.Pushed);
         Assert.Equal(ThisOwner, state.Current.OwnerId);
         Assert.Equal(ThisDevice, state.Current.DeviceId);
         Assert.Null(state.Current.PullCursor);
@@ -583,7 +584,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Equal(ThisOwner, state.Current.OwnerId);
         Assert.Equal(ThisDevice, state.Current.DeviceId);
     }
@@ -604,7 +605,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Equal("cursor-1", state.Current.PullCursor);
         Assert.Equal("Edited since", Assert.Single(Pushed(fixture.Bodies[0])).Task.Title);
     }
@@ -624,7 +625,7 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>(result.Value);
         Assert.DoesNotContain("the-old-owners-cursor", Assert.Single(fixture.Queries), StringComparison.Ordinal);
         Assert.Equal("cursor-fresh", state.Current.PullCursor);
         Assert.Equal(ThisOwner, state.Current.OwnerId);
@@ -690,9 +691,9 @@ public sealed class TaskSyncSessionTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value.Pushed);
-        Assert.Equal(2, result.Value.Refused);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(0, summary.Pushed);
+        Assert.Equal(2, summary.Refused);
         Assert.Empty(activity.Snapshot());
         Assert.Equal(Noon.AddMinutes(1), state.Current.PushWatermark);
     }

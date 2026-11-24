@@ -2,6 +2,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Services;
 using Backlog.Modules.Notifications.UI;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Bunit;
 
@@ -49,7 +50,7 @@ public sealed class NotificationCentreScreenTests : IDisposable
 
     private async Task<Guid> PublishAsync(NotificationDraft draft)
     {
-        var id = (await _owner.PublishAsync(draft, Ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await _owner.PublishAsync(draft, Ct)).Value).Value;
         _time.Advance(TimeSpan.FromMinutes(1));
         return id;
     }

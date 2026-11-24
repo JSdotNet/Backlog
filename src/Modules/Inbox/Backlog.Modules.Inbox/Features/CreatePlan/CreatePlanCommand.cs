@@ -85,11 +85,14 @@ public sealed class CreatePlanCommandHandler(
             planTag);
 
         var draft = await drafter.DraftAsync(request, cancellationToken).ConfigureAwait(false);
-        if (draft.IsFailure) return draft.Error;
+        if (draft is not Ok<InboxPlanDraftDto>(var drafted))
+        {
+            return (Error)draft.Value!;
+        }
 
-        if (!LooksLikeAPlan(draft.Value.PlanMarkdown)) return InboxErrors.PlanEmpty;
+        if (!LooksLikeAPlan(drafted.PlanMarkdown)) return InboxErrors.PlanEmpty;
 
-        var planMarkdown = draft.Value.PlanMarkdown;
+        var planMarkdown = drafted.PlanMarkdown;
         string? notePath = null;
         if (command.StartProjectNote)
         {
@@ -98,9 +101,12 @@ public sealed class CreatePlanCommandHandler(
                     new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl, IntoProjects: true, RoadmapTag: planTag),
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (note.IsFailure) return note.Error;
+            if (note is not Ok<InboxBrainNoteWrittenDto>(var written))
+            {
+                return (Error)note.Value!;
+            }
 
-            notePath = note.Value.NotePath;
+            notePath = written.NotePath;
             planMarkdown = WithPlanEntry(planMarkdown, item.Title, planTag, [.. item.RepoIds], notePath);
         }
 
@@ -118,13 +124,16 @@ public sealed class CreatePlanCommandHandler(
                 RouteToBacklogCommandHandler.AttachmentFolder(item, attachmentFiles),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (imported.IsFailure) return imported.Error;
+        if (imported is not Ok<IReadOnlyList<Guid>>(var taskIds))
+        {
+            return (Error)imported.Value!;
+        }
 
-        item.RouteToBacklog(imported.Value, [.. item.RepoIds], clock.GetUtcNow());
+        item.RouteToBacklog(taskIds, [.. item.RepoIds], clock.GetUtcNow());
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 
-        return new InboxRoutedDto(item.Id, imported.Value, notePath);
+        return new InboxRoutedDto(item.Id, taskIds, notePath);
     }
 
     /// <summary>

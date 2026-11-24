@@ -1,0 +1,26 @@
+{
+  "extraKnownMarketplaces": {
+    "aspire-skills": {
+      "source": {
+        "source": "github",
+        "repo": "microsoft/aspire-skills"
+      }
+    },
+    "dotnet-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "dotnet/skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "aspire@aspire-skills": true,
+    "dotnet@dotnet-agent-skills": true,
+    "dotnet11@dotnet-agent-skills": true,
+    "dotnet-aspnetcore@dotnet-agent-skills": true,
+    "dotnet-blazor@dotnet-agent-skills": true,
+    "dotnet-maui@dotnet-agent-skills": true,
+    "dotnet-nuget@dotnet-agent-skills": true,
+    "dotnet-test@dotnet-agent-skills": true
+  }
+}

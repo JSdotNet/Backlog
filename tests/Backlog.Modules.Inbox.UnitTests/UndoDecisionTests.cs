@@ -30,7 +30,7 @@ public sealed class UndoDecisionTests
 
         var result = await Restore(store, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.True(item.IsOpen);
         Assert.Equal(Undone, item.UpdatedAt);
@@ -48,11 +48,11 @@ public sealed class UndoDecisionTests
         var clock = new FakeTimeProvider(Items.Noon);
         var merged = await new MergeIntoTaskCommandHandler(store, target, new ArchiveItemCommandHandler(store, clock))
             .Handle(new MergeIntoTaskCommand(item.Id, taskId), TestContext.Current.CancellationToken);
-        Assert.True(merged.IsSuccess);
+        Assert.IsType<Ok>(merged.Value);
 
         var result = await Restore(store, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.DuplicateOf);
         Assert.False(item.DuplicateOfTask);
@@ -115,8 +115,8 @@ public sealed class UndoDecisionTests
 
         var result = await Restore(store, item.Id);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.item.invalid_transition", error.Code);
         Assert.Empty(store.ItemWrites);
     }
 
@@ -132,7 +132,7 @@ public sealed class UndoDecisionTests
 
         var result = await Return(store, target, item.Id, deleteTasks: true);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(made, Assert.Single(target.Deletions));
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.False(item.IsRouted);
@@ -156,7 +156,7 @@ public sealed class UndoDecisionTests
         var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
             .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, TakeBackPlan: true), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var (taskIds, plan) = Assert.Single(target.PlanDeletions);
         Assert.Equal(made, taskIds);
         Assert.Equal(InboxPlanTag.For("Sync rework", item.Id), plan.PlanTag);
@@ -178,8 +178,8 @@ public sealed class UndoDecisionTests
         var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
             .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, TakeBackPlan: true), TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.UndoPlanEditedCode, result.Error.Code);
-        Assert.Equal("Can't undo — the roadmap item Sync rework has been changed", result.Error.Message);
+        Assert.Equal(InboxErrors.UndoPlanEditedCode, Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal("Can't undo — the roadmap item Sync rework has been changed", Assert.IsType<Error>(result.Value).Message);
         Assert.True(item.IsRouted);
         Assert.Empty(store.ItemWrites);
     }
@@ -209,9 +209,9 @@ public sealed class UndoDecisionTests
 
         var result = await Return(store, target, item.Id, deleteTasks: true);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
-        Assert.Equal("Can't undo — Call the dentist has started", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, error.Code);
+        Assert.Equal("Can't undo — Call the dentist has started", error.Message);
         Assert.True(item.IsRouted);
         Assert.Equal(InboxStatus.Triaged, item.Status);
         Assert.Empty(store.ItemWrites);
@@ -228,7 +228,7 @@ public sealed class UndoDecisionTests
 
         var result = await Return(store, target, item.Id, deleteTasks: false);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Empty(target.Deletions);
         Assert.False(item.IsRouted);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
@@ -244,8 +244,8 @@ public sealed class UndoDecisionTests
 
         var result = await Return(store, target, item.Id, deleteTasks: true);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.item.invalid_transition", error.Code);
         Assert.Empty(target.Deletions);
     }
 
@@ -254,8 +254,8 @@ public sealed class UndoDecisionTests
     {
         var store = new InMemoryInboxStore();
 
-        Assert.Equal(InboxErrors.ItemNotFound, (await Restore(store, Guid.CreateVersion7())).Error);
-        Assert.Equal(InboxErrors.ItemNotFound, (await Return(store, new FakeBacklogTarget(), Guid.CreateVersion7(), true)).Error);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>((await Restore(store, Guid.CreateVersion7())).Value));
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.IsType<Error>((await Return(store, new FakeBacklogTarget(), Guid.CreateVersion7(), true)).Value));
     }
 
     /// <summary>Done now's undo deletes the one entry it made, telling the
@@ -274,7 +274,7 @@ public sealed class UndoDecisionTests
         var result = await new ReturnToInboxCommandHandler(store, target, new FakeTimeProvider(Undone))
             .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true, MadeDone: madeDone), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal([madeDone], target.DeletionsMadeDone);
         Assert.Null(item.Routing);
     }

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 
 using Backlog.Infrastructure.FileSystem.Inbox;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -77,7 +78,7 @@ public sealed class WorkspaceInboxAttachmentFilesTests : IDisposable
 
         Assert.Null(await files.ReadAsync(outside, TestContext.Current.CancellationToken));
         Assert.False(await files.HoldsAsync(outside, new string('0', 64), TestContext.Current.CancellationToken));
-        Assert.True(files.Open(outside).IsFailure);
+        Assert.IsType<Error>(files.Open(outside).Value);
     }
 
     [Fact]

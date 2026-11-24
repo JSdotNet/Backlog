@@ -1,7 +1,9 @@
 using System.Net;
 
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,8 +27,8 @@ public sealed class DeviceStepUpTests
 
         var code = await client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(code.IsSuccess);
-        Assert.Equal("K7MN9PQR", code.Value.Code);
+        var response = Assert.IsType<Ok<PairingCodeResponse>>(code.Value).Value;
+        Assert.Equal("K7MN9PQR", response.Code);
         Assert.Equal("/api/sync/devices/codes", Assert.Single(handler.Requests).Path);
         Assert.Contains("pairing code", Assert.Single(consent.Prompts), StringComparison.Ordinal);
     }
@@ -41,10 +43,10 @@ public sealed class DeviceStepUpTests
 
         var issued = await client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(issued.IsFailure);
-        Assert.Equal(code, issued.Error.Code);
-        Assert.StartsWith("No pairing code was made", issued.Error.Message, StringComparison.Ordinal);
-        Assert.Contains(reason, issued.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(issued.Value);
+        Assert.Equal(code, error.Code);
+        Assert.StartsWith("No pairing code was made", error.Message, StringComparison.Ordinal);
+        Assert.Contains(reason, error.Message, StringComparison.Ordinal);
         Assert.Empty(handler.Requests);
     }
 
@@ -56,7 +58,7 @@ public sealed class DeviceStepUpTests
 
         var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
-        Assert.True(revoked.IsSuccess);
+        Assert.IsType<Ok>(revoked.Value);
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Delete, request.Method);
         Assert.EndsWith(Phone.ToString("D"), request.Path, StringComparison.OrdinalIgnoreCase);
@@ -73,10 +75,10 @@ public sealed class DeviceStepUpTests
 
         var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
-        Assert.True(revoked.IsFailure);
-        Assert.Equal(code, revoked.Error.Code);
-        Assert.StartsWith("The device was not revoked", revoked.Error.Message, StringComparison.Ordinal);
-        Assert.Contains(reason, revoked.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(revoked.Value);
+        Assert.Equal(code, error.Code);
+        Assert.StartsWith("The device was not revoked", error.Message, StringComparison.Ordinal);
+        Assert.Contains(reason, error.Message, StringComparison.Ordinal);
         Assert.Empty(handler.Requests);
     }
 
@@ -88,7 +90,7 @@ public sealed class DeviceStepUpTests
 
         var refused = await client.RefuseDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
-        Assert.True(refused.IsSuccess);
+        Assert.IsType<Ok>(refused.Value);
         Assert.Equal(HttpMethod.Delete, Assert.Single(handler.Requests).Method);
         Assert.Empty(consent.Prompts);
     }
@@ -108,7 +110,8 @@ public sealed class DeviceStepUpTests
         var client = provider.GetRequiredService<DevicePairingClient>();
         var issued = await client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(DeviceStepUp.DeclinedCode, issued.Error.Code);
+        var error = Assert.IsType<Error>(issued.Value);
+        Assert.Equal(DeviceStepUp.DeclinedCode, error.Code);
         Assert.Single(consent.Prompts);
     }
 
@@ -120,8 +123,8 @@ public sealed class DeviceStepUpTests
         var code = await client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
         var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
-        Assert.True(code.IsSuccess);
-        Assert.True(revoked.IsSuccess);
+        Assert.IsType<Ok<PairingCodeResponse>>(code.Value);
+        Assert.IsType<Ok>(revoked.Value);
         Assert.Equal(2, handler.Requests.Count);
     }
 

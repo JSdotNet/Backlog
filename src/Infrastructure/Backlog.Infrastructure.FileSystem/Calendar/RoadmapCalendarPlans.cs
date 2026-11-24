@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Calendar;
 
@@ -124,7 +125,7 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
         var result = await _planning.ImportPlanItemsAsync([entry], [imported.Effort], cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        return result.IsFailure ? result.Error.Message : null;
+        return result is Error error ? error.Message : null;
     }
 
     private void OnPlanChanged() => Changed?.Invoke();

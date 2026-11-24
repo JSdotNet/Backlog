@@ -114,15 +114,18 @@ public sealed class RouteToBacklogCommandHandler(
         }
 
         var created = await target.CreateTasksAsync(request, cancellationToken).ConfigureAwait(false);
-        if (created.IsFailure) return created.Error;
+        if (created is not Ok<IReadOnlyList<Guid>>(var taskIds))
+        {
+            return (Error)created.Value!;
+        }
 
         // The repositories the entries went to: every one the item names, or —
         // for Done now — the one its single entry was made in.
-        item.RouteToBacklog(created.Value, [.. request.RepoIds], clock.GetUtcNow());
+        item.RouteToBacklog(taskIds, [.. request.RepoIds], clock.GetUtcNow());
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 
-        return new InboxRoutedDto(item.Id, created.Value);
+        return new InboxRoutedDto(item.Id, taskIds);
     }
 
     private async Task<IReadOnlyList<InboxAttachedDuplicateDto>> AttachedAsync(InboxItem kept, CancellationToken cancellationToken) =>

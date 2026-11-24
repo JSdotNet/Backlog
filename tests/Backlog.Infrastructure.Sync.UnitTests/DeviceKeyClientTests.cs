@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -201,7 +202,7 @@ public sealed class DeviceKeyClientTests
 
         var result = await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
+        Assert.True(result is Ok<DeviceCredential>, result is Error error ? error.Message : null);
         var sent = JsonSerializer.Deserialize<RegisterDeviceRequest>(bodies[^1], JsonSerializerOptions.Web)!;
         Assert.Equal(keys.GetOrCreate().PublicKey, sent.PublicKey);
         Assert.Equal(new DeviceCredential(Owner, Device, "Workshop PC", null), store.Current);
@@ -218,7 +219,7 @@ public sealed class DeviceKeyClientTests
 
         var result = await client.PairAsync("K7MN9PQR", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
+        Assert.True(result is Ok<DeviceCredential>, result is Error error ? error.Message : null);
         var sent = JsonSerializer.Deserialize<RedeemPairingCodeRequest>(bodies[^1], JsonSerializerOptions.Web)!;
         Assert.Equal(keys.GetOrCreate().PublicKey, sent.PublicKey);
         Assert.Null(store.Current!.Credential);
@@ -233,7 +234,7 @@ public sealed class DeviceKeyClientTests
 
         var result = await client.PairAsync("K7MN9PQR", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>(result.Value);
         Assert.Null(JsonSerializer.Deserialize<RedeemPairingCodeRequest>(bodies[^1], JsonSerializerOptions.Web)!.PublicKey);
         Assert.Equal("a-registration-credential", store.Current!.Credential);
     }
@@ -481,16 +482,16 @@ public sealed class DeviceKeyClientTests
         var log = new CapturingLogger<DevicePairingClient>();
         using var http = PairingService([], out var client, store, keys, log);
 
-        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
-        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).Value);
+        Assert.IsType<Ok<DeviceCredential>>((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).Value);
 
         Assert.Single(log.Lines, line => line.Level == LogLevel.Warning);
         Assert.Single(log.Lines, line => line.Level == LogLevel.Debug);
 
         keys.OpenFails = false;
-        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).Value);
         keys.OpenFails = true;
-        Assert.True((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken)).Value);
 
         Assert.Equal(2, log.Lines.Count(line => line.Level == LogLevel.Warning));
     }

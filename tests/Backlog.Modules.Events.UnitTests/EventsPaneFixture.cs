@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -46,12 +47,12 @@ public abstract class EventsPaneFixture
     /// targets of its own: another window, or the MCP server's request scope.</summary>
     internal IEventsPane Elsewhere() => Over(new FakeEventTaskTarget(), new FakeEventBrainNotes());
 
-    protected async Task<Guid> Add(string title) => (await Pane.AddAsync(title, cancellationToken: Token)).Value.Id;
+    protected async Task<Guid> Add(string title) => Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.AddAsync(title, cancellationToken: Token)).Value).Value.Id;
 
     protected async Task<Guid> Dated(string title, DateOnly start)
     {
         var id = await Add(title);
-        Assert.True((await Pane.SetDatesAsync(id, new EventDateDto(start), null, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetDatesAsync(id, new EventDateDto(start), null, Token)).Value);
         return id;
     }
 
