@@ -12632,9 +12632,9 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
-/* A group that folds — arc42, Decisions, Technical debt — is the library's
-   FoldControl: its trigger reads as the heading or the line it stands for, with
-   the count at the far end, and its region holds the lines, nested one step in. */
+/* A records fold — Decisions under 09, Technical debt under 11 — is the library's
+   FoldControl: its trigger reads as a submenu line of its chapter, one step in, with
+   the count at the far end, and its region holds the records, one step further. */
 .arc42-surface-nav__fold {
     display: flex;
     flex-direction: column;
@@ -12671,12 +12671,6 @@ a.pull-request-detail-checks__name:hover {
     white-space: nowrap;
 }
 
-/* The arc42 group's trigger is a group heading, as "C4 views" is: the heading's
-   face, and the padding the trigger brings in place of the heading's own. */
-.arc42-surface-nav__heading--fold {
-    padding: 0;
-}
-
 .arc42-surface-nav__fold-heading {
     margin: 0;
     color: var(--color-text-primary);
@@ -12691,8 +12685,12 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
 }
 
+.arc42-surface-nav__fold--records .fold__trigger {
+    padding-left: calc(var(--spacing-sm) + 0.75rem);
+}
+
 .arc42-surface-nav__fold--records > .fold__region > .arc42-surface-nav__folded {
-    padding-left: var(--spacing-sm);
+    padding-left: calc(var(--spacing-sm) + 0.75rem);
 }
 
 /* The decision log's status filter: All, Accepted, Proposed, one chosen, each with

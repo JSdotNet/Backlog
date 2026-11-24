@@ -114,9 +114,8 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='c4-zoom-bar']"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
 
-        // The same tree without the view groups: the chapters open, no way back.
+        // The same tree without the view groups: the chapters listed, no way back.
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-view']"));
-        Assert.Equal("true", component.Find("[data-testid='arc42-surface-all-chapters']").GetAttribute("aria-expanded"));
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-chapter']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-surface-back']"));
     }
