@@ -37,13 +37,18 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
     /// <param name="prompt">What the Windows Hello prompt says.</param>
     /// <param name="refused">What did not happen, for the failure's message — "No pairing code
     /// was made".</param>
-    /// <param name="cancellationToken">Cancels the prompt, which counts as cancelled.</param>
+    /// <param name="cancellationToken">Withdraws the prompt and throws
+    /// <see cref="OperationCanceledException"/>: the app closing is not the person saying no,
+    /// so it is never filed as a decline.</param>
     public async Task<Result> ConfirmAsync(string prompt, string refused, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(refused);
 
         var outcome = await _consent.VerifyAsync(prompt, cancellationToken).ConfigureAwait(false);
+
+        // Windows Hello answers a withdrawn prompt as cancelled rather than throwing.
+        cancellationToken.ThrowIfCancellationRequested();
 
         return Answer(outcome, refused);
     }
@@ -58,7 +63,8 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
     /// <param name="prompt">What the Windows Hello prompt says.</param>
     /// <param name="refused">What did not happen, for the failure's message.</param>
     /// <param name="window">How long the prompt stands.</param>
-    /// <param name="cancellationToken">Cancels the prompt, which counts as cancelled.</param>
+    /// <param name="cancellationToken">Withdraws the prompt and throws
+    /// <see cref="OperationCanceledException"/>, as for <see cref="ConfirmAsync"/>.</param>
     public async Task<Result> ConfirmWithinAsync(
         string prompt,
         string refused,
@@ -82,6 +88,9 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
             // A consent that throws on cancellation rather than answering Declined.
             outcome = UserConsentOutcome.Declined;
         }
+
+        // Shutdown, not an answer: the caller replays the act rather than filing it as declined.
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (outcome != UserConsentOutcome.Verified
             && expiry.IsCancellationRequested

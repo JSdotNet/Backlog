@@ -151,8 +151,9 @@ public sealed class PairingSubjects : IDisposable
     /// </summary>
     /// <param name="pairingId">The pairing the refusal answered.</param>
     /// <param name="deviceId">The device that stays paired.</param>
+    /// <param name="code">Which step-up failure it was, which words the alert's next step.</param>
     /// <param name="reason">Why nothing was sent, in the step-up's own words.</param>
-    public async Task NotRefusedAsync(Guid pairingId, Guid deviceId, string reason)
+    public async Task NotRefusedAsync(Guid pairingId, Guid deviceId, string code, string reason)
     {
         try
         {
@@ -161,7 +162,7 @@ public sealed class PairingSubjects : IDisposable
             var name = _open.TryGetValue(pairingId, out var pairing) ? pairing.DeviceName : null;
             name ??= await NameFromRosterAsync(deviceId).ConfigureAwait(false);
 
-            var alerted = await notifications.PublishAsync(PairingQuestion.NotRefused(pairingId, deviceId, name, reason)).ConfigureAwait(false);
+            var alerted = await notifications.PublishAsync(PairingQuestion.NotRefused(pairingId, deviceId, name, code, reason)).ConfigureAwait(false);
             if (alerted.IsFailure) _logger.LogDebug("The alert that the device of pairing {Id} was not refused was not published: {Error}", pairingId, alerted.Error.Message);
         }
         catch (Exception exception)

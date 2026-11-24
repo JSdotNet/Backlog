@@ -514,7 +514,7 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
             Assert.Equal(
                 ["Workshop PC", "Pixel 8", "Galaxy Tab", "Old laptop"],
-                context.Component.FindAll("[data-testid='devices-row-name']").Select(name => name.TextContent.Trim())));
+                context.Component.FindAll("[data-testid='agent-row-name']").Select(name => name.TextContent.Trim())));
 
         var mine = Meta(context, Device);
         Assert.StartsWith("This device · Registered with GitHub sign-in", mine, StringComparison.Ordinal);
@@ -531,10 +531,10 @@ public sealed class SettingsDevicesTests
         context.Component.WaitForAssertion(() =>
             Assert.Equal(4, context.Component.FindAll("[data-testid='devices-row']").Count));
 
-        Assert.Empty(Row(context, Device).QuerySelectorAll("[data-testid='devices-row-revoke']"));
-        Assert.Single(Row(context, Phone).QuerySelectorAll("[data-testid='devices-row-revoke']"));
-        Assert.Single(Row(context, Tablet).QuerySelectorAll("[data-testid='devices-row-revoke']"));
-        Assert.Empty(Row(context, Laptop).QuerySelectorAll("[data-testid='devices-row-revoke']"));
+        Assert.Empty(Row(context, Device).QuerySelectorAll("[data-testid='agent-row-revoke']"));
+        Assert.Single(Row(context, Phone).QuerySelectorAll("[data-testid='agent-row-revoke']"));
+        Assert.Single(Row(context, Tablet).QuerySelectorAll("[data-testid='agent-row-revoke']"));
+        Assert.Empty(Row(context, Laptop).QuerySelectorAll("[data-testid='agent-row-revoke']"));
     }
 
     /// <summary>The first Revoke asks, in the row's own actions, and sends nothing; Keep puts
@@ -546,21 +546,21 @@ public sealed class SettingsDevicesTests
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
 
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
 
         context.Component.WaitForAssertion(() =>
             Assert.Equal(
                 "Revoke Pixel 8? It can no longer sync your backlog.",
-                Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-question']")!.TextContent.Trim()));
-        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']"));
-        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-keep']"));
+                Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-question']")!.TextContent.Trim()));
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']"));
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-keep']"));
         Assert.Empty(context.Service.Deletes);
 
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-keep']")!.Click();
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-keep']")!.Click();
 
         context.Component.WaitForAssertion(() =>
-            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")));
-        Assert.Empty(context.Component.FindAll("[data-testid='devices-row-revoke-question']"));
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='agent-row-revoke-question']"));
         Assert.DoesNotContain(context.Service.Methods, method => method == HttpMethod.Delete);
     }
 
@@ -574,10 +574,10 @@ public sealed class SettingsDevicesTests
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
 
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
         context.Component.WaitForAssertion(() =>
-            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")));
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")!.Click();
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.Click();
 
         context.Component.WaitForAssertion(() =>
         {
@@ -591,31 +591,106 @@ public sealed class SettingsDevicesTests
     }
 
     /// <summary>Windows Hello cancelled or missing: nothing is sent, the row stays with its
-    /// Revoke, and the page's status line says why.</summary>
+    /// Revoke, and the row itself says why - beside the Revoke the focus goes back to, not in
+    /// the status line at the foot of the page. Asking again clears it.</summary>
     [Theory]
     [InlineData(UserConsentOutcome.Declined, "Windows Hello was cancelled")]
     [InlineData(UserConsentOutcome.NotAvailable, "Windows Hello is not available")]
-    public void A_revocation_Windows_Hello_did_not_confirm_leaves_the_row(UserConsentOutcome outcome, string reason)
+    public void A_revocation_Windows_Hello_did_not_confirm_leaves_the_row_saying_why(UserConsentOutcome outcome, string reason)
     {
         using var context = RenderSettings(
             syncEnabled: true, paired: true, respond: Roster(Owners()), consent: new ScriptedConsent(outcome));
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
 
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
         context.Component.WaitForAssertion(() =>
-            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")));
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")!.Click();
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.Click();
 
         context.Component.WaitForAssertion(() =>
         {
-            var message = context.Component.Find("[data-testid='devices-message']");
-            Assert.Contains(reason, message.TextContent, StringComparison.Ordinal);
-            Assert.Equal("alert", message.GetAttribute("role"));
+            var error = Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-error']");
+            Assert.NotNull(error);
+            Assert.Contains(reason, error.TextContent, StringComparison.Ordinal);
+            Assert.Equal("alert", error.GetAttribute("role"));
         });
 
-        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']"));
+        Assert.DoesNotContain(
+            context.Component.FindAll("[data-testid='devices-message']"),
+            message => message.TextContent.Contains(reason, StringComparison.Ordinal));
+        Assert.Single(context.Component.FindAll("[data-testid='agent-row-revoke-error']"));
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']"));
         Assert.Empty(context.Service.Deletes);
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Empty(context.Component.FindAll("[data-testid='agent-row-revoke-error']")));
+    }
+
+    /// <summary>The first Revoke's button goes when the question replaces it, so the focus
+    /// moves onto the confirming Revoke; Keep, and a revocation that failed, put it back on
+    /// the row's own Revoke rather than leave it on the page.</summary>
+    [Fact]
+    public void The_focus_follows_the_question_and_comes_back_to_the_rows_Revoke()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, respond: Roster(Owners()), consent: new ScriptedConsent(UserConsentOutcome.Declined));
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(Reference(Row(context, Phone), "agent-row-revoke-confirm"), LastFocused(context)));
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-keep']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(Reference(Row(context, Phone), "agent-row-revoke"), LastFocused(context)));
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-error']"));
+            Assert.Equal(Reference(Row(context, Phone), "agent-row-revoke"), LastFocused(context));
+        });
+    }
+
+    /// <summary>Two devices of one name are two Revoke buttons a screen reader tells apart:
+    /// each says the day its device was added, and, where that matches too, the start of
+    /// its id.</summary>
+    [Fact]
+    public void Revoke_names_each_device_apart_when_two_share_a_name()
+    {
+        var day = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
+        var twin = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var devices = new List<DeviceSummary>
+        {
+            new(Device, "Workshop PC", day, null),
+            new(Phone, "Pixel 8", day.AddDays(1), Device),
+            new(Tablet, "Pixel 8", day.AddDays(2), Device),
+            new(twin, "Pixel 8", day.AddDays(2).AddMinutes(5), Device),
+        };
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(devices));
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, twin)));
+
+        string Label(Guid device) => Row(context, device).QuerySelector("[data-testid='agent-row-revoke']")!.GetAttribute("aria-label")!;
+        static string Added(DateTimeOffset at) => at.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.CurrentCulture);
+
+        var labels = new[] { Label(Phone), Label(Tablet), Label(twin) };
+        Assert.Equal(3, labels.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal($"Revoke Pixel 8, added {Added(day.AddDays(1))}", labels[0]);
+        Assert.StartsWith($"Revoke Pixel 8, added {Added(day.AddDays(2))}, id ", labels[1], StringComparison.Ordinal);
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() => Assert.Equal(
+            $"Revoke Pixel 8, added {Added(day.AddDays(1))} now",
+            Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.GetAttribute("aria-label")));
     }
 
     [Fact]
@@ -625,17 +700,17 @@ public sealed class SettingsDevicesTests
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Tablet)));
 
-        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
         context.Component.WaitForAssertion(() =>
-            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-question']")));
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-question']")));
 
-        Row(context, Tablet).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        Row(context, Tablet).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
 
         context.Component.WaitForAssertion(() =>
         {
-            Assert.Single(context.Component.FindAll("[data-testid='devices-row-revoke-question']"));
-            Assert.NotNull(Row(context, Tablet).QuerySelector("[data-testid='devices-row-revoke-question']"));
-            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']"));
+            Assert.Single(context.Component.FindAll("[data-testid='agent-row-revoke-question']"));
+            Assert.NotNull(Row(context, Tablet).QuerySelector("[data-testid='agent-row-revoke-question']"));
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']"));
         });
     }
 
@@ -695,8 +770,18 @@ public sealed class SettingsDevicesTests
     private static AngleSharp.Dom.IElement Row(SettingsRenderContext context, Guid device) =>
         context.Component.FindAll($"[data-testid='devices-row'][data-device='{device}']").SingleOrDefault()!;
 
+    /// <summary>The element reference bUnit wrote on a row's button.</summary>
+    private static string? Reference(AngleSharp.Dom.IElement row, string testId) =>
+        row.QuerySelector($"[data-testid='{testId}']")?.GetAttribute("blazor:elementreference");
+
+    /// <summary>The element the last FocusAsync was aimed at.</summary>
+    private static string? LastFocused(SettingsRenderContext context) =>
+        context.TestContext.JSInterop.Invocations
+            .LastOrDefault(invocation => invocation.Identifier.EndsWith("focus", StringComparison.Ordinal))
+            .Arguments is [Microsoft.AspNetCore.Components.ElementReference reference, ..] ? reference.Id : null;
+
     private static string Meta(SettingsRenderContext context, Guid device) =>
-        Row(context, device).QuerySelector("[data-testid='devices-row-meta']")!.TextContent.Trim();
+        Row(context, device).QuerySelector("[data-testid='agent-row-meta']")!.TextContent.Trim();
 
     /// <summary>A Windows Hello that answers <paramref name="outcome"/> and keeps every prompt.</summary>
     private sealed class ScriptedConsent(UserConsentOutcome outcome) : IUserConsent

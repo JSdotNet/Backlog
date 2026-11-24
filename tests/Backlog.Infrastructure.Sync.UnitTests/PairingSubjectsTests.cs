@@ -303,6 +303,39 @@ public sealed class PairingSubjectsTests
         Assert.Contains("**Revoke**", alert.BodyMarkdown, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Each step-up failure asks something different of the person, so the alert is worded by
+    /// its code. Cancelled: refuse again. Expired: a Windows Hello prompt still on screen does
+    /// nothing now. Unavailable: Revoke asks for Windows Hello as well, so it fails the same way
+    /// until Windows Hello is set up — the alert says to set it up first.
+    /// </summary>
+    [Theory]
+    [InlineData(DeviceStepUp.DeclinedCode, "Windows Hello was cancelled, so it is still paired", "To refuse it again, open **Settings → Devices**")]
+    [InlineData(DeviceStepUp.ExpiredCode, "Windows Hello was not confirmed in time, so it is still paired", "A Windows Hello prompt still on screen from this refusal has no effect now")]
+    [InlineData(DeviceStepUp.UnavailableCode, "Windows Hello is not set up on this PC, so it is still paired. Set up Windows Hello", "Revoke asks for Windows Hello too, so it fails the same way until Windows Hello is set up. Set it up first")]
+    public async Task The_not_refused_alert_is_worded_by_why_Windows_Hello_did_not_confirm(string code, string summary, string nextStep)
+    {
+        using var pairings = Pairings();
+        var id = pairings.Issued(new PairingCodeResponse("K7MN9PQR", Nine.AddMinutes(10)));
+        await pairings.RedeemedAsync(id, Phone, "Pixel 8");
+        var answers = new PairingAnswers(pairings, () => _roster);
+        _roster.RefuseResult = Result.Failure(Error.Validation(code, "The device was not refused."));
+
+        await answers.HandleAnswerAsync(Answer(id, Phone, "refuse"), TestContext.Current.CancellationToken);
+
+        var alert = Assert.Single(_notifications.Published, published => published.Draft.Kind == NotificationKind.Alert).Draft;
+        Assert.StartsWith(summary, alert.Summary, StringComparison.Ordinal);
+        Assert.Contains(nextStep, alert.BodyMarkdown, StringComparison.Ordinal);
+
+        string[] others =
+        [
+            "To refuse it again",
+            "has no effect now",
+            "until Windows Hello is set up",
+        ];
+        Assert.Single(others, other => alert.BodyMarkdown.Contains(other, StringComparison.Ordinal));
+    }
+
     /// <summary>After a restart nothing in memory has the device's name, so the alert reads it
     /// off the device list, and says "A device" when the list cannot be read.</summary>
     [Fact]

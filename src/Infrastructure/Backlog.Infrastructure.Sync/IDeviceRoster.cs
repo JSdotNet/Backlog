@@ -20,8 +20,8 @@ public interface IDeviceRoster
     /// <summary>Revokes the device that just redeemed this device's pairing code, because the
     /// person answered Refuse to "Pair it?". Where the host composed a step-up, the person
     /// confirms with Windows Hello first, as for a revocation (local ADR 0058 §6). The answer may
-    /// arrive from the phone while nobody is at this desktop, so the prompt expires after
-    /// <see cref="DevicePairingClient.RefuseConfirmationWindow"/>; a refusal cancelled,
+    /// arrive from the phone while nobody is at this desktop, so the prompt expires when it has
+    /// stood two minutes unanswered; a refusal cancelled,
     /// unavailable or expired is never sent, and the failure says which
     /// (<see cref="DeviceStepUp.DeclinedCode"/>, <see cref="DeviceStepUp.UnavailableCode"/>,
     /// <see cref="DeviceStepUp.ExpiredCode"/>).</summary>

@@ -74,7 +74,7 @@ public sealed class PairingAnswers : INotificationAnswerHandler
                     pairingId,
                     revoked.Error.Code);
 
-                await _pairings.NotRefusedAsync(pairingId, deviceId, revoked.Error.Message).ConfigureAwait(false);
+                await _pairings.NotRefusedAsync(pairingId, deviceId, revoked.Error.Code, revoked.Error.Message).ConfigureAwait(false);
             }
             else if (revoked.IsFailure && revoked.Error.Code != SyncErrorCodes.DeviceNotFound)
             {

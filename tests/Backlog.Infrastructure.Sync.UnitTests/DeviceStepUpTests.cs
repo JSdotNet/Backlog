@@ -158,6 +158,34 @@ public sealed class DeviceStepUpTests
         Assert.True((await revoking.WaitAsync(TestContext.Current.CancellationToken)).IsSuccess);
     }
 
+    /// <summary>The app shutting down withdraws the prompt, and Windows Hello answers a
+    /// withdrawn prompt as cancelled. That is not the person declining: the act throws, so a
+    /// refusal stays undelivered and is replayed on the next start rather than filed as
+    /// declined, and nothing is sent.</summary>
+    [Theory]
+    [InlineData("revoke")]
+    [InlineData("refuse")]
+    [InlineData("code")]
+    public async Task Shutdown_while_Windows_Hello_asks_throws_rather_than_declining(string act)
+    {
+        var consent = new UnansweredConsent();
+        var (client, handler) = Client(consent, new FakeTimeProvider());
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        Task asking = act switch
+        {
+            "revoke" => client.RevokeDeviceAsync(Phone, shutdown.Token),
+            "refuse" => client.RefuseDeviceAsync(Phone, shutdown.Token),
+            _ => client.IssuePairingCodeAsync(shutdown.Token),
+        };
+        await consent.Shown.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => asking.WaitAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(handler.Requests);
+    }
+
     [Fact]
     public async Task A_host_with_no_step_up_refuses_without_asking()
     {
