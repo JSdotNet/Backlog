@@ -59,6 +59,11 @@ internal sealed class AspireAppHost
     public Task StartAsync(string resource, CancellationToken cancellationToken) =>
         CommandThenWaitAsync(resource, "start", "healthy", cancellationToken);
 
+    /// <summary>Runs one of the AppHost's own resource commands, then waits for the
+    /// resource to reach <paramref name="status"/>.</summary>
+    public Task CommandAsync(string resource, string command, string status, CancellationToken cancellationToken) =>
+        CommandThenWaitAsync(resource, command, status, cancellationToken);
+
     /// <summary>Waits for a resource to be healthy — the Cosmos emulator takes
     /// minutes on a cold start, which is why the timeout is generous.</summary>
     public Task WaitHealthyAsync(string resource, TimeSpan timeout, CancellationToken cancellationToken) =>

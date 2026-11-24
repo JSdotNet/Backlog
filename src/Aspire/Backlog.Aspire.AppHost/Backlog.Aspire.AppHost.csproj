@@ -17,11 +17,21 @@
       staying opted out, is not suppressed.
     -->
     <AspireUseCliBundle>true</AspireUseCliBundle>
+    <!--
+      ASPIREBROWSERLOGS001: WithBrowserLogs, which org ADR 0002 puts on every
+      frontend resource, ships as an evaluation API in Aspire 17's preview
+      Aspire.Hosting.Browsers. That diagnostic marks an experimental API, which
+      is always an error until it is acknowledged; it is not an obsolete-API
+      warning, which ADR 0001 never lets a project silence. Acknowledged here,
+      for this one API, and dropped when the package ships stable.
+    -->
+    <NoWarn>$(NoWarn);ASPIREBROWSERLOGS001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Dotnet" />
+    <PackageReference Include="Aspire.Hosting.Browsers" />
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" />
     <PackageReference Include="Aspire.Hosting.Azure.Storage" />
     <PackageReference Include="Aspire.Hosting.DevTunnels" />

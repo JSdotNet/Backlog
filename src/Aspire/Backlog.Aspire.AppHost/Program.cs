@@ -181,6 +181,9 @@ builder.AddDotnetProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Deskto
     .WithReference(azureFoundryTest)
     .WithEnvironment("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", azureFoundryTest.GetEndpoint("http"))
     .WaitFor(azureFoundryTest)
+    // Every frontend sends its browser console, errors and network failures to the
+    // dashboard (org ADR 0002), so a run reads them beside the server's own logs.
+    .WithBrowserLogs()
     .WithCommand(
         "reset-local-data",
         "Reset local data",
@@ -197,14 +200,32 @@ builder.AddDotnetProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Deskto
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
-builder.AddDotnetProject("mobile-web-harness", "..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
+//
+// It carries the forget-pairing command: the harness keeps its device credential and
+// outbox in its own obj/local-development, so this one touches this worktree alone.
+var phoneState = PhonePairingReset.ResolveState(builder.AppHostDirectory);
+
+builder.AddDotnetProject("mobile-web-harness","..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
     .WithReference(sync)
-    .WaitFor(sync);
+    .WaitFor(sync)
+    .WithBrowserLogs()
+    .WithCommand(
+        "forget-pairing",
+        "Forget pairing",
+        context => PhonePairingReset.RunAsync(context, phoneState),
+        commandOptions: new CommandOptions
+        {
+            Description = "Stops the harness, removes its device credential, its outbox database and its staged "
+                          + "talk notes, and starts it again as a phone that was never paired.",
+            ConfirmationMessage = $"Remove the phone's pairing and its outbox in {phoneState}? Captures it has not "
+                                  + "sent yet are lost. Only this worktree's harness is affected."
+        });
 
 // Component storybook: the shared Backlog.UI.Components library on its own, with
 // no application or sync dependency, so the components can be reviewed and
 // Playwright-driven independently of the app.
-builder.AddDotnetProject("ui-storybook", "..\\..\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj");
+builder.AddDotnetProject("ui-storybook", "..\\..\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj")
+    .WithBrowserLogs();
 
 // --- Shipped channels (src/App) ---------------------------------------------
 

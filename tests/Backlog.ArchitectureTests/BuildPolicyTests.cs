@@ -153,20 +153,31 @@ public partial class BuildPolicyTests
             "setup-dotnet must read global-json-file: global.json, not a dotnet-version, in: " + string.Join(", ", offenders));
     }
 
-    /// <summary>The pull request is where a new warning has to stop, so every
-    /// build that job runs treats one as an error.</summary>
+    /// <summary>
+    /// Org ADR 0001: warnings are errors in every build, on a developer's machine
+    /// as much as in the pull request, so a new warning stops where it is written
+    /// rather than after the work is pushed. Set once at the root, with no
+    /// condition, and turned off by no project.
+    /// </summary>
     [Fact]
-    public void The_pull_request_builds_treat_warnings_as_errors()
+    public void Every_build_treats_warnings_as_errors()
     {
-        var lines = File.ReadAllLines(RepositoryRoot.File(".github", "workflows", "pull-request.yml"));
+        var element = RootProperty("TreatWarningsAsErrors");
 
-        var builds = RunBlocks(lines)
-            .Where(block => block.Any(line => line.Contains("dotnet build", StringComparison.Ordinal)))
+        Assert.NotNull(element);
+        Assert.Equal("true", element.Value.Trim(), ignoreCase: true);
+        Assert.Null(element.Attribute("Condition"));
+        Assert.Null(element.Parent?.Attribute("Condition"));
+
+        var optedOut = Repository.ProjectsUnder("src")
+            .Concat(Repository.ProjectsUnder("tests"))
+            .Where(project => File.ReadAllText(project.FullName).Contains("TreatWarningsAsErrors", StringComparison.Ordinal))
+            .Select(project => project.Name)
             .ToList();
 
-        Assert.NotEmpty(builds);
-        Assert.All(builds, block =>
-            Assert.Contains(block, line => line.Contains("-p:TreatWarningsAsErrors=true", StringComparison.Ordinal)));
+        Assert.True(
+            optedOut.Count == 0,
+            "TreatWarningsAsErrors is set once in the root Directory.Build.props; remove it from: " + string.Join(", ", optedOut));
     }
 
     /// <summary>Transitive pinning is off, so a version nothing references pins
@@ -290,11 +301,6 @@ public partial class BuildPolicyTests
     /// indented under it.</summary>
     private static IEnumerable<List<string>> SetupDotnetSteps(string[] lines) =>
         Steps(lines).Where(step => step.Any(line => line.Contains("actions/setup-dotnet", StringComparison.Ordinal)));
-
-    /// <summary>Each step's <c>run:</c> block, folded or literal, as its lines.</summary>
-    private static IEnumerable<List<string>> RunBlocks(string[] lines) =>
-        Steps(lines).Select(step => step.SkipWhile(line => !line.TrimStart().StartsWith("run:", StringComparison.Ordinal)).ToList())
-            .Where(block => block.Count > 0);
 
     /// <summary>A step starts at a <c>- name:</c> or <c>- uses:</c> item and runs
     /// to the next item at the same indentation or less.</summary>

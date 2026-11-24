@@ -167,10 +167,11 @@ public partial class AgentContextPointerTests
     /// skills, deleted for the Aspire CLI's own help and the Aspire MCP docs tools,
     /// and the multi-account design document, retired into local ADR 0031. Checked
     /// in the devbook chapters and the Copilot files too, since both named them.
+    /// The Aspire skills themselves came back as the <c>aspire@aspire-skills</c>
+    /// plugin (org ADR 0013), so only the vendored copies' folder stays retired.
     /// </summary>
     [Theory]
     [InlineData("skills/aspire")]
-    [InlineData("Aspire skills")]
     [InlineData("multi-account-settings")]
     public void No_context_file_or_devbook_chapter_names_a_retired_pointer(string pointer)
     {

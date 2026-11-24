@@ -30,11 +30,11 @@ public class AspireAppModelTests
     private static readonly string[] LocalDataResetSource = ["src", "Aspire", AppHost, "LocalDataReset.cs"];
 
     /// <summary>The Aspire hosting packages this AppHost adds on top of
-    /// <c>Aspire.Hosting.AppHost</c>. Each has to move with it: the two preview
+    /// <c>Aspire.Hosting.AppHost</c>. Each has to move with it: the three preview
     /// ones ship one build per Aspire release, and mixing releases fails when the
     /// host starts rather than when it restores.</summary>
     private static readonly string[] AspireHostingPackages =
-        ["Aspire.Hosting.Foundry", "Aspire.Hosting.Maui", "Aspire.Hosting.DevTunnels", "Aspire.Hosting.Dotnet"];
+        ["Aspire.Hosting.Browsers", "Aspire.Hosting.Foundry", "Aspire.Hosting.Maui", "Aspire.Hosting.DevTunnels", "Aspire.Hosting.Dotnet"];
 
     /// <summary>The MAUI heads. A <c>ProjectReference</c> to one of them makes the
     /// AppHost build resolve <c>net11.0-android</c>, which it cannot, so every
@@ -227,6 +227,33 @@ public class AspireAppModelTests
     /// talks to. Foundry Local arriving beside it is an addition, not a
     /// replacement — swapping them would leave the harness waiting on a CLI that is
     /// not installed.</summary>
+    /// <summary>Org ADR 0002: every frontend sends its browser logs to the dashboard,
+    /// so a run's console errors are read beside the server's own and the E2E
+    /// suite can fail on them.</summary>
+    [Theory]
+    [InlineData("AddDotnetProject(\"desktop-web-harness\"")]
+    [InlineData("AddDotnetProject(\"mobile-web-harness\"")]
+    [InlineData("AddDotnetProject(\"ui-storybook\"")]
+    public void Every_frontend_sends_its_browser_logs_to_the_dashboard(string anchor)
+    {
+        Assert.Contains(".WithBrowserLogs()", Registration(anchor), StringComparison.Ordinal);
+    }
+
+    /// <summary>Forgetting the phone's pairing is the routine the E2E suite runs
+    /// before a conference day; it is the AppHost's command, so the suite, the
+    /// dashboard and an agent all run the same steps.</summary>
+    [Fact]
+    public void Forgetting_the_phone_pairing_is_a_command_of_the_mobile_harness()
+    {
+        var harness = Registration("AddDotnetProject(\"mobile-web-harness\"");
+
+        Assert.Contains("\"forget-pairing\"", harness, StringComparison.Ordinal);
+        Assert.Contains("PhonePairingReset.RunAsync(", harness, StringComparison.Ordinal);
+
+        var suite = File.ReadAllText(RepositoryRoot.File("tests", "Backlog.EndToEndTests", "PhoneHarness.cs"));
+        Assert.Contains("\"forget-pairing\"", suite, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_azure_foundry_harness_stays_registered_beside_foundry_local()
     {

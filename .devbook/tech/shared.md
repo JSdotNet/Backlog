@@ -314,6 +314,16 @@ flowchart LR
   `Aspire.Hosting.AppHost`, not a differently versioned CLI or none, and
   delegates to `aspire run`. `ASPIRE010`, the advisory for staying opted out, is
   not suppressed.
+- **Browser logs** — the three harnesses call `.WithBrowserLogs()` (org ADR 0002),
+  from the preview `Aspire.Hosting.Browsers` of the same release. Each gets a
+  child resource whose command opens a tracked Chromium browser and forwards its
+  console, errors and network failures to the dashboard. The API is marked for
+  evaluation (`ASPIREBROWSERLOGS001`); the AppHost acknowledges that one
+  diagnostic until the package ships stable.
+- **Resource commands** — routine development actions are AppHost commands, not
+  scripts: `reset-local-data` on `desktop-web-harness` returns the shared
+  workspace to first-run state, and `forget-pairing` on `mobile-web-harness` makes
+  the phone one that was never paired.
 
 ## OpenTelemetry
 

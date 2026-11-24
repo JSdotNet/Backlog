@@ -179,7 +179,6 @@ jobs:
           dotnet build tests/Backlog.ArchitectureTests/Backlog.ArchitectureTests.csproj
           --no-restore
           --configuration Release
-          -p:TreatWarningsAsErrors=true
 
       - name: Run the tests that read the plugin
         if: ${{ needs.changes.outputs.scope == 'plugin' }}
@@ -194,16 +193,15 @@ jobs:
           --filter-class Backlog.ArchitectureTests.AgentContextPointerTests
 
       # The solution builds at zero warnings (the rule severities are in the
-      # root .editorconfig), and this is where a new one stops. It is passed
-      # here rather than set in Directory.Build.props so a half-finished local
-      # edit still builds; both app-head builds below pass it too.
+      # root .editorconfig). TreatWarningsAsErrors is set in Directory.Build.props
+      # for every build (org ADR 0001), so a new warning stops here as it stops a
+      # local build; nothing passes it on the command line any more.
       - name: Build
         if: ${{ needs.changes.outputs.scope != 'plugin' }}
         run: >
           dotnet build Backlog.WithoutAppHeads.slnf
           --no-restore
           --configuration Release
-          -p:TreatWarningsAsErrors=true
 
       # xunit v3 runs on Microsoft.Testing.Platform, which global.json opts
       # `dotnet test` into. The solution filter is named with --solution, and the
@@ -374,7 +372,6 @@ jobs:
           dotnet build src\App\Backlog.Desktop\Backlog.Desktop.csproj
           --no-restore
           --configuration Release
-          -p:TreatWarningsAsErrors=true
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false
@@ -389,7 +386,6 @@ jobs:
           dotnet build src\App\Backlog.Mobile\Backlog.Mobile.csproj
           --no-restore
           --configuration Release
-          -p:TreatWarningsAsErrors=true
           -p:PublishReadyToRun=false
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None

@@ -29,8 +29,10 @@ flowchart LR
 ```
 
 The agent starts the application on Aspire through the `run` procedure, drives the Blazor
-harnesses with Playwright, and monitors Aspire's logs and traces throughout. It returns an
-evidence path for every scenario it reports.
+harnesses with Playwright, and monitors Aspire's logs and traces throughout. Each harness
+also sends its browser console to the dashboard through `.WithBrowserLogs()`, so a
+client-side error shows beside the server's. It returns an evidence path for every
+scenario it reports.
 
 - **Used for** — full Playwright QA for new functionality, targeted checks for fixes and
   changes to an existing flow, startup-only for dependency moves.
