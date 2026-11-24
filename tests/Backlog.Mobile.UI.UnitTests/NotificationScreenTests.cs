@@ -195,6 +195,8 @@ public sealed class NotificationScreenTests
         // Claude Code is a system the app knows: the AI agent's sparkles, its name the tooltip.
         Assert.NotNull(app.Find("[data-testid='notification-origin-system'] svg.sparkles-icon"));
         Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").GetAttribute("title"));
+        // One line with the kind, the severity and the age.
+        Assert.NotNull(app.Find("header.phone-notification__meta [data-testid='notification-origin']"));
     }
 
     [Fact]
