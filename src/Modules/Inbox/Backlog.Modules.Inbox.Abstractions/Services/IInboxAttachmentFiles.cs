@@ -50,4 +50,9 @@ public interface IInboxAttachmentFiles
     /// deleted before anything else was handed the folder. Nothing happens
     /// when there is no folder.</summary>
     Task RemoveFolderAsync(Guid itemId, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes one file the item no longer needs — a recording once its
+    /// transcript is on the note. Does nothing for a path outside the workspace's
+    /// attachments, which is not ours to delete, or for a file already gone.</summary>
+    Task RemoveFileAsync(string path, CancellationToken cancellationToken = default);
 }

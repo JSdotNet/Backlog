@@ -139,4 +139,17 @@ internal sealed class FakeAttachmentFiles : IInboxAttachmentFiles
 
         return Task.CompletedTask;
     }
+
+    public List<string> RemovedFiles { get; } = [];
+
+    /// <summary>Thrown by every file removal — a file the player still holds open.</summary>
+    public Exception? ThrowOnRemove { get; set; }
+
+    public Task RemoveFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnRemove is { } thrown) throw thrown;
+
+        if (Files.Remove(path)) RemovedFiles.Add(path);
+        return Task.CompletedTask;
+    }
 }

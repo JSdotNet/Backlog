@@ -553,5 +553,8 @@ public sealed class AttachmentIntakeTests
 
         public Task RemoveFolderAsync(Guid id, CancellationToken cancellationToken = default) =>
             _inner.RemoveFolderAsync(id, cancellationToken);
+
+        public Task RemoveFileAsync(string path, CancellationToken cancellationToken = default) =>
+            _inner.RemoveFileAsync(path, cancellationToken);
     }
 }
