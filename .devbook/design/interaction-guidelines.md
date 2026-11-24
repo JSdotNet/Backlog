@@ -119,6 +119,7 @@ are last-write-wins** (`.devbook/arc42/08-crosscutting-concepts.md#storage-and-s
 |---|---|
 | New items | Concurrent creation MUST NOT conflict — both items are created (always-create). |
 | Edits | Concurrent edits to the same item resolve by **last-write-wins**; the most recent write is canonical. |
+| Saves on one device | A save made on a version another writer on the same device has since replaced is refused, not written over it (`.devbook/domain/tasks/requirements.md#requirement-a-save-made-on-an-older-version-is-refused`). The editor MUST reload the item with the unsaved edit merged onto it and say so beside the editor; it MUST NOT read Saved. |
 | Non-destructive surfacing | When last-write-wins discards a local change, the UI MUST surface the `Conflict` state, never silently losing edits. |
 | Superseded version | The UI SHOULD offer access to the superseded version where available. |
 | No blocking merge UI | Conflict handling MUST NOT block editing with a mandatory merge dialog; resolution is automatic, notification is passive. |

@@ -210,6 +210,9 @@ machines:
 - `updated_at` is the moment the task last changed, in UTC.
   [Every edit restamps it](domain.invariants.md#invariant-every-edit-restamps-the-task),
   a change to `order` or `area` included, which is what makes those travel.
+  On this device it is also what a save is checked against: a task read from the
+  store carries the `updated_at` it was read at, and
+  [a save made on an older version is refused](requirements.md#requirement-a-save-made-on-an-older-version-is-refused).
 - `deleted_at` makes the task a [Tombstone](#tombstone).
 
 Neither carries a lifecycle invariant, and the device writes both.
