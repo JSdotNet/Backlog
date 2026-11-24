@@ -145,6 +145,10 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
         KeepRunningInTray = settings?.Tray?.KeepRunning ?? true;
         TrayHintShown = settings?.Tray?.HintShown ?? false;
 
+        // Absent, or a number that is not one of the offered periods, reads as the
+        // default (local ADR 0061 §6).
+        ChangeHistoryDays = ChangeHistoryRetention.Normalize(settings?.ChangeHistoryDays);
+
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
         SessionRecordsDirectory = Path.Combine(appData, SessionRecordsFolderName);
@@ -217,6 +221,16 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
     /// <see cref="RootChanged"/> because a backup setting moving is not a reason
     /// for every open view to reload the backlog.</summary>
     public event Action? BackupChanged;
+
+    /// <summary>How many days the change journal keeps a revision and its change
+    /// set (local ADR 0061 §6): one of <see cref="ChangeHistoryRetention.Offered"/>,
+    /// <see cref="ChangeHistoryRetention.DefaultDays"/> until somebody chooses
+    /// otherwise.</summary>
+    public int ChangeHistoryDays { get; private set; }
+
+    /// <summary>Raised when <see cref="ChangeHistoryDays"/> changes, for the worker
+    /// that prunes the journal.</summary>
+    public event Action? ChangeHistoryChanged;
 
     /// <summary>The loopback port the MCP server listens on when nothing
     /// overrides it. Local ADR 0012 §1 names 5757, and names it in the same
@@ -1011,6 +1025,25 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
         return error;
     }
 
+    /// <summary>Changes how long the change history is kept. A period that is not
+    /// one of <see cref="ChangeHistoryRetention.Offered"/> is answered with a
+    /// sentence and changes nothing; the in-memory value moves even when the write
+    /// fails, the way every setter here behaves.</summary>
+    public string? SetChangeHistoryDays(int days)
+    {
+        if (!ChangeHistoryRetention.Offered.Contains(days))
+        {
+            return $"Choose {string.Join(", ", ChangeHistoryRetention.Offered.Take(ChangeHistoryRetention.Offered.Count - 1))} or {ChangeHistoryRetention.Offered[^1]} days.";
+        }
+
+        if (days == ChangeHistoryDays) return null;
+
+        ChangeHistoryDays = days;
+        var error = SaveSettings("Change history period changed, but the choice couldn't be saved for next time.");
+        ChangeHistoryChanged?.Invoke();
+        return error;
+    }
+
     /// <summary>
     /// Changes the notification settings the question relay reads: away after,
     /// notify after and dialog wait. Settings out of range are answered with a
@@ -1275,7 +1308,10 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
                 Notifications = StoreNotificationSettings.From(Presence),
 
                 // Written as null while both are their defaults, for the same reason.
-                Tray = StoreTraySettings.From(KeepRunningInTray, TrayHintShown)
+                Tray = StoreTraySettings.From(KeepRunningInTray, TrayHintShown),
+
+                // Written as null while it is the default, for the same reason.
+                ChangeHistoryDays = ChangeHistoryDays == ChangeHistoryRetention.DefaultDays ? null : ChangeHistoryDays
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -1353,6 +1389,11 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
         /// Absent reads as keep running and no hint shown.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public StoreTraySettings? Tray { get; init; }
+
+        /// <summary>How many days the change history is kept, or null while it is
+        /// the default. Absent reads as the default.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ChangeHistoryDays { get; init; }
     }
 
     /// <summary>The tray's row: whether closing the main window keeps the app
