@@ -1,7 +1,7 @@
 # The repository's C# style and analyzer severities. Directory.Build.props
 # turns the analyzers on (AnalysisLevel, EnforceCodeStyleInBuild), so a
-# severity of warning here is a build warning, and the pull request build
-# treats warnings as errors.
+# severity of warning here is a build warning, and every build treats
+# warnings as errors (TreatWarningsAsErrors, org ADR 0001).
 #
 # The rules describe the code as it is written. A preference the code already
 # follows everywhere is a warning; one it mostly follows is a suggestion, which

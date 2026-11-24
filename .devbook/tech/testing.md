@@ -152,7 +152,11 @@ In-memory hosting of an ASP.NET Core app under test.
   and `Backlog.HostComposition.UnitTests`, which exercise the real pipeline
   (authentication, routing, filters) without a socket.
 - **Why** — the first-party test host. An endpoint test crosses the same
-  middleware a deployed request does.
+  middleware a deployed request does. It is org ADR 0010's integration test: one
+  module's Api in process, never the AppHost, with external services replaced
+  by `Fake*` adapters (`FakeGitHub`). The replica stores are the service's own
+  in-memory Development fallback rather than containers, a difference the ADR
+  does not allow yet.
 
 ## Microsoft.Extensions.TimeProvider.Testing
 
@@ -192,7 +196,9 @@ Browser automation for end-to-end validation.
     Protocol (CDP) debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
     `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
-    reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.
+    reach that AppHost through the Aspire CLI — its URLs, its logs and its
+    resource commands, such as `forget-pairing` before a conference day. They
+    skip unless `BACKLOG_E2E=1`.
 - **Why** — being Playwright-drivable is one of the two reasons ADR 0001 chose
   MAUI Blazor Hybrid over plain WinUI 3.
   - QA reaches it as an MCP server supplied by the `qa` plugin.

@@ -52,10 +52,14 @@ repository uses.
   - `JSdotNet/ai-plugins`, for the specialist agents the delivery roles bind to;
   - this repository, for [`backlog-tools`](#backlog-tools-plugin).
 
-  `.claude/settings.json` declares the `jsdotnet-devbook` marketplace and
-  enables `delivery`, `delivery-schedule`, and `devbook` for everyone. The
-  surfaces, `devbook-config`, and the `JSdotNet/ai-plugins` agents are installed
-  per machine.
+  `.claude/settings.json` declares the `jsdotnet-devbook` marketplace. The
+  delivery engine, its schedules and surfaces, `devbook`, `devbook-config`, and
+  the `JSdotNet/ai-plugins` agents are installed per machine, at user scope.
+
+  Two more marketplaces are declared and enabled for everyone, in
+  `.claude/settings.json` and `.github/copilot/settings.json` alike (org ADR 0013):
+  `microsoft/aspire-skills`, for [the Aspire skills](#aspire-agent-skills), and
+  `dotnet/skills`, for [the .NET skills](#net-agent-skills).
 - **Not used** — `devbook-derived`, because local ADR 0004 keeps the derived
   layer a build output and commits nothing under `_meta/`. Neither the
   `knowledge-base` nor the `claude-desktop` plugin appears in the repository or in any instruction file.
@@ -83,6 +87,48 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
   under `.agents/skills/`; the `update-devbook-index` command sits beside them.
 - **Why** — a skill loads only when invoked, so a large body of procedure costs
   nothing until needed.
+
+## Aspire Agent Skills
+
+```meta
+rating: adopted
+type: skill
+depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/tooling.md#aspire-cli"]
+related: [".devbook/tech/ai-development.md#model-context-protocol-servers"]
+```
+
+The `aspire` plugin from `microsoft/aspire-skills`, which teaches an agent to
+read a running app through the Aspire CLI.
+
+- **Used for** — `aspire describe`, `aspire logs`, `aspire otel` and the
+  AppHost's resource commands, in every Claude Code and Copilot session.
+- **How** — written by `aspire agent init --agents claude,copilot --skills aspire
+  --mcp=false`, which declares the marketplace and enables the plugin in each
+  host's project settings. The repository kept no local copy of an Aspire skill
+  to remove. The command also installs Aspire's usage-telemetry hooks in the
+  user-level configuration of each host, outside the repository.
+- **Why** — org ADR 0013: the CLI first. The init leaves MCP unconfigured; the
+  `aspire` MCP server `.mcp.json` already declares stays for the `run` recipe and
+  the QA agent, which read resource state through it.
+
+## .NET Agent Skills
+
+```meta
+rating: adopted
+type: skill
+depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/tooling.md#net-sdk"]
+```
+
+The `dotnet/skills` marketplace (`dotnet-agent-skills`), the .NET team's skills
+for coding agents.
+
+- **Used for** — `dotnet`, `dotnet11`, `dotnet-aspnetcore`, `dotnet-blazor`,
+  `dotnet-maui`, `dotnet-nuget` and `dotnet-test`, enabled for Claude Code and
+  Copilot at project scope.
+- **Not used** — `dotnet-msbuild`, which brings an MCP server of its own, and
+  the plugins for stacks this repository does not use (EF Core, WinForms, ML,
+  templates, test-framework migration).
+- **Why** — org ADR 0013 installs them beside the Aspire skills.
 
 ## Subagents
 

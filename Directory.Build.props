@@ -17,14 +17,17 @@
 
   <PropertyGroup>
     <!--
-      The warning policy. The rule severities live in the root .editorconfig;
-      these switch the analyzers on and make the build report them. The build
-      is kept at zero warnings, and the pull request workflow passes
-      TreatWarningsAsErrors so it stays there — set on the command line rather
-      than here, so a half-finished local edit still builds and runs.
+      The warning policy (org ADR 0001). The rule severities live in the root
+      .editorconfig; these switch the analyzers on and make the build report
+      them. TreatWarningsAsErrors is on in every configuration and on every
+      machine, not only in the pull request workflow: a warning a local build
+      lets through is one the pull request then fails on, after the work is
+      done. Aspire's analyzers are part of it, so an obsolete Aspire API fails
+      the build too.
     -->
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
 
     <!--

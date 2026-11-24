@@ -62,6 +62,10 @@ later stages all use it.
   sitting `NotStarted` is the healthy state, not a failure. Start one only when the task
   needs that channel. Start `mobile-tunnel` before `mobile-maui-android-emulator`: the
   tunnel publishes `sync` to the emulator, which waits for it rather than failing.
+  `desktop-web-harness-browser-logs`, `mobile-web-harness-browser-logs` and
+  `ui-storybook-browser-logs` (from `.WithBrowserLogs()`) also sit `NotStarted` until
+  their `open-tracked-browser` command opens a tracked Edge or Chrome; that browser's
+  console, errors and failed requests then stream into the child's console log.
 - **Absent is healthy.** `foundry-local` is registered only when the `foundry` CLI is on
   PATH, so on most machines it does not appear at all. Where it is registered it starts with
   the app model, not on demand. The Android head's OTLP tunnel is likewise wired only when a
@@ -100,7 +104,9 @@ instead close a takeover that was already on screen.
   pairing-code entry while it is unpaired, and takes a code copied from the desktop
   harness's **Pair with a code**. The service checks a bearer token on
   `/api/sync/devices/me` and every `/api/sync/inbox` endpoint, so pair before exercising
-  them.
+  them. To unpair the phone harness again, outbox included, run its `forget-pairing`
+  command: `aspire resource mobile-web-harness forget-pairing --apphost <same path>`. It
+  touches this worktree's harness only.
 - Each harness keeps its own device credential under its own `obj/local-development/`
   (`BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH`, `BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH`), so
   the two register as two devices under one owner.
