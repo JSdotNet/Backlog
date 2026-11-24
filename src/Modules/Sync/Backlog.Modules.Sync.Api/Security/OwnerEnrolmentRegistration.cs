@@ -49,11 +49,21 @@ internal static class OwnerEnrolmentRegistration
         owner.ValidateOnStart();
         gitHub.ValidateOnStart();
 
+        // Deployed, an unpinned owner is derived from the GitHub user, which is a new,
+        // empty owner wherever devices were enrolled before; the guard refuses enrolment
+        // while another owner's devices are on record, and the warning says so at start.
+        var deployed = !builder.Environment.IsDevelopment();
+
         builder.Services.AddSingleton(sp =>
         {
             var configured = sp.GetRequiredService<IOptions<OwnerOptions>>().Value;
-            return new OwnerEnrolment(configured.GitHubUserId, configured.OwnerId);
+            return new OwnerEnrolment(configured.GitHubUserId, configured.OwnerId, GuardsUnpinnedOwner: deployed);
         });
+
+        if (deployed)
+        {
+            builder.Services.AddHostedService<UnpinnedOwnerWarning>();
+        }
 
         // One window for the whole service rather than per caller: there is one owner,
         // who signs in a handful of times a year, and the callers are anonymous.

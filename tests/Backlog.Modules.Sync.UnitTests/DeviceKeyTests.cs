@@ -467,6 +467,28 @@ public sealed class DeviceKeyTests : IDisposable
         Assert.Empty(_sync.Tokens.Issued);
     }
 
+    /// <summary>The replay store is the only thing that knows whether an assertion was
+    /// already taken, so when it cannot answer the mint is refused with its coded fault
+    /// rather than taken unchecked (inherited ADR 0015).</summary>
+    [Fact]
+    public async Task A_replay_store_that_cannot_answer_mints_no_token()
+    {
+        var device = await RegisterKeyBound();
+        var handler = new IssueDeviceTokenCommandHandler(
+            _sync.Devices,
+            _sync.Hasher,
+            _sync.Tokens,
+            new EcdsaDeviceAssertionVerifier(_sync.Clock),
+            new UnreachableReplays(),
+            NullLogger<IssueDeviceTokenCommandHandler>.Instance);
+
+        var fault = await Assert.ThrowsAsync<SyncReplicaException>(
+            () => handler.Handle(Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow())), Cancellation));
+
+        Assert.Equal(SyncErrorCodes.ReplicaUnavailable, fault.Code);
+        Assert.Empty(_sync.Tokens.Issued);
+    }
+
     private async Task<DeviceId> RegisterKeyBound()
     {
         var result = await _sync.Register.Handle(
@@ -495,6 +517,13 @@ public sealed class DeviceKeyTests : IDisposable
         Assert.Equal(SyncErrorCodes.DeviceCredentialInvalid, result.Error.Code);
     }
 
+    /// <summary>A replay store whose backing store is not reachable.</summary>
+    private sealed class UnreachableReplays : IAssertionReplayCache
+    {
+        public Task<bool> TryAdd(DeviceId deviceId, string assertionId, DateTimeOffset acceptableUntil, CancellationToken cancellationToken = default) =>
+            throw new SyncReplicaException(SyncErrorCodes.ReplicaUnavailable, "The assertion replay store is not available yet. Try again shortly.");
+    }
+
     /// <summary>The registry as a racing migration sees it: the device reads unbound,
     /// and the binding fails because another got there between the read and the write.</summary>
     private sealed class LosingBindRegistry(IDeviceRegistry inner) : IDeviceRegistry
@@ -506,6 +535,8 @@ public sealed class DeviceKeyTests : IDisposable
         public Task<int> CountByOwner(OwnerId ownerId, CancellationToken cancellationToken = default) => inner.CountByOwner(ownerId, cancellationToken);
 
         public Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default) => inner.OwnerExists(ownerId, cancellationToken);
+
+        public Task<bool> AnyOutside(OwnerId ownerId, CancellationToken cancellationToken = default) => inner.AnyOutside(ownerId, cancellationToken);
 
         public Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default) => inner.ListByOwner(ownerId, cancellationToken);
 

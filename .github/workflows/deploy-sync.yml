@@ -115,6 +115,10 @@ jobs:
       # Optional: the Foundry account cloud dictation relays to (local ADR 0045).
       # Unset or empty leaves the relay off, and every phone dictates on-device.
       SYNC_FOUNDRY_ACCOUNT_NAME: ${{ vars.SYNC_FOUNDRY_ACCOUNT_NAME }}
+      # The existing owner id the owner's devices join (local ADR 0058 §1), mapped to the
+      # template's ownerId by main.parameters.json. Unset, a deployed service refuses
+      # enrolment and recovery while devices of another owner are on record.
+      SYNC_OWNER_ID: ${{ vars.SYNC_OWNER_ID }}
 
     steps:
       - name: Checkout
@@ -163,6 +167,13 @@ jobs:
 
           if ($env:AZURE_RESOURCE_GROUP -notmatch '^[A-Za-z0-9._()-]{1,90}$') {
             Write-Output "::error::AZURE_RESOURCE_GROUP contains characters Azure does not allow in a resource group name."
+            exit 1
+          }
+
+          # Optional, but a value that is not a GUID would stop the service at its next
+          # start, when Owner__OwnerId fails to bind.
+          if ($env:SYNC_OWNER_ID -and $env:SYNC_OWNER_ID -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+            Write-Output "::error::SYNC_OWNER_ID must be the existing owner's id, a GUID."
             exit 1
           }
 

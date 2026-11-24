@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Sync.DomainModels;
+using Backlog.Modules.Sync.Features.Enrolment;
+using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +24,7 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
     private const long OwnerGitHubId = 7655166;
     private const string OwnerCode = "code-from-the-owner";
     private const string StrangerCode = "code-from-someone-else";
+    private static readonly Guid PinnedOwner = Guid.Parse("01a0a754-2903-7ecb-8f5b-dcb92b9a3010");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -215,6 +219,68 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task A_pinned_owner_id_is_the_owner_a_signed_in_enrolment_joins()
+    {
+        using var pinned = Pinned();
+
+        var enrolled = await RegisterSignedIn(pinned, pinned.CreateClient(), "Study desktop");
+
+        Assert.Equal(PinnedOwner, enrolled.OwnerId);
+    }
+
+    /// <summary>The deployed case the pin exists for: devices enrolled before sign-in
+    /// under an owner minted then, and a recovery that must reach them.</summary>
+    [Fact]
+    public async Task Recovery_under_a_pinned_owner_id_keeps_that_owner_and_revokes_the_rest()
+    {
+        using var pinned = Pinned();
+        var legacy = await Seed(pinned, new OwnerId(PinnedOwner), "Lost desktop");
+
+        var recovered = pinned.CreateClient();
+        var replacement = await RegisterSignedIn(pinned, recovered, "New laptop");
+
+        Assert.Equal(PinnedOwner, replacement.OwnerId);
+        Assert.Equal(1, replacement.RevokedDeviceCount);
+        Assert.Null(await pinned.Services.GetRequiredService<IDeviceRegistry>().FindById(legacy.Id, Cancellation));
+
+        recovered.Bearing(await recovered.DeviceToken(replacement));
+        var list = await recovered.GetFromJsonAsync<DeviceListResponse>(SyncRoutes.Absolute(SyncRoutes.Devices), Cancellation);
+        Assert.Equal([replacement.DeviceId], list!.Devices.Select(d => d.DeviceId));
+    }
+
+    /// <summary>The deployed shape without a pin: the enrolment would join the derived,
+    /// empty owner and leave the existing one's devices out of reach, so it is refused
+    /// and nothing is added or revoked. The guard a non-Development host turns on is
+    /// set here directly, because a Production host needs a vault this factory has not;
+    /// <c>OwnerEnrolmentRegistrationTests</c> proves the host turns it on.</summary>
+    [Fact]
+    public async Task An_unpinned_owner_with_devices_under_another_owner_refuses_enrolment()
+    {
+        using var deployed = new SyncServiceFactory
+        {
+            MoreConfiguration = SyncServiceFactory.ConfiguredOwner,
+            TestServices = services =>
+            {
+                services.RemoveAll<IGitHubOwnerSignIn>();
+                services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+                services.RemoveAll<OwnerEnrolment>();
+                services.AddSingleton(new OwnerEnrolment(OwnerGitHubId, GuardsUnpinnedOwner: true));
+            },
+        };
+        var legacy = await Seed(deployed, new OwnerId(PinnedOwner), "Study desktop");
+
+        using var response = await deployed.CreateClient().PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await SignedInRequest(deployed, "New laptop"), Cancellation);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation);
+        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, problem?.Code);
+        var registry = deployed.Services.GetRequiredService<IDeviceRegistry>();
+        Assert.Equal([legacy], await registry.ListByOwner(new OwnerId(PinnedOwner), Cancellation));
+        Assert.Equal(0, await registry.CountByOwner(new OwnerEnrolment(OwnerGitHubId).Owner!.Value, Cancellation));
+    }
+
+    [Fact]
     public void An_owner_without_the_OAuth_App_stops_the_start()
     {
         using var misconfigured = new SyncServiceFactory
@@ -228,37 +294,67 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
 
     private HttpClient Client() => _service.CreateClient();
 
-    private HttpClient NoRedirects() => _service.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    private HttpClient NoRedirects() => NoRedirects(_service);
+
+    private static HttpClient NoRedirects(SyncServiceFactory service) =>
+        service.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
     private Task<DeviceRegistrationResponse> Enrol(string name) => RegisterSignedIn(Client(), name);
 
+    private Task<DeviceRegistrationResponse> RegisterSignedIn(HttpClient client, string name) =>
+        RegisterSignedIn(_service, client, name);
+
     /// <summary>The owner's sign-in end to end, registering through <paramref name="client"/>.</summary>
-    private async Task<DeviceRegistrationResponse> RegisterSignedIn(HttpClient client, string name)
+    private static async Task<DeviceRegistrationResponse> RegisterSignedIn(SyncServiceFactory service, HttpClient client, string name)
     {
         using var response = await client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await SignedInRequest(name), Cancellation);
+            SyncRoutes.Absolute(SyncRoutes.RegisterDevice), await SignedInRequest(service, name), Cancellation);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
     }
 
+    private Task<RegisterDeviceRequest> SignedInRequest(string name) => SignedInRequest(_service, name);
+
     /// <summary>The whole sign-in as the owner, ending in the request a device sends.</summary>
-    private async Task<RegisterDeviceRequest> SignedInRequest(string name)
+    private static async Task<RegisterDeviceRequest> SignedInRequest(SyncServiceFactory service, string name)
     {
         var verifier = EnrolmentPkce.CreateVerifier();
-        var signIn = await Client().StartEnrolment(verifier);
-        var loopback = await Callback(OwnerCode, SyncClientExtensions.QueryValue(signIn, "state"));
+        var signIn = await service.CreateClient().StartEnrolment(verifier);
+        var loopback = await Callback(service, OwnerCode, SyncClientExtensions.QueryValue(signIn, "state"));
 
         return new RegisterDeviceRequest(name, SyncClientExtensions.QueryValue(loopback, "code"), verifier);
     }
 
+    private Task<Uri> Callback(string code, string? state) => Callback(_service, code, state);
+
     /// <summary>GitHub's redirect to the callback, answered with where the service sends the browser.</summary>
-    private async Task<Uri> Callback(string code, string? state)
+    private static async Task<Uri> Callback(SyncServiceFactory service, string code, string? state)
     {
-        using var response = await NoRedirects().GetAsync(CallbackAddress(code, state), Cancellation);
+        using var response = await NoRedirects(service).GetAsync(CallbackAddress(code, state), Cancellation);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         return response.Headers.Location!;
+    }
+
+    /// <summary>The service with the owner's GitHub user and the existing owner id pinned.</summary>
+    private static SyncServiceFactory Pinned() => new()
+    {
+        MoreConfiguration = SyncServiceFactory.PinnedOwner(PinnedOwner),
+        TestServices = services =>
+        {
+            services.RemoveAll<IGitHubOwnerSignIn>();
+            services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+        },
+    };
+
+    /// <summary>A device already on record, enrolled before sign-in existed, put
+    /// straight into the service's registry.</summary>
+    private static async Task<Device> Seed(SyncServiceFactory service, OwnerId owner, string name)
+    {
+        var device = new Device(DeviceId.New(), owner, name, CredentialHash: "hash", DateTimeOffset.UtcNow);
+        await service.Services.GetRequiredService<IDeviceRegistry>().Add(device, Cancellation);
+        return device;
     }
 
     private static string CallbackAddress(string code, string? state) =>

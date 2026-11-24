@@ -321,6 +321,12 @@ public static class SyncErrorCodes
     /// send the answer to, so it is answered in place.</summary>
     public const string EnrolmentSignInUnknown = "enrolment.sign_in_unknown";
 
+    /// <summary>A signed-in enrolment or recovery on a deployed service that has no
+    /// <c>Owner__OwnerId</c> while devices of another owner are on record (local ADR
+    /// 0058 §1). Joining the owner derived from the GitHub user would orphan them, so
+    /// nothing is added or revoked until the operator pins the existing owner.</summary>
+    public const string EnrolmentOwnerUnpinned = "enrolment.owner_unpinned";
+
     /// <summary>A device of some owner other than the configured one asked about the
     /// remote connector, or no owner is configured at all. Only the owner manages it.</summary>
     public const string ConnectorNotOwner = "connector.not_owner";

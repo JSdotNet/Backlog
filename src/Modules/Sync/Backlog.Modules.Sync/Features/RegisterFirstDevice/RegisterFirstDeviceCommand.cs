@@ -37,6 +37,12 @@ public sealed record RegisterFirstDeviceCommand(string DeviceName, string? Enrol
 /// lifetime — minutes, per inherited ADR 0012. With no owner configured, a
 /// Development service only, every enrolment mints an owner of its own.
 /// </para>
+/// <para>
+/// A deployed service with no pinned owner derives one from the GitHub user, which is
+/// a new owner wherever devices were enrolled before. While any device of another owner
+/// is on record, such an enrolment is refused before anything is added or revoked, so
+/// the existing owner is never silently orphaned.
+/// </para>
 /// </summary>
 public sealed partial class RegisterFirstDeviceCommandHandler(
     IDeviceRegistry devices,
@@ -99,6 +105,16 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
                 "This device did not start the sign-in that enrolment code came from.");
         }
 
+        if (owner.MustCheckForOtherOwners && owner.Owner is { } derived && await devices.AnyOutside(derived, cancellationToken))
+        {
+            // Before the burn, so the code is not spent on a refusal the person cannot
+            // act on; they sign in again once the owner is pinned.
+            LogOwnerUnpinned(log, derived.Value);
+            return Error.Conflict(
+                SyncErrorCodes.EnrolmentOwnerUnpinned,
+                "This sync service holds devices of an owner it is not pinned to. Its operator must set Owner__OwnerId to that owner's id; until then no device enrols or recovers.");
+        }
+
         if (!await tickets.TryBurn(key, cancellationToken))
         {
             return Error.Conflict(SyncErrorCodes.EnrolmentCodeUsed, "That enrolment code has already registered a device. Sign in again.");
@@ -159,6 +175,9 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
 
         return revoked;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Refused a signed-in enrolment: Owner__OwnerId is unset and devices of an owner other than the derived {DerivedOwnerId} are on record. Pin the existing owner with Owner__OwnerId (azd: SYNC_OWNER_ID) and redeploy.")]
+    private static partial void LogOwnerUnpinned(ILogger logger, Guid derivedOwnerId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Owner recovery enrolled device {DeviceId} and revoked {RevokedCount} other device(s).")]
     private static partial void LogRecovered(ILogger logger, Guid deviceId, int revokedCount);

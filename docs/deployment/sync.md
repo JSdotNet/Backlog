@@ -110,6 +110,9 @@ sync service's managed identity *Cognitive Services OpenAI User* on that account
 group unless `foundryResourceGroupName` in `infra/sync/main.bicep` says otherwise. Unset, the
 transcription route answers `503 sync.transcription_unavailable` and phones dictate on-device.
 
+A third optional variable: `SYNC_OWNER_ID` pins the existing owner id the owner's devices
+join; see [*The owner and the OAuth App's client id*](#6-the-owner-and-the-oauth-apps-client-id).
+
 One more, on the **repository** rather than the environment: `BACKLOG_SYNC_SERVICE_URL`,
 read by `Release All` (`.github/workflows/release-all.yml`). The sideloaded APK has
 no Settings field for the address, so the workflow compiles this value into it through the
@@ -181,9 +184,36 @@ prints, never the login) and `GitHub__ClientId` (`gitHubOAuthClientId`). Outside
 Development the service refuses to start without both and the vault's client secret.
 
 The owner's devices join the owner id derived from the GitHub user id. An owner minted
-before sign-in existed keeps its data only if its id is passed as the template's
-`ownerId` parameter, which sets `Owner__OwnerId`, before the first enrolment; otherwise the first sign-in starts a new,
-empty owner, while the old devices keep syncing the old one and no recovery reaches them.
+before sign-in existed keeps its data only if its id is pinned: the template's `ownerId`
+parameter, which sets `Owner__OwnerId`, comes from the azd value `SYNC_OWNER_ID`
+(`infra/sync/main.parameters.json`). A pinned owner's sign-in enrols into that owner, and a
+recovery revokes that owner's other devices.
+
+Without a pin the deployed service will not orphan the existing owner. It logs a warning
+at startup naming `Owner__OwnerId`, and while any device of an owner other than the derived
+one is on record it refuses a signed-in enrolment or recovery with `409
+enrolment.owner_unpinned`, logged at Error, adding and revoking nothing. Existing devices
+keep syncing meanwhile.
+
+To pin it, read the existing owner id first. Settings → Devices on any paired desktop
+prints `Owner <guid>`; or run this read-only query in the Cosmos Data Explorer, on
+database `backlog`, container `devices` (more than one row means a derived owner already
+exists beside the old one):
+
+```sql
+SELECT c.ownerId, COUNT(1) AS devices, MIN(c.registeredAt) AS first FROM c GROUP BY c.ownerId
+```
+
+Then set it where deploys read it, and provision:
+
+```powershell
+azd env set SYNC_OWNER_ID <owner guid>
+```
+
+For the workflow, add `SYNC_OWNER_ID` as a variable on the `backlog-sync` GitHub
+environment; `.github/workflows/deploy-sync.yml` refuses a value that is not a GUID. Check
+what the running app carries with
+`az containerapp show -n <app> -g <group> --query "properties.template.containers[0].env[?starts_with(name,'Owner__')]"`.
 
 ### 7. The claude.ai remote connector
 
@@ -270,6 +300,7 @@ closes; the first revision provisioned with a key is the first one that can come
 | Container `devices` | Partition `/id` (the device id), default indexing policy |
 | Container `pairingCodes` | Partition `/id` (the code hash), nothing indexed |
 | Container `connectorCredentials` | Partition `/id` (`client:<client id>`, `refresh:<token hash>`, `family:<family id>`), nothing indexed |
+| Container `assertionReplays` | Partition `/id` (the hash of the device id and the assertion's `jti`), nothing indexed |
 | User-assigned managed identity | The only principal the service runs as |
 | Container Apps environment | Consumption workload profile, logs via Azure Monitor |
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
@@ -294,6 +325,7 @@ identity it uses for everything else.
 | `devices` | none | A registration lasts until the device is forgotten |
 | `pairingCodes` | `defaultTtl: -1` | TTL enabled; every code carries its own |
 | `connectorCredentials` | `defaultTtl: -1` | TTL enabled; refresh tokens and family markers carry their own, the client none |
+| `assertionReplays` | `defaultTtl: -1` | TTL enabled; every spent assertion id carries its own |
 
 `sessions` is straightforward: the whole record is history, and the retention is a
 container setting exactly as ADR 0005 describes.
@@ -327,6 +359,14 @@ it lives 92 days, past the longest a token of the family can (the `RefreshTokenD
 range tops out at 90). The service's own expiry checks decide; the TTLs only tidy up. The
 connector's short-lived authorization steps (sign-in state, consent ticket, code) are kept
 in memory, like the enrolment tickets: a restart mid-authorization costs one more attempt.
+
+`assertionReplays` holds the ids of the device assertions already traded for a token
+(local ADR 0058 §2), so a restart or a second revision during a deploy does not forget
+them. Spending an id is one create; a second spend is a conflict, and refused. Each
+document lives until the assertion could no longer be taken, at most its five-minute
+lifetime plus a two-minute clock skew on either end, and a one-minute grace. When the
+container cannot be reached, the token exchange answers `503 sync.replica_unavailable`
+rather than mint on an assertion it could not check.
 
 ### The `sessions` index
 
