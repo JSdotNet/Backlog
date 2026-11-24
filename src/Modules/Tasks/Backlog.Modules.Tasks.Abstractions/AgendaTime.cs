@@ -56,9 +56,12 @@ public sealed record AgendaTime
     public string StartToken => Start.ToString(StartFormat, CultureInfo.InvariantCulture);
 
     /// <summary>Reads an <c>at:</c> value: exactly <c>HH:mm</c>, <c>00:00</c> to
-    /// <c>23:59</c>.</summary>
+    /// <c>23:59</c>. Since .NET 11 the parse also reads <c>24:00</c>, the end of the
+    /// day, as midnight; a value that does not write back the same is refused, so
+    /// <c>24:00</c> stays unreadable rather than moving a block to the morning.</summary>
     public static bool TryParseStart(string? value, out TimeOnly start) =>
-        TimeOnly.TryParseExact(value, StartFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out start);
+        TimeOnly.TryParseExact(value, StartFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out start)
+        && start.ToString(StartFormat, CultureInfo.InvariantCulture) == value;
 
     /// <summary>Reads a <c>for:</c> value: a positive whole number followed by
     /// <c>m</c>, such as <c>45m</c>.</summary>

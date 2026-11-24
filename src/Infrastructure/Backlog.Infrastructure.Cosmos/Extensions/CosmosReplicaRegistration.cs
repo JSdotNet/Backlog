@@ -106,7 +106,7 @@ public static class CosmosReplicaRegistration
                     settings.AccountEndpoint = endpoint;
                 }
             },
-            options =>
+            (_, options) =>
             {
                 // Mandatory, and the single easiest thing here to leave out. The
                 // v3 SDK serialises with Newtonsoft by default, which ignores

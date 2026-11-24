@@ -595,7 +595,7 @@ public sealed class NotificationSyncTests
 
     /// <summary>The repository each notification of a push body carries, by id.</summary>
     private static Dictionary<Guid, PublishedRepository?> PushedPayloads(string body) =>
-        JsonDocument.Parse(body).RootElement.GetProperty("notifications").EnumerateArray()
+        JsonElement.Parse(body).GetProperty("notifications").EnumerateArray()
             .Select(change => change.GetProperty("notification").Deserialize<NotificationPayload>(NotificationPayloads.Options)!)
             .ToDictionary(payload => payload.Notification.Id, payload => payload.Repository);
 
@@ -759,7 +759,7 @@ public sealed class NotificationSyncTests
                 if (request.Method == HttpMethod.Post)
                 {
                     fixture!.PushedBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
-                    var count = JsonDocument.Parse(fixture.PushedBodies[^1]).RootElement.GetProperty("notifications").GetArrayLength();
+                    var count = JsonElement.Parse(fixture.PushedBodies[^1]).GetProperty("notifications").GetArrayLength();
                     return StubHttpMessageHandler.Json(HttpStatusCode.OK, $$"""{"accepted":{{count}}}""");
                 }
 

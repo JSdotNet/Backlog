@@ -21,10 +21,6 @@
          opinion about which native build is loaded. FtsAvailability is the test
          that says so out loud. -->
     <PackageReference Include="Microsoft.Data.Sqlite" />
-    <!-- DevbookDatabaseRefresher reports a failed background build rather than
-         losing it. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!-- The Code level of the C4 zoom navigation (local ADR 0046 §3): Code/CSharpCodeReader
          parses a component's C# files into syntax trees, never a compilation. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />

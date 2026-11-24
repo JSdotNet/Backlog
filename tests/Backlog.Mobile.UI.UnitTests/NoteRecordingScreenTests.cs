@@ -154,12 +154,19 @@ public sealed class NoteRecordingScreenTests
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-recording']")));
         app.Find("[data-testid='note-recording-stop']").Click();
 
-        app.WaitForAssertion(() => Assert.Equal("blob:recording",
-            app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile-player']").GetAttribute("src")));
-        var tile = app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile']");
-        Assert.NotNull(tile.QuerySelector("[data-glyph='audio']"));
-        Assert.StartsWith("AAC audio · ", tile.QuerySelector("[data-testid='attachment-tile-facts']")!.TextContent, StringComparison.Ordinal);
-        Assert.StartsWith("Play Recording · ", tile.QuerySelector("[data-testid='attachment-tile-player']")!.GetAttribute("aria-label"), StringComparison.Ordinal);
+        // One retried assertion over the whole tile: the tile renders again as the
+        // recording settles, and an element read outside the retry can be the one
+        // that render just replaced.
+        app.WaitForAssertion(() =>
+        {
+            var tile = app.Find("[data-testid='note-attachments'] [data-testid='attachment-tile']");
+            var player = tile.QuerySelector("[data-testid='attachment-tile-player']");
+            Assert.NotNull(player);
+            Assert.Equal("blob:recording", player.GetAttribute("src"));
+            Assert.NotNull(tile.QuerySelector("[data-glyph='audio']"));
+            Assert.StartsWith("AAC audio · ", tile.QuerySelector("[data-testid='attachment-tile-facts']")!.TextContent, StringComparison.Ordinal);
+            Assert.StartsWith("Play Recording · ", player.GetAttribute("aria-label"), StringComparison.Ordinal);
+        });
     }
 
     [Fact]

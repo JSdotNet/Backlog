@@ -481,7 +481,7 @@ public sealed class GitHubClientMappingTests
         Assert.Empty(GitHubClient.ReadLinkedPullRequests(Json("null")));
     }
 
-    private static JsonElement Json(string text) => JsonDocument.Parse(text).RootElement.Clone();
+    private static JsonElement Json(string text) => JsonElement.Parse(text).Clone();
 }
 
 /// <summary>

@@ -76,11 +76,11 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
                 throw new ClaudeException(Describe(response.StatusCode, payload)) { Status = response.StatusCode };
             }
 
-            if (payload.Length == 0) return JsonDocument.Parse("null").RootElement.Clone();
+            if (payload.Length == 0) return JsonElement.Parse("null").Clone();
 
             try
             {
-                return JsonDocument.Parse(payload).RootElement.Clone();
+                return JsonElement.Parse(payload).Clone();
             }
             catch (JsonException ex)
             {

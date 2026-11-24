@@ -62,7 +62,7 @@
     <!-- WithHttpTransport and MapMcp. This project is already a
          Microsoft.NET.Sdk.Web host, so the Microsoft.AspNetCore.App framework
          reference this package carries is one it has anyway — it adds nothing
-         here and reaches nothing that compiles for net10.0-android. -->
+         here and reaches nothing that compiles for net11.0-android. -->
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <!-- Replaces the SDK's implicit reference (private, like it), whose version
          follows the SDK patch; why is at its PackageVersion in

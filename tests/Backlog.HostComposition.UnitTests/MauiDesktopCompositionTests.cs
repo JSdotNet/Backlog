@@ -332,7 +332,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         public IEnumerable<System.Text.Json.JsonElement> Bodies(string route) =>
             _requests
                 .Where(request => request.Path == Backlog.Modules.Sync.Abstractions.SyncRoutes.Absolute(route) && request.Body.Length > 0)
-                .Select(request => System.Text.Json.JsonDocument.Parse(request.Body).RootElement.Clone())
+                .Select(request => System.Text.Json.JsonElement.Parse(request.Body).Clone())
                 .ToList();
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

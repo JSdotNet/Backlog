@@ -141,8 +141,7 @@ public sealed partial class GhCliTransport : IGitHubTransport
 
         try
         {
-            return JsonDocument.Parse(
-                result.StandardOutput.Length == 0 ? "null" : result.StandardOutput).RootElement.Clone();
+            return JsonElement.Parse(result.StandardOutput.Length == 0 ? "null" : result.StandardOutput);
         }
         catch (JsonException ex)
         {

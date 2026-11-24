@@ -21,12 +21,6 @@
     <ProjectReference Include="..\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddNotificationsModule(); the domain knows nothing about the container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <!-- A handler or a probe that throws is logged by id and source, never by content. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Modules.Notifications.UnitTests" />

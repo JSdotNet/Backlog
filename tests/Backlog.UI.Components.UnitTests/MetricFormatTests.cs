@@ -170,14 +170,16 @@ public sealed class MetricTokenUsageTests
 public sealed class MetricFormatScoreTests
 {
     [Theory]
-    [InlineData(68.4, "68.4")]
-    [InlineData(50.0, "50")]
-    [InlineData(91.2, "91.2")]
-    [InlineData(100.0, "100")]
-    [InlineData(0.0, "0")]
-    [InlineData(37.55, "37.6")]
-    public void A_score_reads_to_at_most_one_decimal(double value, string expected) =>
-        Assert.Equal(expected, MetricFormat.Score((decimal)value));
+    [InlineData("68.4", "68.4")]
+    [InlineData("50.0", "50")]
+    [InlineData("91.2", "91.2")]
+    [InlineData("100.0", "100")]
+    [InlineData("0.0", "0")]
+    [InlineData("37.55", "37.6")]
+    public void A_score_reads_to_at_most_one_decimal(string value, string expected) =>
+        // The value arrives as text because attribute data cannot be a decimal, and since
+        // .NET 11 a cast from double converts exactly: 37.55 would arrive as 37.5499999….
+        Assert.Equal(expected, MetricFormat.Score(decimal.Parse(value, CultureInfo.InvariantCulture)));
 
     [Fact]
     public void A_score_is_not_money()

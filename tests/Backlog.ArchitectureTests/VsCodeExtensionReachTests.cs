@@ -52,5 +52,5 @@ public class VsCodeExtensionReachTests
     }
 
     private static JsonElement Package() =>
-        JsonDocument.Parse(File.ReadAllText(RepositoryRoot.File(Manifest))).RootElement;
+        JsonElement.Parse(File.ReadAllText(RepositoryRoot.File(Manifest)));
 }

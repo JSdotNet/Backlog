@@ -225,7 +225,7 @@ public sealed class GitHubRequiredApprovalsTests : IDisposable
             var asksRules = asked.Contains("r0: ref(qualifiedName: $r0)", StringComparison.Ordinal);
             if (asksRules) RulesReads++;
 
-            return Task.FromResult(JsonDocument.Parse(asksRules ? Rules : _list).RootElement.Clone());
+            return Task.FromResult(JsonElement.Parse(asksRules ? Rules : _list).Clone());
         }
     }
 }

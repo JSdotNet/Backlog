@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public class CopilotUsageClientTests
 {
-    private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    private static JsonElement Parse(string json) => JsonElement.Parse(json).Clone();
 
     [Fact]
     public void Seats_carry_the_activity_that_makes_them_useful()

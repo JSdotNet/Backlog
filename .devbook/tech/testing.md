@@ -142,7 +142,7 @@ The Razor component test framework.
 ```meta
 rating: adopted
 type: package
-version: "10.0.14"
+version: "11.0.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xunit-v3"]
 ```
 

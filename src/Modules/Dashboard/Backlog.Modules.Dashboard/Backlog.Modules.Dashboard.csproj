@@ -27,11 +27,6 @@
     <ProjectReference Include="..\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddDashboardModule(); the derivations know nothing about the
-         container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Modules.Dashboard.UnitTests" />
