@@ -25,8 +25,7 @@ public sealed class InboxListTests
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
 
-        app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
-        app.Find("[data-testid='capture-submit']").Click();
+        host.Capture(app, "Ask the speaker for the slides");
 
         app.WaitForAssertion(() =>
         {
@@ -36,8 +35,7 @@ public sealed class InboxListTests
             Assert.Equal("Waiting", row.QuerySelector("[data-testid='inbox-row-state']")!.TextContent);
         });
 
-        // Kept, not lost: the field is clear because the capture is safe.
-        Assert.Equal(string.Empty, app.Find("[data-testid='capture-field'] input").GetAttribute("value") ?? string.Empty);
+        // Kept, not lost: the capture is safe on the phone.
         Assert.Single(host.Outbox.Entries);
         Assert.Contains("Offline — 1 waiting", app.Find("[data-testid='sync-status']").TextContent);
     }
@@ -51,8 +49,7 @@ public sealed class InboxListTests
         var app = host.Open();
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
-        app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
-        app.Find("[data-testid='capture-submit']").Click();
+        host.Capture(app, "Ask the speaker for the slides");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-row-state']")));
 
         inbox.State = InboxServiceState.Answering;
@@ -82,8 +79,7 @@ public sealed class InboxListTests
         var app = host.Open();
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
-        app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
-        app.Find("[data-testid='capture-submit']").Click();
+        host.Capture(app, "Ask the speaker for the slides");
         app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='inbox-row']").GetAttribute("data-state")));
 
         inbox.State = InboxServiceState.Answering;
@@ -161,8 +157,7 @@ public sealed class InboxListTests
         var app = host.Open();
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
-        app.Find("[data-testid='capture-field'] input").Input(title);
-        app.Find("[data-testid='capture-submit']").Click();
+        host.Capture(app, title);
         app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='inbox-row']").GetAttribute("data-state")));
 
         return app;

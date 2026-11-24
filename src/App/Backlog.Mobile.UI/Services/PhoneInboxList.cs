@@ -58,9 +58,6 @@ public sealed record PhoneInboxRow
 
     public string Title => Capture?.Item.Title ?? Note!.Title;
 
-    /// <summary>The Markdown body; empty for one with none.</summary>
-    public string Body => Capture is { } capture ? capture.Item.BodyMd ?? string.Empty : Note!.Body;
-
     /// <summary>What the list is ordered by: when a capture was made, when a note last changed.</summary>
     public DateTimeOffset At => Capture?.Item.CapturedAt ?? Note!.UpdatedAt;
 }
@@ -68,30 +65,24 @@ public sealed record PhoneInboxRow
 /// <summary>
 /// The phone Inbox's one list (<c>.devbook/domain/inbox/features.md#notes-on-the-phone</c>):
 /// the captures this phone made that the desktop has not taken in, beside every note and
-/// meeting the phone holds, newest first, narrowed by the kind chip pressed and by the
-/// words searched for. The phone keeps no rule beyond that; the rows are the callers'.
+/// meeting the phone holds, newest first, narrowed by the kind chip pressed. The phone
+/// keeps no rule beyond that; the rows are the callers'.
 /// </summary>
 public static class PhoneInboxList
 {
     public static IReadOnlyList<PhoneInboxRow> Of(
         IEnumerable<PhoneCaptureRow> captures,
         IEnumerable<NoteViewRow> notes,
-        PhoneInboxFilter filter,
-        string? query = null)
+        PhoneInboxFilter filter)
     {
         ArgumentNullException.ThrowIfNull(captures);
         ArgumentNullException.ThrowIfNull(notes);
-
-        var words = (query ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return
         [
             .. captures.Select(PhoneInboxRow.Of)
                 .Concat(notes.Select(PhoneInboxRow.Of))
                 .Where(row => Shows(filter, row.Kind))
-                .Where(row => words.All(word =>
-                    row.Title.Contains(word, StringComparison.CurrentCultureIgnoreCase)
-                    || row.Body.Contains(word, StringComparison.CurrentCultureIgnoreCase)))
                 .OrderByDescending(row => row.At)
         ];
     }

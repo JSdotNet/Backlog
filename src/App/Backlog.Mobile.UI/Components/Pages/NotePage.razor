@@ -56,7 +56,7 @@
     not stop it, the bar is back when the note opens again, and Stop attaches the
     file as "Recording · <duration>" through the note's own outbox path.
 
-    /notes/new?kind=meeting, Meeting in the Inbox's + menu, opens a new meeting
+    /notes/new?kind=meeting, the Inbox's Meeting button, opens a new meeting
     (.devbook/domain/inbox/domain.md#meeting): created at once and recorded into
     straight away. A note recorded into later stays a note.
 *@
@@ -280,7 +280,7 @@ else
     public Guid? Id { get; set; }
 
     /// <summary><c>meeting</c> on <c>/notes/new?kind=meeting</c>, the address of
-    /// Meeting in the Inbox's + menu: the page opens a new meeting with its recording
+    /// the Inbox's Meeting button: the page opens a new meeting with its recording
     /// already running (.devbook/domain/inbox/features.md#meetings).</summary>
     [SupplyParameterFromQuery(Name = "kind")]
     public string? Kind { get; set; }

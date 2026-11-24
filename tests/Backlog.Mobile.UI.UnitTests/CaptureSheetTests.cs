@@ -58,7 +58,7 @@ public sealed class CaptureSheetTests
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
         var app = Open(host, "capture?from=inbox");
 
-        Assert.NotNull(app.Find("[data-testid='capture-behind'] [data-testid='capture-field']"));
+        Assert.NotNull(app.Find("[data-testid='capture-behind'] [data-testid='inbox-new-note']"));
 
         app.Find("[data-testid='capture-sheet-backdrop']").Click();
 

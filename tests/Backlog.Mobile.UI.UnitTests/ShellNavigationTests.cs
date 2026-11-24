@@ -46,7 +46,7 @@ public sealed class ShellNavigationTests
         host.Navigation.NavigateTo(route);
 
         app.WaitForAssertion(() => Assert.Equal("Inbox", app.Find("h1").TextContent));
-        Assert.NotNull(app.Find("[data-testid='capture-field']"));
+        Assert.NotNull(app.Find("[data-testid='inbox-new-note']"));
         Assert.Equal("true", app.Find($"[data-testid='{pressed}']").GetAttribute("aria-pressed"));
         Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
         Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
@@ -62,7 +62,7 @@ public sealed class ShellNavigationTests
         using var host = ShellHost.Paired();
         var app = host.Open();
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-new-note']")));
 
         host.Navigation.NavigateTo("no-such-page");
 
@@ -72,31 +72,6 @@ public sealed class ShellNavigationTests
         var home = Assert.Single(notFound.QuerySelectorAll("a"));
         Assert.Equal("", home.GetAttribute("href"));
         Assert.Equal("Back to Today", home.TextContent.Trim());
-    }
-
-    /// <summary>
-    /// The Router remounts a page on every navigation, so text held in the
-    /// Inbox's own fields would be gone after a look at another tab. This is the
-    /// round trip that used to lose it.
-    /// </summary>
-    [Fact]
-    public void A_draft_typed_in_the_inbox_is_still_there_after_a_trip_to_today_and_back()
-    {
-        using var host = ShellHost.Paired();
-        var app = host.Open();
-
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
-        app.Find("[data-testid='capture-field'] input").Input("Call the plumber about the boiler");
-
-        host.Navigation.NavigateTo("");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-empty']")));
-        Assert.Empty(app.FindAll("[data-testid='capture-field']"));
-
-        host.Navigation.NavigateTo("inbox");
-        app.WaitForAssertion(() => Assert.Equal(
-            "Call the plumber about the boiler",
-            app.Find("[data-testid='capture-field'] input").GetAttribute("value")));
-        Assert.Equal("Add to inbox", app.Find("[data-testid='capture-submit']").GetAttribute("aria-label"));
     }
 
     [Fact]

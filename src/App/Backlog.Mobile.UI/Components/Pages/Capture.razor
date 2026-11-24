@@ -11,6 +11,7 @@
 @inject IAttachmentPicker Picker
 @inject ISpeechTranscriber Speech
 @inject NavigationManager Navigation
+@inject SharedContentCapture SharedCapture
 @implements IAsyncDisposable
 
 @*
@@ -268,9 +269,11 @@
     }
 
     /// <summary>
-    /// Text alone is the quick capture the Inbox's own field sends. With a photo
+    /// Text alone is the phone's quick capture, one outbox entry. With a photo
     /// it is a talk-note entry, which uploads the file before the capture that
-    /// names it — the one outbox kind that carries files to the Inbox.
+    /// names it — the one outbox kind that carries files to the Inbox. Either way
+    /// the person has moved on to a capture of their own, so the Inbox's line
+    /// about the last share has said what it had to and goes.
     /// </summary>
     private async Task SendToInboxAsync(string text, IReadOnlyList<DraftAttachment> photos)
     {
@@ -278,12 +281,15 @@
         {
             var capture = CaptureOutboxKind.Create(text);
             await Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture));
-            return;
+        }
+        else
+        {
+            var draft = new TalkNoteDraft { Title = text };
+            draft.Attachments.AddRange(photos);
+            await Composer.SaveAsync(draft);
         }
 
-        var draft = new TalkNoteDraft { Title = text };
-        draft.Attachments.AddRange(photos);
-        await Composer.SaveAsync(draft);
+        SharedCapture.ClearStatus();
     }
 
     private async Task PhotoAsync()

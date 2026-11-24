@@ -7,7 +7,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// <summary>
 /// The phone Inbox's one list (.devbook/domain/inbox/features.md#notes-on-the-phone):
 /// the captures this phone made beside every note and meeting, newest first, each
-/// with its kind, narrowed by one kind chip and by the words searched for.
+/// with its kind, narrowed by one kind chip.
 /// </summary>
 public sealed class PhoneInboxListTests
 {
@@ -38,14 +38,6 @@ public sealed class PhoneInboxListTests
         var rows = PhoneInboxList.Of([Capture], [Note, Meeting], filter);
 
         Assert.Equal(only, Assert.Single(rows).Title);
-    }
-
-    [Fact]
-    public void A_search_keeps_the_rows_that_hold_every_word_in_their_title_or_body()
-    {
-        var rows = PhoneInboxList.Of([Capture], [Note, Meeting], PhoneInboxFilter.All, "friday SHIP");
-
-        Assert.Equal("Release plan", Assert.Single(rows).Title);
     }
 
     private static NoteViewRow Row(string title, string body, DateTimeOffset at, string? noteKind) =>

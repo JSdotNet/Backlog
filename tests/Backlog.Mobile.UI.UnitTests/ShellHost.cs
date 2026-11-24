@@ -114,6 +114,20 @@ internal sealed class ShellHost : IDisposable
 
     public T Service<T>() where T : notnull => _context.Services.GetRequiredService<T>();
 
+    /// <summary>
+    /// Makes a capture the way the phone's quick capture does — straight into the
+    /// outbox, which keeps it and starts sending it — on <paramref name="app"/>'s
+    /// render thread, so the Inbox redraws from the outbox's change as it would.
+    /// The Inbox itself has no field to type one into.
+    /// </summary>
+    public void Capture(IRenderedComponent<Routes> app, string title)
+    {
+        var capture = CaptureOutboxKind.Create(title);
+
+        app.InvokeAsync(() => Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture)))
+            .GetAwaiter().GetResult();
+    }
+
     public static ShellHost Unpaired(
         Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null,
         ScriptedInboxService? inbox = null) =>

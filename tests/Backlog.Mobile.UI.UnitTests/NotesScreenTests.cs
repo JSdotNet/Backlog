@@ -11,8 +11,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
 /// The notes in the phone Inbox and their editor as a person meets them: every note newest first,
-/// a search that narrows the list on the phone, an empty list that says how to
-/// start one, and an editor that saves on its own a second after typing stops —
+/// an empty list that says how to start one, and an editor that saves on its own a second after typing stops —
 /// saying "Saved", or "Waiting to sync" while the outbox still holds the note.
 /// </summary>
 public sealed class NotesScreenTests
@@ -54,40 +53,7 @@ public sealed class NotesScreenTests
     }
 
     [Fact]
-    public void Search_narrows_the_list_on_title_and_body_and_says_when_nothing_matches()
-    {
-        var tasks = new ScriptedTaskService(
-            Note("Conflict cases from the call", "Last write wins.", Now.AddHours(-1)),
-            Note("Offsite ideas", "Somewhere reachable by train.", Now.AddHours(-2)),
-            Note("Books to read", "A Philosophy of Software Design.", Now.AddHours(-3)));
-        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
-        var app = host.Open("notes");
-        app.WaitForAssertion(() => Assert.Equal(3, app.FindAll("[data-testid='note-row']").Count));
-
-        // A word in one note's body, and a title word in another's, in any case.
-        app.Find("[data-testid='inbox-search'] input").Input("TRAIN");
-        app.WaitForAssertion(() => Assert.Equal(
-            ["Offsite ideas"],
-            app.FindAll("[data-testid='note-row-title']").Select(title => title.TextContent)));
-        Assert.Equal("1 item to sort", app.Find("[data-testid='inbox-count']").TextContent);
-
-        app.Find("[data-testid='inbox-search'] input").Input("books design");
-        app.WaitForAssertion(() => Assert.Equal(
-            ["Books to read"],
-            app.FindAll("[data-testid='note-row-title']").Select(title => title.TextContent)));
-
-        app.Find("[data-testid='inbox-search'] input").Input("roadmap");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-no-match']")));
-        Assert.Empty(app.FindAll("[data-testid='note-row']"));
-        Assert.Contains("“roadmap”", app.Find("[data-testid='inbox-no-match']").TextContent, StringComparison.Ordinal);
-
-        // Searching asks nothing of the service: the two pulls were the page's own and the
-        // one the shell makes for Progress.
-        Assert.Equal(2, tasks.Pulls);
-    }
-
-    [Fact]
-    public void With_no_notes_the_tab_says_how_to_start_one_and_offers_no_search()
+    public void With_no_notes_the_tab_says_how_to_start_one()
     {
         var tasks = new ScriptedTaskService();
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
@@ -98,10 +64,9 @@ public sealed class NotesScreenTests
         app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
         var empty = app.Find("[data-testid='notes-empty']");
         Assert.Contains("No notes yet", empty.TextContent, StringComparison.Ordinal);
-        Assert.Contains("Note in the + menu", empty.TextContent, StringComparison.Ordinal);
-        Assert.Empty(app.FindAll("[data-testid='inbox-search']"));
+        Assert.Contains("Write one with Note above", empty.TextContent, StringComparison.Ordinal);
         Assert.Equal("Nothing to sort", app.Find("[data-testid='inbox-count']").TextContent);
-        Assert.NotNull(app.Find("[data-testid='capture-submit']"));
+        Assert.NotNull(app.Find("[data-testid='inbox-new-note']"));
     }
 
     [Fact]
