@@ -17,9 +17,8 @@ call that carries a grant token is judged by that grant alone, as before.
 ```meta
 ```
 
-Proposed, 2026-11-24, by a flow-spec run. **Not yet built.** It awaits acceptance at
-the Personal Validation gate of that run's pull request; the build then goes through
-flow-code as one entry.
+Accepted, 2026-11-24, by the owner at the Personal Validation gate of the pull request
+that proposed and built it. **Built** in the same pull request, through flow-code.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline".
@@ -118,6 +117,7 @@ The `Origin` check of ADR 0012 §1 runs first, as now. Then:
 
 | The request carries | The Unauthenticated row | The listener |
 | --- | --- | --- |
+| 2026-11-24 | Accepted and built: the store keeps the row in `settings.json` → `mcpServer`, the listener admits a call with no `Authorization` header under it, `tools/list` is filtered and `request_access` refused for that caller, and `inbox:capture` is offerable. | The owner approved the decision and its build at Personal Validation. |
 | No `Authorization` header | holds scopes | Admits it as `unauthenticated` with those scopes |
 | No `Authorization` header | holds none | Answers a bare `401`, as today |
 | A token that is invalid, expired or below its grant's version | either | Answers `401`, as today, so `headersHelper` mints again |
