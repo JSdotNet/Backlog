@@ -208,8 +208,8 @@
       only by Backlog.Desktop and the web harness so the framework reference it pulls
       in never reaches the net11.0-android head.
     -->
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
-    <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.4.0" />
     <!-- And the dependency-injection half between the two: AddMcpServer,
          WithTools and the request filters. Its nuspec declares no framework
          reference of any kind, which is what lets the registration both hosts

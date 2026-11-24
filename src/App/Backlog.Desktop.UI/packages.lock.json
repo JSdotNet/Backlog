@@ -468,7 +468,7 @@
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
-          "ModelContextProtocol.Core": "[2.2.0, )"
+          "ModelContextProtocol.Core": "[2.4.0, )"
         }
       },
       "backlog.infrastructure.sqlite": {
@@ -825,7 +825,7 @@
       },
       "ModelContextProtocol.Core": {
         "type": "CentralTransitive",
-        "requested": "[2.2.0, )",
+        "requested": "[2.4.0, )",
         "resolved": "2.4.0",
         "contentHash": "q98pZMlcxhsh0LpGXcT2ow7sGNveCPhDlJT3zJ7Cz5nNyPmPkm8P57dUIUpzv1w6qWbdSZcR/Z+RbZtNYjEmXQ==",
         "dependencies": {
