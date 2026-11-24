@@ -460,7 +460,7 @@ graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
     Version["Version control\n(update bottom sheet)"]
-    InboxTab["Inbox tab\n(own captures, notes, meetings;\nkind chips, + menu, sync state)"]
+    InboxTab["Inbox tab\n(own captures, notes, meetings;\nkind chips, Note and Meeting buttons, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
     NoteTab["Note editor\n(note or meeting, /notes/{id})"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
@@ -536,7 +536,7 @@ The sheet talks to `IAppUpdateService`, shared with the desktop in `Backlog.UI.C
 
 The tabs are:
 
-- **Inbox:** one list of the phone's own captures the desktop has not decided, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first and searched on the phone. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. The quick one-line field makes a capture; the **+** menu makes a note, or a meeting already recording. An opened capture can be edited or deleted. No row triages; triage stays on the desktop.
+- **Inbox:** one list of the phone's own captures the desktop has not decided, each marked waiting in the outbox or sent, and every note and meeting in `note_view`, newest first. Each row shows its content kind's mark, and chips filter the list to All, Captures, Notes or Meetings. Two buttons, **Note** and **Meeting**, make a note, or a meeting already recording; the Inbox has no text field, and a capture comes from a share, the launcher's Capture shortcut or the Capture sheet. Android Back with a sheet or dialog open closes it before it walks the history. An opened capture can be edited or deleted. No row triages; triage stays on the desktop.
 - **Notifications:** shown after Inbox once the phone holds a notification, as an icon-only tab: the bell shows, and the word is its hidden name. It shows the notifications the paired desktops published, as a list, a detail and a swipe pager. A question is answered there, each answer box dictatable through the speech transcriber. The reply leaves through the outbox as `notification-reply`.
 - **Note editor** (`/notes/new`, `/notes/{id}`) is no tab; an Inbox row opens it. A note or meeting has a title, a dictated Markdown body, and attached pictures and files. It saves a second after typing stops and is sent as outbox kind `note`. While the phone holds a knowledge event, its Event section attaches it to one, sent as outbox kind `event-attachment-request`. `/notes` has no list of its own: it opens the Inbox filtered to notes.
 - **Events:** shown once the phone holds a knowledge event. It lists the upcoming events in `event_view`, soonest first, and opens a detail that edits nothing. A Talk note the phone holds opens from it, and a Brain note shows its title only (local ADR 0050).

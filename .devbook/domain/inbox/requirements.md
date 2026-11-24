@@ -1772,7 +1772,7 @@ The phone SHALL save a note a second after typing stops, with no save button, an
 #### Scenario: A new note
 
 - **Given** the phone Inbox is open
-- **When** the reader picks Note in the + menu, types a title and a body, and stops typing
+- **When** the reader presses Note, types a title and a body, and stops typing
 - **Then** the line at the top reads "Saved"
 
 #### Scenario: The app goes to the background before the second is up
@@ -1836,25 +1836,25 @@ The phone SHALL offer the chips All, Captures, Notes and Meetings above its Inbo
 - **When** the reader presses All
 - **Then** the list shows the capture, the note and the meeting
 
-### Requirement: The + menu makes a note or a meeting
+### Requirement: The Inbox has a Note and a Meeting button
 
 ```meta
 type: requirement
 ```
 
-The phone SHALL have one + in its Inbox, beside the quick one-line field: with the field empty it offers Note and Meeting, and with words in the field it adds them as a capture, as Enter does. Sharing from another app goes on making a capture.
+The phone SHALL offer Note and Meeting in its Inbox as two buttons, with no text field, + or menu: Note opens an empty editor and Meeting a new meeting, and the title is typed there. A capture goes on coming from a share from another app, the launcher's Capture shortcut and Today's capture link.
 
-#### Scenario: The menu
+#### Scenario: The buttons
 
-- **Given** the phone Inbox is open and its quick field is empty
-- **When** the reader presses +
-- **Then** the menu offers Note and Meeting
+- **Given** the phone is paired
+- **When** the reader opens the Inbox tab
+- **Then** the page shows a Note and a Meeting button and no text field
 
-#### Scenario: The one-line field
+#### Scenario: Note opens an empty editor
 
 - **Given** the phone Inbox is open
-- **When** the reader types a line in the quick field and presses + or Enter
-- **Then** the list shows one new capture with its sync state
+- **When** the reader presses Note
+- **Then** the note editor opens at `/notes/new` with an empty title
 
 ### Requirement: The old Notes address opens the Inbox on notes
 
@@ -1889,12 +1889,12 @@ related: [.devbook/domain/inbox/features.md#meetings, .devbook/domain/inbox/doma
 type: requirement
 ```
 
-The phone SHALL open a new item of kind meeting with its recording running when the reader picks Meeting in the Inbox's + menu.
+The phone SHALL open a new item of kind meeting with its recording running when the reader presses Meeting in the Inbox.
 
 #### Scenario: Starting a meeting
 
 - **Given** the phone Inbox is open and the microphone is allowed
-- **When** the reader picks Meeting in the + menu
+- **When** the reader presses Meeting
 - **Then** the editor opens with the recording bar running
 - **And** the phone Inbox lists the item marked Meeting
 

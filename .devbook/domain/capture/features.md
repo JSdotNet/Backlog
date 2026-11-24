@@ -44,7 +44,7 @@ prompt and the one save button follow the choice:
 
 | Destination | Save button | Line after a save | Dictation and photos | What a save creates |
 | --- | --- | --- | --- | --- |
-| **Inbox** (the default) | `Add to inbox` | `Added to inbox — capture another` | both | An ordinary capture, the same one the Inbox tab's own field sends. |
+| **Inbox** (the default) | `Add to inbox` | `Added to inbox — capture another` | both | An ordinary capture, the same one a share from another app sends. |
 | **Note** | `Save note` | `Note saved — capture another` | both | A note the phone keeps and edits (see [Notes on the phone](../inbox/features.md#notes-on-the-phone)). |
 | **Today** | `Add to today` | `Added to today — capture another` | text only | A task picked for today, as My Day's add does (see [My Day](../tasks/features.md#my-day)). |
 
