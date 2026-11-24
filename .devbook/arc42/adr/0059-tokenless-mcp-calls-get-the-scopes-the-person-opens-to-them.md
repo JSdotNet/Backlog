@@ -117,7 +117,6 @@ The `Origin` check of ADR 0012 §1 runs first, as now. Then:
 
 | The request carries | The Unauthenticated row | The listener |
 | --- | --- | --- |
-| 2026-11-24 | Accepted and built: the store keeps the row in `settings.json` → `mcpServer`, the listener admits a call with no `Authorization` header under it, `tools/list` is filtered and `request_access` refused for that caller, and `inbox:capture` is offerable. | The owner approved the decision and its build at Personal Validation. |
 | No `Authorization` header | holds scopes | Admits it as `unauthenticated` with those scopes |
 | No `Authorization` header | holds none | Answers a bare `401`, as today |
 | A token that is invalid, expired or below its grant's version | either | Answers `401`, as today, so `headersHelper` mints again |
@@ -200,4 +199,5 @@ leaves the row as it was. Switching a scope off asks nothing.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | Accepted and built: the store keeps the row in `settings.json` → `mcpServer`, the listener admits a call with no `Authorization` header under it, `tools/list` is filtered and `request_access` refused for that caller, and `inbox:capture` is offerable. | The owner approved the decision and its build at Personal Validation. |
 | 2026-11-24 | Proposed: a built-in Unauthenticated row on the Agents card, empty by default and widened only with Windows Hello, gives tokenless loopback calls the scopes the person opens; a bad token stays a `401` and a grant token keeps its own scopes. Amends ADR 0058 §3, §4 and §6. It replaced this record's OAuth draft at Personal Validation. | Claude Code in the Claude desktop app skips the `headersHelper` and falls back to OAuth after a `401`, so no desktop-app session could reach Backlog. |
