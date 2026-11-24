@@ -138,4 +138,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0057 — Archify is retired, and Mermaid draws every chapter diagram](adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md) (proposed; supersedes ADR 0034)
 - [ADR 0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md) (proposed)
 - [ADR 0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md) (proposed)
-- [ADR 0061 — The Events map uses online tiles and geocodes an address on save](adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md) (proposed)
+- [ADR 0061 — The Events map uses online tiles and geocodes an address on save](adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md) (accepted)

@@ -18,7 +18,8 @@ of a saved venue, and the tile coordinates of the part of the world on screen.
 ```meta
 ```
 
-Proposed, 2026-11-24, by the flow-spec run that specifies the Events map. The
+Accepted, 2026-11-25, by the person at the flow-spec run's Personal Validation;
+proposed 2026-11-24 by that run. The
 domain chapters of the same run add the [Address](../../domain/events/domain.md#address)
 and the [Map Point](../../domain/events/domain.md#map-point) to a
 [Place](../../domain/events/domain.md#place) and link here for why the address leaves
@@ -322,4 +323,5 @@ Negative, and accepted:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | Accepted. | The person approved the spec at Personal Validation. |
 | 2026-11-24 | Proposed: Azure Maps on the EU endpoint serves the Events map's tiles and geocodes an in-person event's address once on save, with Leaflet vendored and the key sealed on the desktop. | The person chose a street map with online tiles and addresses over an offline outline. |
