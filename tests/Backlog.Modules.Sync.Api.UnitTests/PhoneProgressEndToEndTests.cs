@@ -95,7 +95,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         var goal = await devices.Desktop.Goals(goals => goals.CreateAsync(new SetGoalRequest("Merge without opening GitHub", null, Due), Cancellation));
         await devices.Desktop.Goals(goals => goals.AttachAsync(goal.Id, GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1364), cancellationToken: Cancellation));
         var impediment = await devices.Desktop.Impediments(impediments => impediments.RaiseAsync(new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
-        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.SyncAsync()).Value);
 
         await devices.Phone.PullAsync(Cancellation);
 
@@ -124,7 +124,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
     {
         await using var devices = await PairedAsync();
         var impediment = await devices.Desktop.Impediments(impediments => impediments.RaiseAsync(new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
-        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.SyncAsync()).Value);
         await devices.Phone.PullAsync(Cancellation);
         await Task.Delay(20, Cancellation);
 
@@ -135,7 +135,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         await devices.Outbox.FlushAsync(Cancellation);
         Assert.Empty(devices.Outbox.Entries);
 
-        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.SyncAsync()).Value);
 
         var onDesktop = await devices.Desktop.Impediments(impediments => impediments.GetAsync(impediment.Id, Cancellation));
         Assert.Equal(ImpedimentState.Reported, onDesktop.State);
@@ -157,7 +157,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         Assert.All(edits, edit => Assert.NotNull(edit.DeletedAt));
 
         var history = onDesktop.History.Count;
-        Assert.True((await devices.Desktop.ReplayAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.ReplayAsync()).Value);
         Assert.Equal(history, (await devices.Desktop.Impediments(impediments => impediments.GetAsync(impediment.Id, Cancellation))).History.Count);
     }
 
@@ -169,7 +169,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
     {
         await using var devices = await PairedAsync();
         var impediment = await devices.Desktop.Impediments(impediments => impediments.RaiseAsync(new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
-        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.SyncAsync()).Value);
         await devices.Phone.PullAsync(Cancellation);
         await Task.Delay(20, Cancellation);
 
@@ -183,7 +183,7 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         Assert.Equal(ImpedimentState.Reported, second!.WasState);
         await devices.Outbox.FlushAsync(Cancellation);
 
-        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await devices.Desktop.SyncAsync()).Value);
 
         var onDesktop = await devices.Desktop.Impediments(impediments => impediments.GetAsync(impediment.Id, Cancellation));
         Assert.Equal(ImpedimentState.Escalated, onDesktop.State);
@@ -279,17 +279,13 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         public async Task<T> Goals<T>(Func<IGoals, Task<Result<T>>> use)
         {
             using var scope = _provider.CreateScope();
-            var result = await use(scope.ServiceProvider.GetRequiredService<IGoals>());
-            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-            return result.Value;
+            return Assert.IsType<Ok<T>>((await use(scope.ServiceProvider.GetRequiredService<IGoals>())).Value).Value;
         }
 
         public async Task<T> Impediments<T>(Func<IImpediments, Task<Result<T>>> use)
         {
             using var scope = _provider.CreateScope();
-            var result = await use(scope.ServiceProvider.GetRequiredService<IImpediments>());
-            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-            return result.Value;
+            return Assert.IsType<Ok<T>>((await use(scope.ServiceProvider.GetRequiredService<IImpediments>())).Value).Value;
         }
 
         public Task<Result<TaskSyncSummary>> SyncAsync() => Session.SyncAsync(Cancellation);

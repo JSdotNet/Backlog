@@ -2,6 +2,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Events.Extensions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,7 +49,7 @@ public sealed class KnowledgeEventChangedTests : IDisposable
         var added = await Pane.AddAsync("Techorama 2026", cancellationToken: Cancellation);
         Assert.Equal(1, Raised);
 
-        await Pane.RenameAsync(added.Value.Id, "Techorama Netherlands 2026", Cancellation);
+        await Pane.RenameAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, "Techorama Netherlands 2026", Cancellation);
         Assert.Equal(2, Raised);
 
         await Pane.StartSeriesAsync("Techorama", cancellationToken: Cancellation);
@@ -60,9 +61,9 @@ public sealed class KnowledgeEventChangedTests : IDisposable
     {
         var added = await Pane.AddAsync("Techorama 2026", cancellationToken: Cancellation);
 
-        var refused = await Pane.RenameAsync(added.Value.Id, "  ", Cancellation);
+        var refused = await Pane.RenameAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, "  ", Cancellation);
 
-        Assert.True(refused.IsFailure);
+        Assert.IsType<Error>(refused.Value);
         Assert.Equal(1, Raised);
     }
 
@@ -73,10 +74,10 @@ public sealed class KnowledgeEventChangedTests : IDisposable
     {
         var added = await Pane.AddAsync("Techorama 2026", cancellationToken: Cancellation);
 
-        Assert.True((await Pane.RemoveAsync(added.Value.Id, Cancellation)).IsSuccess);
+        Assert.IsType<Ok>((await Pane.RemoveAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, Cancellation)).Value);
         Assert.Equal(2, Raised);
 
-        Assert.True((await Pane.RemoveAsync(added.Value.Id, Cancellation)).IsFailure);
+        Assert.IsType<Error>((await Pane.RemoveAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, Cancellation)).Value);
         Assert.Equal(2, Raised);
     }
 
@@ -96,7 +97,7 @@ public sealed class KnowledgeEventChangedTests : IDisposable
     {
         var added = await Pane.AddAsync("Techorama 2026", cancellationToken: Cancellation);
         var requests = _provider.GetRequiredService<IEventAttachmentRequests>();
-        var request = new EventAttachmentRequestDto(Guid.NewGuid(), added.Value.Id, Guid.NewGuid(), "Keynote");
+        var request = new EventAttachmentRequestDto(Guid.NewGuid(), Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, Guid.NewGuid(), "Keynote");
 
         Assert.Equal(EventAttachmentOutcome.Attached, await requests.ApplyAsync(request, Cancellation));
         Assert.Equal(2, Raised);

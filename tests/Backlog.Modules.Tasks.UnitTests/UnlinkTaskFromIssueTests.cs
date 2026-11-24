@@ -1,6 +1,8 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -25,10 +27,10 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(store)
             .Handle(new UnlinkTaskFromIssueCommand(entry.Id, "JSdotNet/Backlog", "655", "pull-request"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
         Assert.Equal(
             [("abc", "session"), ("656", "pull-request")],
-            result.Value.Projections.Select(p => (p.ExternalId, p.TargetType)));
+            ok.Value.Projections.Select(p => (p.ExternalId, p.TargetType)));
     }
 
     /// <summary>A session's id and a repository are compared without regard to case,
@@ -45,9 +47,9 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(store)
             .Handle(new UnlinkTaskFromIssueCommand(entry.Id, "jsdotnet/backlog", "ABC", "session"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Projections);
-        Assert.Equal(["JSdotNet/Backlog"], result.Value.RepoIds!);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Empty(ok.Value.Projections);
+        Assert.Equal(["JSdotNet/Backlog"], ok.Value.RepoIds!);
     }
 
     /// <summary>A pull request numbered the same in another repository is another
@@ -63,8 +65,8 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(store)
             .Handle(new UnlinkTaskFromIssueCommand(entry.Id, "JSdotNet/Docs", "655", "pull-request"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.Value.Projections);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Single(ok.Value.Projections);
     }
 
     [Fact]
@@ -73,8 +75,8 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(new InMemoryTaskRepository())
             .Handle(new UnlinkTaskFromIssueCommand(Guid.NewGuid(), "JSdotNet/Backlog", "655", "pull-request"), TestContext.Current.CancellationToken);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnlinkTaskFromIssueCommandHandler.NotFound, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(UnlinkTaskFromIssueCommandHandler.NotFound, error);
     }
 
     /// <summary>A session is one link whatever repository it was recorded under, the
@@ -91,8 +93,8 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(store)
             .Handle(new UnlinkTaskFromIssueCommand(entry.Id, "JSdotNet/Backlog", "abc", "session"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Projections);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Empty(ok.Value.Projections);
     }
 
     /// <summary>Nothing to remove is not an edit: the entry keeps its stamp, so an
@@ -109,8 +111,8 @@ public class UnlinkTaskFromIssueTests
         var result = await new UnlinkTaskFromIssueCommandHandler(store)
             .Handle(new UnlinkTaskFromIssueCommand(entry.Id, "JSdotNet/Backlog", "999", "pull-request"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.Value.Projections);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Single(ok.Value.Projections);
         Assert.Equal(before, (await store.GetAsync(entry.Id, TestContext.Current.CancellationToken))!.UpdatedAt);
     }
 }

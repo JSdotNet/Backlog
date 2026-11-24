@@ -192,9 +192,14 @@
         if (!string.Equals(_activeParameter, ActiveUnit, StringComparison.Ordinal))
         {
             _activeParameter = ActiveUnit;
-            _active = ActiveUnit;
+            _active = UnitKeyOf(ActiveUnit);
             asked = true;
         }
+
+        // A rule asked for with no unit — a reference into an invariants file,
+        // which has no page of its own — opens the unit whose Always true lists it.
+        var ruleAsked = !string.Equals(_ruleParameter, ActiveRule, StringComparison.Ordinal);
+        if (ruleAsked && ActiveUnit is null && UnitListing(ActiveRule) is { } listing) _active = listing;
 
         if (!string.Equals(_unitPageParameter, ActiveUnitPage, StringComparison.Ordinal))
         {
@@ -207,7 +212,7 @@
         if (asked && ActiveUnitPage is { } page && OpenUnit is { Kind: DomainUnitKind.Aggregate } open)
             _pageOf[open.Key] = $"{TabId(open)}-{page}";
 
-        if (!string.Equals(_ruleParameter, ActiveRule, StringComparison.Ordinal))
+        if (ruleAsked)
         {
             _ruleParameter = ActiveRule;
             if (OpenUnit is { } focused) _focusOf[focused.Key] = ActiveRule;
@@ -230,6 +235,25 @@
             : null;
 
     private static string TabId(DomainUnit unit) => $"domain-unit-{unit.Key}";
+
+    /// <summary>The unit an anchor of this file names: the unit's own, or the unit
+    /// holding the chapter it names — an aggregate's entity opens its aggregate.
+    /// An anchor naming neither is kept as asked, which opens the first unit.</summary>
+    private string? UnitKeyOf(string? anchor) =>
+        anchor is null || _units.Any(unit => string.Equals(unit.Key, anchor, StringComparison.Ordinal))
+            ? anchor
+            : _units.FirstOrDefault(unit => unit.Chapter.Descendants().Any(chapter => chapter.Anchor == anchor))?.Key ?? anchor;
+
+    /// <summary>The unit of this file whose Always true lists the rule, or the
+    /// written group of rules, <paramref name="rule"/> names; null for none.</summary>
+    private string? UnitListing(string? rule)
+    {
+        if (string.IsNullOrWhiteSpace(rule)) return null;
+        var file = DomainUnits.Normalize(File.Path);
+        return Catalog.About(rule)
+            .Select(listed => listed.Place)
+            .FirstOrDefault(place => place is not null && DomainUnits.Normalize(place.DocumentPath) == file)?.UnitKey;
+    }
 
     // The unit the page shows: the one picked, else the first.
     private DomainUnit? OpenUnit =>

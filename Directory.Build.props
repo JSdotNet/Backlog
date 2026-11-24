@@ -9,7 +9,7 @@
     Package versions are not here — they live in Directory.Packages.props.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -17,14 +17,17 @@
 
   <PropertyGroup>
     <!--
-      The warning policy. The rule severities live in the root .editorconfig;
-      these switch the analyzers on and make the build report them. The build
-      is kept at zero warnings, and the pull request workflow passes
-      TreatWarningsAsErrors so it stays there — set on the command line rather
-      than here, so a half-finished local edit still builds and runs.
+      The warning policy (org ADR 0001). The rule severities live in the root
+      .editorconfig; these switch the analyzers on and make the build report
+      them. TreatWarningsAsErrors is on in every configuration and on every
+      machine, not only in the pull request workflow: a warning a local build
+      lets through is one the pull request then fails on, after the work is
+      done. Aspire's analyzers are part of it, so an obsolete Aspire API fails
+      the build too.
     -->
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
 
     <!--
@@ -45,6 +48,17 @@
     -->
     <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
     <NoWarn>$(NoWarn);CS8524</NoWarn>
+
+    <!--
+      Blazor analyzers new in .NET 11, held back by the .NET 11 move so that a
+      framework upgrade changes no component behaviour. BL0012 (a StateHasChanged
+      the analyzer thinks redundant) and BL0016 (JS interop outside a try/catch)
+      each need a per-call judgement - a mid-method StateHasChanged can be what
+      paints a busy state - so they come back in their own change, which reviews
+      every site. Set here rather than in .editorconfig because the Razor source
+      generator's trees match none of its globs.
+    -->
+    <NoWarn>$(NoWarn);BL0012;BL0016</NoWarn>
   </PropertyGroup>
 
   <!-- On a runner only: it maps the source paths in the PDBs, which a debugger
@@ -84,7 +98,7 @@
     <!-- The MAUI heads and Microsoft.Maui.Core in ServiceDefaults must move in
          lockstep, so the workload version is a property rather than three
          separately maintained package versions. -->
-    <MauiVersion>10.0.110</MauiVersion>
+    <MauiVersion>11.0.10</MauiVersion>
   </PropertyGroup>
 
 </Project>

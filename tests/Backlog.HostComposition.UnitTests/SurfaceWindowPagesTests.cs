@@ -472,7 +472,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     /// windows — each its own scope of the desktop container.
     /// <para>
     /// Skipped where no Playwright Chromium is installed, which is CI; run
-    /// <c>pwsh tests/Backlog.EndToEndTests/bin/Debug/net10.0/playwright.ps1 install chromium</c>
+    /// <c>pwsh tests/Backlog.EndToEndTests/bin/Debug/net11.0/playwright.ps1 install chromium</c>
     /// to have it run.
     /// </para>
     /// </summary>

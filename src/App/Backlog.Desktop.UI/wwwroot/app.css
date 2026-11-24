@@ -2198,8 +2198,7 @@ h1, h2, h3 {
 /* --- Small icon actions -------------------------------------------------- */
 /*
   Pushing and re-checking are actions, not metadata, so they read as controls
-  sitting among the badges rather than as badges themselves. Shared with the
-  domain Devbook panel, which carries the same classes for the same reason.
+  sitting among the badges rather than as badges themselves.
 */
 .entry-doc__actions {
     display: inline-flex;
@@ -7366,6 +7365,19 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-sm);
 }
 
+/* Unit view | As written, above the page, and in As written the chips naming the
+   page's files: each a fused group of the library's toggle buttons, set apart
+   from what follows by the page's own rhythm. */
+.domain-view__modes,
+.domain-view__written-files {
+    margin-bottom: var(--spacing-md);
+}
+
+.domain-view__written {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
 .devbook-concerns,
 .devbook-items,
 .devbook-subitems,
@@ -9075,7 +9087,6 @@ a.pull-request-detail-checks__name:hover {
 
 .devbook-stack__nav,
 .folder-devbook__nav,
-.domain-devbook__contexts,
 .devbook-chapters {
     display: flex;
     flex-wrap: wrap;
@@ -9474,16 +9485,6 @@ a.pull-request-detail-checks__name:hover {
     font-weight: 600;
 }
 
-/* The way across from a domain chapter to the architecture model. A row of links
-   under the file rather than a nav of cards: the domain pane is narrow, and this is
-   one or two entries, not a list to choose from. */
-.domain-c4-views {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-sm);
-}
-
 /* What the reader could not be shown. Small and plain: it is a footnote under a
    picture that rendered, not an error that stopped one. */
 .devbook-problems {
@@ -9500,7 +9501,6 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__nav a,
 .devbook-stack__nav-item,
 .folder-devbook__nav-link,
-.domain-context-tab,
 .devbook-chapter {
     display: inline-flex;
     align-items: center;
@@ -9524,9 +9524,6 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__nav-item--active,
 .folder-devbook__nav-link:hover,
 .folder-devbook__nav-link:focus-visible,
-.domain-context-tab:hover,
-.domain-context-tab:focus-visible,
-.domain-context-tab[aria-pressed="true"],
 .devbook-chapter:hover,
 .devbook-chapter:focus-visible {
     border-color: var(--color-primary);
@@ -9545,24 +9542,6 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__section > .devbook-pane--arc42,
 .devbook-stack__section > .instructions-devbook,
 .devbook-stack__section > .folder-devbook--chapter {
-    display: flex;
-    flex-direction: column;
-    max-height: 100%;
-    min-height: 0;
-    overflow: hidden;
-}
-
-/* The domain panel used to sit in the three lists above, and two of them
-   disagreed: one said `max-height: none; overflow: visible`, the last the
-   opposite. The last had always won, so the panel clips at the section's height
-   and its document scrolls inside it. */
-.devbook-stack__section > .domain-devbook {
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
-    box-shadow: var(--shadow-md);
-    position: static;
-    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
     max-height: 100%;
@@ -10185,9 +10164,7 @@ a.pull-request-detail-checks__name:hover {
     overflow: hidden;
 }
 
-.devbook-stack__section > .devbook-pane--arc42 .devbook-document,
-.devbook-stack__section > .domain-devbook > .domain-context,
-.devbook-stack__section > .domain-devbook > .domain-document {
+.devbook-stack__section > .devbook-pane--arc42 .devbook-document {
     flex: 1 1 auto;
     max-height: 100%;
     min-height: 0;
@@ -10312,7 +10289,7 @@ a.pull-request-detail-checks__name:hover {
 
    Later in the stylesheet than the step it answers, and deliberately: a media
    query adds no specificity, and the rules above are no less specific than these.
-   Same reason the arc42 and domain rules sit where they do. */
+   Same reason the arc42 rules sit where they do. */
 @media (max-width: 72rem) {
     .devbook-stack__section > .instructions-devbook,
     .instructions-devbook__repository {
@@ -10525,10 +10502,6 @@ a.pull-request-detail-checks__name:hover {
 .folder-devbook__documents,
 .folder-document,
 .folder-section,
-.domain-devbook,
-.domain-context,
-.domain-context__documents,
-.domain-document,
 .devbook-document,
 .arc42-devbook-layout,
 .tech-devbook-pane {
@@ -10568,10 +10541,7 @@ a.pull-request-detail-checks__name:hover {
     overflow-wrap: anywhere;
 }
 
-.folder-section__header,
-.domain-context__header,
-.domain-document__header,
-.domain-section__header {
+.folder-section__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -10590,41 +10560,15 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-2xs);
 }
 
-/* The domain document header gave its title and path to the file view that now
-   shows the chapter, so for a selected chapter it is left holding only its
-   controls — and space-between pins a lone child to the start, which would have
-   walked every state control in the Devbook panes from the right edge to the
-   left. They stay where the reader has always found them. A header that still
-   names its document has two children and is untouched.
-
-   Domain is the last one that needs this. The folder view's header renders only
-   when it names the file, so it never has a lone child; and the arc42 pane no
-   longer has a document header at all, having given the state and the relation
-   count to the file view along with everything else it used to draw above it. */
-.domain-document__header > :only-child {
-    margin-left: auto;
-}
-
 /* A heading handed to a knowledge record arrives with the block margins it has
    as a block of its own, and left alone they push the status off the line the
    record exists to share. The shared stylesheet resets the markdown heading the
    file view hands over; these are the folder view's own `h3` and `h4`. */
 .folder-document__header h3,
 .folder-section__header h4,
-.folder-section__record h4,
-.domain-context__header h3,
-.domain-document__header h3,
-.domain-section__header h4 {
+.folder-section__record h4 {
     margin: 0;
 }
-.domain-devbook__actions {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--spacing-xs);
-}
-
 
 .devbook-status-control {
     display: inline-flex;
@@ -10653,86 +10597,11 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: 2px;
 }
 
-/* The strip and its chips. Both rules existed until a tech-knowledge commit
-   deleted them alongside the block it was replacing, and without them the strip
-   is a run of inline spans with no separator: two relation paths in one row read
-   as one path twice as long, which is how it was reported. The gap is the whole
-   fix — the outer gap keeps the chips apart, the inner one keeps a chip's label
-   apart from its values, and a chip that pins two relations keeps them apart
-   too. */
-.domain-metadata {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.domain-metadata__item {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    max-width: 100%;
-    padding: 1px var(--spacing-xs);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    /* A relation is a path, and a path has no spaces to break at. Without this
-       a long one widens the strip past the pane instead of wrapping. */
-    overflow-wrap: anywhere;
-}
-
-.domain-metadata__item strong {
-    color: var(--color-primary);
-}
-
-/* An `ext.<plugin>.<key>` field: carried through untouched and owned by a
-   plugin, not the schema. Still a chip — opaque is not absent — but dashed, so it
-   does not read as one of the convention's own fields. */
-.domain-metadata__item--extension {
-    background: transparent;
-    outline: 1px dashed var(--color-border);
-    outline-offset: -1px;
-}
-
-/* A chapter's decision and review state, beside its status: "approved by X ·
-   date", "review: requested · reviewer Y". Quiet text rather than a badge,
-   because the badge beside it is already the state; this is who and when. */
-.domain-devbook__decision {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.domain-metadata__link {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    color: var(--color-primary-light);
-    cursor: pointer;
-    font: inherit;
-    padding: 0;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-}
-
-.domain-metadata__link:hover,
-.domain-metadata__link:focus-visible {
-    color: var(--color-primary);
-}
-
-/* Bare error text, with no error surface behind it to carry the meaning, so the
-   colour is the only thing saying this failed. That is the case color-error-text
-   exists for, and the gap the comment here used to describe. */
-.domain-devbook__action-error {
-    color: var(--color-error-text);
-    font-size: var(--font-size-xs);
-}
-
 /* .devbook-document__path was here until the architecture panel handed the
    chapter's path to the file view's own header, which sets it as a path rather
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
-.folder-document__file,
-.domain-devbook__eyebrow {
+.folder-document__file {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
     font-size: var(--font-size-xs);
@@ -10745,11 +10614,6 @@ a.pull-request-detail-checks__name:hover {
    design pane stopped introducing itself: the first printed an absolute folder
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
-.domain-devbook__state,
-.domain-document__summary {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
 
 .design-token-strip {
     display: grid;
@@ -10762,41 +10626,11 @@ a.pull-request-detail-checks__name:hover {
    container the Devbook stack sizes and the anchor the Devbook menu jumps to
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
-.folder-section,
-.domain-document {
+.folder-section {
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background);
-}
-
-/* The same withdrawal, per document rather than per class: a domain article is a
-   card for every file it lists and stops being one for the single file it shows
-   through the file view. Padding goes too, not only the edge — a frame's inset
-   without its border is a gap nothing explains, and the pane around this already
-   holds the content off its own edge. */
-.domain-document--chapter {
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-}
-
-/* The context map is the one document in this folder that is about the folder:
-   every other file describes a bounded context, and this one describes how they
-   stand to each other. Shouting its title is how the pane says so without a
-   badge or an eyebrow claiming the room a title already has.
-
-   Done in the stylesheet and never in the DOM. The file is called "Context Map:
-   Backlog" and that is what a screen reader must read, what a copy takes away,
-   and what the heading the Devbook menu matches on still says — text-transform
-   changes the drawing and leaves all three alone. Uppercase loses the shapes a
-   reader tracks words by, so the letter-spacing goes back some of what the caps
-   took. */
-.domain-document--context-map .file-view__name,
-.domain-document--context-map .file-view__body .md-heading--1 {
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
 }
 
 .design-token__name,

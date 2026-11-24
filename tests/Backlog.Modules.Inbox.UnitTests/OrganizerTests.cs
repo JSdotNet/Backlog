@@ -1,3 +1,4 @@
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
@@ -8,6 +9,7 @@ using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.UngroupLists;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -71,7 +73,7 @@ public sealed class OrganizerTests
         var result = await new DeleteListCommandHandler(store, store)
             .Handle(new DeleteListCommand(list.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.DoesNotContain(list.Id, store.Lists.Keys);
         Assert.Null(filed.ListId);
         Assert.Equal(other.Id, elsewhere.ListId);
@@ -91,7 +93,7 @@ public sealed class OrganizerTests
         var result = await new UngroupListsCommandHandler(store)
             .Handle(new UngroupListsCommand(group.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Empty(store.Groups);
         Assert.Null(inside.GroupId);
         Assert.Equal(1, inside.Order);
@@ -106,7 +108,7 @@ public sealed class OrganizerTests
         var create = await new CreateListCommandHandler(store, Clock)
             .Handle(new CreateListCommand(" resources "), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.list.duplicate_name", create.Error.Code);
+        Assert.Equal("inbox.list.duplicate_name", Assert.IsType<Error>(create.Value).Code);
         Assert.Single(store.Lists);
 
         // The same name inside a group is a different place, and allowed.
@@ -116,8 +118,8 @@ public sealed class OrganizerTests
         var inGroup = await new CreateListCommandHandler(store, Clock)
             .Handle(new CreateListCommand("Resources", group.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(inGroup.IsSuccess);
-        Assert.Equal(group.Id, inGroup.Value.GroupId);
+        var inGroupOk = Assert.IsType<Ok<InboxListDto>>(inGroup.Value);
+        Assert.Equal(group.Id, inGroupOk.Value.GroupId);
     }
 
     [Fact]
@@ -132,9 +134,9 @@ public sealed class OrganizerTests
         var blank = await new RenameListCommandHandler(store)
             .Handle(new RenameListCommand(list.Id, "   "), TestContext.Current.CancellationToken);
 
-        Assert.True(trimmed.IsSuccess);
+        Assert.IsType<Ok>(trimmed.Value);
         Assert.Equal("Reading", list.Name);
-        Assert.Equal("inbox.list.needs_name", blank.Error.Code);
+        Assert.Equal("inbox.list.needs_name", Assert.IsType<Error>(blank.Value).Code);
         Assert.Equal("Reading", list.Name);
     }
 
@@ -149,13 +151,14 @@ public sealed class OrganizerTests
             .Handle(new CreateGroupCommand("Projects"), TestContext.Current.CancellationToken);
         var duplicate = await new CreateGroupCommandHandler(store, Clock)
             .Handle(new CreateGroupCommand("areas"), TestContext.Current.CancellationToken);
+        var secondOk = Assert.IsType<Ok<InboxGroupDto>>(second.Value);
         var collide = await new RenameGroupCommandHandler(store)
-            .Handle(new RenameGroupCommand(second.Value.Id, "AREAS"), TestContext.Current.CancellationToken);
+            .Handle(new RenameGroupCommand(secondOk.Value.Id, "AREAS"), TestContext.Current.CancellationToken);
 
-        Assert.True(first.IsSuccess);
-        Assert.Equal(1, second.Value.Order);
-        Assert.Equal("inbox.group.duplicate_name", duplicate.Error.Code);
-        Assert.Equal("inbox.group.duplicate_name", collide.Error.Code);
+        Assert.IsType<Ok<InboxGroupDto>>(first.Value);
+        Assert.Equal(1, secondOk.Value.Order);
+        Assert.Equal("inbox.group.duplicate_name", Assert.IsType<Error>(duplicate.Value).Code);
+        Assert.Equal("inbox.group.duplicate_name", Assert.IsType<Error>(collide.Value).Code);
     }
 
     [Fact]
@@ -171,7 +174,7 @@ public sealed class OrganizerTests
         var result = await new MoveListToGroupCommandHandler(store)
             .Handle(new MoveListToGroupCommand(moving.Id, group.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(group.Id, moving.GroupId);
         Assert.Equal(4, moving.Order);
     }
@@ -186,7 +189,7 @@ public sealed class OrganizerTests
         var result = await new MoveToListCommandHandler(store, store)
             .Handle(new MoveToListCommand(item.Id, Guid.CreateVersion7()), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.list.not_found", result.Error.Code);
+        Assert.Equal("inbox.list.not_found", Assert.IsType<Error>(result.Value).Code);
         Assert.Null(item.ListId);
     }
 }

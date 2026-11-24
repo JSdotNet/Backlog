@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Claude.UnitTests;
 /// </summary>
 public class ClaudeUsageClientTests
 {
-    private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    private static JsonElement Parse(string json) => JsonElement.Parse(json).Clone();
 
     /// <summary>The last <paramref name="days"/> days ending now.</summary>
     private static ClaudeUsageWindow LastDays(int days)

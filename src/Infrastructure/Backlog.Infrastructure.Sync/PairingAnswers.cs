@@ -1,5 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,18 +68,18 @@ public sealed class PairingAnswers : INotificationAnswerHandler
             var roster = _roster() ?? throw new InvalidOperationException("No sync client is composed to revoke the refused device with.");
             var revoked = await roster.RefuseDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
 
-            if (revoked.IsFailure && IsUnconfirmed(revoked.Error.Code))
+            if (revoked is Error unconfirmed && IsUnconfirmed(unconfirmed.Code))
             {
                 _logger.LogInformation(
                     "The refusal of the device that redeemed pairing {Pairing} was not confirmed ({Code}); it stays paired.",
                     pairingId,
-                    revoked.Error.Code);
+                    unconfirmed.Code);
 
-                await _pairings.NotRefusedAsync(pairingId, deviceId, revoked.Error.Code, revoked.Error.Message).ConfigureAwait(false);
+                await _pairings.NotRefusedAsync(pairingId, deviceId, unconfirmed.Code, unconfirmed.Message).ConfigureAwait(false);
             }
-            else if (revoked.IsFailure && revoked.Error.Code != SyncErrorCodes.DeviceNotFound)
+            else if (revoked is Error error && error.Code != SyncErrorCodes.DeviceNotFound)
             {
-                throw new InvalidOperationException($"The refused device {deviceId:D} was not revoked: {revoked.Error.Message}");
+                throw new InvalidOperationException($"The refused device {deviceId:D} was not revoked: {error.Message}");
             }
             else
             {

@@ -189,7 +189,7 @@ The packaging and release format for the Android client.
 - **Why** — the app is installed by sideloading rather than through Google
   Play. It requires an `.apk`, not an `.aab`, because only the Play Store can
   consume `.aab` bundles.
-- **How** — `dotnet publish` targets `net10.0-android` with
+- **How** — `dotnet publish` targets `net11.0-android` with
   `AndroidPackageFormat=apk`. `ApplicationDisplayVersion` is the semantic
   version. `ApplicationVersion` is a packed integer `versionCode`
   (`major*10^7 + minor*10^5 + patch`), so `0.1.123` packs to `100123` and a

@@ -28,9 +28,9 @@ public sealed class GoalChanges(IGoalRepository repository, ProgressGate gate, G
         if (goal is null) return ProgressErrors.GoalNotFound(goalId);
 
         var changed = change(all, goal);
-        if (changed.IsFailure) return changed.Error;
+        if (changed is not Ok<IReadOnlyList<Goal>>(var others)) return (Error)changed.Value!;
 
-        foreach (var other in changed.Value.Where(other => other.Id != goal.Id))
+        foreach (var other in others.Where(other => other.Id != goal.Id))
         {
             await repository.SaveAsync(other, cancellationToken).ConfigureAwait(false);
         }

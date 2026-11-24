@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -27,9 +28,9 @@ public sealed class PinItemEndCommandHandler(IRoadmapPlanRepository plans, Roadm
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var pinned = plan.PinEnd(command.ItemId, command.End);
-        if (pinned.IsFailure) return Result.Failure<RoadmapItemDto>(pinned.Error);
+        if (pinned is not Ok<RoadmapItem>(var item)) return (Error)pinned.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(pinned.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 
 using Bunit;
 
@@ -24,7 +25,7 @@ public sealed class RoadmapBandReloadTests : RoadmapBandHarness
         // task-level import with no `plan` entry touches only Tasks.
         var imported = await TasksTestHost.EntriesFor(Settings)
             .ImportPlanAsync("# Later\n`prompt` `+later` `effort:2`\n", cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-shelf\"]"));
 
         WorkChanges.Raise();

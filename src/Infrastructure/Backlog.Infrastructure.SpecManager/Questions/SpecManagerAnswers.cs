@@ -4,6 +4,7 @@ using System.Net;
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -286,9 +287,9 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
                 try
                 {
                     var published = await notifications.PublishAsync(alert, CancellationToken.None).ConfigureAwait(false);
-                    if (published.IsFailure)
+                    if (published is Error error)
                     {
-                        _log.LogWarning("The alert about a refused spec-manager answer was not published: {Code}", published.Error.Code);
+                        _log.LogWarning("The alert about a refused spec-manager answer was not published: {Code}", error.Code);
                     }
                 }
                 catch (Exception ex)

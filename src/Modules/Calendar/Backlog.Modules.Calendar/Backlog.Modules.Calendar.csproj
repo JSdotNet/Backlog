@@ -21,10 +21,6 @@
     <ProjectReference Include="..\Backlog.Modules.Calendar.Abstractions\Backlog.Modules.Calendar.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddCalendarModule(); the read policy knows nothing about the container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Modules.Calendar.UnitTests" />

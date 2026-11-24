@@ -1,9 +1,11 @@
 using System.Net;
+
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;
+
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -368,10 +370,10 @@ public sealed class PairingSubjectsTests
         var listed = await client.ListDevicesAsync(TestContext.Current.CancellationToken);
         var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
 
-        Assert.True(listed.IsSuccess);
-        Assert.Equal(ThisDesktop, listed.Value.CallerDeviceId);
-        Assert.Equal(ThisDesktop, Assert.Single(listed.Value.Devices).PairedBy);
-        Assert.True(revoked.IsSuccess);
+        var response = Assert.IsType<Ok<DeviceListResponse>>(listed.Value).Value;
+        Assert.Equal(ThisDesktop, response.CallerDeviceId);
+        Assert.Equal(ThisDesktop, Assert.Single(response.Devices).PairedBy);
+        Assert.IsType<Ok>(revoked.Value);
         Assert.Equal(["GET /api/sync/devices", $"DELETE /api/sync/devices/{Phone:D}"], calls);
     }
 

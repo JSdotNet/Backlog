@@ -98,15 +98,18 @@ public class RepositoryRegistrySplitTests : IDisposable
 
         // Read through a restart, which is what makes this a test of the file and
         // not of the list that happened to be in memory.
+        // The old alias resolves through the move the relabel recorded (local ADR
+        // 0060 §4) to the row it became, rather than to nothing.
         var reopened = Store();
-        Assert.Null(reopened.Current.Find("backlog"));
+        Assert.Equal("bl", reopened.Current.Find("backlog")!.Alias);
         Assert.Equal(clone, reopened.Current.Find("bl")!.CloneDirectory);
         Assert.Equal("ghp_secret", reopened.Current.Find("bl")!.Token);
     }
 
     /// <summary>
-    /// The other rename: the coordinate moves and the alias stays, which is what
-    /// a repository renamed on GitHub looks like. Asked for by name rather than
+    /// The other rename: the coordinate moves, which is what a repository renamed
+    /// on GitHub looks like, and an alias that was the old name follows it (local
+    /// ADR 0060 §1), leaving an alias move behind. Asked for by name rather than
     /// typed into the list. Everything the row held — both halves — is under the
     /// new id afterwards, the old id is a row in neither file, and the registry
     /// remembers the move so nothing is left for a later pass to mistake for a
@@ -133,13 +136,14 @@ public class RepositoryRegistrySplitTests : IDisposable
         var reopened = Store();
         var renamed = Assert.Single(reopened.Current.Repositories);
         Assert.Equal("JSdotNet/Backlog-renamed", renamed.FullName);
-        Assert.Equal("backlog", renamed.Alias);
+        Assert.Equal("backlog-renamed", renamed.Alias);
         Assert.Equal(clone, renamed.CloneDirectory);
         Assert.Equal("ghp_secret", renamed.Token);
         Assert.Equal(3, renamed.Colour);
         Assert.Equal("docs", renamed.DevbookBranch);
 
         Assert.Equal([rename], reopened.Current.Renames);
+        Assert.Equal(new AliasMove("backlog", "backlog-renamed", "JSdotNet/Backlog-renamed", rename.At), Assert.Single(reopened.Current.AliasMoves));
         Assert.DoesNotContain("\"id\": \"JSdotNet/Backlog\"", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
         Assert.DoesNotContain("JSdotNet/Backlog\"", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
     }

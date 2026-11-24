@@ -9,6 +9,7 @@ using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -94,7 +95,7 @@ public sealed class TasksPullRequestContractTests : IDisposable
         var sent = world.Sent();
         await world.State.CheckPullRequestsAsync();
 
-        Assert.True(merged.IsSuccess);
+        Assert.IsNotType<Error>(merged.Value);
         Assert.Equal(1, recheckAsked);
         Assert.Equal(EntryStatus.Done, world.Row(row).Status);
         Assert.Equal(sent, world.Sent());

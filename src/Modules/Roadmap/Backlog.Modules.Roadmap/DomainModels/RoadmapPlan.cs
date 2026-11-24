@@ -32,7 +32,7 @@ public sealed class RoadmapPlan
 {
     private readonly List<RoadmapItem> _items;
     private readonly List<Milestone> _milestones;
-    private readonly BandColours _bandColours;
+    private BandColours _bandColours;
 
     private RoadmapPlan(List<RoadmapItem> items, List<Milestone> milestones, BandColours bandColours)
     {
@@ -183,9 +183,9 @@ public sealed class RoadmapPlan
         if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
 
         var window = PlannedWindow.Create(end < item.Window.Start ? end : item.Window.Start, end);
-        if (window.IsFailure) return Result.Failure<RoadmapItem>(window.Error);
+        if (window is not Ok<PlannedWindow>(var pinned)) return (Error)window.Value!;
 
-        item.PinEnd(window.Value);
+        item.PinEnd(pinned);
         return Result.Success(item);
     }
 
@@ -301,7 +301,7 @@ public sealed class RoadmapPlan
         ArgumentNullException.ThrowIfNull(tag);
 
         var added = AddItem(title, window, priority, scope, notes: notes, tag: tag, knowledgeRefs: knowledgeRefs);
-        if (added.IsSuccess) added.Value.PlaceByImport(window, placement);
+        if (added is Ok<RoadmapItem>(var item)) item.PlaceByImport(window, placement);
         return added;
     }
 
@@ -495,6 +495,74 @@ public sealed class RoadmapPlan
 
         dependencies.Remove(dependsOnId);
         return Result.Success();
+    }
+
+    /// <summary>
+    /// Follows repositories the registry relabelled (local ADR 0060 §3): each band colour
+    /// and each item's and milestone's scope under an old alias moves to its new one.
+    /// <para>
+    /// The whole mapping at once, so a swap exchanges two repositories' data rather than
+    /// running one move into the other. A scope that ends up naming one alias twice
+    /// collapses through <see cref="RepositoryScope.Of"/>, and a colour already chosen for
+    /// the new alias stays: in a merge the kept repository wins. An alias the mapping does
+    /// not name stays as written, resolved or not.
+    /// </para>
+    /// </summary>
+    /// <returns>Whether anything moved, so a caller saves only a plan that changed.</returns>
+    public bool MoveRepositoryAliases(IReadOnlyDictionary<string, string> oldToNew)
+    {
+        ArgumentNullException.ThrowIfNull(oldToNew);
+
+        var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (from, to) in oldToNew)
+        {
+            var oldAlias = RepositoryScope.Normalize(from);
+            var newAlias = RepositoryScope.Normalize(to);
+            if (oldAlias.Length > 0 && newAlias.Length > 0 && oldAlias != newAlias) mapping[oldAlias] = newAlias;
+        }
+
+        if (mapping.Count == 0) return false;
+
+        var colours = _bandColours.WithAliasesMoved(mapping);
+        var changed = !ReferenceEquals(colours, _bandColours);
+        _bandColours = colours;
+
+        foreach (var item in _items)
+        {
+            if (Moved(item.Scope, mapping) is { } scope)
+            {
+                item.FileUnder(scope);
+                changed = true;
+            }
+        }
+
+        foreach (var milestone in _milestones)
+        {
+            if (Moved(milestone.Scope, mapping) is { } scope)
+            {
+                milestone.FileUnder(scope);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Every alias the plan keeps data under: the coloured bands and the
+    /// scopes of its items and milestones.</summary>
+    public IReadOnlyCollection<string> RepositoryAliases() =>
+    [
+        .. _bandColours.Chosen.Keys
+            .Concat(_items.SelectMany(item => item.Scope.Aliases))
+            .Concat(_milestones.SelectMany(milestone => milestone.Scope.Aliases))
+            .Distinct(StringComparer.Ordinal)
+    ];
+
+    private static RepositoryScope? Moved(RepositoryScope scope, Dictionary<string, string> mapping)
+    {
+        if (!scope.Aliases.Any(mapping.ContainsKey)) return null;
+
+        return RepositoryScope.Of(scope.Aliases.Select(alias => mapping.TryGetValue(alias, out var to) ? to : alias));
     }
 
     private RoadmapItem? FindItem(Guid itemId) => _items.Find(item => item.Id == itemId);

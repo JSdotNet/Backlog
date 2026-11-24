@@ -71,10 +71,10 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         await a.AddItemAsync("Ship sync");
         await a.Planning(planning => planning.AddMilestoneAsync("1.0", new DateOnly(2026, 10, 31)));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         var pulled = await b.SyncAsync();
-        Assert.True(pulled.IsSuccess);
+        Assert.IsNotType<Error>(pulled.Value);
 
         var plan = await b.Planning(planning => planning.GetPlanAsync());
         Assert.Equal("Ship sync", Assert.Single(plan.Items).Title);
@@ -100,13 +100,13 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         var later = (await b.PlanCopyAsync())!;
         Assert.True(later.UpdatedAt > (await a.PlanCopyAsync())!.UpdatedAt);
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         var refused = await a.PushAsync();
         Assert.Equal(1, refused.Refused);
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.Equal(later, await a.PlanCopyAsync());
         Assert.Equal(later, await b.PlanCopyAsync());
@@ -120,7 +120,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         using var b = Device("b");
 
         await a.AddItemAsync("Saved first, on A");
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         await b.AddItemAsync("Saved later, on B");
         var mine = await b.PlanCopyAsync();
 
@@ -145,9 +145,9 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         Assert.Null(a.Pace.Set(3.5m, "backlog"));
         await b.AddItemAsync("Edited on B meanwhile");
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         Assert.Equal(12m, b.Pace.StoryPointsPerWeek);
         Assert.Equal(PaceSource.LastFourWeeks, b.Pace.Source);
@@ -181,9 +181,9 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
             cancellationToken: Cancellation));
-        Assert.True(imported.IsSuccess);
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         var ship = Assert.Single((await b.Planning(planning => planning.GetPlanAsync())).Items);
         var onB = b.Roadmap();
@@ -196,9 +196,9 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         onA.WaitForElement("[data-testid='roadmap-pace-manual'] input").Change("14");
         onA.WaitForAssertion(() => Assert.Equal(Window(ship.Start, 14, 14m), DrawnWindow(onA, ship.Id)));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         // B's edit survived on both: A's pace change sent no plan to win over it.
         Assert.Equal(await b.PlanCopyAsync(), await a.PlanCopyAsync());
@@ -229,9 +229,9 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
             cancellationToken: Cancellation));
-        Assert.True(imported.IsSuccess);
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         var ship = Assert.Single((await b.Planning(planning => planning.GetPlanAsync())).Items);
         var onA = a.Roadmap();
@@ -249,8 +249,8 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             Assert.Null(a.Week.SetDay(day, false, morning.Start, morning.End));
         }
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.True(WorkingHoursSettingsStore.SameWeek(a.Week.Current, b.Week.Current));
         Assert.True(WorkingHoursSettingsStore.SameWeek(
@@ -271,7 +271,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         onB.WaitForAssertion(() => Assert.Equal(expected, DrawnWindow(onB, ship.Id)));
 
         // And A, having pulled nothing newer, still holds its own week at its own stamp.
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         Assert.True(WorkingHoursSettingsStore.SameWeek(a.Week.Current, b.Week.Current));
     }
 
@@ -309,18 +309,17 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         await a.AddItemAsync("A's plan");
         Assert.Null(a.Pace.Set(9m));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         var aPlan = await a.PlanCopyAsync();
 
-        var synced = await b.SyncAsync();
+        var synced = Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value).Value;
 
-        Assert.True(synced.IsSuccess);
-        Assert.Equal(0, synced.Value.Pushed);
+        Assert.Equal(0, synced.Pushed);
         Assert.Equal(0, _replica.PushesFrom(b.DeviceId));
         Assert.Equal(aPlan, await b.PlanCopyAsync());
         Assert.Equal(9m, b.Pace.StoryPointsPerWeek);
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         Assert.Equal(aPlan, await a.PlanCopyAsync());
         Assert.Equal(9m, a.Pace.StoryPointsPerWeek);
     }
@@ -437,14 +436,14 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             using var scope = _provider.CreateScope();
             var saved = await scope.ServiceProvider.GetRequiredService<ITaskItems>()
                 .SaveFromTextAsync(null, text, 0, cancellationToken: Cancellation);
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         }
 
         public async Task AddItemAsync(string title)
         {
             var added = await Planning(planning => planning.AddItemAsync(
                 title, new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)));
-            Assert.True(added.IsSuccess);
+            Assert.IsNotType<Error>(added.Value);
         }
 
         public Task<RoadmapReplicaCopyDto?> PlanCopyAsync() =>
@@ -454,16 +453,12 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         public async Task<TaskSyncSummary> PushAsync()
         {
-            var pushed = await _session.PushAsync(Cancellation);
-            Assert.True(pushed.IsSuccess);
-            return pushed.Value;
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PushAsync(Cancellation)).Value).Value;
         }
 
         public async Task<TaskSyncSummary> PullAsync()
         {
-            var pulled = await _session.PullAsync(Cancellation);
-            Assert.True(pulled.IsSuccess);
-            return pulled.Value;
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PullAsync(Cancellation)).Value).Value;
         }
 
         public void Dispose()

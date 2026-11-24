@@ -45,9 +45,9 @@ public sealed class SyncCompatibilityRegistrationTests
 
         var answer = await host.CallAsync(client);
 
-        Assert.True(answer.IsFailure);
-        Assert.Equal(SyncErrorCodes.ClientOutdated, answer.Error.Code);
-        Assert.Equal(SyncCompatibility.UpdateRequiredMessage, answer.Error.Message);
+        var error = Assert.IsType<Error>(answer.Value);
+        Assert.Equal(SyncErrorCodes.ClientOutdated, error.Code);
+        Assert.Equal(SyncCompatibility.UpdateRequiredMessage, error.Message);
         Assert.All(host.Wire.Requests, request => Assert.Equal("/", request.Path));
     }
 
@@ -84,7 +84,7 @@ public sealed class SyncCompatibilityRegistrationTests
 
         var answer = await host.CallAsync(nameof(TaskSyncClient));
 
-        Assert.True(answer.IsSuccess, answer.IsFailure ? answer.Error.Message : null);
+        Assert.True(answer is Ok, answer is Error error ? error.Message : null);
         Assert.Contains(host.Wire.Requests, request => request.Path == SyncRoutes.Absolute(SyncRoutes.Tasks));
     }
 
@@ -161,16 +161,24 @@ public sealed class SyncCompatibilityRegistrationTests
 
         public async Task<Result> CallAsync(string client) => client switch
         {
-            nameof(DevicePairingClient) => (Result)await Provider.GetRequiredService<DevicePairingClient>().GetStatusAsync(Cancellation),
-            nameof(TaskSyncClient) => (Result)await Provider.GetRequiredService<TaskSyncClient>().PushAsync([], Cancellation),
-            nameof(InboxAttachmentSyncSource) => (Result)await Provider.GetRequiredService<InboxAttachmentSyncSource>().FetchAsync(Guid.NewGuid(), Cancellation),
-            nameof(SessionSyncClient) => (Result)await Provider.GetRequiredService<SessionSyncClient>().PushAsync([], Cancellation),
-            nameof(AnnotationSyncClient) => (Result)await Provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], Cancellation),
-            nameof(DevbookSubjectSyncClient) => (Result)await Provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], Cancellation),
-            nameof(KnowledgeEventSyncClient) => (Result)await Provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], Cancellation),
+            nameof(DevicePairingClient) => Outcome(await Provider.GetRequiredService<DevicePairingClient>().GetStatusAsync(Cancellation)),
+            nameof(TaskSyncClient) => Outcome(await Provider.GetRequiredService<TaskSyncClient>().PushAsync([], Cancellation)),
+            nameof(InboxAttachmentSyncSource) => Outcome(await Provider.GetRequiredService<InboxAttachmentSyncSource>().FetchAsync(Guid.NewGuid(), Cancellation)),
+            nameof(SessionSyncClient) => Outcome(await Provider.GetRequiredService<SessionSyncClient>().PushAsync([], Cancellation)),
+            nameof(AnnotationSyncClient) => Outcome(await Provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], Cancellation)),
+            nameof(DevbookSubjectSyncClient) => Outcome(await Provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], Cancellation)),
+            nameof(KnowledgeEventSyncClient) => Outcome(await Provider.GetRequiredService<KnowledgeEventSyncClient>().PushAsync([], Cancellation)),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
 
         public void Dispose() => Provider.Dispose();
+
+        /// <summary>The outcome without its value: these tests read only whether
+        /// the call failed, and why.</summary>
+        private static Result Outcome<TValue>(Result<TValue> result) => result switch
+        {
+            Ok<TValue> => Result.Success(),
+            Error error => error,
+        };
     }
 }

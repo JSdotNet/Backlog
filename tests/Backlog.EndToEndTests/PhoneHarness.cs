@@ -29,31 +29,14 @@ internal sealed class PhoneHarness
     /// Makes the harness a phone that has never been paired.
     ///
     /// <para>"Forget this device" lets the credential go but keeps the outbox, so
-    /// the harness is stopped, its device credential and its outbox database
-    /// (which also holds the cached Inbox, the task view and the notes) are
-    /// removed, and it is started again. They live in the harness's own
+    /// this runs the harness's <c>forget-pairing</c> resource command instead: it
+    /// stops the harness, removes its device credential, its outbox database
+    /// (which also holds the cached Inbox, the task view and the notes) and its
+    /// staged talk notes, and starts it again. They live in the harness's own
     /// <c>obj/local-development</c>, so no other worktree is touched.</para>
     /// </summary>
-    public static async Task ResetAsync(AspireAppHost appHost, CancellationToken cancellationToken)
-    {
-        await appHost.StopAsync(Resource, cancellationToken);
-
-        var state = new DirectoryInfo(Path.Combine(
-            RepositoryRoot.Root.FullName, "src", "Harness", "Backlog.Mobile.WebHarness", "obj", "local-development"));
-        if (state.Exists)
-        {
-            foreach (var file in state.EnumerateFiles("device-credential.json")
-                         .Concat(state.EnumerateFiles("mobile-outbox.db*")))
-            {
-                file.Delete();
-            }
-
-            var staged = new DirectoryInfo(Path.Combine(state.FullName, "talk-notes"));
-            if (staged.Exists) staged.Delete(recursive: true);
-        }
-
-        await appHost.StartAsync(Resource, cancellationToken);
-    }
+    public static Task ResetAsync(AspireAppHost appHost, CancellationToken cancellationToken) =>
+        appHost.CommandAsync(Resource, "forget-pairing", "healthy", cancellationToken);
 
     public static async Task<PhoneHarness> OpenAsync(IBrowser browser, AspireAppHost appHost, CancellationToken cancellationToken)
     {

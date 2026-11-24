@@ -191,11 +191,18 @@ internal sealed class RoadmapPlanning(
 
     /// <summary>Hands a write's result back unchanged, telling every listener first
     /// when it was stored. A refusal stored nothing, so it says nothing.</summary>
-    private async Task<TResult> Announce<TResult>(Task<TResult> write)
-        where TResult : Result
+    private async Task<Result> Announce(Task<Result> write)
     {
         var result = await write;
-        if (result.IsSuccess) changes.Raise();
+        if (result is Ok) changes.Raise();
+        return result;
+    }
+
+    /// <inheritdoc cref="Announce(Task{Result})"/>
+    private async Task<Result<TValue>> Announce<TValue>(Task<Result<TValue>> write)
+    {
+        var result = await write;
+        if (result is Ok<TValue>) changes.Raise();
         return result;
     }
 }

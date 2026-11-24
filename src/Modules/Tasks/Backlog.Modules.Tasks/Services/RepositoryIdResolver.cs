@@ -48,7 +48,11 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
     /// rule for a name nothing recognises.
     /// </para>
     /// </summary>
-    public IReadOnlyList<string> Resolve(IEnumerable<string>? names) => Canonicalise(names, matches: null, register: false).Value;
+    public IReadOnlyList<string> Resolve(IEnumerable<string>? names) => Canonicalise(names, matches: null, register: false) switch
+    {
+        Ok<IReadOnlyList<string>>(var ids) => ids,
+        Error => throw new InvalidOperationException("A failed result has no value; resolving without registering cannot fail."),
+    };
 
     /// <summary>
     /// The same rule, plus the one thing Import may do that nothing else may: a
@@ -91,10 +95,13 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
         var ids = new List<string>();
         foreach (var name in names)
         {
-            var id = One(name, matches, register);
-            if (id.IsFailure) return id.Error;
+            var one = One(name, matches, register);
+            if (one is not Ok<string>(var id))
+            {
+                return (Error)one.Value!;
+            }
 
-            ids.Add(id.Value);
+            ids.Add(id);
         }
 
         return Result.Success<IReadOnlyList<string>>([.. ids.Distinct(StringComparer.Ordinal)]);
@@ -107,7 +114,7 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
         // A failure is not remembered: it is not an answer about the name, and
         // the run it belongs to stops here anyway.
         var id = Answer(name, matches, register);
-        if (id.IsSuccess) _resolved[name] = id.Value;
+        if (id is Ok<string>(var resolved)) _resolved[name] = resolved;
         return id;
     }
 
@@ -128,7 +135,10 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
 
         if (!register) return name;
 
-        var registered = repositories.Register(name);
-        return registered.IsSuccess ? registered.Value.Id : registered.Error;
+        return repositories.Register(name) switch
+        {
+            Ok<TasksRepositoryRef>(var registered) => registered.Id,
+            Error error => error,
+        };
     }
 }

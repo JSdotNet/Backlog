@@ -29,16 +29,16 @@ public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans, R
         ArgumentNullException.ThrowIfNull(command);
 
         var window = PlannedWindow.Create(command.Start, command.End);
-        if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
+        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
 
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var lane = command.Lane is null ? null : PlanningLane.Of(command.Lane);
-        var rescheduled = plan.Reschedule(command.ItemId, window.Value, lane);
+        var rescheduled = plan.Reschedule(command.ItemId, planned, lane);
 
-        if (rescheduled.IsFailure) return Result.Failure<RoadmapItemDto>(rescheduled.Error);
+        if (rescheduled is not Ok<RoadmapItem>(var item)) return (Error)rescheduled.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(rescheduled.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

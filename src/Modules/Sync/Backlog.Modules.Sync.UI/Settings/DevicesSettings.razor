@@ -634,9 +634,9 @@
         {
             var revoked = await _devicePairing.RevokeDeviceAsync(device.DeviceId);
 
-            if (revoked.IsFailure && !string.Equals(revoked.Error.Code, SyncErrorCodes.DeviceNotFound, StringComparison.Ordinal))
+            if (revoked is Error error && !string.Equals(error.Code, SyncErrorCodes.DeviceNotFound, StringComparison.Ordinal))
             {
-                _revokeFailure = (device.DeviceId, revoked.Error.Message);
+                _revokeFailure = (device.DeviceId, error.Message);
                 return;
             }
 
@@ -676,10 +676,10 @@
             var listed = await _devicePairing.ListDevicesAsync();
 
             // A body that parsed without a device list is not a list, whatever its status said.
-            _devices = listed.IsSuccess && listed.Value.Devices is not null ? listed.Value : null;
+            _devices = listed is Ok<DeviceListResponse> { Value.Devices: not null } ok ? ok.Value : null;
             _devicesUnread = _devices is null;
 
-            if (listed.IsFailure) _deviceLog?.LogDebug("The device list was not read: {Error}", listed.Error.Message);
+            if (listed is Error unread) _deviceLog?.LogDebug("The device list was not read: {Error}", unread.Message);
         }
         catch (Exception ex)
         {
@@ -952,13 +952,13 @@
         {
             var result = await _devicePairing.RegisterAsync(_draftDeviceName);
 
-            if (result.IsFailure)
+            if (result is not Ok<DeviceCredential>(var registered))
             {
-                ReportDeviceOutcome(result.Error.Message, failed: true);
+                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
                 return;
             }
 
-            ReportDeviceOutcome($"Registered as {result.Value.DeviceName}.", failed: false);
+            ReportDeviceOutcome($"Registered as {registered.DeviceName}.", failed: false);
             await ResolveKeyProtectionAsync();
             await RefreshDeviceStatusAsync();
         }
@@ -993,14 +993,14 @@
         {
             var result = await _devicePairing.PairAsync(_draftPairingCode, _draftDeviceName);
 
-            if (result.IsFailure)
+            if (result is not Ok<DeviceCredential>(var paired))
             {
-                ReportDeviceOutcome(result.Error.Message, failed: true);
+                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
                 return;
             }
 
             _draftPairingCode = string.Empty;
-            ReportDeviceOutcome($"Paired as {result.Value.DeviceName}.", failed: false);
+            ReportDeviceOutcome($"Paired as {paired.DeviceName}.", failed: false);
             await ResolveKeyProtectionAsync();
             await RefreshDeviceStatusAsync();
         }
@@ -1030,14 +1030,14 @@
         {
             var result = await _devicePairing.IssuePairingCodeAsync();
 
-            if (result.IsFailure)
+            if (result is not Ok<PairingCodeResponse>(var issued))
             {
                 _issuedCode = null;
-                ReportDeviceOutcome(result.Error.Message, failed: true);
+                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
                 return;
             }
 
-            _issuedCode = result.Value;
+            _issuedCode = issued;
             StartPairingCodeCountdown();
             ReportDeviceOutcome("Read this code out on the other device.", failed: false);
         }
@@ -1341,21 +1341,22 @@
     /// <c>false</c> when it said nothing that settles the question.</summary>
     private bool RecordDeviceStatus(Result<DeviceStatusResponse> result)
     {
-        _deviceStatus = result.IsSuccess ? result.Value : null;
-
-        if (result.IsSuccess)
+        if (result is not Ok<DeviceStatusResponse>(var status))
         {
-            _deviceStatusRejected = false;
-            return true;
+            _deviceStatus = null;
+
+            if (string.Equals(((Error)result.Value!).Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
+            {
+                _deviceStatusRejected = true;
+                return true;
+            }
+
+            return false;
         }
 
-        if (string.Equals(result.Error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
-        {
-            _deviceStatusRejected = true;
-            return true;
-        }
-
-        return false;
+        _deviceStatus = status;
+        _deviceStatusRejected = false;
+        return true;
     }
 
     /// <summary>

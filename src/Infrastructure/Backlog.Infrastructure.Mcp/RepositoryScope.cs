@@ -86,5 +86,9 @@ internal static class RepositoryScope
     /// <summary>The value, or the failure thrown. For a tool whose whole body is
     /// "resolve this, then answer".</summary>
     internal static T ValueOrThrow<T>(this Result<T> result) =>
-        result.IsSuccess ? result.Value : throw Failure(result.Error);
+        result switch
+        {
+            Ok<T>(var value) => value,
+            Error error => throw Failure(error),
+        };
 }

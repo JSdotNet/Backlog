@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -174,24 +175,24 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task TheEditorRoundTripsTagAndKnowledgeOnAnExistingItem()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Before",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
             tag: "original",
-            knowledgeRefs: ["a.md"], cancellationToken: TestContext.Current.CancellationToken);
+            knowledgeRefs: ["a.md"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
         // The editor loaded the stored tag and knowledge, and hands them back on save.
         Assert.Equal("original", Editor(band).Item?.Tag);
         Assert.Equal(["a.md"], Editor(band).Item?.Knowledge);
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
-            itemId: added.Value.Id,
+            itemId: added.Id,
             title: "After",
             repositories: ["backlog"],
             tag: "retagged",
@@ -199,7 +200,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
-        Assert.Equal(added.Value.Id, item.Id);
+        Assert.Equal(added.Id, item.Id);
         Assert.Equal("retagged", item.Tag);
         Assert.Equal(["a.md", "b.md#section"], item.Knowledge);
     }
@@ -208,13 +209,13 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task OpeningABarEditsThatItem()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Already planned", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Already planned", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
-        Assert.Equal(added.Value.Id, Editor(band).Item?.Id);
+        Assert.Equal(added.Id, Editor(band).Item?.Id);
         Assert.Equal(
             "Already planned",
             band.WaitForElement("[data-testid=\"roadmap-editor-title\"] input").GetAttribute("value"));
@@ -224,21 +225,21 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task EditingFromTheEditorStoresIt_AndKeepsTheSameItem()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Before", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Before", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
-            itemId: added.Value.Id,
+            itemId: added.Id,
             title: "After",
             priority: PlanningPriority.Critical,
             repositories: ["backlog"])));
 
         var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
-        Assert.Equal(added.Value.Id, item.Id);
+        Assert.Equal(added.Id, item.Id);
         Assert.Equal("After", item.Title);
         Assert.Equal(new DateOnly(2026, 4, 6), item.Start);
         Assert.Equal(PlanningPriority.Critical, item.Priority);
@@ -266,13 +267,13 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task DeletingFromTheEditorRemovesIt()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Doomed", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Doomed", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
-        await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Value.Id));
+        await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Id));
 
         Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
@@ -283,77 +284,77 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task ADependencyAddedInTheEditorIsStored()
     {
         Configure("JSdotNet/Backlog");
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var design = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, build.Value.Id);
+        await Activate(band, build.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: true)));
+            new RoadmapDependencyChange(build.Id, design.Id, Added: true)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal([design.Value.Id], plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
+        Assert.Equal([design.Id], plan.Items.Single(item => item.Id == build.Id).DependsOn);
     }
 
     [Fact]
     public async Task ADependencyTakenAwayInTheEditorIsRemoved()
     {
         Configure("JSdotNet/Backlog");
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
+        var design = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.IsNotType<Error>((await Planning.AddDependencyAsync(build.Id, design.Id, TestContext.Current.CancellationToken)).Value);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, build.Value.Id);
+        await Activate(band, build.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: false)));
+            new RoadmapDependencyChange(build.Id, design.Id, Added: false)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
-        Assert.Empty(plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
+        Assert.Empty(plan.Items.Single(item => item.Id == build.Id).DependsOn);
     }
 
     [Fact]
     public async Task ADependencyThatWouldCloseACycleIsRefusedAndExplained()
     {
         Configure("JSdotNet/Backlog");
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
+        var design = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.IsNotType<Error>((await Planning.AddDependencyAsync(build.Id, design.Id, TestContext.Current.CancellationToken)).Value);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, design.Value.Id);
+        await Activate(band, design.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
-            new RoadmapDependencyChange(design.Value.Id, build.Value.Id, Added: true)));
+            new RoadmapDependencyChange(design.Id, build.Id, Added: true)));
 
         // Reported in the dialog, and the stored plan is untouched.
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor-error\"]"));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Empty(plan.Items.Single(item => item.Id == design.Value.Id).DependsOn);
+        Assert.Empty(plan.Items.Single(item => item.Id == design.Id).DependsOn);
     }
 
     [Fact]
     public async Task AnItemIsNeverOfferedAsItsOwnDependency()
     {
         Configure("JSdotNet/Backlog");
-        var first = await Planning.AddItemAsync("First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var first = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await Planning.AddItemAsync("Second", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, first.Value.Id);
+        await Activate(band, first.Id);
 
         var options = Editor(band).DependencyOptions;
 
-        Assert.DoesNotContain(first.Value.Id.ToString(), options.Select(option => option.Value));
+        Assert.DoesNotContain(first.Id.ToString(), options.Select(option => option.Value));
         Assert.Contains("Second", options.Select(option => option.Label));
     }
 
@@ -361,12 +362,12 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task AMilestoneCanBeWaitedFor_SoItIsOfferedToo()
     {
         Configure("JSdotNet/Backlog");
-        var work = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var work = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await Planning.AddMilestoneAsync("Code freeze", new DateOnly(2026, 2, 2), MilestoneKind.Freeze, cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, work.Value.Id);
+        await Activate(band, work.Id);
 
         Assert.Contains("Code freeze", Editor(band).DependencyOptions.Select(option => option.Label));
     }
@@ -376,14 +377,14 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 2, 2), cancellationToken: TestContext.Current.CancellationToken);
+        var release = Assert.IsType<Ok<RoadmapMilestoneDto>>((await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 2, 2), cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
 
         // A milestone has no editor of its own yet. Showing the item dialog for one
         // would offer a start date, an end date and a lane for something that has none.
-        await Activate(band, release.Value.Id);
+        await Activate(band, release.Id);
 
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
     }
@@ -392,11 +393,11 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task TheEditorOffersTheConfiguredRepositories()
     {
         Configure("JSdotNet/Backlog", "fincent = JSdotNet/Fincent");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
         Assert.Equal(
             ["backlog", "fincent"],
@@ -442,16 +443,16 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task OpenInTasksIsOfferedForAnExistingItemWithATag_WhenTheShellCanOpenIt()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.False(string.IsNullOrEmpty(added.Value.Tag));
-        await CarriedByATaskAsync(added.Value.Tag);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.False(string.IsNullOrEmpty(added.Tag));
+        await CarriedByATaskAsync(added.Tag);
 
         using var context = Context();
         var band = context.Render<RoadmapBand>(parameters => parameters
             .Add(component => component.OnOpenTasks, (RoadmapTasksRequest _) => { }));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
         var button = band.WaitForElement(OpenInTasks);
         Assert.Equal("Open in Tasks", button.TextContent.Trim());
@@ -462,12 +463,12 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task OpenInTasksIsNotOffered_WhenNothingAnswersIt()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
 
         band.WaitForElement("[data-testid=\"roadmap-editor\"]");
         Assert.Empty(band.FindAll(OpenInTasks));
@@ -750,13 +751,13 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task CompletingFromTheEditor_StoresTheDay_AndDrawsTheBarDone()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = context.Render<RoadmapBand>(parameters => parameters.Add(component => component.Today, PaceToday));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
         band.WaitForElement(Complete).Click();
 
         band.WaitForAssertion(() =>
@@ -776,14 +777,14 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task ReopeningFromTheEditor_ClearsTheDay()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.CompleteItemAsync(added.Value.Id, new DateOnly(2026, 9, 4), TestContext.Current.CancellationToken)).IsSuccess);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.IsNotType<Error>((await Planning.CompleteItemAsync(added.Id, new DateOnly(2026, 9, 4), TestContext.Current.CancellationToken)).Value);
 
         using var context = Context();
         var band = context.Render<RoadmapBand>(parameters => parameters.Add(component => component.Today, PaceToday));
         band.WaitForElement("[data-testid=\"roadmap-timeline\"]");
 
-        await Activate(band, added.Value.Id);
+        await Activate(band, added.Id);
         band.WaitForElement(Reopen).Click();
 
         band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]")));

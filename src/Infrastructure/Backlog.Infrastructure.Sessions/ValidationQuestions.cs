@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sessions;
@@ -131,15 +132,15 @@ internal static class ValidationQuestions
 
                 var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown, repositories), cancellationToken).ConfigureAwait(false);
 
-                if (published.IsFailure)
+                if (published is not Ok<Guid>(var notificationId))
                 {
-                    logger.LogDebug("The validation question about run {Run} was not published: {Error}", runId, published.Error.Message);
+                    logger.LogDebug("The validation question about run {Run} was not published: {Error}", runId, ((Error)published.Value!).Message);
                     return;
                 }
 
                 run[Key] = new JsonObject
                 {
-                    ["notificationId"] = published.Value.ToString("D"),
+                    ["notificationId"] = notificationId.ToString("D"),
                     ["askedAt"] = Stamp(DateTimeOffset.UtcNow),
                     ["answered"] = false,
                     ["closed"] = false,
@@ -154,9 +155,9 @@ internal static class ValidationQuestions
                 {
                     var closed = await port.CloseAsync(open, SessionNotificationSubjects.ValidationDecidedReason, cancellationToken).ConfigureAwait(false);
 
-                    if (closed.IsFailure)
+                    if (closed is Error error)
                     {
-                        logger.LogDebug("The validation question about run {Run} was not closed: {Error}", runId, closed.Error.Message);
+                        logger.LogDebug("The validation question about run {Run} was not closed: {Error}", runId, error.Message);
                     }
 
                     asked!["closed"] = true;

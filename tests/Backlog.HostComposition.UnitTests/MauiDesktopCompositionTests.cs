@@ -120,6 +120,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(BackupWorker),
             typeof(Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
             typeof(Backlog.Modules.Notifications.Services.NotificationsStartup),
+            typeof(RepositoryAliasFollower),
             typeof(Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher),
             typeof(BrainFolderWatch),
             typeof(Backlog.Modules.Notifications.UI.NotificationCentreRequests),
@@ -367,7 +368,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         public IEnumerable<System.Text.Json.JsonElement> Bodies(string route) =>
             _requests
                 .Where(request => request.Path == Backlog.Modules.Sync.Abstractions.SyncRoutes.Absolute(route) && request.Body.Length > 0)
-                .Select(request => System.Text.Json.JsonDocument.Parse(request.Body).RootElement.Clone())
+                .Select(request => System.Text.Json.JsonElement.Parse(request.Body).Clone())
                 .ToList();
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -528,7 +529,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             .SpotAsync(new Backlog.Modules.Events.Abstractions.SpotKnowledgeEventDto("Techorama 2026", null, null, null, null, null, null), ct);
         var noteId = Guid.NewGuid();
         var change = EventAttachmentReplicaDocuments.ToChange(
-            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), spotted.Value.EventId, noteId, "Keynote"),
+            new Backlog.Modules.Events.Abstractions.DataTransferObjects.EventAttachmentRequestDto(Guid.NewGuid(), Assert.IsType<Backlog.SharedKernel.Results.Ok<Backlog.Modules.Events.Abstractions.SpottedKnowledgeEventDto>>(spotted.Value).Value.EventId, noteId, "Keynote"),
             new DateTimeOffset(2026, 10, 27, 9, 40, 0, TimeSpan.Zero));
         var record = new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1);
 

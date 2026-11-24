@@ -30,6 +30,14 @@
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="quotes" TestId="story-domain-features-proposed" />
     </Story>
 
+    <Story Name="Status off"
+           Description="The host cascades a DomainStatusDisplay from the Devbook status switch. Off, Quotes is still on the board but carries no Proposed mark and no dashed edge, its detail no Proposed badge, and the legend no longer explains a mark no card can show: the board shows none of the status its chapters state. Every Domain view page reads the same cascade — a unit's kicker and its entities' proposed marks, the Glossary's badges, the context's badge, its summary line and its How settled bar — and with none cascaded the status shows."
+           Code="@StatusOffCode">
+        <CascadingValue Value="@DomainStatusDisplay.Off">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="quotes" TestId="story-domain-features-status-off" />
+        </CascadingValue>
+    </Story>
+
     <Story Name="Split file"
            Description="A split `features.gift-cards.md` holds one feature, so the board is that one card with its detail open. Its column still counts what it builds on in the base file. Its setting chip leads with the cog, and Configured by reads Gift card limit · setting · user · default 500."
            Code="@SplitCode"
@@ -336,6 +344,12 @@
 
     private const string DetailCode = """
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="checkout" />
+        """;
+
+    private const string StatusOffCode = """
+        <CascadingValue Value="@DomainStatusDisplay.Off">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="quotes" />
+        </CascadingValue>
         """;
 
     private const string ProposedCode = """

@@ -65,7 +65,6 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.SemanticSearch,
                 DevbookFeatures.Editing,
                 DevbookFeatures.Status,
-                DevbookFeatures.DomainView,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 RepositoryManagementFeatures.PullRequests,

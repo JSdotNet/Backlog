@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
@@ -30,13 +31,12 @@ public sealed class DeviceKeyTests : IDisposable
     [Fact]
     public async Task Registering_with_a_public_key_stores_the_key_and_mints_no_credential()
     {
-        var result = await _sync.Register.Handle(
-            await _sync.Enrolled("Study desktop") with { PublicKey = _key.PublicKey }, Cancellation);
+        var result = Assert.IsType<Ok<DeviceRegistrationResponse>>((await _sync.Register.Handle(
+            await _sync.Enrolled("Study desktop") with { PublicKey = _key.PublicKey }, Cancellation)).Value).Value;
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value.Credential);
+        Assert.Null(result.Credential);
 
-        var stored = await _sync.Devices.FindById(new DeviceId(result.Value.DeviceId), Cancellation);
+        var stored = await _sync.Devices.FindById(new DeviceId(result.DeviceId), Cancellation);
         Assert.NotNull(stored);
         Assert.Equal(_key.PublicKey, stored.PublicKey);
         Assert.Null(stored.CredentialHash);
@@ -47,14 +47,13 @@ public sealed class DeviceKeyTests : IDisposable
     {
         var enrolled = await _sync.Enrolled("Study desktop");
 
-        var refused = await _sync.Register.Handle(enrolled with { PublicKey = "not-a-key" }, Cancellation);
+        var refused = Assert.IsType<Error>((await _sync.Register.Handle(enrolled with { PublicKey = "not-a-key" }, Cancellation)).Value);
 
-        Assert.True(refused.IsFailure);
-        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Error.Code);
-        Assert.Equal(ErrorType.Validation, refused.Error.Type);
+        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Code);
+        Assert.Equal(ErrorType.Validation, refused.Type);
 
         var retried = await _sync.Register.Handle(enrolled with { PublicKey = _key.PublicKey }, Cancellation);
-        Assert.True(retried.IsSuccess);
+        Assert.IsType<Ok<DeviceRegistrationResponse>>(retried.Value);
     }
 
     [Fact]
@@ -62,25 +61,24 @@ public sealed class DeviceKeyTests : IDisposable
     {
         using var p384 = new DeviceSigningKey(ECCurve.NamedCurves.nistP384);
 
-        var refused = await _sync.Register.Handle(
-            await _sync.Enrolled("Study desktop") with { PublicKey = p384.PublicKey }, Cancellation);
+        var refused = Assert.IsType<Error>((await _sync.Register.Handle(
+            await _sync.Enrolled("Study desktop") with { PublicKey = p384.PublicKey }, Cancellation)).Value);
 
-        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Error.Code);
+        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Code);
     }
 
     [Fact]
     public async Task Pairing_with_a_public_key_stores_the_key_and_mints_no_credential()
     {
         var (scope, _) = await _sync.RegisterFirstDevice();
-        var code = await _sync.IssueCode.Handle(new IssuePairingCodeCommand(scope), Cancellation);
+        var code = Assert.IsType<Ok<PairingCodeResponse>>((await _sync.IssueCode.Handle(new IssuePairingCodeCommand(scope), Cancellation)).Value).Value;
 
-        var paired = await _sync.Redeem.Handle(
-            new RedeemPairingCodeCommand(code.Value.Code, "Phone", _key.PublicKey), Cancellation);
+        var paired = Assert.IsType<Ok<DeviceRegistrationResponse>>((await _sync.Redeem.Handle(
+            new RedeemPairingCodeCommand(code.Code, "Phone", _key.PublicKey), Cancellation)).Value).Value;
 
-        Assert.True(paired.IsSuccess);
-        Assert.Null(paired.Value.Credential);
+        Assert.Null(paired.Credential);
 
-        var stored = await _sync.Devices.FindById(new DeviceId(paired.Value.DeviceId), Cancellation);
+        var stored = await _sync.Devices.FindById(new DeviceId(paired.DeviceId), Cancellation);
         Assert.Equal(_key.PublicKey, stored!.PublicKey);
         Assert.Null(stored.CredentialHash);
         Assert.Equal(scope.DeviceId, stored.PairedBy);
@@ -90,14 +88,14 @@ public sealed class DeviceKeyTests : IDisposable
     public async Task Pairing_with_a_public_key_that_is_not_one_leaves_the_code_unspent()
     {
         var (scope, _) = await _sync.RegisterFirstDevice();
-        var code = await _sync.IssueCode.Handle(new IssuePairingCodeCommand(scope), Cancellation);
+        var code = Assert.IsType<Ok<PairingCodeResponse>>((await _sync.IssueCode.Handle(new IssuePairingCodeCommand(scope), Cancellation)).Value).Value;
 
-        var refused = await _sync.Redeem.Handle(
-            new RedeemPairingCodeCommand(code.Value.Code, "Phone", "AAAA"), Cancellation);
+        var refused = Assert.IsType<Error>((await _sync.Redeem.Handle(
+            new RedeemPairingCodeCommand(code.Code, "Phone", "AAAA"), Cancellation)).Value);
 
-        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Error.Code);
-        Assert.True((await _sync.Redeem.Handle(
-            new RedeemPairingCodeCommand(code.Value.Code, "Phone", _key.PublicKey), Cancellation)).IsSuccess);
+        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Code);
+        Assert.IsType<Ok<DeviceRegistrationResponse>>((await _sync.Redeem.Handle(
+            new RedeemPairingCodeCommand(code.Code, "Phone", _key.PublicKey), Cancellation)).Value);
     }
 
     [Fact]
@@ -107,7 +105,7 @@ public sealed class DeviceKeyTests : IDisposable
 
         var result = await _sync.IssueToken.Handle(Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow())), Cancellation);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>(result.Value);
         Assert.Equal(device, Assert.Single(_sync.Tokens.Issued).DeviceId);
     }
 
@@ -117,7 +115,7 @@ public sealed class DeviceKeyTests : IDisposable
         var device = await RegisterKeyBound();
         var assertion = _key.Assertion(device.Value, _sync.Clock.GetUtcNow());
 
-        Assert.True((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).Value);
 
         AssertInvalid(await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation));
     }
@@ -151,7 +149,7 @@ public sealed class DeviceKeyTests : IDisposable
 
         _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(110));
 
-        Assert.True((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).Value);
     }
 
     [Fact]
@@ -168,8 +166,8 @@ public sealed class DeviceKeyTests : IDisposable
     {
         var device = await RegisterKeyBound();
 
-        Assert.True((await _sync.IssueToken.Handle(
-            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow().AddSeconds(90))), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow().AddSeconds(90))), Cancellation)).Value);
     }
 
     [Fact]
@@ -178,7 +176,7 @@ public sealed class DeviceKeyTests : IDisposable
         var device = await RegisterKeyBound();
         var assertion = _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), TimeSpan.FromMinutes(1));
 
-        Assert.True((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation)).Value);
         _sync.Clock.Advance(TimeSpan.FromMinutes(1) + TimeSpan.FromSeconds(110));
 
         AssertInvalid(await _sync.IssueToken.Handle(Signed(device, assertion), Cancellation));
@@ -283,8 +281,8 @@ public sealed class DeviceKeyTests : IDisposable
     {
         var device = await RegisterKeyBound();
 
-        Assert.True((await _sync.IssueToken.Handle(
-            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), type: null)), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), type: null)), Cancellation)).Value);
     }
 
     /// <summary>An <c>exp</c> at the very end of the calendar must be refused for its
@@ -309,8 +307,8 @@ public sealed class DeviceKeyTests : IDisposable
         AssertInvalid(await _sync.IssueToken.Handle(
             Signed(device, forger.Assertion(device.Value, _sync.Clock.GetUtcNow(), id: "shared-jti")), Cancellation));
 
-        Assert.True((await _sync.IssueToken.Handle(
-            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), id: "shared-jti")), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow(), id: "shared-jti")), Cancellation)).Value);
     }
 
     [Fact]
@@ -352,7 +350,7 @@ public sealed class DeviceKeyTests : IDisposable
 
         var migrated = await _sync.IssueToken.Handle(Migration(device, credential, _key), Cancellation);
 
-        Assert.True(migrated.IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>(migrated.Value);
         var stored = await _sync.Devices.FindById(device, Cancellation);
         Assert.Equal(_key.PublicKey, stored!.PublicKey);
         Assert.Null(stored.CredentialHash);
@@ -362,8 +360,8 @@ public sealed class DeviceKeyTests : IDisposable
         using var other = new DeviceSigningKey();
         AssertInvalid(await _sync.IssueToken.Handle(Migration(device, credential, other), Cancellation));
 
-        Assert.True((await _sync.IssueToken.Handle(
-            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow())), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(
+            Signed(device, _key.Assertion(device.Value, _sync.Clock.GetUtcNow())), Cancellation)).Value);
     }
 
     /// <summary>Knowing the credential is not knowing the key: a migration that does
@@ -421,7 +419,7 @@ public sealed class DeviceKeyTests : IDisposable
         var (scope, credential) = await _sync.RegisterFirstDevice();
         var migration = Migration(scope.DeviceId, credential, _key);
 
-        Assert.True((await _sync.IssueToken.Handle(migration, Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(migration, Cancellation)).Value);
 
         AssertInvalid(await _sync.IssueToken.Handle(Signed(scope.DeviceId, migration.ClientAssertion!), Cancellation));
     }
@@ -431,10 +429,10 @@ public sealed class DeviceKeyTests : IDisposable
     {
         var (scope, credential) = await _sync.RegisterFirstDevice();
 
-        var refused = await _sync.IssueToken.Handle(
-            Migration(scope.DeviceId, credential, _key) with { PublicKey = "not-a-key" }, Cancellation);
+        var refused = Assert.IsType<Error>((await _sync.IssueToken.Handle(
+            Migration(scope.DeviceId, credential, _key) with { PublicKey = "not-a-key" }, Cancellation)).Value);
 
-        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Error.Code);
+        Assert.Equal(SyncErrorCodes.DevicePublicKeyInvalid, refused.Code);
         await AssertCredentialStillWorks(scope.DeviceId, credential);
     }
 
@@ -491,10 +489,9 @@ public sealed class DeviceKeyTests : IDisposable
 
     private async Task<DeviceId> RegisterKeyBound()
     {
-        var result = await _sync.Register.Handle(
-            await _sync.Enrolled("Study desktop") with { PublicKey = _key.PublicKey }, Cancellation);
-        Assert.True(result.IsSuccess);
-        return new DeviceId(result.Value.DeviceId);
+        var result = Assert.IsType<Ok<DeviceRegistrationResponse>>((await _sync.Register.Handle(
+            await _sync.Enrolled("Study desktop") with { PublicKey = _key.PublicKey }, Cancellation)).Value).Value;
+        return new DeviceId(result.DeviceId);
     }
 
     private IssueDeviceTokenCommand Migration(DeviceId device, string credential, DeviceSigningKey key) =>
@@ -506,15 +503,15 @@ public sealed class DeviceKeyTests : IDisposable
             key.PublicKey);
 
     private async Task AssertCredentialStillWorks(DeviceId device, string credential) =>
-        Assert.True((await _sync.IssueToken.Handle(new IssueDeviceTokenCommand(device.Value, credential), Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceTokenResponse>>((await _sync.IssueToken.Handle(new IssueDeviceTokenCommand(device.Value, credential), Cancellation)).Value);
 
     private static IssueDeviceTokenCommand Signed(DeviceId device, string assertion) =>
         new(device.Value, ClientAssertionType: SyncAssertion.ClientAssertionType, ClientAssertion: assertion);
 
     private static void AssertInvalid<T>(Result<T> result)
     {
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.DeviceCredentialInvalid, result.Error.Code);
+        Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.DeviceCredentialInvalid, Assert.IsType<Error>(result.Value).Code);
     }
 
     /// <summary>A replay store whose backing store is not reachable.</summary>

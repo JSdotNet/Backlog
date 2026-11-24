@@ -84,6 +84,20 @@ public sealed class GitHubSettings
     public List<RepositoryRename> Renames { get; init; } = [];
 
     /// <summary>
+    /// Every alias move the registry remembers, oldest first: the labels a
+    /// configured repository used to answer to (local ADR 0060 §2).
+    /// <para>
+    /// Shared for the reason <see cref="Renames"/> is. An old alias stays written in
+    /// places nothing rewrites — a Brain link, a plan's repository list, a session
+    /// record — and in stores a lagging device has not re-keyed yet, so it has to
+    /// keep resolving on every device. One edit writes its moves with one
+    /// <see cref="AliasMove.At"/>, which is what lets a swap be applied as one
+    /// mapping.
+    /// </para>
+    /// </summary>
+    public List<AliasMove> AliasMoves { get; init; } = [];
+
+    /// <summary>
     /// Every repository somebody removed, until it is configured again.
     /// <para>
     /// Shared for the reason <see cref="Renames"/> is. Entries that still name a
@@ -126,6 +140,12 @@ public sealed class GitHubSettings
     /// row it became, through however many renames it has been through since. A
     /// configured row always wins over a record, so a repository re-created under
     /// a name that was once renamed away is that new repository, not the old one.
+    /// </para>
+    /// <para>
+    /// An alias no row carries is followed through <see cref="AliasMoves"/> the same
+    /// way (local ADR 0060 §2), and a row that carries it wins over a move for the
+    /// same reason. A caller that keys data by the answer keys it by the returned
+    /// row's own alias, never by the alias it asked with.
     /// </para></summary>
     public GitHubRepositoryRef? Find(string? alias)
     {
@@ -139,8 +159,39 @@ public sealed class GitHubSettings
         }
 
         var normalized = GitHubRepositoryRef.NormalizeAlias(trimmed);
-        return Repositories.FirstOrDefault(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal));
+        return ByAlias(normalized) ?? ByAlias(AliasMovedTo(normalized));
     }
+
+    /// <summary>
+    /// Where an alias ended up after every move the registry remembers, or the
+    /// alias itself when no move names it. The latest move of an alias is the one
+    /// followed, as <see cref="RenamedTo"/> follows the latest rename; the walk
+    /// stops at the first alias a row carries — the alias asked about included, so
+    /// after a swap each alias stays with the row that carries it — because a row
+    /// wins over a move, and is bounded by the record's length so a cycle cannot
+    /// loop.
+    /// </summary>
+    public string AliasMovedTo(string alias)
+    {
+        ArgumentNullException.ThrowIfNull(alias);
+
+        var current = GitHubRepositoryRef.NormalizeAlias(alias);
+
+        for (var hops = 0; hops < AliasMoves.Count; hops++)
+        {
+            if (ByAlias(current) is not null) break;
+
+            var next = AliasMoves.LastOrDefault(m => string.Equals(m.OldAlias, current, StringComparison.Ordinal));
+            if (next is null) break;
+
+            current = next.NewAlias;
+        }
+
+        return current;
+    }
+
+    private GitHubRepositoryRef? ByAlias(string alias) =>
+        Repositories.FirstOrDefault(r => string.Equals(r.Alias, alias, StringComparison.Ordinal));
 
     /// <summary>
     /// Where a coordinate ended up after every rename the registry remembers, or
@@ -177,12 +228,17 @@ public sealed class GitHubSettings
     /// sharing one would share a hue and a filter selection.
     /// </para>
     /// <para>
-    /// An existing alias is never renamed to make room. A rename would be the app
-    /// changing a label somebody chose, and it would orphan the roadmap bands keyed
-    /// on exactly that label. The newcomer takes the compound <c>owner-name</c> form
-    /// instead, then a counter. Here rather than in either caller — a plan import
-    /// registering a repository, a host seeding one — so the two cannot pick
+    /// Another repository's alias is never taken to make room: that would be the app
+    /// changing a label somebody chose for a repository nobody touched. The newcomer
+    /// takes the compound <c>owner-name</c> form instead, then a counter. Here rather
+    /// than in any caller — a plan import registering a repository, a host seeding
+    /// one, a rename relabelling its own repository — so they cannot pick
     /// differently.
+    /// </para>
+    /// <para>
+    /// A repository's own rename may relabel it (local ADR 0060 §1), which is no
+    /// longer the orphaning it once was: the registry records the move, and what is
+    /// keyed by the old alias follows it.
     /// </para>
     /// </summary>
     public string UniqueAlias(string alias, GitHubRepositoryRef repository)
@@ -526,6 +582,16 @@ public sealed class GitHubSettings
 public sealed record RepositoryRename(string OldId, string NewId, DateTimeOffset At);
 
 /// <summary>
+/// One relabel of a configured repository (local ADR 0060 §2):
+/// <see cref="OldAlias"/> is the label data was keyed by until then,
+/// <see cref="NewAlias"/> the one the registry states from there on,
+/// <see cref="RepositoryId"/> the row it belongs to, and <see cref="At"/> when.
+/// Every move of one edit shares its <see cref="At"/>, so a device applies them
+/// together as one mapping. Both aliases are normalized.
+/// </summary>
+public sealed record AliasMove(string OldAlias, string NewAlias, string RepositoryId, DateTimeOffset At);
+
+/// <summary>
 /// One repository somebody removed: the <see cref="Id"/> it had, and
 /// <see cref="At"/> when. Kept until that id is configured again.
 /// </summary>
@@ -611,6 +677,10 @@ public sealed partial class GitHubSettingsStore
     /// to carry the record would silently drop it.</summary>
     private List<RepositoryRename> _renames = [];
 
+    /// <summary>The registry's alias moves (local ADR 0060), held as store state
+    /// for the reason <see cref="_renames"/> is.</summary>
+    private List<AliasMove> _aliasMoves = [];
+
     /// <summary>The registry's removal record, held as store state for the
     /// reason <see cref="_renames"/> is.</summary>
     private List<RepositoryRemoval> _removals = [];
@@ -676,6 +746,22 @@ public sealed partial class GitHubSettingsStore
     /// <summary>Raised after the configuration changes, so open views and any
     /// cached connection can react.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// Raised after a local edit relabelled one or more repositories and was saved —
+    /// a rename, a merge, the list, or <see cref="RelabelRenamedRepositories"/> — with
+    /// exactly the moves that edit recorded, all sharing one
+    /// <see cref="AliasMove.At"/> (local ADR 0060 §3).
+    /// <para>
+    /// The device that made the edit is the one that re-keys the replicated
+    /// alias-keyed stores, so this is never raised for a registry taken from another
+    /// device, nor by <see cref="Reload"/>: those reach a listener as
+    /// <see cref="Changed"/> and carry their moves in <see cref="GitHubSettings.AliasMoves"/>.
+    /// Not raised either when the save failed: a re-key keyed to an alias the next
+    /// start may not know would orphan the data it moved.
+    /// </para>
+    /// </summary>
+    public event Action<IReadOnlyList<AliasMove>>? AliasesMoved;
 
     public GitHubSettings Current { get; private set; }
 
@@ -746,13 +832,19 @@ public sealed partial class GitHubSettingsStore
         // the card; a line kept or added again is spent by Save.
         if (rememberRemovals) RememberRemoved(Current.Repositories.Where(r => !next.Any(n => IsSame(n, r))));
 
-        return Save(new GitHubSettings
-        {
-            Repositories = next,
-            ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours,
-            Accounts = [.. Current.Accounts]
-        });
+        // A row continued by id under another alias is a relabel (local ADR 0060
+        // §4), recorded as a move. Every move of the one edit shares its time, so
+        // a swap is applied as one mapping rather than as two moves in a row.
+        var at = _clock.GetUtcNow();
+        List<AliasMove> moves =
+        [
+            .. next
+                .Select(n => (Next: n, Was: Current.Repositories.FirstOrDefault(r => IsSame(r, n))))
+                .Where(pair => pair.Was is not null && !string.Equals(pair.Was.Alias, pair.Next.Alias, StringComparison.Ordinal))
+                .Select(pair => new AliasMove(pair.Was!.Alias, pair.Next.Alias, pair.Next.FullName, at))
+        ];
+
+        return SaveMoving(WithRepositories(next), moves);
     }
 
     /// <summary>
@@ -775,14 +867,14 @@ public sealed partial class GitHubSettingsStore
         ArgumentNullException.ThrowIfNull(repository);
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
 
-        var (current, renames, removals, localRows) = (Current, _renames, _removals, _localRows);
+        var (current, renames, aliasMoves, removals, localRows) = (Current, _renames, _aliasMoves, _removals, _localRows);
 
         var error = SetRepositories([.. Current.Repositories, repository]);
         if (error is null) return null;
 
         // Every field Save touches is reassigned rather than mutated, so the
         // references taken above are the state as it was.
-        (Current, _renames, _removals, _localRows) = (current, renames, removals, localRows);
+        (Current, _renames, _aliasMoves, _removals, _localRows) = (current, renames, aliasMoves, removals, localRows);
 
         // Best effort: whichever of the two writes did land is put back, so the
         // files do not hold a repository this call reported as not added. A
@@ -879,7 +971,7 @@ public sealed partial class GitHubSettingsStore
 
         // The one grammar the Settings text box reads, so a browser URL or a
         // `.git` suffix pasted here is accepted the way a line would be. The
-        // alias it derives is discarded: the repository keeps its own.
+        // alias it derives is not taken as it is: RelabelledAlias decides.
         var parsed = GitHubRepositoryRef.TryParse(newFullName, out _);
         if (parsed is null) return RenameNotACoordinate;
         if (string.Equals(parsed.FullName, target.FullName, StringComparison.OrdinalIgnoreCase)) return RenameUnchanged;
@@ -895,24 +987,123 @@ public sealed partial class GitHubSettingsStore
         var moved = new RepositoryRename(target.FullName, into?.FullName ?? parsed.FullName, _clock.GetUtcNow());
         _renames = [.. _renames, moved];
 
-        var error = Save(new GitHubSettings
-        {
-            Repositories = into is not null
-                ? [.. Current.Repositories.Where(r => !IsSame(r, target))]
-                :
-                [
-                    .. Current.Repositories.Select(r => IsSame(r, target)
-                        ? r with { Owner = parsed.Owner, Name = parsed.Name }
-                        : r)
-                ],
-            ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours,
-            Accounts = [.. Current.Accounts]
-        });
+        // A merge always moves the renamed alias onto the kept one, custom or not,
+        // because the renamed row goes; a plain rename relabels only an alias that
+        // is still the old name (local ADR 0060 §1).
+        var newAlias = into?.Alias ?? RelabelledAlias(target, parsed);
+        List<AliasMove> moves = string.Equals(newAlias, target.Alias, StringComparison.Ordinal)
+            ? []
+            : [new AliasMove(target.Alias, newAlias, moved.NewId, moved.At)];
+
+        var error = SaveMoving(WithRepositories(into is not null
+            ? [.. Current.Repositories.Where(r => !IsSame(r, target))]
+            :
+            [
+                .. Current.Repositories.Select(r => IsSame(r, target)
+                    ? r with { Alias = newAlias, Owner = parsed.Owner, Name = parsed.Name }
+                    : r)
+            ]), moves);
 
         rename = moved;
         return error;
     }
+
+    /// <summary>
+    /// The alias a repository answers to once it is called <paramref name="renamed"/>:
+    /// the new name's own alias when its alias was still its old name, and its alias
+    /// as it is otherwise (local ADR 0060 §1).
+    /// <para>
+    /// A change of owner alone, or of case alone, normalizes to the alias it already
+    /// has, so it keeps it — and is decided before <see cref="GitHubSettings.UniqueAlias"/>
+    /// is asked, which would read the row's own current alias as another
+    /// repository's, since the row still carries its old id. Another repository
+    /// holding the new name sends this one to the <c>owner-name</c> form.
+    /// </para>
+    /// </summary>
+    private string RelabelledAlias(GitHubRepositoryRef repository, GitHubRepositoryRef renamed)
+    {
+        if (!string.Equals(repository.Alias, GitHubRepositoryRef.NormalizeAlias(repository.Name), StringComparison.Ordinal)) return repository.Alias;
+
+        var derived = GitHubRepositoryRef.NormalizeAlias(renamed.Name);
+        if (string.Equals(derived, repository.Alias, StringComparison.Ordinal)) return repository.Alias;
+
+        return Current.UniqueAlias(derived, renamed);
+    }
+
+    /// <summary>
+    /// Relabels, once, every repository a rename made before renames relabelled
+    /// (local ADR 0060 §5), and returns the moves it recorded — empty when there was
+    /// nothing to do, the registry cannot be read, or the relabel could not be saved.
+    /// <para>
+    /// A row qualifies when a Rename Record leads to it, its alias is still the
+    /// normalized old name of that record, and no alias move names that alias. It
+    /// takes its own name as its alias, by <see cref="GitHubSettings.UniqueAlias"/>,
+    /// as a rename would now. The move it records is the last condition's answer,
+    /// so a second run finds nothing — and so does a person who relabelled back
+    /// afterwards. Every move shares one time, is saved, and is announced through
+    /// <see cref="AliasesMoved"/> like any relabel this device made.
+    /// </para>
+    /// <para>
+    /// Only a record from before the decision counts. A rename or merge made since
+    /// writes its own alias move for the repository at the record's time whenever
+    /// the alias changed, so a record with a move for its new id at or after its
+    /// time has been followed already — which is what keeps a merge's kept row,
+    /// whose custom alias can equal the merged row's old name, from being relabelled.
+    /// A merge made <em>before</em> the decision left nothing to tell it from a plain
+    /// rename, so its kept row is relabelled when its alias is that old name; a
+    /// relabel back is final.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<AliasMove> RelabelRenamedRepositories()
+    {
+        if (_registryState is RegistryState.Unreadable) return [];
+
+        var at = _clock.GetUtcNow();
+        var rows = Current.Repositories.ToList();
+        var moves = new List<AliasMove>();
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            if (!WasRenamedFromItsAlias(row)) continue;
+            if (_aliasMoves.Any(m => string.Equals(m.OldAlias, row.Alias, StringComparison.Ordinal))) continue;
+
+            var relabelled = new GitHubSettings { Repositories = rows }
+                .UniqueAlias(GitHubRepositoryRef.NormalizeAlias(row.Name), row);
+            if (string.Equals(relabelled, row.Alias, StringComparison.Ordinal)) continue;
+
+            rows[i] = row with { Alias = relabelled };
+            moves.Add(new AliasMove(row.Alias, relabelled, row.FullName, at));
+        }
+
+        if (moves.Count == 0) return [];
+
+        // The moves stay in memory either way, as any failed save's change does;
+        // the caller is told of none, so nothing re-keys to an alias the next start
+        // will not know.
+        return SaveMoving(WithRepositories(rows), moves) is null ? moves : [];
+    }
+
+    /// <summary>Whether a Rename Record from before local ADR 0060 leads to this row
+    /// from a name its alias still is.</summary>
+    private bool WasRenamedFromItsAlias(GitHubRepositoryRef row) =>
+        _renames.Any(rename =>
+            string.Equals(Current.RenamedTo(rename.OldId), row.FullName, StringComparison.OrdinalIgnoreCase)
+            && rename.OldId.Split('/') is [_, var oldName]
+            && string.Equals(GitHubRepositoryRef.NormalizeAlias(oldName), row.Alias, StringComparison.Ordinal)
+            && !_aliasMoves.Any(move =>
+                string.Equals(move.RepositoryId, rename.NewId, StringComparison.OrdinalIgnoreCase)
+                && move.At >= rename.At));
+
+    /// <summary>The current settings with these repositories in place of the
+    /// configured ones — the value every repository-list edit saves.</summary>
+    private GitHubSettings WithRepositories(List<GitHubRepositoryRef> repositories) => new()
+    {
+        Repositories = repositories,
+        ApiEndpoint = Current.ApiEndpoint,
+        ShowRepositoryColours = Current.ShowRepositoryColours,
+        Accounts = [.. Current.Accounts]
+    };
 
     public string? SetRepositoryToken(string alias, string? token)
     {
@@ -1394,6 +1585,18 @@ public sealed partial class GitHubSettingsStore
     /// </summary>
     private string? Save(GitHubSettings settings)
     {
+        // Under the write lock, so a cursor written from another thread never puts
+        // back a github.json older than this save (RepositoryAliasFollower); the
+        // announcement is outside it, so no listener runs while it is held.
+        string? error;
+        lock (_writeLock) error = Persist(settings);
+
+        Changed?.Invoke();
+        return error;
+    }
+
+    private string? Persist(GitHubSettings settings)
+    {
         var repositories = NormalizeRepositories(settings.Repositories);
 
         // A record whose old id is configured again is spent: a row always wins
@@ -1414,6 +1617,7 @@ public sealed partial class GitHubSettingsStore
             ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = settings.ShowRepositoryColours,
             Renames = [.. _renames],
+            AliasMoves = [.. _aliasMoves],
             Removals = [.. _removals]
         };
         Current = normalized;
@@ -1430,7 +1634,33 @@ public sealed partial class GitHubSettingsStore
 
         if (WriteLocal(normalized) is not null) error = SaveFailed;
 
-        Changed?.Invoke();
+        return error;
+    }
+
+    /// <summary>
+    /// <see cref="Save"/> for an edit that relabels: records its moves, saves, and
+    /// announces them through <see cref="AliasesMoved"/> once the save held. The
+    /// moves are recorded even when it did not, as the rest of the change is, so
+    /// the old aliases keep resolving for this session.
+    /// </summary>
+    private string? SaveMoving(GitHubSettings settings, IReadOnlyList<AliasMove> moves)
+    {
+        if (moves.Count > 0) _aliasMoves = [.. _aliasMoves, .. moves];
+
+        // Marks the Changed this save raises as a moving edit's, so a listener waits
+        // for AliasesMoved rather than acting on the moves twice.
+        if (moves.Count > 0) _savingMovesOnThread = Environment.CurrentManagedThreadId;
+        string? error;
+        try
+        {
+            error = Save(settings);
+        }
+        finally
+        {
+            _savingMovesOnThread = 0;
+        }
+
+        if (error is null && moves.Count > 0) AliasesMoved?.Invoke(moves);
         return error;
     }
 
@@ -1456,6 +1686,7 @@ public sealed partial class GitHubSettingsStore
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
             File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
+            _persistedAliasMoves = [.. _aliasMoves];
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
@@ -1476,6 +1707,9 @@ public sealed partial class GitHubSettingsStore
         Renames = _renames.Count == 0
             ? null
             : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })],
+        AliasMoves = _aliasMoves.Count == 0
+            ? null
+            : [.. _aliasMoves.Select(m => new RegistryAliasMoveDto { From = m.OldAlias, To = m.NewAlias, Id = m.RepositoryId, At = m.At })],
         Removals = _removals.Count == 0
             ? null
             : [.. _removals.Select(r => new RegistryRemovalDto { Id = r.Id, At = r.At })]
@@ -1500,6 +1734,11 @@ public sealed partial class GitHubSettingsStore
     /// <summary>The machine half, plus the two settings that are about this
     /// install rather than about a repository.</summary>
     private string? WriteLocal(GitHubSettings settings)
+    {
+        lock (_writeLock) return WriteLocalLocked(settings);
+    }
+
+    private string? WriteLocalLocked(GitHubSettings settings)
     {
         var rows = LocalRowsFor(settings);
 
@@ -1536,7 +1775,8 @@ public sealed partial class GitHubSettingsStore
                     })
                 ],
                 ApiEndpoint = settings.ApiEndpoint,
-                ShowRepositoryColours = settings.ShowRepositoryColours
+                ShowRepositoryColours = settings.ShowRepositoryColours,
+                AliasMovesAppliedThrough = _appliedThrough.Count == 0 ? null : new(_appliedThrough, StringComparer.Ordinal)
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -1637,11 +1877,14 @@ public sealed partial class GitHubSettingsStore
     {
         var local = ReadLocal();
         _localRows = local.Rows;
+        _appliedThrough = new(local.AliasMovesAppliedThrough ?? [], StringComparer.Ordinal);
 
         var registry = ReadRegistry();
         _registryState = registry.State;
         RegistryError = registry.Error;
         _renames = registry.Renames;
+        _aliasMoves = registry.AliasMoves;
+        _persistedAliasMoves = registry.AliasMoves;
         _removals = registry.Removals;
 
         // The registry document's version as read: the file's own stamp, or once,
@@ -1770,6 +2013,7 @@ public sealed partial class GitHubSettingsStore
             ApiEndpoint = CleanEndpoint(local.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = local.ShowRepositoryColours,
             Renames = [.. _renames],
+            AliasMoves = [.. _aliasMoves],
             Removals = [.. _removals]
         };
     }
@@ -1810,7 +2054,7 @@ public sealed partial class GitHubSettingsStore
     private static string? IdOf(RepositoryDto row) =>
         string.IsNullOrWhiteSpace(row.Id) ? null : row.Id!.Trim();
 
-    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<RepositoryRemoval> Removals, DateTimeOffset? Stamp, string? Error) ReadRegistry()
+    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<AliasMove> AliasMoves, List<RepositoryRemoval> Removals, DateTimeOffset? Stamp, string? Error) ReadRegistry()
     {
         try
         {
@@ -1819,15 +2063,16 @@ public sealed partial class GitHubSettingsStore
             // Missing is the ordinary first-run and fresh-workspace state, and it
             // is writable: the next save creates the file. Deliberately not an
             // error, so nothing tells somebody about a problem they do not have.
-            if (!File.Exists(path)) return (RegistryState.Missing, [], [], [], null, null);
+            if (!File.Exists(path)) return (RegistryState.Missing, [], [], [], [], null, null);
 
             var dto = JsonSerializer.Deserialize<RegistryDto>(File.ReadAllText(path), JsonOptions);
-            if (dto is null) return (RegistryState.Missing, [], [], [], null, null);
+            if (dto is null) return (RegistryState.Missing, [], [], [], [], null, null);
 
             return (
                 RegistryState.Loaded,
                 [.. dto.Repositories.Select(row => RegistryRow.From(row)).OfType<RegistryRow>()],
                 [.. (dto.Renames ?? []).Select(RenameFrom).OfType<RepositoryRename>()],
+                [.. (dto.AliasMoves ?? []).Select(AliasMoveFrom).OfType<AliasMove>()],
                 [.. (dto.Removals ?? []).Select(RemovalFrom).OfType<RepositoryRemoval>()],
                 dto.UpdatedAt ?? (IsEmpty(dto) ? null : LastWriteOf(path)),
                 null);
@@ -1839,8 +2084,22 @@ public sealed partial class GitHubSettingsStore
             // empty shared registry would prune every overlay row and refuse
             // nothing. So the state is remembered, and the writes that would act
             // on a list nobody has are refused instead.
-            return (RegistryState.Unreadable, [], [], [], null, RegistryUnreadable);
+            return (RegistryState.Unreadable, [], [], [], [], null, RegistryUnreadable);
         }
+    }
+
+    /// <summary>A stored alias move read back, or null for one that names no two
+    /// aliases or no coordinate — dropped as a malformed rename is.</summary>
+    private static AliasMove? AliasMoveFrom(RegistryAliasMoveDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.From) || string.IsNullOrWhiteSpace(dto.To)) return null;
+        if (string.IsNullOrWhiteSpace(dto.Id) || dto.Id.Trim().Split('/').Length != 2) return null;
+
+        return new AliasMove(
+            GitHubRepositoryRef.NormalizeAlias(dto.From),
+            GitHubRepositoryRef.NormalizeAlias(dto.To),
+            dto.Id.Trim(),
+            dto.At ?? DateTimeOffset.MinValue);
     }
 
     /// <summary>A stored rename read back, or null for one that names no two
@@ -1894,7 +2153,8 @@ public sealed partial class GitHubSettingsStore
                 LastWrite = LastWriteOf(_path),
                 ApiEndpoint = dto.ApiEndpoint,
                 ShowRepositoryColours = dto.ShowRepositoryColours,
-                HoldsPlaintextSecret = plaintext
+                HoldsPlaintextSecret = plaintext,
+                AliasMovesAppliedThrough = dto.AliasMovesAppliedThrough
             };
         }
         catch (Exception)
@@ -2194,6 +2454,8 @@ public sealed partial class GitHubSettingsStore
         /// <summary>Whether any token was in the clear, as an earlier release wrote
         /// it — the cue to write the file back sealed (local ADR 0030).</summary>
         public bool HoldsPlaintextSecret { get; init; }
+
+        public Dictionary<string, DateTimeOffset>? AliasMovesAppliedThrough { get; init; }
     }
 
     private sealed class RegistryDto
@@ -2213,6 +2475,11 @@ public sealed partial class GitHubSettingsStore
         /// writes the file it always wrote.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<RegistryRenameDto>? Renames { get; set; }
+
+        /// <summary>Every alias move applied to a row in this file, oldest first
+        /// (local ADR 0060). Omitted while empty, as the rename record is.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<RegistryAliasMoveDto>? AliasMoves { get; set; }
 
         /// <summary>Every repository removed and not configured again. Omitted
         /// while empty, as the rename record is.</summary>
@@ -2234,6 +2501,16 @@ public sealed partial class GitHubSettingsStore
     {
         public string? From { get; set; }
         public string? To { get; set; }
+        public DateTimeOffset? At { get; set; }
+    }
+
+    /// <summary>One alias move: the alias a row had, the one it has now, the row's
+    /// id, and when.</summary>
+    private sealed class RegistryAliasMoveDto
+    {
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public string? Id { get; set; }
         public DateTimeOffset? At { get; set; }
     }
 
@@ -2300,6 +2577,12 @@ public sealed partial class GitHubSettingsStore
         /// visualization existed read as off rather than as anything having to be
         /// migrated.</summary>
         public bool ShowRepositoryColours { get; set; }
+
+        /// <summary>Per local store, the <see cref="AliasMove.At"/> of the last alias
+        /// move group this device applied to it (local ADR 0060 §3). This install's
+        /// alone, so never in the registry; omitted until a store has a cursor.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, DateTimeOffset>? AliasMovesAppliedThrough { get; set; }
     }
 
     /// <summary>

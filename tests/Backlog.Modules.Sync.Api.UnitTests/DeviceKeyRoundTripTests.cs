@@ -6,6 +6,7 @@ using System.Text.Json;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -38,15 +39,14 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     {
         var device = Device(new InMemoryDeviceCredentialStore(), new InMemoryDeviceKeyStore());
 
-        var registered = await device.Pairing.RegisterAsync("Workshop PC", Cancellation);
+        var registered = Assert.IsType<Ok<DeviceCredential>>((await device.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value).Value;
 
-        Assert.True(registered.IsSuccess, registered.IsFailure ? registered.Error.Message : null);
         Assert.Null(device.Credentials.Current!.Credential);
 
         var token = await device.Tokens.GetAccessTokenAsync(Cancellation);
 
         Assert.NotNull(token);
-        Assert.Equal(registered.Value.DeviceId, await StatusAsync(token));
+        Assert.Equal(registered.DeviceId, await StatusAsync(token));
         Assert.Null(device.Credentials.Current!.Credential);
     }
 
@@ -54,19 +54,17 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     public async Task A_device_paired_with_its_key_signs_for_its_token()
     {
         var first = Device(new InMemoryDeviceCredentialStore(), new InMemoryDeviceKeyStore());
-        Assert.True((await first.Pairing.RegisterAsync("Workshop PC", Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await first.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value);
 
-        var code = await first.Pairing.IssuePairingCodeAsync(Cancellation);
-        Assert.True(code.IsSuccess, code.IsFailure ? code.Error.Message : null);
+        var code = Assert.IsType<Ok<PairingCodeResponse>>((await first.Pairing.IssuePairingCodeAsync(Cancellation)).Value).Value;
 
         var second = Device(new InMemoryDeviceCredentialStore(), new InMemoryDeviceKeyStore());
-        var paired = await second.Pairing.PairAsync(code.Value.Code, "Laptop", Cancellation);
+        var paired = Assert.IsType<Ok<DeviceCredential>>((await second.Pairing.PairAsync(code.Code, "Laptop", Cancellation)).Value).Value;
 
-        Assert.True(paired.IsSuccess, paired.IsFailure ? paired.Error.Message : null);
         Assert.Null(second.Credentials.Current!.Credential);
 
         var token = await second.Tokens.GetAccessTokenAsync(Cancellation);
-        Assert.Equal(paired.Value.DeviceId, await StatusAsync(token));
+        Assert.Equal(paired.DeviceId, await StatusAsync(token));
     }
 
     /// <summary>A device registered on a credential, before keys, moves onto its key on
@@ -77,28 +75,27 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     {
         var credentials = new InMemoryDeviceCredentialStore();
         var before = Device(credentials, keys: null);
-        var registered = await before.Pairing.RegisterAsync("Workshop PC", Cancellation);
-        Assert.True(registered.IsSuccess, registered.IsFailure ? registered.Error.Message : null);
+        var registered = Assert.IsType<Ok<DeviceCredential>>((await before.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value).Value;
         var secret = credentials.Current!.Credential;
         Assert.NotNull(secret);
 
         var after = Device(credentials, new InMemoryDeviceKeyStore());
 
         var migrated = await after.Tokens.GetAccessTokenAsync(Cancellation);
-        Assert.Equal(registered.Value.DeviceId, await StatusAsync(migrated));
+        Assert.Equal(registered.DeviceId, await StatusAsync(migrated));
         Assert.Null(credentials.Current!.Credential);
 
         var sent = new List<string>();
         var signer = Device(credentials, after.Keys, sent);
         var signed = await signer.Tokens.GetAccessTokenAsync(Cancellation);
-        Assert.Equal(registered.Value.DeviceId, await StatusAsync(signed));
+        Assert.Equal(registered.DeviceId, await StatusAsync(signed));
         var request = JsonSerializer.Deserialize<DeviceTokenRequest>(Assert.Single(sent), JsonSerializerOptions.Web)!;
         Assert.Null(request.Credential);
         Assert.NotNull(request.ClientAssertion);
 
         using var client = _service.CreateClient();
         var old = await client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.DeviceToken), new DeviceTokenRequest(registered.Value.DeviceId, secret), Cancellation);
+            SyncRoutes.Absolute(SyncRoutes.DeviceToken), new DeviceTokenRequest(registered.DeviceId, secret), Cancellation);
         Assert.Equal(HttpStatusCode.Unauthorized, old.StatusCode);
     }
 
@@ -110,21 +107,20 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     {
         var credentials = new SaveFailingCredentialStore();
         var before = Device(credentials, keys: null);
-        var registered = await before.Pairing.RegisterAsync("Workshop PC", Cancellation);
-        Assert.True(registered.IsSuccess, registered.IsFailure ? registered.Error.Message : null);
+        var registered = Assert.IsType<Ok<DeviceCredential>>((await before.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value).Value;
 
         var after = Device(credentials, new InMemoryDeviceKeyStore());
         credentials.FailSaves = true;
 
         var first = await after.Tokens.GetAccessTokenAsync(Cancellation);
-        Assert.Equal(registered.Value.DeviceId, await StatusAsync(first));
+        Assert.Equal(registered.DeviceId, await StatusAsync(first));
         Assert.NotNull(credentials.Current!.Credential);
 
         credentials.FailSaves = false;
         after.Tokens.Invalidate();
 
         var second = await after.Tokens.GetAccessTokenAsync(Cancellation);
-        Assert.Equal(registered.Value.DeviceId, await StatusAsync(second));
+        Assert.Equal(registered.DeviceId, await StatusAsync(second));
         Assert.Null(credentials.Current!.Credential);
         Assert.False(after.Tokens.CredentialRejected);
     }
@@ -135,7 +131,7 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     public async Task A_replayed_assertion_is_refused()
     {
         var registrar = Device(new InMemoryDeviceCredentialStore(), new InMemoryDeviceKeyStore());
-        Assert.True((await registrar.Pairing.RegisterAsync("Workshop PC", Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await registrar.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value);
 
         var sent = new List<string>();
         var device = Device(registrar.Credentials, registrar.Keys, sent);
@@ -156,7 +152,7 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     public async Task An_assertion_signed_by_another_key_is_refused()
     {
         var registered = Device(new InMemoryDeviceCredentialStore(), new InMemoryDeviceKeyStore());
-        Assert.True((await registered.Pairing.RegisterAsync("Workshop PC", Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await registered.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value);
 
         var impostor = Device(registered.Credentials, new InMemoryDeviceKeyStore());
 
@@ -172,7 +168,7 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     {
         var credentials = new SaveFailingCredentialStore();
         var before = Device(credentials, keys: null);
-        Assert.True((await before.Pairing.RegisterAsync("Workshop PC", Cancellation)).IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>((await before.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value);
 
         credentials.FailSaves = true;
         var migrated = Device(credentials, new InMemoryDeviceKeyStore());
@@ -193,13 +189,12 @@ public sealed class DeviceKeyRoundTripTests : IDisposable
     {
         var credentials = new InMemoryDeviceCredentialStore();
         var before = Device(credentials, keys: null);
-        var registered = await before.Pairing.RegisterAsync("Workshop PC", Cancellation);
-        Assert.True(registered.IsSuccess, registered.IsFailure ? registered.Error.Message : null);
+        var registered = Assert.IsType<Ok<DeviceCredential>>((await before.Pairing.RegisterAsync("Workshop PC", Cancellation)).Value).Value;
         var secret = credentials.Current!.Credential;
 
         using var offered = new DeviceSigningKey();
         using var signer = new DeviceSigningKey();
-        var deviceId = registered.Value.DeviceId;
+        var deviceId = registered.DeviceId;
 
         using var client = _service.CreateClient();
         using var refused = await client.PostAsJsonAsync(

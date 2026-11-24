@@ -102,7 +102,16 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         }
     }
 
-    public async Task SaveAsync(RoadmapPlan plan, CancellationToken cancellationToken = default)
+    public Task SaveAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
+        WriteAsync(plan, keepStamp: false, cancellationToken);
+
+    /// <summary>Writes the plan at the stamp the row already carries, or as a new one
+    /// when there is no row: a repository-alias backstop move (local ADR 0060 §3), which
+    /// must not read as a newer version of the replicated document.</summary>
+    public Task SaveKeepingStampAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
+        WriteAsync(plan, keepStamp: true, cancellationToken);
+
+    private async Task WriteAsync(RoadmapPlan plan, bool keepStamp, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
@@ -139,9 +148,10 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         // made on — refused by the replica, and overwritten by that plan on the next
         // pull. One tick past it keeps the edit the later version.
         var stamp = DateTimeOffset.UtcNow;
-        if (await StampAsync(connection, cancellationToken).ConfigureAwait(false) is { } held && stamp <= held)
+        if (await StampAsync(connection, cancellationToken).ConfigureAwait(false) is { } held)
         {
-            stamp = held.AddTicks(1);
+            if (keepStamp) stamp = held;
+            else if (stamp <= held) stamp = held.AddTicks(1);
         }
 
         command.Parameters.AddWithValue("$updated_at", Format(stamp));

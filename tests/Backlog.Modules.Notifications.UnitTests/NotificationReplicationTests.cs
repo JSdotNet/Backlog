@@ -1,6 +1,7 @@
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,8 +27,8 @@ public sealed class NotificationReplicationTests
         var notifications = provider.GetRequiredService<INotifications>();
         var replication = provider.GetRequiredService<INotificationReplication>();
 
-        var asked = (await notifications.PublishAsync(Question(), Cancellation)).Value;
-        var told = (await notifications.PublishAsync(Alert(), Cancellation)).Value;
+        var asked = Assert.IsType<Ok<Guid>>((await notifications.PublishAsync(Question(), Cancellation)).Value).Value;
+        var told = Assert.IsType<Ok<Guid>>((await notifications.PublishAsync(Alert(), Cancellation)).Value).Value;
         await provider.GetRequiredService<INotificationReplies>().AcknowledgeAsync(told, Cancellation);
 
         var open = Assert.Single(await replication.ListOpenAsync(Cancellation));
@@ -49,7 +50,7 @@ public sealed class NotificationReplicationTests
     public async Task An_accepted_answer_is_part_of_the_snapshot()
     {
         await using var provider = Owner();
-        var id = (await provider.GetRequiredService<INotifications>().PublishAsync(Question(), Cancellation)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await provider.GetRequiredService<INotifications>().PublishAsync(Question(), Cancellation)).Value).Value;
 
         await provider.GetRequiredService<INotificationReplies>().AcceptReplyAsync(
             new NotificationReply(Guid.NewGuid(), id, Drafts.Owner, Phone, ["yes"], null, Now),

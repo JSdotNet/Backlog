@@ -43,7 +43,7 @@ Everything decided about one repository is edited under its own row, one at a ti
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions]
+related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/repository-management/domain.md#repository-alias, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 ```
 
 A registered repository is identified by its owner and name, and every entry and inbox item filed against it records that coordinate too. Without a rename, a change of name on GitHub would read as a second repository. Everything filed against the old name would then point at a coordinate nobody is configured for.
@@ -52,15 +52,18 @@ Seven edits to the registry look alike and do different things:
 
 | Edit | How it is made | What follows it | What is kept |
 |---|---|---|---|
-| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository | Its settings under the new name, and a [Rename Record](domain.md#rename-record) of the old one |
-| Merge | A rename to a name another registered repository already has | Everything filed against the old name, to the other repository | The other repository's settings; the renamed one goes |
+| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository; a relabel too, when the alias is still the old name | Its settings under the new name, and a [Rename Record](domain.md#rename-record) of the old one |
+| Merge | A rename to a name another registered repository already has | Everything filed against the old name or keyed by its alias, to the other repository | The other repository's settings and data; the renamed one goes |
 | Removal | Removing the repository from the list | Nothing | A [Removal Record](domain.md#removal-record); entries keep the removed name and show no repository |
 | Archive | Choosing Archive on the repository's row ([Archiving a repository](#archiving-a-repository)) | Nothing is re-pointed; the panes stop reading the repository as active work | Everything: the identity, the settings, the tasks filed against it, and its devbook |
 | Unarchive | Choosing Unarchive on the archived row | Nothing; the repository is active work again | Everything, as it was when it was archived |
-| Relabel | Changing the alias alone | Nothing, because the same repository is meant | Everything |
-| Alias swap | Swapping two aliases between two repositories | Nothing, because it is two relabels | Each repository's own settings |
+| Relabel | Changing the alias alone | Everything keyed by the old alias | Everything, and an [alias move](domain.md#repository-alias) |
+| Alias swap | Swapping two aliases between two repositories | Two relabels, made together | Each repository's own settings and data |
 
 - **Rename:** An entry's links to issues it created there follow it too. The settings kept are the clone directory, colour, account and devbook folder settings.
+- **Relabel:** The roadmap bands and scopes, the pace, devbook states and remarks, and the last place each device showed move to the new alias. Text a person wrote, such as a Brain link or a plan's repository list, keeps the old alias and still resolves.
+
+A rename relabels only a repository whose alias is still its old name, the alias it took when it was registered without one. The new alias is the new name, or the `owner-name` form when another repository holds that name. An alias the person chose stays. A rename made before this rule relabels once, at the next start. Local ADR 0060 records how the data follows on every device.
 
 A rename is asked for on the repository itself and never inferred from the list, which cannot tell a rename from a replacement. For a repository registered without an alias, whose alias is its name, the two edits are the same edit. So a change of owner or name made in the list is a removed repository beside a new one. The list says so and points at the rename, the edit that keeps things.
 

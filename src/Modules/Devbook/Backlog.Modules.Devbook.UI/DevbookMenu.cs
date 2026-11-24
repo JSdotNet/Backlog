@@ -5,10 +5,7 @@ using Backlog.SharedKernel;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-/// <param name="features">Where the New domain view switch is read
-/// (<see cref="DevbookFeatures.DomainView"/>). Optional: a host that composes no
-/// feature settings lists the Domain area as it always has.</param>
-public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeatureSettings? features = null)
+public sealed partial class DevbookMenu(IDevbookFolderSource source)
 {
     /// <summary>Re-published from the folder source so an open pane can rebuild
     /// its menu when the configured folder moves. The four knowledge stores
@@ -21,10 +18,6 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         add => source.Changed += value;
         remove => source.Changed -= value;
     }
-
-    /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
-    /// 0047) rather than as the flat list of its files.</summary>
-    private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>
     /// The rail, area by area.
@@ -188,8 +181,8 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         var tree = source.FileTree(location);
         var fullPath = location.FullPath;
 
-        // Read once per load, so one walk never lists half its contexts one way.
-        var domainUnits = string.Equals(areaKey, "domain", StringComparison.Ordinal) && DomainUnitsEnabled;
+        // The Domain area lists each bounded context by unit (local ADR 0047).
+        var domainUnits = string.Equals(areaKey, "domain", StringComparison.Ordinal);
 
         // The walk itself on the pool. It is a directory listing plus one read of
         // the outline per area, which is small — but the pane awaits it on the
@@ -654,7 +647,7 @@ public sealed record DevbookMenuNode(
     public bool HasChildren => Children.Count > 0;
 
     /// <summary>The number the row shows beside its label, or null for none —
-    /// how many pages a kind's row holds in the New domain view (local ADR 0047).</summary>
+    /// how many pages a kind's row holds in the Domain view (local ADR 0047).</summary>
     public int? Count { get; init; }
 }
 

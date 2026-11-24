@@ -186,5 +186,5 @@ public class ToolArgumentsTests
             .EnumerateObject()
             .ToDictionary(property => property.Name, property => property.Value.Clone(), StringComparer.Ordinal);
 
-    private static JsonElement Element(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    private static JsonElement Element(string json) => JsonElement.Parse(json).Clone();
 }

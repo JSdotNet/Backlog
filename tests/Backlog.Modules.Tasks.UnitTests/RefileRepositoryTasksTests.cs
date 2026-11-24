@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.RefileRepositoryTasks;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -189,8 +190,8 @@ public sealed class RefileRepositoryTasksTests
 
         var result = await Handler(store).Handle(new RefileRepositoryTasksCommand(repositoryId, moveToId, drop), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(RefileRepositoryTasksCommand.Invalid, result.Error);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(RefileRepositoryTasksCommand.Invalid, error);
         Assert.Equal(0, store.Writes);
     }
 
@@ -204,8 +205,8 @@ public sealed class RefileRepositoryTasksTests
     {
         var result = await Handler(store).Handle(command, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        return result.Value;
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        return ok.Value;
     }
 
     private static RefileRepositoryTasksCommandHandler Handler(InMemoryTaskRepository store) =>

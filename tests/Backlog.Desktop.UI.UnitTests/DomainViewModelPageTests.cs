@@ -10,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Domain view's Model page, reached the way a reader reaches it: the New
-/// domain view switch on, a context opened, its Model row picked. The page opens on
+/// The Domain view's Model page, reached the way a reader reaches it: a context
+/// opened, its Model row picked. The page opens on
 /// Diagram with a Diagram | Fields | Events bar and draws the file's classDiagram as
 /// the aggregate's consistency-boundary band (local ADR 0047); a split
 /// <c>model.&lt;name&gt;.md</c> opens the same page, and a fence the reader cannot
@@ -384,7 +384,6 @@ public sealed class DomainViewModelPageTests : IDisposable
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(DevbookFeatures.DomainView, true);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);

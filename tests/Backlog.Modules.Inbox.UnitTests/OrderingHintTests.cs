@@ -4,6 +4,7 @@ using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -230,8 +231,8 @@ public sealed class OrderingHintTests
         foreach (var item in batch) store.Seed(item);
         IReadOnlyList<Guid> ids = [.. batch.Select(item => item.Id)];
 
-        var proposal = (await new ProposeBatchQueryHandler(store, store)
-            .Handle(new ProposeBatchQuery(ids), TestContext.Current.CancellationToken)).Value;
+        var proposal = Assert.IsType<Ok<InboxBatchProposalDto>>((await new ProposeBatchQueryHandler(store, store)
+            .Handle(new ProposeBatchQuery(ids), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(
             [OrderingHintKind.Duplicate, OrderingHintKind.SetupFirst, OrderingHintKind.SameRepository, OrderingHintKind.CaptureOrder],
@@ -256,7 +257,8 @@ public sealed class OrderingHintTests
         Assert.Equal([work.Id], request.Items.Single(item => item.InboxItemId == deploy.Id).AfterItems);
         Assert.All(request.Items.Where(item => item.InboxItemId != deploy.Id), item => Assert.Empty(item.AfterItems ?? []));
         Assert.All(request.Items, item => Assert.Empty(item.AfterTasks ?? []));
-        Assert.Empty(routed.Value.Archived);
-        Assert.Equal(4, routed.Value.Routed.Count);
+        var routedOk = Assert.IsType<Ok<InboxBatchRoutedDto>>(routed.Value);
+        Assert.Empty(routedOk.Value.Archived);
+        Assert.Equal(4, routedOk.Value.Routed.Count);
     }
 }

@@ -1,6 +1,7 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -26,7 +27,7 @@ public sealed class SpotKnowledgeEventTests
             "Techorama Netherlands 2026", "https://techorama.nl/2026", null, null, null, null, null), Ct);
 
         var made = Assert.Single(_events.Saved);
-        Assert.Equal(spotted.Value.EventId, made.Id);
+        Assert.Equal(Assert.IsType<Ok<SpottedKnowledgeEventDto>>(spotted.Value).Value.EventId, made.Id);
         Assert.Equal("Techorama Netherlands 2026", made.Title);
         Assert.Equal("https://techorama.nl/2026", made.Link);
         Assert.Equal(KnowledgeEventState.Spotted, made.State);
@@ -69,7 +70,7 @@ public sealed class SpotKnowledgeEventTests
     {
         var spotted = await Events().SpotAsync(new SpotKnowledgeEventDto("Some meetup", null, null, null, null, null, null), Ct);
 
-        Assert.True(spotted.IsSuccess);
+        Assert.IsType<Ok<SpottedKnowledgeEventDto>>(spotted.Value);
         var made = Assert.Single(_events.Saved);
         Assert.Null(made.Start);
         Assert.Null(made.End);
@@ -114,15 +115,15 @@ public sealed class SpotKnowledgeEventTests
     [Fact]
     public async Task The_event_joins_the_series_whose_page_is_the_watched_page()
     {
-        var techorama = EventSeries.Create(Guid.NewGuid(), "Techorama Netherlands", null, "https://techorama.nl/").Value;
+        var techorama = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama Netherlands", null, "https://techorama.nl/").Value).Value;
         await _series.SaveAsync(techorama, Ct);
 
         var spotted = await Events().SpotAsync(new SpotKnowledgeEventDto(
             "Techorama Netherlands 2026", null, null, null, null, "https://TECHORAMA.nl", "Techorama NL — home"), Ct);
 
         Assert.Equal(techorama.Id, Assert.Single(_events.Saved).Series);
-        Assert.Equal(techorama.Id, spotted.Value.SeriesId);
-        Assert.False(spotted.Value.SeriesStarted);
+        Assert.Equal(techorama.Id, Assert.IsType<Ok<SpottedKnowledgeEventDto>>(spotted.Value).Value.SeriesId);
+        Assert.False(Assert.IsType<Ok<SpottedKnowledgeEventDto>>(spotted.Value).Value.SeriesStarted);
         Assert.Single(await _series.ListAsync(Ct));
     }
 
@@ -136,7 +137,7 @@ public sealed class SpotKnowledgeEventTests
         Assert.Equal("dotNET Friday", series.Name);
         Assert.Equal("https://dotnetfriday.nl", series.Link);
         Assert.Equal(series.Id, Assert.Single(_events.Saved).Series);
-        Assert.True(spotted.Value.SeriesStarted);
+        Assert.True(Assert.IsType<Ok<SpottedKnowledgeEventDto>>(spotted.Value).Value.SeriesStarted);
     }
 
     [Fact]
@@ -162,7 +163,7 @@ public sealed class SpotKnowledgeEventTests
     {
         var spotted = await Events().SpotAsync(new SpotKnowledgeEventDto(" ", null, null, null, null, "https://dotnetfriday.nl", "dotNET Friday"), Ct);
 
-        Assert.Equal("knowledge_event.title_missing", spotted.Error.Code);
+        Assert.Equal("knowledge_event.title_missing", Assert.IsType<Error>(spotted.Value).Code);
         Assert.Empty(_events.Saved);
         Assert.Empty(await _series.ListAsync(Ct));
     }

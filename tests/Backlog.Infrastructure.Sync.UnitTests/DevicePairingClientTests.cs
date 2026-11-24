@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Polly.CircuitBreaker;
 using Polly.Timeout;
@@ -28,10 +29,10 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        var resultValue = Assert.IsType<Ok<DeviceCredential>>(result.Value).Value;
         Assert.Equal("/api/sync/devices/register", fixture.Handler.Requests[^1].Path);
         Assert.Equal(new DeviceCredential(Owner, Device, "Workshop PC", "a-registration-credential"), store.Current);
-        Assert.Equal(store.Current, result.Value);
+        Assert.Equal(store.Current, resultValue);
     }
 
     [Fact]
@@ -43,7 +44,7 @@ public sealed class DevicePairingClientTests
         // As a person would paste it back: the displayed hyphen, lower case.
         var result = await fixture.Client.PairAsync("k7mn-9pqr", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DeviceCredential>>(result.Value);
         Assert.Equal("/api/sync/devices/pair", fixture.Handler.Requests[0].Path);
         Assert.Contains("\"K7MN9PQR\"", fixture.LastBody, StringComparison.Ordinal);
         Assert.Equal("Phone", store.Current?.DeviceName);
@@ -62,8 +63,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.PairAsync("nope", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.PairingCodeMalformed, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.PairingCodeMalformed, error.Code);
         Assert.Empty(fixture.Handler.Requests);
         Assert.Null(store.Current);
     }
@@ -84,9 +85,9 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.PairAsync("K7MN9PQR", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.PairingCodeUsed, result.Error.Code);
-        Assert.Equal("That code has already paired a device.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.PairingCodeUsed, error.Code);
+        Assert.Equal("That code has already paired a device.", error.Message);
         Assert.Null(store.Current);
     }
 
@@ -101,7 +102,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.PairAsync("K7MN9PQR", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncErrorCodes.PairingCodeExpired, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.PairingCodeExpired, error.Code);
     }
 
     [Fact]
@@ -116,10 +118,10 @@ public sealed class DevicePairingClientTests
         var code = await fixture.Client.IssuePairingCodeAsync(TestContext.Current.CancellationToken);
         var status = await fixture.Client.GetStatusAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal("K7MN9PQR", code.Value.Code);
+        Assert.Equal("K7MN9PQR", Assert.IsType<Ok<PairingCodeResponse>>(code.Value).Value.Code);
         Assert.Equal("/api/sync/devices/codes", fixture.Handler.Requests[0].Path);
 
-        Assert.Equal(2, status.Value.PairedDeviceCount);
+        Assert.Equal(2, Assert.IsType<Ok<DeviceStatusResponse>>(status.Value).Value.PairedDeviceCount);
         Assert.Equal("/api/sync/devices/me", fixture.Handler.Requests[1].Path);
     }
 
@@ -136,8 +138,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, error.Code);
         Assert.Null(store.Current);
     }
 
@@ -156,9 +158,9 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
-        Assert.Equal("The sync service did not answer in time.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, error.Code);
+        Assert.Equal("The sync service did not answer in time.", error.Message);
     }
 
     [Fact]
@@ -169,9 +171,9 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
-        Assert.StartsWith("The sync service could not be reached: ", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, error.Code);
+        Assert.StartsWith("The sync service could not be reached: ", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -182,7 +184,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("   ", TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncErrorCodes.DeviceNameRequired, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.DeviceNameRequired, error.Code);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -199,9 +202,9 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.CredentialStoreFailedCode, result.Error.Code);
-        Assert.False(string.IsNullOrWhiteSpace(result.Error.Message));
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.CredentialStoreFailedCode, error.Code);
+        Assert.False(string.IsNullOrWhiteSpace(error.Message));
         Assert.Null(store.Current);
     }
 
@@ -219,8 +222,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.PairAsync("K7MN-9PQR", "Phone", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.CredentialStoreFailedCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.CredentialStoreFailedCode, error.Code);
         Assert.Equal(1, store.Saves);
         Assert.Null(store.Current);
     }
@@ -254,7 +257,7 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
+        Assert.True(result is Ok<DeviceCredential>, result is Error error ? error.Message : null);
         Assert.Equal(gitHub, browser.Opened);
         Assert.Equal(EnrolmentCode, JsonSerializer.Deserialize<RegisterDeviceRequest>(fixture.LastBody, JsonSerializerOptions.Web)!.EnrolmentCode);
     }
@@ -272,8 +275,9 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.Equal(DevicePairingClient.SignInRefusedCode, result.Error.Code);
-        Assert.Equal("Only the owner's GitHub account can enrol a device.", result.Error.Message);
+        var resultError = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.SignInRefusedCode, resultError.Code);
+        Assert.Equal("Only the owner's GitHub account can enrol a device.", resultError.Message);
         Assert.DoesNotContain(fixture.Handler.Requests, r => r.Path == SyncRoutes.Absolute(SyncRoutes.RegisterDevice));
         Assert.Null(store.Current);
     }
@@ -289,7 +293,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.Equal(DevicePairingClient.SignInRefusedCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.SignInRefusedCode, error.Code);
         Assert.Null(store.Current);
     }
 
@@ -302,7 +307,8 @@ public sealed class DevicePairingClientTests
 
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.Equal(DevicePairingClient.SignInTimedOutCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.SignInTimedOutCode, error.Code);
     }
 
     /// <summary>A socket that opens and says nothing — a browser's preconnect — must not
@@ -327,7 +333,7 @@ public sealed class DevicePairingClientTests
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
+        Assert.True(result is Ok<DeviceCredential>, result is Error error ? error.Message : null);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(20), $"The answer took {clock.Elapsed.TotalSeconds:0.0} s.");
     }
 
@@ -340,7 +346,8 @@ public sealed class DevicePairingClientTests
 
         var result = await new DevicePairingClient(http, store).RegisterAsync("Phone", TestContext.Current.CancellationToken);
 
-        Assert.Equal(DevicePairingClient.SignInUnavailableCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.SignInUnavailableCode, error.Code);
         Assert.Empty(handler.Requests);
     }
 

@@ -5,6 +5,7 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Replication;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -142,7 +143,7 @@ public sealed class ImpedimentSyncTests
             new FakeTimeProvider(Morning.AddHours(6)),
             impediments: impediments);
 
-        Assert.Equal(1, (await session.PushAsync(Cancellation)).Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>((await session.PushAsync(Cancellation)).Value).Value.Pushed);
         var sent = Assert.Single(JsonSerializer.Deserialize<PushTasksRequest>(bodies[0], Web)!.Tasks);
         Assert.Equal(bank.Id, sent.Id);
         Assert.Equal("impediment", sent.Task.Type);

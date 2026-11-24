@@ -1,3 +1,4 @@
+@using global::Backlog.SharedKernel.Results
 @using Microsoft.JSInterop
 @implements IDisposable
 @inject IEventsPane Pane
@@ -303,9 +304,9 @@
         try
         {
             var read = await Pane.GetAsync(id);
-            if (read.IsSuccess)
+            if (read is Ok<KnowledgeEventDto>(var found))
             {
-                _selected = read.Value;
+                _selected = found;
                 return;
             }
 
@@ -403,8 +404,8 @@
             {
                 // The module's refusal, so the words are the same as anywhere else.
                 var refused = await Pane.AddAsync(_newTitle);
-                _addError = refused.IsFailure ? refused.Error.Message : null;
-                if (refused.IsSuccess) await AddedAsync(refused.Value);
+                _addError = refused is Error error ? error.Message : null;
+                if (refused is Ok<KnowledgeEventDto>(var addedBlank)) await AddedAsync(addedBlank);
                 return;
             }
 
@@ -420,24 +421,24 @@
                 else
                 {
                     var started = await Pane.StartSeriesAsync(name);
-                    if (started.IsFailure)
+                    if (started is not Ok<EventSeriesDto>(var startedSeries))
                     {
-                        _addError = started.Error.Message;
+                        _addError = ((Error)started.Value!).Message;
                         return;
                     }
 
-                    seriesId = started.Value.Id;
+                    seriesId = startedSeries.Id;
                 }
             }
 
             var added = await Pane.AddAsync(_newTitle, seriesId);
-            if (added.IsFailure)
+            if (added is not Ok<KnowledgeEventDto>(var addedEvent))
             {
-                _addError = added.Error.Message;
+                _addError = ((Error)added.Value!).Message;
                 return;
             }
 
-            await AddedAsync(added.Value);
+            await AddedAsync(addedEvent);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

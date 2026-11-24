@@ -934,34 +934,6 @@
         }
         _review = Services.GetService<DevbookBranchReview>();
         _overview = Services.GetService<DevbookBranchOverview>();
-
-        // Resolved rather than injected, for the reason the stores above are: a
-        // host that composes no feature settings reads the Domain area as it was.
-        _features = Services.GetService<IAppFeatureSettings>();
-        if (_features is not null) _features.Changed += OnFeaturesChanged;
-    }
-
-    /// <summary>Where the New domain view switch is read, when the host has one.</summary>
-    private IAppFeatureSettings? _features;
-
-    /// <summary>Whether the Domain area renders <see cref="DomainView"/> rather than
-    /// <see cref="DomainDevbookPanel"/>. Off with no feature settings composed, so
-    /// the switch's absence reads exactly as the switch off.</summary>
-    private bool DomainViewEnabled => _features?.IsEnabled(DevbookFeatures.DomainView) == true;
-
-    /// <summary>A switch was flipped in Settings: the Domain area may now be the
-    /// other view, and its menu the other listing — by unit, or the flat list.
-    /// The menu reloads only when the New domain view switch is what moved, since
-    /// it is part of what the loaded menu is fingerprinted by.</summary>
-    private void OnFeaturesChanged()
-    {
-        if (_disposed) return;
-        _ = InvokeAsync(async () =>
-        {
-            if (_disposed) return;
-            await RefreshMenuAsync();
-            StateHasChanged();
-        });
     }
 
     /// <summary>
@@ -1111,7 +1083,6 @@
             _mode.Source.Changed -= OnBrainChanged;
             _mode.ShowsHiddenChanged -= OnShowHiddenChanged;
         }
-        if (_features is not null) _features.Changed -= OnFeaturesChanged;
         _disposed = true;
         OpenChapter.Clear();
     }
@@ -1220,7 +1191,9 @@
         if (FocusFor(EffectiveSection, SelectedChapterPath) is null) return null;
 
         _revealedFocusSequence = focus.Focus.Sequence;
-        return (focus.Focus.Anchor, SelectedChapterPath);
+        // The file the heading is in: a Domain file shown on its host's page names
+        // itself, so the file view reading it as written is the one searched.
+        return (focus.Focus.Anchor, focus.Focus.File ?? SelectedChapterPath);
     }
 
     /// <summary>The AI and Design folders read their chapters through
@@ -2109,14 +2082,17 @@
         if (root is null || !root.Available) return;
 
         // A file the Domain menu lists by unit draws no row of its own when it is
-        // shown on another page; the reference opens that page instead.
+        // shown on another page; the reference opens that page instead. Its anchor
+        // goes with it, still naming a heading of the file the reference named, so
+        // the page can open on the rule or section it is.
         var relativePath = target.RelativePath;
         var anchor = target.Anchor;
+        string? anchorFile = null;
         if (!ContainsPath(root, relativePath))
         {
             if (UnitHostIn(root, relativePath) is not { } host) return;
+            anchorFile = relativePath;
             relativePath = host;
-            anchor = null;
         }
 
         _selectedSection = target.AreaKey;
@@ -2128,7 +2104,7 @@
         // followed reference is a new request, so the same part asked for twice is
         // scrolled to twice. One naming no heading leaves nothing focused.
         _focus = anchor is { Length: > 0 } heading
-            ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, relativePath, new DevbookFocus(heading, ++_focusSequence))
+            ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, relativePath, new DevbookFocus(heading, ++_focusSequence) { File = anchorFile })
             : null;
     }
 
@@ -2427,12 +2403,9 @@
 
         // The Brain's folder is part of what was loaded: a setting moved to
         // another Brain with the same areas is a different set of notes.
-        // The New domain view switch too: on, a bounded context is listed by
-        // unit (local ADR 0047), so a menu loaded under the other setting is the
-        // other listing.
         var fingerprint = brain
             ? $"brain:{_brainRoot}|{string.Join("|", visibleKeys)}"
-            : string.Join("|", visibleKeys) + (DomainViewEnabled ? "|domain-view" : string.Empty);
+            : string.Join("|", visibleKeys);
         if (string.Equals(_loadedMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
             && string.Equals(_loadedMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
         {
@@ -2516,7 +2489,8 @@
         var selectedPath = SelectedChapterPath;
         if (selectedPath is not null && !ContainsPath(root, selectedPath) && UnitHostIn(root, selectedPath) is { } host)
         {
-            // The switch flipped on with such a file open: stay on its page.
+            // A path with no row of its own — an invariants file, dependencies.md,
+            // kept from an earlier pick or a restored session — opens its host's page.
             _selectedChapterPaths[root.AreaKey] = host;
             selectedPath = host;
         }
@@ -2606,15 +2580,12 @@
             "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("design", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("ai", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
-            @* The New domain view switch reads here and nowhere else in the pane:
-               on, the Domain area is read by unit (local ADR 0047); off, it is the
-               panel below, unchanged. *@
-            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter"
-                                                            TaskReferencesFor="@TaskReferencesFor"
-                                                            TaskTitleFor="@TaskTitleFor"
-                                                            OnOpenTask="OnOpenTask"
-                                                            OnOpenNote="@(OpenSearchResultElsewhere.HasDelegate ? _openBacklinkNote : default)" />,
-            "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
+            @* The Domain area read by unit (local ADR 0047). *@
+            "domain" => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter"
+                                     TaskReferencesFor="@TaskReferencesFor"
+                                     TaskTitleFor="@TaskTitleFor"
+                                     OnOpenTask="OnOpenTask"
+                                     OnOpenNote="@(OpenSearchResultElsewhere.HasDelegate ? _openBacklinkNote : default)" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             _ => @<Alert Message="Turn on Devbook in Settings to read the repository's devbook here." BaseClass="devbook-empty" Role="status" />

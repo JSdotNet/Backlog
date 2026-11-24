@@ -34,8 +34,8 @@ public sealed class CreatePlanProjectNoteTests
         var result = await new CreatePlanCommandHandler(store, target, new FakeTimeProvider(Decision), drafter, brain: brain)
             .Handle(new CreatePlanCommand(item.Id), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value.ProjectNotePath);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
+        Assert.Null(ok.Value.ProjectNotePath);
         Assert.Empty(brain.Requests);
         Assert.Equal(drafter.Answer, target.Imports.Single().Plan);
     }
@@ -51,7 +51,7 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, new FakeBacklogTarget(), drafter, brain, item.Id);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(brain.Requests);
         Assert.True(request.IntoProjects);
         Assert.Null(request.Folder);
@@ -59,7 +59,7 @@ public sealed class CreatePlanProjectNoteTests
         Assert.Equal(item.BodyMd, request.BodyMd);
         Assert.Equal("https://example.com/launch", request.SourceUrl);
         Assert.Equal(drafter.Requests.Single().PlanTag, request.RoadmapTag);
-        Assert.Equal("projects/ship-the-thing.md", result.Value.ProjectNotePath);
+        Assert.Equal("projects/ship-the-thing.md", ok.Value.ProjectNotePath);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, target, drafter, new RecordingBrain(), item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var tag = drafter.Requests.Single().PlanTag;
         Assert.Equal(
             $"# Ship the thing\n`plan` `+{tag}` `repo:JSdotNet/Backlog` `devbook:#brain:projects/ship-the-thing.md`\n\n"
@@ -95,8 +95,8 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, target, drafter, brain, item.Id);
 
-        Assert.Equal(InboxErrors.BrainUnavailableCode, result.Error.Code);
-        Assert.Equal("Choose a Brain folder in Settings.", result.Error.Message);
+        Assert.Equal(InboxErrors.BrainUnavailableCode, Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal("Choose a Brain folder in Settings.", Assert.IsType<Error>(result.Value).Message);
         Assert.Empty(drafter.Requests);
         Assert.Empty(brain.Requests);
         Assert.Empty(target.Imports);
@@ -112,8 +112,8 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, new FakeBacklogTarget(), new FakePlanDrafter(), brain: null, item.Id);
 
-        Assert.Equal(InboxErrors.BrainUnavailableCode, result.Error.Code);
-        Assert.Equal(InboxErrors.NoBrainHere, result.Error.Message);
+        Assert.Equal(InboxErrors.BrainUnavailableCode, Assert.IsType<Error>(result.Value).Code);
+        Assert.Equal(InboxErrors.NoBrainHere, Assert.IsType<Error>(result.Value).Message);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, new FakeBacklogTarget(), new FakePlanDrafter { Answer = "Three steps, roughly." }, brain, item.Id);
 
-        Assert.Equal("inbox.plan.empty", result.Error.Code);
+        Assert.Equal("inbox.plan.empty", Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(brain.Requests);
     }
 
@@ -141,7 +141,7 @@ public sealed class CreatePlanProjectNoteTests
 
         var result = await Create(store, target, new FakePlanDrafter(), brain, item.Id);
 
-        Assert.Equal(InboxErrors.BrainUnavailableCode, result.Error.Code);
+        Assert.Equal(InboxErrors.BrainUnavailableCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.Imports);
         Assert.False(item.IsRouted);
     }

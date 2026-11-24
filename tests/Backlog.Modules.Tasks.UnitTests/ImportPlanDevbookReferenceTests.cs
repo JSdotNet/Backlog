@@ -144,9 +144,9 @@ public sealed class ImportPlanDevbookReferenceTests
             new ImportPlanCommand("# First prompt\n`prompt` `+myplan` `devbook:task`\n\n# Second prompt\n`prompt` `+myplan`\n"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
-        Assert.Contains("devbook:task", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Contains("devbook:task", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, store.Writes);
     }
 
@@ -162,9 +162,9 @@ public sealed class ImportPlanDevbookReferenceTests
             new SaveTaskFromTextCommand(null, "# Typed by hand\n`task` `devbook:.devbook/domain/tasks/domain.md#task`\n\nBody.\n", 0),
             TestContext.Current.CancellationToken);
 
-        Assert.True(saved.IsSuccess);
-        Assert.Empty(saved.Value.Entry.DevbookReferences);
-        Assert.Equal("Body.", store.Entries[saved.Value.Entry.Id].ContentMd);
+        var savedOk = Assert.IsType<Ok<SavedTaskDto>>(saved.Value);
+        Assert.Empty(savedOk.Value.Entry.DevbookReferences);
+        Assert.Equal("Body.", store.Entries[savedOk.Value.Entry.Id].ContentMd);
     }
 
     private static async Task<ImportPlanResultDto> Import(InMemoryTaskRepository store, string rawText)
@@ -172,7 +172,7 @@ public sealed class ImportPlanDevbookReferenceTests
         var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new ImportPlanCommand(rawText), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        return result.Value;
+        var ok = Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
+        return ok.Value;
     }
 }

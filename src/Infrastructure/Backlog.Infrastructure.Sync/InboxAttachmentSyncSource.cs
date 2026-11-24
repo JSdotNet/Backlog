@@ -28,12 +28,12 @@ public sealed class InboxAttachmentSyncSource(HttpClient http) : IInboxAttachmen
             async (content, token) => await content.ReadAsByteArrayAsync(token).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
 
-        if (fetched.IsSuccess || fetched.Error.Type != ErrorType.NotFound) return fetched;
+        if (fetched is not Error { Type: ErrorType.NotFound } gone) return fetched;
 
         // The store keeps a blob until the capture is acknowledged, or for thirty
         // days if nothing acknowledges it (ADR 0014 §Lifecycle). Either way it is
         // not coming back, and Retry will only repeat this.
-        return Result.Failure<byte[]>(fetched.Error with
+        return Result.Failure<byte[]>(gone with
         {
             Message = "The file is no longer on the sync service. It is kept for 30 days, "
                 + "or until another device has dealt with the capture.",

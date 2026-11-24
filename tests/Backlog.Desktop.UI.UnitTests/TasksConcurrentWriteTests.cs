@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -104,7 +105,7 @@ public sealed class TasksConcurrentWriteTests
         var elsewhere = host.EntriesElsewhere();
         var entry = (await elsewhere.ListAsync(TestContext.Current.CancellationToken)).Single(e => e.Id == row.Id);
         var theirs = EntryTextParser.ToRawText(entry).Replace("First paragraph.", "Theirs: first paragraph.", StringComparison.Ordinal);
-        Assert.True((await elsewhere.SaveFromTextAsync(entry.Id, theirs, entry.Order, cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsNotType<Error>((await elsewhere.SaveFromTextAsync(entry.Id, theirs, entry.Order, cancellationToken: TestContext.Current.CancellationToken)).Value);
         await host.State.ReloadFromStoreAsync();
 
         await host.State.EndEditAsync(row);
@@ -130,7 +131,7 @@ public sealed class TasksConcurrentWriteTests
             EntryTextParser.ReplaceParentText(raw, $"{parent}\n\n{Comment}"),
             entry.Order,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess);
+        Assert.IsNotType<Error>(saved.Value);
     }
 
     private static async Task<string> StoredBodyAsync(TasksPaneHost host, Guid id) =>

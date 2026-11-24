@@ -107,7 +107,7 @@ public sealed class DevbookMenuTreeViewTests
         Assert.Equal("Scenario never run", mark.QuerySelector("[data-testid='devbook-scenario-dot']")!.GetAttribute("aria-label"));
     }
 
-    /// <summary>A kind row in the New domain view shows how many pages it holds
+    /// <summary>A kind row in the Domain menu shows how many pages it holds
     /// at its far edge, read as part of its name.</summary>
     [Fact]
     public void A_counted_row_shows_its_count_after_its_label()
@@ -130,6 +130,55 @@ public sealed class DevbookMenuTreeViewTests
             .Where(node => node is not IElement element || !element.HasAttribute("aria-hidden"))
             .Select(node => node.TextContent));
         Assert.Equal("Features, 1 item", accessibleName.Trim());
+    }
+
+    [Fact]
+    public void The_devbook_menu_draws_no_marks()
+    {
+        // The type marks belong to the file view alone: the document header and the
+        // chapter headings. A menu row's visible label already says which file it
+        // is, and the glyph beside it was a second column of chrome saying the
+        // same thing — so a `.domain` folder, the one area whose files ever had
+        // a mark, renders every row as plain label.
+        using var context = new BunitContext();
+
+        var root = MarkedDomainTree();
+        var component = context.Render<DevbookMenuTreeView>(parameters => parameters
+            .Add(view => view.HeadingLabel, "Domain")
+            .Add(view => view.RootFolder, root)
+            .Add(view => view.Nodes, root.Children)
+            .Add(view => view.IsNodeExpanded, node => node.Kind == DevbookMenuNodeKind.Folder));
+
+        Assert.Empty(component.FindAll(".devbook-menu__mark"));
+        Assert.Empty(component.FindAll(".devbook-type-marker"));
+
+        // Eight rows — the context map, the folder and its six files — and every
+        // one reads out as its label and nothing else.
+        var rows = component.FindAll(".devbook-menu__row button");
+        Assert.Equal(8, rows.Count);
+        Assert.Equal("Context Map", rows[0].TextContent);
+    }
+
+    /// <summary>A `.domain` folder as the Devbook menu builds one: the context
+    /// map at the root and one bounded context's six files under it, each of a
+    /// kind the type marker has a glyph for.</summary>
+    private static DevbookMenuNode MarkedDomainTree()
+    {
+        DevbookMenuNode File(string path, string label) =>
+            new(path, label, path, DevbookMenuNodeKind.File, "domain", [], true);
+
+        var inbox = new DevbookMenuNode("inbox", "Inbox", "inbox", DevbookMenuNodeKind.Folder, "domain",
+        [
+            File("inbox/domain.md", "Domain"),
+            File("inbox/model.md", "Model"),
+            File("inbox/features.md", "Features"),
+            File("inbox/flow.md", "Flow"),
+            File("inbox/dependencies.md", "Dependencies"),
+            File("inbox/naming.md", "Naming")
+        ], true);
+
+        return new DevbookMenuNode("domain", "Domain", "domain", DevbookMenuNodeKind.Folder, "domain",
+            [File("context-map.md", "Context Map"), inbox], true);
     }
 
     private static DevbookMenuNode BuildDomainTree()

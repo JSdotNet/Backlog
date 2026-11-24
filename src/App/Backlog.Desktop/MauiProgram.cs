@@ -332,7 +332,9 @@ public static class MauiProgram
         // 0043 §7): a page served there renders this head's panes, and the listener
         // forwards whatever they inject into this container rather than composing a
         // second one. Last, so the snapshot holds every registration above.
-        builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
+        // An array, not a collection expression: CsWinRT's analyzer (CsWinRT1032) refuses
+        // one that targets a read-only interface, whose concrete type it cannot see.
+        builder.Services.AddSingleton(new DesktopServiceRegistrations(builder.Services.ToArray()));
 
         var app = builder.Build();
 
@@ -430,6 +432,12 @@ public static class MauiProgram
         // whose subject ended while the app was closed, and hands every stored answer no handler
         // took yet to its handler. Started on the thread pool, never ahead of the first window.
         _ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
+
+        // And the repository alias follower (local ADR 0060 §3), on the same terms: it re-keys
+        // what each store still holds under a repository's old alias. Until it has, the
+        // registry's moves resolve an old alias, so nothing waits on it. A MAUI app has no
+        // host stopping token; the container disposing the follower at exit ends it.
+        _ = app.Services.StartRepositoryAliasFollower();
 
         // And the MCP listener, on the same terms again - its constructor is
         // what queues the bind, so a singleton nobody resolves is a server no

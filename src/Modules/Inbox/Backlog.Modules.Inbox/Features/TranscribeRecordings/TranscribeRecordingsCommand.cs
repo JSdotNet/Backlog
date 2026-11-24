@@ -116,10 +116,11 @@ public sealed partial class TranscribeRecordingsCommandHandler(
         }
 
         var answer = await transcriber.TranscribeAsync(new InboxRecordingDto(audio, recording.ContentType), cancellationToken).ConfigureAwait(false);
-        if (answer.IsFailure)
+        if (answer is not Ok<InboxRecordingTranscriptDto>(var transcript))
         {
-            LogFailed(_logger, recording.Id, noteId, answer.Error.Code);
-            await CountFailureAsync(records, recording, answer.Error.Message, cancellationToken).ConfigureAwait(false);
+            var error = (Error)answer.Value!;
+            LogFailed(_logger, recording.Id, noteId, error.Code);
+            await CountFailureAsync(records, recording, error.Message, cancellationToken).ConfigureAwait(false);
             return false;
         }
 
@@ -128,11 +129,11 @@ public sealed partial class TranscribeRecordingsCommandHandler(
         var current = await items.GetAsync(noteId, cancellationToken).ConfigureAwait(false);
         if (current is null || current.Attachments.All(attachment => attachment.Id != recording.Id)) return false;
 
-        // The copy to delete is the one the saved note names: the intake may have downloaded
+// The copy to delete is the one the saved note names: the intake may have downloaded
         // the recording again, under a moved workspace, while it was out.
         localPath = current.Attachments.First(attachment => attachment.Id == recording.Id).LocalPath ?? localPath;
 
-        var sections = Sections(current.BodyMd, answer.Value);
+        var sections = Sections(current.BodyMd, transcript);
         try
         {
             if (!await WriteAsync(current, recording.Id, sections, cancellationToken).ConfigureAwait(false)) return false;

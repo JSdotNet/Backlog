@@ -134,7 +134,7 @@ internal sealed class PairedDesktops : IDisposable
         {
             using var scope = _provider.CreateScope();
             var deleted = await scope.ServiceProvider.GetRequiredService<IGoals>().DeleteAsync(id, Cancellation);
-            Assert.True(deleted.IsSuccess, deleted.IsFailure ? deleted.Error.Code : null);
+            Assert.IsType<Ok>(deleted.Value);
         }
 
         public async Task<GoalReplicaCopyDto?> GoalCopyAsync(Guid id) =>
@@ -161,9 +161,7 @@ internal sealed class PairedDesktops : IDisposable
             where TPort : notnull
         {
             using var scope = _provider.CreateScope();
-            var result = await use(scope.ServiceProvider.GetRequiredService<TPort>());
-            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Code : null);
-            return result.Value;
+            return Assert.IsType<Ok<T>>((await use(scope.ServiceProvider.GetRequiredService<TPort>())).Value).Value;
         }
     }
 

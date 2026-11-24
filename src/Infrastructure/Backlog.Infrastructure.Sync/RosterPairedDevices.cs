@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.Sync;
@@ -61,19 +63,19 @@ public sealed class RosterPairedDevices : IPairedDevices
 
         // A read the service refuses is tried again a few times, so a passing blip does not
         // hold a paired device's answer until the next start.
-        for (var attempt = 1; listed.IsFailure && attempt < Attempts; attempt++)
+        for (var attempt = 1; listed is Error && attempt < Attempts; attempt++)
         {
             await Task.Delay(RetryAfter, _clock, cancellationToken).ConfigureAwait(false);
             listed = await roster.ListDevicesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        if (listed.IsFailure)
-            throw new InvalidOperationException($"The owner's devices could not be read: {listed.Error.Code}.");
+        if (listed is not Ok<DeviceListResponse>(var devices))
+            throw new InvalidOperationException($"The owner's devices could not be read: {((Error)listed.Value!).Code}.");
 
-        _seen.TryAdd(listed.Value.CallerDeviceId, 0);
-        foreach (var device in listed.Value.Devices) _seen.TryAdd(device.DeviceId, 0);
+        _seen.TryAdd(devices.CallerDeviceId, 0);
+        foreach (var device in devices.Devices) _seen.TryAdd(device.DeviceId, 0);
 
-        if (deviceId == listed.Value.CallerDeviceId || listed.Value.Devices.Any(device => device.DeviceId == deviceId))
+        if (deviceId == devices.CallerDeviceId || devices.Devices.Any(device => device.DeviceId == deviceId))
             return DeviceStanding.Paired;
 
         return _seen.ContainsKey(deviceId) ? DeviceStanding.Revoked : DeviceStanding.Unknown;

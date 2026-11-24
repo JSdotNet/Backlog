@@ -3,6 +3,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
 using Backlog.Modules.Inbox.Services;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -614,7 +615,7 @@ public sealed class ReceiveCaptureTests
         var handler = new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Arrival));
         var result = await handler.Handle(new ReceiveCaptureCommand(capture), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<InboxIntakeOutcome>>(result.Value);
+        return ok.Value;
     }
 }

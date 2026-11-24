@@ -2,6 +2,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.SharedKernel.Mcp;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.UnitTests;
 
@@ -21,12 +22,11 @@ public sealed class ConnectorAuthorizationTests
     {
         await _connector.Secret();
 
-        var started = await _connector.Start.Handle(ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()), Cancellation);
+        var started = Assert.IsType<Ok<Uri>>((await _connector.Start.Handle(ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()), Cancellation)).Value).Value;
 
-        Assert.True(started.IsSuccess);
-        Assert.Equal("github.test", started.Value.Host);
-        Assert.NotNull(ConnectorFixture.Query(started.Value, "state"));
-        Assert.DoesNotContain(ConnectorFixture.ClientState, started.Value.AbsoluteUri, StringComparison.Ordinal);
+        Assert.Equal("github.test", started.Host);
+        Assert.NotNull(ConnectorFixture.Query(started, "state"));
+        Assert.DoesNotContain(ConnectorFixture.ClientState, started.AbsoluteUri, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class ConnectorAuthorizationTests
         var started = await _connector.Start.Handle(
             ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()) with { ClientId = "someone-else" }, Cancellation);
 
-        Assert.True(started.IsFailure);
+        Assert.IsType<Error>(started.Value);
     }
 
     [Theory]
@@ -53,7 +53,7 @@ public sealed class ConnectorAuthorizationTests
         var started = await _connector.Start.Handle(
             ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()) with { RedirectUri = redirect }, Cancellation);
 
-        Assert.True(started.IsFailure);
+        Assert.IsType<Error>(started.Value);
     }
 
     [Fact]
@@ -124,19 +124,17 @@ public sealed class ConnectorAuthorizationTests
     {
         var open = new ConnectorFixture(OwnerEnrolment.Open);
 
-        var started = await open.Start.Handle(ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()), Cancellation);
+        var started = Assert.IsType<Ok<Uri>>((await open.Start.Handle(ConnectorFixture.Authorize(EnrolmentPkce.CreateVerifier()), Cancellation)).Value).Value;
 
-        Assert.True(started.IsSuccess);
-        Assert.Equal(OAuthErrors.TemporarilyUnavailable, ConnectorFixture.Query(started.Value, "error"));
+        Assert.Equal(OAuthErrors.TemporarilyUnavailable, ConnectorFixture.Query(started, "error"));
     }
 
     [Fact]
     public async Task A_state_the_connector_did_not_start_is_left_to_enrolment()
     {
-        var outcome = await _connector.SignIn.Handle(new CompleteConnectorSignInCommand("an-enrolment-state", ConnectorFixture.OwnerCode), Cancellation);
+        var outcome = Assert.IsType<Error>((await _connector.SignIn.Handle(new CompleteConnectorSignInCommand("an-enrolment-state", ConnectorFixture.OwnerCode), Cancellation)).Value);
 
-        Assert.True(outcome.IsFailure);
-        Assert.Equal(SyncErrorCodes.ConnectorSignInUnknown, outcome.Error.Code);
+        Assert.Equal(SyncErrorCodes.ConnectorSignInUnknown, outcome.Code);
     }
 
     [Theory]
@@ -148,14 +146,14 @@ public sealed class ConnectorAuthorizationTests
         await _connector.Secret();
         var state = await _connector.StartedSignIn(EnrolmentPkce.CreateVerifier());
 
-        var outcome = await _connector.SignIn.Handle(new CompleteConnectorSignInCommand(state, gitHubCode), Cancellation);
+        var outcome = Assert.IsType<Ok<ConnectorSignInOutcome>>((await _connector.SignIn.Handle(new CompleteConnectorSignInCommand(state, gitHubCode), Cancellation)).Value).Value;
 
-        var back = outcome.Value.Redirect!;
+        var back = outcome.Redirect!;
         Assert.StartsWith(ConnectorSettings.DefaultRedirectUri + "?", back.AbsoluteUri, StringComparison.Ordinal);
         Assert.Equal(OAuthErrors.AccessDenied, ConnectorFixture.Query(back, "error"));
         Assert.Equal(ConnectorFixture.ClientState, ConnectorFixture.Query(back, "state"));
         Assert.Null(ConnectorFixture.Query(back, "code"));
-        Assert.Null(outcome.Value.ConsentTicket);
+        Assert.Null(outcome.ConsentTicket);
     }
 
     [Fact]
@@ -164,11 +162,11 @@ public sealed class ConnectorAuthorizationTests
         await _connector.Secret();
         var state = await _connector.StartedSignIn(EnrolmentPkce.CreateVerifier());
 
-        var first = await _connector.SignIn.Handle(new CompleteConnectorSignInCommand(state, ConnectorFixture.OwnerCode), Cancellation);
+        var first = Assert.IsType<Ok<ConnectorSignInOutcome>>((await _connector.SignIn.Handle(new CompleteConnectorSignInCommand(state, ConnectorFixture.OwnerCode), Cancellation)).Value).Value;
         var replay = await _connector.SignIn.Handle(new CompleteConnectorSignInCommand(state, ConnectorFixture.OwnerCode), Cancellation);
 
-        Assert.NotNull(first.Value.ConsentTicket);
-        Assert.True(replay.IsFailure);
+        Assert.NotNull(first.ConsentTicket);
+        Assert.IsType<Error>(replay.Value);
     }
 
     [Fact]
@@ -177,10 +175,10 @@ public sealed class ConnectorAuthorizationTests
         await _connector.Secret();
         var ticket = await _connector.ConsentTicket(EnrolmentPkce.CreateVerifier());
 
-        var prompt = await _connector.DescribeConsent.Handle(new DescribeConnectorConsentQuery(ticket), Cancellation);
+        var prompt = Assert.IsType<Ok<ConnectorConsentPrompt>>((await _connector.DescribeConsent.Handle(new DescribeConnectorConsentQuery(ticket), Cancellation)).Value).Value;
 
-        Assert.Equal("Claude", prompt.Value.ClientName);
-        Assert.Equal("Add items to your Backlog Inbox.", Assert.Single(prompt.Value.Scopes).Description);
+        Assert.Equal("Claude", prompt.ClientName);
+        Assert.Equal("Add items to your Backlog Inbox.", Assert.Single(prompt.Scopes).Description);
     }
 
     [Fact]
@@ -189,13 +187,13 @@ public sealed class ConnectorAuthorizationTests
         await _connector.Secret();
         var ticket = await _connector.ConsentTicket(EnrolmentPkce.CreateVerifier());
 
-        var allowed = await _connector.Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: true), Cancellation);
+        var allowed = Assert.IsType<Ok<Uri>>((await _connector.Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: true), Cancellation)).Value).Value;
         var again = await _connector.Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: true), Cancellation);
 
-        Assert.StartsWith(ConnectorSettings.DefaultRedirectUri + "?", allowed.Value.AbsoluteUri, StringComparison.Ordinal);
-        Assert.NotNull(ConnectorFixture.Query(allowed.Value, "code"));
-        Assert.Equal(ConnectorFixture.ClientState, ConnectorFixture.Query(allowed.Value, "state"));
-        Assert.True(again.IsFailure);
+        Assert.StartsWith(ConnectorSettings.DefaultRedirectUri + "?", allowed.AbsoluteUri, StringComparison.Ordinal);
+        Assert.NotNull(ConnectorFixture.Query(allowed, "code"));
+        Assert.Equal(ConnectorFixture.ClientState, ConnectorFixture.Query(allowed, "state"));
+        Assert.IsType<Error>(again.Value);
     }
 
     [Fact]
@@ -204,19 +202,18 @@ public sealed class ConnectorAuthorizationTests
         await _connector.Secret();
         var ticket = await _connector.ConsentTicket(EnrolmentPkce.CreateVerifier());
 
-        var denied = await _connector.Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: false), Cancellation);
+        var denied = Assert.IsType<Ok<Uri>>((await _connector.Decide.Handle(new DecideConnectorConsentCommand(ticket, Allow: false), Cancellation)).Value).Value;
 
-        Assert.Equal(OAuthErrors.AccessDenied, ConnectorFixture.Query(denied.Value, "error"));
-        Assert.Null(ConnectorFixture.Query(denied.Value, "code"));
+        Assert.Equal(OAuthErrors.AccessDenied, ConnectorFixture.Query(denied, "error"));
+        Assert.Null(ConnectorFixture.Query(denied, "code"));
     }
 
     private async Task<string?> RedirectedError(StartConnectorAuthorizationCommand command)
     {
-        var started = await _connector.Start.Handle(command, Cancellation);
+        var started = Assert.IsType<Ok<Uri>>((await _connector.Start.Handle(command, Cancellation)).Value).Value;
 
-        Assert.True(started.IsSuccess);
-        Assert.StartsWith(ConnectorSettings.DefaultRedirectUri + "?", started.Value.AbsoluteUri, StringComparison.Ordinal);
-        Assert.Equal(ConnectorFixture.ClientState, ConnectorFixture.Query(started.Value, "state"));
-        return ConnectorFixture.Query(started.Value, "error");
+        Assert.StartsWith(ConnectorSettings.DefaultRedirectUri + "?", started.AbsoluteUri, StringComparison.Ordinal);
+        Assert.Equal(ConnectorFixture.ClientState, ConnectorFixture.Query(started, "state"));
+        return ConnectorFixture.Query(started, "error");
     }
 }

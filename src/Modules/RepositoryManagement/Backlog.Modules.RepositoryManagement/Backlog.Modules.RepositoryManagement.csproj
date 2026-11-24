@@ -21,14 +21,6 @@
     <ProjectReference Include="..\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddRepositoryManagementModule(); the cache and the handlers know
-         nothing about the container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <!-- The cache says what it read and what it reused at Debug, and a memory it could
-         not write at Warning; a host without logging hands it none. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Modules.RepositoryManagement.UnitTests" />

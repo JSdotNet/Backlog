@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
@@ -29,7 +30,7 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         // 4688 frames of 64 ms are one frame past five minutes: two parts.
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(Adts(4688), "audio/aac"), Cancellation);
 
-        Assert.True(answer.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxRecordingTranscriptDto>>(answer.Value);
         Assert.Equal(2, _transcription.Sent.Count);
         Assert.All(_transcription.Sent, request =>
         {
@@ -39,9 +40,9 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         });
         Assert.Null(_transcription.Sent[0].Prompt);
         Assert.Equal("part 1 words", _transcription.Sent[1].Prompt);
-        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Value.TranscriptMd);
-        Assert.Equal(answer.Value.TranscriptMd, Assert.Single(_summary.Asked));
-        Assert.Equal("Summary.", answer.Value.SummaryMd);
+        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", ok.Value.TranscriptMd);
+        Assert.Equal(ok.Value.TranscriptMd, Assert.Single(_summary.Asked));
+        Assert.Equal("Summary.", ok.Value.SummaryMd);
     }
 
     [Theory]
@@ -54,7 +55,7 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, contentType), Cancellation);
 
-        Assert.True(answer.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxRecordingTranscriptDto>>(answer.Value);
         Assert.Equal(2, _transcription.Sent.Count);
         Assert.All(_transcription.Sent, request =>
         {
@@ -63,7 +64,7 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
         });
         Assert.Null(_transcription.Sent[0].Prompt);
         Assert.Equal("part 1 words", _transcription.Sent[1].Prompt);
-        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", answer.Value.TranscriptMd);
+        Assert.Equal("[00:00:00] part 1 words\n\n[00:04:59] part 2 words", ok.Value.TranscriptMd);
     }
 
     [Fact]
@@ -73,9 +74,9 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, "audio/mp4"), Cancellation);
 
-        Assert.True(answer.IsFailure);
-        Assert.Equal("inbox.transcription.failed", answer.Error.Code);
-        Assert.Equal("The recording could not be read as an M4A file.", answer.Error.Message);
+        var error = Assert.IsType<Error>(answer.Value);
+        Assert.Equal("inbox.transcription.failed", error.Code);
+        Assert.Equal("The recording could not be read as an M4A file.", error.Message);
         Assert.Empty(_transcription.Sent);
     }
 
@@ -86,8 +87,8 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(m4a, "audio/mp4"), Cancellation);
 
-        Assert.True(answer.IsFailure);
-        Assert.Equal("The recording could not be read as an M4A file.", answer.Error.Message);
+        var error = Assert.IsType<Error>(answer.Value);
+        Assert.Equal("The recording could not be read as an M4A file.", error.Message);
         Assert.Empty(_transcription.Sent);
     }
 
@@ -98,9 +99,9 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(Adts(4688), "audio/aac"), Cancellation);
 
-        Assert.True(answer.IsFailure);
-        Assert.Equal("inbox.transcription.failed", answer.Error.Code);
-        Assert.Equal("Part 2 of 2 could not be transcribed.", answer.Error.Message);
+        var error = Assert.IsType<Error>(answer.Value);
+        Assert.Equal("inbox.transcription.failed", error.Code);
+        Assert.Equal("Part 2 of 2 could not be transcribed.", error.Message);
         Assert.Empty(_summary.Asked);
     }
 
@@ -111,8 +112,8 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
 
         var answer = await Transcriber().TranscribeAsync(new InboxRecordingDto(Adts(3), "audio/aac"), Cancellation);
 
-        Assert.True(answer.IsFailure);
-        Assert.DoesNotContain("private", answer.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(answer.Value);
+        Assert.DoesNotContain("private", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,9 +121,9 @@ public sealed class AzureFoundryInboxRecordingTranscriberTests : IDisposable
     {
         var unconfigured = Transcriber(configured: false);
         Assert.False(unconfigured.IsAvailable);
-        Assert.True((await unconfigured.TranscribeAsync(new InboxRecordingDto(Adts(3), "audio/aac"), Cancellation)).IsFailure);
+        Assert.IsType<Error>((await unconfigured.TranscribeAsync(new InboxRecordingDto(Adts(3), "audio/aac"), Cancellation)).Value);
 
-        Assert.True((await Transcriber().TranscribeAsync(new InboxRecordingDto(new byte[] { 0xFF, 0xF1, 0x60 }, "audio/aac"), Cancellation)).IsFailure);
+        Assert.IsType<Error>((await Transcriber().TranscribeAsync(new InboxRecordingDto(new byte[] { 0xFF, 0xF1, 0x60 }, "audio/aac"), Cancellation)).Value);
         Assert.Empty(_transcription.Sent);
     }
 

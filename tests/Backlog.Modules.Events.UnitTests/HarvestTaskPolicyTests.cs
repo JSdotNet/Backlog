@@ -3,6 +3,7 @@ using System.Reflection;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
 using Backlog.Modules.Events.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -82,10 +83,10 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
     [Fact]
     public async Task A_removed_event_is_never_due()
     {
-        var e = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
-        Assert.True(e.SetDates(EventDate.Create(new(2026, 11, 7), null, null).Value, EventDate.Create(new(2026, 11, 9), null, null).Value, DateSource.Typed).IsSuccess);
-        Assert.True(e.MoveTo(KnowledgeEventState.Going).IsSuccess);
-        Assert.True(e.Remove().IsSuccess);
+        var e = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value).Value;
+        Assert.IsType<Ok>(e.SetDates(Assert.IsType<Ok<EventDate>>(EventDate.Create(new(2026, 11, 7), null, null).Value).Value, Assert.IsType<Ok<EventDate>>(EventDate.Create(new(2026, 11, 9), null, null).Value).Value, DateSource.Typed).Value);
+        Assert.IsType<Ok>(e.MoveTo(KnowledgeEventState.Going).Value);
+        Assert.IsType<Ok>(e.Remove().Value);
         await Store.SaveAsync(e, Token);
         Store.AnswersTombstones = true;
 
@@ -223,7 +224,7 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
         Tasks.FileGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var filing = Policy.FileDueAsync(Today, Token);
-        Assert.True((await Pane.RenameAsync(id, "Techorama Belgium", Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.RenameAsync(id, "Techorama Belgium", Token)).Value);
         Tasks.FileGate.SetResult();
         await filing;
 
@@ -245,9 +246,9 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
     [InlineData(false)]
     public async Task Two_desktops_file_one_harvest_task_between_them(bool firstWritesLast)
     {
-        var techorama = KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value;
-        Assert.True(techorama.SetDates(EventDate.Create(new(2026, 11, 7), null, null).Value, EventDate.Create(new(2026, 11, 9), null, null).Value, DateSource.Typed).IsSuccess);
-        Assert.True(techorama.MoveTo(KnowledgeEventState.Going).IsSuccess);
+        var techorama = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama Belgium").Value).Value;
+        Assert.IsType<Ok>(techorama.SetDates(Assert.IsType<Ok<EventDate>>(EventDate.Create(new(2026, 11, 7), null, null).Value).Value, Assert.IsType<Ok<EventDate>>(EventDate.Create(new(2026, 11, 9), null, null).Value).Value, DateSource.Typed).Value);
+        Assert.IsType<Ok>(techorama.MoveTo(KnowledgeEventState.Going).Value);
         var (firstEvents, firstTasks) = (new InMemoryKnowledgeEvents(), new FakeEventTaskTarget());
         var (secondEvents, secondTasks) = (new InMemoryKnowledgeEvents(), new FakeEventTaskTarget());
         await firstEvents.SaveAsync(techorama, Token);
@@ -311,8 +312,8 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
 
         await Policy.FileDueAsync(Today, Token);
         var harvest = Assert.Single((await Store.GetAsync(id, Token))!.Tasks).TaskId;
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).IsSuccess);
-        Assert.True((await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token)).IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Attended, Token)).Value);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token)).Value);
 
         Assert.Equal(["Harvest Techorama Belgium"], Tasks.Filed);
         Assert.Equal([harvest], Tasks.Completed);
@@ -347,7 +348,7 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
 
         var moved = await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token);
 
-        Assert.Equal("Done", Assert.Single(moved.Value.Tasks).Status);
+        Assert.Equal("Done", Assert.Single(Assert.IsType<Ok<KnowledgeEventDto>>(moved.Value).Value.Tasks).Status);
     }
 
     [Theory]
@@ -411,7 +412,7 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
 
         var moved = await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token);
 
-        Assert.True(moved.IsSuccess);
+        Assert.IsType<Ok<KnowledgeEventDto>>(moved.Value);
         Assert.Equal(KnowledgeEventState.Harvested, (await Store.GetAsync(id, Token))!.State);
     }
 
@@ -424,7 +425,7 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
 
         var moved = await Pane.MoveToAsync(id, KnowledgeEventState.Harvested, Token);
 
-        Assert.Equal(KnowledgeEventState.Harvested, moved.Value.State);
+        Assert.Equal(KnowledgeEventState.Harvested, Assert.IsType<Ok<KnowledgeEventDto>>(moved.Value).Value.State);
     }
 
     /// <summary>An event saved straight into the store, in <paramref name="state"/>, dated
@@ -435,17 +436,17 @@ public sealed class HarvestTaskPolicyTests : EventsPaneFixture
     /// <summary>As <see cref="Saved"/>, under <paramref name="id"/>.</summary>
     private async Task<Guid> SavedAs(Guid id, string title, KnowledgeEventState state, DateOnly? start, DateOnly? end = null, params EventTaskLink[] tasks)
     {
-        var e = KnowledgeEvent.Create(id, title).Value;
+        var e = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(id, title).Value).Value;
 
         if (start is { } from)
         {
-            var to = end is { } last ? EventDate.Create(last, null, null).Value : null;
-            Assert.True(e.SetDates(EventDate.Create(from, null, null).Value, to, DateSource.Typed).IsSuccess);
+            var to = end is { } last ? Assert.IsType<Ok<EventDate>>(EventDate.Create(last, null, null).Value).Value : null;
+            Assert.IsType<Ok>(e.SetDates(Assert.IsType<Ok<EventDate>>(EventDate.Create(from, null, null).Value).Value, to, DateSource.Typed).Value);
         }
 
-        if (state != KnowledgeEventState.Spotted) Assert.True(e.MoveTo(state).IsSuccess);
+        if (state != KnowledgeEventState.Spotted) Assert.IsType<Ok>(e.MoveTo(state).Value);
 
-        foreach (var task in tasks) Assert.True(e.LinkTask(task).IsSuccess);
+        foreach (var task in tasks) Assert.IsType<Ok>(e.LinkTask(task).Value);
 
         await Store.SaveAsync(e, Token);
         return e.Id;

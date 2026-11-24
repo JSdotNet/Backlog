@@ -19,7 +19,7 @@ public sealed class RemoveMilestoneCommandHandler(IRoadmapPlanRepository plans, 
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveMilestone(command.MilestoneId);
 
-        if (removed.IsFailure) return removed;
+        if (removed is Error) return removed;
 
         await plans.SaveAsync(plan, cancellationToken);
         return Result.Success();

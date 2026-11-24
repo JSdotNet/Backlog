@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -65,10 +66,10 @@ public sealed class KnowledgeEventMovesTests
 
         foreach (var target in Enum.GetValues<KnowledgeEventState>())
         {
-            Assert.Equal(offer.Forward.Contains(target), At(from).MoveTo(target).IsSuccess);
+            Assert.Equal(offer.Forward.Contains(target), At(from).MoveTo(target) is Ok);
         }
 
-        Assert.Equal(offer.CanSkip, At(from).Skip("Clashes with the release").IsSuccess);
+        Assert.Equal(offer.CanSkip, At(from).Skip("Clashes with the release") is Ok);
     }
 
     private static KnowledgeEvent At(KnowledgeEventState state) =>

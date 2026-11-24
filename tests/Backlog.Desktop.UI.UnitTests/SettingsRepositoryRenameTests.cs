@@ -25,6 +25,12 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsRepositoryRenameTests
 {
+    /// <summary>
+    /// A repository whose alias is still its old name takes the new name as its
+    /// alias (local ADR 0060 §1). That is a rename, not a merge, though the alias
+    /// changed: the note says "Renamed", names the alias it now answers to, and sits
+    /// on the card under that alias. The old alias still finds the repository.
+    /// </summary>
     [Fact]
     public void Renaming_from_the_card_re_points_entries_and_inbox_items_and_says_so()
     {
@@ -36,12 +42,36 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Backlog-renamed")], settings.Tasks.Renames);
         Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Backlog-renamed")], settings.Inbox.Renames);
         Assert.Equal(
-            "Renamed JSdotNet/Backlog to JSdotNet/Backlog-renamed; 12 entries and 1 inbox item followed it.",
+            "Renamed JSdotNet/Backlog to JSdotNet/Backlog-renamed; it now answers to @backlog-renamed, and 12 entries and 1 inbox item followed it.",
             settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
         Assert.Equal("JSdotNet/Backlog-renamed", settings.Component.Find(".repo-card__title").TextContent.Trim());
+        Assert.Contains("@backlog-renamed", settings.Component.Find(".repo-card__meta").TextContent, StringComparison.Ordinal);
         Assert.Equal("JSdotNet/Backlog-renamed", settings.GitHub.Current.Find("backlog")!.FullName);
+        Assert.Equal("JSdotNet/Backlog-renamed", settings.GitHub.Current.Find("backlog-renamed")!.FullName);
+        Assert.Equal(2, settings.GitHub.Current.Repositories.Count);
         Assert.Empty(settings.Component.FindAll("[data-testid='repo-rename']"));
         Assert.Empty(settings.Component.FindAll(".setting__status--error"));
+    }
+
+    /// <summary>
+    /// An alias chosen by hand stays with the repository through a rename, so the
+    /// note says only that it was renamed - no alias moved to name.
+    /// </summary>
+    [Fact]
+    public void Renaming_a_repository_with_a_chosen_alias_keeps_it_and_names_no_alias()
+    {
+        using var settings = RenderSettings(entriesMoved: 2, repositories: "bl = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+        SettingsMenu.Open(settings.Component, "Repositories");
+        SettingsMenu.EditRepository(settings.Component, "bl");
+
+        Rename(settings.Component, "JSdotNet/Backlog-renamed");
+
+        Assert.Equal(
+            "Renamed JSdotNet/Backlog to JSdotNet/Backlog-renamed; 2 entries and 0 inbox items followed it.",
+            settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
+        Assert.Contains("@bl", settings.Component.Find(".repo-card__meta").TextContent, StringComparison.Ordinal);
+        Assert.Equal("JSdotNet/Backlog-renamed", settings.GitHub.Current.Find("bl")!.FullName);
+        Assert.Empty(settings.GitHub.Current.AliasMoves);
     }
 
     /// <summary>
@@ -66,6 +96,87 @@ public sealed class SettingsRepositoryRenameTests
             settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
         Assert.Equal("JSdotNet/Docs", settings.Component.Find(".repo-card__title").TextContent.Trim());
         Assert.Empty(settings.Component.FindAll(".setting__status--error"));
+    }
+
+    /// <summary>
+    /// A placeholder a plan import registered can share its alias with the real
+    /// repository. Renaming it onto the real one is a merge even though the alias
+    /// the card answers to does not change - which is why a merge is told by the
+    /// ids the rows carried before, not by the alias.
+    /// </summary>
+    [Fact]
+    public void Renaming_onto_a_repository_that_shares_the_alias_is_a_merge()
+    {
+        using var settings = RenderSettings(entriesMoved: 4, registry: """
+            {
+              "repositories": [
+                { "id": "finance/finance", "alias": "finance" },
+                { "id": "JSdotNet/finance", "alias": "finance" }
+              ]
+            }
+            """);
+        SettingsMenu.OpenRepository(settings.Component);
+        Assert.Equal("finance/finance", settings.Component.Find(".repo-card__title").TextContent.Trim());
+
+        Rename(settings.Component, "JSdotNet/finance");
+
+        Assert.Equal("JSdotNet/finance", Assert.Single(settings.GitHub.Current.Repositories).FullName);
+        Assert.Equal(
+            "Merged finance/finance into JSdotNet/finance; 4 entries and 0 inbox items followed it.",
+            settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
+        Assert.Equal("JSdotNet/finance", settings.Component.Find(".repo-card__title").TextContent.Trim());
+    }
+
+    /// <summary>A new name typed in another case still names the configured
+    /// repository, so it merges, and the note names the kept row's own spelling.</summary>
+    [Fact]
+    public void Renaming_onto_a_configured_repository_typed_in_another_case_is_a_merge()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoryCard(settings.Component);
+
+        Rename(settings.Component, "jsdotnet/docs");
+
+        Assert.Equal("JSdotNet/Docs", Assert.Single(settings.GitHub.Current.Repositories).FullName);
+        Assert.StartsWith(
+            "Merged JSdotNet/Backlog into JSdotNet/Docs;",
+            settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim(),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A clone under way follows its card to the alias the rename gave it: the card
+    /// still reads as cloning, so it offers no second clone into the same folder,
+    /// and the clone, once done, is stored on the renamed repository and clears its
+    /// card's busy state.
+    /// </summary>
+    [Fact]
+    public async Task A_clone_under_way_follows_its_card_through_a_rename_that_moves_the_alias()
+    {
+        var git = new GatedLocalGit();
+        using var settings = RenderSettings(localGit: git);
+        var target = Path.Combine(settings.Root, "clones", "backlog");
+        OpenRepositoryCard(settings.Component);
+        await SetCloneDirectory(settings.Component, target);
+        settings.Component.WaitForAssertion(() => Assert.False(settings.Component.Find("[data-testid='repo-clone-button']").HasAttribute("disabled")));
+
+        settings.Component.Find("[data-testid='repo-clone-button']").Click();
+        Assert.True(SpinWait.SpinUntil(() => git.CloneCalls == 1, TimeSpan.FromSeconds(5)));
+
+        await settings.Component.InvokeAsync(() => Rename(settings.Component, "JSdotNet/Backlog-renamed"));
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Contains("@backlog-renamed", settings.Component.Find(".repo-card__meta").TextContent, StringComparison.Ordinal);
+            Assert.Equal("true", settings.Component.Find("[data-testid='repo-clone-button']").GetAttribute("aria-busy"));
+        });
+
+        git.CloneGate.SetResult(null);
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Null(settings.Component.Find("[data-testid='repo-clone-button']").GetAttribute("aria-busy")));
+        Assert.Equal(1, git.CloneCalls);
+        Assert.Equal(target, settings.GitHub.Current.Find("backlog-renamed")!.CloneDirectory);
     }
 
     /// <summary>The Rename control sits before Remove: the one that keeps
@@ -167,6 +278,8 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Empty(settings.Tasks.Renames);
         Assert.Empty(settings.Inbox.Renames);
         Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-replaced-hint']"));
+        var move = Assert.Single(settings.GitHub.Current.AliasMoves);
+        Assert.Equal(("backlog", "bl", "JSdotNet/Backlog"), (move.OldAlias, move.NewAlias, move.RepositoryId));
     }
 
     /// <summary>
@@ -251,10 +364,11 @@ public sealed class SettingsRepositoryRenameTests
     }
 
     /// <summary>
-    /// A rename keeps the alias and the clone folder and changes the id, and the
-    /// clone's status hangs on the id: a clone is "ready" only when its origin
-    /// is the repository the row names. So the status the card had for the old
-    /// name is not kept for the new one - it is asked again.
+    /// A rename keeps the clone folder and changes the id - and here the alias,
+    /// which was the old name (local ADR 0060 §1) - and the clone's status hangs
+    /// on the id: a clone is "ready" only when its origin is the repository the
+    /// row names. So the status the card had for the old name is not kept for the
+    /// new one - it is asked again.
     /// </summary>
     [Fact]
     public async Task A_rename_asks_about_the_clone_again_rather_than_keeping_the_old_names_answer()
@@ -295,7 +409,7 @@ public sealed class SettingsRepositoryRenameTests
     private static void OpenRepositoryCard(IRenderedComponent<Settings> component) =>
         SettingsMenu.OpenRepository(component);
 
-    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null, ILocalGitRepositoryService? localGit = null)
+    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null, ILocalGitRepositoryService? localGit = null, string repositories = "backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs")
     {
         var temp = new TemporaryDirectory("backlog-settings-rename-tests");
         var root = temp.Path;
@@ -316,9 +430,9 @@ public sealed class SettingsRepositoryRenameTests
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"), () => Path.Combine(root, "workspace"));
         if (registry is null)
         {
-            var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+            var (parsed, errors) = GitHubSettings.ParseText(repositories);
             Assert.Empty(errors);
-            Assert.Null(githubSettings.SetRepositories(repositories));
+            Assert.Null(githubSettings.SetRepositories(parsed));
         }
 
         var tasks = new RenameRecordingTaskItems(entriesMoved, tasksRefuse);

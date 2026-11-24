@@ -7,6 +7,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -94,7 +95,7 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         var a = new SqliteRoadmapPlanRepository(Device("a"));
         var b = new SqliteRoadmapPlanRepository(Device("b"));
         var plan = RoadmapPlan.Empty();
-        var id = plan.AddItem("Move devbook", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value.Id;
+        var id = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Move devbook", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value).Value.Id;
         plan.PinEnd(id, new DateOnly(2026, 10, 30));
         await a.SaveAsync(plan, Cancellation);
 
@@ -117,7 +118,7 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         var a = new SqliteRoadmapPlanRepository(Device("a"));
         var b = new SqliteRoadmapPlanRepository(Device("b"));
         var plan = RoadmapPlan.Empty();
-        var id = plan.AddItem("Write the launch post", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value.Id;
+        var id = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Write the launch post", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value).Value.Id;
         plan.CompleteItem(id, new DateOnly(2026, 10, 7));
         await a.SaveAsync(plan, Cancellation);
 
@@ -185,6 +186,39 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         await plans.SaveAsync(plan, Cancellation);
 
         Assert.True((await plans.ReadAsync(Cancellation))!.UpdatedAt > ahead);
+    }
+
+    /// <summary>
+    /// A repository-alias backstop move (local ADR 0060 §3) is the same re-key every
+    /// device makes to its own copy, so it is stored at the copy's own stamp: stamped
+    /// now, a stale copy would outrank the relabelling device's plan.
+    /// </summary>
+    [Fact]
+    public async Task A_save_keeping_the_stamp_stores_the_plan_at_the_stamp_it_already_had()
+    {
+        IRoadmapPlanRepository plans = new RootedSqliteRoadmapPlanRepository(() => Device("a"));
+        var replica = new SqliteRoadmapPlanRepository(Device("a"));
+        await replica.TryWriteAsync(new RoadmapReplicaCopyDto("""{"version":1}""", Morning), Cancellation);
+
+        var plan = await plans.LoadAsync(Cancellation);
+        plan.AddItem("Filed under the old alias", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)));
+        await plans.SaveKeepingStampAsync(plan, Cancellation);
+
+        Assert.Equal(Morning, (await replica.ReadAsync(Cancellation))!.UpdatedAt);
+        Assert.Equal("Filed under the old alias", (await plans.LoadAsync(Cancellation)).Items.Single().Title);
+    }
+
+    [Fact]
+    public async Task A_save_keeping_the_stamp_with_no_plan_stored_yet_stores_it_as_a_new_one()
+    {
+        var plans = new SqliteRoadmapPlanRepository(Device("a"));
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("First", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)));
+
+        await plans.SaveKeepingStampAsync(plan, Cancellation);
+
+        Assert.NotNull(await plans.ReadAsync(Cancellation));
+        Assert.Single((await plans.LoadAsync(Cancellation)).Items);
     }
 
     [Fact]

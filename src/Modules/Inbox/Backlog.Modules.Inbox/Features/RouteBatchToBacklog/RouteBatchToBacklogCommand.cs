@@ -94,9 +94,11 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
         ArgumentNullException.ThrowIfNull(command.Ids);
 
         var minted = await MintPlanTagAsync(organizer, command.ListId, command.PlanTitle, cancellationToken).ConfigureAwait(false);
-        if (minted.IsFailure) return minted.Error;
+        if (minted is not Ok<string>(var planTag))
+        {
+            return (Error)minted.Value!;
+        }
 
-        var planTag = minted.Value;
         if (command.Choices?.PlanTag is { } chosen)
         {
             if (!PlanTagShape().IsMatch(chosen.Trim())) return InboxErrors.BatchPlanTagInvalid(chosen.Trim());

@@ -321,7 +321,9 @@
                    Asked for here, the repository keeps its clone directory,
                    colour, account and devbook settings under the new name,
                    and every entry and inbox item filed against the old
-                   name follows it. *@
+                   name follows it. Its alias follows the name too, unless it
+                   was chosen by hand (local ADR 0060 §1); the old alias keeps
+                   answering for it. *@
                 <div class="repo-card__section" data-testid="repo-rename">
                     <TextField Bare="true"
                                LabelCssClass="setting__label"
@@ -343,7 +345,7 @@
                         }
                         else
                         {
-                            <span>The repository keeps its settings under the new name, and every entry and inbox item filed against <code>@activeRepo.FullName</code> follows it.</span>
+                            <span>The repository keeps its settings under the new name, and every entry and inbox item filed against <code>@activeRepo.FullName</code> follows it. Its alias follows the name unless you chose it by hand.</span>
                         }
                     </p>
                     <div class="setting__actions">
@@ -498,7 +500,7 @@
                         }
                     </p>
                     <div class="setting__actions">
-                        @{ var cloning = _cloningRepositories.Contains(activeRepo.Alias); }
+                        @{ var cloning = IsCloning(activeRepo.Alias); }
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="repo-clone-button"
                                    Disabled="@(!cloning && cloneStatus?.CanClone != true)"
@@ -840,16 +842,26 @@
     private string? _renameError;
 
     /// <summary>What the last rename did — the new name, and how many entries
-    /// and inbox items followed — and which repository it was, so the sentence
-    /// shows on that card alone.</summary>
+    /// and inbox items followed — and which repository it was, by the alias it
+    /// answers to after the rename, so the sentence shows on that card alone.</summary>
     private string? _renameNote;
     private string? _renameNoteAlias;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftPullRequestLabels = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _pullRequestLabelsErrors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftDevbookPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
+    /// <summary>The clones under way, each under the alias its card answers to now:
+    /// a rename or relabel while one runs moves it (<see cref="FollowAliases"/>), so
+    /// the card it moved to still reads as cloning and its finish clears that card.</summary>
+    private readonly List<CloneRun> _cloneRuns = [];
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
+
+    private sealed class CloneRun(string alias)
+    {
+        public string Alias { get; set; } = alias;
+    }
+
+    private bool IsCloning(string alias) => _cloneRuns.Exists(run => run.Alias == alias);
     /// <summary>The id (<c>owner/name</c>) of the repository whose row is open, or
     /// null while every row is closed. An id rather than an alias, because a
     /// registry can carry two rows under one alias and only one of them is being
@@ -1085,18 +1097,19 @@
         {
             var moveTo = drop ? null : _moveToId;
             var result = await tasks.RefileRepositoryTasksAsync(offer.Repository.FullName, moveTo, drop);
-            if (result.IsFailure)
+            if (result is not Ok<int>(var refiled))
             {
                 // Said on the dialog while it is up; on the page's status line if
                 // it has gone, so a refusal is never said to nobody.
-                if (_offer is null) _repoError = result.Error.Message;
-                else _offerError = result.Error.Message;
+                var error = (Error)result.Value!;
+                if (_offer is null) _repoError = error.Message;
+                else _offerError = error.Message;
                 return;
             }
 
             var done = drop
-                ? $"{Plural(result.Value, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
-                : $"{Plural(result.Value, "open task", "open tasks")} moved to {moveTo}.";
+                ? $"{Plural(refiled, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
+                : $"{Plural(refiled, "open task", "open tasks")} moved to {moveTo}.";
 
             CloseOffer();
             if (offer.Archiving) Archive(offer.Repository, $"Archived. {done}");
@@ -1240,12 +1253,23 @@
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
         var messages = new List<string>(errors);
         var before = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
+        var aliasesBefore = AliasesById();
 
         var saveError = GitHub.Settings.SetRepositories(repositories);
         if (saveError is not null) messages.Add(saveError);
         _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
+
+        // A row continued by id under another alias is a relabel; its card's state
+        // goes with it.
+        var relabels = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var row in GitHub.Settings.Current.Repositories)
+        {
+            if (aliasesBefore.TryGetValue(row.FullName, out var old) && old != row.Alias) relabels.TryAdd(old, row.Alias);
+        }
+
+        FollowAliases(relabels);
 
         var after = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
         var removed = before.Where(id => !after.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
@@ -1261,6 +1285,43 @@
         {
             _expandedId = added[^1];
             CancelRename();
+        }
+    }
+
+    /// <summary>Each row's alias by its id, read before a save that may relabel.</summary>
+    private Dictionary<string, string> AliasesById()
+    {
+        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in GitHub.Settings.Current.Repositories) aliases.TryAdd(row.FullName, row.Alias);
+        return aliases;
+    }
+
+    /// <summary>
+    /// Moves what the page keeps per card, by alias, to the alias the repository
+    /// answers to after a rename or relabel (local ADR 0060): a clone under way, so
+    /// the card still reads as cloning and offers no second clone into the same
+    /// folder, and a token typed and not yet applied. All at once, so a swap of two
+    /// aliases swaps their state. The clone check of either alias is asked again.
+    /// The other drafts need nothing: <see cref="SyncRepositoryDrafts"/> rebuilds
+    /// them from the stored values under the new alias.
+    /// </summary>
+    private void FollowAliases(IReadOnlyDictionary<string, string> oldToNew)
+    {
+        if (oldToNew.Count == 0) return;
+
+        foreach (var run in _cloneRuns)
+        {
+            if (oldToNew.TryGetValue(run.Alias, out var to)) run.Alias = to;
+        }
+
+        var tokens = _draftTokens.Where(token => oldToNew.ContainsKey(token.Key)).ToList();
+        foreach (var token in tokens) _draftTokens.Remove(token.Key);
+        foreach (var token in tokens) _draftTokens[oldToNew[token.Key]] = token.Value;
+
+        foreach (var (from, to) in oldToNew)
+        {
+            _cloneChecks.Remove(from);
+            _cloneChecks.Remove(to);
         }
     }
 
@@ -1307,6 +1368,14 @@
         _renaming = true;
         try
         {
+            // Read before the call: a merge is a rename onto an id another row
+            // already carried. An alias that changed no longer says so, because a
+            // plain rename relabels too (local ADR 0060 §1).
+            var othersBefore = GitHub.Settings.Current.Repositories
+                .Where(row => !string.Equals(row.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase))
+                .Select(row => row.FullName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
             if (rename is null)
             {
@@ -1322,18 +1391,27 @@
             // row under the renamed one, so the note goes on the repository it was
             // folded into, and that row is the one left open.
             var kept = GitHub.Settings.Current.Find(rename.NewId);
-            var merged = kept is not null && kept.Alias != repository.Alias;
+            var merged = othersBefore.Contains(rename.NewId);
+            var newAlias = kept?.Alias ?? repository.Alias;
             _expandedId = kept?.FullName;
+
+            // The card now answers to its new alias, so the open form, the note and
+            // the card's own state are keyed by it, or none would show on the card
+            // they belong to. Nothing has been awaited since the guard above, so the
+            // form is still this rename's. A merge's card is gone: nothing follows.
+            _renamingAlias = newAlias;
+            var relabelled = merged || string.Equals(newAlias, repository.Alias, StringComparison.Ordinal) ? null : newAlias;
+            if (relabelled is not null) FollowAliases(new Dictionary<string, string>(StringComparer.Ordinal) { [repository.Alias] = relabelled });
 
             // The form closes once the entries and inbox items have followed,
             // not before: until then its button is what says the rename is
             // still under way.
-            _renameNote = await FollowRenameAsync(rename, merged);
-            _renameNoteAlias = kept?.Alias ?? repository.Alias;
+            _renameNote = await FollowRenameAsync(rename, merged, relabelled);
+            _renameNoteAlias = newAlias;
 
             // Only this rename's form: another card may have been opened, and a
             // rename started on it, while this one's entries were following.
-            if (_renamingAlias == repository.Alias) CancelRename();
+            if (_renamingAlias == newAlias) CancelRename();
         }
         finally
         {
@@ -1356,7 +1434,7 @@
     /// will try it again.
     /// </para>
     /// </summary>
-    private async Task<string> FollowRenameAsync(RepositoryRename rename, bool merged)
+    private async Task<string> FollowRenameAsync(RepositoryRename rename, bool merged, string? relabelledTo)
     {
         var tasks = Services.GetService<ITaskItems>();
         var inbox = Services.GetService<IInboxItems>();
@@ -1364,14 +1442,21 @@
         var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
         var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
 
-        return $"{(merged ? "Merged" : "Renamed")} {rename.OldId} {(merged ? "into" : "to")} {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
+        // A plain rename that moved the alias says so in the same sentence: the
+        // area tag the person types changed with it (local ADR 0060 §1).
+        var followed = $"{Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
+        return merged
+            ? $"Merged {rename.OldId} into {rename.NewId}; {followed}"
+            : relabelledTo is null
+                ? $"Renamed {rename.OldId} to {rename.NewId}; {followed}"
+                : $"Renamed {rename.OldId} to {rename.NewId}; it now answers to @{relabelledTo}, and {followed}";
 
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {
             var result = await rewrite;
-            if (result.IsSuccess) return result.Value;
+            if (result is Ok<int>(var count)) return count;
 
-            var message = $"{what} could not follow the rename: {result.Error.Message}";
+            var message = $"{what} could not follow the rename: {((Error)result.Value!).Message}";
             _repoError = _repoError is null ? message : $"{_repoError} {message}";
             return 0;
         }
@@ -1595,8 +1680,8 @@
     /// The question names the repository as well as the folder, because the
     /// answer depends on both: a clone is "ready" only when its origin is the
     /// repository the row names, and a rename, or a registry edit that points an
-    /// alias at another repository, keeps the alias and the folder and changes
-    /// that. The folder is the stored one, not the field's draft: it is asked
+    /// alias at another repository, keeps the folder and changes that (a rename
+    /// may move the alias too: <see cref="FollowAliases"/>). The folder is the stored one, not the field's draft: it is asked
     /// when the field is left or Enter pressed, not on every keystroke.
     /// </para>
     /// </summary>
@@ -1705,7 +1790,9 @@
 
     private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
     {
-        if (!_cloningRepositories.Add(repository.Alias)) return;
+        if (IsCloning(repository.Alias)) return;
+        var run = new CloneRun(repository.Alias);
+        _cloneRuns.Add(run);
         _repoError = null;
 
         try
@@ -1716,7 +1803,8 @@
             var result = await Task.Run(() => LocalGit.CloneAsync(repository, directory));
             if (result.Success && result.CloneDirectory is not null)
             {
-                _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
+                // The alias the card answers to now: a rename may have moved it.
+                _repoError = GitHub.Settings.SetCloneDirectory(run.Alias, result.CloneDirectory);
             }
             else
             {
@@ -1733,10 +1821,10 @@
         }
         finally
         {
-            _cloningRepositories.Remove(repository.Alias);
+            _cloneRuns.Remove(run);
 
             // The folder is a clone now, or half of one: asked again.
-            _cloneChecks.Remove(repository.Alias);
+            _cloneChecks.Remove(run.Alias);
         }
     }
 

@@ -2,6 +2,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Notifications.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -36,7 +37,7 @@ public sealed class NotificationsTests
     [Fact]
     public async Task Publishing_stores_an_open_notification_owned_by_this_device()
     {
-        var id = (await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         var stored = await _store.GetAsync(id, TestContext.Current.CancellationToken);
         Assert.NotNull(stored);
@@ -47,9 +48,9 @@ public sealed class NotificationsTests
     [Fact]
     public async Task A_refused_draft_stores_nothing()
     {
-        var result = await Owner_().PublishAsync(Question() with { Subject = null }, TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await Owner_().PublishAsync(Question() with { Subject = null }, TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notification.question_incomplete", result.Error.Code);
+        Assert.Equal("notification.question_incomplete", result.Code);
         Assert.Equal(0, _store.Saves);
     }
 
@@ -58,9 +59,9 @@ public sealed class NotificationsTests
     {
         var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(), _time, new Flags(enabled: false));
 
-        var result = await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notifications.not_available", result.Error.Code);
+        Assert.Equal("notifications.not_available", result.Code);
         Assert.Equal(0, _store.Saves);
     }
 
@@ -69,7 +70,7 @@ public sealed class NotificationsTests
     {
         var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), Delivery(), _time, new Flags(enabled: true));
 
-        Assert.True((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value);
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class NotificationsTests
     {
         var named = Guid.NewGuid();
 
-        var id = (await Owner_().PublishAsync(Question() with { Id = named }, TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await Owner_().PublishAsync(Question() with { Id = named }, TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(named, id);
         Assert.NotNull(await _store.GetAsync(named, TestContext.Current.CancellationToken));
@@ -96,7 +97,7 @@ public sealed class NotificationsTests
 
         var again = await owner.PublishAsync(Question() with { Id = named, Title = "Asked again" }, TestContext.Current.CancellationToken);
 
-        Assert.Equal(named, again.Value);
+        Assert.Equal(named, Assert.IsType<Ok<Guid>>(again.Value).Value);
         Assert.Equal(saves, _store.Saves);
         var stored = await _store.GetAsync(named, TestContext.Current.CancellationToken);
         Assert.Equal(NotificationState.Closed, stored!.State);
@@ -106,9 +107,9 @@ public sealed class NotificationsTests
     [Fact]
     public async Task An_empty_named_id_is_refused()
     {
-        var result = await Owner_().PublishAsync(Question() with { Id = Guid.Empty }, TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await Owner_().PublishAsync(Question() with { Id = Guid.Empty }, TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notification.id_required", result.Error.Code);
+        Assert.Equal("notification.id_required", result.Code);
         Assert.Equal(0, _store.Saves);
     }
 
@@ -118,33 +119,33 @@ public sealed class NotificationsTests
     public async Task The_publisher_closes_a_question_and_a_later_reply_is_rejected_as_closed()
     {
         var owner = Owner_();
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
-        Assert.True((await owner.CloseAsync(id, "No longer needed", TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok>((await owner.CloseAsync(id, "No longer needed", TestContext.Current.CancellationToken)).Value);
 
         var reply = await owner.AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
-        Assert.Equal("reply.closed", reply.Error.Code);
+        Assert.Equal("reply.closed", Assert.IsType<Error>(reply.Value).Code);
     }
 
     [Fact]
     public async Task Closing_an_unknown_notification_is_refused()
     {
-        var result = await Owner_().CloseAsync(Guid.NewGuid(), null, TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await Owner_().CloseAsync(Guid.NewGuid(), null, TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notification.not_found", result.Error.Code);
+        Assert.Equal("notification.not_found", result.Code);
     }
 
     [Fact]
     public async Task Closing_for_a_subject_closes_every_open_notification_about_it_and_nothing_else()
     {
         var owner = Owner_();
-        var first = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
-        var second = (await owner.PublishAsync(Alert(Session), TestContext.Current.CancellationToken)).Value;
-        var other = (await owner.PublishAsync(Question(subject: new("tasks", "task", "T-123")), TestContext.Current.CancellationToken)).Value;
+        var first = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
+        var second = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Alert(Session), TestContext.Current.CancellationToken)).Value).Value;
+        var other = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(subject: new("tasks", "task", "T-123")), TestContext.Current.CancellationToken)).Value).Value;
 
-        var closed = await owner.CloseForSubjectAsync(Session, "Session archived", TestContext.Current.CancellationToken);
+        var closed = Assert.IsType<Ok<int>>((await owner.CloseForSubjectAsync(Session, "Session archived", TestContext.Current.CancellationToken)).Value).Value;
 
-        Assert.Equal(2, closed.Value);
+        Assert.Equal(2, closed);
         Assert.Equal(NotificationState.Closed, (await _store.GetAsync(first, TestContext.Current.CancellationToken))!.State);
         Assert.Equal("Session archived", (await _store.GetAsync(second, TestContext.Current.CancellationToken))!.CloseReason);
         Assert.Equal(NotificationState.Open, (await _store.GetAsync(other, TestContext.Current.CancellationToken))!.State);
@@ -153,12 +154,12 @@ public sealed class NotificationsTests
     [Fact]
     public async Task Closing_for_a_subject_leaves_another_owners_notifications_alone()
     {
-        var foreign = DomainModels.Notification.Publish(Guid.NewGuid(), OtherDesktop, Question(), Now).Value;
+        var foreign = Assert.IsType<Ok<DomainModels.Notification>>(DomainModels.Notification.Publish(Guid.NewGuid(), OtherDesktop, Question(), Now).Value).Value;
         _store.Put(foreign);
 
-        var closed = await Owner_().CloseForSubjectAsync(Session, "Session archived", TestContext.Current.CancellationToken);
+        var closed = Assert.IsType<Ok<int>>((await Owner_().CloseForSubjectAsync(Session, "Session archived", TestContext.Current.CancellationToken)).Value).Value;
 
-        Assert.Equal(0, closed.Value);
+        Assert.Equal(0, closed);
         Assert.Equal(NotificationState.Open, (await _store.GetAsync(foreign.Id, TestContext.Current.CancellationToken))!.State);
     }
 
@@ -168,13 +169,13 @@ public sealed class NotificationsTests
     public async Task An_accepted_answer_is_stored_and_read_back()
     {
         var owner = Owner_();
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
-        Assert.Null((await owner.GetAnswerAsync(id, TestContext.Current.CancellationToken)).Value);
+        Assert.Null(Assert.IsType<Ok<NotificationAnswer?>>((await owner.GetAnswerAsync(id, TestContext.Current.CancellationToken)).Value).Value);
 
         await owner.AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
 
-        var answer = (await owner.GetAnswerAsync(id, TestContext.Current.CancellationToken)).Value;
+        var answer = Assert.IsType<Ok<NotificationAnswer?>>((await owner.GetAnswerAsync(id, TestContext.Current.CancellationToken)).Value).Value;
         Assert.NotNull(answer);
         Assert.Equal(["yes"], answer.ChoiceIds);
         Assert.Equal(Now, answer.AnsweredAt);
@@ -183,33 +184,33 @@ public sealed class NotificationsTests
     [Fact]
     public async Task Reading_the_answer_of_an_unknown_notification_is_refused()
     {
-        var result = await Owner_().GetAnswerAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await Owner_().GetAnswerAsync(Guid.NewGuid(), TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notification.not_found", result.Error.Code);
+        Assert.Equal("notification.not_found", result.Code);
     }
 
     [Fact]
     public async Task Two_replies_racing_settle_on_exactly_one_answer()
     {
         var owner = Owner_();
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         var replies = await Task.WhenAll(
             Enumerable.Range(0, 20).Select(n => Task.Run(
                 () => owner.AcceptReplyAsync(ReplyTo(id, n % 2 == 0 ? "yes" : "no"), TestContext.Current.CancellationToken),
                 TestContext.Current.CancellationToken)));
 
-        Assert.Single(replies, reply => reply.IsSuccess);
-        Assert.All(replies.Where(reply => reply.IsFailure), reply => Assert.Equal("notification.already_answered", reply.Error.Code));
+        Assert.Single(replies, reply => reply is Ok<NotificationAnswer>);
+        Assert.All(replies.Where(reply => reply is Error), reply => Assert.Equal("notification.already_answered", Assert.IsType<Error>(reply.Value).Code));
     }
 
     [Fact]
     public async Task Acknowledging_an_alert_settles_it()
     {
         var owner = Owner_();
-        var id = (await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Alert(), TestContext.Current.CancellationToken)).Value).Value;
 
-        Assert.True((await owner.AcknowledgeAsync(id, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok>((await owner.AcknowledgeAsync(id, TestContext.Current.CancellationToken)).Value);
         Assert.Equal(NotificationState.Acknowledged, (await _store.GetAsync(id, TestContext.Current.CancellationToken))!.State);
     }
 
@@ -221,7 +222,7 @@ public sealed class NotificationsTests
         var sessions = new RecordingAnswerHandler("sessions");
         var devbook = new RecordingAnswerHandler("devbook");
         var owner = Owner_(sessions, devbook);
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         await owner.AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
 
@@ -234,7 +235,7 @@ public sealed class NotificationsTests
     [Fact]
     public async Task An_answer_with_no_handler_yet_is_replayed_to_a_handler_that_registers_later()
     {
-        var id = (await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
         await Owner_().AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
 
         Assert.True((await _store.GetAsync(id, TestContext.Current.CancellationToken))!.AwaitsDelivery);
@@ -251,7 +252,7 @@ public sealed class NotificationsTests
     [Fact]
     public async Task The_replay_hands_an_answer_over_once_and_never_again()
     {
-        var id = (await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
         await Owner_().AcceptReplyAsync(ReplyTo(id, "no"), TestContext.Current.CancellationToken);
 
         var handler = new RecordingAnswerHandler();
@@ -269,11 +270,11 @@ public sealed class NotificationsTests
     {
         var handler = new RecordingAnswerHandler { Throws = true };
         var owner = Owner_(handler);
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         var accepted = await owner.AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
 
-        Assert.True(accepted.IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(accepted.Value);
         Assert.True((await _store.GetAsync(id, TestContext.Current.CancellationToken))!.AwaitsDelivery);
 
         handler.Throws = false;
@@ -288,7 +289,7 @@ public sealed class NotificationsTests
     {
         var handler = new RecordingAnswerHandler();
         var owner = Owner_(handler);
-        var id = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
         await owner.AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
 
         // A crash between the handler returning and the mark being stored: the row still says the
@@ -313,16 +314,16 @@ public sealed class NotificationsTests
         var waiting = new List<Guid>();
         for (var n = 0; n < 10; n++)
         {
-            var stale = (await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+            var stale = Assert.IsType<Ok<Guid>>((await Owner_().PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
             await Owner_().AcceptReplyAsync(ReplyTo(stale, "no"), TestContext.Current.CancellationToken);
             waiting.Add(stale);
         }
 
         var handler = new ConcurrentRecordingHandler();
         var delivery = Delivery(handler);
-        var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), delivery, _time);
+var owner = new OwnerNotifications(_store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), delivery, _time);
         var startup = new NotificationsStartup(_store, owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), delivery, []);
-        var fresh = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var fresh = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         await Task.WhenAll(
             startup.RunAsync(TestContext.Current.CancellationToken),
@@ -339,8 +340,8 @@ public sealed class NotificationsTests
     public async Task At_startup_a_notification_whose_subject_ended_is_closed()
     {
         var owner = Owner_();
-        var ended = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
-        var live = (await owner.PublishAsync(Question(subject: new("sessions", "session", "sess-12")), TestContext.Current.CancellationToken)).Value;
+        var ended = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
+        var live = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(subject: new("sessions", "session", "sess-12")), TestContext.Current.CancellationToken)).Value).Value;
 
         var probe = new SetProbe("sessions", "sess-91");
         await Startup(owner, [], probe).RunAsync(TestContext.Current.CancellationToken);
@@ -355,7 +356,7 @@ public sealed class NotificationsTests
     public async Task At_startup_a_subject_whose_probe_names_why_it_ended_closes_with_that_reason()
     {
         var owner = Owner_();
-        var ended = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var ended = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         var probe = new SetProbe("sessions", "sess-91") { Reasons = { ["sess-91"] = "Answered in spec-manager by Kees de Vries: No" } };
         await Startup(owner, [], probe).RunAsync(TestContext.Current.CancellationToken);
@@ -369,7 +370,7 @@ public sealed class NotificationsTests
     public async Task At_startup_a_subject_whose_probe_fails_to_name_why_it_ended_closes_as_subject_ended()
     {
         var owner = Owner_();
-        var ended = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var ended = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         var probe = new SetProbe("sessions", "sess-91") { Reasons = { ["sess-91"] = "Never read" }, ReasonThrows = true };
         await Startup(owner, [], probe).RunAsync(TestContext.Current.CancellationToken);
@@ -399,8 +400,8 @@ public sealed class NotificationsTests
     public async Task A_subject_with_no_probe_or_a_failing_probe_stays_open()
     {
         var owner = Owner_();
-        var unprobed = (await owner.PublishAsync(Question(subject: new("devbook", "remark", "r-1")), TestContext.Current.CancellationToken)).Value;
-        var failing = (await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var unprobed = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(subject: new("devbook", "remark", "r-1")), TestContext.Current.CancellationToken)).Value).Value;
+        var failing = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
 
         await Startup(owner, [], new SetProbe("sessions", "sess-91") { Throws = true }).RunAsync(TestContext.Current.CancellationToken);
 
@@ -433,15 +434,15 @@ public sealed class NotificationsTests
         var statuses = new OwnerNotificationStatuses(_store);
         var ct = TestContext.Current.CancellationToken;
         var draft = Question();
-        var id = (await owner.PublishAsync(draft, ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(draft, ct)).Value).Value;
 
-        var open = (await statuses.GetStatusAsync(id, ct)).Value;
+        var open = Assert.IsType<Ok<NotificationStatus>>((await statuses.GetStatusAsync(id, ct)).Value).Value;
         Assert.Equal((id, draft.Source, draft.Subject, NotificationKind.Question, NotificationState.Open), (open.Id, open.Source, open.Subject, open.Kind, open.State));
         Assert.Null(open.Answer);
 
         await owner.CloseAsync(id, "No longer needed", ct);
 
-        var closed = (await statuses.GetStatusAsync(id, ct)).Value;
+        var closed = Assert.IsType<Ok<NotificationStatus>>((await statuses.GetStatusAsync(id, ct)).Value).Value;
         Assert.Equal((NotificationState.Closed, "No longer needed"), (closed.State, closed.CloseReason));
     }
 
@@ -450,10 +451,10 @@ public sealed class NotificationsTests
     {
         var owner = Owner_();
         var ct = TestContext.Current.CancellationToken;
-        var id = (await owner.PublishAsync(Question(), ct)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await owner.PublishAsync(Question(), ct)).Value).Value;
         await owner.AcceptReplyAsync(ReplyTo(id, "yes"), ct);
 
-        var status = (await new OwnerNotificationStatuses(_store).GetStatusAsync(id, ct)).Value;
+        var status = Assert.IsType<Ok<NotificationStatus>>((await new OwnerNotificationStatuses(_store).GetStatusAsync(id, ct)).Value).Value;
 
         Assert.Equal(NotificationState.Answered, status.State);
         Assert.Equal(["yes"], status.Answer!.ChoiceIds);
@@ -462,9 +463,9 @@ public sealed class NotificationsTests
     [Fact]
     public async Task The_status_of_an_unknown_notification_is_refused()
     {
-        var result = await new OwnerNotificationStatuses(_store).GetStatusAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+        var result = Assert.IsType<Error>((await new OwnerNotificationStatuses(_store).GetStatusAsync(Guid.NewGuid(), TestContext.Current.CancellationToken)).Value);
 
-        Assert.Equal("notification.not_found", result.Error.Code);
+        Assert.Equal("notification.not_found", result.Code);
     }
 
     // --- Viewer --------------------------------------------------------------------------
@@ -475,13 +476,13 @@ public sealed class NotificationsTests
         var viewer = new ViewerNotifications();
         var ct = TestContext.Current.CancellationToken;
 
-        Assert.Equal("notifications.viewer_only", (await viewer.PublishAsync(Alert(), ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await viewer.CloseAsync(Guid.NewGuid(), null, ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await viewer.CloseForSubjectAsync(Session, "gone", ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await viewer.GetAnswerAsync(Guid.NewGuid(), ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await viewer.AcceptReplyAsync(ReplyTo(Guid.NewGuid(), "yes"), ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await viewer.AcknowledgeAsync(Guid.NewGuid(), ct)).Error.Code);
-        Assert.Equal("notifications.viewer_only", (await new ViewerNotificationStatuses().GetStatusAsync(Guid.NewGuid(), ct)).Error.Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.PublishAsync(Alert(), ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.CloseAsync(Guid.NewGuid(), null, ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.CloseForSubjectAsync(Session, "gone", ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.GetAnswerAsync(Guid.NewGuid(), ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.AcceptReplyAsync(ReplyTo(Guid.NewGuid(), "yes"), ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await viewer.AcknowledgeAsync(Guid.NewGuid(), ct)).Value).Code);
+        Assert.Equal("notifications.viewer_only", Assert.IsType<Error>((await new ViewerNotificationStatuses().GetStatusAsync(Guid.NewGuid(), ct)).Value).Code);
     }
 
     // --- Registration ----------------------------------------------------------------------
@@ -504,11 +505,11 @@ public sealed class NotificationsTests
         Assert.Single(provider.GetServices<INotificationAnswerHandler>());
         Assert.IsType<OwnerNotificationStatuses>(provider.GetRequiredService<INotificationStatuses>());
 
-        var id = (await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
         await provider.GetRequiredService<INotificationReplies>().AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
         Assert.Contains(id, StaticHandler.Seen);
 
-        var other = (await notifications.PublishAsync(Question(subject: new("never", "thing", "1")), TestContext.Current.CancellationToken)).Value;
+        var other = Assert.IsType<Ok<Guid>>((await notifications.PublishAsync(Question(subject: new("never", "thing", "1")), TestContext.Current.CancellationToken)).Value).Value;
         await provider.GetRequiredService<NotificationsStartup>().Start();
         Assert.Equal(NotificationState.Closed, (await _store.GetAsync(other, TestContext.Current.CancellationToken))!.State);
     }
@@ -525,7 +526,7 @@ public sealed class NotificationsTests
         await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
         var notifications = provider.GetRequiredService<INotifications>();
-        var id = (await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
+        var id = Assert.IsType<Ok<Guid>>((await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value).Value;
         await provider.GetRequiredService<INotificationReplies>().AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
         Assert.True((await _store.GetAsync(id, TestContext.Current.CancellationToken))!.AwaitsDelivery);
 

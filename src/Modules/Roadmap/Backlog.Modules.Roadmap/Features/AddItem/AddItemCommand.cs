@@ -38,13 +38,13 @@ public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans, RoadmapP
         ArgumentNullException.ThrowIfNull(command);
 
         var window = PlannedWindow.Create(command.Start, command.End);
-        if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
+        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
 
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var added = plan.AddItem(
             command.Title,
-            window.Value,
+            planned,
             command.Priority,
             RepositoryScope.Of(command.RepositoryAliases),
             PlanningLane.Of(command.Lane),
@@ -54,9 +54,9 @@ public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans, RoadmapP
             string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),
             KnowledgeReferences.Of(command.KnowledgeRefs));
 
-        if (added.IsFailure) return Result.Failure<RoadmapItemDto>(added.Error);
+        if (added is not Ok<RoadmapItem>(var item)) return (Error)added.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(added.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

@@ -20,7 +20,7 @@ public sealed record InstructionPathNode(
 ///
 /// <para>Source only. The same exclusions <see cref="InstructionSourceDiscovery"/>
 /// keeps apply here for the same reason: a tree that offered
-/// <c>bin/Debug/net10.0/…</c> would bury the files somebody actually edits under
+/// <c>bin/Debug/net11.0/…</c> would bury the files somebody actually edits under
 /// thousands they never will, and no instruction file scopes itself to build
 /// output.</para>
 ///

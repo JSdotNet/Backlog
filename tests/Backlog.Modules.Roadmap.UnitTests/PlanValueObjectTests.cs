@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -8,7 +9,7 @@ public class PlannedWindowTests
     [Fact]
     public void BothEndsAreInclusive_SoASingleDayIsOneDayLong()
     {
-        var window = PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5)).Value;
+        var window = Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5)).Value).Value;
 
         Assert.Equal(1, window.Days);
         Assert.True(window.Contains(new DateOnly(2026, 1, 5)));
@@ -17,7 +18,7 @@ public class PlannedWindowTests
     [Fact]
     public void ThroughTheLastDayMeansTheLastDay()
     {
-        var window = PlannedWindow.Create(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)).Value;
+        var window = Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)).Value).Value;
 
         Assert.Equal(31, window.Days);
         Assert.True(window.Contains(new DateOnly(2026, 1, 31)));
@@ -29,15 +30,15 @@ public class PlannedWindowTests
     {
         var created = PlannedWindow.Create(new DateOnly(2026, 1, 9), new DateOnly(2026, 1, 5));
 
-        Assert.True(created.IsFailure);
-        Assert.Equal("roadmap.invalid_window", created.Error.Code);
+        Assert.IsType<Error>(created.Value);
+        Assert.Equal("roadmap.invalid_window", Assert.IsType<Error>(created.Value).Code);
     }
 
     [Fact]
     public void EqualityIsByValue()
     {
-        var first = PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)).Value;
-        var second = PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)).Value;
+        var first = Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)).Value).Value;
+        var second = Assert.IsType<Ok<PlannedWindow>>(PlannedWindow.Create(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)).Value).Value;
 
         Assert.Equal(first, second);
     }

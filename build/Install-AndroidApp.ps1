@@ -122,7 +122,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repoRoot 'src/App/Backlog.Mobile/Backlog.Mobile.csproj'
-$targetFramework = 'net10.0-android'
+$targetFramework = 'net11.0-android'
 $applicationId = 'com.jsdotnet.backlog.mobile'
 
 if (-not (Test-Path -LiteralPath $projectPath)) {

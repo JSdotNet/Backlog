@@ -192,9 +192,9 @@ public sealed class NotificationSyncTests
         var first = await fixture.Session().SyncAsync(Cancellation);
         var second = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(first.IsSuccess);
-        Assert.Equal(1, first.Value.Pushed);
-        Assert.Equal(0, second.Value.Pushed);
+        var summary = Assert.IsType<Ok<NotificationSyncSummary>>(first.Value).Value;
+        Assert.Equal(1, summary.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<NotificationSyncSummary>>(second.Value).Value.Pushed);
         Assert.All(fixture.Handler.Requests, request => Assert.Equal(HttpMethod.Post, request.Method));
         Assert.Single(fixture.Handler.Requests);
     }
@@ -215,10 +215,10 @@ public sealed class NotificationSyncTests
         var settling = await fixture.Session().SyncAsync(Cancellation);
         var quiet = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(settling.Value.PolledReplies);
-        Assert.Equal(1, settling.Value.Pushed);
-        Assert.False(quiet.Value.PolledReplies);
-        Assert.Equal(0, quiet.Value.Pushed);
+        Assert.True(Assert.IsType<Ok<NotificationSyncSummary>>(settling.Value).Value.PolledReplies);
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(settling.Value).Value.Pushed);
+        Assert.False(Assert.IsType<Ok<NotificationSyncSummary>>(quiet.Value).Value.PolledReplies);
+        Assert.Equal(0, Assert.IsType<Ok<NotificationSyncSummary>>(quiet.Value).Value.Pushed);
         Assert.Contains("\"state\":\"closed\"", fixture.PushedBodies.Last(), StringComparison.Ordinal);
     }
 
@@ -253,8 +253,8 @@ public sealed class NotificationSyncTests
         fixture.Clock.Advance(TimeSpan.FromDays(2));
         var pastIt = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(0, withinTheWeek.Value.Pushed);
-        Assert.Equal(1, pastIt.Value.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<NotificationSyncSummary>>(withinTheWeek.Value).Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(pastIt.Value).Value.Pushed);
     }
 
     /// <summary>An open question is pushed again every ten minutes, so a phone reading its
@@ -273,8 +273,8 @@ public sealed class NotificationSyncTests
         fixture.Clock.Advance(TimeSpan.FromMinutes(2));
         var past = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(0, within.Value.Pushed);
-        Assert.Equal(1, past.Value.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<NotificationSyncSummary>>(within.Value).Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(past.Value).Value.Pushed);
         Assert.True(NotificationSyncSession.PresenceWindow > NotificationSyncSession.PresenceRefresh + NotificationSyncWorker.CyclePeriod);
         Assert.Contains("\"ownerName\":\"Workshop PC\"", fixture.PushedBodies.Last(), StringComparison.Ordinal);
     }
@@ -301,7 +301,7 @@ public sealed class NotificationSyncTests
         fixture.Credentials.Save(Paired with { DeviceId = Guid.CreateVersion7() });
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value.Pushed);
         Assert.Equal(rejection, Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies));
         Assert.Contains(rejection.ReplyId.ToString(), fixture.PushedBodies.Last(), StringComparison.OrdinalIgnoreCase);
     }
@@ -328,8 +328,9 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
-        Assert.Equal(1, synced.Value.Rejected);
+        Assert.True(synced is Ok<NotificationSyncSummary>, synced is Error error ? error.Message : null);
+        var summary = Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value;
+        Assert.Equal(1, summary.Rejected);
         Assert.Empty(fixture.Replies.Accepted);
 
         var rejection = Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies);
@@ -369,9 +370,9 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess);
-        Assert.Equal(0, synced.Value.Accepted);
-        Assert.Equal(0, synced.Value.Rejected);
+        var summary = Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value;
+        Assert.Equal(0, summary.Accepted);
+        Assert.Equal(0, summary.Rejected);
         Assert.Empty(fixture.Replies.Accepted);
         Assert.Contains(fixture.Handler.Requests, request => request.Method == HttpMethod.Delete);
     }
@@ -416,8 +417,8 @@ public sealed class NotificationSyncTests
 
         var first = await fixture.Session(devices: devices).SyncAsync(Cancellation);
 
-        Assert.True(first.IsSuccess, first.IsFailure ? first.Error.Message : null);
-        Assert.Equal(1, first.Value.Rejected);
+        var firstOk = Assert.IsType<Ok<NotificationSyncSummary>>(first.Value).Value;
+        Assert.Equal(1, firstOk.Rejected);
         Assert.Empty(fixture.Replies.Accepted);
 
         var rejection = Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies);
@@ -429,8 +430,8 @@ public sealed class NotificationSyncTests
 
         var second = await fixture.Session(devices: devices).SyncAsync(Cancellation);
 
-        Assert.True(second.IsSuccess, second.IsFailure ? second.Error.Message : null);
-        Assert.Equal(1, second.Value.Accepted);
+        var secondOk = Assert.IsType<Ok<NotificationSyncSummary>>(second.Value).Value;
+        Assert.Equal(1, secondOk.Accepted);
         Assert.Equal(answer.Reply.Id, Assert.Single(fixture.Replies.Accepted).Id);
     }
 
@@ -467,7 +468,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(devices: new StandingDevices { [Phone] = DeviceStanding.Paired }, audit: audit).SyncAsync(Cancellation);
 
-        Assert.Equal(1, synced.Value.Accepted);
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value.Accepted);
         Assert.Equal(reply.Reply.Id, Assert.Single(fixture.Replies.Accepted).Id);
         Assert.Empty(audit.Records);
     }
@@ -486,8 +487,8 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(devices: devices).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
-        Assert.Equal(3, synced.Value.Accepted);
+        var syncedOk = Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value;
+        Assert.Equal(3, syncedOk.Accepted);
         Assert.Equal(1, devices.Reads);
     }
 
@@ -504,7 +505,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(devices: new StandingDevices { Unreadable = true }).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsFailure);
+        Assert.IsType<Error>(synced.Value);
         Assert.Empty(fixture.Replies.Accepted);
         Assert.Empty(fixture.State.Current.Tracked[question.Id].RejectedReplies);
         Assert.DoesNotContain(fixture.Handler.Requests, request => request.Method == HttpMethod.Delete);
@@ -523,7 +524,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(devices: new StandingDevices { Unreadable = true }).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
+        Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value);
         Assert.Single(fixture.Replies.Accepted);
     }
 
@@ -535,7 +536,7 @@ public sealed class NotificationSyncTests
             serverTimestamp);
 
     private static string? PushedStateOf(string body, Guid id) =>
-        JsonDocument.Parse(body).RootElement.GetProperty("notifications").EnumerateArray()
+        JsonElement.Parse(body).GetProperty("notifications").EnumerateArray()
             .Where(change => change.GetProperty("id").GetGuid() == id)
             .Select(change => change.GetProperty("state").GetString())
             .LastOrDefault();
@@ -697,7 +698,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(repositories: repositories).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value);
         var pushed = PushedPayloads(fixture.PushedBodies.Single());
         Assert.Equal("Backlog", pushed[aboutBacklog.Id]!.Alias);
         Assert.True(pushed[pairing.Id]!.IsBrain);
@@ -712,7 +713,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(repositories: new ScriptedRepositories(new Dictionary<Guid, string?>())).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value);
         Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
     }
 
@@ -725,7 +726,7 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session().SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value);
         Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
     }
 
@@ -738,14 +739,14 @@ public sealed class NotificationSyncTests
 
         var synced = await fixture.Session(repositories: new FailingRepositories()).SyncAsync(Cancellation);
 
-        Assert.True(synced.IsSuccess);
-        Assert.Equal(1, synced.Value.Pushed);
+        var summary = Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value;
+        Assert.Equal(1, summary.Pushed);
         Assert.Null(PushedPayloads(fixture.PushedBodies.Single())[question.Id]);
     }
 
     /// <summary>The repository each notification of a push body carries, by id.</summary>
     private static Dictionary<Guid, PublishedRepository?> PushedPayloads(string body) =>
-        JsonDocument.Parse(body).RootElement.GetProperty("notifications").EnumerateArray()
+        JsonElement.Parse(body).GetProperty("notifications").EnumerateArray()
             .Select(change => change.GetProperty("notification").Deserialize<NotificationPayload>(NotificationPayloads.Options)!)
             .ToDictionary(payload => payload.Notification.Id, payload => payload.Repository);
 
@@ -952,7 +953,7 @@ public sealed class NotificationSyncTests
                 if (request.Method == HttpMethod.Post)
                 {
                     fixture!.PushedBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
-                    var count = JsonDocument.Parse(fixture.PushedBodies[^1]).RootElement.GetProperty("notifications").GetArrayLength();
+                    var count = JsonElement.Parse(fixture.PushedBodies[^1]).GetProperty("notifications").GetArrayLength();
                     return StubHttpMessageHandler.Json(HttpStatusCode.OK, $$"""{"accepted":{{count}}}""");
                 }
 

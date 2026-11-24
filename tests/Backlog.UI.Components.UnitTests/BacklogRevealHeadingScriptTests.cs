@@ -190,6 +190,34 @@ public sealed class BacklogRevealHeadingScriptTests
         Assert.Equal("scrollTop 680", result);
     }
 
+    /// <summary>The Domain view's pages draw a file's chapters as sections headed by
+    /// the elements themselves, with no file view of the file: there an h3 is a
+    /// heading the anchor can name.</summary>
+    [Fact]
+    public void A_page_with_no_file_view_is_searched_for_its_own_heading_elements()
+    {
+        var result = Run("""
+            setBody(node({ classes: ['domain-file'], children: [node({ tag: 'h3', text: 'First thought', top: 200 }), node({ tag: 'h3', text: 'Second thought', top: 600 })] }));
+            reveal('second-thought', 'tasks/notes.md');
+            """);
+
+        Assert.Equal("scrollTop 600", result);
+    }
+
+    /// <summary>Inside a file view only the markdown's own headings count, so the
+    /// view's chrome never stands in for a chapter of the same name.</summary>
+    [Fact]
+    public void Inside_a_file_view_only_the_markdown_headings_count()
+    {
+        var result = Run("""
+            const opened = view('.devbook/arc42/01-introduction-and-goals.md', [node({ tag: 'h3', text: 'Quality Goals', top: 100 }), heading('Quality Goals', 500)]);
+            setBody(opened);
+            reveal('quality-goals', '01-introduction-and-goals.md');
+            """);
+
+        Assert.Equal("scrollTop 500", result);
+    }
+
     /// <summary>
     /// A document just large enough for the script: elements with classes,
     /// attributes, text and children; the compound selectors the script uses; one
@@ -207,9 +235,9 @@ public sealed class BacklogRevealHeadingScriptTests
             const requestAnimationFrame = callback => { queue.push(callback); };
 
             let focused = null;
-            const node = ({ classes = [], attrs = {}, text = '', children = [], top = 0, overflowY, scrollHeight = 0, clientHeight = 0 } = {}) => {
+            const node = ({ tag = 'div', classes = [], attrs = {}, text = '', children = [], top = 0, overflowY, scrollHeight = 0, clientHeight = 0 } = {}) => {
                 const element = {
-                    classes, attrs, text, children, top, overflowY, scrollHeight, clientHeight, parentElement: null, listeners: {},
+                    tag, classes, attrs, text, children, top, overflowY, scrollHeight, clientHeight, parentElement: null, listeners: {},
                     hasAttribute: name => name in element.attrs,
                     setAttribute(name, value) { element.attrs[name] = value; },
                     focus(options) { focused = { element, preventScroll: options?.preventScroll === true }; },
@@ -231,8 +259,11 @@ public sealed class BacklogRevealHeadingScriptTests
             const descendants = element => element.children.flatMap(child => [child, ...descendants(child)]);
             const clone = element => adopt(node({ ...element, classes: [...element.classes], attrs: { ...element.attrs }, children: element.children.map(clone) }));
 
-            const matches = (element, selector) => {
+            const matches = (element, selector) => selector.split(',').some(part => matchesOne(element, part));
+            const matchesOne = (element, selector) => {
                 let rest = selector.trim();
+                const tag = /^[a-z][a-z0-9]*/.exec(rest);
+                if (tag && element.tag !== tag[0]) return false;
                 const negated = [];
                 rest = rest.replace(/:not\(\[(\w[\w-]*)\]\)/g, (_, name) => { negated.push(name); return ''; });
                 if (negated.some(name => name in element.attrs)) return false;

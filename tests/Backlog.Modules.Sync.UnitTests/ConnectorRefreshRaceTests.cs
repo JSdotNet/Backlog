@@ -1,7 +1,9 @@
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.Connector;
 using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.Modules.Sync.Ports;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.UnitTests;
 
@@ -22,10 +24,10 @@ public sealed class ConnectorRefreshRaceTests
         var secret = await connector.Secret();
         store.BeforeAdd = token => store.Inner.RevokeFamily(token.FamilyId, Cancellation);
 
-        var first = (await connector.Exchanged(secret)).Value;
-        var refresh = await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
+        var refresh = Assert.IsType<Error>((await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation)).Value);
 
-        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Error.Code);
+        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Code);
     }
 
     [Fact]
@@ -34,12 +36,12 @@ public sealed class ConnectorRefreshRaceTests
         var store = new InterleavingStore();
         var connector = new ConnectorFixture(refreshTokens: store.Wrap);
         var secret = await connector.Secret();
-        var first = (await connector.Exchanged(secret)).Value;
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
         store.BeforeRotate = replacement => store.Inner.RevokeFamily(replacement.FamilyId, Cancellation);
 
-        var refresh = await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
+        var refresh = Assert.IsType<Error>((await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation)).Value);
 
-        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Error.Code);
+        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Code);
         Assert.Single(connector.Tokens.Issued);
     }
 
@@ -49,7 +51,7 @@ public sealed class ConnectorRefreshRaceTests
         var store = new InterleavingStore();
         var connector = new ConnectorFixture(refreshTokens: store.Wrap);
         var secret = await connector.Secret();
-        var first = (await connector.Exchanged(secret)).Value;
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
         store.AfterRotate = replacement => store.Inner.RevokeFamily(replacement.FamilyId, Cancellation);
 
         await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
@@ -66,15 +68,15 @@ public sealed class ConnectorRefreshRaceTests
         var store = new InterleavingStore();
         var connector = new ConnectorFixture(refreshTokens: store.Wrap);
         var secret = await connector.Secret();
-        var first = (await connector.Exchanged(secret)).Value;
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
         var stampedAt = connector.Clock.GetUtcNow();
         connector.Clock.Advance(TimeSpan.FromMinutes(5));
         store.LoseRotation = true;
 
-        var refresh = await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
+        var refresh = Assert.IsType<Error>((await connector.Refresh.Handle(Refreshing(secret, first.RefreshToken), Cancellation)).Value);
         var client = await connector.Clients.Find(ConnectorSettings.DefaultClientId, Cancellation);
 
-        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Error.Code);
+        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Code);
         Assert.Single(connector.Tokens.Issued);
         Assert.Equal(stampedAt, client!.LastUsedAt);
     }
@@ -84,12 +86,12 @@ public sealed class ConnectorRefreshRaceTests
     {
         var connector = new ConnectorFixture();
         var secret = await connector.Secret();
-        var first = (await connector.Exchanged(secret)).Value;
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
         var otherOwner = connector.RefreshUnder(new OwnerEnrolment(ConnectorFixture.OwnerGitHubId + 1), connector.Settings);
 
-        var refresh = await otherOwner.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
+        var refresh = Assert.IsType<Error>((await otherOwner.Handle(Refreshing(secret, first.RefreshToken), Cancellation)).Value);
 
-        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Error.Code);
+        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Code);
         Assert.Single(connector.Tokens.Issued);
     }
 
@@ -98,12 +100,12 @@ public sealed class ConnectorRefreshRaceTests
     {
         var connector = new ConnectorFixture();
         var secret = await connector.Secret();
-        var first = (await connector.Exchanged(secret)).Value;
+        var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await connector.Exchanged(secret)).Value).Value;
         var movedResource = connector.RefreshUnder(connector.Owner, connector.Settings with { Resource = "https://moved.test/mcp" });
 
-        var refresh = await movedResource.Handle(Refreshing(secret, first.RefreshToken), Cancellation);
+        var refresh = Assert.IsType<Error>((await movedResource.Handle(Refreshing(secret, first.RefreshToken), Cancellation)).Value);
 
-        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Error.Code);
+        Assert.Equal(OAuthErrors.InvalidGrant, refresh.Code);
         Assert.Single(connector.Tokens.Issued);
     }
 

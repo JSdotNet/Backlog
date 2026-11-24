@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!-- Android-first per .devbook/tech/mobile.md#android; iOS is out of the current baseline. -->
-        <TargetFramework>net10.0-android</TargetFramework>
+        <TargetFramework>net11.0-android</TargetFramework>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>Backlog.Mobile</RootNamespace>
@@ -19,7 +19,7 @@
 
         <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
 
-        <!-- No lock file, against the root default: net10.0-android brings in the
+        <!-- No lock file, against the root default: net11.0-android brings in the
              Android runtime identifiers, the pull request restores this head with
              RuntimeIdentifierOverride=win-x64 and the release on ubuntu without it,
              so no one committed file could match them all. -->

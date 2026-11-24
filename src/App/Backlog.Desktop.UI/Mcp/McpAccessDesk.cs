@@ -7,6 +7,7 @@ using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -501,7 +502,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         try
         {
             var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
-            if (published.IsFailure) _log.LogInformation("No notification for request {RequestId}: {Error}.", request.Id, published.Error.Code);
+            if (published is Error error) _log.LogInformation("No notification for request {RequestId}: {Error}.", request.Id, error.Code);
         }
 #pragma warning disable CA1031 // A request stands without its alert; the page and the window still show it.
         catch (Exception ex)

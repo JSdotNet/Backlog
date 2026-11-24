@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 
@@ -68,9 +69,9 @@ internal static partial class InboxAttachmentDownloads
             }
 
             var fetched = await source.FetchAsync(attachmentId, cancellationToken).ConfigureAwait(false);
-            if (fetched.IsFailure) return Fail(item, attachmentId, fetched.Error.Message, clock, logger);
+            if (fetched is not Ok<byte[]>(var content)) return Fail(item, attachmentId, ((Error)fetched.Value!).Message, clock, logger);
 
-            var digest = Convert.ToHexStringLower(SHA256.HashData(fetched.Value));
+            var digest = Convert.ToHexStringLower(SHA256.HashData(content));
             if (!string.Equals(digest, attachment.Sha256, StringComparison.Ordinal))
             {
                 return Fail(
@@ -84,7 +85,7 @@ internal static partial class InboxAttachmentDownloads
             string written;
             try
             {
-                written = await files.WriteAsync(item.Id, fileName, fetched.Value, cancellationToken).ConfigureAwait(false);
+                written = await files.WriteAsync(item.Id, fileName, content, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception failure) when (failure is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {

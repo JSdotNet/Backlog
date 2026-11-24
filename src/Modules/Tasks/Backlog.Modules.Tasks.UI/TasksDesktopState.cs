@@ -1723,19 +1723,41 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         // A repository archived since is dropped the same way while show archived is
         // off (local ADR 0029, §3): there is no chip for it to be pressed on.
-        var restored = repositoryAliases
-            .Select(member => BrainScope.Is(member) ? BrainScope.Value : ResolveAliasOrNull(member))
+        if (!ReplaceRepositoryScope(FollowedRepositoryScope(repositoryAliases))) return;
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// The scope as the registry names it now: each alias as its repository answers
+    /// to it, so one relabelled since (local ADR 0060) is named by its new alias in
+    /// its place, and one that resolves to nothing, or is archived and not shown, is
+    /// left out. <see cref="SelectedRepositoryAliases"/> follows a relabel only at the
+    /// next filter; this is what to write down before then, so the old alias is not
+    /// written back over a scope the relabel re-keyed.
+    /// </summary>
+    public IReadOnlyList<string> FollowedRepositoryAliases => FollowedRepositoryScope(_selectedRepositoryAliases);
+
+    /// <summary><paramref name="aliases"/> resolved through the registry, in order,
+    /// each once: the Brain kept, an alias that resolves to no shown repository
+    /// dropped.</summary>
+    private List<string> FollowedRepositoryScope(IEnumerable<string> aliases) =>
+        aliases
+            .Select(alias => BrainScope.Is(alias) ? BrainScope.Value : ResolveAliasOrNull(alias))
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        if (restored.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return;
+    /// <summary>Makes <paramref name="scope"/> the scope, and says whether that
+    /// changed it.</summary>
+    private bool ReplaceRepositoryScope(List<string> scope)
+    {
+        if (scope.SequenceEqual(_selectedRepositoryAliases, StringComparer.Ordinal)) return false;
 
         _selectedRepositoryAliases.Clear();
-        _selectedRepositoryAliases.AddRange(restored);
-
-        ApplyFilter();
-        Changed?.Invoke();
+        _selectedRepositoryAliases.AddRange(scope);
+        return true;
     }
 
     /// <summary>Whether the shared repository registry (<c>config/repos.json</c>)
@@ -2155,13 +2177,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         Rows.Add(row);
 
         var saved = await ApplySegmentAsync(row, text, rewriteText: true);
-        if (saved.IsFailure || row.Id is not { } id)
+        if (saved is Error || row.Id is not { } id)
         {
             Rows.Remove(row);
             ApplyFilter();
             Changed?.Invoke();
-            return Result.Failure<Guid>(saved.IsFailure
-                ? saved.Error
+            return Result.Failure<Guid>(saved is Error error
+                ? error
                 : Error.Unexpected("entry.save_failed", "The task was not saved."));
         }
 
@@ -2216,12 +2238,15 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         SetSaveState(AppSaveState.Saved);
 
-        if (result.IsFailure) return result.Error.Message;
+        if (result is not Ok<ImportPlanResultDto>(var imported))
+        {
+            return ((Error)result.Value!).Message;
+        }
 
         await ReloadRowsAsync();
         Changed?.Invoke();
 
-        return ImportPlanResultSentence.Describe(result.Value);
+        return ImportPlanResultSentence.Describe(imported);
     }
 
     // --- Editing ---------------------------------------------------------
@@ -2325,7 +2350,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         if (row.IsReadOnly) return;
 
-        if ((await DeleteOneAsync(row)).IsFailure) return;
+        if (await DeleteOneAsync(row) is Error) return;
 
         await NormalizeOrderAsync();
         ApplyFilter();
@@ -2649,7 +2674,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         var text = row.RawText;
         var index = Rows.IndexOf(row);
 
-        if ((await DeleteOneAsync(row)).IsFailure) return null;
+        if (await DeleteOneAsync(row) is Error) return null;
 
         await NormalizeOrderAsync();
         return (text, index);
@@ -3539,8 +3564,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
             var removed = await DeleteOneAsync(row);
 
-            if (removed.IsSuccess) deleted++;
-            else failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, removed.Error));
+            if (removed is Error error) failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, error));
+            else deleted++;
         }
 
         await NormalizeOrderAsync();
@@ -3604,8 +3629,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
             var saved = await RewriteMetadataAsync(row, rewritten, force);
 
-            if (saved.IsSuccess) updated++;
-            else failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, saved.Error));
+            if (saved is Error error) failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, error));
+            else updated++;
         }
 
         Changed?.Invoke();
@@ -4186,13 +4211,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return;
         }
 
-        if (saved.IsFailure)
+        if (saved is not Ok<TaskItemDto>(var entry))
         {
-            RefuseDevbookReferences(row, saved.Error.Message);
+            RefuseDevbookReferences(row, ((Error)saved.Value!).Message);
             return;
         }
 
-        var entry = saved.Value;
         _entries[entry.Id] = entry;
 
         // The row the write was made on, and the one a reload since may have put
@@ -4324,13 +4348,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return;
         }
 
-        if (saved.IsFailure)
+        if (saved is not Ok<TaskItemDto>(var entry))
         {
-            RefusePlannedHours(row, saved.Error.Message);
+            RefusePlannedHours(row, ((Error)saved.Value!).Message);
             return;
         }
 
-        var entry = saved.Value;
         _entries[entry.Id] = entry;
 
         foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
@@ -4412,9 +4435,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return failed;
         }
 
-        if (!linked.TryGetValue(out var updated))
+        if (linked is not Ok<TaskItemDto>(var updated))
         {
-            var message = string.IsNullOrWhiteSpace(linked.Error.Message) ? "Couldn't link it to the entry." : linked.Error.Message;
+            var error = (Error)linked.Value!;
+            var message = string.IsNullOrWhiteSpace(error.Message) ? "Couldn't link it to the entry." : error.Message;
             AnnounceRowFailure(row, message, WorkLinkFailureTestId);
             return message;
         }
@@ -4477,9 +4501,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return failed;
         }
 
-        if (!unlinked.TryGetValue(out var updated))
+        if (unlinked is not Ok<TaskItemDto>(var updated))
         {
-            var message = string.IsNullOrWhiteSpace(unlinked.Error.Message) ? "Couldn't unlink it from the entry." : unlinked.Error.Message;
+            var error = (Error)unlinked.Value!;
+            var message = string.IsNullOrWhiteSpace(error.Message) ? "Couldn't unlink it from the entry." : error.Message;
             AnnounceRowFailure(row, message, WorkLinkFailureTestId);
             return message;
         }
@@ -4512,9 +4537,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         // A refused save keeps the text on screen; writing the link now would replace
         // it with the stored text, which is the loss the flush is here to prevent.
-        if (saved.IsSuccess) return null;
-
-        return string.IsNullOrWhiteSpace(saved.Error.Message) ? refusal : saved.Error.Message;
+        return saved switch
+        {
+            Ok => null,
+            Error error => string.IsNullOrWhiteSpace(error.Message) ? refusal : error.Message,
+        };
     }
 
     private const string WorkLinkFailureTestId = "tasks-work-link-failed";
@@ -4552,7 +4579,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
                 link.IssueNumber.ToString(),
                 EntryProjectionDto.IssueTargetType);
 
-            if (linked.TryGetValue(out var updated))
+            if (linked is Ok<TaskItemDto>(var updated))
             {
                 _entries[id] = updated;
 
@@ -5324,7 +5351,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             ApplyFilter();
             Changed?.Invoke();
 
-            if (saved.IsFailure)
+            if (saved is Error)
             {
                 lock (_finishLock)
                 {
@@ -5471,7 +5498,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             try
             {
                 var acted = await act(states, Key(pr));
-                if (acted.IsFailure) AnnounceRowFailure(row, acted.Error.Message, GitHubFailureTestId);
+                if (acted is Error error) AnnounceRowFailure(row, error.Message, GitHubFailureTestId);
             }
             catch (Exception)
             {
@@ -5882,8 +5909,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             return Result.Failure(Error.Unexpected("entry.save_failed", exception.Message));
         }
 
-        if (saved.IsFailure)
+        if (saved is not Ok<SavedTaskDto>(var savedTask))
         {
+            var error = (Error)saved.Value!;
+
             // A plan entry is the one refusal here that a person has to be told
             // about. The two below are states somebody is passing through; this
             // is the module saying no to text that is finished and on screen
@@ -5895,17 +5924,17 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             // this runs on a debounce while somebody is still typing, and a
             // commit can arrive twice for one gesture, so publishing per call
             // would be a toast per keystroke.
-            if (saved.Error.Code == TaskEntryErrorCodes.PlanBelongsToImport)
+            if (error.Code == TaskEntryErrorCodes.PlanBelongsToImport)
             {
                 SetSaveState(AppSaveState.Error);
 
                 if (!row.PlanRefused)
                 {
                     row.PlanRefused = true;
-                    AnnounceRowFailure(row, saved.Error.Message, PlanRefusedTestId);
+                    AnnounceRowFailure(row, error.Message, PlanRefusedTestId);
                 }
 
-                return saved;
+                return error;
             }
 
             // Nothing has gone wrong *for a typist*: an entry still being typed
@@ -5915,13 +5944,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             // still handed back, because a caller writing a whole batch has to
             // be able to say which rows did not land.
             SetSaveState(AppSaveState.Saved);
-            return saved;
+            return error;
         }
 
         // Out of the refusal, so the next one is announced again.
         row.PlanRefused = false;
 
-        var entry = saved.Value.Entry;
+        var entry = savedTask.Entry;
         _entries[entry.Id] = entry;
         row.Id = entry.Id;
         RefreshRowFromEntry(row, entry, rewriteText);
@@ -5934,7 +5963,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         // list has never seen. Refreshing the saved row cannot show it, because the
         // successor is not that row — so the save has to say a spawn happened, and
         // it does.
-        if (saved.Value.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
+        if (savedTask.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
 
         return Result.Success();
     }
@@ -6526,11 +6555,19 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// ADR 0029, §3), since its chip is gone too. Turning the switch off therefore takes
     /// it out of the live scope as well, which is intended.
     /// </para>
+    /// <para>
+    /// A repository relabelled since (local ADR 0060) stays in the scope under the
+    /// alias it now answers to: the old alias still finds it through the alias
+    /// moves, but the chips and the row filter compare the row's own alias, and the
+    /// scope written back to <c>shell-navigation.json</c> would undo the re-key. A
+    /// merge of two scoped repositories leaves the kept one once. Nothing here
+    /// listens to the registry: the scope follows at the next filter, by design, as
+    /// a removal does, and the shell writes <see cref="FollowedRepositoryAliases"/>
+    /// meanwhile.
+    /// </para>
     /// </summary>
     private void ForgetStaleRepositoryScope() =>
-        _selectedRepositoryAliases.RemoveAll(alias =>
-            !BrainScope.Is(alias)
-            && (_gitHub.Settings.Current.Find(alias) is not { } repository || !IsRepositoryShown(repository)));
+        ReplaceRepositoryScope(FollowedRepositoryScope(_selectedRepositoryAliases));
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group

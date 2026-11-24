@@ -29,8 +29,8 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.TaskIds.Count);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
+        Assert.Equal(2, ok.Value.TaskIds.Count);
 
         var request = Assert.Single(target.Requests);
         Assert.Equal(item.Id, request.InboxItemId);
@@ -39,7 +39,7 @@ public sealed class RouteToBacklogTests
         Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], request.RepoIds);
 
         Assert.Equal(InboxStatus.Triaged, item.Status);
-        Assert.Equal(result.Value.TaskIds, item.Routing!.TaskIds);
+        Assert.Equal(ok.Value.TaskIds, item.Routing!.TaskIds);
         Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], item.Routing.RepoIds);
         Assert.Equal(Decision, item.Routing.RoutedAt);
     }
@@ -60,7 +60,7 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal(item.Id, request.InboxItemId);
         Assert.Equal(["jsdotnet/backlog", "jsdotnet/other", "jsdotnet/third"], request.RepoIds);
@@ -77,8 +77,8 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.Value.TaskIds);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
+        Assert.Single(ok.Value.TaskIds);
         Assert.Empty(Assert.Single(target.Requests).RepoIds);
         Assert.Empty(item.Routing!.RepoIds);
     }
@@ -93,8 +93,8 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("entry.needs_title", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("entry.needs_title", error.Code);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.False(item.IsRouted);
         Assert.Empty(store.ItemWrites);
@@ -111,8 +111,8 @@ public sealed class RouteToBacklogTests
         await Route(store, target, item.Id);
         var again = await Route(store, target, item.Id);
 
-        Assert.True(again.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", again.Error.Code);
+        var againError = Assert.IsType<Error>(again.Value);
+        Assert.Equal("inbox.item.invalid_transition", againError.Code);
         Assert.Single(target.Requests);
     }
 
@@ -121,8 +121,8 @@ public sealed class RouteToBacklogTests
     {
         var result = await Route(new InMemoryInboxStore(), new FakeBacklogTarget(), Guid.CreateVersion7());
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.item.not_found", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.item.not_found", error.Code);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id, entryType);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         Assert.Equal(expected, Assert.Single(target.Requests).EntryType);
     }
 
@@ -189,8 +189,8 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id, entryType);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.route.unknown_entry_type", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.route.unknown_entry_type", error.Code);
         Assert.Empty(target.Requests);
         Assert.False(item.IsRouted);
         Assert.Empty(store.ItemWrites);
@@ -286,7 +286,7 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id, schedule: new InboxRouteScheduleDto(DueOn: due));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal(due, request.DueOn);
         Assert.Null(request.InMyDayOn);
@@ -304,7 +304,7 @@ public sealed class RouteToBacklogTests
 
         var result = await Route(store, target, item.Id, schedule: new InboxRouteScheduleDto(AddToMyDay: true));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal(DateOnly.FromDateTime(Decision.UtcDateTime), request.InMyDayOn);
         Assert.Null(request.DueOn);
@@ -340,7 +340,7 @@ public sealed class RouteToBacklogTests
 
         var result = await DoneNow(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal(item.Id, request.InboxItemId);
         Assert.Equal(DateOnly.FromDateTime(Decision.UtcDateTime), request.CompletedOn);
@@ -348,7 +348,7 @@ public sealed class RouteToBacklogTests
         Assert.Null(request.DueOn);
         Assert.Null(request.InMyDayOn);
 
-        var taskId = Assert.Single(result.Value.TaskIds);
+        var taskId = Assert.Single(ok.Value.TaskIds);
         Assert.Equal(InboxStatus.Triaged, item.Status);
         Assert.Equal([taskId], item.Routing!.TaskIds);
     }
@@ -363,7 +363,7 @@ public sealed class RouteToBacklogTests
 
         var result = await DoneNow(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         Assert.Empty(Assert.Single(target.Requests).RepoIds);
     }
 
@@ -377,16 +377,16 @@ public sealed class RouteToBacklogTests
 
         var failed = await DoneNow(store, target, item.Id);
 
-        Assert.True(failed.IsFailure);
+        Assert.IsType<Error>(failed.Value);
         Assert.Null(item.Routing);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
 
         target.FailWith = null;
-        Assert.True((await DoneNow(store, target, item.Id)).IsSuccess);
+        Assert.IsType<Ok<InboxRoutedDto>>((await DoneNow(store, target, item.Id)).Value);
 
         var again = await DoneNow(store, target, item.Id);
-        Assert.True(again.IsFailure);
-        Assert.Equal("inbox.item.invalid_transition", again.Error.Code);
+        var againError = Assert.IsType<Error>(again.Value);
+        Assert.Equal("inbox.item.invalid_transition", againError.Code);
         Assert.Equal(2, target.Requests.Count);
     }
 
@@ -419,14 +419,14 @@ public sealed class RouteToBacklogTests
 
         var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto("  Sam\nthe roofer ", followUp), new InboxRouteScheduleDto(AddToMyDay: true));
 
-        Assert.True(result.IsSuccess);
+        var ok = Assert.IsType<Ok<InboxRoutedDto>>(result.Value);
         var request = Assert.Single(target.Requests);
         Assert.Equal(new InboxWaitingForDto("Sam the roofer", followUp), request.WaitingFor);
         Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], request.RepoIds);
         Assert.NotNull(request.InMyDayOn);
         Assert.Null(request.CompletedOn);
         Assert.Equal(InboxStatus.Triaged, item.Status);
-        Assert.Equal(result.Value.TaskIds, item.Routing!.TaskIds);
+        Assert.Equal(ok.Value.TaskIds, item.Routing!.TaskIds);
     }
 
     [Theory]
@@ -442,8 +442,8 @@ public sealed class RouteToBacklogTests
 
         var result = await WaitingFor(store, target, item.Id, new InboxWaitingForDto(who));
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.WaitingForWhoRequiredCode, error.Code);
         Assert.Empty(target.Requests);
         Assert.Null(item.Routing);
     }

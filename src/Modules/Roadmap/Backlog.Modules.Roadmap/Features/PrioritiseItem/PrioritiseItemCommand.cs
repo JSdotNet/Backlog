@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -29,9 +30,9 @@ public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans, R
         var plan = await plans.LoadAsync(cancellationToken);
         var prioritised = plan.Prioritise(command.ItemId, command.Priority);
 
-        if (prioritised.IsFailure) return Result.Failure<RoadmapItemDto>(prioritised.Error);
+        if (prioritised is not Ok<RoadmapItem>(var item)) return (Error)prioritised.Value!;
 
         await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(prioritised.Value.ToDto());
+        return Result.Success(item.ToDto());
     }
 }

@@ -1,29 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.1" />
+  <!--
+    A plain Microsoft.NET.Sdk project since Aspire 17 (org ADR 0002): the AppHost
+    behaviour comes from the Aspire.Hosting.AppHost package, which sets IsAspireHost,
+    and every project resource is added by path with AddDotnetProject from
+    Aspire.Hosting.Dotnet. Aspire.AppHost.Sdk is obsolete (ASPIRE012) and is not
+    suppressed.
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <IsAspireHost>true</IsAspireHost>
     <!--
-      Opted in to the Aspire CLI bundle: `dotnet run` on this project acquires
-      the CLI pinned to the Aspire.AppHost.Sdk version above through dnx and
-      delegates to `aspire run`, so a machine without the Aspire CLI installed
-      gets the matching one rather than a different one. The first run on a
-      machine downloads it. ASPIRE010, the advisory for staying opted out, is no
-      longer suppressed: nothing here should silence an Aspire advisory now that
-      the deferral it covered is over.
+      Opted in to the Aspire CLI bundle, which a C# AppHost requires since Aspire 17
+      (ASPIRE013): the dashboard and DCP come from the Aspire CLI, and `dotnet run` on
+      this project acquires the CLI matching Aspire.Hosting.AppHost through dnx and
+      delegates to `aspire run`. The package defaults it to true for a .csproj; it is
+      stated here so the choice reads in the project. ASPIRE010, the advisory for
+      staying opted out, is not suppressed.
     -->
     <AspireUseCliBundle>true</AspireUseCliBundle>
+    <!--
+      ASPIREBROWSERLOGS001: WithBrowserLogs, which org ADR 0002 puts on every
+      frontend resource, ships as an evaluation API in Aspire 17's preview
+      Aspire.Hosting.Browsers. That diagnostic marks an experimental API, which
+      is always an error until it is acknowledged; it is not an obsolete-API
+      warning, which ADR 0001 never lets a project silence. Acknowledged here,
+      for this one API, and dropped when the package ships stable.
+    -->
+    <NoWarn>$(NoWarn);ASPIREBROWSERLOGS001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.Dotnet" />
+    <PackageReference Include="Aspire.Hosting.Browsers" />
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" />
     <PackageReference Include="Aspire.Hosting.Azure.Storage" />
     <PackageReference Include="Aspire.Hosting.DevTunnels" />
     <PackageReference Include="Aspire.Hosting.Foundry" />
     <PackageReference Include="Aspire.Hosting.Maui" />
     <PackageReference Include="Microsoft.Azure.Cosmos" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>

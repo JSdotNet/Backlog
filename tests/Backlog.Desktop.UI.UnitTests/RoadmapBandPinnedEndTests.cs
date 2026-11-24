@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -41,13 +42,13 @@ public sealed class RoadmapBandPinnedEndTests : RoadmapBandHarness
     private async Task<Guid> StartedItemAsync()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Move devbook",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 16),
             repositoryAliases: ["backlog"],
-            cancellationToken: TestContext.Current.CancellationToken);
-        return added.Value.Id;
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        return added.Id;
     }
 
     private IRenderedComponent<RoadmapBand> Band(BunitContext context)

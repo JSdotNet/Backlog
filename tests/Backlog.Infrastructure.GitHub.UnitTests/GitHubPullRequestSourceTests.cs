@@ -2,6 +2,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.GitHub.RepositoryManagement;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
@@ -154,9 +155,9 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 
         var result = await source.MergeAsync(GitHubPullRequestStatuses.Map(Open(9)), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(PullRequestErrors.RefusedCode, result.Error.Code);
-        Assert.Contains("#9", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(PullRequestErrors.RefusedCode, error.Code);
+        Assert.Contains("#9", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,11 +166,11 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         var source = new GitHubPullRequestSource(Integration());
         var pull = GitHubPullRequestStatuses.Map(Open(9));
 
-        Assert.True((await source.MergeAsync(pull, TestContext.Current.CancellationToken)).IsSuccess);
-        Assert.True((await source.SetAutoMergeAsync(pull, enable: true, TestContext.Current.CancellationToken)).IsSuccess);
-        Assert.True((await source.SetAutoMergeAsync(pull, enable: false, TestContext.Current.CancellationToken)).IsSuccess);
-        Assert.True((await source.UpdateBranchAsync(pull, TestContext.Current.CancellationToken)).IsSuccess);
-        Assert.True((await source.MarkReadyForReviewAsync(pull, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.IsType<Ok>((await source.MergeAsync(pull, TestContext.Current.CancellationToken)).Value);
+        Assert.IsType<Ok>((await source.SetAutoMergeAsync(pull, enable: true, TestContext.Current.CancellationToken)).Value);
+        Assert.IsType<Ok>((await source.SetAutoMergeAsync(pull, enable: false, TestContext.Current.CancellationToken)).Value);
+        Assert.IsType<Ok>((await source.UpdateBranchAsync(pull, TestContext.Current.CancellationToken)).Value);
+        Assert.IsType<Ok>((await source.MarkReadyForReviewAsync(pull, TestContext.Current.CancellationToken)).Value);
 
         Assert.Equal(
             ["merge PR_9 Squash", "auto-merge PR_9 Squash", "cancel auto-merge PR_9", $"update {Repository}#9 sha-9", "ready PR_9"],
@@ -195,8 +196,8 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 
         var result = await source.RerunFailedAsync(pull, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Contains("1 of the 2 workflow runs did start again", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Contains("1 of the 2 workflow runs did start again", error.Message, StringComparison.Ordinal);
         Assert.Equal([$"rerun {Repository} run 101", $"rerun {Repository} run 102"], _client.Acts);
     }
 

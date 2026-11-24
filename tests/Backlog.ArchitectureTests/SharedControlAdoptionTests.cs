@@ -145,7 +145,7 @@ public class SharedControlAdoptionTests
     /// count beside a title (<c>Badge</c>).
     ///
     /// <para>Matched as whole words after splitting on <c>-</c>, so
-    /// <c>domain-devbook__action-error</c> is a finding and
+    /// <c>folder-devbook__action-error</c> is a finding and
     /// <c>tools-inventory__meta</c> is not. Read off the modifier as well as the
     /// element, because the highest-value copies in this repository are written as
     /// modifiers rather than elements — <c>setting__status--error</c> is the

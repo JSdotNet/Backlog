@@ -133,7 +133,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(ItemId, advice.ItemId);
         Assert.Equal(new InboxTriageDuplicateDto(InboxTriageTargetKind.Task, TaskId, "Fix the login page", "It asks for the same fix."), advice.Duplicate);
@@ -149,8 +149,8 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
 
         var result = await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.False(result.Value.HasCards);
+        var ok = Assert.IsType<Ok<InboxTriageAdviceDto>>(result.Value);
+        Assert.False(ok.Value.HasCards);
     }
 
     [Theory]
@@ -160,7 +160,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = $$"""{ "outcome": { "outcome": "{{word}}", "reason": "It reads that way." } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(new InboxTriageOutcomeDto(outcome, "It reads that way."), advice.Outcome);
         Assert.True(advice.HasCards);
@@ -171,7 +171,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "later", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Null(advice.Outcome);
         foreach (var prompt in new[] { AzureFoundryTriagePrompt.AdviceText, AzureFoundryTriagePrompt.PassText })
@@ -188,7 +188,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "waiting-for", "who": "  Sam\nat the bank ", "reason": "Sam has the next step." } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(new InboxTriageOutcomeDto(InboxClarifyOutcome.WaitingFor, "Sam has the next step.") { Who = "Sam at the bank" }, advice.Outcome);
         Assert.True(advice.HasCards);
@@ -202,7 +202,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = answer };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Null(advice.Outcome);
     }
@@ -212,7 +212,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = """{ "outcome": { "outcome": "someday", "who": "Sam", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Null(advice.Outcome!.Who);
     }
@@ -236,7 +236,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Other")], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Other")], Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Equal(
             [
@@ -252,7 +252,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = $$"""{ "duplicate": { "kind": "epic", "id": "{{TaskId}}", "reason": "x" } }""" };
 
-        var advice = (await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value;
+        var advice = Assert.IsType<Ok<InboxTriageAdviceDto>>((await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Null(advice.Duplicate);
     }
@@ -265,8 +265,9 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var result = await Advisor(new StubTriageClient { Answer = answer }).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.triage.failed", result.Error.Code);
-        Assert.Equal(AzureFoundryInboxTriageAdvisor.UnreadableMessage, result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.triage.failed", error.Code);
+        Assert.Equal(AzureFoundryInboxTriageAdvisor.UnreadableMessage, error.Message);
     }
 
     // --- Reading the pass -----------------------------------------------------------
@@ -295,7 +296,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
                 """,
         };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Login button misaligned")], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Advisor(client).ProposePassAsync([Item(), Item(OtherId, "Login button misaligned")], Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         var plan = Assert.Single(pass.Plans);
         Assert.Equal(("Login work", "Both login.", 0.8), (plan.Title, plan.Reason, plan.Confidence));
@@ -317,7 +318,7 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
     {
         var client = new StubTriageClient { Answer = "```json\n{}\n```" };
 
-        var pass = (await Advisor(client).ProposePassAsync([Item()], Context(), TestContext.Current.CancellationToken)).Value;
+        var pass = Assert.IsType<Ok<InboxTriagePassDto>>((await Advisor(client).ProposePassAsync([Item()], Context(), TestContext.Current.CancellationToken)).Value).Value;
 
         Assert.Empty(pass.Plans);
         Assert.Empty(pass.Routes);
@@ -333,9 +334,10 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
 
         var result = await Advisor(client).AdviseAsync(Item(), Context(), TestContext.Current.CancellationToken);
 
-        Assert.Equal("inbox.triage.failed", result.Error.Code);
-        Assert.Equal("Azure Foundry returned 503: busy", result.Error.Message);
-        Assert.Equal(ErrorType.Failure, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.triage.failed", error.Code);
+        Assert.Equal("Azure Foundry returned 503: busy", error.Message);
+        Assert.Equal(ErrorType.Failure, error.Type);
     }
 
     [Fact]
@@ -346,8 +348,8 @@ public sealed class AzureFoundryInboxTriageAdvisorTests : IDisposable
         var timedOut = await Advisor(new StubTriageClient { Failure = new TaskCanceledException("timeout") })
             .ProposePassAsync([Item()], Context(), TestContext.Current.CancellationToken);
 
-        Assert.Equal("Could not reach Azure Foundry: refused", unreachable.Error.Message);
-        Assert.Equal("Azure Foundry did not answer before the request timed out.", timedOut.Error.Message);
+        Assert.Equal("Could not reach Azure Foundry: refused", Assert.IsType<Error>(unreachable.Value).Message);
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", Assert.IsType<Error>(timedOut.Value).Message);
     }
 
     [Fact]

@@ -61,16 +61,22 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var name = DeviceName.Validate(command.DeviceName);
-        if (name.IsFailure)
+        var validName = DeviceName.Validate(command.DeviceName);
+        if (validName is not Ok<string>(var name))
         {
-            return name.Error;
+            return (Error)validName.Value!;
         }
 
-        var publicKey = command.PublicKey is null ? null : DevicePublicKey.Validate(command.PublicKey);
-        if (publicKey is { IsFailure: true })
+        string? publicKey = null;
+        if (command.PublicKey is not null)
         {
-            return publicKey.Error;
+            var validated = DevicePublicKey.Validate(command.PublicKey);
+            if (validated is not Ok<string>(var validKey))
+            {
+                return (Error)validated.Value!;
+            }
+
+            publicKey = validKey;
         }
 
         if (string.IsNullOrEmpty(command.EnrolmentCode) || !EnrolmentPkce.IsWellFormedVerifier(command.CodeVerifier))
@@ -130,10 +136,10 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
             new Device(
                 deviceId,
                 ownerId,
-                name.Value,
+                name,
                 credential is null ? null : hasher.Hash(credential),
                 clock.GetUtcNow(),
-                PublicKey: publicKey?.Value),
+                PublicKey: publicKey),
             cancellationToken);
 
         var revoked = owner.RequiresSignIn

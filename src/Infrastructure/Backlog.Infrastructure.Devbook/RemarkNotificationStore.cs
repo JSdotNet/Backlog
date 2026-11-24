@@ -1,5 +1,6 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -135,7 +136,7 @@ public sealed class RemarkNotificationStore(
             if (_notifications() is not { } notifications) return;
 
             var published = await notifications.PublishAsync(Draft(remark)).ConfigureAwait(false);
-            if (published.IsFailure) _logger.LogDebug("No alert was raised for remark {Id}: {Error}", remark.Id, published.Error.Message);
+            if (published is Error error) _logger.LogDebug("No alert was raised for remark {Id}: {Error}", remark.Id, error.Message);
         }
         catch (Exception exception)
         {
@@ -176,7 +177,7 @@ public sealed class RemarkNotificationStore(
             if (_notifications() is not { } notifications) return;
 
             var closed = await notifications.CloseForSubjectAsync(Subject(id), DevbookNotificationSubjects.ResolvedReason).ConfigureAwait(false);
-            if (closed.IsFailure) _logger.LogDebug("Notifications about remark {Id} were not closed: {Error}", id, closed.Error.Message);
+            if (closed is Error error) _logger.LogDebug("Notifications about remark {Id} were not closed: {Error}", id, error.Message);
         }
         catch (Exception exception)
         {

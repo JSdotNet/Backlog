@@ -1,5 +1,7 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -44,7 +46,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         Assert.Equal([false, true], directory.Repositories.Select(r => r.IsArchived));
         Assert.True(directory.Resolve("JSdotNet/Almanac")!.IsArchived);
         Assert.False(directory.Resolve("backlog")!.IsArchived);
-        Assert.True(directory.Register("almanac").Value.IsArchived);
+        Assert.True(Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("almanac").Value).Value.IsArchived);
     }
 
     /// <summary>A plan writes a name however its author felt like writing it, and
@@ -108,7 +110,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("Newcomer").Value;
+        var registered = Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("Newcomer").Value).Value;
 
         Assert.Equal("newcomer", registered.Alias);
         Assert.NotNull(settings.Current.Find("newcomer"));
@@ -127,7 +129,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("Backlog").Value;
+        var registered = Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("Backlog").Value).Value;
 
         Assert.Equal("backlog", registered.Alias);
         Assert.Equal("JSdotNet", registered.Owner);
@@ -159,7 +161,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("foo/bar").Value;
+        var registered = Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("foo/bar").Value).Value;
 
         Assert.Equal("foo/bar", registered.Id);
         Assert.Equal("foo", registered.Owner);
@@ -188,7 +190,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("someone-else/Backlog").Value;
+        var registered = Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("someone-else/Backlog").Value).Value;
 
         Assert.Equal("someone-else-backlog", registered.Alias);
         Assert.Equal("someone-else/Backlog", registered.Id);
@@ -252,8 +254,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
 
         var registered = directory.Register("Newcomer");
 
-        Assert.True(registered.IsFailure);
-        Assert.Equal("Changed, but the choice couldn't be saved for next time.", registered.Error.Message);
+        Assert.Equal("Changed, but the choice couldn't be saved for next time.", Assert.IsType<Error>(registered.Value).Message);
     }
 
     /// <summary>
@@ -273,9 +274,8 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var first = directory.Register("Newcomer");
         var retry = directory.Register("Newcomer");
 
-        Assert.True(first.IsFailure);
-        Assert.True(retry.IsFailure);
-        Assert.Equal("Changed, but the choice couldn't be saved for next time.", retry.Error.Message);
+        Assert.IsType<Error>(first.Value);
+        Assert.Equal("Changed, but the choice couldn't be saved for next time.", Assert.IsType<Error>(retry.Value).Message);
         Assert.Null(directory.Resolve("newcomer"));
         Assert.Equal(["JSdotNet/Backlog"], settings.Current.Repositories.Select(r => r.FullName));
 
@@ -303,8 +303,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
 
         var registered = directory.Register("Newcomer");
 
-        Assert.True(registered.IsFailure);
-        Assert.Equal(settings.RegistryError, registered.Error.Message);
+        Assert.Equal(settings.RegistryError, Assert.IsType<Error>(registered.Value).Message);
         Assert.Empty(settings.Current.Repositories);
         Assert.Null(directory.Resolve("newcomer"));
     }
@@ -319,10 +318,9 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var directory = new SettingsRepositoryDirectory(settings);
         MakeUnwritable(settings);
 
-        var registered = directory.Register("Backlog");
+        var registered = Assert.IsType<Ok<TasksRepositoryRef>>(directory.Register("Backlog").Value).Value;
 
-        Assert.True(registered.IsSuccess);
-        Assert.Equal("JSdotNet/Backlog", registered.Value.Id);
+        Assert.Equal("JSdotNet/Backlog", registered.Id);
     }
 
     /// <summary>A folder where the local settings file was, so the store's next

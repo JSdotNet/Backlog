@@ -73,12 +73,12 @@ public sealed class Goal
         DateTimeOffset? createdAt = null)
     {
         var cleanTitle = CleanTitle(title);
-        if (cleanTitle.IsFailure) return cleanTitle.Error;
+        if (cleanTitle is not Ok<string>(var goalTitle)) return (Error)cleanTitle.Value!;
 
         var cleanOutcome = CleanOutcome(outcome);
-        if (cleanOutcome.IsFailure) return cleanOutcome.Error;
+        if (cleanOutcome is not Ok<string?>(var goalOutcome)) return (Error)cleanOutcome.Value!;
 
-        return new Goal(id, cleanTitle.Value, cleanOutcome.Value, dueDate, [], createdAt);
+        return new Goal(id, goalTitle, goalOutcome, dueDate, [], createdAt);
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules
@@ -95,20 +95,20 @@ public sealed class Goal
 
     public Result Rename(string? title)
     {
-        var clean = CleanTitle(title);
-        if (clean.IsFailure) return Result.Failure(clean.Error);
+        var cleaned = CleanTitle(title);
+        if (cleaned is not Ok<string>(var clean)) return Result.Failure((Error)cleaned.Value!);
 
-        Title = clean.Value;
+        Title = clean;
         return Result.Success();
     }
 
     /// <summary>Sets the outcome line, or clears it with null or blank text.</summary>
     public Result ChangeOutcome(string? outcome)
     {
-        var clean = CleanOutcome(outcome);
-        if (clean.IsFailure) return Result.Failure(clean.Error);
+        var cleaned = CleanOutcome(outcome);
+        if (cleaned is not Ok<string?>(var clean)) return Result.Failure((Error)cleaned.Value!);
 
-        Outcome = clean.Value;
+        Outcome = clean;
         return Result.Success();
     }
 

@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -14,8 +15,8 @@ public class PlanImportProvenanceTests
     private static (RoadmapPlan Plan, RoadmapItem Item) Imported()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddImportedItem(
-            "Imported", PlanningTag.Of("imported"), PlannedWindow.Of(Monday, Monday.AddDays(4)), ImportPlacement.Effort).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddImportedItem(
+            "Imported", PlanningTag.Of("imported"), PlannedWindow.Of(Monday, Monday.AddDays(4)), ImportPlacement.Effort).Value).Value;
         return (plan, item);
     }
 
@@ -33,7 +34,7 @@ public class PlanImportProvenanceTests
     {
         var plan = RoadmapPlan.Empty();
 
-        var item = plan.AddItem("By hand", PlannedWindow.Of(Monday, Monday)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("By hand", PlannedWindow.Of(Monday, Monday)).Value).Value;
 
         Assert.Null(item.PlacedByImport);
     }
@@ -66,7 +67,7 @@ public class PlanImportProvenanceTests
 
         var placed = plan.PlaceByImport(item.Id, due, ImportPlacement.DueDate);
 
-        Assert.True(placed.IsSuccess);
+        Assert.IsType<Ok<RoadmapItem>>(placed.Value);
         Assert.Equal(due, item.Window);
         Assert.Equal(ImportPlacement.DueDate, item.PlacedByImport);
     }
@@ -80,8 +81,8 @@ public class PlanImportProvenanceTests
 
         var placed = plan.PlaceByImport(item.Id, PlannedWindow.Of(Monday, Monday), ImportPlacement.Effort);
 
-        Assert.True(placed.IsFailure);
-        Assert.Equal("roadmap.placed_by_hand", placed.Error.Code);
+        Assert.IsType<Error>(placed.Value);
+        Assert.Equal("roadmap.placed_by_hand", Assert.IsType<Error>(placed.Value).Code);
         Assert.Equal(chosen, item.Window);
     }
 
@@ -89,11 +90,11 @@ public class PlanImportProvenanceTests
     public void ClearingDependencies_EmptiesTheSet_SoAReimportReplacesRatherThanMerges()
     {
         var plan = RoadmapPlan.Empty();
-        var a = plan.AddItem("A", PlannedWindow.Of(Monday, Monday)).Value;
-        var b = plan.AddItem("B", PlannedWindow.Of(Monday, Monday)).Value;
+        var a = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("A", PlannedWindow.Of(Monday, Monday)).Value).Value;
+        var b = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("B", PlannedWindow.Of(Monday, Monday)).Value).Value;
         plan.AddDependency(b.Id, a.Id);
 
-        Assert.True(plan.ClearDependencies(b.Id).IsSuccess);
+        Assert.IsType<Ok>(plan.ClearDependencies(b.Id).Value);
 
         Assert.Empty(b.Dependencies.All);
     }

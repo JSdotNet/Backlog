@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.ImportPlan;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -65,8 +66,8 @@ public sealed class ImportPlanRoadmapIntakeTests
             .Handle(new ImportPlanCommand(MixedDocument.Replace("`effort:3`", "`effort:3` `repo:newcomer`", StringComparison.Ordinal)),
                 TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("The registry could not be written.", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("The registry could not be written.", error.Message);
         Assert.Empty(intake.Requests);
         Assert.Empty(store.Entries);
     }
@@ -171,8 +172,8 @@ public sealed class ImportPlanRoadmapIntakeTests
             new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:../outside.md`\n"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(refused.IsFailure);
-        Assert.Equal("import.invalid_devbook_reference", refused.Error.Code);
+        var refusedError = Assert.IsType<Error>(refused.Value);
+        Assert.Equal("import.invalid_devbook_reference", refusedError.Code);
         Assert.Empty(store.Entries);
         Assert.Empty(intake.Requests);
 
@@ -180,7 +181,7 @@ public sealed class ImportPlanRoadmapIntakeTests
             new ImportPlanCommand("# A prompt\n`prompt` `+myplan` `devbook:#brain:projects/sync.md`\n"),
             TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
         Assert.Equal(["#brain:projects/sync.md"], Assert.Single(store.Entries.Values).DevbookReferences);
     }
 
@@ -197,8 +198,8 @@ public sealed class ImportPlanRoadmapIntakeTests
             .Handle(new ImportPlanCommand("# The plan\n`plan` `+myplan` `devbook:#brain:../outside.md`\n\n# A prompt\n`prompt` `+myplan`\n"),
                 TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("import.invalid_devbook_reference", result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("import.invalid_devbook_reference", error.Code);
         Assert.Empty(store.Entries);
     }
 
@@ -425,8 +426,8 @@ public sealed class ImportPlanRoadmapIntakeTests
         var handler = new ImportPlanCommandHandler(store, new FakeRepositoryDirectory(), intake);
         var result = await handler.Handle(new ImportPlanCommand(rawText, LayOutOnRoadmap: layOut));
 
-        Assert.True(result.IsSuccess);
-        return result.Value;
+        var ok = Assert.IsType<Ok<ImportPlanResultDto>>(result.Value);
+        return ok.Value;
     }
 
     private static List<TaskItem> Live(InMemoryTaskRepository store) =>

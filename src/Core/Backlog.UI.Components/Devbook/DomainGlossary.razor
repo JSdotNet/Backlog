@@ -91,11 +91,11 @@
                                         <DevbookTypeMarker Value="@entry.Kind" CssClass="devbook-type-marker--leads" ShowTooltip="false" />
                                         @Name(entry)
                                         <span class="domain-glossary__kind" data-testid="domain-glossary-kind">@entry.KindLabel</span>
-                                        @if (entry.Proposed)
+                                        @if (StatusShown && entry.Proposed)
                                         {
                                             <Badge Kind="tone" CssClass="domain-glossary__status" TestId="domain-glossary-status">proposed</Badge>
                                         }
-                                        else if (entry.Deprecated)
+                                        else if (StatusShown && entry.Deprecated)
                                         {
                                             <Badge Kind="tone" CssClass="domain-glossary__status" TestId="domain-glossary-status">deprecated</Badge>
                                         }
@@ -204,6 +204,13 @@
 </div>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
     private const string All = "all";
     private const string Model = "model";
     private const string Terms = "terms";

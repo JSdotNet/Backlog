@@ -90,11 +90,13 @@ public sealed class RoadmapProjectNoteArchive : IRoadmapProjectNoteArchive
             refs,
             cancellationToken).ConfigureAwait(false);
 
-        return updated.IsSuccess
-            ? Result.Success(moved.NewPath!)
-            : Result.Failure<string>(Error.Validation(
+        return updated switch
+        {
+            Ok<RoadmapItemDto> => Result.Success(moved.NewPath!),
+            Error error => Result.Failure<string>(Error.Validation(
                 "roadmap.archive_ref_not_repointed",
-                $"{note.NotePath} moved to {moved.NewPath}, but the plan still names the old path: {updated.Error.Message}"));
+                $"{note.NotePath} moved to {moved.NewPath}, but the plan still names the old path: {error.Message}")),
+        };
     }
 
     public bool WasOffered(Guid itemId)

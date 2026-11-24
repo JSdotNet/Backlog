@@ -9,6 +9,7 @@ using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,10 +50,9 @@ public sealed class NotificationExchangeTests : IDisposable
         var owner = await OwnerWithViewersAsync();
         var id = await owner.AskAsync();
 
-        var synced = await owner.Session.SyncAsync(Cancellation);
+        var synced = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
-        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Equal(1, synced.Pushed);
 
         var arrived = Assert.Single((await owner.Phone.PullNotifications()).Notifications);
         var payload = NotificationPayloads.Read(arrived.Change);
@@ -71,7 +71,7 @@ public sealed class NotificationExchangeTests : IDisposable
         var owner = await OwnerWithViewersAsync(new EveryNotificationAbout("Backlog"));
         var id = await owner.AskAsync();
 
-        Assert.True((await owner.Session.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value);
 
         var arrived = Assert.Single((await owner.Phone.PullNotifications()).Notifications);
         var payload = NotificationPayloads.Read(arrived.Change);
@@ -100,14 +100,13 @@ public sealed class NotificationExchangeTests : IDisposable
         var fromPhone = await owner.ReplyAsync(owner.Phone, id, "yes");
         var fromLaptop = await owner.ReplyAsync(owner.Laptop, id, "no");
 
-        var synced = await owner.Session.SyncAsync(Cancellation);
+        var synced = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
-        Assert.True(synced.Value.PolledReplies);
-        Assert.Equal(1, synced.Value.Accepted);
-        Assert.Equal(1, synced.Value.Rejected);
+        Assert.True(synced.PolledReplies);
+        Assert.Equal(1, synced.Accepted);
+        Assert.Equal(1, synced.Rejected);
 
-        var answer = (await owner.Notifications.GetAnswerAsync(id, Cancellation)).Value;
+        var answer = Assert.IsType<Ok<NotificationAnswer?>>((await owner.Notifications.GetAnswerAsync(id, Cancellation)).Value).Value;
         Assert.NotNull(answer);
         Assert.Equal(fromPhone.Id, answer.ReplyId);
         Assert.Equal(["yes"], answer.ChoiceIds);
@@ -131,15 +130,15 @@ public sealed class NotificationExchangeTests : IDisposable
         var id = await owner.AskAsync();
         await owner.Session.SyncAsync(Cancellation);
 
-        Assert.True((await owner.Notifications.CloseAsync(id, "Session archived", Cancellation)).IsSuccess);
+        Assert.IsType<Ok>((await owner.Notifications.CloseAsync(id, "Session archived", Cancellation)).Value);
         await owner.ReplyAsync(owner.Phone, id, "yes");
 
         // A second open question keeps the reply poll running.
         await owner.AskAsync();
-        var synced = await owner.Session.SyncAsync(Cancellation);
+        var synced = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.Equal(0, synced.Value.Accepted);
-        Assert.Equal(1, synced.Value.Rejected);
+        Assert.Equal(0, synced.Accepted);
+        Assert.Equal(1, synced.Rejected);
 
         var payload = await owner.LatestOnTheFeedAsync(id);
         Assert.Equal(NotificationState.Closed, payload.Notification.State);
@@ -166,10 +165,10 @@ public sealed class NotificationExchangeTests : IDisposable
         Assert.Equal("reply.invalid", rejected.Code);
 
         var right = await owner.ReplyAsync(owner.Phone, id, "no");
-        var synced = await owner.Session.SyncAsync(Cancellation);
+        var synced = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.Equal(1, synced.Value.Accepted);
-        Assert.Equal(right.Id, (await owner.Notifications.GetAnswerAsync(id, Cancellation)).Value!.ReplyId);
+        Assert.Equal(1, synced.Accepted);
+        Assert.Equal(right.Id, Assert.IsType<Ok<NotificationAnswer?>>((await owner.Notifications.GetAnswerAsync(id, Cancellation)).Value).Value!.ReplyId);
     }
 
     [Fact]
@@ -199,14 +198,14 @@ public sealed class NotificationExchangeTests : IDisposable
         var local = await owner.Replies.AcceptReplyAsync(
             new NotificationReply(Guid.CreateVersion7(), id, DesktopInstance, DesktopInstance, ["no"], null, DateTimeOffset.UtcNow),
             Cancellation);
-        Assert.True(local.IsSuccess);
+        Assert.IsType<Ok<NotificationAnswer>>(local.Value);
 
-        var synced = await owner.Session.SyncAsync(Cancellation);
+        var synced = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.Equal(1, synced.Value.Pushed);
+        Assert.Equal(1, synced.Pushed);
 
         // The cycle that settles the last question lists the replies once more.
-        Assert.True(synced.Value.PolledReplies);
+        Assert.True(synced.PolledReplies);
         Assert.Equal(NotificationState.Answered, (await owner.LatestOnTheFeedAsync(id)).Notification.State);
     }
 
@@ -227,13 +226,13 @@ public sealed class NotificationExchangeTests : IDisposable
                 string.Empty),
             Cancellation);
 
-        var first = await owner.Session.SyncAsync(Cancellation);
-        var second = await owner.Session.SyncAsync(Cancellation);
+        var first = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
+        var second = Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value).Value;
 
-        Assert.Equal(1, first.Value.Pushed);
-        Assert.False(first.Value.PolledReplies);
-        Assert.Equal(0, second.Value.Pushed);
-        Assert.False(second.Value.PolledReplies);
+        Assert.Equal(1, first.Pushed);
+        Assert.False(first.PolledReplies);
+        Assert.Equal(0, second.Pushed);
+        Assert.False(second.PolledReplies);
     }
 
     /// <summary>
@@ -258,11 +257,11 @@ public sealed class NotificationExchangeTests : IDisposable
             new AnswerSpec([new AnswerChoice("1", "Half even"), new AnswerChoice("2", "Half up")]),
             Id: shared);
         await owner.Notifications.PublishAsync(draft, Cancellation);
-        Assert.True((await owner.Session.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>((await owner.Session.SyncAsync(Cancellation)).Value);
 
         var (second, notifications) = SecondDesktop(owner);
         await notifications.PublishAsync(draft, Cancellation);
-        Assert.True((await second.SyncAsync(Cancellation)).IsSuccess);
+        Assert.IsType<Ok<NotificationSyncSummary>>((await second.SyncAsync(Cancellation)).Value);
 
         var status = await _secondDesktop!.GetRequiredService<INotificationReplication>().GetAsync(shared, Cancellation);
         Assert.Equal(NotificationState.Closed, status!.State);
@@ -273,7 +272,7 @@ public sealed class NotificationExchangeTests : IDisposable
         Assert.Equal(NotificationState.Open, onTheFeed.Notification.State);
 
         // Closed and marked pushed, so the next exchange offers nothing of it again.
-        Assert.Equal(0, (await second.SyncAsync(Cancellation)).Value.Pushed);
+        Assert.Equal(0, Assert.IsType<Ok<NotificationSyncSummary>>((await second.SyncAsync(Cancellation)).Value).Value.Pushed);
     }
 
     /// <summary>The laptop as a second desktop of the same owner: its own instance, its own
@@ -371,7 +370,7 @@ public sealed class NotificationExchangeTests : IDisposable
     {
         public async Task<Guid> AskAsync(AnswerOn answerOn = AnswerOn.AnyInstance)
         {
-            var published = await Notifications.PublishAsync(
+            var published = Assert.IsType<Ok<Guid>>((await Notifications.PublishAsync(
                 new NotificationDraft(
                     new NotificationSource("mcp", "ask-17"),
                     new NotificationSubject("sessions", "session", "sess-91"),
@@ -381,10 +380,9 @@ public sealed class NotificationExchangeTests : IDisposable
                     "0042_add_device_kind",
                     "3 tables changed",
                     new AnswerSpec([new AnswerChoice("yes", "Yes, run it"), new AnswerChoice("no", "Not now")], AnswerOn: answerOn)),
-                Cancellation);
+                Cancellation)).Value).Value;
 
-            Assert.True(published.IsSuccess, published.IsFailure ? published.Error.Message : null);
-            return published.Value;
+            return published;
         }
 
         public async Task<NotificationReplyPost> ReplyAsync(HttpClient viewer, Guid notificationId, params string[] choiceIds)

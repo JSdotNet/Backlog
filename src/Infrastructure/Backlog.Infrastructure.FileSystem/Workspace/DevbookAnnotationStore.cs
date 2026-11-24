@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -35,9 +36,16 @@ namespace Backlog.Infrastructure.FileSystem;
 /// chapter from opening, and the fallback matches what every other settings
 /// store here does.
 /// </para>
+/// <para>
+/// A relabelled repository takes its remarks along (local ADR 0060 §3;
+/// <see cref="IRepositoryAliasKeyedStore"/>): each keeps its id, takes the new alias
+/// and a fresh stamp, so the push carries it and the merge by id and stamp (ADR 0011)
+/// replaces the old copy everywhere else. A remark is held under one alias only, so a
+/// copy that arrives under another moves between the files rather than doubling.
+/// </para>
 /// </summary>
 // Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
-public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
+public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositoryAliasKeyedStore
 {
     /// <summary>The folder under the storage root the files go in.</summary>
     public const string FolderName = "devbook-annotations";
@@ -310,6 +318,132 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         }
     }
 
+    AliasKeyedStoreKind IRepositoryAliasKeyedStore.Kind => AliasKeyedStoreKind.Replicated;
+
+    IReadOnlyCollection<string> IRepositoryAliasKeyedStore.HeldAliases()
+    {
+        lock (_gate)
+        {
+            Load();
+
+            return [.. _files.Values.Where(file => file.Alias.Length > 0 && file.Annotations.Count > 0).Select(file => file.Alias)];
+        }
+    }
+
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        CancellationToken cancellationToken) =>
+        ((IRepositoryAliasKeyedStore)this).MoveAliasesAsync(oldToNew, AliasMoveOrigin.Edit, cancellationToken);
+
+    /// <summary>
+    /// Moves each named repository's remarks to its new alias, the whole mapping at
+    /// once: every source's remarks are taken out before any is placed, so a swap never
+    /// runs one move into the other. Tombstones move too, so no device keeps a live
+    /// copy under the old alias.
+    /// <para>
+    /// Ids are unique across repositories, so another file holds the same remark only
+    /// when a copy already arrived under another alias. An
+    /// <see cref="AliasMoveOrigin.Edit"/> stamps the moved remark now and leaves such a
+    /// copy in place; a <see cref="AliasMoveOrigin.Backstop"/> keeps the moved remark's
+    /// stamp and keeps whichever copy is later, as the replica merge would.
+    /// </para>
+    /// </summary>
+    Task<bool> IRepositoryAliasKeyedStore.MoveAliasesAsync(
+        IReadOnlyDictionary<string, string> oldToNew,
+        AliasMoveOrigin origin,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(oldToNew);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_gate)
+        {
+            Load();
+
+            var moving = new List<(RepositoryFile Source, string Target, List<DevbookAnnotation> Annotations)>();
+
+            foreach (var (from, to) in oldToNew)
+            {
+                var old = Key(from);
+                var target = Key(to);
+
+                if (old.Length == 0 || target.Length == 0 || string.Equals(old, target, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!_files.TryGetValue(old, out var source) || source.Annotations.Count == 0) continue;
+
+                moving.Add((source, target, [.. source.Annotations.Values]));
+            }
+
+            if (moving.Count == 0) return Task.FromResult(false);
+
+            // Every source is written even when another file already held all it had:
+            // paired with itself, it is no target, so only its own write decides it.
+            var writes = new List<(RepositoryFile Source, RepositoryFile Target)>();
+
+            foreach (var (source, _, _) in moving)
+            {
+                source.Annotations.Clear();
+                writes.Add((source, source));
+            }
+
+            foreach (var (source, target, annotations) in moving)
+            {
+                foreach (var annotation in annotations)
+                {
+                    var moved = annotation with
+                    {
+                        RepositoryAlias = target,
+                        UpdatedAt = origin == AliasMoveOrigin.Edit ? Stamp(annotation) : annotation.UpdatedAt,
+                    };
+
+                    if (HolderOf(annotation.Id) is { } holder)
+                    {
+                        if (origin == AliasMoveOrigin.Edit || moved.UpdatedAt <= holder.Annotations[annotation.Id].UpdatedAt) continue;
+
+                        holder.Annotations.Remove(annotation.Id);
+                        writes.Add((source, holder));
+                    }
+
+                    writes.Add((source, Place(moved).File));
+                }
+            }
+
+            RepositoryFileMove.Commit(
+                writes,
+                Save,
+                file => file.Annotations.Count > 0,
+                file =>
+                {
+                    if (Delete(file)) _files.Remove(file.Alias);
+                });
+        }
+
+        Changed?.Invoke();
+
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The file holding a remark, if any. Must be called under the lock,
+    /// after <see cref="Load"/>.</summary>
+    private RepositoryFile? HolderOf(Guid id) =>
+        _files.Values.FirstOrDefault(file => file.Annotations.ContainsKey(id));
+
+    /// <summary>Deletes a repository file left holding no remark. One that will not go
+    /// is read again at the next start, where <see cref="Load"/> keeps the later copy
+    /// of each remark it shares with another file and the backstop moves the rest.
+    /// </summary>
+    private static bool Delete(RepositoryFile file)
+    {
+        try
+        {
+            File.Delete(file.Path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private void Mutate(Guid id, Func<DevbookAnnotation, DevbookAnnotation> change)
     {
         lock (_gate)
@@ -356,6 +490,14 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     {
         var (file, stored) = Place(annotation);
         Save(file);
+
+        // A remark is held under one alias. A copy that arrives under another —
+        // relabelled on a device that moved it first (local ADR 0060 §3) — leaves
+        // the file it was in rather than answering under both.
+        foreach (var other in _files.Values)
+        {
+            if (!ReferenceEquals(other, file) && other.Annotations.Remove(annotation.Id)) Save(other);
+        }
 
         return stored;
     }
@@ -480,8 +622,41 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             }
         }
 
+        KeepOneCopyOfEach(files.Values);
+
         _files = files;
         _loadedRoot = root;
+    }
+
+    /// <summary>
+    /// A remark is held under one alias. Two files can still both hold it after a
+    /// relabel whose old file would not be deleted (local ADR 0060 §3): the later copy
+    /// is kept and the other forgotten, in memory only, so an edit never lands on the
+    /// stale one. The next write to that file drops it from disk.
+    /// </summary>
+    private static void KeepOneCopyOfEach(IEnumerable<RepositoryFile> files)
+    {
+        var holders = new Dictionary<Guid, RepositoryFile>();
+
+        foreach (var file in files)
+        {
+            foreach (var annotation in file.Annotations.Values.ToList())
+            {
+                if (!holders.TryGetValue(annotation.Id, out var other))
+                {
+                    holders[annotation.Id] = file;
+                }
+                else if (annotation.UpdatedAt > other.Annotations[annotation.Id].UpdatedAt)
+                {
+                    other.Annotations.Remove(annotation.Id);
+                    holders[annotation.Id] = file;
+                }
+                else
+                {
+                    file.Annotations.Remove(annotation.Id);
+                }
+            }
+        }
     }
 
     /// <summary>One repository's file, with every remark in it named the way this
@@ -528,7 +703,8 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         }
     }
 
-    private static void Save(RepositoryFile file)
+    /// <summary>Writes the file whole, answering whether the write held.</summary>
+    private static bool Save(RepositoryFile file)
     {
         try
         {
@@ -564,7 +740,10 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         {
             // The remark is on screen and in memory; only the copy for next
             // time is missing. The next write to the file tries again.
+            return false;
         }
+
+        return true;
     }
 
     private sealed class RepositoryFile(string alias, string path)

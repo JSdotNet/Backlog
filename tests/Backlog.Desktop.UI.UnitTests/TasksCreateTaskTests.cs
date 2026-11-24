@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Results;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -18,17 +20,16 @@ public sealed class TasksCreateTaskTests
         var changed = 0;
         host.State.Changed += () => changed++;
 
-        var created = await host.State.CreateTaskAsync("  Bank export  ");
+        var created = Assert.IsType<Ok<Guid>>((await host.State.CreateTaskAsync("  Bank export  ")).Value).Value;
 
-        Assert.True(created.IsSuccess);
-        var row = Assert.Single(host.State.Rows, row => row.Id == created.Value);
+        var row = Assert.Single(host.State.Rows, row => row.Id == created);
         Assert.Equal("Bank export", row.PreviewTitle);
         Assert.Equal(EntryType.Task, row.Type);
         Assert.Equal(EntryStatus.Draft, row.PreviewStatus);
         Assert.DoesNotContain(row.PreviewTags, tag => tag.StartsWith('+'));
         Assert.True(changed > 0);
 
-        var stored = Assert.Single(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken), entry => entry.Id == created.Value);
+        var stored = Assert.Single(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken), entry => entry.Id == created);
         Assert.Equal("Bank export", stored.Title);
         Assert.Equal(EntryStatus.Draft, stored.Status);
         Assert.Equal(Priority.Medium, stored.Priority);
@@ -45,10 +46,9 @@ public sealed class TasksCreateTaskTests
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
         host.State.SetRepositoryFilter("docs");
 
-        var created = await host.State.CreateTaskAsync("Bank export");
+        var created = Assert.IsType<Ok<Guid>>((await host.State.CreateTaskAsync("Bank export")).Value).Value;
 
-        Assert.True(created.IsSuccess);
-        var row = Assert.Single(host.State.Rows, row => row.Id == created.Value);
+        var row = Assert.Single(host.State.Rows, row => row.Id == created);
         Assert.Equal(["docs"], row.PreviewRepoIds);
         Assert.Contains("`repo:docs`", row.RawText, StringComparison.Ordinal);
         Assert.Contains(row, host.State.RowsInRepositoryScope);
@@ -63,7 +63,7 @@ public sealed class TasksCreateTaskTests
 
         var created = await host.State.CreateTaskAsync("Bank\n## export\r\n- [ ] step");
 
-        Assert.True(created.IsSuccess);
+        Assert.IsNotType<Error>(created.Value);
         var stored = Assert.Single(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Bank ## export - [ ] step", stored.Title);
         Assert.Equal(0, stored.TotalSubItems);
@@ -77,8 +77,7 @@ public sealed class TasksCreateTaskTests
 
         var created = await host.State.CreateTaskAsync("   ");
 
-        Assert.True(created.IsFailure);
-        Assert.False(string.IsNullOrWhiteSpace(created.Error.Message));
+        Assert.False(string.IsNullOrWhiteSpace(Assert.IsType<Error>(created.Value).Message));
         Assert.Equal(before, host.State.Rows.Count);
         Assert.Empty(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken));
     }

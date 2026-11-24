@@ -375,16 +375,17 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
                     _services, () => session.SyncAsync(_lifetime.Token), _log, "knowledge event").ConfigureAwait(false)
                 : await WithdrawAsync(session).ConfigureAwait(false);
 
-            if (result.IsSuccess)
+            switch (result)
             {
-                LastSummary = result.Value;
-                LastError = null;
-            }
-            else
-            {
-                LastError = result.Error.Message;
-                _log.LogInformation(
-                    "A knowledge event sync cycle did not complete: {Code} {Message}", result.Error.Code, result.Error.Message);
+                case Ok<KnowledgeEventSyncSummary>(var summary):
+                    LastSummary = summary;
+                    LastError = null;
+                    break;
+                case Error error:
+                    LastError = error.Message;
+                    _log.LogInformation(
+                        "A knowledge event sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                    break;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

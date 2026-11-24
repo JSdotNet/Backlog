@@ -238,7 +238,7 @@ The rest of this pane is what the Devbook panes ask for. `RenderDevbookMetadataF
     <Story Name="Two versions, aligned by the pane"
            Description="Aligning is the reading the comparison needs, and it happens here: the pane walks both documents once, holds the result, and hands it down — a pane re-renders every time a fold in it opens, so aligning in the body would redo that walk on each pass.
 
-What a baseline *is* stays the host's. This page holds two strings; the domain panel holds one and asks git for the other, which is why `FileCompareBaseline` is a record rather than a callback — a pane that knew how to fetch one version would have to know how to fetch all of them. A baseline with nothing to offer says why: press Compare, then pick “Never committed”.
+What a baseline *is* stays the host's. This page holds two strings; the arc42 panel holds one and asks git for the other, which is why `FileCompareBaseline` is a record rather than a callback — a pane that knew how to fetch one version would have to know how to fetch all of them. A baseline with nothing to offer says why: press Compare, then pick “Never committed”.
 
 The drawing is `MarkdownCompareView`'s, handed the result `Bare` so it gives up its own card, header and scroll region — this pane already has all three. That side of it is on *File content*."
            Code="@CompareCode">

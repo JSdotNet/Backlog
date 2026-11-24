@@ -20,6 +20,10 @@ internal sealed class InboxIntake(ICommandHandler<ReceiveCaptureCommand, Result<
 
         var result = await receive.Handle(new ReceiveCaptureCommand(capture), cancellationToken).ConfigureAwait(false);
 
-        return result.Value;
+        return result switch
+        {
+            Ok<InboxIntakeOutcome>(var outcome) => outcome,
+            Error => throw new InvalidOperationException("A failed result has no value."),
+        };
     }
 }

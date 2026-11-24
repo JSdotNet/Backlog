@@ -85,6 +85,7 @@ between inherited ADRs 0005 and 0009.
 - **[0056 — The Calendar owns its grid, and Tasks is one layer](0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md)** *(accepted, built; supersedes 0055 §2, §3, §6 in part, amends 0055 §4 and 0022 §2)*
 - **[0057 — Archify is retired, and Mermaid draws every chapter diagram](0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md)** *(proposed, built by pull request #1913; supersedes 0034, resolves TDR 0001)*
 - **[0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(proposed, not yet built; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
+- **[0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md)** *(proposed, not yet built)*
 
 ## Inherited decisions
 

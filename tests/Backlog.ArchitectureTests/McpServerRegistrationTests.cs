@@ -77,7 +77,7 @@ public class McpServerRegistrationTests
     /// <b>The rule this suite exists for.</b> Local ADR 0012 §2 puts
     /// <c>Microsoft.AspNetCore.App</c> in <c>Backlog.Desktop.csproj</c> "and
     /// nowhere else", because eleven projects compile into the
-    /// <c>net10.0-android</c> head and that head cannot take it — it fails
+    /// <c>net11.0-android</c> head and that head cannot take it — it fails
     /// NETSDK1082, which is exactly how an AspNetCore instrumentation package
     /// once broke it through <c>ServiceDefaults</c>.
     /// <para>
@@ -102,7 +102,7 @@ public class McpServerRegistrationTests
             offenders.Count == 0,
             "These projects declare the Microsoft.AspNetCore.App framework reference. Local ADR 0012 puts "
             + "it in src/App/Backlog.Desktop/Backlog.Desktop.csproj and nowhere else: every other project "
-            + "under src/ is, or may become, one the net10.0-android head compiles, and that head fails "
+            + "under src/ is, or may become, one the net11.0-android head compiles, and that head fails "
             + "NETSDK1082 on this reference. `dotnet test` does not build that head, so nothing else in "
             + "this suite would tell you:\n" + string.Join('\n', offenders));
     }

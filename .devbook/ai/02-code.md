@@ -145,8 +145,11 @@ standing brief `CLAUDE.md` imports. The devbook plugin also installs a wrapper p
 
 - **Used for** — the rules for shared component adoption, storybook authoring, naming,
   context loading, MCP usage, and the devbook folders.
+- **Skills per host** — the Aspire and .NET agent skills reach both hosts the same way:
+  one marketplace list, enabled in `.claude/settings.json` and in
+  `.github/copilot/settings.json`, rather than skill files copied into each.
 - **Adopted by** — every session, on every matching file read.
-- **Evidence** — the wrappers under `.claude/rules/`.
+- **Evidence** — the wrappers under `.claude/rules/`; the two settings files.
 - **Limits** — a rule fires on a read, so a file authored from scratch may not trigger it.
 
 ## Backlog as the delivery tracker

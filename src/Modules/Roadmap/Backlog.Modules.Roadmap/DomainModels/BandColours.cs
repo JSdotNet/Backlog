@@ -58,6 +58,38 @@ public sealed class BandColours
 
     public int Count => _chosen.Count;
 
+    /// <summary>
+    /// The choices with each repository the registry relabelled under its new alias
+    /// (local ADR 0060 §3), or this instance when <paramref name="oldToNew"/> names no
+    /// repository chosen for.
+    /// <para>
+    /// The whole mapping at once, so a swap exchanges two colours rather than running one
+    /// move into the other. Where the new alias already has a colour it keeps it: in a
+    /// merge the kept repository's choice wins. Where two old aliases move onto one new
+    /// alias that has none, the ordinal-first old alias gives it its colour.
+    /// </para>
+    /// </summary>
+    /// <param name="oldToNew">Normalized aliases, no pair mapping an alias to itself.</param>
+    internal BandColours WithAliasesMoved(IReadOnlyDictionary<string, string> oldToNew)
+    {
+        if (!_chosen.Keys.Any(oldToNew.ContainsKey)) return this;
+
+        // What stays first, so a target that keeps its colour is in place before a moved
+        // one could take its key.
+        var moved = _chosen
+            .Where(choice => !oldToNew.ContainsKey(choice.Key))
+            .ToDictionary(choice => choice.Key, choice => choice.Value, StringComparer.Ordinal);
+
+        // In ordinal order of the old alias, so where two move onto one uncoloured alias
+        // the first of them gives it its colour, whatever order the document listed them.
+        foreach (var (alias, colour) in _chosen.OrderBy(choice => choice.Key, StringComparer.Ordinal))
+        {
+            if (oldToNew.TryGetValue(alias, out var target)) moved.TryAdd(target, colour);
+        }
+
+        return new BandColours(moved);
+    }
+
     /// <summary>The colour chosen for a repository, or null when nobody has chosen
     /// one.</summary>
     public int? For(string? alias)

@@ -80,23 +80,25 @@ internal sealed partial class InboxBacklogTarget(
                 .SaveFromTextAsync(null, Compose(request, repo), order++, request.InboxItemId.ToString("D"), cancellationToken)
                 .ConfigureAwait(false);
 
-            if (saved.IsFailure)
+            if (saved is not Ok<SavedTaskDto>(var savedTask))
             {
+                var refused = (Error)saved.Value!;
+
                 // Not compensated: the entries already made are real work in the
                 // backlog and deleting them would be a second surprise. Named
                 // instead, so the person can see what is there. Theoretical in
                 // practice — the only validation failure on this path needs an
                 // empty title, and an inbox item always has one.
                 return Result.Failure<IReadOnlyList<Guid>>(created.Count == 0
-                    ? saved.Error
-                    : saved.Error with
+                    ? refused
+                    : refused with
                     {
-                        Message = $"{saved.Error.Message} {created.Count} of {targets.Count} entries were created first: "
+                        Message = $"{refused.Message} {created.Count} of {targets.Count} entries were created first: "
                             + string.Join(", ", created.Select(id => id.ToString("D"))) + ".",
                     });
             }
 
-            created.Add(saved.Value.Entry.Id);
+            created.Add(savedTask.Entry.Id);
         }
 
         return created;
@@ -185,9 +187,9 @@ internal sealed partial class InboxBacklogTarget(
             .ImportPlanAsync(document.ToString(), defaultRepo: null, repoMatches: null, sourceInboxId: null, sourceInboxIds: sources, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        if (imported.IsFailure) return new InboxBatchTargetResultDto([], Ordered(refused), imported.Error);
+        if (imported is not Ok<ImportPlanResultDto>(var plan)) return new InboxBatchTargetResultDto([], Ordered(refused), (Error)imported.Value!);
 
-        var byImportItemId = imported.Value.Entries
+        var byImportItemId = plan.Entries
             .Where(entry => entry.ImportItemId is not null)
             .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
@@ -286,9 +288,11 @@ internal sealed partial class InboxBacklogTarget(
             .ImportPlanAsync(WithAttachment(planMarkdown, attachmentPath), defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        if (imported.IsFailure) return Result.Failure<IReadOnlyList<Guid>>(imported.Error);
-
-        return Result.Success<IReadOnlyList<Guid>>([.. imported.Value.Entries.Select(entry => entry.Id)]);
+        return imported switch
+        {
+            Ok<ImportPlanResultDto>(var plan) => Result.Success<IReadOnlyList<Guid>>([.. plan.Entries.Select(entry => entry.Id)]),
+            Error error => error,
+        };
     }
 
     /// <summary>The drafted plan with every task entry carrying the item's
@@ -545,7 +549,11 @@ internal sealed partial class InboxBacklogTarget(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return commented.IsSuccess ? Result.Success() : Result.Failure(commented.Error);
+        return commented switch
+        {
+            Ok<TaskItemDto> => Result.Success(),
+            Error error => error,
+        };
     }
 
     /// <summary>
@@ -570,9 +578,9 @@ internal sealed partial class InboxBacklogTarget(
         if (taskIds.Count == 0) return Result.Success();
 
         var present = await DeletableTasksAsync(taskIds, madeDone, cancellationToken).ConfigureAwait(false);
-        if (present.IsFailure) return present;
+        if (present is not Ok<List<TaskItemDto>>(var deletable)) return (Error)present.Value!;
 
-        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+        await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
 
         return Result.Success();
     }
@@ -595,7 +603,7 @@ internal sealed partial class InboxBacklogTarget(
         ArgumentNullException.ThrowIfNull(plan);
 
         var present = await DeletableTasksAsync(taskIds, madeDone: false, cancellationToken).ConfigureAwait(false);
-        if (present.IsFailure) return present;
+        if (present is not Ok<List<TaskItemDto>>(var deletable)) return (Error)present.Value!;
 
         IReadOnlyList<RoadmapItemDto> laidOut = [];
         if (roadmap is not null)
@@ -609,12 +617,12 @@ internal sealed partial class InboxBacklogTarget(
             }
         }
 
-        await DeleteAsync(present.Value, cancellationToken).ConfigureAwait(false);
+        await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
 
         foreach (var item in laidOut)
         {
             var removed = await roadmap!.RemoveItemAsync(item.Id, cancellationToken).ConfigureAwait(false);
-            if (removed.IsFailure) return removed;
+            if (removed is Error) return removed;
         }
 
         return Result.Success();

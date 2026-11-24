@@ -35,8 +35,10 @@ internal sealed class CaptureRunner(
     {
         var result = await runCapture.Handle(command, cancellationToken);
 
-        return result.IsSuccess
-            ? result.Value
-            : throw new InvalidOperationException(result.Error.Message);
+        return result switch
+        {
+            Ok<CaptureRunResultDto>(var run) => run,
+            Error error => throw new InvalidOperationException(error.Message),
+        };
     }
 }

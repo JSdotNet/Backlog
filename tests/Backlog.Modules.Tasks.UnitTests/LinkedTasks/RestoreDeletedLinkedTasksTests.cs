@@ -69,8 +69,8 @@ public sealed class RestoreDeletedLinkedTasksTests
 
         var result = await RestoreAsync(StubTaskConnector.Id, Repo);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
-        Assert.Equal(2, result.Value);
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        Assert.Equal(2, ok.Value);
         Assert.All([withSource, onItsOwn], task => Assert.Null(task.DeletedAt));
         Assert.All([otherTarget, otherConnector, local], task => Assert.NotNull(task.DeletedAt));
         Assert.True(withSource.UpdatedAt > tombstonedAt);
@@ -92,9 +92,9 @@ public sealed class RestoreDeletedLinkedTasksTests
 
         var result = await RestoreAsync(StubTaskConnector.Id, OtherRepo);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(RestoreDeletedLinkedTasksCommand.NotConnectedCode, result.Error.Code);
-        Assert.Contains(OtherRepo, result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(RestoreDeletedLinkedTasksCommand.NotConnectedCode, error.Code);
+        Assert.Contains(OtherRepo, error.Message, StringComparison.Ordinal);
         Assert.NotNull(task.DeletedAt);
         Assert.Equal(0, _tasks.Writes);
     }
@@ -108,7 +108,7 @@ public sealed class RestoreDeletedLinkedTasksTests
 
         var result = await RestoreAsync(connectorId, target);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(0, _tasks.Writes);
     }
 

@@ -1,9 +1,11 @@
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.Enrolment;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Sync.UnitTests;
@@ -69,9 +71,9 @@ public class OwnerPinTests
 
         var result = await Register(fixture, unpinned, log).Handle(await fixture.Enrolled("New laptop"), Cancellation);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, result.Error.Code);
-        Assert.Contains("Owner__OwnerId", result.Error.Message, StringComparison.Ordinal);
+        var resultError = Assert.IsType<Error>(result.Value);
+        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, resultError.Code);
+        Assert.Contains("Owner__OwnerId", resultError.Message, StringComparison.Ordinal);
         Assert.Equal([legacy], await fixture.Devices.ListByOwner(Pinned, Cancellation));
         Assert.Equal(0, await fixture.Devices.CountByOwner(unpinned.Owner!.Value, Cancellation));
         Assert.Contains(log.Entries, entry => entry.Level == LogLevel.Error && entry.Message.Contains("Owner__OwnerId", StringComparison.Ordinal));
@@ -90,13 +92,13 @@ public class OwnerPinTests
         var command = await fixture.Enrolled("New laptop");
 
         var refused = await Register(fixture, unpinned).Handle(command, Cancellation);
-        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, refused.Error.Code);
+        Assert.Equal(SyncErrorCodes.EnrolmentOwnerUnpinned, Assert.IsType<Error>(refused.Value).Code);
 
         Assert.True(await fixture.Devices.Remove(Pinned, legacy.Id, Cancellation));
         var retried = await Register(fixture, unpinned).Handle(command, Cancellation);
 
-        Assert.True(retried.IsSuccess);
-        Assert.Equal(unpinned.Owner!.Value.Value, retried.Value.OwnerId);
+        var retriedOk = Assert.IsType<Ok<DeviceRegistrationResponse>>(retried.Value).Value;
+        Assert.Equal(unpinned.Owner!.Value.Value, retriedOk.OwnerId);
     }
 
     [Fact]
@@ -107,8 +109,8 @@ public class OwnerPinTests
 
         var result = await Register(fixture, unpinned).Handle(await fixture.Enrolled("Study desktop"), Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(unpinned.Owner!.Value.Value, result.Value.OwnerId);
+        var resultOk = Assert.IsType<Ok<DeviceRegistrationResponse>>(result.Value).Value;
+        Assert.Equal(unpinned.Owner!.Value.Value, resultOk.OwnerId);
     }
 
     [Fact]
@@ -120,7 +122,7 @@ public class OwnerPinTests
 
         var result = await Register(fixture, development).Handle(await fixture.Enrolled("Study desktop"), Cancellation);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<DeviceRegistrationResponse>>(result.Value);
     }
 
     [Fact]
@@ -132,10 +134,10 @@ public class OwnerPinTests
 
         var result = await Register(fixture, pinned).Handle(await fixture.Enrolled("New laptop"), Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Pinned.Value, result.Value.OwnerId);
-        Assert.Equal(1, result.Value.RevokedDeviceCount);
-        Assert.Equal([result.Value.DeviceId], (await fixture.Devices.ListByOwner(Pinned, Cancellation)).Select(device => device.Id.Value));
+        var resultOk = Assert.IsType<Ok<DeviceRegistrationResponse>>(result.Value).Value;
+        Assert.Equal(Pinned.Value, resultOk.OwnerId);
+        Assert.Equal(1, resultOk.RevokedDeviceCount);
+        Assert.Equal([resultOk.DeviceId], (await fixture.Devices.ListByOwner(Pinned, Cancellation)).Select(device => device.Id.Value));
     }
 
     private static Device DeviceOf(OwnerId owner, string name) =>

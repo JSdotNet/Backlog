@@ -48,7 +48,7 @@ public sealed class InboxEventTargetTests
 
         var spotted = await new InboxEventTarget(events, new Flags(on: true)).SpotEventAsync(request, Cancellation);
 
-        Assert.Equal(events.EventId, spotted.Value);
+        Assert.Equal(events.EventId, Assert.IsType<Ok<Guid>>(spotted.Value).Value);
         var asked = Assert.Single(events.Requests);
         Assert.Equal(new SpotKnowledgeEventDto(
             "dotNET Friday Q4",
@@ -79,8 +79,9 @@ public sealed class InboxEventTargetTests
         var spotted = await new InboxEventTarget(events, new Flags(on: true))
             .SpotEventAsync(new InboxEventRequestDto(Guid.CreateVersion7(), "x", null, null), Cancellation);
 
-        Assert.Equal(InboxErrors.EventNotMadeCode, spotted.Error.Code);
-        Assert.Contains("A knowledge event needs a title.", spotted.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(spotted.Value);
+        Assert.Equal(InboxErrors.EventNotMadeCode, error.Code);
+        Assert.Contains("A knowledge event needs a title.", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>The requirement's last scenario: an Events store that fails to write.</summary>
@@ -92,8 +93,9 @@ public sealed class InboxEventTargetTests
         var spotted = await new InboxEventTarget(events, new Flags(on: true))
             .SpotEventAsync(new InboxEventRequestDto(Guid.CreateVersion7(), "x", null, null), Cancellation);
 
-        Assert.Equal(InboxErrors.EventNotMadeCode, spotted.Error.Code);
-        Assert.Contains("database is locked", spotted.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(spotted.Value);
+        Assert.Equal(InboxErrors.EventNotMadeCode, error.Code);
+        Assert.Contains("database is locked", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -104,7 +106,7 @@ public sealed class InboxEventTargetTests
         var spotted = await new InboxEventTarget(events, new Flags(on: false))
             .SpotEventAsync(new InboxEventRequestDto(Guid.CreateVersion7(), "x", null, null), Cancellation);
 
-        Assert.Equal(InboxErrors.EventsUnavailableCode, spotted.Error.Code);
+        Assert.Equal(InboxErrors.EventsUnavailableCode, Assert.IsType<Error>(spotted.Value).Code);
         Assert.Empty(events.Requests);
     }
 

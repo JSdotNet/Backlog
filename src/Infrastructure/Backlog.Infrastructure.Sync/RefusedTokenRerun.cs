@@ -45,13 +45,13 @@ internal static class RefusedTokenRerun
 
         var result = await exchange().ConfigureAwait(false);
 
-        if (result.IsFailure
+        if (result is Error error
             && tokens is not null
             && tokens.TokensRefused != refusedBefore
             && !tokens.CredentialRejected)
         {
             log.LogInformation(
-                "A {Loop} sync cycle met a refused token; running it once more with a fresh one: {Code}", loop, result.Error.Code);
+                "A {Loop} sync cycle met a refused token; running it once more with a fresh one: {Code}", loop, error.Code);
             result = await exchange().ConfigureAwait(false);
         }
 

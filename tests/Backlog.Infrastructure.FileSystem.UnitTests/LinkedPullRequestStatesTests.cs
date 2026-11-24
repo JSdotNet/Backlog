@@ -350,8 +350,8 @@ public sealed class LinkedPullRequestStatesTests
         contract.ActsWith = Result.Failure(PullRequestErrors.Refused("Auto-merge is not allowed in this repository."));
         var refused = await states.SetAutoMergeAsync(Key(7), enable: true, TestContext.Current.CancellationToken);
 
-        Assert.True(merged.IsSuccess);
-        Assert.Equal("Auto-merge is not allowed in this repository.", refused.Error.Message);
+        Assert.IsType<Ok>(merged.Value);
+        Assert.Equal("Auto-merge is not allowed in this repository.", Assert.IsType<Error>(refused.Value).Message);
         Assert.Equal(
             [$"merge {Backlog}#4", $"auto-merge {Backlog}#5", $"cancel auto-merge {Backlog}#6", $"auto-merge {Backlog}#7"],
             contract.Calls);
@@ -391,7 +391,7 @@ public sealed class LinkedPullRequestStatesTests
         Assert.Empty(read.States);
         Assert.Empty(read.UnreadRepositories);
         Assert.Empty(states.Kept([Key(4)]));
-        Assert.Equal(PullRequestErrors.NotConfiguredCode, merged.Error.Code);
+        Assert.Equal(PullRequestErrors.NotConfiguredCode, Assert.IsType<Error>(merged.Value).Code);
     }
 
     /// <summary>With the contract composed, the port is the adapter over it.</summary>

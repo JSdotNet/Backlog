@@ -23,11 +23,6 @@
     <ProjectReference Include="..\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Only for AddCaptureModule(); the handler knows nothing about the
-         container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-  </ItemGroup>
 
   <ItemGroup>
     <!-- The handler and the adapter port are internal to the module's shape but

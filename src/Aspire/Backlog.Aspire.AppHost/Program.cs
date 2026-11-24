@@ -73,7 +73,7 @@ var attachments = builder.AddAzureStorage("storage")
 // desktop harness's chat stand-in, and the transcription stand-in the sync service relays
 // a phone's dictation to (local ADR 0045 §5). A harness, not a shipped channel — declared
 // here rather than with the others below only because `sync` names it.
-var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\Harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
+var azureFoundryTest = builder.AddDotnetProject("azure-foundry-test", "..\\..\\Harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
 
 // Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
 //
@@ -93,7 +93,7 @@ var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\Harness
 // credential: the stand-in takes none, and there is no key to send. Waited on, unlike the
 // stores — it is a small process that is up in seconds, and a phone's first Cloud turn
 // should not meet a 502 for it.
-var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
+var sync = builder.AddDotnetProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
     .WithReference(cosmosDatabase)
     .WithReference(attachments)
     .WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
@@ -179,11 +179,14 @@ var resetRoot = LocalDataReset.ResolveRoot();
 // is why the confirmation below keeps it apart from the shared workspace it names.
 var resetShellNavigation = LocalDataReset.ResolveShellNavigation(builder.AppHostDirectory);
 
-builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
+builder.AddDotnetProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
     .WithReference(sync)
     .WithReference(azureFoundryTest)
     .WithEnvironment("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", azureFoundryTest.GetEndpoint("http"))
     .WaitFor(azureFoundryTest)
+    // Every frontend sends its browser console, errors and network failures to the
+    // dashboard (org ADR 0002), so a run reads them beside the server's own logs.
+    .WithBrowserLogs()
     .WithCommand(
         "reset-local-data",
         "Reset local data",
@@ -200,20 +203,48 @@ builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebH
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
-builder.AddProject("mobile-web-harness", "..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
+//
+// It carries the forget-pairing command: the harness keeps its device credential and
+// outbox in its own obj/local-development, so this one touches this worktree alone.
+var phoneState = PhonePairingReset.ResolveState(builder.AppHostDirectory);
+
+builder.AddDotnetProject("mobile-web-harness","..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
     .WithReference(sync)
-    .WaitFor(sync);
+    .WaitFor(sync)
+    .WithBrowserLogs()
+    .WithCommand(
+        "forget-pairing",
+        "Forget pairing",
+        context => PhonePairingReset.RunAsync(context, phoneState),
+        commandOptions: new CommandOptions
+        {
+            Description = "Stops the harness, removes its device credential, its outbox database and its staged "
+                          + "talk notes, and starts it again as a phone that was never paired.",
+            ConfirmationMessage = $"Remove the phone's pairing and its outbox in {phoneState}? Captures it has not "
+                                  + "sent yet are lost. Only this worktree's harness is affected."
+        });
 
 // Component storybook: the shared Backlog.UI.Components library on its own, with
 // no application or sync dependency, so the components can be reviewed and
 // Playwright-driven independently of the app.
-builder.AddProject("ui-storybook", "..\\..\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj");
+builder.AddDotnetProject("ui-storybook", "..\\..\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj")
+    .WithBrowserLogs();
 
 // --- Shipped channels (src/App) ---------------------------------------------
 
 // Desktop channel — .NET MAUI Blazor Hybrid (Windows). Registered so it shows up in
 // the app model, but never auto-started: launch it from the dashboard or the IDE.
-builder.AddProject("desktop", "..\\..\\App\\Backlog.Desktop\\Backlog.Desktop.csproj")
+//
+// A process running `dotnet run`, not AddDotnetProject. Aspire 17 builds every
+// AddDotnetProject resource in one traversal before any of them starts, explicit-start
+// ones included, so a head registered that way is built on every run and a machine
+// without the MAUI workload starts nothing at all. As a process it builds when it is
+// started, the way mobile-android below does.
+builder.AddExecutable(
+        "desktop",
+        "dotnet",
+        "..\\..\\App\\Backlog.Desktop",
+        "run", "--project", "Backlog.Desktop.csproj")
     .WithReference(sync)
     .WithExplicitStart();
 
@@ -224,7 +255,7 @@ builder.AddProject("desktop", "..\\..\\App\\Backlog.Desktop\\Backlog.Desktop.csp
 // running the head anywhere else meant editing this file. Aspire 13.5 resource
 // commands take arguments, so both are chosen in the dashboard instead and read
 // on the next start of the resource.
-var mobileTargetFramework = "net10.0-android";
+var mobileTargetFramework = "net11.0-android";
 var mobileDevice = "";
 
 builder.AddExecutable(
@@ -273,7 +304,7 @@ builder.AddExecutable(
                     Required = true,
                     AllowCustomChoice = true,
                     Value = mobileTargetFramework,
-                    Options = [KeyValuePair.Create("net10.0-android", "Android (net10.0-android)")]
+                    Options = [KeyValuePair.Create("net11.0-android", "Android (net11.0-android)")]
                 },
                 new InteractionInput
                 {

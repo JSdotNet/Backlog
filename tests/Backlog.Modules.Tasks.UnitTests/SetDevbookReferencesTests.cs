@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
@@ -27,9 +28,9 @@ public sealed class SetDevbookReferencesTests
 
         var result = await Handle(store, entry.Id, ["[.devbook/domain/tasks/domain.md#task]", @".devbook\arc42\adr\0007.md"]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"], result.Value.DevbookReferences);
-        Assert.Equal(result.Value.DevbookReferences, store.Entries[entry.Id].DevbookReferences);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"], ok.Value.DevbookReferences);
+        Assert.Equal(ok.Value.DevbookReferences, store.Entries[entry.Id].DevbookReferences);
         Assert.Equal(1, store.Writes);
     }
 
@@ -45,7 +46,7 @@ public sealed class SetDevbookReferencesTests
 
         var result = await Handle(store, entry.Id, ["domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#task", "docs/handbook.md"]);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<TaskItemDto>>(result.Value);
         Assert.Equal([".devbook/domain/tasks/domain.md#task", "docs/handbook.md"], store.Entries[entry.Id].DevbookReferences);
     }
 
@@ -59,8 +60,8 @@ public sealed class SetDevbookReferencesTests
 
         var result = await Handle(store, entry.Id, []);
 
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.DevbookReferences);
+        var ok = Assert.IsType<Ok<TaskItemDto>>(result.Value);
+        Assert.Empty(ok.Value.DevbookReferences);
         Assert.Empty(store.Entries[entry.Id].DevbookReferences);
     }
 
@@ -78,10 +79,10 @@ public sealed class SetDevbookReferencesTests
 
         var result = await Handle(store, entry.Id, [".devbook/arc42/adr/0007.md", "task"]);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.Validation, result.Error.Type);
-        Assert.Equal(SetDevbookReferencesCommandHandler.InvalidReferenceCode, result.Error.Code);
-        Assert.Contains("task", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(SetDevbookReferencesCommandHandler.InvalidReferenceCode, error.Code);
+        Assert.Contains("task", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, store.Writes);
         Assert.Equal([".devbook/domain/tasks/domain.md#task"], store.Entries[entry.Id].DevbookReferences);
     }
@@ -91,8 +92,8 @@ public sealed class SetDevbookReferencesTests
     {
         var result = await Handle(new InMemoryTaskRepository(), Guid.NewGuid(), [".devbook/arc42/adr/0007.md"]);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(ErrorType.NotFound, error.Type);
     }
 
     /// <summary>
@@ -113,8 +114,8 @@ public sealed class SetDevbookReferencesTests
             new SaveTaskFromTextCommand(entry.Id, "# Link the chapter, renamed\n`task` `!ready`\n\nA new body.\n", 0),
             TestContext.Current.CancellationToken);
 
-        Assert.True(saved.IsSuccess);
-        Assert.Equal([".devbook/domain/tasks/domain.md#task"], saved.Value.Entry.DevbookReferences);
+        var savedOk = Assert.IsType<Ok<SavedTaskDto>>(saved.Value);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task"], savedOk.Value.Entry.DevbookReferences);
         Assert.Equal([".devbook/domain/tasks/domain.md#task"], store.Entries[entry.Id].DevbookReferences);
         Assert.DoesNotContain("devbook", store.Entries[entry.Id].ContentMd, StringComparison.Ordinal);
     }

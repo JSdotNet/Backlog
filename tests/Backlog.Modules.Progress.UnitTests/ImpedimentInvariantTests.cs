@@ -1,5 +1,6 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using static Backlog.Modules.Progress.UnitTests.MakeImpediment;
 
@@ -18,17 +19,17 @@ public sealed class ImpedimentInvariantTests
     [InlineData("   ")]
     public void An_impediment_has_a_title(string? title)
     {
-        Assert.Equal("progress.impediment_without_title", Impediment.Raise(Guid.NewGuid(), title, Wed14).Error.Code);
+        Assert.Equal("progress.impediment_without_title", Assert.IsType<Error>(Impediment.Raise(Guid.NewGuid(), title, Wed14).Value).Code);
 
         var impediment = Raised();
-        Assert.Equal("progress.impediment_without_title", impediment.Rename(title).Error.Code);
+        Assert.Equal("progress.impediment_without_title", Assert.IsType<Error>(impediment.Rename(title).Value).Code);
         Assert.Equal("Bank sample files missing", impediment.Title);
     }
 
     [Fact]
     public void An_impediment_starts_New_and_its_history_opens_with_that_step()
     {
-        var impediment = Impediment.Raise(Guid.NewGuid(), "  Bank sample files missing ", Wed14).Value;
+        var impediment = Assert.IsType<Ok<Impediment>>(Impediment.Raise(Guid.NewGuid(), "  Bank sample files missing ", Wed14).Value).Value;
 
         Assert.Equal("Bank sample files missing", impediment.Title);
         Assert.Equal(ImpedimentState.New, impediment.State);
@@ -73,7 +74,7 @@ public sealed class ImpedimentInvariantTests
 
         var moved = impediment.MoveTo(to, Fri16.AddDays(3));
 
-        Assert.Equal("progress.impediment_move_not_allowed", moved.Error.Code);
+        Assert.Equal("progress.impediment_move_not_allowed", Assert.IsType<Error>(moved.Value).Code);
         Assert.Equal(before, impediment.History);
     }
 
@@ -83,7 +84,7 @@ public sealed class ImpedimentInvariantTests
     {
         var impediment = At(ImpedimentState.Reported, ImpedimentState.Escalated);
 
-        Assert.True(impediment.MoveTo(ImpedimentState.Reported, Fri16.AddDays(1)).IsFailure);
+        Assert.IsType<Error>(impediment.MoveTo(ImpedimentState.Reported, Fri16.AddDays(1)).Value);
         Assert.Equal(ImpedimentState.Escalated, impediment.State);
     }
 
@@ -97,7 +98,7 @@ public sealed class ImpedimentInvariantTests
         var impediment = At(path);
         var on = Fri16.AddDays(3);
 
-        Assert.True(impediment.MoveTo(ImpedimentState.Resolved, on).IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Resolved, on).Value);
         Assert.Equal(ImpedimentState.Resolved, impediment.State);
         Assert.False(impediment.IsOpen);
         Assert.Equal(on, impediment.ResolvedOn);
@@ -113,9 +114,9 @@ public sealed class ImpedimentInvariantTests
     public void A_resolved_impediment_stays_resolved(ImpedimentState to)
     {
         var impediment = Raised();
-        Assert.True(impediment.MoveTo(ImpedimentState.Resolved, Thu15).IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Resolved, Thu15).Value);
 
-        Assert.Equal("progress.impediment_resolved", impediment.MoveTo(to, Fri16).Error.Code);
+        Assert.Equal("progress.impediment_resolved", Assert.IsType<Error>(impediment.MoveTo(to, Fri16).Value).Code);
         Assert.Equal(2, impediment.History.Count);
     }
 
@@ -125,8 +126,8 @@ public sealed class ImpedimentInvariantTests
     {
         var impediment = Raised();
 
-        Assert.True(impediment.MoveTo(ImpedimentState.Reported, Thu15, "bank support").IsSuccess);
-        Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Fri16, " account manager ").IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Reported, Thu15, "bank support").Value);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Escalated, Fri16, " account manager ").Value);
 
         Assert.Equal(
             [
@@ -138,7 +139,7 @@ public sealed class ImpedimentInvariantTests
         Assert.Equal("account manager", impediment.ReportedTo);
         Assert.Null(impediment.HandledBy);
 
-        Assert.True(impediment.MoveTo(ImpedimentState.BeingHandled, Fri16, "bank integration team").IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.BeingHandled, Fri16, "bank integration team").Value);
         Assert.Equal("bank integration team", impediment.HandledBy);
         Assert.Equal("account manager", impediment.ReportedTo);
     }
@@ -147,9 +148,9 @@ public sealed class ImpedimentInvariantTests
     public void A_move_without_who_keeps_whoever_it_was_with()
     {
         var impediment = Raised();
-        Assert.True(impediment.MoveTo(ImpedimentState.Reported, Thu15, "bank support").IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Reported, Thu15, "bank support").Value);
 
-        Assert.True(impediment.MoveTo(ImpedimentState.Escalated, Fri16, "  ").IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Escalated, Fri16, "  ").Value);
 
         Assert.Null(impediment.History[^1].With);
         Assert.Equal("bank support", impediment.ReportedTo);
@@ -162,9 +163,9 @@ public sealed class ImpedimentInvariantTests
 
         var moved = impediment.MoveTo(ImpedimentState.Reported, Wed14);
 
-        Assert.Equal("progress.impediment_move_before_last_step", moved.Error.Code);
+        Assert.Equal("progress.impediment_move_before_last_step", Assert.IsType<Error>(moved.Value).Code);
         Assert.Single(impediment.History);
-        Assert.True(impediment.MoveTo(ImpedimentState.Reported, Thu15).IsSuccess);
+        Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Reported, Thu15).Value);
     }
 
     [Fact]
@@ -201,7 +202,7 @@ public sealed class ImpedimentInvariantTests
     [InlineData("acme/payments", 0)]
     [InlineData("acme/payments", -3)]
     public void A_held_back_pull_request_names_its_repository_and_a_positive_number(string? repository, int? number) =>
-        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForPullRequest(repository, number).Error.Code);
+        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPullRequest(repository, number).Value).Code);
 
     [Theory]
     [InlineData(null)]
@@ -210,12 +211,12 @@ public sealed class ImpedimentInvariantTests
     [InlineData("+")]
     [InlineData(" + ")]
     public void A_held_back_plan_names_a_non_blank_tag(string? tag) =>
-        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForPlan(tag).Error.Code);
+        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPlan(tag).Value).Code);
 
     [Fact]
     public void A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil()
     {
-        Assert.Equal("progress.held_back_item_without_identity", HeldBackItem.ForTask(Guid.Empty).Error.Code);
+        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForTask(Guid.Empty).Value).Code);
 
         var plan = HeldPlan(" +goals-standup ");
         Assert.Equal(HeldBackKind.Plan, plan.Kind);
@@ -298,9 +299,9 @@ public sealed class ImpedimentInvariantTests
         Assert.Equal(Thu15, restored.RaisedOn);
     }
 
-    private static HeldBackItem HeldTask(Guid id) => HeldBackItem.ForTask(id).Value;
+    private static HeldBackItem HeldTask(Guid id) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForTask(id).Value).Value;
 
-    private static HeldBackItem HeldPullRequest(string repository, int number) => HeldBackItem.ForPullRequest(repository, number).Value;
+    private static HeldBackItem HeldPullRequest(string repository, int number) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPullRequest(repository, number).Value).Value;
 
-    private static HeldBackItem HeldPlan(string tag) => HeldBackItem.ForPlan(tag).Value;
+    private static HeldBackItem HeldPlan(string tag) => Assert.IsType<Ok<HeldBackItem>>(HeldBackItem.ForPlan(tag).Value).Value;
 }

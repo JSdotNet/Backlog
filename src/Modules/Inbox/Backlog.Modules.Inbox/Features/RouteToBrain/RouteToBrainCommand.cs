@@ -48,11 +48,14 @@ public sealed class RouteToBrainCommandHandler(
         var written = await target
             .WriteNoteAsync(new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl, command.Folder), cancellationToken)
             .ConfigureAwait(false);
-        if (written.IsFailure) return written.Error;
+        if (written is not Ok<InboxBrainNoteWrittenDto>(var note))
+        {
+            return (Error)written.Value!;
+        }
 
         item.RouteToBrain(clock.GetUtcNow());
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 
-        return new InboxBrainRoutedDto(item.Id, written.Value.NotePath, written.Value.Area);
+        return new InboxBrainRoutedDto(item.Id, note.NotePath, note.Area);
     }
 }

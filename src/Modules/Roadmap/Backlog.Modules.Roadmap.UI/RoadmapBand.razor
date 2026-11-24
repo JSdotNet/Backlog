@@ -37,6 +37,7 @@
 *@
 @implements IDisposable
 @using global::Backlog.SharedKernel
+@using global::Backlog.SharedKernel.Results
 @using Microsoft.Extensions.Logging
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
@@ -769,10 +770,10 @@
 
             var result = await Planning.ImportPlanItemsAsync([entry], [imported.Effort]);
 
-            if (result.IsFailure)
+            if (result is Error error)
             {
                 _shelfRefused = true;
-                _shelfNews = $"+{row.Tag} could not be planned: {result.Error.Message}";
+                _shelfNews = $"+{row.Tag} could not be planned: {error.Message}";
                 return;
             }
 
@@ -1001,9 +1002,9 @@
                 submission.Tag,
                 submission.KnowledgeRefs);
 
-        if (saved.IsFailure)
+        if (saved is Error error)
         {
-            _editor?.Refuse(saved.Error.Message);
+            _editor?.Refuse(error.Message);
             return;
         }
 
@@ -1019,9 +1020,9 @@
 
         var removed = await Planning.RemoveItemAsync(itemId);
 
-        if (removed.IsFailure)
+        if (removed is Error error)
         {
-            _editor?.Refuse(removed.Error.Message);
+            _editor?.Refuse(error.Message);
             return;
         }
 
@@ -1053,9 +1054,9 @@
                 null,
                 submission.IsPlanWide);
 
-        if (saved.IsFailure)
+        if (saved is Error error)
         {
-            _dateEditor?.Refuse(saved.Error.Message);
+            _dateEditor?.Refuse(error.Message);
             return;
         }
 
@@ -1070,9 +1071,9 @@
 
         var removed = await Planning.RemoveMilestoneAsync(milestoneId);
 
-        if (removed.IsFailure)
+        if (removed is Error error)
         {
-            _dateEditor?.Refuse(removed.Error.Message);
+            _dateEditor?.Refuse(error.Message);
             return;
         }
 
@@ -1098,12 +1099,12 @@
 
         await Load();
 
-        if (result.IsFailure)
+        if (result is Error error)
         {
             // Whichever dialog raised it: a milestone waits on things just as an item
             // does, and the refusal has to land where the person is looking.
-            if (_editingDate) _dateEditor?.Refuse(result.Error.Message);
-            else _editor?.Refuse(result.Error.Message);
+            if (_editingDate) _dateEditor?.Refuse(error.Message);
+            else _editor?.Refuse(error.Message);
 
             return;
         }
@@ -1152,7 +1153,7 @@
         // Reload either way. On success the plan is the truth; on failure the
         // redraw is what puts the bar back where it was, so a refused change never
         // leaves the chart showing something that was not stored.
-        if (rescheduled.IsFailure) _error = rescheduled.Error.Message;
+        if (rescheduled is Error error) _error = error.Message;
 
         await Load();
     }
@@ -1179,7 +1180,7 @@
         return ItemWindowFor(change, itemId.Value);
     }
 
-    private Task<global::Backlog.SharedKernel.Results.Result<RoadmapItemDto>> RescheduleAsync(RoadmapChange change, Guid itemId)
+    private Task<Result<RoadmapItemDto>> RescheduleAsync(RoadmapChange change, Guid itemId)
     {
         var (start, end) = ItemWindowFor(change, itemId);
         return Planning.RescheduleItemAsync(itemId, start, end, LaneOf(change.RowId));
@@ -1199,9 +1200,9 @@
 
         var result = await Planning.UnpinItemEndAsync(itemId);
 
-        if (result.IsFailure)
+        if (result is Error error)
         {
-            _editor?.Refuse(result.Error.Message);
+            _editor?.Refuse(error.Message);
             return;
         }
 
@@ -1284,9 +1285,9 @@
 
             _error = null;
             var completed = await Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today));
-            if (completed.IsFailure)
+            if (completed is Error error)
             {
-                _error = completed.Error.Message;
+                _error = error.Message;
                 return;
             }
 
@@ -1314,9 +1315,9 @@
         _error = null;
 
         var result = await write;
-        if (result.IsFailure)
+        if (result is Error error)
         {
-            _editor?.Refuse(result.Error.Message);
+            _editor?.Refuse(error.Message);
             return;
         }
 
@@ -1366,7 +1367,7 @@
         if (_error is null)
         {
             var added = await Planning.AddDependencyAsync(waiting.Value, dependsOn.Value);
-            if (added.IsFailure) _error = added.Error.Message;
+            if (added is Error error) _error = error.Message;
         }
 
         await Load();

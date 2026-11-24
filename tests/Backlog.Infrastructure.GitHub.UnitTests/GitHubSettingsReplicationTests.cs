@@ -262,6 +262,99 @@ public sealed class GitHubSettingsReplicationTests : IDisposable
         Assert.Equal(clone, Device("b").Store.Current.Find("JSdotNet/Old")!.CloneDirectory);
     }
 
+    /// <summary>The alias moves ride the registry document as its renames do (local ADR
+    /// 0060 §2), so the other device resolves the old alias as soon as the registry
+    /// lands.</summary>
+    [Fact]
+    public async Task The_alias_moves_travel_in_the_registry_document()
+    {
+        WriteRegistry("a", """
+            {
+              "updatedAt": "2026-10-05T09:00:00+00:00",
+              "repositories": [ { "id": "JSdotNet/app-defaults", "alias": "app-defaults" } ],
+              "aliasMoves": [ { "from": "project-guidelines-mcp", "to": "app-defaults", "id": "JSdotNet/app-defaults", "at": "2026-10-05T09:00:00+00:00" } ]
+            }
+            """);
+        var a = Device("a");
+        var b = Device("b");
+
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+
+        var move = Assert.Single(b.Store.Current.AliasMoves);
+        Assert.Equal(("project-guidelines-mcp", "app-defaults", "JSdotNet/app-defaults"), (move.OldAlias, move.NewAlias, move.RepositoryId));
+        Assert.Equal("JSdotNet/app-defaults", b.Store.Current.Find("project-guidelines-mcp")!.FullName);
+    }
+
+    /// <summary>A relabel made on one device reaches the other as a registry it applies,
+    /// which is no local edit: the editing device re-keys the replicated stores, so
+    /// the receiving one announces no move of its own (local ADR 0060 §3).</summary>
+    [Fact]
+    public async Task A_relabel_carried_from_another_device_is_not_announced_as_a_local_move()
+    {
+        var a = Device("a");
+        var b = Device("b");
+        Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog")));
+        await Carry(a, b, GitHubReplicaDocument.Registry);
+        var announced = 0;
+        b.Store.AliasesMoved += _ => announced++;
+
+        a.Clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Store.SetRepositories(Parse("bl = JSdotNet/Backlog")));
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+
+        Assert.Equal(0, announced);
+        Assert.Equal(("backlog", "bl"), (b.Store.Current.AliasMoves[0].OldAlias, b.Store.Current.AliasMoves[0].NewAlias));
+        Assert.Equal("JSdotNet/Backlog", b.Store.Current.Find("backlog")!.FullName);
+    }
+
+    /// <summary>Two devices that each relabel before either sees the other's registry
+    /// both keep every move: the alias moves are a union on apply, not last-write-wins
+    /// with the rows, and the device that held moves the winning copy lacked sends the
+    /// union back.</summary>
+    [Fact]
+    public async Task Alias_moves_made_on_two_devices_at_once_are_both_kept()
+    {
+        var a = Device("a");
+        var b = Device("b");
+        Assert.Null(a.Store.SetRepositories(Parse("JSdotNet/Backlog", "JSdotNet/Docs")));
+        await Carry(a, b, GitHubReplicaDocument.Registry);
+
+        b.Clock.Advance(TimeSpan.FromMinutes(3));
+        Assert.Null(b.Store.SetRepositories(Parse("JSdotNet/Backlog", "dc = JSdotNet/Docs")));
+        a.Clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Store.SetRepositories(Parse("bl = JSdotNet/Backlog", "JSdotNet/Docs")));
+
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(a, b, GitHubReplicaDocument.Registry));
+        Assert.Equal(["docs", "backlog"], b.Store.Current.AliasMoves.Select(m => m.OldAlias));
+
+        Assert.Equal(ReplicaOutcome.Taken, await Carry(b, a, GitHubReplicaDocument.Registry));
+        Assert.Equal(["docs", "backlog"], a.Store.Current.AliasMoves.Select(m => m.OldAlias));
+        Assert.Equal(["docs", "backlog"], Device("a").Store.Current.AliasMoves.Select(m => m.OldAlias));
+    }
+
+    /// <summary>A registry that holds nothing but alias moves is still a document, so
+    /// a move-only registry is offered rather than read as the empty first-run
+    /// file.</summary>
+    [Fact]
+    public async Task A_registry_holding_only_alias_moves_is_a_document()
+    {
+        WriteRegistry("a", """
+            {
+              "repositories": [],
+              "aliasMoves": [ { "from": "old", "to": "new", "id": "JSdotNet/New", "at": "2026-10-05T09:00:00+00:00" } ]
+            }
+            """);
+
+        Assert.NotNull(await Device("a").Replication.ReadAsync(GitHubReplicaDocument.Registry, Cancellation));
+    }
+
+    private void WriteRegistry(string device, string json)
+    {
+        var path = _temp.Combine(device, "workspace", GitHubSettingsStore.RegistryFolderName, "repos.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
+    }
+
     /// <summary>Archiving is a registry write (local ADR 0029), so it travels in the
     /// registry document with no sync code of its own, and so does the Unarchive that
     /// follows it — with this device's machine half left where it was.</summary>

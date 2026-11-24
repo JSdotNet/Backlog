@@ -7,6 +7,7 @@ using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -128,16 +129,16 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task SaveThenLoad_RoundTripsTheWholePlan()
     {
         var plan = RoadmapPlan.Empty();
-        var design = plan.AddItem(
+        var design = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Design the sync service",
             Window(5, 9),
             PlanningPriority.High,
             RepositoryScope.Of(["backlog", "fincent"]),
             PlanningLane.Of("platform"),
             taskId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            notes: "Spike first.").Value;
-        var build = plan.AddItem("Build it", Window(12, 23)).Value;
-        var release = plan.AddMilestone("1.0", new DateOnly(2026, 2, 2), MilestoneKind.Release).Value;
+            notes: "Spike first.").Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Build it", Window(12, 23)).Value).Value;
+        var release = Assert.IsType<Ok<Milestone>>(plan.AddMilestone("1.0", new DateOnly(2026, 2, 2), MilestoneKind.Release).Value).Value;
         plan.AddDependency(build.Id, design.Id);
         plan.AddDependency(release.Id, build.Id);
 
@@ -275,11 +276,11 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         // already has them has to keep them until they have been carried over to the
         // repository they were chosen for.
         var plan = RoadmapPlan.Rehydrate([], [], BandColours.Of([new KeyValuePair<string, int>("backlog", 4)]));
-        var freeze = plan.AddMilestone(
+        var freeze = Assert.IsType<Ok<Milestone>>(plan.AddMilestone(
             "Freeze",
             new DateOnly(2026, 2, 2),
             MilestoneKind.Freeze,
-            isPlanWide: true).Value;
+            isPlanWide: true).Value).Value;
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
 
         await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
@@ -294,12 +295,12 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task ATagAndKnowledgeReferencesRoundTrip()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem(
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem(
             "Extract the sync service",
             Window(5, 9),
             tag: PlanningTag.Of("sync"),
             knowledgeRefs: KnowledgeReferences.Of(
-                [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
+                [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value).Value;
 
         await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
@@ -449,7 +450,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task APinnedEndSurvivesTheRoundTrip_UnderAnExplicitKey()
     {
         var plan = RoadmapPlan.Empty();
-        var pinned = plan.AddItem("Pinned", Window(5, 9)).Value;
+        var pinned = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Pinned", Window(5, 9)).Value).Value;
         plan.AddItem("Free", Window(5, 9));
         plan.PinEnd(pinned.Id, new DateOnly(2026, 3, 20));
 
@@ -489,7 +490,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task ACompletionDaySurvivesTheRoundTrip_UnderAnExplicitKey()
     {
         var plan = RoadmapPlan.Empty();
-        var completed = plan.AddItem("Completed", Window(5, 9)).Value;
+        var completed = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Completed", Window(5, 9)).Value).Value;
         plan.AddItem("Open", Window(5, 9));
         plan.CompleteItem(completed.Id, new DateOnly(2026, 3, 12));
 
@@ -508,7 +509,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task AReopenedItemWritesNoCompletionKey()
     {
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Reopened", Window(5, 9)).Value;
+        var item = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Reopened", Window(5, 9)).Value).Value;
         plan.CompleteItem(item.Id, new DateOnly(2026, 3, 12));
         plan.ReopenItem(item.Id);
 

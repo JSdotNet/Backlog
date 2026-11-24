@@ -1,5 +1,6 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -392,16 +393,17 @@ public sealed class SessionSyncWorker : IDisposable
             var result = await RefusedTokenRerun.RunAsync(
                 _services, () => session.SyncAsync(_lifetime.Token), _log, "session").ConfigureAwait(false);
 
-            if (result.IsSuccess)
+            switch (result)
             {
-                LastSummary = result.Value;
-                LastError = null;
-            }
-            else
-            {
-                LastError = result.Error.Message;
-                _log.LogInformation(
-                    "A session sync cycle did not complete: {Code} {Message}", result.Error.Code, result.Error.Message);
+                case Ok<SessionSyncSummary>(var summary):
+                    LastSummary = summary;
+                    LastError = null;
+                    break;
+                case Error error:
+                    LastError = error.Message;
+                    _log.LogInformation(
+                        "A session sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                    break;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

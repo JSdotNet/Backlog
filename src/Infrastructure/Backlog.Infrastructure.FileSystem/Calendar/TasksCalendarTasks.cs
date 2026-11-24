@@ -3,6 +3,7 @@ using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Calendar;
 
@@ -75,7 +76,7 @@ public sealed class TasksCalendarTasks : ICalendarTasks, IDisposable
     public async Task<string?> SetDueDateAsync(Guid taskId, DateOnly dueOn, CancellationToken cancellationToken = default)
     {
         var saved = await _items.SetDueAsync(taskId, dueOn, cancellationToken).ConfigureAwait(false);
-        return saved.IsFailure ? saved.Error.Message : null;
+        return saved is Error error ? error.Message : null;
     }
 
     /// <summary>Merges the one day into the task's blocks by <see cref="PlannedHoursMerge"/>,
@@ -94,7 +95,7 @@ public sealed class TasksCalendarTasks : ICalendarTasks, IDisposable
             if (PlannedHoursMerge.WithDay(task.PlannedHours, on, hours) is not { } next) return null;
 
             var saved = await _items.SetPlannedHoursAsync(taskId, next, cancellationToken).ConfigureAwait(false);
-            return saved.IsFailure ? saved.Error.Message : null;
+            return saved is Error error ? error.Message : null;
         }
         finally
         {

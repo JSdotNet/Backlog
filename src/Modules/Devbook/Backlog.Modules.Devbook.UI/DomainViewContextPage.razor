@@ -15,7 +15,7 @@
 {
     <DomainContextView @key="@_loaded"
                        ContextName="@read.ContextName"
-                       ContextSummary="@read.Summary"
+                       ContextSummary="@(DomainStatusDisplay.IsShown(StatusDisplay) ? read.Summary : read.SummaryWithoutStatus)"
                        Overview="@read.Overview"
                        Neighbours="@read.Neighbours"
                        DocumentPath="@read.DocumentPath"
@@ -36,6 +36,11 @@ else if (_read?.Problem is { } problem)
 @code {
     [Parameter]
     public string? RepositoryAlias { get; set; }
+
+    /// <summary>The Devbook status switch, as the Domain view cascades it: off, the
+    /// middle card's line leaves the context's status out, as the header does.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
 
     /// <summary>The context's folder or a file in it, relative to the Domain
     /// folder: <c>tasks</c>, <c>tasks/context.md</c>.</summary>
@@ -110,7 +115,8 @@ else if (_read?.Problem is { } problem)
         DomainNeighbourhood Neighbours,
         string? DocumentPath,
         string? Problem,
-        string? Summary = null)
+        string? Summary = null,
+        string? SummaryWithoutStatus = null)
     {
         public static ContextReading Failed(string problem) =>
             new("the context", DomainContextOverview.Empty, DomainNeighbourhood.Empty, null, problem);
@@ -158,7 +164,8 @@ else if (_read?.Problem is { } problem)
             neighbours.Describe(named),
             root?.Path,
             null,
-            Summary(kind, overview.Deployment, context.Status));
+            Summary(kind, overview.Deployment, context.Status),
+            Summary(kind, overview.Deployment, status: null));
     }
 
     /// <summary>Each context folder as the context map classifies it, its subdomain

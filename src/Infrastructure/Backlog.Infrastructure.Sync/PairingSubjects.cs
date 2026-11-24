@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -163,7 +164,7 @@ public sealed class PairingSubjects : IDisposable
             name ??= await NameFromRosterAsync(deviceId).ConfigureAwait(false);
 
             var alerted = await notifications.PublishAsync(PairingQuestion.NotRefused(pairingId, deviceId, name, code, reason)).ConfigureAwait(false);
-            if (alerted.IsFailure) _logger.LogDebug("The alert that the device of pairing {Id} was not refused was not published: {Error}", pairingId, alerted.Error.Message);
+            if (alerted is Error unpublished) _logger.LogDebug("The alert that the device of pairing {Id} was not refused was not published: {Error}", pairingId, unpublished.Message);
         }
         catch (Exception exception)
         {
@@ -177,8 +178,8 @@ public sealed class PairingSubjects : IDisposable
 
         var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
 
-        return listed.IsSuccess
-            ? listed.Value.Devices.FirstOrDefault(device => device.DeviceId == deviceId)?.Name
+        return listed is Ok<DeviceListResponse> ok
+            ? ok.Value.Devices.FirstOrDefault(device => device.DeviceId == deviceId)?.Name
             : null;
     }
 
@@ -264,13 +265,13 @@ public sealed class PairingSubjects : IDisposable
             if (_roster() is not { } roster) return;
 
             var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
-            if (listed.IsFailure)
+            if (listed is not Ok<DeviceListResponse>(var devices))
             {
-                _logger.LogDebug("The device list was not read while a pairing code is open: {Error}", listed.Error.Message);
+                _logger.LogDebug("The device list was not read while a pairing code is open: {Error}", ((Error)listed.Value!).Message);
                 return;
             }
 
-            foreach (var device in listed.Value.Devices.Where(device => device.PairedBy == listed.Value.CallerDeviceId))
+            foreach (var device in devices.Devices.Where(device => device.PairedBy == devices.CallerDeviceId))
             {
                 if (_claimed.ContainsKey(device.DeviceId)) continue;
 
@@ -300,7 +301,7 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var asked = await notifications.PublishAsync(PairingQuestion.Draft(pairing.Id, deviceId, deviceName)).ConfigureAwait(false);
-            if (asked.IsFailure) _logger.LogDebug("The question about the device that redeemed pairing {Id} was not published: {Error}", pairing.Id, asked.Error.Message);
+            if (asked is Error error) _logger.LogDebug("The question about the device that redeemed pairing {Id} was not published: {Error}", pairing.Id, error.Message);
         }
         catch (Exception exception)
         {
@@ -315,7 +316,7 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var closed = await notifications.CloseForSubjectAsync(PairingQuestion.Subject(id), SyncNotificationSubjects.EndedReason).ConfigureAwait(false);
-            if (closed.IsFailure) _logger.LogDebug("Notifications about pairing {Id} were not closed: {Error}", id, closed.Error.Message);
+            if (closed is Error error) _logger.LogDebug("Notifications about pairing {Id} were not closed: {Error}", id, error.Message);
         }
         catch (Exception exception)
         {

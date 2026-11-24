@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.UnitTests;
 
@@ -24,8 +25,8 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
     {
         var added = await Pane.AddAsync(new NewKnowledgeEventDto("dotNET Friday, 27 November"), Token);
 
-        Assert.True(added.IsSuccess);
-        var read = (await Pane.GetAsync(added.Value.Id, Token)).Value;
+        Assert.IsType<Ok<KnowledgeEventDto>>(added.Value);
+        var read = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, Token)).Value).Value;
         Assert.Equal(("dotNET Friday, 27 November", KnowledgeEventState.Spotted), (read.Title, read.State));
         Assert.Null(read.Start);
         Assert.Null(read.End);
@@ -51,8 +52,8 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
                 Cost: new CostDto(749m, "eur")),
             Token);
 
-        Assert.True(added.IsSuccess);
-        var read = (await Pane.GetAsync(added.Value.Id, Token)).Value;
+        Assert.IsType<Ok<KnowledgeEventDto>>(added.Value);
+        var read = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Id, Token)).Value).Value;
         Assert.Equal(Start, read.Start);
         Assert.Equal(End, read.End);
         Assert.Equal(DateSource.Typed, read.DateSource);
@@ -74,7 +75,7 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
             new NewKnowledgeEventDto("NDC Oslo", SeriesName: "NDC", Start: new EventDateDto(new DateOnly(2027, 6, 9)), End: new EventDateDto(new DateOnly(2027, 6, 7))),
             Token);
 
-        Assert.Equal("knowledge_event.dates_out_of_order", refused.Error.Code);
+        Assert.Equal("knowledge_event.dates_out_of_order", Assert.IsType<Error>(refused.Value).Code);
         await AssertNothingWritten();
     }
 
@@ -85,7 +86,7 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
             new NewKnowledgeEventDto("dotNET Friday", Start: new EventDateDto(new DateOnly(2026, 11, 27), new TimeOnly(16, 30))),
             Token);
 
-        Assert.Equal("event_date.offset_missing", refused.Error.Code);
+        Assert.Equal("event_date.offset_missing", Assert.IsType<Error>(refused.Value).Code);
         await AssertNothingWritten();
     }
 
@@ -94,7 +95,7 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
     {
         var refused = await Pane.AddAsync(new NewKnowledgeEventDto("dotNET Friday", Place: new PlaceDto("Nieuwegein", IsOnline: true)), Token);
 
-        Assert.Equal("place.invalid", refused.Error.Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(refused.Value).Code);
         await AssertNothingWritten();
     }
 
@@ -105,7 +106,7 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
     {
         var refused = await Pane.AddAsync(new NewKnowledgeEventDto("Techorama", Cost: new CostDto(amount, currency)), Token);
 
-        Assert.Equal("cost.invalid", refused.Error.Code);
+        Assert.Equal("cost.invalid", Assert.IsType<Error>(refused.Value).Code);
         await AssertNothingWritten();
     }
 
@@ -114,18 +115,18 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
     {
         var refused = await Pane.AddAsync(new NewKnowledgeEventDto("  ", SeriesName: "Techorama"), Token);
 
-        Assert.Equal("knowledge_event.title_missing", refused.Error.Code);
+        Assert.Equal("knowledge_event.title_missing", Assert.IsType<Error>(refused.Value).Code);
         await AssertNothingWritten();
     }
 
     [Fact]
     public async Task A_series_named_in_another_casing_is_joined_and_none_is_started()
     {
-        var techorama = (await Pane.StartSeriesAsync("Techorama", cancellationToken: Token)).Value;
+        var techorama = Assert.IsType<Ok<EventSeriesDto>>((await Pane.StartSeriesAsync("Techorama", cancellationToken: Token)).Value).Value;
 
         var added = await Pane.AddAsync(new NewKnowledgeEventDto("Techorama Belgium 2027", SeriesName: "  TECHORAMA "), Token);
 
-        Assert.Equal(techorama.Id, added.Value.Series?.Id);
+        Assert.Equal(techorama.Id, Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Series?.Id);
         Assert.Single(await Pane.ListSeriesAsync(Token));
     }
 
@@ -136,7 +137,7 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
 
         var started = Assert.Single(await Pane.ListSeriesAsync(Token));
         Assert.Equal("dotNET Friday", started.Name);
-        Assert.Equal(started.Id, added.Value.Series?.Id);
+        Assert.Equal(started.Id, Assert.IsType<Ok<KnowledgeEventDto>>(added.Value).Value.Series?.Id);
         Assert.Equal(1, _announced);
     }
 
@@ -144,12 +145,12 @@ public sealed class EventsPaneAddTests : EventsPaneFixture
     public async Task A_name_two_series_share_is_refused_and_nothing_is_written()
     {
         // Two series may share a name: Start series refuses only a blank one.
-        await Series.SaveAsync(EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BE", null).Value, Token);
-        await Series.SaveAsync(EventSeries.Create(Guid.NewGuid(), "techorama", "Techorama NL", null).Value, Token);
+        await Series.SaveAsync(Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BE", null).Value).Value, Token);
+        await Series.SaveAsync(Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "techorama", "Techorama NL", null).Value).Value, Token);
 
         var refused = await Pane.AddAsync(new NewKnowledgeEventDto("Techorama 2027", SeriesName: "Techorama"), Token);
 
-        Assert.Equal("event_series.ambiguous", refused.Error.Code);
+        Assert.Equal("event_series.ambiguous", Assert.IsType<Error>(refused.Value).Code);
         Assert.Empty(await Pane.ListAsync(Token));
         Assert.Equal(2, (await Pane.ListSeriesAsync(Token)).Count);
         Assert.Equal(0, _announced);

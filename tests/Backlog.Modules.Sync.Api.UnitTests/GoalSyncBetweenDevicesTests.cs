@@ -1,4 +1,6 @@
+using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -35,13 +37,13 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
         await a.Goals(goals => goals.AttachAsync(goal.Id, GoalItemDto.ForTask(task), cancellationToken: Cancellation));
         await a.Goals(goals => goals.AttachAsync(goal.Id, GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352), cancellationToken: Cancellation));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
         var heard = 0;
         b.GoalsChanged += () => heard++;
 
-        var pulled = await b.SyncAsync();
+        var pulled = Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value).Value;
 
-        Assert.Equal(1, pulled.Value.Applied);
+        Assert.Equal(1, pulled.Applied);
         var there = await b.Goals(goals => goals.GetAsync(goal.Id, Cancellation));
         Assert.Equal(goal.Title, there.Title);
         Assert.Equal(goal.Outcome, there.Outcome);
@@ -59,8 +61,8 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
     {
         var (a, b) = await _desktops.PairAsync();
         var goal = await a.Goals(goals => goals.CreateAsync(new SetGoalRequest("Customers get paid faster", null, Due), Cancellation));
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
 
         await a.Goals(goals => goals.EditAsync(goal.Id, new SetGoalRequest("Written first, on A", null, Due), Cancellation));
         await b.Goals(goals => goals.EditAsync(goal.Id, new SetGoalRequest("Written later, on B", null, Due), Cancellation));
@@ -68,8 +70,8 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
 
         for (var round = 0; round < 2; round++)
         {
-            Assert.True((await b.SyncAsync()).IsSuccess);
-            Assert.True((await a.SyncAsync()).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
+            Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
         }
 
         Assert.Equal(later, await a.GoalCopyAsync(goal.Id));
@@ -83,13 +85,13 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
     {
         var (a, b) = await _desktops.PairAsync();
         var goal = await a.Goals(goals => goals.CreateAsync(new SetGoalRequest("Customers get paid faster", null, Due), Cancellation));
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
         Assert.Single(await b.Goals(goals => goals.ListAsync(cancellationToken: Cancellation)));
 
         await a.DeleteGoalAsync(goal.Id);
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
 
         Assert.Empty(await b.Goals(goals => goals.ListAsync(cancellationToken: Cancellation)));
         Assert.Equal(await a.GoalCopyAsync(goal.Id), await b.GoalCopyAsync(goal.Id));

@@ -71,8 +71,8 @@ public sealed class RouteToEventTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(target.EventId, result.Value.EventId);
+        var ok = Assert.IsType<Ok<InboxEventRoutedDto>>(result.Value);
+        Assert.Equal(target.EventId, ok.Value.EventId);
 
         var request = Assert.Single(target.Requests);
         Assert.Equal("dotNET Friday Q4", request.Title);
@@ -96,7 +96,7 @@ public sealed class RouteToEventTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<InboxEventRoutedDto>>(result.Value);
         Assert.Null(Assert.Single(target.Requests).Facts);
         Assert.Equal(RoutingDomain.Events, item.Routing!.Domain);
     }
@@ -112,7 +112,7 @@ public sealed class RouteToEventTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.Equal(InboxErrors.EventsUnavailableCode, result.Error.Code);
+        Assert.Equal(InboxErrors.EventsUnavailableCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(target.Requests);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
     }
@@ -127,7 +127,7 @@ public sealed class RouteToEventTests
         var result = await new RouteToEventCommandHandler(store, new FakeTimeProvider(Decision), target: null)
             .Handle(new RouteToEventCommand(item.Id), Cancellation);
 
-        Assert.Equal(InboxErrors.EventsUnavailableCode, result.Error.Code);
+        Assert.Equal(InboxErrors.EventsUnavailableCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Null(item.Routing);
     }
 
@@ -142,7 +142,7 @@ public sealed class RouteToEventTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.Equal(InboxErrors.EventNotMadeCode, result.Error.Code);
+        Assert.Equal(InboxErrors.EventNotMadeCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.Routing);
     }
@@ -158,7 +158,7 @@ public sealed class RouteToEventTests
 
         var again = await Route(store, target, item.Id);
 
-        Assert.True(again.IsFailure);
+        Assert.IsType<Error>(again.Value);
         Assert.Single(target.Requests);
     }
 
@@ -173,7 +173,7 @@ public sealed class RouteToEventTests
 
         var result = await Route(store, target, item.Id);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Empty(target.Requests);
     }
 
@@ -202,7 +202,7 @@ public sealed class RouteToEventTests
         var result = await new ReturnToInboxCommandHandler(store, backlog, new FakeTimeProvider(Decision.AddMinutes(1)))
             .Handle(new ReturnToInboxCommand(item.Id, DeleteTasks: true), Cancellation);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         Assert.Equal(InboxStatus.Unprocessed, item.Status);
         Assert.Null(item.Routing);
     }

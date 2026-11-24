@@ -57,10 +57,10 @@ internal sealed class OwnerNotifications(
     private async Task<Result<Guid>> SaveNewAsync(Guid id, NotificationDraft draft, CancellationToken cancellationToken)
     {
         var published = Notification.Publish(id, Me, draft, time.GetUtcNow());
-        if (published.IsFailure) return published.Error;
+        if (published is not Ok<Notification>(var notification)) return (Error)published.Value!;
 
-        await repository.SaveAsync(published.Value, cancellationToken).ConfigureAwait(false);
-        return published.Value.Id;
+        await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
+        return notification.Id;
     }
 
     public Task<Result> CloseAsync(Guid notificationId, string? reason = null, CancellationToken cancellationToken = default) =>
@@ -77,7 +77,7 @@ internal sealed class OwnerNotifications(
             foreach (var notification in await repository.ListOpenAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (notification.OwnerInstanceId != Me || !notification.IsAbout(subject)) continue;
-                if (notification.CloseForSubject(subject, reason, Me, time.GetUtcNow()).IsFailure) continue;
+                if (notification.CloseForSubject(subject, reason, Me, time.GetUtcNow()) is Error) continue;
 
                 await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
                 closed++;
@@ -113,7 +113,7 @@ internal sealed class OwnerNotifications(
             if (notification is null) return NotificationsErrors.NotFound(reply.NotificationId);
 
             accepted = notification.Accept(reply, Me, time.GetUtcNow());
-            if (accepted.IsFailure) return accepted;
+            if (accepted is Error) return accepted;
 
             await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
         }
@@ -151,7 +151,7 @@ internal sealed class OwnerNotifications(
             if (notification is null) return Result.Failure(NotificationsErrors.NotFound(notificationId));
 
             var changed = change(notification);
-            if (changed.IsFailure) return changed;
+            if (changed is Error) return changed;
 
             await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
             return changed;

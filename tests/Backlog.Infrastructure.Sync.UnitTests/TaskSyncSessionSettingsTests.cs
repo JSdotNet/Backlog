@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -75,8 +76,8 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
 
         var sent = Assert.Single(Pushed(Assert.Single(fixture.Bodies)));
         Assert.Equal(setting.Id, sent.Id);
@@ -120,7 +121,7 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Equal(DateTimeOffset.UnixEpoch, Assert.Single(Pushed(Assert.Single(fixture.Bodies))).UpdatedAt);
         Assert.Equal(DateTimeOffset.UnixEpoch, state.Current.DocumentWatermark(Iteration));
     }
@@ -136,8 +137,8 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value.Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(0, summary.Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -156,8 +157,8 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, result.Value.Pushed);
-        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(0, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Refused);
         Assert.Empty(activity.Snapshot());
         Assert.Equal(Morning, state.Current.DocumentWatermark(setting.Type));
     }
@@ -200,8 +201,8 @@ public sealed class TaskSyncSessionSettingsTests
 
         var result = await fixture.Session.PullAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Value.Applied);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Applied);
         Assert.Equal(sent, Assert.Single(fixture.Offered));
         Assert.Equal("cursor-after-the-page", state.Current.PullCursor);
     }

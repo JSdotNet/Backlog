@@ -123,7 +123,12 @@
     // A panel that resolves the heading itself — the AI and Design folders'
     // document view (DocumentDevbookView) — passes the heading's text as the
     // anchor and no path; the text slugged finds the same heading.
+    //
+    // A reading with no file view of the file — the Domain view's pages, which
+    // draw a file's chapters as cards and sections rather than as its markdown —
+    // heads them with the elements themselves, so there an h2 to h4 counts too.
     const headingFrames = 300;
+    const pageHeadings = '[role="heading"], h2, h3, h4';
     const headingSettleFrames = 60;
 
     const headingSlug = text => text.toLowerCase().trim()
@@ -151,7 +156,7 @@
             const views = Array.from(scope.querySelectorAll('.file-view')).filter(opened);
             const headings = views.length > 0
                 ? views.flatMap(view => Array.from(view.querySelectorAll('[role="heading"]')))
-                : Array.from(scope.querySelectorAll('[role="heading"]'));
+                : Array.from(scope.querySelectorAll(pageHeadings));
             const slugged = headings.map(heading => ({ heading, slug: headingSlug(textOf(heading)) }));
             for (const slug of wanted) {
                 const match = slugged.find(entry => entry.slug === slug);

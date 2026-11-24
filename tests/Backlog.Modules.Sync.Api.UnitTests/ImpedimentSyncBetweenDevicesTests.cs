@@ -1,9 +1,11 @@
 using System.Net.Http.Json;
 
+using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -41,13 +43,13 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         var raised = await a.Impediments(impediments => impediments.RaiseAsync(
             new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(task), PullRequest, Plan], "Asked the bank on Friday"), Cancellation));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
         var heard = 0;
         b.ImpedimentsChanged += () => heard++;
 
-        var pulled = await b.SyncAsync();
+        var pulled = Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value).Value;
 
-        Assert.Equal(1, pulled.Value.Applied);
+        Assert.Equal(1, pulled.Applied);
         var there = await b.Impediments(impediments => impediments.GetAsync(raised.Id, Cancellation));
         Assert.Equal("Bank sample files missing", there.Title);
         Assert.Equal(ImpedimentState.New, there.State);
@@ -69,8 +71,8 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         var task = Guid.NewGuid();
         var raised = await a.Impediments(impediments => impediments.RaiseAsync(
             new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(task), PullRequest, Plan]), Cancellation));
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
 
         var version1 = new ImpedimentReplicaCopyDto(
             raised.Id,
@@ -81,7 +83,7 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
             SyncRoutes.Absolute(SyncRoutes.Tasks), new PushTasksRequest([Backlog.Infrastructure.Sync.ImpedimentReplicaDocuments.ToChange(version1)]), Cancellation);
         pushed.EnsureSuccessStatusCode();
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
 
         var there = await b.Impediments(impediments => impediments.GetAsync(raised.Id, Cancellation));
         Assert.Equal("Bank sample files still missing", there.Title);
@@ -97,8 +99,8 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         var (a, b) = await _desktops.PairAsync();
         var raised = await a.Impediments(impediments => impediments.RaiseAsync(
             new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+        Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
 
         await a.Impediments(impediments => impediments.MoveAsync(raised.Id, ImpedimentState.Reported, "Finance", Cancellation));
         await b.Impediments(impediments => impediments.MoveAsync(raised.Id, ImpedimentState.Resolved, cancellationToken: Cancellation));
@@ -107,8 +109,8 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
 
         for (var round = 0; round < 2; round++)
         {
-            Assert.True((await a.SyncAsync()).IsSuccess);
-            Assert.True((await b.SyncAsync()).IsSuccess);
+            Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
+            Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value);
         }
 
         Assert.Equal(later, await a.ImpedimentCopyAsync(raised.Id));
@@ -129,7 +131,7 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         var (a, b) = await _desktops.PairAsync();
         var raised = await a.Impediments(impediments => impediments.RaiseAsync(
             new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>((await a.SyncAsync()).Value);
 
         var series = SprintSeries();
         var pushed = await a.Http.PostAsJsonAsync(
@@ -137,12 +139,11 @@ public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
         pushed.EnsureSuccessStatusCode();
         Assert.Equal(1, (await pushed.Content.ReadFromJsonAsync<PushTasksResponse>(Cancellation))!.Accepted);
 
-        var pulled = await b.SyncAsync();
+        var pulled = Assert.IsType<Ok<TaskSyncSummary>>((await b.SyncAsync()).Value).Value;
 
-        Assert.True(pulled.IsSuccess);
-        Assert.Equal(2, pulled.Value.Pulled);
-        Assert.Equal(1, pulled.Value.Applied);
-        Assert.Equal(0, pulled.Value.Skipped);
+        Assert.Equal(2, pulled.Pulled);
+        Assert.Equal(1, pulled.Applied);
+        Assert.Equal(0, pulled.Skipped);
         Assert.False(await b.HoldsTaskAsync(series.Id));
         Assert.Equal(raised.Id, Assert.Single(await b.Impediments(impediments => impediments.ListAsync(cancellationToken: Cancellation))).Id);
     }

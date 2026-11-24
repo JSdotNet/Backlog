@@ -107,8 +107,8 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     {
         using var harness = Harness(editing: false, status: false);
 
-        var component = RenderPanel(harness, "domain");
-        component.WaitForAssertion(() => Assert.Contains(Prose("domain"), component.Markup, StringComparison.Ordinal));
+        var component = RenderPanel(harness, "design");
+        component.WaitForAssertion(() => Assert.Contains(Prose("design"), component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll(StatusSelector));
 
         harness.Features.SetEnabled(DevbookFeatures.Status, true);
@@ -119,7 +119,7 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
     // --- Fixtures --------------------------------------------------------------
 
     /// <summary>Every way a status is drawn in these panels: the select, the
-    /// badge, and the Domain panel's own action-strip forms of both.</summary>
+    /// badge, and the action-strip forms of both.</summary>
     private const string StatusSelector =
         ".status-editor, .badge--status, [data-testid='devbook-state-select'], [data-testid='devbook-state-badge']";
 
@@ -146,13 +146,13 @@ public sealed class DevbookPanelsViewerSwitchesTests : IDisposable
 
     private static IRenderedComponent<ContainerFragment> RenderPanel(TestHarness harness, string panel) => panel switch
     {
-        "domain" => Render<DomainDevbookPanel>(harness, ".domain/context-map.md"),
+        "domain" => Render<DomainViewAsWritten>(harness, "context-map.md"),
         "design" => Render<DesignDevbookView>(harness, "colors.md"),
         "instructions" => Render<InstructionsDevbookPanel>(harness, "CLAUDE.md"),
         _ => Render<Arc42DevbookPanel>(harness, ".arc42/01-introduction.md")
     };
 
-    /// <summary>Rendered as a fragment so the four panels come back as one type:
+    /// <summary>Rendered as a fragment so the panels come back as one type:
     /// each takes the same two parameters under the same names.</summary>
     private static IRenderedComponent<ContainerFragment> Render<TPanel>(TestHarness harness, string selectedPath)
         where TPanel : IComponent =>

@@ -351,6 +351,45 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The repository alias follower (local ADR 0060 §3) resolves, over one alias-keyed
+    /// store per kind of data kept under an alias, and each is the instance the app reads
+    /// rather than a second copy beside it: a re-key into a copy would change nothing anyone
+    /// sees. The roadmap's store comes from its module, over the plan repository.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_alias_follower_over_every_alias_keyed_store()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        var services = harness.Services;
+
+        Assert.NotNull(services.GetRequiredService<Backlog.Infrastructure.GitHub.RepositoryAliasFollower>());
+
+        var stores = services.GetServices<Backlog.SharedKernel.IRepositoryAliasKeyedStore>().ToList();
+
+        Assert.Equal(
+            [
+                "DevbookAnnotationStore",
+                "DevbookImportLedger",
+                "DevbookSubjectStateStore",
+                "DevbookSyncDirectionAliases",
+                "PlanningVelocitySettingsStore",
+                "RoadmapAliasKeyedStore",
+                "ShellNavigationStore",
+                "WorkspaceSettingsStore"
+            ],
+            stores.Select(store => store.GetType().Name).Order(StringComparer.Ordinal));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.PlanningVelocitySettingsStore>()));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.DevbookSubjectStateStore>()));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.DevbookAnnotationStore>()));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.ShellNavigationStore>()));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.DevbookImportLedger>()));
+        Assert.Contains(stores, store => ReferenceEquals(store, services.GetRequiredService<Backlog.Infrastructure.FileSystem.WorkspaceSettingsStore>()));
+        Assert.Same(
+            services.GetRequiredService<Backlog.Infrastructure.FileSystem.DevbookImportLedger>(),
+            services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookImportLedger>());
+    }
+
+    /// <summary>
     /// A validation question about a run whose pull request merged closes while the app runs,
     /// not only at the next start: the harness composes the watch that asks the Sessions
     /// probe about the open questions' runs, one instance for the process.

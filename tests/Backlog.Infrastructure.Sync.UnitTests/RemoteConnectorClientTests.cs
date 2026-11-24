@@ -2,6 +2,8 @@ using System.Net;
 
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,15 +29,15 @@ public sealed class RemoteConnectorClientTests
 
         var result = await fixture.Client.GetStatusAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        var response = Assert.IsType<Ok<ConnectorStatusResponse>>(result.Value).Value;
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal("/api/sync/connector", request.Path);
-        Assert.True(result.Value.HasSecret);
-        Assert.Equal("claude-connector", result.Value.ClientId);
-        Assert.Equal(new Uri("https://claude.ai/api/mcp/auth_callback"), result.Value.RedirectUri);
-        Assert.Equal(new DateTimeOffset(2026, 11, 1, 9, 0, 0, TimeSpan.Zero), result.Value.CreatedAt);
-        Assert.Equal(new DateTimeOffset(2026, 11, 17, 18, 30, 0, TimeSpan.Zero), result.Value.LastUsedAt);
+        Assert.True(response.HasSecret);
+        Assert.Equal("claude-connector", response.ClientId);
+        Assert.Equal(new Uri("https://claude.ai/api/mcp/auth_callback"), response.RedirectUri);
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 9, 0, 0, TimeSpan.Zero), response.CreatedAt);
+        Assert.Equal(new DateTimeOffset(2026, 11, 17, 18, 30, 0, TimeSpan.Zero), response.LastUsedAt);
     }
 
     [Fact]
@@ -47,12 +49,12 @@ public sealed class RemoteConnectorClientTests
 
         var result = await fixture.Client.CreateSecretAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        var response = Assert.IsType<Ok<ConnectorSecretResponse>>(result.Value).Value;
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("/api/sync/connector/secret", request.Path);
-        Assert.Equal("s3cr3t-shown-once", result.Value.ClientSecret);
-        Assert.Equal("claude-connector", result.Value.ClientId);
+        Assert.Equal("s3cr3t-shown-once", response.ClientSecret);
+        Assert.Equal("claude-connector", response.ClientId);
     }
 
     [Fact]
@@ -62,7 +64,7 @@ public sealed class RemoteConnectorClientTests
 
         var result = await fixture.Client.RevokeSecretAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var request = Assert.Single(fixture.Handler.Requests);
         Assert.Equal(HttpMethod.Delete, request.Method);
         Assert.Equal("/api/sync/connector/secret", request.Path);
@@ -80,10 +82,13 @@ public sealed class RemoteConnectorClientTests
         var created = await fixture.Client.CreateSecretAsync(TestContext.Current.CancellationToken);
         var revoked = await fixture.Client.RevokeSecretAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, status.Error.Code);
-        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, created.Error.Code);
-        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, revoked.Error.Code);
-        Assert.Equal("Only the owner's devices manage the connector.", revoked.Error.Message);
+        var statusError = Assert.IsType<Error>(status.Value);
+        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, statusError.Code);
+        var createdError = Assert.IsType<Error>(created.Value);
+        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, createdError.Code);
+        var revokedError = Assert.IsType<Error>(revoked.Value);
+        Assert.Equal(SyncErrorCodes.ConnectorNotOwner, revokedError.Code);
+        Assert.Equal("Only the owner's devices manage the connector.", revokedError.Message);
     }
 
     [Fact]
@@ -93,8 +98,8 @@ public sealed class RemoteConnectorClientTests
 
         var result = await fixture.Client.CreateSecretAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DevicePairingClient.UnreachableCode, error.Code);
     }
 
     /// <summary>The card offers nothing on a device that never paired: there is no
