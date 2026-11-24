@@ -122,8 +122,8 @@ public sealed class ImpedimentToolsTests
         var tools = Tools(port);
         Guid? task = taskId is null ? null : Guid.Parse(taskId);
 
-        var linked = await Assert.ThrowsAsync<McpException>(() => tools.LinkAsync(Guid.NewGuid(), planTag, task, repository, number, Cancellation));
-        var unlinked = await Assert.ThrowsAsync<McpException>(() => tools.UnlinkAsync(Guid.NewGuid(), planTag, task, repository, number, Cancellation));
+        var linked = await Assert.ThrowsAsync<McpException>(() => tools.LinkAsync(Guid.NewGuid(), planTag, task, repository, number, cancellationToken: Cancellation));
+        var unlinked = await Assert.ThrowsAsync<McpException>(() => tools.UnlinkAsync(Guid.NewGuid(), planTag, task, repository, number, cancellationToken: Cancellation));
 
         Assert.StartsWith(code, linked.Message, StringComparison.Ordinal);
         Assert.StartsWith(code, unlinked.Message, StringComparison.Ordinal);
@@ -168,7 +168,7 @@ public sealed class ImpedimentToolsTests
         var port = new FakeImpediments();
         var id = Guid.NewGuid();
 
-        var payload = await Tools(port).SetStateAsync(id, token, "bank support", Cancellation);
+        var payload = await Tools(port).SetStateAsync(id, token, "bank support", cancellationToken: Cancellation);
 
         Assert.Equal((id, expected, "bank support"), port.Moved);
         Assert.Equal(answered, payload.State);
@@ -182,7 +182,7 @@ public sealed class ImpedimentToolsTests
     {
         var port = new FakeImpediments();
 
-        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), token, null, Cancellation));
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), token, null, cancellationToken: Cancellation));
 
         Assert.StartsWith("progress.impediment_state_unknown", failure.Message, StringComparison.Ordinal);
         Assert.Null(port.Moved);
@@ -196,7 +196,7 @@ public sealed class ImpedimentToolsTests
             MoveAnswer = ProgressErrors.ImpedimentMoveNotAllowed(ImpedimentState.Escalated, ImpedimentState.Reported)
         };
 
-        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), "reported", null, Cancellation));
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), "reported", null, cancellationToken: Cancellation));
 
         Assert.StartsWith("progress.impediment_move_not_allowed", failure.Message, StringComparison.Ordinal);
     }

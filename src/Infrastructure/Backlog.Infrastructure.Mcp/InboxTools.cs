@@ -107,6 +107,8 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
     public async Task<InboxItemSummaryPayload> ArchiveAsync(
         [Description("The capture's id, as a GUID.")]
         Guid id,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var archived = await inbox.ArchiveAsync(id, cancellationToken).ConfigureAwait(false);
@@ -136,6 +138,8 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
         string? body = null,
         [Description("Optional. The link the capture is about, an absolute http or https address.")]
         string? sourceUrl = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         // Manual: the domain's word for "by hand" — somebody deciding to capture, which an

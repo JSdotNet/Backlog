@@ -80,7 +80,7 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
         Assert.Equal(Photo, await File.ReadAllBytesAsync(photo.LocalPath, Cancellation));
         Assert.Contains("Session 0", read.BodyMd, StringComparison.Ordinal);
 
-        var archived = await tools.ArchiveAsync(ids[1], Cancellation);
+        var archived = await tools.ArchiveAsync(ids[1], cancellationToken: Cancellation);
         Assert.Equal("archived", archived.Status);
 
         var after = await tools.ListAsync(from: new DateOnly(2026, 10, 27), to: new DateOnly(2026, 10, 28), cancellationToken: Cancellation);
@@ -92,7 +92,7 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
         var archivedList = await tools.ListAsync(status: "archived", cancellationToken: Cancellation);
         Assert.Equal(ids[1], Assert.Single(archivedList.Items).Id);
 
-        var again = await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(ids[1], Cancellation));
+        var again = await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(ids[1], cancellationToken: Cancellation));
         Assert.Contains("inbox.item.invalid_transition", again.Message, StringComparison.Ordinal);
     }
 
@@ -110,7 +110,7 @@ public sealed class InboxMcpToolsOverSqliteTests : IDisposable
             "Call Anna\nabout the invoice",
             Notes,
             "https://example.test/invoice/42",
-            Cancellation);
+            cancellationToken: Cancellation);
 
         var stored = await _store.GetAsync(captured.Id, Cancellation);
         Assert.NotNull(stored);

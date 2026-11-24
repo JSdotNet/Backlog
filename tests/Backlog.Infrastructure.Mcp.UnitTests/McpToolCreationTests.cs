@@ -217,12 +217,12 @@ public class McpToolCreationTests
             ["id", "repoId", "externalId", "title", "status", "repository", "tag"],
             schemas["find_item"]);
         Assert.Equal(["id"], schemas["read_item"]);
-        Assert.Equal(["id", "status"], schemas["transition"]);
-        Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
-        Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note"], schemas["raise_impediment"]);
-        Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
-        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["link_to_impediment"]);
-        Assert.Equal(["id", "planTag", "taskId", "repository", "number"], schemas["unlink_from_impediment"]);
+        Assert.Equal(["id", "status", "sessionId"], schemas["transition"]);
+        Assert.Equal(["id", "blocked", "sessionId"], schemas["set_blocked"]);
+        Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note", "sessionId"], schemas["raise_impediment"]);
+        Assert.Equal(["id", "state", "with", "sessionId"], schemas["set_impediment_state"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number", "sessionId"], schemas["link_to_impediment"]);
+        Assert.Equal(["id", "planTag", "taskId", "repository", "number", "sessionId"], schemas["unlink_from_impediment"]);
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "link_to_impediment")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "unlink_from_impediment")));
         Assert.Empty(schemas["list_goals"]);
@@ -230,17 +230,17 @@ public class McpToolCreationTests
         // Without a length the person's own setting applies, so nothing is required.
         Assert.Equal(["length"], schemas["read_iterations"]);
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "read_iterations")));
-        Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
-        Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
+        Assert.Equal(["title", "dueDate", "outcome", "sessionId"], schemas["create_goal"]);
+        Assert.Equal(["id", "title", "outcome", "dueDate", "sessionId"], schemas["update_goal"]);
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "update_goal")));
-        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number", "moveFromOtherGoal"], schemas["attach_to_goal"]);
-        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number"], schemas["detach_from_goal"]);
+        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number", "moveFromOtherGoal", "sessionId"], schemas["attach_to_goal"]);
+        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number", "sessionId"], schemas["detach_from_goal"]);
 
         // "Exactly one of plan, task or pull request" is no `required` list either, for the
         // reason find_item gives: only the goal is required.
         Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "attach_to_goal")));
         Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "detach_from_goal")));
-        Assert.Equal(["id"], schemas["delete_goal"]);
+        Assert.Equal(["id", "sessionId"], schemas["delete_goal"]);
         Assert.Equal(["title", "summary", "body", "severity", "sessionId"], schemas["notify"]);
         Assert.Equal(
             ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId", "toolUseId", "questions", "kind"],
@@ -252,13 +252,13 @@ public class McpToolCreationTests
         // so ask requires neither at the schema level; the tool refuses a call with neither.
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "get_answer")));
-        Assert.Equal(["id", "text"], schemas["comment"]);
-        Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
+        Assert.Equal(["id", "text", "sessionId"], schemas["comment"]);
+        Assert.Equal(["id", "repository", "externalId", "sessionId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
-        Assert.Equal(["rawText", "repository"], schemas["create_item"]);
-        Assert.Equal(["id", "repository", "references"], schemas["set_devbook_references"]);
+        Assert.Equal(["rawText", "repository", "sessionId"], schemas["create_item"]);
+        Assert.Equal(["id", "repository", "references", "sessionId"], schemas["set_devbook_references"]);
         Assert.Equal(
-            ["title", "series", "start", "end", "online", "venue", "link", "whatToLearn", "ticket", "costAmount", "costCurrency"],
+            ["title", "series", "start", "end", "online", "venue", "link", "whatToLearn", "ticket", "costAmount", "costCurrency", "sessionId"],
             schemas["add_knowledge_event"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "add_knowledge_event")));
         Assert.Equal(["id", "repository"], schemas["list_devbook_references"]);
@@ -273,15 +273,15 @@ public class McpToolCreationTests
         Assert.Equal(["repository"], schemas["list_knowledge_contexts"]);
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
-        Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
-        Assert.Equal(["title", "body"], schemas["capture_note"]);
+        Assert.Equal(["repository", "note", "sessionId"], schemas["resolve_annotation"]);
+        Assert.Equal(["title", "body", "sessionId"], schemas["capture_note"]);
         Assert.Equal(["on"], schemas["list_brain_reviews"]);
         Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "capture_note")));
 
         // devbook.decision@1's arguments and nothing else: who decided and when are
         // the host's, so neither by nor at is a parameter a caller could fill in.
         Assert.Equal(["repository", "subject"], schemas["devbook_get_state"]);
-        Assert.Equal(["repository", "subject", "state"], schemas["devbook_set_state"]);
+        Assert.Equal(["repository", "subject", "state", "sessionId"], schemas["devbook_set_state"]);
         Assert.DoesNotContain("devbook_approve", schemas.Keys);
         Assert.DoesNotContain("devbook_accept", schemas.Keys);
 
@@ -292,9 +292,9 @@ public class McpToolCreationTests
         // The note operations' arguments: by and at are the host's here too, and
         // the contract carries no branch.
         Assert.Equal(["repository", "address"], schemas["devbook_list_notes"]);
-        Assert.Equal(["repository", "address", "body", "kind", "replyTo"], schemas["devbook_post_note"]);
+        Assert.Equal(["repository", "address", "body", "kind", "replyTo", "sessionId"], schemas["devbook_post_note"]);
         Assert.Equal(["repository", "address", "body"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "devbook_post_note")));
-        Assert.Equal(["repository", "id"], schemas["devbook_resolve_note"]);
+        Assert.Equal(["repository", "id", "sessionId"], schemas["devbook_resolve_note"]);
         Assert.All(
             [DecisionTools.GetState, DecisionTools.SetState],
             name =>
@@ -303,7 +303,8 @@ public class McpToolCreationTests
                 var subject = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("subject");
 
                 Assert.Equal(["kind", "name", "path", "pullRequest"], Properties(subject));
-                Assert.Equal(schemas[name], Required(tool));
+                // Every argument but the optional session id (local ADR 0061 §3).
+                Assert.Equal(schemas[name].Where(argument => argument != "sessionId"), Required(tool));
             });
 
         // Optional, and optional means absent from `required` rather than absent
