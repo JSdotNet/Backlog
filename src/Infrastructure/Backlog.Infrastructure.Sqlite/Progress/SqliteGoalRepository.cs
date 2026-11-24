@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Progress;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
@@ -127,13 +128,18 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         var stamp = await NextStampAsync(connection, id, cancellationToken).ConfigureAwait(false);
         var tombstone = JsonSerializer.Serialize(GoalDocument.Tombstone(id, title, stamp), GoalDocument.JsonOptions);
 
+        // Under the current change set (local ADR 0061 §2), so the revision the
+        // trigger writes keeps the goal as it was before the tombstone.
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
         command.CommandText = "UPDATE progress_goals SET document = $document, updated_at = $updated_at WHERE id = $id;";
         command.Parameters.AddWithValue("$id", Key(id));
         command.Parameters.AddWithValue("$document", tombstone);
         command.Parameters.AddWithValue("$updated_at", Stamp(stamp));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // --- The replicated documents -------------------------------------------
@@ -200,7 +206,9 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
         command.CommandText =
             """
             INSERT INTO progress_goals (id, document, created_at, updated_at)
@@ -216,6 +224,7 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         command.Parameters.AddWithValue("$created_at", Stamp(createdAt));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Now, but never at or before the stamp the row already holds, for the
@@ -284,7 +293,13 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     private static string Stamp(DateTimeOffset stamp) => stamp.ToString("O", CultureInfo.InvariantCulture);
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+        SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
+
+    /// <summary>The triggers that write a <c>goal</c> revision for every write of a goal
+    /// row, a tombstone included (local ADR 0061 §2).</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:progress_goals",
+        ddl: SqliteJournal.Triggers("progress_goals", "goal", ["id", "document", "created_at", "updated_at"]));
 
     /// <summary>
     /// The table's migration: idempotent DDL run on any open the file is not yet stamped
