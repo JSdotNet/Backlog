@@ -642,6 +642,48 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 `.devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
 `Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
+## Results and Errors
+
+```meta
+related: [".devbook/arc42/adr/guidelines/0004-result-objects-for-expected-failures.md", ".devbook/arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md"]
+```
+
+An operation that can fail for a reason its caller must handle returns a `Result`, a
+C# 15 union in `Backlog.SharedKernel.Results`. A fault nobody can anticipate stays an
+exception.
+
+```csharp
+public union Result(Ok, Error);
+public union Result<TValue>(Ok<TValue>, Error);
+
+return await handler.Handle(command, ct) switch
+{
+    Ok<EntryDto>(var entry) => Show(entry),
+    Error error => Explain(error),
+};
+```
+
+- **Cases:** `Ok` for a success with nothing to hand back, `Ok<TValue>` for one with a
+  value, and `Error` with its `Code`, `Message` and `ErrorType` for a failure.
+- **Creating:** `Result.Success(...)` and `Result.Failure(...)`, or a plain
+  `return value;` or `return error;`, which convert implicitly. `Failure` refuses
+  `Error.None`.
+- **Reading:** an exhaustive `switch` expression over the cases, with no `_` arm.
+  **Why:** CS8509 is a build error here, so a new case breaks every switch that does
+  not handle it.
+- **Guarding:** a multi-step method returns early with
+  `if (step is not Ok<T>(var value)) return (Error)step.Value!;`. A union's own
+  `Value` is the case it holds, typed `object?`, so it is never read as the success
+  value.
+- **Mapping to HTTP:** `ErrorType` picks the status of the Problem Details answer that
+  guideline ADR 0017 defines.
+
+`src/Core`, `src/Modules` and their unit tests read results this way. Every other
+project still reads `IsSuccess`, `Error`, `Unwrap()` and `TryGetValue` from a
+temporary compatibility namespace, `Backlog.SharedKernel.Results.Compatibility`.
+`Directory.Build.targets` imports it only into those projects, so a module cannot
+reach for it. The next step of the app-defaults rollout migrates them and deletes it.
+
 ## Shared Data Types
 
 ```meta
