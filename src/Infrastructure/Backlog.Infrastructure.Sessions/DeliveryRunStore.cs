@@ -25,6 +25,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// changes what it was asked to change and leaves the rest exactly as it found it.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: one run file per worktree and run, read as a document and written through a temporary file.
 internal sealed class DeliveryRunStore
 {
     private static readonly JsonSerializerOptions Layout = new() { WriteIndented = true };

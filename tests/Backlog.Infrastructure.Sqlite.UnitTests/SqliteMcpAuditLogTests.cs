@@ -15,13 +15,13 @@ public sealed class SqliteMcpAuditLogTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-sqlite-mcp-audit", Guid.NewGuid().ToString("n"));
+    private readonly TemporaryDirectory _root = new("backlog-sqlite-mcp-audit");
 
     private readonly FixedTime _time = new(Noon);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private string DatabasePath => Path.Combine(_root, "mcp-audit.db");
+    private string DatabasePath => _root.Combine("mcp-audit.db");
 
     private static McpAuditRecord Call(string tool, DateTimeOffset at, McpCallOutcome outcome = McpCallOutcome.Succeeded, string? target = "4f1c") =>
         new(at, McpAudit.SharedTokenCaller, tool, target, outcome, "trace-" + tool);
@@ -36,7 +36,7 @@ public sealed class SqliteMcpAuditLogTests : IDisposable
 
         Assert.Equal([call], await log.LatestAsync(McpAudit.Shown, Ct));
         Assert.True(File.Exists(DatabasePath));
-        Assert.False(File.Exists(Path.Combine(_root, "backlog.db")));
+        Assert.False(File.Exists(_root.Combine("backlog.db")));
     }
 
     [Fact]
@@ -111,9 +111,8 @@ public sealed class SqliteMcpAuditLogTests : IDisposable
 
     public void Dispose()
     {
+        // A pooled connection holds the database file open past the last test.
         SqliteConnection.ClearAllPools();
-
-        if (!Directory.Exists(_root)) return;
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        _root.Dispose();
     }
 }

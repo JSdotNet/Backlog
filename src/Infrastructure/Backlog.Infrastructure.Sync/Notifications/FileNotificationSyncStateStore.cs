@@ -9,6 +9,7 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// and the rejections recorded so far are lost from the next push, which a viewer reads as its
 /// reply still waiting.
 /// </summary>
+// Not on JsonFileStore<T>: it writes through a temporary file and a move, which that store's plain write would drop.
 public sealed class FileNotificationSyncStateStore : INotificationSyncStateStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

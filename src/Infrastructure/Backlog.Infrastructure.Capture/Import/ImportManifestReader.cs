@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Infrastructure.Capture.Import;
 
@@ -175,7 +176,7 @@ internal static partial class ImportManifestReader
         var open = start + 1;
         while (open < end && lines[open].Trim().Length == 0) open++;
 
-        if (open >= end || lines[open].Trim() != "```meta")
+        if (open >= end || !MetadataFence.IsGeneratorOpener(lines[open].Trim()))
         {
             problems.Add($"{name} has no meta block — put a ```meta line right under the title, with external_id and captured_at inside, then a ``` line");
             return;

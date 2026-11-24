@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -56,6 +57,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// from the registry's alias moves.
 /// </para>
 /// </summary>
+// Reads through JsonFileStore<T>; writes stay queued, which that store's synchronous save is not.
 public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
 {
     /// <summary>The prefixes of a surface or an atlas scope that name a repository by
@@ -143,7 +145,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// <summary>The file's name, in the head's own app-data folder.</summary>
     public const string FileName = "shell-navigation.json";
 
-    private readonly string _path;
+    private readonly JsonFileStore<ShellNavigationDto> _file;
 
     /// <summary>Serializes every read-modify-write and its snapshot; see
     /// <see cref="Update"/>.</summary>
@@ -153,7 +155,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// <c>Backlog.Debug</c> for a Debug build, <c>Backlog</c> for the installed app, so
     /// a head started out of a checkout never writes what the installed app restores.</summary>
     public ShellNavigationStore()
-        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
+        : this(AppDataPaths.Head(FileName))
     {
     }
 
@@ -163,15 +165,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// the real per-user file.</summary>
     public ShellNavigationStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<ShellNavigationDto>(path, JsonOptions);
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
@@ -339,7 +333,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     public IReadOnlyList<string> RoadmapArchiveOffered { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     public void SetLastSurface(string? surface) => Update(() =>
     {
@@ -717,7 +711,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// return before the file is written; this is for whoever must read the file
     /// itself — the app closing, or a test — rather than the properties.
     /// </summary>
-    public void Flush() => WaitForPendingWrites(_path);
+    public void Flush() => WaitForPendingWrites(_file.Path);
 
     /// <summary>
     /// Waits until every write queued for the file at <paramref name="path"/> —
@@ -753,7 +747,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
         {
             if (!change()) return false;
 
-            QueuedFileWrites.Enqueue(_path, Serialize());
+            QueuedFileWrites.Enqueue(_file.Path, Serialize());
         }
 
         Changed?.Invoke();
@@ -816,20 +810,10 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     {
         // A store on a path another store in this process has just written
         // reads what that one wrote, not the file as it stood before.
-        WaitForPendingWrites(_path);
+        WaitForPendingWrites(_file.Path);
 
-        try
-        {
-            if (!File.Exists(_path)) return null;
-
-            return JsonSerializer.Deserialize<ShellNavigationDto>(File.ReadAllText(_path), JsonOptions);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            // A corrupt or unreachable file must never stop the app from
-            // opening — fall back to nothing remembered.
-            return null;
-        }
+        // A corrupt or unreachable file reads as nothing remembered.
+        return _file.Load();
     }
 
     /// <summary>A file written before pins left the header also carries a

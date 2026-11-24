@@ -27,6 +27,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// moves its own marks, from the registry's alias moves.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: its file follows the storage root, asked on every call, and that store holds one fixed path.
 public sealed class DevbookImportLedger : IDevbookImportLedger, IRepositoryAliasKeyedStore
 {
     /// <summary>The folder under the storage root the file goes in.</summary>

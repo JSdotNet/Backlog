@@ -3,7 +3,6 @@
   <!--
     The Dashboard module's public surface — everything a host, a screen, or an
     adapter is allowed to see:
-      DashboardFeatures     the feature key the shell gates the surface on
       DashboardScope        which repository is in focus and over what window
       Insights/             what each part of the dashboard receives
       Services/             two questions the UI asks, and four ports somebody

@@ -120,6 +120,20 @@ for (const { name, text } of loopStarted) {
       assert.match(capacity, /start[\s\S]*since[\s\S]*`sessions`/);
     });
 
+    test("dispatch-sessions cards a request on a turn the person did not type", () => {
+      // Claude Desktop refuses a user_asked start on an automated turn, and a claim's lease is 2 minutes.
+      const dispatch = step(7);
+      assert.match(dispatch, /Only a turn the person typed starts/);
+      assert.match(dispatch, /claim nothing/);
+      assert.match(dispatch, /`initiation: own_initiative`/);
+      assert.match(dispatch, /`proposal_id`/);
+      // A card's session, once it exists, is claimed and reported, never left Requested.
+      const queue = step(5);
+      assert.match(queue, /\*\*Cards\*\*[\s\S]*`claim_session_request`[\s\S]*`started`/);
+      assert.match(queue, /`dismiss_task`/);
+      assert.match(step(6), /open cards/);
+    });
+
     test("dispatch-sessions measures a figure itself only as the fallback", () => {
       const capacity = step(6);
       const fallback = capacity.search(/no `capacity`/);

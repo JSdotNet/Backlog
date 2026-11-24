@@ -18,7 +18,7 @@ internal static class DevbookBuildFiles
     /// Markdown, and the chapter walk skips them. <c>_archify</c> stays although
     /// this repository has none left: other repositories may still carry the
     /// folder (local ADR 0057 §4).</summary>
-    private static readonly HashSet<string> SkippedDirectories = new(StringComparer.Ordinal) { "_meta", "_archify", "node_modules", ".git" };
+    private static readonly HashSet<string> SkippedDirectories = new(StringComparer.Ordinal) { "_meta", DevbookLayout.RenderedArtifactsDirectory, "node_modules", ".git" };
 
     /// <summary>
     /// Every <c>.md</c> file under <paramref name="folder"/>. The graph walks

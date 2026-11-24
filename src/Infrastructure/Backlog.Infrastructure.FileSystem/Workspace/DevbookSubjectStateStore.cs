@@ -63,6 +63,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <see cref="DevbookSyncDirectionAliases"/>.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
 public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore, IRepositoryAliasKeyedStore
 {
     /// <summary>The folders whose Markdown the import reads, by the key the

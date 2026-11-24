@@ -19,6 +19,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// written is still held for this run.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: its path is asked on every read and write, and that store holds one fixed path.
 public sealed class UsageReadLogStore : IUsageReadStatus, IUsageReadRecorder
 {
     /// <summary>The file's name in the per-user folder.</summary>

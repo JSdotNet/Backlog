@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -21,6 +22,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// newest.
 /// </para>
 /// </summary>
+// Reads through JsonFileStore<T>; writes stay queued, which that store's synchronous save is not.
 public sealed class ShellWindowStore
 {
     /// <summary>The file's name, beside <c>shell-navigation.json</c>.</summary>
@@ -32,7 +34,7 @@ public sealed class ShellWindowStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly string _path;
+    private readonly JsonFileStore<ShellWindowsDto> _file;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, ShellWindowBounds> _bounds;
     private readonly List<RememberedShellWindow> _remembered;
@@ -42,7 +44,7 @@ public sealed class ShellWindowStore
     /// beside <see cref="ShellNavigationStore.FileName"/>: <c>Backlog.Debug</c> for a
     /// Debug build, <c>Backlog</c> for the installed app.</summary>
     public ShellWindowStore()
-        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
+        : this(AppDataPaths.Head(FileName))
     {
     }
 
@@ -50,21 +52,13 @@ public sealed class ShellWindowStore
     /// session running beside another.</summary>
     public ShellWindowStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _file = new JsonFileStore<ShellWindowsDto>(path, JsonOptions);
 
         (_bounds, _remembered) = Read();
     }
 
     /// <summary>Where the bounds are written.</summary>
-    public string SettingsPath => _path;
+    public string SettingsPath => _file.Path;
 
     /// <summary>The last popped-out window of <paramref name="surfaceId"/>'s bounds, or
     /// null when none of its windows has been remembered.</summary>
@@ -95,7 +89,7 @@ public sealed class ShellWindowStore
 
             // Queued under the gate, so the snapshots reach the writer in the order
             // the sets were made whichever threads make them.
-            QueuedFileWrites.Enqueue(_path, Serialize());
+            QueuedFileWrites.Enqueue(_file.Path, Serialize());
         }
     }
 
@@ -156,7 +150,7 @@ public sealed class ShellWindowStore
                 _remembered.Add(kept);
             }
 
-            QueuedFileWrites.Enqueue(_path, Serialize());
+            QueuedFileWrites.Enqueue(_file.Path, Serialize());
         }
     }
 
@@ -170,7 +164,7 @@ public sealed class ShellWindowStore
         {
             if (_remembered.RemoveAll(window => string.Equals(window.Key, key, StringComparison.Ordinal)) == 0) return;
 
-            QueuedFileWrites.Enqueue(_path, Serialize());
+            QueuedFileWrites.Enqueue(_file.Path, Serialize());
         }
     }
 
@@ -198,13 +192,13 @@ public sealed class ShellWindowStore
             var changed = onTop ? _onTop.Add(surfaceId) : _onTop.Remove(surfaceId);
             if (!changed) return;
 
-            QueuedFileWrites.Enqueue(_path, Serialize());
+            QueuedFileWrites.Enqueue(_file.Path, Serialize());
         }
     }
 
     /// <summary>Waits until every set so far is on disk: for the app closing, or a test
     /// reading the file itself.</summary>
-    public void Flush() => QueuedFileWrites.WaitFor(_path);
+    public void Flush() => QueuedFileWrites.WaitFor(_file.Path);
 
     /// <summary>By value, query included: the record's own equality compares the query
     /// by reference.</summary>
@@ -268,57 +262,48 @@ public sealed class ShellWindowStore
     {
         // A store on a path another store in this process has just written reads
         // what that one wrote, not the file as it stood before.
-        QueuedFileWrites.WaitFor(_path);
+        QueuedFileWrites.WaitFor(_file.Path);
 
         var bounds = new Dictionary<string, ShellWindowBounds>(StringComparer.Ordinal);
         var remembered = new List<RememberedShellWindow>();
-        try
+
+        // A corrupt or unreachable file reads as none: a window opens where the
+        // system puts a new one, and nothing extra reopens.
+        if (_file.Load() is not { } dto) return (bounds, remembered);
+
+        foreach (var (surfaceId, window) in dto.Surfaces ?? [])
         {
-            if (!File.Exists(_path)) return (bounds, remembered);
+            if (string.IsNullOrWhiteSpace(surfaceId) || FromDto(window) is not { } read) continue;
 
-            var dto = JsonSerializer.Deserialize<ShellWindowsDto>(File.ReadAllText(_path), JsonOptions);
-            foreach (var (surfaceId, window) in dto?.Surfaces ?? [])
-            {
-                if (string.IsNullOrWhiteSpace(surfaceId) || FromDto(window) is not { } read) continue;
-
-                bounds[surfaceId] = read;
-            }
-
-            foreach (var window in dto?.Remembered ?? [])
-            {
-                // An entry that names no window or no surface could never reopen;
-                // a key given twice keeps its first entry.
-                if (window is null
-                    || string.IsNullOrWhiteSpace(window.Key)
-                    || string.IsNullOrWhiteSpace(window.SurfaceId)
-                    || remembered.Exists(entry => string.Equals(entry.Key, window.Key, StringComparison.Ordinal)))
-                {
-                    continue;
-                }
-
-                remembered.Add(new RememberedShellWindow(
-                    window.Key,
-                    window.SurfaceId,
-                    // A value stored as null has no place in a window's address, and
-                    // escaping it there would throw as the window reopens.
-                    (window.Query ?? [])
-                        .Where(pair => pair.Value is not null)
-                        .ToDictionary(pair => pair.Key, pair => pair.Value!, StringComparer.Ordinal),
-                    FromDto(window.Bounds)));
-            }
-
-            foreach (var surfaceId in dto?.OnTop ?? [])
-            {
-                if (!string.IsNullOrWhiteSpace(surfaceId)) _onTop.Add(surfaceId);
-            }
+            bounds[surfaceId] = read;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+
+        foreach (var window in dto.Remembered ?? [])
         {
-            // A corrupt or unreachable file must never stop a window from opening —
-            // it opens where the system puts a new one, and nothing extra reopens.
-            bounds.Clear();
-            remembered.Clear();
-            _onTop.Clear();
+            // An entry that names no window or no surface could never reopen;
+            // a key given twice keeps its first entry.
+            if (window is null
+                || string.IsNullOrWhiteSpace(window.Key)
+                || string.IsNullOrWhiteSpace(window.SurfaceId)
+                || remembered.Exists(entry => string.Equals(entry.Key, window.Key, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            remembered.Add(new RememberedShellWindow(
+                window.Key,
+                window.SurfaceId,
+                // A value stored as null has no place in a window's address, and
+                // escaping it there would throw as the window reopens.
+                (window.Query ?? [])
+                    .Where(pair => pair.Value is not null)
+                    .ToDictionary(pair => pair.Key, pair => pair.Value!, StringComparer.Ordinal),
+                FromDto(window.Bounds)));
+        }
+
+        foreach (var surfaceId in dto.OnTop ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(surfaceId)) _onTop.Add(surfaceId);
         }
 
         return (bounds, remembered);

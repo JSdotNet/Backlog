@@ -123,6 +123,14 @@ public sealed class WorkspaceInboxAttachmentFiles(Func<string> inboxDirectory) :
         return Task.CompletedTask;
     }
 
+    public Task RemoveFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        // Checked first: File.Delete is silent for a missing file but throws for a missing folder.
+        if (IsOurs(path) && File.Exists(path)) File.Delete(path);
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>Whether <paramref name="path"/> lies inside the attachments
     /// folder. A stored path from before a workspace move points at the old
     /// root and is not ours any more; the intake then fetches the file again

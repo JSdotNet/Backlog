@@ -42,14 +42,20 @@ public sealed class SqliteTaskRepository : ITaskRepository
 
     private readonly string _databasePath;
 
+    /// <summary>The per-user app-data folder every repository here defaults to
+    /// (<c>%LOCALAPPDATA%\Backlog</c>). Built by hand rather than through
+    /// <c>AppDataPaths.Shared()</c>: this project has no direct Backlog.SharedKernel
+    /// reference.</summary>
+    internal static string DefaultRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Backlog");
+
     /// <summary>Creates a repository over the database in the given folder, or in
     /// the default per-user app-data folder (<c>%LOCALAPPDATA%\Backlog</c>) when
     /// null.</summary>
     public SqliteTaskRepository(string? rootDir = null)
     {
-        var root = rootDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+        var root = rootDir ?? DefaultRoot;
 
         _databasePath = DatabasePathFor(root);
     }

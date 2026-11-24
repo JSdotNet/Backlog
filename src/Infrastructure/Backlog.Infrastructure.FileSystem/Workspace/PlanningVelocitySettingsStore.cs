@@ -89,6 +89,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// does. Where the new alias already keeps a pace, that pace wins.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: a stamped replica document, written whole as it arrived with keys this build does not read.
 public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore, IRepositoryAliasKeyedStore
 {
     /// <summary>Seven story points a working week — the figure kept from when the pace

@@ -719,7 +719,9 @@ public sealed class DecisionTools(
         /// the text after the hashes, lower case and trimmed, with everything but
         /// letters, numbers, underscores, whitespace and hyphens dropped and each
         /// whitespace character turned into a hyphen. Taken from the line as
-        /// written, as the checker takes it, rather than from the parse.
+        /// written, as the checker takes it, rather than from the parse. Kept beside
+        /// <see cref="Backlog.SharedKernel.Markdown.HeadingAnchor.Of"/> because its
+        /// whitespace is .NET's (U+0085 in, U+FEFF out), not JavaScript's.
         /// </summary>
         private static string Slug(string headingLine)
         {

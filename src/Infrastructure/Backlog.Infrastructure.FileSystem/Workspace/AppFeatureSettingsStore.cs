@@ -29,7 +29,7 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
     public AppFeatureSettingsStore(IReadOnlyList<AppFeatureDefinition> features)
         : this(
             features,
-            Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, "features.json"))
+            AppDataPaths.Head("features.json"))
     {
     }
 

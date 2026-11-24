@@ -32,9 +32,7 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
     /// per-user app-data folder when null — the same file the tasks use.</summary>
     public SqliteImpedimentRepository(string? rootDir = null)
     {
-        var root = rootDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+        var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
     }

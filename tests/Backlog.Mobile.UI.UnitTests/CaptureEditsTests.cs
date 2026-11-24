@@ -19,18 +19,15 @@ public sealed class CaptureEditsTests : IDisposable
 {
     private static readonly DateTimeOffset Start = new(2026, 11, 18, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "capture-edits-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("capture-edits");
     private readonly FakeTimeProvider _clock = new(Start);
     private readonly TalkNoteFiles _files;
 
-    public CaptureEditsTests() => _files = new TalkNoteFiles(_root);
+    public CaptureEditsTests() => _files = new TalkNoteFiles(_root.Path);
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _root.Dispose();
 
     // --- Edit ----------------------------------------------------------------
 
@@ -483,7 +480,7 @@ public sealed class CaptureEditsTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddSingleton(TestCloudSync.Client(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)));
-        services.AddDeviceOutbox(Path.Combine(_root, "device.db"));
+        services.AddDeviceOutbox(_root.Combine("device.db"));
         using var provider = services.BuildServiceProvider();
 
         var kinds = provider.GetServices<IOutboxKind>().Select(kind => kind.Kind).ToList();

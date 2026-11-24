@@ -75,7 +75,7 @@ public sealed class NotificationReplicationTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<INotificationRepository>(_store);
-        services.AddSingleton<IDeviceIdentitySource>(new FixedDevice(Drafts.Owner));
+        services.AddSingleton<IDeviceIdentitySource>(new StubDeviceIdentity(new(Drafts.Owner, "WORKSTATION-01")));
         services.AddNotificationsModule();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });

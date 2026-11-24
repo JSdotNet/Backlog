@@ -44,6 +44,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// copy that arrives under another moves between the files rather than doubling.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
 public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositoryAliasKeyedStore
 {
     /// <summary>The folder under the storage root the files go in.</summary>

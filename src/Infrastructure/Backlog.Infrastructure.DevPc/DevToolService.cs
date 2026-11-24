@@ -19,6 +19,7 @@ namespace Backlog.Infrastructure.DevPc;
 /// and starts no process — see <see cref="CatalogOnlyDevTools"/> for what it
 /// answers instead.</para>
 /// </summary>
+// Not a settings store: its JSON catches guard catalog edits, so JsonFileStore<T> does not apply.
 public sealed class DevToolService : IDevToolService
 {
     /// <summary>What a row and the status line say when the host a catalog entry
@@ -917,6 +918,8 @@ public sealed class DevToolService : IDevToolService
     /// </summary>
     public string? QuestionHookScriptPath { get; init; }
 
+    // Built by hand rather than through AppDataPaths: this project has no direct
+    // Backlog.SharedKernel reference.
     private string QuestionHookScript => QuestionHookScriptPath
         ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

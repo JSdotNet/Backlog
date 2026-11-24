@@ -30,6 +30,10 @@ public partial class SharedTestDoubleTests
         "StubSessionSource",
         "StubFolderSource",
         "RecordingTaskItems",
+        "StubDeviceIdentity",
+        "StubGitHubOwnerSignIn",
+        "RecordingShellWindows",
+        "RecordingLogger",
     ];
 
     /// <summary>

@@ -224,6 +224,7 @@ internal sealed class HandlerScopeFactory(object handler) : IServiceScopeFactory
 
 /// <summary>A logger that keeps every line, with its level, its rendered message
 /// and its structured properties, so a test can say what was logged.</summary>
+// Differs from RecordingLogger: keeps (level, message, properties) tuples and drops the exception.
 internal sealed class CapturingLogger<T> : ILogger<T>
 {
     public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];

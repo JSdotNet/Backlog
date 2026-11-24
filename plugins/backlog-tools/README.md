@@ -180,7 +180,14 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   request (`claim_session_request`), starts a local session in the request's clone folder in
   its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
   reports it (`mark_session_request` `started`), or gives the claim back (`released`) when
-  the start fails. A new request wakes it through the Monitor and a finished session through
+  the start fails. Claude Desktop starts a session only on a turn the person typed, and
+  refuses one on a `/loop` line, a Monitor event or a wake-up. On those turns the Manager
+  claims nothing, since a claim's lease is two minutes. It proposes each fitting request as a
+  New task card instead, at most three a turn and never twice, and records the card in a
+  scratch file. When a card's session appears among its linked sessions, it claims the
+  request and reports that session `started`. A card whose request left the queue is
+  dismissed. A turn the person typed claims and starts a carded request by its proposal.
+  Fixers are carded the same way. A new request wakes it through the Monitor and a finished session through
   `wake_when_done`; the `/loop` tick is the fallback only, 300 seconds while usage, CPU or
   memory holds the queue and 1800 otherwise. On restart it releases the request and delivery
   claims its dispatcher still holds. The dispatcher is named for the machine, and the skill runs one Manager per

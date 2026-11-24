@@ -25,19 +25,9 @@ public sealed class DevbookProposalDecisionTests : IDisposable
 
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Directory.CreateTempSubdirectory("devbook-proposals-").FullName;
+    private readonly TemporaryDirectory _root = new("devbook-proposals");
 
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp folder left behind costs nothing.
-        }
-    }
+    public void Dispose() => _root.Dispose();
 
     [Fact]
     public void Approving_records_the_local_author_at_the_fingerprint()
@@ -113,16 +103,16 @@ public sealed class DevbookProposalDecisionTests : IDisposable
     {
         WriteChange(Change);
         WriteChange("b-second");
-        Directory.CreateDirectory(Path.Combine(_root, "openspec", "changes", "no-proposal"));
+        Directory.CreateDirectory(_root.Combine("openspec", "changes", "no-proposal"));
         WriteChange("archive");
         var (subjects, _) = Stores();
 
         var rows = Rows(subjects);
 
         Assert.Equal([Change, "b-second"], rows.Select(row => row.Name));
-        Assert.Equal(DevbookFingerprint.ReadChange(_root, Change), rows[0].Fingerprint);
+        Assert.Equal(DevbookFingerprint.ReadChange(_root.Path, Change), rows[0].Fingerprint);
         Assert.All(rows, row => Assert.Null(row.State));
-        Assert.Empty(DevbookChangeFolders.Read(Path.Combine(_root, "nowhere")));
+        Assert.Empty(DevbookChangeFolders.Read(_root.Combine("nowhere")));
         Assert.Empty(DevbookChangeFolders.Read(null));
     }
 
@@ -163,7 +153,7 @@ public sealed class DevbookProposalDecisionTests : IDisposable
         var first = Assert.Single(Rows(subjects));
         DevbookProposals.Approve(subjects, notes, Alias, repositoryArchived: false, first, first.Fingerprint);
 
-        File.AppendAllText(Path.Combine(_root, "openspec", "changes", Change, "proposal.md"), "\nOne more line.\n");
+        File.AppendAllText(_root.Combine("openspec", "changes", Change, "proposal.md"), "\nOne more line.\n");
         var row = Assert.Single(Rows(subjects));
 
         Assert.True(row.Lapsed(row.State!.Approval));
@@ -184,8 +174,8 @@ public sealed class DevbookProposalDecisionTests : IDisposable
         Assert.False(row.CanAccept);
         Assert.Equal(DevbookSubjectRefusal.BadState, DevbookProposals.Approve(subjects, notes, Alias, repositoryArchived: false, row, null).Refused);
         Assert.Null(subjects.Get(Alias, row.Subject));
-        Assert.Null(DevbookChangeFolders.Fingerprint(_root, Change));
-        Assert.Null(DevbookChangeFolders.Fingerprint(_root, "../escape"));
+        Assert.Null(DevbookChangeFolders.Fingerprint(_root.Path, Change));
+        Assert.Null(DevbookChangeFolders.Fingerprint(_root.Path, "../escape"));
     }
 
     /// <summary>A note an agent wrote over MCP, and an approval recorded before
@@ -252,11 +242,11 @@ public sealed class DevbookProposalDecisionTests : IDisposable
         await using var context = PanelContext(subjects, new SessionDevbookAnnotationStore(new FakeTimeProvider(Now)), archived: false);
         var panel = OpenProposals(context);
 
-        File.AppendAllText(Path.Combine(_root, "clone", "openspec", "changes", Change, "proposal.md"), "\nEdited.\n");
+        File.AppendAllText(_root.Combine("clone", "openspec", "changes", Change, "proposal.md"), "\nEdited.\n");
         panel.Find("[data-testid='devbook-proposal-approve']").Click();
 
         panel.WaitForAssertion(() => Assert.Equal(
-            DevbookFingerprint.ReadChange(Path.Combine(_root, "clone"), Change),
+            DevbookFingerprint.ReadChange(_root.Combine("clone"), Change),
             subjects.Get(Alias, DevbookSubject.Proposal(Change))?.Approval?.Fingerprint));
     }
 
@@ -277,14 +267,14 @@ public sealed class DevbookProposalDecisionTests : IDisposable
 
     private BunitContext PanelContext(IDevbookSubjectStateStore subjects, IDevbookAnnotationStore notes, bool archived)
     {
-        var clone = Path.Combine(_root, "clone");
+        var clone = _root.Combine("clone");
         Directory.CreateDirectory(Path.Combine(clone, ".github"));
         File.WriteAllText(Path.Combine(clone, ".github", "copilot-instructions.md"), "# Copilot\n");
         Directory.CreateDirectory(Path.Combine(clone, "openspec", "changes", Change));
         File.WriteAllText(Path.Combine(clone, "openspec", "changes", Change, "proposal.md"), "# Add decision tools\n\nWhy.\n");
 
-        var settings = new WorkspaceSettingsStore(Path.Combine(_root, "store"));
-        var gitHub = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));
+        var settings = new WorkspaceSettingsStore(_root.Combine("store"));
+        var gitHub = new GitHubSettingsStore(_root.Combine("github", "github.json"));
         // A second repository, because one has to stay active when the first is
         // archived.
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog\nJSdotNet/Other");
@@ -321,7 +311,7 @@ public sealed class DevbookProposalDecisionTests : IDisposable
         (new SessionDevbookSubjectStateStore(new FakeTimeProvider(Now)), new SessionDevbookAnnotationStore(new FakeTimeProvider(Now)));
 
     private IReadOnlyList<DevbookProposalRow> Rows(IDevbookSubjectStateStore subjects) =>
-        DevbookProposals.Rows(DevbookChangeFolders.Read(_root), subjects, Alias);
+        DevbookProposals.Rows(DevbookChangeFolders.Read(_root.Path), subjects, Alias);
 
     private static DevbookAnnotation Note(SessionDevbookAnnotationStore notes, string path, DevbookAnnotationKind kind, string body)
     {
@@ -332,7 +322,7 @@ public sealed class DevbookProposalDecisionTests : IDisposable
 
     private void WriteChange(string name)
     {
-        var folder = Path.Combine(_root, "openspec", "changes", name);
+        var folder = _root.Combine("openspec", "changes", name);
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "proposal.md"), $"# {name}\n\nWhy.\n");
     }

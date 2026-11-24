@@ -41,11 +41,12 @@ public sealed record ClaudeSettings
 /// written in the clear either (local ADR 0030): each account's
 /// <c>adminApiKey</c> holds a DPAPI envelope sealed under the signed-in Windows
 /// user, and every other field stays legible. A key an earlier release wrote in
-/// plaintext — the flat file from before accounts included — is read as it is and
-/// sealed straight away; one this user cannot open reads as no key, which the
-/// Settings card shows as an empty key field to fill in again.
+/// plaintext is read as it is and sealed straight away; one this user cannot open
+/// reads as no key, which the Settings card shows as an empty key field to fill in
+/// again.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T> or AppDataPaths: this project has no direct Backlog.SharedKernel reference, and the keys are sealed with DPAPI.
 public sealed class ClaudeSettingsStore
 {
     public const string DefaultApiVersion = "2023-06-01";

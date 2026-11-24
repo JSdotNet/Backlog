@@ -18,6 +18,7 @@ namespace Backlog.Infrastructure.DevPc;
 /// own class used to get for free. <c>CatalogOnlyDelegationTests</c> checks the
 /// other half: that <see cref="DevToolService"/> forwards every member here.</para>
 /// </summary>
+// Not a settings store: its JSON catch guards catalog edits, so JsonFileStore<T> does not apply.
 internal sealed class CatalogOnlyDevTools : IDevToolService
 {
     /// <summary>Never raised: this configuration has no endpoint source, so an
