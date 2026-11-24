@@ -299,7 +299,7 @@ public sealed class RepositoryAliasFollowerTests : IDisposable
         Assert.Null(device.Store.SetRepositories(Parse("bl = JSdotNet/Backlog")));
         var first = Holding(new FakeAliasKeyedStore(AliasKeyedStoreKind.Replicated), ("backlog", "pace"));
         var second = Holding(new FakeAliasKeyedStore(AliasKeyedStoreKind.Replicated), ("backlog", "subject state"));
-        var log = new RecordingLogger();
+        var log = new LevelLogger();
 
         var follower = new RepositoryAliasFollower(device.Store, [first, second], log);
         _followers.Add(follower);
@@ -488,7 +488,8 @@ public sealed class RepositoryAliasFollowerTests : IDisposable
     }
 
     /// <summary>The levels the follower logged at, in order.</summary>
-    private sealed class RecordingLogger : ILogger<RepositoryAliasFollower>
+    // Differs from RecordingLogger: thread-safe, since the follower logs from its own passes while the test reads.
+    private sealed class LevelLogger : ILogger<RepositoryAliasFollower>
     {
         private readonly Lock _lock = new();
         private readonly List<LogLevel> _levels = [];
