@@ -229,8 +229,8 @@ decides which grant may call a tool that is listed. The names are a starting cut
 
 | Scope | Tools | Default grant |
 | --- | --- | --- |
-| `tasks:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_roadmap`, `list_goals` | every agent |
-| `tasks:write` | `create_item`, `comment`, `transition`, `set_blocked`, goal attach and detach, `capture_note` | coding agents |
+| `tasks:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_roadmap`, `list_goals`, `list_change_sets` | every agent |
+| `tasks:write` | `create_item`, `comment`, `transition`, `set_blocked`, goal attach and detach, `capture_note`, `propose_restore` | coding agents |
 | `tasks:admin` | `delete_goal`, any bulk change | none |
 | `devbook:read` | `read_knowledge_chapter`, `list_annotations`, `devbook_get_state`, `devbook_list_notes`, `list_sync_directions` | every agent |
 | `devbook:write` | `resolve_annotation`, `devbook_post_note`, `devbook_resolve_note`, `devbook_set_state` to `draft` | coding agents |
@@ -498,6 +498,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | Amended by local ADR 0061, proposed: §4 places `list_change_sets` under `tasks:read` and `propose_restore` under `tasks:write`. | Agents can read the change journal and propose a restore the person confirms. |
 | 2026-11-24 | Amended by local ADR 0059, proposed: §3, because a local call with no grant token can be admitted under the scopes the person opens on the Agents card's Unauthenticated row; §4, because the fallback-deny scope policies gain the `unauthenticated` principal; and §6, because widening that row asks for Windows Hello. | Claude Code in the Claude desktop app skips the `headersHelper`, so no desktop-app session could reach Backlog. |
 | 2026-11-19 | Renumbered from 0052 to 0058, with every citation of it. Main took 0052 for the Brain note links and 0053 to 0055 while plan `zero-trust-auth` ran; 0056 and 0057 are held by open branches. Merging main also mapped its new tools — `report_schedule_run` and `check_in` to `runs:write`, `read_iterations` to `tasks:read`, `list_brain_reviews` to `devbook:read`, `capture_to_inbox` to `inbox:capture`, `add_knowledge_event` to `tasks:write` — and its `/schedule-runs` route to `runs:write`. | Two decisions cannot share a number. |
 | 2026-11-18 | Built §2's answer identity: an answer to an agent's question keeps the device the sync service stamped from the poster's token, and the question relay hands it to the hook or the Manager only while that device is in the owner's device list, or is this desktop. An answer from a revoked or unknown device is dropped and audited as a `dropped answer`. | Plan `zero-trust-auth` entry 20, Phase 2. |

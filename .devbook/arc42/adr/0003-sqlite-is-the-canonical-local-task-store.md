@@ -12,6 +12,10 @@ Accepted. Supersedes the "markdown is the canonical format" constraint recorded 
 `.devbook/arc42/02-constraints.md` and restated in chapters 04, 06, 07 and 08, all of which
 this ADR corrects. It does **not** supersede ADR 0002.
 
+Local ADR 0061, proposed, adds a change journal beside the tables in `backlog.db`: two
+shared tables and the triggers that fill them, so an agent's change can be restored
+([ADR 0061](0061-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)).
+
 ## Context
 
 Every task was a markdown document with YAML frontmatter, one file per task under
@@ -179,5 +183,6 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | Noted local ADR 0061, proposed: a change journal of change sets and revisions sits beside the tables. | Agent changes need to be restorable. |
 | 2026-08-20 | One SQLite database is the canonical task store; a task's content stays markdown, in a text column. | Three files disagreed about the same task once the app owned the editing. |
 | 2026-08-03 | Markdown with YAML frontmatter, one file per task, is the canonical format. | A task was a document a person might open in an editor. |
