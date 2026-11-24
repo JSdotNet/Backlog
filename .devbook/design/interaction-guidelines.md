@@ -104,8 +104,8 @@ What the shared `SaveIndicator` builds of this vocabulary is in
 | Undo always available | With no save gate, **undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) MUST cover content edits and reorder actions. |
 | Reorder is undoable | A drag-and-drop or keyboard reorder MUST be a single undoable step that restores the previous order. |
 | History granularity | Undo history SHOULD be per-document and coalesce rapid keystrokes into sensible steps. |
-| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). |
-| Version history (optional) | Longer-term version/history browsing is a product feature `[TODO: clarify]`; at minimum session-level undo MUST exist. |
+| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). The person restores an agent's change set ([ADR 0061](../arc42/adr/0061-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)). |
+| Version history | Each change set's prior documents are kept 90 days ([ADR 0061](../arc42/adr/0061-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)); at minimum session-level undo MUST exist. |
 
 ### Conflict Handling
 
