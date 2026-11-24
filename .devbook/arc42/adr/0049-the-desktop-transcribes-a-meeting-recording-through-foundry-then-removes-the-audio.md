@@ -25,7 +25,7 @@ for the kept sha256s, `AdtsRemuxer`, `AzureFoundryInboxRecordingTranscriber` and
 desktop registration of `AzureFoundryTranscriptionClient`, the release in the sync
 service's `PushTasksCommand`, and a transcription stand-in in
 `Backlog.AzureFoundry.TestService`. Amended on 2026-11-18 and 2026-11-24, as
-**History** says; the first amendment is built in PR #1930.
+**History** says; the first is built in PR #1930, the second in PR #1962.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline". It amends ADR 0023 and
