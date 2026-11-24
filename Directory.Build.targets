@@ -7,14 +7,15 @@
     against Backlog.SharedKernel, directly or through another project.
 
     A global using of a namespace the project cannot see does not compile, so
-    the decision waits for the resolved references. It runs just before
-    CoreCompile and adds its own generated file rather than a Using item:
+    the decision waits for the resolved references. It runs just before the
+    compile and adds its own generated file rather than a Using item:
     GenerateGlobalUsings runs right after PrepareForBuild, before references
     resolve, and forcing ResolveReferences ahead of it is a target cycle in
-    the MAUI heads.
+    the MAUI heads. The WinUI head compiles once in XamlPreCompile before
+    CoreCompile, so the file joins that pass too.
   -->
   <Target Name="_BacklogResultCompatibilityUsing"
-          BeforeTargets="CoreCompile"
+          BeforeTargets="XamlPreCompile;CoreCompile"
           Condition="'$(_BacklogResultMigrated)' != 'true' and '$(Language)' == 'C#'">
     <PropertyGroup>
       <_BacklogReferencesSharedKernel>@(ReferencePath->AnyHaveMetadataValue('Filename', 'Backlog.SharedKernel'))</_BacklogReferencesSharedKernel>
