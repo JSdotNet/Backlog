@@ -135,7 +135,7 @@ public sealed class SessionsPaneRunTests
     /// is the latest one's, with the rest counted beside its summary.
     /// </summary>
     [Fact]
-    public void A_rows_runs_are_all_in_its_run_card()
+    public async Task A_rows_runs_are_all_in_its_run_card()
     {
         var first = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-40));
         var second = SessionRowsTests.Run("run-2", Worktree, Noon.AddMinutes(-30), Noon.AddMinutes(-10), status: "in_progress") with
@@ -172,14 +172,14 @@ public sealed class SessionsPaneRunTests
                 pane.Find("[data-testid='sessions-row'] .stage-strip__summary").TextContent.Trim());
         });
 
-        pane.Find("[data-testid='sessions-run'][data-run-id='run-1'] [data-testid='sessions-run-fold']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run'][data-run-id='run-1'] [data-testid='sessions-run-fold']");
 
         pane.WaitForAssertion(() =>
             Assert.False(pane.Find("[data-testid='sessions-run'][data-run-id='run-1'] [data-testid='sessions-run-panel']").HasAttribute("hidden")));
     }
 
     [Fact]
-    public void Run_details_open_on_the_tokens_context_and_tool_calls()
+    public async Task Run_details_open_on_the_tokens_context_and_tool_calls()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
@@ -219,7 +219,7 @@ public sealed class SessionsPaneRunTests
         Assert.Equal("· 3 rounds", stages[0].QuerySelector("[data-testid='sessions-stage-rounds']")!.TextContent.Trim());
         Assert.Equal(["2m 5s", "In progress", "Not yet"], stages.Select(stage => stage.QuerySelector("[data-testid='sessions-stage-took']")!.TextContent.Trim()));
 
-        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-details-toggle']");
 
         pane.WaitForAssertion(() =>
         {
@@ -350,7 +350,7 @@ public sealed class SessionsPaneRunTests
     /// badge says what it hid, and it is off again on every open.
     /// </summary>
     [Fact]
-    public void With_runs_keeps_only_the_rows_that_carry_a_run()
+    public async Task With_runs_keeps_only_the_rows_that_carry_a_run()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10));
         var without = Live with { Id = "bare", Title = "bare-session", WorkingFolder = @"D:\Repos\Other" };
@@ -365,7 +365,7 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("false", pane.Find("[data-testid='sessions-runs-only']").GetAttribute("aria-pressed"));
         });
 
-        pane.Find("[data-testid='sessions-runs-only']").Click();
+        await pane.ClickAsync("[data-testid='sessions-runs-only']");
 
         pane.WaitForAssertion(() =>
         {
@@ -378,20 +378,20 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("1 of 2 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
 
-        pane.Find("[data-testid='sessions-runs-only']").Click();
+        await pane.ClickAsync("[data-testid='sessions-runs-only']");
 
         pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count));
     }
 
     [Fact]
-    public void With_runs_over_nothing_says_so_rather_than_showing_an_empty_table()
+    public async Task With_runs_over_nothing_says_so_rather_than_showing_an_empty_table()
     {
         using var context = Context([Live], []);
 
         var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-runs-only']")));
-        pane.Find("[data-testid='sessions-runs-only']").Click();
+        await pane.ClickAsync("[data-testid='sessions-runs-only']");
 
         pane.WaitForAssertion(() =>
         {
@@ -408,7 +408,7 @@ public sealed class SessionsPaneRunTests
     /// reading and the run would have joined it.
     /// </summary>
     [Fact]
-    public void A_run_with_no_session_in_the_list_is_a_row_of_the_same_list()
+    public async Task A_run_with_no_session_in_the_list_is_a_row_of_the_same_list()
     {
         var stray = SessionRowsTests.Run("run-stray", "old-worktree-1a2b3c4d", Noon.AddDays(-5), Noon.AddDays(-5).AddHours(2), title: "An old run", status: "in_progress");
 
@@ -428,7 +428,7 @@ public sealed class SessionsPaneRunTests
             Assert.Contains("And 1 delivery run no listed session drove, as a row of its own.", pane.Find(".sessions-panel__subtitle").TextContent);
         });
 
-        ShowAll(pane);
+        await ShowAllAsync(pane);
 
         pane.WaitForAssertion(() =>
         {
@@ -477,7 +477,7 @@ public sealed class SessionsPaneRunTests
     /// line carrying the "scheduled" chip.
     /// </summary>
     [Fact]
-    public void A_schedules_runs_are_one_row_with_a_scheduled_chip_on_every_line()
+    public async Task A_schedules_runs_are_one_row_with_a_scheduled_chip_on_every_line()
     {
         DeliveryRun Fired(string id, string worktree, int daysAgo) =>
             SessionRowsTests.Run(id, worktree, Noon.AddDays(-daysAgo), Noon.AddDays(-daysAgo).AddHours(1), status: "done") with
@@ -496,7 +496,7 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        ShowAll(pane);
+        await ShowAllAsync(pane);
 
         pane.WaitForAssertion(() =>
         {
@@ -536,7 +536,7 @@ public sealed class SessionsPaneRunTests
     }
 
     [Fact]
-    public void An_attended_run_carries_no_scheduled_chip()
+    public async Task An_attended_run_carries_no_scheduled_chip()
     {
         var stray = SessionRowsTests.Run("run-stray", "old-worktree-1a2b3c4d", Noon.AddDays(-5), Noon.AddDays(-5).AddHours(2));
 
@@ -544,7 +544,7 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        ShowAll(pane);
+        await ShowAllAsync(pane);
 
         pane.WaitForAssertion(() =>
         {
@@ -556,7 +556,7 @@ public sealed class SessionsPaneRunTests
     /// <summary>The list is one list under every control: a run-only row groups by
     /// the day it was last active, beside the sessions.</summary>
     [Fact]
-    public void A_run_only_row_groups_with_the_sessions()
+    public async Task A_run_only_row_groups_with_the_sessions()
     {
         var stray = SessionRowsTests.Run("run-stray", "old-worktree-1a2b3c4d", Noon.AddDays(-5), Noon.AddDays(-5).AddHours(2));
 
@@ -564,7 +564,7 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        ShowAll(pane);
+        await ShowAllAsync(pane);
         SessionsPaneTests.GroupBy(pane, "when");
 
         pane.WaitForAssertion(() =>
@@ -580,7 +580,7 @@ public sealed class SessionsPaneRunTests
     }
 
     [Fact]
-    public void A_run_only_row_follows_the_machine_filter_by_the_machine_its_file_was_read_on()
+    public async Task A_run_only_row_follows_the_machine_filter_by_the_machine_its_file_was_read_on()
     {
         var elsewhere = Live with
         {
@@ -596,7 +596,7 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        ShowAll(pane);
+        await ShowAllAsync(pane);
 
         pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row'][data-row-key^='run/']")));
 
@@ -731,7 +731,7 @@ public sealed class SessionsPaneRunTests
     /// so the work is one click from the row while the run lines stay folded.
     /// </summary>
     [Fact]
-    public void The_task_column_names_the_rows_entry_and_opens_it()
+    public async Task The_task_column_names_the_rows_entry_and_opens_it()
     {
         var own = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "delivery-run-reader", "Plan backlog-mcp-server", null, null, "backlog-mcp-server");
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with { References = [own] };
@@ -749,7 +749,7 @@ public sealed class SessionsPaneRunTests
             Assert.Contains("delivery-run-reader", task.TextContent);
         });
 
-        pane.Find("[data-testid='sessions-task-card'] [data-testid='sessions-task']").Click();
+        await pane.ClickAsync("[data-testid='sessions-task-card'] [data-testid='sessions-task']");
 
         pane.WaitForAssertion(() => Assert.Same(own, opened));
     }
@@ -788,7 +788,7 @@ public sealed class SessionsPaneRunTests
     /// panel, one row per part with the run's outcome as its dot, and nowhere else
     /// on the run card.</summary>
     [Fact]
-    public void A_verify_stage_shows_its_scenario_evidence_per_part()
+    public async Task A_verify_stage_shows_its_scenario_evidence_per_part()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
@@ -817,7 +817,7 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("1 of 2 passing", verify.QuerySelector("[data-testid='sessions-stage-evidence-summary']")!.TextContent.Trim());
         });
 
-        pane.Find("[data-testid='sessions-stage'][data-stage='Verify'] [data-testid='sessions-stage-toggle']").Click();
+        await pane.ClickAsync("[data-testid='sessions-stage'][data-stage='Verify'] [data-testid='sessions-stage-toggle']");
 
         pane.WaitForAssertion(() =>
         {
@@ -841,7 +841,7 @@ public sealed class SessionsPaneRunTests
     }
 
     [Fact]
-    public void A_run_with_no_evidence_draws_no_evidence_list()
+    public async Task A_run_with_no_evidence_draws_no_evidence_list()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
@@ -853,24 +853,24 @@ public sealed class SessionsPaneRunTests
         var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-stage-toggle']")));
-        pane.Find("[data-testid='sessions-stage-toggle']").Click();
+        await pane.ClickAsync("[data-testid='sessions-stage-toggle']");
 
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-stage-panel']")));
         Assert.Empty(pane.FindAll("[data-testid='sessions-stage-evidence-summary']"));
         Assert.Empty(pane.FindAll(".scenario-checklist"));
     }
 
-    private static void ShowAll(IRenderedComponent<SessionsPane> pane)
+    private static async Task ShowAllAsync(IRenderedComponent<SessionsPane> pane)
     {
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-view-all']")));
-        pane.Find("[data-testid='sessions-view-all']").Click();
+        await pane.ClickAsync("[data-testid='sessions-view-all']");
 
         pane.WaitForAssertion(() =>
             Assert.Equal("true", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed")));
     }
 
     [Fact]
-    public void A_run_this_product_recorded_claims_no_figure_it_could_not_measure()
+    public async Task A_run_this_product_recorded_claims_no_figure_it_could_not_measure()
     {
         // What the delivery surface writes: the resolved model, because a run states
         // it, and no consumption, because this product cannot measure it — those
@@ -916,7 +916,7 @@ public sealed class SessionsPaneRunTests
         // the rule held on the figures and not under them, so opening the details on
         // a run recorded here answered "0 calls · 0 out · 0 in · 0 cache read · 0 cache
         // write" — a measurement nobody made, contradicting the figures above.
-        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-details-toggle']");
 
         pane.WaitForAssertion(() =>
         {
@@ -933,7 +933,7 @@ public sealed class SessionsPaneRunTests
     }
 
     [Fact]
-    public void A_run_that_was_measured_still_shows_every_figure()
+    public async Task A_run_that_was_measured_still_shows_every_figure()
     {
         // The other side of the rule, so the fix above cannot be mistaken for
         // "stop showing tokens": a run whose dashboard did measure consumption
@@ -956,7 +956,7 @@ public sealed class SessionsPaneRunTests
         // details', where every one of them is still shown.
         pane.WaitForAssertion(() => Assert.Equal("1/1", pane.Find("[data-testid='sessions-run-figure-stages'] .metric-tile__value").TextContent.Trim()));
 
-        pane.Find("[data-testid='sessions-run-details-toggle']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-details-toggle']");
 
         pane.WaitForAssertion(() =>
         {

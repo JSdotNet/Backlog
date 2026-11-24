@@ -4,6 +4,7 @@ using Backlog.UI.Components.Settings;
 using Bunit;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 namespace Backlog.UI.Components.UnitTests;
@@ -147,12 +148,42 @@ public sealed class AgentComponentsTests
         row.Find("[data-testid='agent-row-revoke']").Click();
 
         // The row does not hide the host's failure; it only stops asking a question nothing
-        // can answer. Nothing is drawn after a throw, so the row is drawn again to read it.
+        // can answer.
         var confirm = row.Find("[data-testid='agent-row-revoke-confirm']");
         Assert.Throws<InvalidOperationException>(() => confirm.Click());
         Assert.Equal(1, attempts);
-        row.Render();
 
+        Assert.Empty(row.FindAll("[data-testid='agent-row-revoke-question']"));
+        Assert.Single(row.FindAll("[data-testid='agent-row-revoke']"));
+    }
+
+    /// <summary>A host that throws after its first await — a store write that fails — is not
+    /// drawn again by the framework once its handler faults, so the row draws its own Revoke
+    /// back before the failure goes on, or the live page keeps asking.</summary>
+    [Fact]
+    public async Task An_unbound_row_whose_host_threw_late_on_Revoke_draws_its_Revoke_again()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var attempts = 0;
+
+        var row = context.Render<AgentGrantRow>(parameters => parameters
+            .Add(r => r.Name, "Backlog delivery")
+            .Add(r => r.OnRevoke, EventCallback.Factory.Create(this, async () =>
+            {
+                Interlocked.Increment(ref attempts);
+                await Task.Yield();
+                throw new InvalidOperationException("The grant store could not be written.");
+            })));
+
+        await row.Find("[data-testid='agent-row-revoke']").ClickAsync(new MouseEventArgs());
+
+        // The awaited click returns once the handler has faulted; bUnit keeps the fault for
+        // its next wait rather than throwing it here, so the row's drawing is read at once,
+        // and no render is asked for.
+        await row.Find("[data-testid='agent-row-revoke-confirm']").ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(1, Volatile.Read(ref attempts));
         Assert.Empty(row.FindAll("[data-testid='agent-row-revoke-question']"));
         Assert.Single(row.FindAll("[data-testid='agent-row-revoke']"));
     }

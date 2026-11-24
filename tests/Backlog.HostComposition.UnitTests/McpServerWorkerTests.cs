@@ -32,15 +32,6 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class McpServerWorkerTests : IDisposable
 {
-    /// <summary>
-    /// How long a listener may take to come up, or to say why it did not. A bound, not a
-    /// wait: every test returns as soon as the worker's <c>Changed</c> says so. Thirty
-    /// seconds because the nightly run, with every test module at once on one runner, saw
-    /// a Kestrel start take longer than ten with nothing wrong (run 45167248847: two
-    /// listeners on free ports, no <c>LastError</c>, both out of time at the same instant).
-    /// </summary>
-    internal static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
-
     private readonly TemporaryDirectory _temp = new("mcp-worker-tests");
 
     private readonly GatedProvider _services = new(new ServiceCollection().BuildServiceProvider());
@@ -97,7 +88,7 @@ public sealed class McpServerWorkerTests : IDisposable
         // Disposed while the build is still held at the gate, and only then let
         // through: the order is fixed, so the build always finds itself superseded.
         // Dispose gives up on the stuck chain after its own drain timeout.
-        await Task.Run(worker.Dispose, TestContext.Current.CancellationToken).WaitAsync(Patience, TestContext.Current.CancellationToken);
+        await Task.Run(worker.Dispose, TestContext.Current.CancellationToken).WaitAsync(ListenerPatience.Bound, TestContext.Current.CancellationToken);
         _services.Open();
 
         Assert.False(worker.IsListening);
@@ -1152,7 +1143,7 @@ public sealed class McpServerWorkerTests : IDisposable
 
     private static async Task ListeningAsync(McpServerWorker worker, int port)
     {
-        var deadline = DateTime.UtcNow + Patience;
+        var deadline = DateTime.UtcNow + ListenerPatience.Bound;
         var changed = new SemaphoreSlim(0);
         worker.Changed += () => changed.Release();
 
@@ -1169,7 +1160,7 @@ public sealed class McpServerWorkerTests : IDisposable
     /// that sentence.</summary>
     internal static async Task<string> FailedAsync(McpServerWorker worker)
     {
-        var deadline = DateTime.UtcNow + Patience;
+        var deadline = DateTime.UtcNow + ListenerPatience.Bound;
         var changed = new SemaphoreSlim(0);
         void OnChanged() => changed.Release();
         worker.Changed += OnChanged;
@@ -1228,7 +1219,7 @@ public sealed class McpServerWorkerTests : IDisposable
         public object? GetService(Type serviceType)
         {
             Interlocked.Increment(ref _asked);
-            _gate.Wait(Patience);
+            _gate.Wait(ListenerPatience.Bound);
             return inner.GetService(serviceType);
         }
     }

@@ -95,6 +95,13 @@ public sealed class NotificationSyncSession
     private readonly IMcpAuditLog? _audit;
     private readonly ILogger _log;
 
+    /// <summary>The paired devices a reply's sender is checked against, so a composition test
+    /// can see the host handed this session its own.</summary>
+    internal IPairedDevices? PairedDevices => _devices;
+
+    /// <summary>Where a dropped answer is recorded, for the same composition test.</summary>
+    internal IMcpAuditLog? AuditLog => _audit;
+
     /// <summary>Why a notification the replica holds under another owner instance is closed
     /// here: the same id published on two desktops — a question both read from the same source —
     /// belongs to the desktop that put it on the replica first, and this one stays a viewer of it.</summary>

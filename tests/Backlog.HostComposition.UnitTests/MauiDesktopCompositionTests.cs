@@ -161,17 +161,9 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         var session = provider.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncSession>();
 
-        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.IPairedDevices>(), Held<Backlog.SharedKernel.IPairedDevices>(session));
-        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.Mcp.IMcpAuditLog>(), Held<Backlog.SharedKernel.Mcp.IMcpAuditLog>(session));
+        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.IPairedDevices>(), session.PairedDevices);
+        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.Mcp.IMcpAuditLog>(), session.AuditLog);
     }
-
-    /// <summary>The one instance field of <typeparamref name="T"/> the object holds.</summary>
-    private static T? Held<T>(object holder)
-        where T : class =>
-        (T?)Assert.Single(
-                holder.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic),
-                field => field.FieldType == typeof(T))
-            .GetValue(holder);
 
     /// <summary>
     /// Every factory-registered singleton of the product resolves from the root under

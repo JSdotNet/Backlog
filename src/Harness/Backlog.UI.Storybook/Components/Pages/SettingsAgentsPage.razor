@@ -100,6 +100,24 @@ The host binds the question, so one row asks at a time: asking on one row puts t
         </div>
     </Story>
 
+    <Story Name="Revoke while another revocation runs"
+           Description="While the host carries out one revocation - Windows Hello is open for another device - every other row's Revoke is drawn but cannot be pressed, so one revocation runs at a time. The host sets RevokeDisabled on those rows and clears it when the revocation ends, however it ends."
+           Code="@DisabledRevokeCode">
+        <div class="sb-stack" data-testid="settings-agents-revoke-disabled">
+            <SettingsCard Title="Paired devices" Description="Every device that syncs your backlog.">
+                <ul class="agent-list" aria-label="Your devices while one is being revoked">
+                    <AgentGrantRow Name="Pixel 8"
+                                   AccessibleName="Pixel 8, added 14 Oct 2026"
+                                   Meta="Paired by this device · added 14 Oct 2026"
+                                   ShowScopes="false"
+                                   CanEditScopes="false"
+                                   RevokeDisabled="true"
+                                   OnRevoke="() => { }" />
+                </ul>
+            </SettingsCard>
+        </div>
+    </Story>
+
     <Story Name="Scope switches"
            Description="One switch per scope with the line saying what it opens. A locked scope is drawn disabled as the grant holds it: devbook:decide is a boundary no agent crosses, and a list that left it out would let a reader think it was forgotten. The switches flow into as many columns as the card has room for."
            Code="@SwitchesCode">
@@ -371,6 +389,17 @@ The host binds the question, so one row asks at a time: asking on one row puts t
                                OnRevoke="() => RevokeWithHelloAsync(device)" />
             }
         </ul>
+        """;
+
+    private const string DisabledRevokeCode = """
+        <AgentGrantRow Name="@device.Name"
+                       AccessibleName="@spokenName"
+                       Meta="@meta"
+                       ShowScopes="false"
+                       CanEditScopes="false"
+                       CanRevoke="@pairedByThisDevice"
+                       RevokeDisabled="@revoking"
+                       OnRevoke="() => RevokeWithHelloAsync(device)" />
         """;
 
     private void FlipSample(AgentScopeChange change) =>

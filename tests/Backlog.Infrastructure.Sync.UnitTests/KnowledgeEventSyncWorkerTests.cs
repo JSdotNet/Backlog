@@ -248,6 +248,85 @@ public sealed class KnowledgeEventSyncWorkerTests
         Assert.Equal(2, fixture.SessionsResolved);
     }
 
+    /// <summary>A settle asks twice — the settle timer and the cycle it met on that cycle's way
+    /// out. Once both asks have run or been turned away, the one write has run one cycle after
+    /// the first: the late ask finds it carried and sends nothing.</summary>
+    [Fact]
+    public async Task A_settle_met_during_a_cycle_runs_one_more_cycle_once_every_ask_has_drained()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var fixture = Fixture.Create(
+            syncOn: true,
+            eventsOn: true,
+            paired: true,
+            respond: (request, index) =>
+            {
+                if (index == 0)
+                {
+                    entered.TrySetResult();
+                    release.Task.Wait(Fixture.Patience);
+                }
+
+                return Fixture.Ordinary(request);
+            });
+
+        var first = fixture.Worker.RequestSyncAsync();
+        await entered.Task.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        fixture.Changes.RaiseLocalChange();
+        fixture.Clock.Advance(KnowledgeEventSyncWorker.ChangeSettleDelay);
+
+        var second = fixture.NextCycleAfter(1);
+        release.SetResult();
+        await first;
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.True(
+            SpinWait.SpinUntil(() => !fixture.Worker.HasPendingRequests, Fixture.Patience),
+            "A request the settle made never ran or was turned away.");
+        Assert.Equal(2, fixture.SessionsResolved);
+    }
+
+    /// <summary>A late settle ask that finds its write carried already turns nothing away: a
+    /// manual sync, or a withdrawal, asked for at that moment still runs its cycle.</summary>
+    [Fact]
+    public async Task Asking_for_a_sync_while_late_settle_asks_find_nothing_still_runs_every_cycle()
+    {
+        const int Asks = 40;
+        using var fixture = Fixture.Create(syncOn: true, eventsOn: true, paired: true);
+        using var stop = new CancellationTokenSource();
+
+        // Late settle asks, as a settle that was carried already leaves behind, arriving
+        // throughout: none of them has anything to run.
+        var lateAsks = Enumerable.Range(0, 4)
+            .Select(_ => Task.Run(
+                async () =>
+                {
+                    while (!stop.IsCancellationRequested)
+                    {
+                        await fixture.Worker.RequestSettledSyncAsync();
+                    }
+                },
+                TestContext.Current.CancellationToken))
+            .ToArray();
+
+        try
+        {
+            for (var ask = 0; ask < Asks; ask++)
+            {
+                await fixture.Worker.RequestSyncAsync().WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+            }
+        }
+        finally
+        {
+            await stop.CancelAsync();
+            await Task.WhenAll(lateAsks).WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(Asks, fixture.SessionsResolved);
+    }
+
     /// <summary>Six loops start when the app does; none fires its first cycle into the same
     /// moment as another.</summary>
     [Fact]

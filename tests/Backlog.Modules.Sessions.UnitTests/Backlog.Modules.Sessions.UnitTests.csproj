@@ -34,6 +34,8 @@
        Backlog.Desktop.UI.UnitTests, and the price store the Settings badges there use too. -->
   <ItemGroup>
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
+    <!-- The race-safe gestures for a pane still landing renders when the test acts. -->
+    <Compile Include="..\Shared\RaceSafeTestHelpers.cs" Link="Shared\RaceSafeTestHelpers.cs" />
     <Compile Include="..\Shared\TestDoubles\StubPriceStore.cs" Link="Shared\TestDoubles\StubPriceStore.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryLoopRegister.cs" Link="Shared\TestDoubles\InMemoryLoopRegister.cs" />
     <Compile Include="..\Shared\TestDoubles\InMemoryScheduleRegister.cs" Link="Shared\TestDoubles\InMemoryScheduleRegister.cs" />

@@ -172,6 +172,8 @@
     <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
+    <!-- The race-safe gestures the Sessions pane's tests use too. -->
+    <Compile Include="..\Shared\RaceSafeTestHelpers.cs" Link="Shared\RaceSafeTestHelpers.cs" />
   </ItemGroup>
 
   <!-- bUnit's default wait for this process, set before any test runs; the file

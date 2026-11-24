@@ -276,11 +276,13 @@
 
             // A host that threw answers nothing, so an unbound row would keep asking a
             // question no button can settle: it puts its own Revoke back. A bound row's
-            // question is its host's to close.
+            // question is its host's to close. Drawn here, because the framework draws
+            // nothing after a handler that faults once it has awaited.
             if (!returned && !Bound)
             {
                 _confirming = false;
                 _focus = FocusTarget.Revoke;
+                StateHasChanged();
             }
         }
 
