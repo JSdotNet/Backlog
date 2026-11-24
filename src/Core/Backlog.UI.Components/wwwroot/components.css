@@ -31799,3 +31799,88 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
     background: var(--color-text-inverse);
     color: var(--color-primary);
 }
+
+/* ── Change sets (ChangeSetList) ──────────────────────────────────────────
+   The change journal read back: filter chips, then one fold per change set
+   whose region holds each document's before and now. */
+.change-sets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.change-sets__filter-count {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.change-sets__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.change-sets__item {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.change-sets__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.change-sets__agent,
+.change-sets__time {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.change-sets__session {
+    overflow-wrap: anywhere;
+}
+
+.change-sets__label {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.change-sets__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.change-sets__documents {
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.change-sets__document-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-xs);
+    font-size: var(--font-size-base);
+}
+
+.change-sets__note {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+}

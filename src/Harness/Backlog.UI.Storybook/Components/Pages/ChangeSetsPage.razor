@@ -1,0 +1,119 @@
+@page "/change-sets"
+@using Backlog.SharedKernel.Changes
+@using Backlog.UI.Components.Changes
+
+<PageTitle>Change sets — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Change sets"
+           Summary="The change journal read back: every change set newest first with who made it, a filter by who, and — opened in place — each document's text before the change set beside its text now. Read-only; nothing here takes a change back."
+           Guidelines="@Rules">
+
+    <Story Name="Who changed what"
+           Description="One row per change set, newest first: who made it as a word on a tone, the caller and session for an agent, the label, the time and how many documents it changed. A change set Backlog made itself shows under All only.
+
+Open the agent's row to see each task's entry text before the change beside its text now."
+           Code="@ListCode">
+        <ChangeSetList Entries="@Entries"
+                       @bind-Filter="_filter"
+                       ChangedDocuments="@Documents"
+                       TimeFormat="@Time"
+                       TestId="story-change-sets" />
+    </Story>
+
+    <Story Name="Filtered to agents"
+           Description="A chip keeps the change sets one kind of writer made; each chip counts what it would keep, so an empty one is known before it is pressed."
+           Code="@AgentsCode">
+        <ChangeSetList Entries="@Entries"
+                       Filter="ChangeSetFilter.Agents"
+                       ChangedDocuments="@Documents"
+                       TimeFormat="@Time"
+                       TestId="story-change-sets-agents" />
+    </Story>
+
+    <Story Name="A kind with no text of its own"
+           Description="A document that is not a task is shown as its stored fields, one per line. With no reader for its kind the current side says it is not available."
+           Code="@FieldsCode">
+        <ChangeSetList Entries="@([new ChangeSetEntry(GoalEdit, 1)])"
+                       ChangedDocuments="@Documents"
+                       TimeFormat="@Time"
+                       TestId="story-change-sets-fields" />
+    </Story>
+
+    <Story Name="Nothing recorded yet"
+           Description="An empty journal says so in the library's own empty state, without a call to action: nothing to look at is a complete answer."
+           Code="@EmptyCode">
+        <ChangeSetList Entries="@([])" TestId="story-change-sets-empty" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "Which tone each writer's badge wears, and why the word carries the meaning."),
+        new("content-editing.md#round-trip-fidelity", "Why a task is compared as its entry text, aligned by heading."),
+    ];
+
+    private ChangeSetFilter _filter;
+
+    private static readonly DateTimeOffset Morning = new(2026, 11, 25, 9, 0, 0, TimeSpan.Zero);
+
+    private static readonly ChangeSet AgentRun = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000001"), ChangeActor.Agent, "transition", Morning.AddMinutes(42))
+    {
+        Caller = "claude-code",
+        SessionId = "1a3e2675",
+    };
+
+    private static readonly ChangeSet MyEdit = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000002"), ChangeActor.Person, "editing “Book the train”", Morning.AddMinutes(30));
+
+    private static readonly ChangeSet SyncPage = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000003"), ChangeActor.Sync, "sync page", Morning.AddMinutes(12));
+
+    private static readonly ChangeSet Stranger = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000004"), ChangeActor.Unknown, null, Morning.AddMinutes(5));
+
+    private static readonly ChangeSet GoalEdit = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000005"), ChangeActor.Agent, "update_goal", Morning)
+    {
+        Caller = "claude-code",
+    };
+
+    private static readonly IReadOnlyList<ChangeSetEntry> Entries =
+    [
+        new(AgentRun, 2),
+        new(MyEdit, 1),
+        new(SyncPage, 4),
+        new(Stranger, 1),
+    ];
+
+    private static readonly IReadOnlyDictionary<Guid, IReadOnlyList<ChangedDocument>> Documents =
+        new Dictionary<Guid, IReadOnlyList<ChangedDocument>>
+        {
+            [AgentRun.Id] =
+            [
+                new("task", "t-1", "Plan the trip",
+                    "# Plan the trip\n`task` `*medium` `!ready`\n\nBook the train and the hotel.\n",
+                    "# Plan the trip\n`task` `*medium` `!done` `completed:2026-11-25`\n\nBook the train and the hotel.\n\nBoth booked.\n"),
+                new("task", "t-2", "Pack", null, "# Pack\n`task` `*low` `!draft`\n"),
+            ],
+            [MyEdit.Id] = [new("task", "t-3", "Book the train", "# Book the train\n`task` `*high` `!ready`\n", "# Book the train\n`task` `*high` `!ready`\n\nThe 08:12.\n")],
+            [GoalEdit.Id] = [new("goal", "g-1", "Ship the journal", "id: g-1\ntitle: Ship the journal\nstate: open\ntarget_on: 2026-12-01", null)],
+        };
+
+    private static string Time(DateTimeOffset at) => at.UtcDateTime.ToString("d MMM yyyy, HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    private const string ListCode = """
+        <ChangeSetList Entries="@entries"
+                       @bind-Filter="filter"
+                       ChangedDocuments="@documents"
+                       OnOpen="ReadDocumentsAsync" />
+        """;
+
+    private const string AgentsCode = """
+        <ChangeSetList Entries="@entries" Filter="ChangeSetFilter.Agents" ChangedDocuments="@documents" />
+        """;
+
+    private const string FieldsCode = """
+        <ChangeSetList Entries="@goalEdit" ChangedDocuments="@documents" />
+        """;
+
+    private const string EmptyCode = """
+        <ChangeSetList Entries="@([])" />
+        """;
+}

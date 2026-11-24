@@ -780,7 +780,7 @@ question. Below it the workspace shows exactly one **main view**, unless a
 
 | Region | Answers | Holds |
 |---|---|---|
-| Navigation | What am I looking at, over which repositories? | Left to right: **Inbox**, **Weekly review** (while its flag is on), the view switch, the repository scope, **Devbook**, **Calendar**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at, over which repositories? | Left to right: **Inbox**, **Weekly review** (while its flag is on), the view switch, the repository scope, **Devbook**, **Calendar**, **Changes**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view, Tasks or Board, is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
@@ -803,6 +803,7 @@ control, and each MUST look and act as its kind:
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Calendar tab | `Calendar`, after the Devbook | A view option standing alone: pressed while the Calendar is the main view, never closed. |
+| Changes tab | `Changes`, after the Calendar | A view option standing alone: pressed while the Changes view is the main view, never closed. |
 | Inbox toggle | `Inbox`, first, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Weekly review toggle | `Weekly review`, after the Inbox, under `weekly-review` | An on-or-off giving the weekly review the whole screen; a second press or Escape returns. |
 | Devbook toggle | `Devbook`, after the repository scope; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
@@ -817,6 +818,11 @@ control, and each MUST look and act as its kind:
   as a view option does: pressing it again changes nothing, Escape never leaves
   it, and a takeover hides it. Its `aria-controls` names the Calendar's own
   region. A stored last view of `calendar` reopens on it.
+- **Changes tab:** the change journal read back (local ADR 0061): who changed
+  which documents, and each one's text before beside its text now. It reads what
+  was written, not the tasks, so like the Calendar it stands outside the fused
+  switch in the loose shape and acts as a view option does. A session's
+  **Changes** action in the Sessions list opens it narrowed to that session.
 - **Inbox toggle:** Escape is the Inbox's own key, leaving triage for the list,
   so it does not leave the Inbox.
 - **Devbook toggle:** see `#workspace-panes`. The toggle is named for what the

@@ -1,0 +1,168 @@
+@using Backlog.SharedKernel.Changes
+@using Backlog.UI.Components.Changes
+@inherits ComponentBase
+@inject IServiceProvider Services
+
+@*
+    The Changes view (local ADR 0061 §2, local ADR 0022 §1): every change set the
+    journal holds, newest first, who made it, and — opened in place — what each
+    document was before it beside what it is now. Read-only: taking a change set back
+    is a later step, and nothing here offers it.
+
+    `session=<id>` narrows it to the change sets an agent made in that session — the
+    Sessions pane's Changes action. The narrowing is said out loud above the list with
+    the way back to every change set, because a list that silently shows a fraction
+    of the journal reads as a journal that recorded a fraction.
+
+    A host that composes no journal says so rather than drawing an empty list.
+*@
+<section class="changes-view" id="changes-view" aria-labelledby="changes-view-title" data-testid="changes-view">
+    <div class="changes-view__head">
+        <h2 class="changes-view__title" id="changes-view-title">Changes</h2>
+        @if (_journal is not null)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Busy="@_loading"
+                       BusyLabel="Reading"
+                       TestId="changes-refresh"
+                       OnClick="RefreshAsync">
+                Refresh
+            </AppButton>
+        }
+    </div>
+
+    @if (_journal is null)
+    {
+        <Alert Message="This app records no change journal." Role="status" TestId="changes-unavailable" />
+    }
+    else
+    {
+        @if (_session is { } session)
+        {
+            <Callout Heading="@($"Session {session}")"
+                     ActionLabel="Show every change set"
+                     ActionTestId="changes-show-all"
+                     OnAction="ShowAllAsync"
+                     TestId="changes-session-filter">
+                Only the change sets an agent made in this session are listed.
+            </Callout>
+        }
+
+        @if (_entries.Count >= Limit)
+        {
+            <Alert Message="@($"Showing the newest {Limit} change sets; the chips count those.")" Role="status" TestId="changes-capped" />
+        }
+
+        @if (_error is not null)
+        {
+            <Alert Message="@_error" TestId="changes-error" />
+        }
+
+        <ChangeSetList Entries="@_entries"
+                       @bind-Filter="_filter"
+                       ChangedDocuments="@_documents"
+                       OnOpen="OpenAsync"
+                       EmptyTitle="@(_session is null ? "No changes recorded yet" : "No change sets from this session")"
+                       EmptyDescription="@(_session is null ? "Every write to a task is recorded here, with who made it." : "The agent wrote nothing under this session id, or named another.")"
+                       TestId="changes-list" />
+    }
+</section>
+
+@code {
+    /// <summary>The query the view was shown with: <c>session</c>, or nothing.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>The shell's close callback, declared because the shell hands it to
+    /// every surface. Unused: a view is replaced, never closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>How many change sets the view reads, newest first.</summary>
+    internal const int Limit = 200;
+
+    private IChangeJournal? _journal;
+    private IReadOnlyList<ChangeSetEntry> _entries = [];
+    private Dictionary<Guid, IReadOnlyList<ChangedDocument>> _documents = [];
+    private ChangeSetFilter _filter;
+    private string? _session;
+    private IReadOnlyDictionary<string, string>? _appliedQuery;
+    private bool _applied;
+    private bool _loading;
+    private string? _error;
+
+    protected override void OnInitialized() => _journal = Services.GetService<IChangeJournal>();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // A new query is a new jump — the Sessions pane on another session, or the
+        // header's option with none — and is followed once; a re-render for any other
+        // reason keeps what the reader did since.
+        if (_applied && ReferenceEquals(Query, _appliedQuery)) return;
+
+        _applied = true;
+        _appliedQuery = Query;
+        _session = Query is not null && Query.TryGetValue(ChangesSurfaceQuery.SessionKey, out var session) && session.Length > 0
+            ? session
+            : null;
+        await LoadAsync();
+    }
+
+    private Task RefreshAsync() => LoadAsync();
+
+    private Task ShowAllAsync()
+    {
+        _session = null;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_journal is null) return;
+
+        _loading = true;
+        _error = null;
+        try
+        {
+            _entries = await _journal.ListAsync(_session, Limit);
+
+            // A row the reader opened stays open across a reload, so what it changed
+            // is read again for every one still listed — never left saying it is
+            // reading — and dropped for the rest.
+            var listed = _entries.Select(entry => entry.ChangeSet.Id).ToHashSet();
+            var reopened = new Dictionary<Guid, IReadOnlyList<ChangedDocument>>();
+            foreach (var id in _documents.Keys.Where(listed.Contains))
+            {
+                reopened[id] = await _journal.ReadAsync(id);
+            }
+
+            _documents = reopened;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The change journal could not be read: {exception.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenAsync(Guid changeSetId)
+    {
+        if (_journal is null) return;
+
+        try
+        {
+            _documents[changeSetId] = await _journal.ReadAsync(changeSetId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _documents[changeSetId] = [];
+            _error = $"What that change set changed could not be read: {exception.Message}";
+        }
+
+        // A fresh dictionary, so the list sees a new parameter value and redraws.
+        _documents = new Dictionary<Guid, IReadOnlyList<ChangedDocument>>(_documents);
+    }
+}

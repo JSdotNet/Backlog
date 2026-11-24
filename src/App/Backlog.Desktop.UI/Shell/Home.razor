@@ -321,6 +321,29 @@
                     <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                 </ToggleButton>)
 
+                @* The Changes tab: the change journal read back (local ADR 0061), a
+                   main view after the Calendar's. Like the Calendar it stands outside
+                   the switch in the loose option shape, because it is no reading of
+                   the tasks but of what was written to them
+                   (interaction-guidelines.md#shell-header); it acts as a view option
+                   does — pressing it again changes nothing, and a takeover hides it.
+                   The header's press shows every change set; a session's Changes
+                   action narrows it through the navigator. *@
+                @if (ChangesViewOffered)
+                {
+                    @HeaderItem(ChangesViewId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ChangesViewId)"
+                                  id="changes-view-option"
+                                  Title="Changes"
+                                  TestId="changes-view-option"
+                                  aria-controls="changes-view"
+                                  OnClick="() => ShowView(ChangesViewId)">
+                        <ScrollTextIcon />
+                        <span class="header-nav-label header-nav-label--tier-4">Changes</span>
+                    </ToggleButton>)
+                }
+
                 @* The other registered takeovers, after the Calendar, in catalog
                    order: today Events. Drawn as the Devbook is above. *@
                 @foreach (var surface in RegisteredTakeoversOffered.Where(surface => !IsDevbook(surface)))
@@ -1109,6 +1132,10 @@
     private const string CalendarViewId = Backlog.Modules.Calendar.UI.CalendarSurfaceRegistration.SurfaceId;
     private const string RoadmapViewId = RoadmapSurfaceQuery.SurfaceId;
     private const string GoalsViewId = Backlog.Modules.Progress.UI.Goals.GoalsSurfaceQuery.SurfaceId;
+    private const string ChangesViewId = Backlog.SharedKernel.Changes.ChangesSurfaceQuery.SurfaceId;
+
+    /// <summary>Whether the header offers the Changes tab: the host registered the view.</summary>
+    private bool ChangesViewOffered => ViewOffered(ChangesViewId);
 
     /// <summary>The view the workspace shows: the one chosen, while the catalog offers
     /// it as a view — else Tasks, which is always offered, as for the Roadmap with its

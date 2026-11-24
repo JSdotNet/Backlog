@@ -53,6 +53,7 @@ public class StorybookOrderTests
         ["Capture"] = ["capture"],
         ["Code"] = ["code"],
         ["Compare"] = ["compare"],
+        ["Changes"] = ["change-sets"],
         ["Data"] = ["data-table"],
         ["Day"] = ["today", "task-detail", "focus"],
         ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas", "devbook/domain-context-map"],

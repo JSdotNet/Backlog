@@ -1,0 +1,200 @@
+@using System.Globalization
+@using Backlog.SharedKernel.Changes
+
+@*
+    The change journal read back (local ADR 0061 §2): the change sets newest first,
+    who made each, and — opened in place — every document it changed, its text
+    before the change set beside its text now.
+
+    Presentational. The host reads the journal and hands over the change sets and,
+    once a row is opened, that row's documents; this draws them and says which row
+    was opened and which filter was pressed. Read-only: nothing here takes a change
+    back, and no control suggests it might.
+
+    The filter chips are one radio group of toggles, the shape every closed-set
+    filter in the library takes. A change set made by Backlog itself (`system`)
+    shows under All only: no chip asks for it, and hiding it from All would make the
+    list lie about what the journal holds.
+
+    A row is a fold rather than a link to another screen: what changed is read
+    beside the list it was found in, and several can be open at once to compare.
+    Each document is drawn by MarkdownCompareView, Bare, so a task reads as the
+    entry text a person knows; a kind with no text of its own arrives as one field
+    per line and is drawn as a list of them.
+*@
+
+<section class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId">
+    <ButtonGroup CssClass="change-sets__filters" AriaLabel="Show change sets by" Radio="true" TestId="change-sets-filters">
+        @foreach (var filter in ChangeSetFilters.All)
+        {
+            var chip = filter;
+            <ToggleButton Pressed="@(Filter == chip)"
+                          PressedChanged="_ => ChooseAsync(chip)"
+                          TestId="@($"change-sets-filter-{Slug(chip)}")">
+                @ChangeSetFilters.Label(chip)
+                <span class="change-sets__filter-count">@Count(chip)</span>
+            </ToggleButton>
+        }
+    </ButtonGroup>
+
+    @if (Shown.Count == 0)
+    {
+        <EmptyState Title="@(Entries.Count == 0 ? EmptyTitle : "Nothing under this filter")"
+                    Description="@(Entries.Count == 0 ? EmptyDescription : "No change set here was made by who this filter asks for.")"
+                    ActionCssClass="@null"
+                    CssClass="change-sets__empty"
+                    TestId="change-sets-empty" />
+    }
+    else
+    {
+        <ol class="change-sets__list" data-testid="change-sets-list">
+            @foreach (var entry in Shown)
+            {
+                var changeSet = entry.ChangeSet;
+                var open = _open.Contains(changeSet.Id);
+                <li @key="changeSet.Id" class="change-sets__item" data-testid="change-set" data-change-set="@changeSet.Id">
+                    <FoldControl Expanded="@open"
+                                 ExpandedChanged="expanded => ToggleAsync(changeSet.Id, expanded)"
+                                 CssClass="change-sets__fold"
+                                 TestId="change-set-toggle">
+                        <LabelContent>
+                            <span class="change-sets__row">
+                                <Badge Kind="tone" Slug="@ChangeSetFilters.ActorTone(changeSet.Actor)" TestId="change-set-actor">@ChangeSetFilters.ActorLabel(changeSet.Actor)</Badge>
+                                @if (changeSet.Actor is ChangeActor.Agent)
+                                {
+                                    <span class="change-sets__agent" data-testid="change-set-agent">
+                                        <span title="The grant the agent called with">@(changeSet.Caller ?? "unnamed caller")</span>
+                                        <span aria-hidden="true">·</span>
+                                        <span class="change-sets__session" title="The session the agent named">@(changeSet.SessionId is { Length: > 0 } session ? $"session {session}" : "no session named")</span>
+                                    </span>
+                                }
+                                <span class="change-sets__label" data-testid="change-set-label">@(changeSet.Label ?? "No label")</span>
+                                <time class="change-sets__time" datetime="@changeSet.StartedAt.ToString("O", CultureInfo.InvariantCulture)" title="@changeSet.StartedAt.ToString("O", CultureInfo.InvariantCulture)" data-testid="change-set-time">@FormatTime(changeSet.StartedAt)</time>
+                                <span class="change-sets__count" data-testid="change-set-count">@DocumentWord(entry.DocumentCount)</span>
+                            </span>
+                        </LabelContent>
+                        <ChildContent>
+                            @if (open)
+                            {
+                                @Documents(changeSet.Id, entry.DocumentCount)
+                            }
+                        </ChildContent>
+                    </FoldControl>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    /// <summary>The change sets to list, newest first, as the journal answered them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ChangeSetEntry> Entries { get; set; } = [];
+
+    /// <summary>The filter pressed.</summary>
+    [Parameter]
+    public ChangeSetFilter Filter { get; set; }
+
+    /// <summary>Raised with the filter a chip press chose.</summary>
+    [Parameter]
+    public EventCallback<ChangeSetFilter> FilterChanged { get; set; }
+
+    /// <summary>The documents of every row the host has read so far, by change set.
+    /// A row opened before its documents arrive says it is reading them.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<Guid, IReadOnlyList<ChangedDocument>>? ChangedDocuments { get; set; }
+
+    /// <summary>Raised when a row opens, so the host reads its documents.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpen { get; set; }
+
+    /// <summary>How a change set's time reads; local <c>d MMM yyyy, HH:mm</c> when unset.</summary>
+    [Parameter]
+    public Func<DateTimeOffset, string>? TimeFormat { get; set; }
+
+    [Parameter]
+    public string EmptyTitle { get; set; } = "No changes recorded yet";
+
+    [Parameter]
+    public string? EmptyDescription { get; set; } = "Every write to a task is recorded here, with who made it.";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Change sets";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private readonly HashSet<Guid> _open = [];
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "change-sets" : $"change-sets {CssClass}";
+
+    private List<ChangeSetEntry> Shown => [.. Entries.Where(entry => ChangeSetFilters.Keeps(Filter, entry.ChangeSet.Actor))];
+
+    private int Count(ChangeSetFilter filter) => Entries.Count(entry => ChangeSetFilters.Keeps(filter, entry.ChangeSet.Actor));
+
+    private string FormatTime(DateTimeOffset at) =>
+        TimeFormat?.Invoke(at) ?? at.ToLocalTime().ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    private static string Slug(ChangeSetFilter filter) => filter.ToString().ToLowerInvariant();
+
+    private static string DocumentWord(int count) => count == 1 ? "1 document" : $"{count} documents";
+
+    private Task ChooseAsync(ChangeSetFilter filter) =>
+        filter == Filter ? Task.CompletedTask : FilterChanged.InvokeAsync(filter);
+
+    private async Task ToggleAsync(Guid id, bool expanded)
+    {
+        if (!expanded)
+        {
+            _open.Remove(id);
+            return;
+        }
+
+        _open.Add(id);
+        if (ChangedDocuments?.ContainsKey(id) != true) await OnOpen.InvokeAsync(id);
+    }
+
+    private RenderFragment Documents(Guid id, int count) => __builder =>
+    {
+        if (ChangedDocuments?.TryGetValue(id, out var documents) != true || documents is null)
+        {
+            <p class="change-sets__note" role="status" data-testid="change-set-reading">Reading what it changed…</p>
+            return;
+        }
+
+        if (documents.Count == 0)
+        {
+            <p class="change-sets__note" data-testid="change-set-no-documents">@(count == 0 ? "It changed no document the journal keeps." : "Its documents could not be read.")</p>
+            return;
+        }
+
+        <ul class="change-sets__documents" data-testid="change-set-documents">
+            @foreach (var document in documents)
+            {
+                <li @key="@($"{document.Kind}/{document.Id}")" class="change-sets__document" data-testid="changed-document" data-document="@document.Id">
+                    <h4 class="change-sets__document-title">
+                        <Badge Kind="kind" Slug="@document.Kind" TestId="changed-document-kind">@document.Kind</Badge>
+                        <span data-testid="changed-document-title">@document.Title</span>
+                    </h4>
+                    <MarkdownCompareView Section="@MarkdownCompare.Compare(AsMarkdown(document, document.Before), AsMarkdown(document, document.Current))"
+                                         FileName="@document.Title"
+                                         BeforeLabel="@(document.Before is null ? "Before — it did not exist" : "Before this change")"
+                                         AfterLabel="@(document.Current is null ? "Now — not available" : "Now")"
+                                         UnchangedExpanded="true"
+                                         Bare="true"
+                                         TestId="changed-document-compare" />
+                </li>
+            }
+        </ul>
+    };
+
+    /// <summary>A task's entry text as it is; any other kind's field lines as a list,
+    /// so each field reads as its own block.</summary>
+    private static string? AsMarkdown(ChangedDocument document, string? text) =>
+        text is null || document.Kind == "task"
+            ? text
+            : string.Join('\n', text.ReplaceLineEndings("\n").Split('\n').Select(line => "- " + line));
+}

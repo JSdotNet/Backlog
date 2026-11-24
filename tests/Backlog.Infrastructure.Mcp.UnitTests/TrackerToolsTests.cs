@@ -1080,10 +1080,10 @@ public class TrackerToolsTests
 
         Func<Task> call = tool switch
         {
-            TrackerTools.Transition => () => tools.TransitionAsync(id, "in-progress", token),
-            TrackerTools.SetBlocked => () => tools.SetBlockedAsync(id, blocked: true, token),
-            TrackerTools.Comment => () => tools.CommentAsync(id, "A note.", token),
-            _ => () => tools.LinkChangeAsync(id, "JSdotNet/Backlog", "12", token),
+            TrackerTools.Transition => () => tools.TransitionAsync(id, "in-progress", cancellationToken: token),
+            TrackerTools.SetBlocked => () => tools.SetBlockedAsync(id, blocked: true, cancellationToken: token),
+            TrackerTools.Comment => () => tools.CommentAsync(id, "A note.", cancellationToken: token),
+            _ => () => tools.LinkChangeAsync(id, "JSdotNet/Backlog", "12", cancellationToken: token),
         };
 
         var failure = await Assert.ThrowsAsync<McpException>(call);

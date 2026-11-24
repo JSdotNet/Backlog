@@ -24,6 +24,7 @@ using Backlog.Modules.Tasks.Extensions;
 using ITaskLookupCandidates = Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates;
 using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion;
 using Backlog.SharedKernel.Ai;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -281,6 +282,7 @@ public sealed class HomeWorkspaceSurfaceTests
             ("board", "board-view-option", "Board"),
             ("calendar", "calendar-view-option", "Calendar"),
             ("roadmap", "roadmap-view-option", "Roadmap"),
+            ("changes", "changes-view-option", "Changes"),
             ("devbook", "devbook-pane-option", "Devbook"),
             ("goals", "goals-view-option", "Goals"),
             ("sessions", "sessions-toggle-button", "Sessions"),
@@ -664,7 +666,8 @@ public sealed class HomeWorkspaceSurfaceTests
             // The repository scope follows the views it filters, the Devbook that reads
             // it follows the scope, and the Calendar tab stands alone after the Devbook
             // (interaction-guidelines.md#shell-header).
-            Assert.Equal(["inbox-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item"], workspace);
+            Assert.Equal(["inbox-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item", "changes-header-item"], workspace);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='changes-view-option']").ClassName);
             Assert.Equal("inbox-pane-option",
                 component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
             Assert.Equal("devbook-pane-option",
@@ -1594,6 +1597,57 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// Changes is a main view (local ADR 0061, ADR 0022 §1): its tab stands after the
+    /// Calendar's, outside the view switch, it replaces the task list inside the workspace, and pressing it
+    /// again changes nothing.
+    /// </summary>
+    [Fact]
+    public void The_changes_view_replaces_the_task_list_inside_the_workspace()
+    {
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton<IChangeJournal>(new StubChangeJournal()));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='changes-view-option']")));
+        component.Find("[data-testid='changes-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var main = Assert.Single(component.FindAll("main"));
+            Assert.NotNull(main.QuerySelector("[data-testid='changes-view']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("true", component.Find("[data-testid='changes-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("Session-less change", component.Find("[data-testid='change-set-label']").TextContent);
+        });
+
+        component.Find("[data-testid='changes-view-option']").Click();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='changes-view']")));
+    }
+
+    /// <summary>A session's Changes action asks the navigator for the view on that
+    /// session; the shell shows the view narrowed to it.</summary>
+    [Fact]
+    public async Task Asking_for_the_changes_of_a_session_shows_the_view_narrowed_to_it()
+    {
+        var journal = new StubChangeJournal();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton<IChangeJournal>(journal));
+        var component = Render(harness);
+        var navigator = harness.Context.Services.GetRequiredService<ISurfaceNavigator>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        await component.InvokeAsync(() => navigator.Show(
+            ChangesSurfaceQuery.SurfaceId,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [ChangesSurfaceQuery.SessionKey] = "session-7" }));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='changes-view']"));
+            Assert.Contains("session-7", component.Find("[data-testid='changes-session-filter']").TextContent, StringComparison.Ordinal);
+            Assert.Equal("session-7", journal.LastSession);
+        });
+    }
+
+    /// <summary>
     /// The roadmap is a main view, not a takeover: it shows in the workspace's own
     /// <c>main</c>, in the place of the task list, and the Tasks filter bar goes with
     /// the list. The view switch reads Roadmap pressed and Tasks not.
@@ -1983,7 +2037,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item"], workspace);
+            Assert.Equal(["inbox-header-item", "weekly-review-header-item", "view-switch", "repository-scope", "devbook-header-item", "calendar-header-item", "changes-header-item"], workspace);
 
             var badge = component.Find("[data-testid='weekly-review-feature-status']");
             Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
@@ -3972,6 +4026,23 @@ public sealed class HomeWorkspaceSurfaceTests
             TestDatabases.Release(Temp.Path);
             Temp.Dispose();
         }
+    }
+
+    /// <summary>A journal of one person's change set, remembering the session it was
+    /// last asked to narrow to.</summary>
+    private sealed class StubChangeJournal : IChangeJournal
+    {
+        public string? LastSession { get; private set; }
+
+        public Task<IReadOnlyList<ChangeSetEntry>> ListAsync(string? sessionId = null, int limit = 200, CancellationToken cancellationToken = default)
+        {
+            LastSession = sessionId;
+            return Task.FromResult<IReadOnlyList<ChangeSetEntry>>(
+                [new(new ChangeSet(Guid.NewGuid(), ChangeActor.Person, "Session-less change", DateTimeOffset.UnixEpoch), 1)]);
+        }
+
+        public Task<IReadOnlyList<ChangedDocument>> ReadAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ChangedDocument>>([]);
     }
 
     private sealed class EmptyRunSource : IDeliveryRunSource

@@ -383,6 +383,58 @@ public sealed class SqliteTaskRepository : ITaskRepository
         return tasks;
     }
 
+    // --- The change journal's reads -----------------------------------------
+
+    /// <summary>A connection to <paramref name="databasePath"/> with the tasks table,
+    /// the journal and its triggers set up — what the change journal's reader opens,
+    /// so a database no task was ever written to still answers it.</summary>
+    internal static Task<SqliteConnection> OpenForJournalAsync(string databasePath, CancellationToken cancellationToken) =>
+        OpenAsync(databasePath, cancellationToken);
+
+    /// <summary>Every column, the before-image's keys, in SELECT-list order.</summary>
+    private static IReadOnlyList<string> ColumnNames =>
+        Columns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>The task whose row is <paramref name="beforeJson"/> — a before-image
+    /// the journal's triggers wrote — read as a stored row is, or null when the image
+    /// does not read as one.</summary>
+    internal static async Task<TaskItem?> ReadBeforeImageAsync(
+        SqliteConnection connection,
+        string beforeJson,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT " + string.Join(", ", ColumnNames.Select(column => $"json_extract($image, '$.{column}')")) + ";";
+        command.Parameters.AddWithValue("$image", beforeJson);
+
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+        }
+        catch (Exception exception) when (exception is FormatException or InvalidCastException or SqliteException or ArgumentException)
+        {
+            // An image from an older shape of the table, or one written by hand: the
+            // reader falls back to its fields rather than failing the whole change set.
+            return null;
+        }
+    }
+
+    /// <summary>The task as stored now, a tombstone included, or null when the row
+    /// is gone.</summary>
+    internal static async Task<TaskItem?> ReadCurrentAsync(
+        SqliteConnection connection,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Columns} FROM tasks WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+    }
+
     // --- Schema -------------------------------------------------------------
 
     /// <summary>Creates the database and its schema if they are not there yet.
