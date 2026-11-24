@@ -164,7 +164,26 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             if (_disposed) return Task.CompletedTask;
         }
 
-        return Task.Run(RunGuardedAsync, CancellationToken.None);
+        return Task.Run(() => RunGuardedAsync(settledOnly: false), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// A cycle for writes that settled, which runs only if no cycle has carried them yet.
+    /// <para>
+    /// A settle asks twice: the settle timer itself, and a cycle that held the guard when it
+    /// fired, on its way out. Either may reach the guard first, and the other then finds
+    /// nothing left to send. Without the check the later one ran a cycle of its own — an
+    /// exchange that sent nothing, and a third cycle where one write had asked for one.
+    /// </para>
+    /// </summary>
+    private void RequestSettledSync()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+        }
+
+        _ = Task.Run(() => RunGuardedAsync(settledOnly: true), CancellationToken.None);
     }
 
     /// <summary>All three gates: the <c>sync</c> feature every loop answers to, the
@@ -257,7 +276,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     private void OnSettled()
     {
         Volatile.Write(ref _changeSettled, 1);
-        RequestSync();
+        RequestSettledSync();
     }
 
     private void ApplyGates()
@@ -281,7 +300,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
     {
         try
         {
-            await RunGuardedAsync().ConfigureAwait(false);
+            await RunGuardedAsync(settledOnly: false).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -289,11 +308,11 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
     }
 
-    private async Task RunGuardedAsync()
+    private async Task RunGuardedAsync(bool settledOnly)
     {
         try
         {
-            await RunCycleAsync().ConfigureAwait(false);
+            await RunCycleAsync(settledOnly).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -301,12 +320,22 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
     }
 
-    private async Task RunCycleAsync()
+    private async Task RunCycleAsync(bool settledOnly)
     {
         var full = ShouldRun;
         if (!full && !ShouldWithdraw) return;
 
         if (Interlocked.CompareExchange(ref _cycleInFlight, 1, 0) != 0) return;
+
+        if (settledOnly && Volatile.Read(ref _changeSettled) == 0)
+        {
+            // Carried already, by the cycle that took the guard first.
+            Volatile.Write(ref _cycleInFlight, 0);
+
+            // A settle that fired while this held the guard was turned away by it: ask for it.
+            if (Volatile.Read(ref _changeSettled) == 1) RequestSettledSync();
+            return;
+        }
 
         Changed?.Invoke();
 
@@ -359,7 +388,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
             // A write that settled while this cycle held the guard: its request was turned
             // away, so it runs now rather than on the next tick.
-            if (Volatile.Read(ref _changeSettled) == 1 && ShouldRun) RequestSync();
+            if (Volatile.Read(ref _changeSettled) == 1 && ShouldRun) RequestSettledSync();
         }
     }
 

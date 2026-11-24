@@ -615,7 +615,7 @@ public sealed class SessionsPaneRunTests
     /// is otherwise — never an anchor to the pull request stacked above it.
     /// </summary>
     [Fact]
-    public void The_status_opens_the_backlog_entry_where_the_host_can()
+    public async Task The_status_opens_the_backlog_entry_where_the_host_can()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
@@ -656,7 +656,7 @@ public sealed class SessionsPaneRunTests
             Assert.Null(status.GetAttribute("href"));
         });
 
-        pane.Find("[data-testid='sessions-run-status']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-status']");
 
         pane.WaitForAssertion(() =>
         {
@@ -674,7 +674,7 @@ public sealed class SessionsPaneRunTests
     /// so its status still leads to the work; the host answers which one, by session id.
     /// </summary>
     [Fact]
-    public void A_run_naming_no_entry_opens_the_entry_that_linked_its_session()
+    public async Task A_run_naming_no_entry_opens_the_entry_that_linked_its_session()
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10));
         var linked = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Link the done badge", null, null, null, EntryId: Guid.NewGuid());
@@ -697,7 +697,7 @@ public sealed class SessionsPaneRunTests
 
         Assert.Equal(Live.Id, askedFor);
 
-        pane.Find("[data-testid='sessions-run-status']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-status']");
 
         pane.WaitForAssertion(() => Assert.Same(linked, opened));
     }
@@ -707,7 +707,7 @@ public sealed class SessionsPaneRunTests
     /// own entry opens that one, because the prompt is what the run was started from.
     /// </summary>
     [Fact]
-    public void A_run_that_names_its_own_entry_keeps_it_over_its_sessions_link()
+    public async Task A_run_that_names_its_own_entry_keeps_it_over_its_sessions_link()
     {
         var own = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "delivery-run-reader", "Plan backlog-mcp-server", null, null, "backlog-mcp-server");
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with { References = [own] };
@@ -721,7 +721,7 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() => Assert.Equal("BUTTON", pane.Find("[data-testid='sessions-run-status']").TagName));
 
-        pane.Find("[data-testid='sessions-run-status']").Click();
+        await pane.ClickAsync("[data-testid='sessions-run-status']");
 
         pane.WaitForAssertion(() => Assert.Same(own, opened));
     }

@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Collections.Concurrent;
+using System.Net;
 using System.Text;
 
 using Bunit;
@@ -693,6 +694,37 @@ public sealed class SettingsDevicesTests
             Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.GetAttribute("aria-label")));
     }
 
+    /// <summary>While Windows Hello asks about one device, every other row's Revoke is drawn
+    /// but cannot be pressed, so a second revocation never starts under the first; the
+    /// answer gives them back.</summary>
+    [Fact]
+    public void While_one_device_is_being_revoked_the_other_rows_Revoke_waits()
+    {
+        var consent = new HeldConsent();
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(Owners()), consent: consent);
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Tablet)));
+
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-confirm']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(consent.Prompts);
+            Assert.True(Row(context, Tablet).QuerySelector("[data-testid='agent-row-revoke']")!.HasAttribute("disabled"));
+        });
+
+        consent.Answer(UserConsentOutcome.Declined);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='agent-row-revoke-error']"));
+            Assert.False(Row(context, Tablet).QuerySelector("[data-testid='agent-row-revoke']")!.HasAttribute("disabled"));
+        });
+    }
+
     [Fact]
     public void Only_one_row_asks_at_a_time()
     {
@@ -793,6 +825,22 @@ public sealed class SettingsDevicesTests
             Prompts.Add(message);
             return Task.FromResult(outcome);
         }
+    }
+
+    /// <summary>A Windows Hello that keeps asking until the test answers it.</summary>
+    private sealed class HeldConsent : IUserConsent
+    {
+        private readonly TaskCompletionSource<UserConsentOutcome> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ConcurrentQueue<string> Prompts { get; } = new();
+
+        public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default)
+        {
+            Prompts.Enqueue(message);
+            return _answer.Task;
+        }
+
+        public void Answer(UserConsentOutcome outcome) => _answer.TrySetResult(outcome);
     }
 
     // --- The session loop's card ----------------------------------------------

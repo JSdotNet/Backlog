@@ -52,7 +52,11 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 {
     private readonly TemporaryDirectory _temp = new("backlog-maui-composition");
 
-    public void Dispose() => _temp.Dispose();
+    public void Dispose()
+    {
+        HarnessDatabases.Release(_temp.Path);
+        _temp.Dispose();
+    }
 
     /// <summary>
     /// Every registration the head makes can be constructed. This is the check that
@@ -129,6 +133,45 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             Assert.NotNull(provider.GetRequiredService(service));
         }
     }
+
+    /// <summary>
+    /// The notification exchange the head composes holds the owner's paired devices and
+    /// the head's audit log - the very instances the container hands everything else - so a
+    /// reply from a device that is not paired now is rejected and audited (local ADR 0058,
+    /// Phase 2). Both are optional to the exchange, which takes every reply without them,
+    /// so a registration that stopped passing them would turn the check off without a
+    /// failing build: this is the test that fails instead.
+    /// <para>
+    /// Read off the session's fields by their type, because the session exposes neither:
+    /// what is pinned is the composition, not the session's behaviour, which
+    /// <c>NotificationSyncTests</c> covers.
+    /// </para>
+    /// </summary>
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public void The_notification_exchange_is_given_the_paired_devices_and_the_audit_log()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: true);
+
+        var session = provider.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncSession>();
+
+        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.IPairedDevices>(), Held<Backlog.SharedKernel.IPairedDevices>(session));
+        Assert.Same(provider.GetRequiredService<Backlog.SharedKernel.Mcp.IMcpAuditLog>(), Held<Backlog.SharedKernel.Mcp.IMcpAuditLog>(session));
+    }
+
+    /// <summary>The one instance field of <typeparamref name="T"/> the object holds.</summary>
+    private static T? Held<T>(object holder)
+        where T : class =>
+        (T?)Assert.Single(
+                holder.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic),
+                field => field.FieldType == typeof(T))
+            .GetValue(holder);
 
     /// <summary>
     /// Every factory-registered singleton of the product resolves from the root under

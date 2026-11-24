@@ -217,7 +217,8 @@
        follows the question and comes back to the row's Revoke, and a revocation
        that fails says why in its row. The second Revoke goes through the pairing
        client, which asks Windows Hello where the host composed it (local ADR 0058
-       §6). One row asks at a time. *@
+       §6). One row asks at a time, and while one revocation runs the other rows'
+       Revoke waits for it. *@
     @if (IsPaired && _devicePairing is not null)
     {
         <SettingsCard Title="@PairedDevicesCardTitle"
@@ -235,6 +236,7 @@
                                        ShowScopes="false"
                                        CanEditScopes="false"
                                        CanRevoke="@CanRevoke(device, devices)"
+                                       RevokeDisabled="@_revoking"
                                        Question="@RevokeQuestion(device.Name)"
                                        Confirming="@(_confirmingRevoke == device.DeviceId)"
                                        ConfirmingChanged="asking => SetConfirmingRevoke(device, asking)"

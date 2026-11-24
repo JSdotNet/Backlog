@@ -4,6 +4,7 @@ using Backlog.UI.Components.Settings;
 using Bunit;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace Backlog.UI.Components.UnitTests;
 
@@ -124,6 +125,76 @@ public sealed class AgentComponentsTests
         row.Find("[data-testid='agent-row-revoke']").Click();
         row.Find("[data-testid='agent-row-revoke-confirm']").Click();
         Assert.Equal(Reference(row, "agent-row-revoke"), LastFocused(context));
+    }
+
+    /// <summary>A host whose revocation threw leaves the question standing on an unbound row
+    /// otherwise, with nothing to answer it: the row puts its own Revoke back.</summary>
+    [Fact]
+    public void An_unbound_row_whose_host_threw_on_Revoke_offers_its_Revoke_again()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var attempts = 0;
+
+        var row = context.Render<AgentGrantRow>(parameters => parameters
+            .Add(r => r.Name, "Backlog delivery")
+            .Add(r => r.OnRevoke, EventCallback.Factory.Create(this, () =>
+            {
+                attempts++;
+                throw new InvalidOperationException("The grant store could not be written.");
+            })));
+
+        row.Find("[data-testid='agent-row-revoke']").Click();
+
+        // The row does not hide the host's failure; it only stops asking a question nothing
+        // can answer. Nothing is drawn after a throw, so the row is drawn again to read it.
+        var confirm = row.Find("[data-testid='agent-row-revoke-confirm']");
+        Assert.Throws<InvalidOperationException>(() => confirm.Click());
+        Assert.Equal(1, attempts);
+        row.Render();
+
+        Assert.Empty(row.FindAll("[data-testid='agent-row-revoke-question']"));
+        Assert.Single(row.FindAll("[data-testid='agent-row-revoke']"));
+    }
+
+    /// <summary>While the host carries out another row's revocation, this row's Revoke is
+    /// drawn but cannot be pressed: one revocation at a time.</summary>
+    [Fact]
+    public void Revoke_cannot_be_pressed_while_the_host_says_another_revocation_runs()
+    {
+        using var context = new BunitContext();
+
+        var row = context.Render<AgentGrantRow>(parameters => parameters
+            .Add(r => r.Name, "Pixel 8")
+            .Add(r => r.RevokeDisabled, true));
+
+        Assert.True(row.Find("[data-testid='agent-row-revoke']").HasAttribute("disabled"));
+
+        row.Render(parameters => parameters.Add(r => r.RevokeDisabled, false));
+
+        Assert.False(row.Find("[data-testid='agent-row-revoke']").HasAttribute("disabled"));
+    }
+
+    /// <summary>A circuit that went while the focus was moving has no page to move it on:
+    /// the row says nothing, rather than failing the render.</summary>
+    [Fact]
+    public void A_focus_the_circuit_lost_is_not_an_error()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid(invocation => invocation.Identifier.EndsWith("focus", StringComparison.Ordinal))
+            .SetException(new JSDisconnectedException("The circuit went."));
+
+        var row = context.Render<AgentGrantRow>(parameters => parameters
+            .Add(r => r.Name, "Backlog delivery"));
+
+        row.Find("[data-testid='agent-row-revoke']").Click();
+
+        // The renderer keeps an exception from the render after the click and throws it at
+        // the next render, so drawing the row again is what would fail.
+        row.Render();
+
+        Assert.Single(row.FindAll("[data-testid='agent-row-revoke-question']"));
+        Assert.Single(context.JSInterop.Invocations, invocation => invocation.Identifier.EndsWith("focus", StringComparison.Ordinal));
     }
 
     /// <summary>A failed revoke says why in the row, as an alert beside its Revoke; asking

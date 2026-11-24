@@ -23,7 +23,8 @@
     the row draws in its own actions, beside the button that failed.
 
     The question is the row's own unless the host binds Confirming, as a page does where only
-    one row may ask at a time.
+    one row may ask at a time. Such a host also sets RevokeDisabled on the other rows while it
+    carries one revocation out, so a second never starts under it.
 *@
 
 <li class="@ClassValue" data-testid="@TestId" data-grant="@GrantId" @attributes="AdditionalAttributes">
@@ -87,6 +88,7 @@
                               ShowIcon="false"
                               AriaLabel="@($"Revoke {SpokenName}")"
                               TestId="agent-row-revoke"
+                              Disabled="@RevokeDisabled"
                               OnClick="AskAsync" />
             }
         }
@@ -151,6 +153,11 @@
     /// switching its scopes off - and for a device this device may not revoke.</summary>
     [Parameter]
     public bool CanRevoke { get; set; } = true;
+
+    /// <summary>Whether the offered Revoke cannot be pressed now: the host is carrying out
+    /// another row's revocation, and runs one at a time.</summary>
+    [Parameter]
+    public bool RevokeDisabled { get; set; }
 
     /// <summary>The sentence the second Revoke stands beside: what revoking does to this
     /// row's subject. <see cref="RevokeQuestion"/> of <see cref="Name"/> when unset.</summary>
@@ -257,13 +264,24 @@
         if (_revoking) return;
 
         _revoking = true;
+        var returned = false;
         try
         {
             await OnRevoke.InvokeAsync();
+            returned = true;
         }
         finally
         {
             _revoking = false;
+
+            // A host that threw answers nothing, so an unbound row would keep asking a
+            // question no button can settle: it puts its own Revoke back. A bound row's
+            // question is its host's to close.
+            if (!returned && !Bound)
+            {
+                _confirming = false;
+                _focus = FocusTarget.Revoke;
+            }
         }
 
         // Still drawn, so the host did not take the row away: the Revoke it asked from
@@ -301,9 +319,9 @@
         {
             await button.FocusAsync();
         }
-        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or JSDisconnectedException or TaskCanceledException)
         {
-            // Prerendered or torn down: nothing to move the focus to.
+            // Prerendered, torn down or its circuit gone: nothing to move the focus to.
         }
     }
 }
