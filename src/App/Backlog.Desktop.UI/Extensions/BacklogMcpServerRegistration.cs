@@ -173,7 +173,10 @@ public static class BacklogMcpServerRegistration
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter))
             // Last, so Windows Hello is asked only for a call every check above admitted: a
             // tasks:admin tool waits here for the person (local ADR 0058 §6).
-            .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter));
+            .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter))
+            // After every check, so only a write that is about to run takes the checkpoint
+            // an agent's mistake can be put back from.
+            .WithRequestFilters(filters => filters.AddCallToolFilter(AgentCheckpointFilter.Filter));
     }
 
     /// <summary>
