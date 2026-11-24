@@ -147,14 +147,14 @@ public sealed class AnnotationSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response.IsFailure) return Result.Failure<AnnotationSyncSummary>(response.Error);
+                if (response is not Ok<PushAnnotationsResponse>(var answer)) return (Error)response.Value!;
 
                 // A 200 with fewer accepted than sent is the replica keeping a later
                 // version of the rest. The watermark still moves past them — offering
                 // them again would be refused again — so the count is the one place
                 // the loss is said.
-                pushed += response.Unwrap().Accepted;
-                refused += Math.Max(0, changes.Count - response.Unwrap().Accepted);
+                pushed += answer.Accepted;
+                refused += Math.Max(0, changes.Count - answer.Accepted);
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, annotation => annotation.UpdatedAt) is { } advanced)
@@ -189,11 +189,12 @@ public sealed class AnnotationSyncSession
                 .PullAsync(cursor, AnnotationSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page.IsFailure)
+            if (page is not Ok<PullAnnotationsResponse>(var feed))
             {
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                var error = (Error)page.Value!;
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
                 {
-                    return Result.Failure<AnnotationSyncSummary>(page.Error);
+                    return error;
                 }
 
                 startedOver = true;
@@ -205,13 +206,13 @@ public sealed class AnnotationSyncSession
                 continue;
             }
 
-            pulled += page.Unwrap().Annotations.Count;
-            applied += _merge.Apply(page.Unwrap().Annotations).Applied;
+            pulled += feed.Annotations.Count;
+            applied += _merge.Apply(feed.Annotations).Applied;
 
-            cursor = page.Unwrap().Since;
+            cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!page.Unwrap().HasMore) break;
+            if (!feed.HasMore) break;
         }
 
         return Result.Success(new AnnotationSyncSummary(0, pulled, applied, _time.GetUtcNow()));
@@ -222,19 +223,19 @@ public sealed class AnnotationSyncSession
     public async Task<Result<AnnotationSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return push;
+        if (push is not Ok<AnnotationSyncSummary>(var pushSummary)) return (Error)push.Value!;
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return pull;
+        if (pull is not Ok<AnnotationSyncSummary>(var pullSummary)) return (Error)pull.Value!;
 
         return Result.Success(new AnnotationSyncSummary(
-            push.Unwrap().Pushed,
-            pull.Unwrap().Pulled,
-            pull.Unwrap().Applied,
+            pushSummary.Pushed,
+            pullSummary.Pulled,
+            pullSummary.Applied,
             _time.GetUtcNow())
         {
-            Refused = push.Unwrap().Refused,
-            Skipped = push.Unwrap().Skipped,
+            Refused = pushSummary.Refused,
+            Skipped = pushSummary.Skipped,
         });
     }
 }

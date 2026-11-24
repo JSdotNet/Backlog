@@ -137,7 +137,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
             tag: "qa472-stale",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(added.IsSuccess);
+        Assert.IsNotType<Error>(added.Value);
         Assert.True(announced > 0);
         Assert.Contains("+qa472-stale", await tagSource.TagsInUseAsync(TestContext.Current.CancellationToken));
     }
@@ -151,14 +151,13 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         using var provider = BuildHostLikeProvider();
         using var scope = provider.CreateScope();
 
-        var added = await scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>().AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>().AddItemAsync(
             "Plan session",
             new DateOnly(2026, 10, 19),
             new DateOnly(2026, 10, 23),
             repositoryAliases: ["tools", "backlog"],
             tag: "plan-session",
-            cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         var port = scope.ServiceProvider.GetRequiredService<IPlanTagSessionRequests>();
         var repositories = await port.RepositoriesAsync(TestContext.Current.CancellationToken);
@@ -167,7 +166,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         Assert.False(port.IsOffered);
         // In the order the stored item names them, which is the order the roadmap's own
         // plan icon starts its session from.
-        Assert.Equal(added.Unwrap().RepositoryAliases, repositories["plan-session"]);
+        Assert.Equal(added.RepositoryAliases, repositories["plan-session"]);
         Assert.Equal(["backlog", "tools"], repositories["PLAN-SESSION"].Order(StringComparer.Ordinal));
         Assert.Empty(await port.OpenAsync(TestContext.Current.CancellationToken));
     }

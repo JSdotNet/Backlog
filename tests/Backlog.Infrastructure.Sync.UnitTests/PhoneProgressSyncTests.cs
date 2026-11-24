@@ -5,6 +5,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -220,7 +221,7 @@ public sealed class PhoneProgressSyncTests
 
         var first = await session.PushAsync(Cancellation);
 
-        Assert.True(first.IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>(first.Value);
         var sent = bodies.SelectMany(body => JsonSerializer.Deserialize<PushTasksRequest>(body, Web)!.Tasks).ToList();
         var contextSent = Assert.Single(sent, change => change.Task.Type == "stand-up-context");
         Assert.Equal(context.Copy.Content, contextSent.Task.ContentMd);

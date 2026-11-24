@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,8 +22,7 @@ public sealed class RoadmapSurfaceQueryTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync("Plan A", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var added = await Planning.AddItemAsync("Plan B", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Plan B", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = SurfaceContext();
         var surface = context.Render<RoadmapSurface>(parameters => parameters
@@ -31,7 +31,7 @@ public sealed class RoadmapSurfaceQueryTests : RoadmapBandHarness
         surface.WaitForAssertion(() =>
         {
             var selected = surface.FindComponent<RoadmapTimeline>().Instance.SelectedId;
-            Assert.Equal(added.Unwrap().Id, RoadmapPlanView.NodeIdOf(selected));
+            Assert.Equal(added.Id, RoadmapPlanView.NodeIdOf(selected));
         });
         Assert.Empty(surface.FindAll("[data-testid='roadmap-editor']"));
         Assert.NotEmpty(surface.FindAll("[data-testid='roadmap-view'] [data-testid='roadmap-band']"));
@@ -55,8 +55,8 @@ public sealed class RoadmapSurfaceQueryTests : RoadmapBandHarness
     public async Task Open_in_tasks_jumps_to_the_tasks_surface_with_the_plan()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Plan A", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        await CarriedByATaskAsync(added.Unwrap().Tag);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Plan A", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        await CarriedByATaskAsync(added.Tag);
 
         using var context = SurfaceContext();
         var requests = new List<SurfaceRequest>();
@@ -65,7 +65,7 @@ public sealed class RoadmapSurfaceQueryTests : RoadmapBandHarness
         surface.WaitForElement("[data-testid='roadmap-timeline']");
 
         var timeline = surface.FindComponent<RoadmapTimeline>();
-        await surface.InvokeAsync(() => timeline.Instance.OnBarSelected.InvokeAsync(added.Unwrap().Id.ToString()));
+        await surface.InvokeAsync(() => timeline.Instance.OnBarSelected.InvokeAsync(added.Id.ToString()));
         surface.WaitForElement("[data-testid='roadmap-editor-open-tasks']").Click();
 
         surface.WaitForAssertion(() =>

@@ -590,11 +590,11 @@ internal sealed class FakeGoals : IGoals
     public Task<Result<GoalDto>> EditAsync(Guid goalId, SetGoalRequest request, CancellationToken cancellationToken = default)
     {
         var found = Lookup(goalId);
-        if (found.IsFailure) return Task.FromResult(found);
+        if (found is not Ok<GoalDto>(var existing)) return Task.FromResult(found);
         if (Refusal(request) is { } error) return Task.FromResult(Result.Failure<GoalDto>(error));
 
         Edited = request;
-        return Task.FromResult(Result.Success(Replace(found.Unwrap() with
+        return Task.FromResult(Result.Success(Replace(existing with
         {
             Title = request.Title.Trim(),
             Outcome = Blank(request.Outcome),
@@ -602,13 +602,17 @@ internal sealed class FakeGoals : IGoals
         })));
     }
 
-    public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default)
-    {
-        var found = Lookup(goalId);
-        if (found.IsFailure) return Task.FromResult(Result.Failure(found.Error));
+    public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Lookup(goalId) switch
+        {
+            Ok<GoalDto>(var goal) => Remove(goal),
+            Error error => Result.Failure(error),
+        });
 
-        _goals.Remove(found.Unwrap());
-        return Task.FromResult(Result.Success());
+    private Result Remove(GoalDto goal)
+    {
+        _goals.Remove(goal);
+        return Result.Success();
     }
 
     /// <summary>No tool moves a goal; the port's move is the Goals view's.</summary>
@@ -620,7 +624,7 @@ internal sealed class FakeGoals : IGoals
         Attached = (goalId, item, moveFromOtherGoal);
 
         var found = Lookup(goalId);
-        if (found.IsFailure) return Task.FromResult(found);
+        if (found is not Ok<GoalDto>(var target)) return Task.FromResult(found);
 
         if (_goals.FirstOrDefault(goal => goal.Id != goalId && goal.Attachments.Any(a => a.Item == item)) is { } other)
         {
@@ -628,20 +632,19 @@ internal sealed class FakeGoals : IGoals
             Replace(other with { Attachments = [.. other.Attachments.Where(a => a.Item != item)] });
         }
 
-        var goal = found.Unwrap();
-        return Task.FromResult(Result.Success(goal.Attachments.Any(a => a.Item == item)
-            ? goal
-            : Replace(goal with { Attachments = [.. goal.Attachments, new GoalAttachmentDto(item, Today)] })));
+        return Task.FromResult(Result.Success(target.Attachments.Any(a => a.Item == item)
+            ? target
+            : Replace(target with { Attachments = [.. target.Attachments, new GoalAttachmentDto(item, Today)] })));
     }
 
     public Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default)
     {
         var found = Lookup(goalId);
-        if (found.IsFailure) return Task.FromResult(found);
+        if (found is not Ok<GoalDto>(var goal)) return Task.FromResult(found);
 
-        return Task.FromResult(Result.Success(Replace(found.Unwrap() with
+        return Task.FromResult(Result.Success(Replace(goal with
         {
-            Attachments = [.. found.Unwrap().Attachments.Where(a => a.Item != item)]
+            Attachments = [.. goal.Attachments.Where(a => a.Item != item)]
         })));
     }
 

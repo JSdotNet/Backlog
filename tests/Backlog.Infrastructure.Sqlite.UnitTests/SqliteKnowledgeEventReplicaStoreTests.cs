@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Modules.Events;
 using Backlog.Modules.Events.DomainModels;
 
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
@@ -30,7 +31,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
-    private static KnowledgeEvent Event(string title) => KnowledgeEvent.Create(Guid.NewGuid(), title).Unwrap();
+    private static KnowledgeEvent Event(string title) => Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), title).Value).Value;
 
     [Fact]
     public async Task Only_events_saved_after_the_watermark_are_listed_oldest_first_with_their_stamps()
@@ -89,7 +90,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
     public async Task A_removed_event_is_still_offered_and_taken_as_removed()
     {
         var removedHere = Event("Added twice");
-        Assert.True(removedHere.Remove().IsSuccess);
+        Assert.IsType<Ok>(removedHere.Remove().Value);
         await _events.SaveAsync(removedHere, Cancellation);
         var held = Event("Techorama 2026");
         await _events.SaveAsync(held, Cancellation);
@@ -115,7 +116,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
         var local = Event("Kept");
         await _events.SaveAsync(local, Cancellation);
 
-        var arriving = KnowledgeEvent.Create(local.Id, "Overwritten").Unwrap();
+        var arriving = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(local.Id, "Overwritten").Value).Value;
 
         Assert.False(await _events.SaveReplicatedAsync(arriving, Noon.AddMinutes(minutes), Cancellation));
 
@@ -126,7 +127,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
     [Fact]
     public async Task Series_are_listed_and_replicated_on_the_same_terms()
     {
-        var local = EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BV", null).Unwrap();
+        var local = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", "Techorama BV", null).Value).Value;
         await _series.SaveAsync(local, Cancellation);
 
         Assert.Equal(local.Id, Assert.Single(await _series.ListChangedSinceAsync(Noon.AddTicks(-1), Cancellation)).Series.Id);
@@ -167,7 +168,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
     [Fact]
     public async Task A_local_series_save_over_a_copy_stamped_ahead_of_this_clock_lands_one_tick_after_it()
     {
-        var pulled = EventSeries.Create(Guid.NewGuid(), "Techorama", null, null).Unwrap();
+        var pulled = Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Techorama", null, null).Value).Value;
         var ahead = Noon.AddMinutes(2);
         Assert.True(await _series.SaveReplicatedAsync(pulled, ahead, Cancellation));
 
@@ -200,7 +201,7 @@ public sealed class SqliteKnowledgeEventReplicaStoreTests : IDisposable
 
         var arriving = Event("Build 2027");
         Assert.True(await events.SaveReplicatedAsync(arriving, Noon, Cancellation));
-        Assert.True(await series.SaveReplicatedAsync(EventSeries.Create(Guid.NewGuid(), "Build", null, null).Unwrap(), Noon, Cancellation));
+        Assert.True(await series.SaveReplicatedAsync(Assert.IsType<Ok<EventSeries>>(EventSeries.Create(Guid.NewGuid(), "Build", null, null).Value).Value, Noon, Cancellation));
 
         Assert.Equal(arriving.Id, Assert.Single(await _events.ListChangedSinceAsync(DateTimeOffset.MinValue, Cancellation)).Event.Id);
         Assert.Single(await series.ListChangedSinceAsync(DateTimeOffset.MinValue, Cancellation));

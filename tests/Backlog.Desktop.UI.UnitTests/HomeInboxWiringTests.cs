@@ -13,6 +13,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 using System.Net;
 using System.Net.Http.Json;
@@ -47,7 +48,7 @@ public sealed class HomeInboxWiringTests
             // the Inbox says it routed.
             var order = harness.Entries.ListAsync().GetAwaiter().GetResult().Count;
             var saved = harness.Entries.SaveFromTextAsync(null, $"# {routed.Title}\n`task` `!draft`\n", order).GetAwaiter().GetResult();
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         };
 
         var component = Render(harness);
@@ -90,7 +91,7 @@ public sealed class HomeInboxWiringTests
         {
             var order = harness.Entries.ListAsync().GetAwaiter().GetResult().Count;
             var saved = harness.Entries.SaveFromTextAsync(null, $"# {routed.Title}\n`task` `!draft`\n", order).GetAwaiter().GetResult();
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         };
 
         var component = Render(harness);
@@ -121,7 +122,7 @@ public sealed class HomeInboxWiringTests
         {
             var order = harness.Entries.ListAsync().GetAwaiter().GetResult().Count;
             var saved = harness.Entries.SaveFromTextAsync(null, $"# {routed.Title}\n`task` `!draft`\n", order).GetAwaiter().GetResult();
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         };
 
         var component = Render(harness);
@@ -250,8 +251,7 @@ public sealed class HomeInboxWiringTests
     public async Task A_task_written_outside_the_pane_reloads_the_tasks_pane()
     {
         using var harness = CreateHarness(inboxOpenOnStart: false);
-        var saved = await harness.Entries.SaveFromTextAsync(null, "# Moved along by an agent\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess);
+        var saved = Assert.IsType<Ok<SavedTaskDto>>((await harness.Entries.SaveFromTextAsync(null, "# Moved along by an agent\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         var component = Render(harness);
         var state = State(harness);
@@ -260,8 +260,8 @@ public sealed class HomeInboxWiringTests
 
         // Off the renderer's thread, as a request to the MCP endpoint is.
         var moved = await Task.Run(() => harness.Entries.SaveFromTextAsync(
-            saved.Unwrap().Entry.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
-        Assert.True(moved.IsSuccess);
+            saved.Entry.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
+        Assert.IsNotType<Error>(moved.Value);
 
         component.WaitForAssertion(
             () => Assert.Contains(

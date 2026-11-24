@@ -97,7 +97,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         Assert.Equal(ContentKind.Meeting, item.Kind);
 
         _clock.Advance(TimeSpan.FromMinutes(30));
-        Assert.True((await _desktop.EditAsync(made.Id, "Weekly sync", "transcript")).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.EditAsync(made.Id, "Weekly sync", "transcript")).Value);
         await _desktop.SyncAsync();
         await _phone.Notes.PullAsync(Cancellation);
 
@@ -114,7 +114,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         await _desktop.SyncAsync();
 
         _clock.Advance(TimeSpan.FromMinutes(30));
-        Assert.True((await _desktop.EditAsync(made.Id, "Standup (desktop)", "first\nadded at the desk")).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.EditAsync(made.Id, "Standup (desktop)", "first\nadded at the desk")).Value);
         await _desktop.SyncAsync();
 
         await _phone.Notes.PullAsync(Cancellation);
@@ -154,7 +154,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         Assert.Single(_phone.Notes.Notes());
 
         _clock.Advance(TimeSpan.FromHours(1));
-        Assert.True((await _desktop.ArchiveAsync(made.Id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.ArchiveAsync(made.Id)).Value);
         await _desktop.SyncAsync();
 
         await _phone.Notes.PullAsync(Cancellation);
@@ -172,7 +172,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         await _desktop.SyncAsync();
 
         _clock.Advance(TimeSpan.FromHours(1));
-        Assert.True((await _desktop.DeleteAsync(made.Id)).IsSuccess);
+        Assert.IsNotType<Error>((await _desktop.DeleteAsync(made.Id)).Value);
         await _desktop.SyncAsync();
 
         await _phone.Notes.PullAsync(Cancellation);
@@ -295,7 +295,7 @@ public sealed class NoteSyncBetweenPhoneAndDesktopTests : IDisposable
         public async Task SyncAsync()
         {
             var synced = await _session.SyncAsync(Cancellation);
-            Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
+            Assert.True(synced is not Error, (synced.Value as Error?)?.Message);
         }
 
         public void Dispose()

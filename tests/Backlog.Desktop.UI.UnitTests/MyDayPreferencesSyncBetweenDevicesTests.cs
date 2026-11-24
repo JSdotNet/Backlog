@@ -53,21 +53,21 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         using var b = Device("b");
 
         await a.WriteAsync($"# Deploy it\n`task` `!ready` `myday:{Token(Today.AddDays(-1))}`\n");
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         using var list = await b.OpenListAsync();
         list.SetMyDayFilter(Today);
         Assert.Empty(list.FilteredRows);
 
         Assert.Null(a.Preferences.SetClearsOvernight(false));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         var travelled = _replica.Held(MyDayReplicaDocuments.PreferencesId);
         Assert.NotNull(travelled);
         Assert.Equal("my-day-preferences", travelled.Task.Type);
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.False(b.Preferences.ClearsOvernight);
         Assert.False(list.ClearsMyDayOvernight);
@@ -83,7 +83,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
     {
         using var a = Device("a");
         Assert.Null(a.Preferences.SetClearsOvernight(false));
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using var fresh = Device("fresh");
         var pushed = await fresh.PushAsync();
@@ -91,7 +91,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         Assert.Equal(0, _replica.PushesFrom(fresh.DeviceId));
         Assert.False(File.Exists(fresh.PreferencesPath));
 
-        Assert.True((await fresh.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await fresh.SyncAsync()).Value);
 
         Assert.False(fresh.Preferences.ClearsOvernight);
         Assert.False(a.Preferences.ClearsOvernight);
@@ -112,9 +112,9 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         Assert.Null(b.Preferences.SetClearsOvernight(false));
         Assert.Null(b.Preferences.SetClearsOvernight(true));
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
         Assert.Equal(1, (await a.PushAsync()).Refused);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         Assert.True(a.Preferences.ClearsOvernight);
         Assert.True(b.Preferences.ClearsOvernight);
@@ -172,7 +172,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
         public async Task WriteAsync(string text)
         {
             var saved = await TasksTestHost.EntriesFor(_workspace).SaveFromTextAsync(null, text, 0, cancellationToken: Cancellation);
-            Assert.True(saved.IsSuccess);
+            Assert.IsNotType<Error>(saved.Value);
         }
 
         /// <summary>The Tasks list open on this device, reading this device's backlog
@@ -193,9 +193,7 @@ public sealed class MyDayPreferencesSyncBetweenDevicesTests : IDisposable
 
         public async Task<TaskSyncSummary> PushAsync()
         {
-            var pushed = await _session.PushAsync(Cancellation);
-            Assert.True(pushed.IsSuccess);
-            return pushed.Unwrap();
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PushAsync(Cancellation)).Value).Value;
         }
 
         public void Dispose()

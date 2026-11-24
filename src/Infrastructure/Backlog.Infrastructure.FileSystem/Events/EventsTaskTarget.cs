@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
@@ -38,9 +39,11 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
 
         var saved = await tasks.SaveFromTextAsync(null, Compose(title), order, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return saved.IsFailure
-            ? Result.Failure<string>(saved.Error)
-            : Result.Success(saved.Unwrap().Entry.Id.ToString("D"));
+        return saved switch
+        {
+            Ok<SavedTaskDto>(var filed) => filed.Entry.Id.ToString("D"),
+            Error error => error,
+        };
     }
 
     public async Task<Result<bool>> FileOnceAsync(string taskId, string title, CancellationToken cancellationToken = default)
@@ -95,7 +98,11 @@ internal sealed partial class EventsTaskTarget(ITaskItems tasks, ITaskChangeSign
 
         var saved = await tasks.SaveFromTextAsync(entry.Id, rewritten, entry.Order, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return saved.IsFailure ? Result.Failure(saved.Error) : Result.Success();
+        return saved switch
+        {
+            Ok<SavedTaskDto> => Result.Success(),
+            Error error => error,
+        };
     }
 
     /// <summary>A prep or harvest task's whole text: its title as one heading line, then the type word.</summary>

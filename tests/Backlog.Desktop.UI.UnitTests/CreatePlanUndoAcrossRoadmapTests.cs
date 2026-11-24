@@ -13,6 +13,7 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -79,7 +80,7 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
 
         var result = await UndoAsync(taskIds);
 
-        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : null);
+        Assert.True(result is not Error, (result.Value as Error?)?.Message);
         Assert.Empty((await PlanAsync()).Items);
         Assert.Empty(await TaskIdsAsync());
     }
@@ -95,8 +96,9 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
 
         var result = await UndoAsync(taskIds);
 
-        Assert.Equal(InboxErrors.UndoPlanEditedCode, result.Error.Code);
-        Assert.Equal("Can't undo — the roadmap item Sync rework, phase one has been changed", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.UndoPlanEditedCode, error.Code);
+        Assert.Equal("Can't undo — the roadmap item Sync rework, phase one has been changed", error.Message);
         Assert.Single((await PlanAsync()).Items);
         Assert.Equal(taskIds.Order(), await TaskIdsAsync());
     }
@@ -111,7 +113,7 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
 
         var result = await UndoAsync(taskIds);
 
-        Assert.Equal(InboxErrors.UndoPlanEditedCode, result.Error.Code);
+        Assert.Equal(InboxErrors.UndoPlanEditedCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Single((await PlanAsync()).Items);
     }
 
@@ -127,13 +129,13 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
             {
                 var saved = await tasks.SaveFromTextAsync(
                     entry!.Id, $"# {entry.Title}\n`prompt` `+{Tag}` `{status}`\n", entry.Order, cancellationToken: TestContext.Current.CancellationToken);
-                Assert.True(saved.IsSuccess, saved.IsFailure ? saved.Error.Message : null);
+                Assert.True(saved is not Error, (saved.Value as Error?)?.Message);
             }
         }
 
         var result = await UndoAsync(taskIds);
 
-        Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, Assert.IsType<Error>(result.Value).Code);
         Assert.Single((await PlanAsync()).Items);
         Assert.Equal(2, (await TaskIdsAsync()).Count);
     }
@@ -144,8 +146,7 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
         var imported = await scope.ServiceProvider.GetRequiredService<IInboxBacklogTarget>()
             .ImportPlanAsync(Plan, InboxItemId, [], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(imported.IsSuccess, imported.IsFailure ? imported.Error.Message : null);
-        return imported.Unwrap();
+        return Assert.IsType<Ok<IReadOnlyList<Guid>>>(imported.Value).Value;
     }
 
     private async Task<Backlog.SharedKernel.Results.Result> UndoAsync(IReadOnlyList<Guid> taskIds)
@@ -159,7 +160,7 @@ public sealed class CreatePlanUndoAcrossRoadmapTests : IDisposable
     {
         using var scope = _provider.CreateScope();
         var edited = await edit(scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>());
-        Assert.True(edited.IsSuccess, edited.IsFailure ? edited.Error.Message : null);
+        Assert.True(edited is not Error, (edited.Value as Error?)?.Message);
     }
 
     private async Task<RoadmapPlanDto> PlanAsync()

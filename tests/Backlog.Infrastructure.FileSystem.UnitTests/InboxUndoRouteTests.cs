@@ -47,7 +47,7 @@ public sealed class InboxUndoRouteTests : IDisposable
 
         var result = await Target.DeleteRoutedTasksAsync([draft.Id, ready.Id, Guid.CreateVersion7()], TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok>(result.Value);
         var left = await Tasks.ListAsync(TestContext.Current.CancellationToken);
         Assert.Equal([kept.Id], left.Select(task => task.Id));
     }
@@ -60,9 +60,9 @@ public sealed class InboxUndoRouteTests : IDisposable
 
         var result = await Target.DeleteRoutedTasksAsync([draft.Id, started.Id], TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
-        Assert.Equal("Can't undo — Book the follow-up has started", result.Error.Message);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, error.Code);
+        Assert.Equal("Can't undo — Book the follow-up has started", error.Message);
         var left = await Tasks.ListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, left.Count);
     }
@@ -76,7 +76,7 @@ public sealed class InboxUndoRouteTests : IDisposable
 
         var result = await Target.DeleteRoutedTasksAsync([finished.Id], TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.UndoTaskStartedCode, result.Error.Code);
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, Assert.IsType<Error>(result.Value).Code);
     }
 
     /// <summary>Done now's undo: the entry it made was born Done and ticked, so
@@ -90,8 +90,8 @@ public sealed class InboxUndoRouteTests : IDisposable
         var refused = await Target.DeleteRoutedTasksAsync([archived.Id], madeDone: true, TestContext.Current.CancellationToken);
         var deleted = await Target.DeleteRoutedTasksAsync([done.Id], madeDone: true, TestContext.Current.CancellationToken);
 
-        Assert.Equal(InboxErrors.UndoTaskStartedCode, refused.Error.Code);
-        Assert.True(deleted.IsSuccess);
+        Assert.Equal(InboxErrors.UndoTaskStartedCode, Assert.IsType<Error>(refused.Value).Code);
+        Assert.IsType<Ok>(deleted.Value);
         var left = await Tasks.ListAsync(TestContext.Current.CancellationToken);
         Assert.Equal([archived.Id], left.Select(task => task.Id));
     }
@@ -99,8 +99,8 @@ public sealed class InboxUndoRouteTests : IDisposable
     private async Task<TaskItemDto> TaskAsync(string text)
     {
         var saved = await Tasks.SaveFromTextAsync(null, text, 0, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess, saved.IsFailure ? saved.Error.Message : null);
-        return saved.Unwrap().Entry;
+        Assert.True(saved is Ok<SavedTaskDto>, saved is Error error ? error.Message : null);
+        return Assert.IsType<Ok<SavedTaskDto>>(saved.Value).Value.Entry;
     }
 
     public void Dispose()

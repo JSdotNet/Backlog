@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -383,7 +384,7 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan", tag, RepositoryAliases: ["backlog"])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
 
         return Assert.Single(
             (await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items,

@@ -6,6 +6,7 @@ using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -206,8 +207,7 @@ public sealed class SurfaceWindowTests
         var signal = new TaskChangeSignal();
         using var host = await CreateHostAsync(signal);
         var elsewhere = host.Pane.EntriesElsewhere(signal);
-        var saved = await elsewhere.SaveFromTextAsync(null, "# Named in the main window\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess);
+        var saved = Assert.IsType<Ok<SavedTaskDto>>((await elsewhere.SaveFromTextAsync(null, "# Named in the main window\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await host.Pane.State.ReloadFromStoreAsync();
 
         var window = host.Render("rows");
@@ -215,8 +215,8 @@ public sealed class SurfaceWindowTests
 
         // Off the renderer's thread, as a request to the MCP endpoint is.
         var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
-            saved.Unwrap().Entry.Id, "# Renamed in the main window\n`task` `!ready`\n", 0));
-        Assert.True(renamed.IsSuccess);
+            saved.Entry.Id, "# Renamed in the main window\n`task` `!ready`\n", 0));
+        Assert.IsNotType<Error>(renamed.Value);
 
         window.WaitForAssertion(
             () => Assert.Equal(["Renamed in the main window"], RowTitles(window)),
@@ -260,8 +260,7 @@ public sealed class SurfaceWindowTests
         var signal = new TaskChangeSignal();
         using var host = await CreateHostAsync(signal);
         var elsewhere = host.Pane.EntriesElsewhere(signal);
-        var saved = await elsewhere.SaveFromTextAsync(null, "# Named before the window closed\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess);
+        var saved = Assert.IsType<Ok<SavedTaskDto>>((await elsewhere.SaveFromTextAsync(null, "# Named before the window closed\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await host.Pane.State.ReloadFromStoreAsync();
 
         host.Render("rows");
@@ -271,8 +270,8 @@ public sealed class SurfaceWindowTests
         host.Pane.State.Changed += () => Interlocked.Increment(ref changed);
 
         var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
-            saved.Unwrap().Entry.Id, "# Renamed after the window closed\n`task` `!ready`\n", 0));
-        Assert.True(renamed.IsSuccess);
+            saved.Entry.Id, "# Renamed after the window closed\n`task` `!ready`\n", 0));
+        Assert.IsNotType<Error>(renamed.Value);
 
         // Long enough for a reload the dispatcher had queued to land; none should.
         await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);

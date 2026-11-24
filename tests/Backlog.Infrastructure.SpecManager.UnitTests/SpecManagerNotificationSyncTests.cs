@@ -2,6 +2,7 @@ using System.Net;
 
 using Backlog.Infrastructure.SpecManager.Questions;
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.SpecManager.UnitTests;
 
@@ -283,6 +284,6 @@ public sealed class SpecManagerNotificationSyncTests
     private static async Task<Guid> PublishAsync(NotificationScenario scenario, NotificationDraft draft)
     {
         var published = await scenario.Ledger.PublishAsync(draft, Token);
-        return published.Unwrap();
+        return Assert.IsType<Ok<Guid>>(published.Value).Value;
     }
 }

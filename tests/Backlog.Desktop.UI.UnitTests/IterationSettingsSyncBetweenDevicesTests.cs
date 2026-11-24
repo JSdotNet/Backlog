@@ -58,7 +58,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
 
         a.Settings.SetLength(IterationLength.TwoWeeks, Wednesday21);
         Assert.Equal(Monday19, a.Settings.TwoWeekStart);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         var travelled = _replica.Held(IterationReplicaDocuments.SettingsId);
         Assert.NotNull(travelled);
@@ -66,7 +66,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
 
         var heard = 0;
         b.Settings.Changed += () => heard++;
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)Monday19), (b.Settings.Length, b.Settings.TwoWeekStart));
         Assert.Equal(1, heard);
@@ -90,9 +90,9 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         b.Settings.SetTwoWeekStart(Monday12);
         b.Settings.SetLength(IterationLength.Day, Wednesday21);
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
         Assert.Equal(1, (await a.PushAsync()).Refused);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         Assert.Equal((IterationLength.Day, (DateOnly?)Monday12), (a.Settings.Length, a.Settings.TwoWeekStart));
         Assert.Equal((IterationLength.Day, (DateOnly?)Monday12), (b.Settings.Length, b.Settings.TwoWeekStart));
@@ -105,7 +105,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
     {
         using var a = Device("a");
         a.Settings.SetLength(IterationLength.TwoWeeks, Wednesday21);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using var fresh = Device("fresh");
         var pushed = await fresh.PushAsync();
@@ -113,7 +113,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         Assert.Equal(0, _replica.PushesFrom(fresh.DeviceId));
         Assert.False(File.Exists(fresh.SettingsPath));
 
-        Assert.True((await fresh.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await fresh.SyncAsync()).Value);
 
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)Monday19), (fresh.Settings.Length, fresh.Settings.TwoWeekStart));
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)Monday19), (a.Settings.Length, a.Settings.TwoWeekStart));
@@ -129,10 +129,10 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         using var b = Device("b");
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)Monday5), (a.Settings.Length, a.Settings.TwoWeekStart));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         Assert.Equal(IterationSettingsStore.FloorStamp, _replica.Held(IterationReplicaDocuments.SettingsId)!.UpdatedAt);
 
-        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
 
         Assert.Equal((IterationLength.TwoWeeks, (DateOnly?)Monday5), (b.Settings.Length, b.Settings.TwoWeekStart));
     }
@@ -144,14 +144,14 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
     {
         using var a = Device("a");
         a.Settings.SetLength(IterationLength.Month, Wednesday21);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         using var late = Device("late", legacy: ("two-weeks", Monday5));
-        Assert.True((await late.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await late.SyncAsync()).Value);
 
         Assert.Equal(IterationLength.Month, late.Settings.Length);
         Assert.Equal("month", new IterationSettingsStore(late.SettingsPath).Choice!.Length);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
         Assert.Equal(IterationLength.Month, a.Settings.Length);
     }
 
@@ -163,9 +163,9 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
         using var a = Device("a", legacy: ("two-weeks", Monday5));
         using var b = Device("b", legacy: ("month", null));
 
-        Assert.True((await a.SyncAsync()).IsSuccess);
-        Assert.True((await b.SyncAsync()).IsSuccess);
-        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await b.SyncAsync()).Value);
+        Assert.IsNotType<Error>((await a.SyncAsync()).Value);
 
         // A pushed first, so the feed holds A's seeded copy; B's equal-stamped push was
         // refused, and B took A's copy at the floor rather than reading it as an echo.
@@ -246,9 +246,7 @@ public sealed class IterationSettingsSyncBetweenDevicesTests : IDisposable
 
         public async Task<TaskSyncSummary> PushAsync()
         {
-            var pushed = await _session.PushAsync(TestContext.Current.CancellationToken);
-            Assert.True(pushed.IsSuccess);
-            return pushed.Unwrap();
+            return Assert.IsType<Ok<TaskSyncSummary>>((await _session.PushAsync(TestContext.Current.CancellationToken)).Value).Value;
         }
 
         public void Dispose()

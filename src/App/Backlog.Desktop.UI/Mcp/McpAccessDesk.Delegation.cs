@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel.Mcp;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
 
@@ -342,7 +343,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
         try
         {
             var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
-            if (published.IsFailure) _log.LogInformation("No notification for {What} on {GrantId}: {Error}.", what, target.Id, published.Error.Code);
+            if (published is Error error) _log.LogInformation("No notification for {What} on {GrantId}: {Error}.", what, target.Id, error.Code);
         }
 #pragma warning disable CA1031 // The grant stands without its notification; the page shows it.
         catch (Exception ex)

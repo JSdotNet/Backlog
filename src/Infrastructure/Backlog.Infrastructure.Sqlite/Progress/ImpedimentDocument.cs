@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Sqlite.Progress;
 
@@ -149,7 +150,10 @@ internal sealed record ImpedimentDocument
             ? (HoldsBack ?? []).Select(HeldBackItem.ForTask)
             : HeldBack!.OfType<HeldBackItemDocument>().Select(item => item.ToItem());
 
-        return items.Where(item => item.IsSuccess).Select(item => item.Unwrap());
+        foreach (var item in items)
+        {
+            if (item is Ok<HeldBackItem>(var held)) yield return held;
+        }
     }
 
     private static ImpedimentDocument? Read(string? json)

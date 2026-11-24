@@ -52,7 +52,7 @@ public sealed class RefusedTokenRerunTests
             "test");
 
         Assert.True(tokens.Provider.CredentialRejected);
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(1, exchanges);
     }
 
@@ -73,7 +73,7 @@ public sealed class RefusedTokenRerunTests
             NullLogger.Instance,
             "test");
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(1, exchanges);
     }
 

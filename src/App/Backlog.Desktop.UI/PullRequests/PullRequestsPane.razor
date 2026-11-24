@@ -882,9 +882,12 @@
             // first real await, and on the UI thread that would hold the window still
             // before the pressed button could show it is busy.
             var result = await Task.Run(() => act(pullRequests, pull.Reference));
-            Publish(result.IsSuccess
-                ? ToastMessage.Info(done, "pull-requests-act-done")
-                : ToastMessage.Error(result.Error.Message, "pull-requests-act-failed"));
+            Publish(result switch
+            {
+                // Qualified: this component's own Ok is a check-state constant.
+                global::Backlog.SharedKernel.Results.Ok => ToastMessage.Info(done, "pull-requests-act-done"),
+                Error error => ToastMessage.Error(error.Message, "pull-requests-act-failed"),
+            });
 
             // A merge — now, or by auto-merge while the reader looks elsewhere — is
             // something the merged view's copy cannot know about.

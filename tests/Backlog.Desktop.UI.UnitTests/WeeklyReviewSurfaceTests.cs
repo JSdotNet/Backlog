@@ -231,7 +231,7 @@ public sealed class WeeklyReviewSurfaceTests : IDisposable
         public Task<Result> ActAsync(WeeklyReviewAction action, CancellationToken cancellationToken = default)
         {
             Acted.Add(action);
-            if (Answer.IsSuccess) OnAct?.Invoke(action);
+            if (Answer is Ok) OnAct?.Invoke(action);
             return Task.FromResult(Answer);
         }
     }

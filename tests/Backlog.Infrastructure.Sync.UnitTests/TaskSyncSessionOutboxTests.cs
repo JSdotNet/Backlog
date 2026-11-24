@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -30,8 +31,8 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(1, result.Unwrap().Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(1, summary.Pushed);
 
         var change = Assert.Single(Pushed(fixture.Bodies.Single()));
         Assert.Equal(capture, change.Id);
@@ -108,7 +109,7 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, result.Unwrap().Pushed);
+        Assert.Equal(2, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Equal(2, fixture.Bodies.Count);
         Assert.Contains("Edited here", fixture.Bodies[0], StringComparison.Ordinal);
         Assert.Contains("Archived here", fixture.Bodies[1], StringComparison.Ordinal);
@@ -125,7 +126,7 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Empty(outbox.MarkedSent);
         Assert.Single(outbox.Pending);
     }
@@ -148,7 +149,7 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<TaskSyncSummary>>(result.Value);
         Assert.Equal(3, fixture.Bodies.Count);
         Assert.Equal([200, 200, 50], fixture.Bodies.Select(body => Pushed(body).Count));
         Assert.Equal(450, outbox.MarkedSent.Count);
@@ -174,7 +175,7 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Equal(2, fixture.Bodies.Count);
         Assert.Equal(first, outbox.MarkedSent);
         Assert.Equal(250, outbox.Pending.Count);
@@ -188,8 +189,8 @@ public sealed class TaskSyncSessionOutboxTests
 
         var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Unwrap().Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(0, summary.Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 

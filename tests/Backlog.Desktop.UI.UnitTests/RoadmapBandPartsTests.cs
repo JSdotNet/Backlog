@@ -46,12 +46,12 @@ public sealed class RoadmapBandPartsTests : RoadmapBandHarness
         var written = await entries.ImportPlanAsync(
             tasks,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(written.IsSuccess, written.IsFailure ? written.Error.Message : null);
+        Assert.True(written is not Error, (written.Value as Error?)?.Message);
 
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan A", "plan-a", RepositoryAliases: ["backlog", "fincent"])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
 
         return await StoredAsync();
     }

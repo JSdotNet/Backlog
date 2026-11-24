@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -144,8 +145,8 @@ public class RoadmapBandTests : RoadmapBandHarness
     public async Task RescheduleFromTheTimeline_IsStored()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var itemId = added.Unwrap().Id;
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var itemId = added.Id;
 
         using var context = Context();
         var band = Drawn(context);
@@ -166,12 +167,12 @@ public class RoadmapBandTests : RoadmapBandHarness
     public async Task DroppingSomethingOnAnotherLane_RefilesIt()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
-            lane: "platform", cancellationToken: TestContext.Current.CancellationToken);
+            lane: "platform", cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await Planning.AddItemAsync(
             "Other work",
             new DateOnly(2026, 1, 12),
@@ -182,7 +183,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
-        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Unwrap().Id.ToString());
+        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Id.ToString());
         var migrationRow = timeline.Instance.Groups
             .SelectMany(group => group.RowList)
             .Single(row => row.Title == "migration");
@@ -191,19 +192,19 @@ public class RoadmapBandTests : RoadmapBandHarness
             new RoadmapChange(bar.Id, migrationRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("migration", plan.Items.Single(item => item.Id == added.Unwrap().Id).Lane);
+        Assert.Equal("migration", plan.Items.Single(item => item.Id == added.Id).Lane);
     }
 
     [Fact]
     public async Task DroppingSomethingOnAStackedRowOfItsOwnLane_KeepsTheLane()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             "Work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
-            lane: "platform", cancellationToken: TestContext.Current.CancellationToken);
+            lane: "platform", cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
         await Planning.AddItemAsync(
             "Overlapping work",
             new DateOnly(2026, 1, 5),
@@ -214,7 +215,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
-        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Unwrap().Id.ToString());
+        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Id.ToString());
         var otherRow = timeline.Instance.Groups
             .SelectMany(group => group.RowList)
             .First(row => row.Id != bar.RowId);
@@ -223,7 +224,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             new RoadmapChange(bar.Id, otherRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("platform", plan.Items.Single(item => item.Id == added.Unwrap().Id).Lane);
+        Assert.Equal("platform", plan.Items.Single(item => item.Id == added.Id).Lane);
     }
 
     [Fact]
@@ -244,7 +245,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Imported", "imported", RepositoryAliases: ["backlog"])],
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(imported.IsSuccess);
+        Assert.IsNotType<Error>(imported.Value);
 
         band.WaitForAssertion(() =>
             Assert.Equal(2, band.FindComponent<RoadmapTimeline>().Instance.Bars.Count));
@@ -255,7 +256,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     public async Task ARefusedRescheduleIsExplained_AndTheChartGoesBackToWhatWasStored()
     {
         Configure("JSdotNet/Backlog");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         using var context = Context();
         var band = Drawn(context);
@@ -270,7 +271,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         Assert.NotNull(band.Find("[data-testid=\"roadmap-band-error\"]"));
 
         var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
-        var stored = plan.Items.Single(item => item.Id == added.Unwrap().Id);
+        var stored = plan.Items.Single(item => item.Id == added.Id);
         Assert.Equal(new DateOnly(2026, 1, 5), stored.Start);
         Assert.Equal(new DateOnly(2026, 1, 9), stored.End);
     }
@@ -308,17 +309,17 @@ public class RoadmapBandTests : RoadmapBandHarness
     public async Task ADependencyIsDrawnAsAnArrow()
     {
         Configure("JSdotNet/Backlog");
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True((await Planning.AddDependencyAsync(build.Unwrap().Id, design.Unwrap().Id, TestContext.Current.CancellationToken)).IsSuccess);
+        var design = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        var build = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
+        Assert.IsNotType<Error>((await Planning.AddDependencyAsync(build.Id, design.Id, TestContext.Current.CancellationToken)).Value);
 
         using var context = Context();
         var band = Drawn(context);
         var timeline = band.FindComponent<RoadmapTimeline>();
 
         var link = Assert.Single(timeline.Instance.Links);
-        Assert.Equal(design.Unwrap().Id.ToString(), link.FromId);
-        Assert.Equal(build.Unwrap().Id.ToString(), link.ToId);
+        Assert.Equal(design.Id.ToString(), link.FromId);
+        Assert.Equal(build.Id.ToString(), link.ToId);
     }
 
 }

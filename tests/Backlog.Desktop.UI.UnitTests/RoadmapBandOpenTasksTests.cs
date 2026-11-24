@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
 using Bunit;
@@ -27,18 +28,17 @@ public sealed class RoadmapBandOpenTasksTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
 
-        var added = await Planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await Planning.AddItemAsync(
             title,
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: repositories,
-            cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(added.IsSuccess);
+            cancellationToken: TestContext.Current.CancellationToken)).Value).Value;
 
         // Open in Tasks is offered for work tasks carry.
-        await CarriedByATaskAsync(added.Unwrap().Tag);
+        await CarriedByATaskAsync(added.Tag);
 
-        return added.Unwrap().Id;
+        return added.Id;
     }
 
     /// <summary>Opens the editor from <paramref name="barId"/> and presses Open in Tasks.</summary>

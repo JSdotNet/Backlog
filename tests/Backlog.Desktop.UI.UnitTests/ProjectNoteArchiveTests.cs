@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -55,7 +56,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
 
     private async Task<RoadmapItemDto> PlanAsync(params string[] knowledgeRefs)
     {
-        var added = await _planning.AddItemAsync(
+        var added = Assert.IsType<Ok<RoadmapItemDto>>((await _planning.AddItemAsync(
             "House move",
             new DateOnly(2026, 11, 2),
             new DateOnly(2026, 11, 13),
@@ -63,9 +64,8 @@ public sealed class ProjectNoteArchiveTests : IDisposable
             notes: "Kept as written.",
             tag: "house-move",
             knowledgeRefs: knowledgeRefs,
-            cancellationToken: Ct);
-        Assert.True(added.IsSuccess, added.IsFailure ? added.Error.Message : null);
-        return added.Unwrap();
+            cancellationToken: Ct)).Value).Value;
+        return added;
     }
 
     private static RoadmapGatheredLink Entry(bool done) =>
@@ -106,8 +106,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
 
         var archived = await archive.ArchiveAsync(note, Ct);
 
-        Assert.True(archived.IsSuccess, archived.IsFailure ? archived.Error.Message : null);
-        Assert.Equal("archive/house.md", archived.Unwrap());
+        Assert.Equal("archive/house.md", Assert.IsType<Ok<string>>(archived.Value).Value);
         Assert.False(File.Exists(source));
         Assert.Equal(before, await File.ReadAllBytesAsync(Path.Combine(BrainRoot, "archive", "house.md"), Ct));
 
@@ -131,7 +130,7 @@ public sealed class ProjectNoteArchiveTests : IDisposable
 
         var archived = await archive.ArchiveAsync(Assert.Single(await archive.FinishedAsync(Ct)), Ct);
 
-        Assert.True(archived.IsFailure);
+        Assert.IsType<Error>(archived.Value);
         Assert.Equal(["#brain:projects/house.md"], Assert.Single((await _planning.GetPlanAsync(Ct)).Items).Knowledge);
     }
 

@@ -3,6 +3,7 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Progress.UI.WeeklyReview;
@@ -152,7 +153,11 @@ public sealed class ShellWeeklyReviewSource : IWeeklyReviewSource, IDisposable
         if (finished is not null && _projectNotes is not null)
         {
             var moved = await _projectNotes.ArchiveAsync(finished, cancellationToken);
-            return moved.IsSuccess ? Result.Success() : Result.Failure(moved.Error);
+            return moved switch
+            {
+                Ok<string> => Result.Success(),
+                Error error => error,
+            };
         }
 
         if (_linkWriter is null)
@@ -249,9 +254,9 @@ public sealed class ShellWeeklyReviewSource : IWeeklyReviewSource, IDisposable
         if (_goals is null) return null;
 
         var listed = await _goals.ListAsync(cancellationToken: cancellationToken);
-        if (listed.IsFailure) return null;
+        if (listed is not Ok<IReadOnlyList<GoalSummaryDto>>(var goals)) return null;
 
-        return [.. listed.Unwrap().Select(summary => new ReviewGoal(
+        return [.. goals.Select(summary => new ReviewGoal(
             summary.Goal.Id,
             summary.Goal.Title,
             summary.Goal.DueDate,

@@ -219,9 +219,9 @@ public sealed class SessionSyncSession
                 .PushAsync([.. batch.Select(item => item.Record)], cancellationToken)
                 .ConfigureAwait(false);
 
-            if (response.IsFailure) return Result.Failure<SessionSyncSummary>(response.Error);
+            if (response is not Ok<PushSessionsResponse>(var answer)) return (Error)response.Value!;
 
-            pushed += response.Unwrap().Accepted;
+            pushed += answer.Accepted;
             sent += batch.Count;
 
             // One RecordRange per batch, so the footer redraws once per request.
@@ -438,11 +438,12 @@ public sealed class SessionSyncSession
                     .PullAsync(cursor, SessionSyncClient.DefaultMaxItems, cancellationToken)
                     .ConfigureAwait(false);
 
-                if (page.IsFailure)
+                if (page is not Ok<PullSessionsResponse>(var feed))
                 {
-                    if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
+                    var error = (Error)page.Value!;
+                    if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
                     {
-                        return Result.Failure<SessionSyncSummary>(page.Error);
+                        return error;
                     }
 
                     startedOver = true;
@@ -461,7 +462,7 @@ public sealed class SessionSyncSession
                     continue;
                 }
 
-                pulled += page.Unwrap().Sessions.Count;
+                pulled += feed.Sessions.Count;
 
                 // Every record is kept, this machine's own included. The service holds
                 // them for a year and the transcript behind one is gone after a month,
@@ -470,19 +471,19 @@ public sealed class SessionSyncSession
                 // that read the held set give way to the local reader for a session it
                 // can still read — see CompositeAgentSessionSource. Only the other
                 // machines' records count as received.
-                kept.AddRange(page.Unwrap().Sessions);
+                kept.AddRange(feed.Sessions);
 
-                var theirs = page.Unwrap().Sessions
+                var theirs = feed.Sessions
                     .Where(entry => self is null || entry.MachineId != self)
                     .ToList();
 
                 applied += theirs.Count;
                 received.AddRange(theirs);
 
-                cursor = page.Unwrap().Since;
+                cursor = feed.Since;
                 moved = true;
 
-                if (!page.Unwrap().HasMore) break;
+                if (!feed.HasMore) break;
             }
         }
         finally
@@ -524,15 +525,15 @@ public sealed class SessionSyncSession
     public async Task<Result<SessionSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return push;
+        if (push is not Ok<SessionSyncSummary>(var pushSummary)) return (Error)push.Value!;
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return pull;
+        if (pull is not Ok<SessionSyncSummary>(var pullSummary)) return (Error)pull.Value!;
 
         return Result.Success(new SessionSyncSummary(
-            push.Unwrap().Pushed,
-            pull.Unwrap().Pulled,
-            pull.Unwrap().Applied,
+            pushSummary.Pushed,
+            pullSummary.Pulled,
+            pullSummary.Applied,
             _time.GetUtcNow()));
     }
 

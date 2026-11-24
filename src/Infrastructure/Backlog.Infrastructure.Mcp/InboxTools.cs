@@ -110,7 +110,7 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
         CancellationToken cancellationToken = default)
     {
         var archived = await inbox.ArchiveAsync(id, cancellationToken).ConfigureAwait(false);
-        if (archived.IsFailure) throw RepositoryScope.Failure(archived.Error);
+        if (archived is Error error) throw RepositoryScope.Failure(error);
 
         changes?.Raise();
 
@@ -145,12 +145,12 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
         var captured = await inbox
             .CaptureAsync(title, body, InboxEnumMap.ManualChannel, sourceUrl, cancellationToken)
             .ConfigureAwait(false);
-        if (captured.IsFailure) throw RepositoryScope.Failure(captured.Error);
+        if (captured is not Ok<InboxItemDto>(var item)) throw RepositoryScope.Failure((Error)captured.Value!);
 
         // Heard by an open Inbox, which reloads; the pane learns of no other way.
         changes?.Raise();
 
-        return InboxItemSummaryPayload.From(captured.Unwrap());
+        return InboxItemSummaryPayload.From(item);
     }
 
     private async Task<InboxItemDto> FindAsync(Guid id, CancellationToken cancellationToken)

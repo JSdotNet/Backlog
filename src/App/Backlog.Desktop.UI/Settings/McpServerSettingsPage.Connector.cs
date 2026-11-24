@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -99,14 +100,15 @@ public partial class McpServerSettingsPage
             var status = await _connector.GetStatusAsync(_connectorCancel.Token);
             if (_disposed) return;
 
-            if (status.IsSuccess)
+            switch (status)
             {
-                _connectorStatus = status.Unwrap();
-                _connectorError = null;
-            }
-            else
-            {
-                _connectorError = status.Error.Message;
+                case Ok<ConnectorStatusResponse>(var read):
+                    _connectorStatus = read;
+                    _connectorError = null;
+                    break;
+                case Error error:
+                    _connectorError = error.Message;
+                    break;
             }
         }
         catch (OperationCanceledException) when (_disposed)
@@ -147,14 +149,14 @@ public partial class McpServerSettingsPage
             _connectorSecret = null;
             var created = await connector.CreateSecretAsync(cancellationToken);
             if (_disposed) return null;
-            if (created.IsFailure) return created.Error.Message;
+            if (created is not Ok<ConnectorSecretResponse>(var secret)) return ((Error)created.Value!).Message;
 
-            _connectorSecret = created.Unwrap().ClientSecret;
+            _connectorSecret = secret.ClientSecret;
             // The service holds a secret now even if the read that follows fails, so the
             // card says so and the next press still asks before it replaces this one.
             if (_connectorStatus is { } status)
             {
-                _connectorStatus = status with { HasSecret = true, CreatedAt = created.Unwrap().CreatedAt, LastUsedAt = null };
+                _connectorStatus = status with { HasSecret = true, CreatedAt = secret.CreatedAt, LastUsedAt = null };
             }
 
             return null;
@@ -168,7 +170,7 @@ public partial class McpServerSettingsPage
     private Task RevokeConnectorAsync() => RunConnectorAsync(async (connector, cancellationToken) =>
     {
         var revoked = await connector.RevokeSecretAsync(cancellationToken);
-        if (revoked.IsFailure) return revoked.Error.Message;
+        if (revoked is Error error) return error.Message;
 
         _connectorSecret = null;
         return null;

@@ -54,7 +54,7 @@ public sealed class EventsTaskTargetTests
         var filed = await target.FileAsync("Book hotel in Antwerp", TestContext.Current.CancellationToken);
 
         var save = Assert.Single(tasks.Saves);
-        Assert.Equal(save.Id.ToString("D"), filed.Unwrap());
+        Assert.Equal(save.Id.ToString("D"), Assert.IsType<Ok<string>>(filed.Value).Value);
         Assert.Null(save.EntryId);
         Assert.Equal(4, save.Order);
         Assert.Null(save.SourceInboxId);
@@ -69,7 +69,7 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileAsync("Book hotel", TestContext.Current.CancellationToken);
 
-        Assert.Equal("entry.needs_title", filed.Error.Code);
+        Assert.Equal("entry.needs_title", Assert.IsType<Error>(filed.Value).Code);
     }
 
     /// <summary>The Harvest Task Policy's filing (<c>.devbook/domain/events/domain.md#harvest-task-policy</c>):
@@ -84,7 +84,7 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama\nBelgium", TestContext.Current.CancellationToken);
 
-        Assert.True(filed.Unwrap());
+        Assert.True(Assert.IsType<Ok<bool>>(filed.Value).Value);
         var create = Assert.Single(tasks.Creates);
         Assert.Equal(id, create.Id);
         Assert.Equal("# Harvest Techorama Belgium\n`task`\n", create.RawText);
@@ -101,8 +101,8 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileOnceAsync(id.ToString("D"), "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
 
-        Assert.True(filed.IsSuccess);
-        Assert.False(filed.Unwrap());
+        var ok = Assert.IsType<Ok<bool>>(filed.Value);
+        Assert.False(ok.Value);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileOnceAsync(Guid.NewGuid().ToString("D"), "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
 
-        Assert.Equal("entry.needs_title", filed.Error.Code);
+        Assert.Equal("entry.needs_title", Assert.IsType<Error>(filed.Value).Code);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class EventsTaskTargetTests
 
         var filed = await target.FileOnceAsync("not-a-task", "Harvest Techorama Belgium", TestContext.Current.CancellationToken);
 
-        Assert.True(filed.IsFailure);
+        Assert.IsType<Error>(filed.Value);
         Assert.Empty(tasks.Creates);
     }
 
@@ -156,7 +156,7 @@ public sealed class EventsTaskTargetTests
 
         var completed = await target.CompleteAsync(harvest.ToString("D"), TestContext.Current.CancellationToken);
 
-        Assert.True(completed.IsSuccess);
+        Assert.IsType<Ok>(completed.Value);
         var save = Assert.Single(tasks.Saves);
         Assert.Equal(harvest, save.EntryId);
         Assert.Equal(2, save.Order);
@@ -195,7 +195,7 @@ public sealed class EventsTaskTargetTests
 
         var completed = await target.CompleteAsync(harvest.ToString("D"), TestContext.Current.CancellationToken);
 
-        Assert.True(completed.IsSuccess);
+        Assert.IsType<Ok>(completed.Value);
         Assert.Empty(tasks.Saves);
         Assert.Equal(finished, tasks.StatusOf(harvest));
     }
@@ -210,7 +210,7 @@ public sealed class EventsTaskTargetTests
 
         var completed = await target.CompleteAsync(taskId, TestContext.Current.CancellationToken);
 
-        Assert.Equal("event_task.not_in_backlog", completed.Error.Code);
+        Assert.Equal("event_task.not_in_backlog", Assert.IsType<Error>(completed.Value).Code);
         Assert.Empty(tasks.Saves);
     }
 

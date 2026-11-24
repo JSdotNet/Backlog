@@ -192,9 +192,9 @@ public sealed class InboxBacklogTargetTests
 
         var result = await target.CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Unwrap().Count);
-        Assert.Equal(tasks.Saves.Select(save => save.Id), result.Unwrap());
+        var ok = Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value);
+        Assert.Equal(2, ok.Value.Count);
+        Assert.Equal(tasks.Saves.Select(save => save.Id), ok.Value);
 
         Assert.Equal([3, 4], tasks.Saves.Select(save => save.Order));
         Assert.All(tasks.Saves, save => Assert.Equal(Item.ToString("D"), save.SourceInboxId));
@@ -211,7 +211,7 @@ public sealed class InboxBacklogTargetTests
 
         var result = await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Single(result.Unwrap());
+        Assert.Single(Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value).Value);
         Assert.Equal(0, Assert.Single(tasks.Saves).Order);
     }
 
@@ -309,10 +309,10 @@ public sealed class InboxBacklogTargetTests
 
         var result = await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("entry.needs_title", result.Error.Code);
-        Assert.Contains("1 of 2", result.Error.Message, StringComparison.Ordinal);
-        Assert.Contains(tasks.Saves[0].Id.ToString("D"), result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("entry.needs_title", error.Code);
+        Assert.Contains("1 of 2", error.Message, StringComparison.Ordinal);
+        Assert.Contains(tasks.Saves[0].Id.ToString("D"), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -323,8 +323,8 @@ public sealed class InboxBacklogTargetTests
         var result = await new InboxBacklogTarget(tasks, Known()).ImportPlanAsync(
             "# One\n`prompt`\n\n# Two\n`prompt`\n", Item, allowedRepoIds: [], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Unwrap().Count);
+        var ok = Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value);
+        Assert.Equal(2, ok.Value.Count);
 
         var import = Assert.Single(tasks.Imports);
         Assert.Equal(Item.ToString("D"), import.SourceInboxId);
@@ -346,9 +346,9 @@ public sealed class InboxBacklogTargetTests
             allowedRepoIds: ["JSdotNet/Backlog"],
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal("inbox.plan.unknown_repository", result.Error.Code);
-        Assert.Contains("evil/x", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.plan.unknown_repository", error.Code);
+        Assert.Contains("evil/x", error.Message, StringComparison.Ordinal);
         Assert.Empty(tasks.Imports);
         Assert.Empty(tasks.Saves);
     }
@@ -371,8 +371,8 @@ public sealed class InboxBacklogTargetTests
 
         var result = new InboxBacklogTarget(tasks, Known()).ReadDraftedOrder(plan, [a, b, c], ["jsdotnet/backlog"]);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal([new InboxBatchEdge(b, a), new InboxBatchEdge(c, b), new InboxBatchEdge(c, a)], result.Unwrap());
+        var ok = Assert.IsType<Ok<IReadOnlyList<InboxBatchEdge>>>(result.Value);
+        Assert.Equal([new InboxBatchEdge(b, a), new InboxBatchEdge(c, b), new InboxBatchEdge(c, a)], ok.Value);
         Assert.Empty(tasks.Imports);
         Assert.Empty(tasks.Saves);
     }
@@ -391,8 +391,9 @@ public sealed class InboxBacklogTargetTests
 
         var result = new InboxBacklogTarget(new RecordingTaskItems(existing: 0), Known()).ReadDraftedOrder(plan, [a, b], ["JSdotNet/Backlog"]);
 
-        Assert.Equal("inbox.order.unknown_repository", result.Error.Code);
-        Assert.Contains("evil/x", result.Error.Message, StringComparison.Ordinal);
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal("inbox.order.unknown_repository", error.Code);
+        Assert.Contains("evil/x", error.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -412,7 +413,7 @@ public sealed class InboxBacklogTargetTests
 
         var result = new InboxBacklogTarget(new RecordingTaskItems(existing: 0), Known()).ReadDraftedOrder(plan, [a, b], []);
 
-        Assert.Equal("inbox.order.unknown_item", result.Error.Code);
+        Assert.Equal("inbox.order.unknown_item", Assert.IsType<Error>(result.Value).Code);
     }
 
     [Fact]
@@ -426,8 +427,8 @@ public sealed class InboxBacklogTargetTests
             allowedRepoIds: ["JSdotNet/Backlog", "jsdotnet/other"],
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Unwrap().Count);
+        var ok = Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value);
+        Assert.Equal(2, ok.Value.Count);
         Assert.Single(tasks.Imports);
     }
 
@@ -448,7 +449,7 @@ public sealed class InboxBacklogTargetTests
             attachmentPath: folder,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value);
 
         var parsed = EntryTextParser.SplitSegments(Assert.Single(tasks.Imports).RawText).Select(EntryTextParser.Parse).ToList();
         Assert.Equal(["The plan", "One", "Two"], parsed.Select(entry => entry.Title));
@@ -781,7 +782,7 @@ public sealed class InboxBacklogTargetTests
 
         var result = await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<Ok<IReadOnlyList<Guid>>>(result.Value);
         Assert.Equal(2, tasks.Saves.Count);
 
         Assert.Equal(["Same capture in: JSdotNet/Other — Ship the thing"], SameCaptureLines(tasks.Saves[0].RawText));

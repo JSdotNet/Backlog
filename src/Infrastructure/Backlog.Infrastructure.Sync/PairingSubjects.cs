@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -223,13 +224,13 @@ public sealed class PairingSubjects : IDisposable
             if (_roster() is not { } roster) return;
 
             var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
-            if (listed.IsFailure)
+            if (listed is not Ok<DeviceListResponse>(var devices))
             {
-                _logger.LogDebug("The device list was not read while a pairing code is open: {Error}", listed.Error.Message);
+                _logger.LogDebug("The device list was not read while a pairing code is open: {Error}", ((Error)listed.Value!).Message);
                 return;
             }
 
-            foreach (var device in listed.Unwrap().Devices.Where(device => device.PairedBy == listed.Unwrap().CallerDeviceId))
+            foreach (var device in devices.Devices.Where(device => device.PairedBy == devices.CallerDeviceId))
             {
                 if (_claimed.ContainsKey(device.DeviceId)) continue;
 
@@ -259,7 +260,7 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var asked = await notifications.PublishAsync(PairingQuestion.Draft(pairing.Id, deviceId, deviceName)).ConfigureAwait(false);
-            if (asked.IsFailure) _logger.LogDebug("The question about the device that redeemed pairing {Id} was not published: {Error}", pairing.Id, asked.Error.Message);
+            if (asked is Error error) _logger.LogDebug("The question about the device that redeemed pairing {Id} was not published: {Error}", pairing.Id, error.Message);
         }
         catch (Exception exception)
         {
@@ -274,7 +275,7 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var closed = await notifications.CloseForSubjectAsync(PairingQuestion.Subject(id), SyncNotificationSubjects.EndedReason).ConfigureAwait(false);
-            if (closed.IsFailure) _logger.LogDebug("Notifications about pairing {Id} were not closed: {Error}", id, closed.Error.Message);
+            if (closed is Error error) _logger.LogDebug("Notifications about pairing {Id} were not closed: {Error}", id, error.Message);
         }
         catch (Exception exception)
         {

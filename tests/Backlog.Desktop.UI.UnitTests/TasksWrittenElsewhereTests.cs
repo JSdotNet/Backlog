@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -39,7 +40,7 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         // endpoint is.
         var moved = await Task.Run(() => entries.SaveFromTextAsync(
             row.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
-        Assert.True(moved.IsSuccess);
+        Assert.IsNotType<Error>(moved.Value);
 
         Assert.Equal(1, Volatile.Read(ref announced));
 
@@ -91,7 +92,7 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         state.Dispose();
 
         var saved = await entries.SaveFromTextAsync(null, "# Written after the list closed\n`task`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(saved.IsSuccess);
+        Assert.IsNotType<Error>(saved.Value);
 
         Assert.Equal(0, announced);
     }

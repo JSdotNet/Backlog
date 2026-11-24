@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -42,8 +43,8 @@ public sealed class TaskSyncSessionRoadmapTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Unwrap().Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(3, summary.Pushed);
         Assert.Equal(3, fixture.Bodies.Count);
         Assert.Equal("Edited here", Assert.Single(Pushed(fixture.Bodies[0])).Task.Title);
 
@@ -92,8 +93,8 @@ public sealed class TaskSyncSessionRoadmapTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Unwrap().Pushed);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(0, summary.Pushed);
         Assert.Empty(fixture.Handler.Requests);
     }
 
@@ -112,8 +113,8 @@ public sealed class TaskSyncSessionRoadmapTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.Equal(0, result.Unwrap().Pushed);
-        Assert.Equal(1, result.Unwrap().Refused);
+        Assert.Equal(0, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
+        Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Refused);
         Assert.Empty(activity.Snapshot());
         Assert.Equal(Morning, state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
     }
@@ -148,7 +149,7 @@ public sealed class TaskSyncSessionRoadmapTests
 
         var result = await fixture.Session.PushAsync(Cancellation);
 
-        Assert.True(result.IsFailure);
+        Assert.IsType<Error>(result.Value);
         Assert.Null(state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
     }
 
@@ -193,10 +194,10 @@ public sealed class TaskSyncSessionRoadmapTests
 
         var result = await fixture.Session.PullAsync(Cancellation);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Unwrap().Pulled);
-        Assert.Equal(0, result.Unwrap().Applied);
-        Assert.Equal(2, result.Unwrap().Skipped);
+        var summary = Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value;
+        Assert.Equal(2, summary.Pulled);
+        Assert.Equal(0, summary.Applied);
+        Assert.Equal(2, summary.Skipped);
         Assert.Empty(tasks.Writes);
         Assert.Equal("cursor-after-the-page", state.Current.PullCursor);
     }

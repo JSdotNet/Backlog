@@ -4,6 +4,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
 
@@ -80,10 +81,10 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     private async Task<IReadOnlyDictionary<Guid, GoalForecastPayload>> ForecastsAsync(CancellationToken cancellationToken)
     {
         var reading = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
-        if (reading.IsFailure) return new Dictionary<Guid, GoalForecastPayload>();
+        if (reading is not Ok<StandUpDto>(var standUpDto)) return new Dictionary<Guid, GoalForecastPayload>();
 
         var forecasts = new Dictionary<Guid, GoalForecastPayload>();
-        foreach (var goal in reading.Unwrap().Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
+        foreach (var goal in standUpDto.Goals) forecasts.TryAdd(goal.Id, GoalForecastPayload.From(goal));
 
         return forecasts;
     }
@@ -269,7 +270,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     {
         var deleted = await goals.DeleteAsync(id, cancellationToken).ConfigureAwait(false);
 
-        if (deleted.IsFailure) throw RepositoryScope.Failure(deleted.Error);
+        if (deleted is Error error) throw RepositoryScope.Failure(error);
 
         return new GoalDeletedPayload(id);
     }
