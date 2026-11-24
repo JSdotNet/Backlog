@@ -74,14 +74,20 @@ public sealed class SqliteTaskRepository : ITaskRepository
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
         // A write under a change set records it in the same transaction (local ADR
-        // 0061 §2); one under none stays the single statement it always was.
+        // 0061 §2); one under none stays the single statement it always was. A save
+        // refused as stale throws before the commit, so its change set rolls back
+        // with it.
         await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await WriteAsync(connection, journal.Transaction, task, cancellationToken).ConfigureAwait(false);
         await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        task.MarkPersisted();
     }
 
     /// <summary>Every task in one transaction on one connection: one open, one
-    /// fsync, and either all of a drag's new ranks land or none do.</summary>
+    /// fsync, and either all of a drag's new ranks land or none do — a stale one
+    /// among them included, which rolls the whole batch back and throws
+    /// <see cref="StaleTaskWriteException"/>.</summary>
     public async Task SaveManyAsync(IReadOnlyCollection<TaskItem> tasks, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(tasks);
@@ -101,6 +107,10 @@ public sealed class SqliteTaskRepository : ITaskRepository
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // After the commit, not per write: a batch rolled back by a later refusal
+        // left the store holding the versions these tasks were read at.
+        foreach (var task in tasks) task.MarkPersisted();
     }
 
     private static async Task WriteAsync(
@@ -115,6 +125,15 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // One statement for create and update alike: the aggregate is written
         // whole either way, so there is nothing for two code paths to disagree
         // about.
+        //
+        // The DO UPDATE is conditional: a task read from this store carries the
+        // stamp it was read at, and the update applies only while the row still
+        // holds it. Otherwise another writer saved in between, and this copy is the
+        // older version — writing it would erase theirs with nothing said. The
+        // statement then changes no row, and that is the refusal. Coalesced to
+        // created_at exactly as Read coalesces it, so a row without a stamp
+        // compares as the value it was read as. A task no store handed out
+        // ($loaded_at null: a create, a replica merge copy) writes as before.
         command.CommandText = $"""
             INSERT INTO tasks ({Columns})
             VALUES (
@@ -162,7 +181,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 planned_hours = excluded.planned_hours,
                 source_notification_id = excluded.source_notification_id,
                 waiting_for = excluded.waiting_for,
-                follow_up_on = excluded.follow_up_on;
+                follow_up_on = excluded.follow_up_on
+            WHERE $loaded_at IS NULL OR COALESCE(tasks.updated_at, tasks.created_at) = $loaded_at;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -229,7 +249,14 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // record's other members are read off the path, so the path is the value.
         command.Parameters.AddWithValue("$attachment_path", Nullable(task.Attachment?.Path));
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        command.Parameters.AddWithValue(
+            "$loaded_at",
+            Nullable(task.LoadedUpdatedAt?.ToString("O", CultureInfo.InvariantCulture)));
+
+        var written = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+        // No row inserted and none updated: the conditional update above refused.
+        if (written == 0) throw new StaleTaskWriteException(task.Id);
     }
 
     public async Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -650,9 +677,21 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // updated_at is coalesced to created_at rather than trusted to be present:
         // the column arrived after rows already existed, and a row inserted by
         // something that does not know about it still has to read.
+        var storedStamp = Text(row, Col.UpdatedAt) ?? row.GetString(Col.CreatedAt);
+
         task.LoadStamps(
             ParseInstant(Text(row, Col.UpdatedAt)) ?? task.CreatedAt,
             ParseInstant(Text(row, Col.DeletedAt)));
+
+        // The version this read saw, which a save of this instance is checked
+        // against (WriteAsync) — as text, so only when the stamp read back writes
+        // the same text again. One that does not (unreadable, or written in some
+        // other form by hand) would never compare equal and would refuse every
+        // save of the row for good; such a task saves unchecked instead.
+        if (string.Equals(task.UpdatedAt.ToString("O", CultureInfo.InvariantCulture), storedStamp, StringComparison.Ordinal))
+        {
+            task.MarkPersisted();
+        }
 
         return task;
     }

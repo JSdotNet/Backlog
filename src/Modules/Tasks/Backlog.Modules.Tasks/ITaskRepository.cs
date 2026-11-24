@@ -20,7 +20,18 @@ namespace Backlog.Modules.Tasks;
 /// </summary>
 public interface ITaskRepository
 {
-    /// <summary>Creates or updates a task.</summary>
+    /// <summary>Creates or updates a task.
+    /// <para>
+    /// Optimistic: a task this store handed out carries the stamp it was read at
+    /// (<see cref="TaskItem.LoadedUpdatedAt"/>), and the save applies only while
+    /// the store still holds that stamp. When it does not, somebody saved the task
+    /// in between; nothing is written and <see cref="StaleTaskWriteException"/> is
+    /// thrown. A task with no loaded stamp — one being created, or a copy the
+    /// replica merge built from another device's document — is written
+    /// unconditionally. On success the task's loaded stamp moves to what it saved,
+    /// so the same instance can be saved again.
+    /// </para></summary>
+    /// <exception cref="StaleTaskWriteException">The store holds a later version.</exception>
     Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default);
 
     /// <summary>

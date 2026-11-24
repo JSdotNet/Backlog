@@ -9,6 +9,8 @@ using Microsoft.Extensions.Time.Testing;
 
 using ModelContextProtocol;
 
+using ResultError = Backlog.SharedKernel.Results.Error;
+
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
@@ -1050,6 +1052,45 @@ public class TrackerToolsTests
         clock.SetLocalTimeZone(TimeZoneInfo.Utc);
 
         return clock;
+    }
+
+    // --- tasks.stale_write --------------------------------------------------
+
+    /// <summary>What the port answers when another writer saved the entry between
+    /// this tool's read and its write. Its wording is the port's
+    /// (<c>StaleWriteRefusalTests</c>); here it only has to reach the agent.</summary>
+    private static readonly ResultError StaleWrite = ResultError.Conflict(
+        TaskEntryErrorCodes.StaleWrite,
+        "This entry changed somewhere else while the change was being made, so nothing was written. "
+        + "Read the entry again, then retry the change on the version you read.");
+
+    public static TheoryData<string> StaleWriteTools => [TrackerTools.Transition, TrackerTools.SetBlocked, TrackerTools.Comment, TrackerTools.LinkChange];
+
+    /// <summary>A write the store refused as stale reaches the agent as a refusal
+    /// naming <c>tasks.stale_write</c> and telling it to read the entry again and
+    /// retry — never as a success, and never as a generic failure with no code.</summary>
+    [Theory]
+    [MemberData(nameof(StaleWriteTools))]
+    public async Task A_stale_write_is_refused_with_read_again_and_retry(string tool)
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id, status: EntryStatus.Ready)) { RefuseWritesWith = StaleWrite };
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
+        var token = TestContext.Current.CancellationToken;
+
+        Func<Task> call = tool switch
+        {
+            TrackerTools.Transition => () => tools.TransitionAsync(id, "in-progress", token),
+            TrackerTools.SetBlocked => () => tools.SetBlockedAsync(id, blocked: true, token),
+            TrackerTools.Comment => () => tools.CommentAsync(id, "A note.", token),
+            _ => () => tools.LinkChangeAsync(id, "JSdotNet/Backlog", "12", token),
+        };
+
+        var failure = await Assert.ThrowsAsync<McpException>(call);
+
+        Assert.Contains(TaskEntryErrorCodes.StaleWrite, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Read the entry again", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("retry", failure.Message, StringComparison.Ordinal);
     }
 
     private static TrackerTools Tools(params TaskItemDto[] entries) =>

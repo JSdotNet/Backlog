@@ -151,6 +151,30 @@ public sealed class TaskItem
     /// </para></summary>
     public DateTimeOffset? DeletedAt { get; private set; }
 
+    /// <summary>The <see cref="UpdatedAt"/> the store held for this task when it
+    /// was last read or written, or null for an aggregate no store has handed out.
+    /// <para>
+    /// The optimistic-concurrency token. A save of a task carrying one is applied
+    /// only while the store still holds that stamp: a second writer that read the
+    /// same version and saves after the first is refused rather than allowed to put
+    /// the older version back over the newer one (<c>tasks.stale_write</c>).
+    /// </para>
+    /// <para>
+    /// What it guards is each save's own read-modify-write — a use case reads the
+    /// task, applies a change, saves it. It does not reach further back: a caller
+    /// that built its text on an older read hands that text to a use case that
+    /// reads the task afresh. The Tasks pane closes that gap itself by merging its
+    /// edit onto the stored entry before it saves (<c>RebaseOnStoreAsync</c>), and
+    /// the MCP tools read and write inside one call.
+    /// </para>
+    /// <para>
+    /// Null is deliberate and means "not read from this store": a task being
+    /// created, and a copy the replica merge builds from another device's document,
+    /// which <c>TaskReplicaMerge</c> decides by its own precedence rule. Such a save
+    /// is written unconditionally, as every save was before the check existed.
+    /// </para></summary>
+    public DateTimeOffset? LoadedUpdatedAt { get; private set; }
+
     /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
     /// have never been ranked share the default 0 and fall back to recency.</summary>
     public int Order { get; private set; }
@@ -895,6 +919,12 @@ public sealed class TaskItem
         UpdatedAt = updatedAt;
         DeletedAt = deletedAt;
     }
+
+    /// <summary>Records that the store now holds this task as it stands — called
+    /// by storage after a read, and after a save it applied, so the same instance
+    /// can be saved again. Not an edit: <see cref="UpdatedAt"/> stays where it is.
+    /// See <see cref="LoadedUpdatedAt"/>.</summary>
+    public void MarkPersisted() => LoadedUpdatedAt = UpdatedAt;
 
     // --- Internals ----------------------------------------------------------
 

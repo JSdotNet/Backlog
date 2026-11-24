@@ -759,6 +759,13 @@ public sealed class TaskReplicaMerge(
             return ApplyOutcome.Unreadable;
         }
 
+        // Not subject to the store's stale-write check: ToTaskItem builds a fresh
+        // aggregate that no store handed out, so it carries no LoadedUpdatedAt and
+        // is written unconditionally. Whether it may replace the local copy was
+        // decided above by ShouldApply, this merge's own precedence rule
+        // (TaskChangePrecedence) — and a local writer that read the row before
+        // this write is the one refused when it saves after it.
+        //
         // Inside a suppression, so the write is not announced as this machine's
         // own edit - see ITaskChangeSignal.Suppress for the loop it would start.
         using (_changes?.Suppress())

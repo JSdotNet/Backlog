@@ -63,6 +63,11 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     /// <summary>Every <c>RecordUsageAsync</c>, in order.</summary>
     public List<UsageCall> Usages { get; } = [];
 
+    /// <summary>When set, every text save and link answers with this error instead
+    /// of writing — the way the real port answers a save the store refused, such as
+    /// <c>tasks.stale_write</c>. Still recorded, so a test can see it was asked.</summary>
+    public Error? RefuseWritesWith { get; set; }
+
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -107,6 +112,8 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     {
         cancellationToken.ThrowIfCancellationRequested();
         Saves.Add(new SaveCall(id, rawText, order));
+
+        if (RefuseWritesWith is { } refusal) return Task.FromResult<Result<SavedTaskDto>>(refusal);
 
         var parsed = EntryTextParser.Parse(rawText);
 
@@ -155,6 +162,8 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     {
         cancellationToken.ThrowIfCancellationRequested();
         Links.Add(new LinkCall(id, repoId, externalId, targetType));
+
+        if (RefuseWritesWith is { } refusal) return Task.FromResult<Result<TaskItemDto>>(refusal);
 
         var existing = _entries.FirstOrDefault(entry => entry.Id == id);
 
