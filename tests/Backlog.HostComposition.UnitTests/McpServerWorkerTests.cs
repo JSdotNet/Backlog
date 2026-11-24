@@ -32,8 +32,6 @@ namespace Backlog.HostComposition.UnitTests;
 /// </summary>
 public sealed class McpServerWorkerTests : IDisposable
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
-
     private readonly TemporaryDirectory _temp = new("mcp-worker-tests");
 
     private readonly GatedProvider _services = new(new ServiceCollection().BuildServiceProvider());
@@ -90,7 +88,7 @@ public sealed class McpServerWorkerTests : IDisposable
         // Disposed while the build is still held at the gate, and only then let
         // through: the order is fixed, so the build always finds itself superseded.
         // Dispose gives up on the stuck chain after its own drain timeout.
-        await Task.Run(worker.Dispose, TestContext.Current.CancellationToken).WaitAsync(Patience, TestContext.Current.CancellationToken);
+        await Task.Run(worker.Dispose, TestContext.Current.CancellationToken).WaitAsync(ListenerPatience.Bound, TestContext.Current.CancellationToken);
         _services.Open();
 
         Assert.False(worker.IsListening);
@@ -281,16 +279,18 @@ public sealed class McpServerWorkerTests : IDisposable
     public async Task Ending_a_listener_scope_leaves_a_forwarded_desktop_singleton_undisposed()
     {
         var store = new DisposableRequestStore();
-        var collection = new ServiceCollection().AddSingleton<IClaudeApiRequestStore>(store);
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var collection = new ServiceCollection().AddSingleton<IClaudeApiRequestStore>(store).AddSingleton(tokens);
         collection.AddSingleton(new DesktopServiceRegistrations([.. collection]));
         var services = new GatedProvider(collection.BuildServiceProvider());
-        var settings = EscapeHatchSettings(FreePort());
+        var settings = Settings(FreePort());
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var token = EnvironmentToken;
+        var token = tokens.Mint(grants.Create("Telemetry", [McpScopes.TelemetryWrite], "test").Id).Token!.Value;
 
         for (var export = 0; export < 2; export++)
         {
@@ -668,6 +668,35 @@ public sealed class McpServerWorkerTests : IDisposable
             using var response = await client.SendAsync(ToolCall("list_entries", EnvironmentToken), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
+    }
+
+    /// <summary>
+    /// The escape hatch is a static secret, so it holds no <c>telemetry:write</c> (local ADR
+    /// 0058, Phase 1): with the debug setting on, its token is good on the listener and an
+    /// export carrying it is still refused on <c>/v1/logs</c> with 403 and
+    /// <c>insufficient_scope</c>, storing nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_escape_hatch_token_is_refused_on_the_logs_route()
+    {
+        var store = new RecordingRequestStore();
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<IClaudeApiRequestStore>(store)
+            .BuildServiceProvider());
+        var settings = EscapeHatchSettings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        using (var response = await client.SendAsync(Export(EnvironmentToken), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("insufficient_scope", response.Headers.WwwAuthenticate.Single().Parameter, StringComparison.Ordinal);
+        }
+
+        Assert.Empty(store.Added);
     }
 
     /// <summary>
@@ -1107,13 +1136,14 @@ public sealed class McpServerWorkerTests : IDisposable
     }
 
     /// <summary>A store with the BACKLOG_MCP_TOKEN escape hatch switched on, so
-    /// <see cref="EnvironmentToken"/> is a token the listener accepts with every grantable scope.</summary>
+    /// <see cref="EnvironmentToken"/> is a token the listener accepts, with every grantable scope
+    /// but <c>telemetry:write</c> and <c>agents:grant</c>.</summary>
     private WorkspaceSettingsStore EscapeHatchSettings(int port) =>
         Settings(port, """{ "mcpServer": { "acceptEnvironmentToken": true } }""");
 
     private static async Task ListeningAsync(McpServerWorker worker, int port)
     {
-        var deadline = DateTime.UtcNow + Patience;
+        var deadline = DateTime.UtcNow + ListenerPatience.Bound;
         var changed = new SemaphoreSlim(0);
         worker.Changed += () => changed.Release();
 
@@ -1130,7 +1160,7 @@ public sealed class McpServerWorkerTests : IDisposable
     /// that sentence.</summary>
     internal static async Task<string> FailedAsync(McpServerWorker worker)
     {
-        var deadline = DateTime.UtcNow + Patience;
+        var deadline = DateTime.UtcNow + ListenerPatience.Bound;
         var changed = new SemaphoreSlim(0);
         void OnChanged() => changed.Release();
         worker.Changed += OnChanged;
@@ -1189,7 +1219,7 @@ public sealed class McpServerWorkerTests : IDisposable
         public object? GetService(Type serviceType)
         {
             Interlocked.Increment(ref _asked);
-            _gate.Wait(Patience);
+            _gate.Wait(ListenerPatience.Bound);
             return inner.GetService(serviceType);
         }
     }

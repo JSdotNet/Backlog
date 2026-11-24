@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Cosmos.Annotations;
+using Backlog.Infrastructure.Cosmos.AssertionReplays;
 using Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 using Backlog.Infrastructure.Cosmos.DevbookSubjects;
 using Backlog.Infrastructure.Cosmos.Devices;
@@ -166,7 +167,11 @@ public static class CosmosReplicaRegistration
         builder.Services.AddSingleton<IConnectorClientStore, CosmosConnectorClientStore>();
         builder.Services.AddSingleton<IConnectorRefreshTokenStore, CosmosConnectorRefreshTokenStore>();
 
-        // The code store stamps each document's ttl from the clock. The module
+        // Spent device assertion ids (local ADR 0058 §2), shared by every instance of the
+        // service so a restart or a second revision does not forget them.
+        builder.Services.AddSingleton<IAssertionReplayCache, CosmosAssertionReplayCache>();
+
+        // The code and replay stores stamp each document's ttl from the clock. The module
         // registers the same default, but this call is meant to stand on its
         // own, so it does not rely on being followed by AddSyncModule for it.
         builder.Services.TryAddSingleton(TimeProvider.System);

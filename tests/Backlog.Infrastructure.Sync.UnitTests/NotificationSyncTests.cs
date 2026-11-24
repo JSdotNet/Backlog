@@ -6,6 +6,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
@@ -31,6 +32,8 @@ public sealed class NotificationSyncTests
         "a-registration-credential");
 
     private static readonly Guid Phone = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+    private static readonly Guid Tablet = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -392,12 +395,159 @@ public sealed class NotificationSyncTests
         Assert.Equal(Instance, Assert.Single(fixture.Replies.Accepted).FromDeviceId);
     }
 
+    // --- Only a paired device answers (ADR 0058, Phase 2) ----------------------------
+
+    /// <summary>
+    /// A reply from a device that is not paired now is rejected before the owner's gate takes
+    /// it, for every source: the notification is never answered by it, so it stays open, the
+    /// rejection travels on its next push, and a paired device's later reply is the answer.
+    /// </summary>
+    [Theory]
+    [InlineData(DeviceStanding.Revoked)]
+    [InlineData(DeviceStanding.Unknown)]
+    public async Task A_reply_from_a_device_not_paired_now_is_rejected_and_the_question_can_be_answered_again(DeviceStanding standing)
+    {
+        var question = Question(Guid.CreateVersion7());
+        var dropped = ReplyFrom(Phone, question, 1);
+        var answer = ReplyFrom(Tablet, question, 2);
+        var devices = new StandingDevices { [Phone] = standing, [Tablet] = DeviceStanding.Paired };
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, listings: [[dropped], [answer]]);
+        fixture.Replication.Open.Add(question);
+
+        var first = await fixture.Session(devices: devices).SyncAsync(Cancellation);
+
+        var firstOk = Assert.IsType<Ok<NotificationSyncSummary>>(first.Value).Value;
+        Assert.Equal(1, firstOk.Rejected);
+        Assert.Empty(fixture.Replies.Accepted);
+
+        var rejection = Assert.Single(fixture.State.Current.Tracked[question.Id].RejectedReplies);
+        Assert.Equal(dropped.Reply.Id, rejection.ReplyId);
+        Assert.Equal(Phone, rejection.FromDeviceId);
+        Assert.Equal("reply.unpaired_device", rejection.Code);
+        Assert.Equal(NotificationReplyReasons.Invalid, rejection.Reason);
+        Assert.Equal(NotificationStates.Open, PushedStateOf(fixture.PushedBodies.Last(), question.Id));
+
+        var second = await fixture.Session(devices: devices).SyncAsync(Cancellation);
+
+        var secondOk = Assert.IsType<Ok<NotificationSyncSummary>>(second.Value).Value;
+        Assert.Equal(1, secondOk.Accepted);
+        Assert.Equal(answer.Reply.Id, Assert.Single(fixture.Replies.Accepted).Id);
+    }
+
+    /// <summary>The rejection is recorded the way the question relay records a dropped answer:
+    /// once, naming the device and its standing, and the notification it answered.</summary>
+    [Fact]
+    public async Task A_reply_from_a_revoked_device_is_audited_once_as_a_dropped_answer()
+    {
+        var question = Question(Guid.CreateVersion7());
+        var dropped = ReplyFrom(Phone, question, 1);
+        var audit = new RecordingAuditLog();
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: [dropped]);
+        fixture.Replication.Open.Add(question);
+
+        await fixture.Session(devices: new StandingDevices { [Phone] = DeviceStanding.Revoked }, audit: audit).SyncAsync(Cancellation);
+
+        var record = Assert.Single(audit.Records);
+        Assert.Equal(McpAudit.DroppedAnswer, record.Tool);
+        Assert.Equal($"revoked device {Phone:D}", record.Caller);
+        Assert.Equal(question.Id.ToString("D"), record.TargetId);
+        Assert.Equal(McpCallOutcome.Refused, record.Outcome);
+    }
+
+    [Fact]
+    public async Task A_reply_from_a_paired_device_is_accepted()
+    {
+        var question = Question(Guid.CreateVersion7());
+        var reply = ReplyFrom(Phone, question, 1);
+        var audit = new RecordingAuditLog();
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: [reply]);
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session(devices: new StandingDevices { [Phone] = DeviceStanding.Paired }, audit: audit).SyncAsync(Cancellation);
+
+        Assert.Equal(1, Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value.Accepted);
+        Assert.Equal(reply.Reply.Id, Assert.Single(fixture.Replies.Accepted).Id);
+        Assert.Empty(audit.Records);
+    }
+
+    /// <summary>A device's standing is read once a cycle however many of its replies the
+    /// cycle takes, so a burst from one phone is one read of the owner's devices.</summary>
+    [Fact]
+    public async Task Three_replies_from_one_device_read_its_standing_once_a_cycle()
+    {
+        NotificationSnapshot[] questions = [Question(Guid.CreateVersion7()), Question(Guid.CreateVersion7()), Question(Guid.CreateVersion7())];
+        var replies = questions.Select((question, index) => ReplyFrom(Phone, question, index + 1)).ToList();
+        var devices = new StandingDevices { [Phone] = DeviceStanding.Paired };
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: replies);
+        fixture.Replication.Open.AddRange(questions);
+
+        var synced = await fixture.Session(devices: devices).SyncAsync(Cancellation);
+
+        var syncedOk = Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value).Value;
+        Assert.Equal(3, syncedOk.Accepted);
+        Assert.Equal(1, devices.Reads);
+    }
+
+    /// <summary>A device whose standing cannot be read is never taken as paired: its reply is
+    /// neither accepted nor deleted, so the next cycle reads it again.</summary>
+    [Fact]
+    public async Task A_reply_whose_device_cannot_be_checked_is_left_for_the_next_cycle()
+    {
+        var question = Question(Guid.CreateVersion7());
+        var reply = ReplyFrom(Phone, question, 1);
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: [reply]);
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session(devices: new StandingDevices { Unreadable = true }).SyncAsync(Cancellation);
+
+        Assert.IsType<Error>(synced.Value);
+        Assert.Empty(fixture.Replies.Accepted);
+        Assert.Empty(fixture.State.Current.Tracked[question.Id].RejectedReplies);
+        Assert.DoesNotContain(fixture.Handler.Requests, request => request.Method == HttpMethod.Delete);
+    }
+
+    /// <summary>This desktop is paired by definition: its own reply needs no read of the
+    /// owner's devices, so it is answered even while they cannot be read.</summary>
+    [Fact]
+    public async Task The_owners_own_reply_is_accepted_without_reading_the_owners_devices()
+    {
+        var question = Question(Guid.CreateVersion7());
+        var reply = ReplyFrom(Paired.DeviceId, question, 1);
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: [reply]);
+        fixture.Replication.Open.Add(question);
+
+        var synced = await fixture.Session(devices: new StandingDevices { Unreadable = true }).SyncAsync(Cancellation);
+
+        Assert.IsType<Ok<NotificationSyncSummary>>(synced.Value);
+        Assert.Single(fixture.Replies.Accepted);
+    }
+
+    private static NotificationReplyRecord ReplyFrom(Guid device, NotificationSnapshot question, long serverTimestamp) =>
+        new(
+            new NotificationReplyPost(Guid.CreateVersion7(), question.Id, Instance, ["yes"], null, Noon),
+            Paired.OwnerId,
+            device,
+            serverTimestamp);
+
+    private static string? PushedStateOf(string body, Guid id) =>
+        JsonElement.Parse(body).GetProperty("notifications").EnumerateArray()
+            .Where(change => change.GetProperty("id").GetGuid() == id)
+            .Select(change => change.GetProperty("state").GetString())
+            .LastOrDefault();
+
     [Theory]
     [InlineData("notification.already_answered", NotificationReplyReasons.AlreadyAnswered)]
     [InlineData("reply.closed", NotificationReplyReasons.Closed)]
     [InlineData("reply.invalid", NotificationReplyReasons.Invalid)]
     [InlineData("reply.owner_only", NotificationReplyReasons.Invalid)]
     [InlineData("reply.wrong_instance", NotificationReplyReasons.Invalid)]
+    [InlineData("reply.unpaired_device", NotificationReplyReasons.Invalid)]
     public void Every_refusal_maps_to_one_of_the_three_reasons(string code, string reason) =>
         Assert.Equal(reason, NotificationReplyReasons.For(code));
 
@@ -663,6 +813,49 @@ public sealed class NotificationSyncTests
             Task.FromResult(Result.Success());
     }
 
+    private sealed class StandingDevices : IPairedDevices
+    {
+        private readonly Dictionary<Guid, DeviceStanding> _standing = [];
+
+        /// <summary>Whether the owner's devices cannot be read, as a refused device list.</summary>
+        public bool Unreadable { get; init; }
+
+        public DeviceStanding this[Guid device]
+        {
+            get => _standing.TryGetValue(device, out var standing) ? standing : DeviceStanding.Unknown;
+            set => _standing[device] = value;
+        }
+
+        /// <summary>How many times a device's standing was asked for.</summary>
+        public int Reads { get; private set; }
+
+        public Task<DeviceStanding> StandingOfAsync(Guid deviceId, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+
+            return Unreadable
+                ? Task.FromException<DeviceStanding>(new InvalidOperationException("The owner's devices could not be read: sync.unavailable."))
+                : Task.FromResult(this[deviceId]);
+        }
+    }
+
+    private sealed class RecordingAuditLog : IMcpAuditLog
+    {
+        public event Action? Changed;
+
+        public List<McpAuditRecord> Records { get; } = [];
+
+        public Task AppendAsync(McpAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            Records.Add(record);
+            Changed?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<McpAuditRecord>> LatestAsync(int count, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<McpAuditRecord>>([.. Records.Take(count)]);
+    }
+
     private sealed class InMemoryNotificationSyncStateStore : INotificationSyncStateStore
     {
         public NotificationSyncState Current { get; private set; } = NotificationSyncState.Nowhere;
@@ -745,10 +938,15 @@ public sealed class NotificationSyncTests
         /// <summary>How many times the replies addressed to this instance were listed.</summary>
         public int ReplyListings => Handler.Requests.Count(request => request.Method == HttpMethod.Get);
 
-        public static Fixture Create(bool syncOn, bool notificationsOn, bool paired, IReadOnlyList<NotificationReplyRecord>? replies = null, Func<Task>? before = null)
+        public static Fixture Create(bool syncOn, bool notificationsOn, bool paired, IReadOnlyList<NotificationReplyRecord>? replies = null, Func<Task>? before = null) =>
+            Create(syncOn, notificationsOn, paired, replies is null ? [] : [replies], before);
+
+        /// <summary>A service that hands out <paramref name="listings"/> in turn, one per listing
+        /// of the replies, and nothing once they run out.</summary>
+        public static Fixture Create(bool syncOn, bool notificationsOn, bool paired, IReadOnlyList<IReadOnlyList<NotificationReplyRecord>> listings, Func<Task>? before = null)
         {
             Fixture? fixture = null;
-            var listed = false;
+            var listing = 0;
 
             var handler = new StubHttpMessageHandler((request, _) =>
             {
@@ -761,9 +959,9 @@ public sealed class NotificationSyncTests
 
                 if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(HttpStatusCode.NoContent);
 
-                // The replies are listed once; after that they have been deleted.
-                var waiting = listed ? [] : replies ?? [];
-                listed = true;
+                // Each listing is handed out once; after that its replies have been deleted.
+                var waiting = listing < listings.Count ? listings[listing] : [];
+                listing++;
                 return StubHttpMessageHandler.Json(
                     HttpStatusCode.OK,
                     JsonSerializer.Serialize(new PullNotificationRepliesResponse(waiting), JsonSerializerOptions.Web));
@@ -776,8 +974,12 @@ public sealed class NotificationSyncTests
             return fixture;
         }
 
-        public NotificationSyncSession Session(TimeProvider? clock = null, INotificationRepositorySource? repositories = null) =>
-            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new StubDeviceIdentity(new(Instance, "WORKSHOP-PC")), clock ?? Clock, repositories: repositories);
+        public NotificationSyncSession Session(
+            TimeProvider? clock = null,
+            INotificationRepositorySource? repositories = null,
+            IPairedDevices? devices = null,
+            IMcpAuditLog? audit = null) =>
+            new(new NotificationSyncClient(_http), Replication, Replies, State, Credentials, new StubDeviceIdentity(new(Instance, "WORKSHOP-PC")), clock ?? Clock, repositories: repositories, devices: devices, audit: audit);
 
         public Task NextCycle()
         {

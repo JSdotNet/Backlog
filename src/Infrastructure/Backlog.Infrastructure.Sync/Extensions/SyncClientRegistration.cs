@@ -125,7 +125,8 @@ public static class SyncClientRegistration
             sp.GetService<DevicePairingClient>));
 
         // Whether a device is one of the owner's paired devices now, read from the device
-        // list: the question relay asks it before an answer reaches a waiting agent.
+        // list: the notification exchange asks it before a reply from another device is
+        // accepted, and the question relay again before an answer reaches a waiting agent.
         services.TryAddSingleton<IPairedDevices>(sp => new RosterPairedDevices(sp));
 
         return services;
@@ -699,6 +700,9 @@ public static class SyncClientRegistration
             .AddSyncPipeline()
             .WithReplicationPipeline();
 
+        // The exchange takes IPairedDevices from AddSyncClient and the head's IMcpAuditLog when
+        // they are composed, so a reply from a device not paired now is rejected and audited
+        // before it is accepted (ADR 0058, Phase 2); without them it takes every reply.
         services.TryAddTransient<NotificationSyncSession>();
         services.TryAddSingleton<NotificationSyncWorker>();
 

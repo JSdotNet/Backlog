@@ -133,6 +133,9 @@
          credential store's on-disk envelope, are worth asserting directly
          rather than only through whatever screen happens to call them. -->
     <InternalsVisibleTo Include="Backlog.Infrastructure.Sync.UnitTests" />
+    <!-- The notification exchange's paired devices and audit log, which the MAUI
+         composition test checks the head hands it, without reflecting on its fields. -->
+    <InternalsVisibleTo Include="Backlog.HostComposition.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -247,7 +247,7 @@ public sealed class SessionsPaneDetailTests
     /// answers are in, redraws the panel once for all of them — not once per answer.
     /// </summary>
     [Fact]
-    public void The_verdicts_of_one_rows_pull_requests_are_drawn_in_one_redraw()
+    public async Task The_verdicts_of_one_rows_pull_requests_are_drawn_in_one_redraw()
     {
         var session = Claude with
         {
@@ -278,8 +278,7 @@ public sealed class SessionsPaneDetailTests
         {
             lock (asked) Assert.Equal(2, asked.Count);
         });
-        var renders = pane.RenderCount;
-        var builds = pane.Instance.ViewBuilds;
+        var (renders, builds) = await SettledAsync(context, pane);
 
         lock (asked)
         {
@@ -288,13 +287,25 @@ public sealed class SessionsPaneDetailTests
 
         pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-pull-request-verdict']").Count));
 
-        Assert.Equal(renders + 1, pane.RenderCount);
+        var (drawn, rebuilt) = await SettledAsync(context, pane);
+
+        Assert.Equal(renders + 1, drawn);
         Assert.Equal(["PR #1036", "PR #1037"], asked.Order());
 
         // The redraw the answers asked for reused the derived list: nothing it is
         // derived from moved.
-        Assert.Equal(builds, pane.Instance.ViewBuilds);
+        Assert.Equal(builds, rebuilt);
     }
+
+    /// <summary>
+    /// The render count and the view builds, read on the renderer's dispatcher. The
+    /// asks go out from the same after-render pass that draws the row's costs, and
+    /// bUnit counts that redraw once per child it re-renders, on the renderer's
+    /// thread: read from the test's thread the count can land part-way through it.
+    /// Queued behind that pass, the read sees it whole.
+    /// </summary>
+    private static Task<(int Renders, int Builds)> SettledAsync(BunitContext context, IRenderedComponent<SessionsPane> pane) =>
+        context.Renderer.Dispatcher.InvokeAsync(() => (pane.RenderCount, pane.Instance.ViewBuilds));
 
     /// <summary>A filter, the grouping or a new scope from the parent derives the
     /// list again — the kept view never outlives what it was worked out from.</summary>
