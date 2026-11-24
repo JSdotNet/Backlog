@@ -332,7 +332,9 @@ public static class MauiProgram
         // 0043 §7): a page served there renders this head's panes, and the listener
         // forwards whatever they inject into this container rather than composing a
         // second one. Last, so the snapshot holds every registration above.
-        builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
+        // An array, not a collection expression: CsWinRT's analyzer (CsWinRT1032) refuses
+        // one that targets a read-only interface, whose concrete type it cannot see.
+        builder.Services.AddSingleton(new DesktopServiceRegistrations(builder.Services.ToArray()));
 
         var app = builder.Build();
 
