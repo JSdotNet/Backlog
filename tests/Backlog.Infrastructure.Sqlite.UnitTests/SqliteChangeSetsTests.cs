@@ -67,15 +67,30 @@ public sealed class SqliteChangeSetsTests : IDisposable
     }
 
     [Fact]
-    public async Task A_save_under_no_change_set_records_none()
+    public async Task A_task_save_under_no_change_set_is_recorded_under_an_unknown_writer()
     {
         var repository = new SqliteTaskRepository(_temp.Path);
         var task = new TaskItem("Unattributed", string.Empty, EntryType.Task);
 
         await repository.SaveAsync(task, Token);
 
-        Assert.Empty(await ReadAsync(repository.DatabasePath));
+        var row = Assert.Single(await ReadAsync(repository.DatabasePath));
+        Assert.Equal(("unknown", (string?)null), (row.Actor, row.Label));
         Assert.NotNull(await repository.GetAsync(task.Id, Token));
+    }
+
+    [Fact]
+    public async Task An_unjournalled_save_records_no_change_set()
+    {
+        var repository = new SqliteTaskRepository(_temp.Path);
+
+        using (ChangeContext.Begin(ChangeActor.Person, "noting a use"))
+        using (ChangeContext.Unjournalled())
+        {
+            await repository.SaveAsync(new TaskItem("Used", string.Empty, EntryType.Task), Token);
+        }
+
+        Assert.Empty(await ReadAsync(repository.DatabasePath));
     }
 
     [Fact]

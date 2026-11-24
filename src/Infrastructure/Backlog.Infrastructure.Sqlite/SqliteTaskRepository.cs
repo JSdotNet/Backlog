@@ -94,19 +94,16 @@ public sealed class SqliteTaskRepository : ITaskRepository
         if (tasks.Count == 0) return;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await SqliteChangeSets.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
-        await using var transaction = (SqliteTransaction)await connection
-            .BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-
-        await SqliteChangeSets.RecordAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await using var journal = await ChangeSetTransaction
+            .BeginAsync(connection, requireTransaction: true, cancellationToken).ConfigureAwait(false);
 
         foreach (var task in tasks)
         {
             ArgumentNullException.ThrowIfNull(task, nameof(tasks));
-            await WriteAsync(connection, transaction, task, cancellationToken).ConfigureAwait(false);
+            await WriteAsync(connection, journal.Transaction, task, cancellationToken).ConfigureAwait(false);
         }
 
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         // After the commit, not per write: a batch rolled back by a later refusal
         // left the store holding the versions these tasks were read at.
@@ -392,8 +389,36 @@ public sealed class SqliteTaskRepository : ITaskRepository
     /// Called on the way into every operation; the setup itself runs only on a file
     /// not yet stamped with this <see cref="Schema"/>, for the reasons
     /// <see cref="SqliteSchema.OpenAsync"/> gives.</summary>
-    private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+    private static async Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken)
+    {
+        var connection = await SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            // The change journal's tables, then the triggers that journal this one
+            // (local ADR 0061 §2) — after Schema, because the triggers name its
+            // columns.
+            await SqliteJournal.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
+            await SqliteSchema.EnsureSetUpAsync(connection, JournalSchema, cancellationToken).ConfigureAwait(false);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    /// <summary>The triggers that write a revision for every insert into and update
+    /// of <c>tasks</c>, its before-image keyed by every column <see cref="Columns"/>
+    /// names — so a column added there changes this fingerprint and re-creates
+    /// them.</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:tasks",
+        ddl: SqliteJournal.Triggers(
+            "tasks",
+            "task",
+            Columns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)));
 
     /// <summary>The instant the Done-entry tick seed below is bounded by: after
     /// the tick split had shipped and the stripped copies had spread, and before

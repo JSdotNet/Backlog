@@ -19,10 +19,24 @@ namespace Backlog.SharedKernel.Changes;
 public static class ChangeContext
 {
     private static readonly AsyncLocal<ChangeSet?> s_current = new();
+    private static readonly AsyncLocal<bool> s_unjournalled = new();
 
     /// <summary>The change set this flow writes under, or null when no entry point
     /// named one.</summary>
     public static ChangeSet? Current => s_current.Value;
+
+    /// <summary>True inside <see cref="Unjournalled"/>: the store records neither a
+    /// change set nor a revision for the writes this flow makes.</summary>
+    public static bool IsUnjournalled => s_unjournalled.Value;
+
+    /// <summary>Keeps the writes made until the scope ends out of the journal — for
+    /// a write nobody would take back, such as noting that an entry was used.</summary>
+    public static Exemption Unjournalled()
+    {
+        var previous = s_unjournalled.Value;
+        s_unjournalled.Value = true;
+        return new Exemption(previous);
+    }
 
     /// <summary>Opens a new change set for <paramref name="actor"/>, replacing any
     /// current one until the scope ends. For entry points whose actor is fixed
@@ -74,6 +88,25 @@ public static class ChangeContext
         public void Dispose()
         {
             if (_active) s_current.Value = _previous;
+        }
+    }
+
+    /// <summary>Ends an <see cref="Unjournalled"/> scope, putting back the state
+    /// before it. The default value changes nothing.</summary>
+    public readonly struct Exemption : IDisposable
+    {
+        private readonly bool _previous;
+        private readonly bool _active;
+
+        internal Exemption(bool previous)
+        {
+            _previous = previous;
+            _active = true;
+        }
+
+        public void Dispose()
+        {
+            if (_active) s_unjournalled.Value = _previous;
         }
     }
 
