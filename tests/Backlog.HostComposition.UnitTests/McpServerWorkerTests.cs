@@ -810,6 +810,218 @@ public sealed class McpServerWorkerTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// Local ADR 0059 §3, the first two rows: a request with no <c>Authorization</c> header is a
+    /// bare 401 while the Unauthenticated row holds no scope, and is admitted under the row's
+    /// scopes once it holds one - read per request, so opening and closing the row needs no
+    /// restart. A route outside those scopes is a 403 with <c>insufficient_scope</c>, never a 401.
+    /// </summary>
+    [Fact]
+    public async Task A_tokenless_request_is_admitted_under_the_unauthenticated_rows_scopes_and_refused_while_it_is_empty()
+    {
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        // Empty, as every install starts: a bare 401, as ADR 0058 §3 has it.
+        using (var response = await client.SendAsync(Ping(token: null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+            Assert.Null(response.Headers.WwwAuthenticate.Single().Parameter);
+        }
+
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk]));
+
+        using (var response = await client.SendAsync(Ping(token: null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        using (var response = await client.SendAsync(Hook(token: null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        // Routes outside the row's scopes: the token-less caller is known, its scope is not.
+        foreach (var outside in new[] { Wait(token: null), Export(token: null), Report(token: null) })
+        {
+            using (outside)
+            using (var response = await client.SendAsync(outside, TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+                Assert.Contains("insufficient_scope", response.Headers.WwwAuthenticate.Single().Parameter, StringComparison.Ordinal);
+            }
+        }
+
+        // Closed again: the next request is a 401 once more.
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([]));
+
+        using (var response = await client.SendAsync(Hook(token: null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
+    /// <summary>Local ADR 0059 §3, the third row: a token that is present but bad is never
+    /// downgraded to the Unauthenticated row's scopes - it stays a 401, so the headersHelper
+    /// mints again - whether it is a static guess, a JWT this listener never signed or one whose
+    /// grant was revoked.</summary>
+    [Fact]
+    public async Task A_bad_token_is_never_downgraded_to_the_unauthenticated_scopes()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk, McpScopes.TasksRead]));
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        var revokedGrant = grants.Create("Claude Code", [McpScopes.NotifyAsk], "jobsc");
+        var revoked = tokens.Mint(revokedGrant.Id).Token!.Value;
+        grants.Revoke(revokedGrant.Id);
+
+        var otherGrants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var forged = new McpGrantTokens(otherGrants, TimeProvider.System).Mint(otherGrants.Create("x", [], "jobsc").Id).Token!.Value;
+
+        foreach (var bad in new[] { "not-a-token", forged, revoked })
+        {
+            using (var response = await client.SendAsync(Hook(bad), TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+                Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+            }
+
+            using (var response = await client.SendAsync(Ping(bad), TestContext.Current.CancellationToken))
+            {
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            }
+        }
+    }
+
+    /// <summary>The header lines of each malformed <c>Authorization</c> the theory below sends,
+    /// as they go on the wire: a scheme with no token, with only spaces after it, another
+    /// scheme, an empty value, and the header twice.</summary>
+    public static TheoryData<string[]> MalformedAuthorization => new()
+    {
+        { ["Authorization: Bearer"] },
+        { ["Authorization: Bearer   "] },
+        { ["Authorization: Basic eDp5"] },
+        { ["Authorization: "] },
+        { ["Authorization: Bearer one", "Authorization: Bearer two"] },
+    };
+
+    /// <summary>Only a request with no <c>Authorization</c> header at all is tokenless (local ADR
+    /// 0059 §3). One whose header is present but malformed - empty, the wrong scheme, sent twice -
+    /// carries a credential that failed, so it is a 401 like any bad token and is never admitted
+    /// under the open row. Sent over a raw socket, so each header line reaches the listener
+    /// exactly as written rather than as HttpClient would fold or drop it.</summary>
+    [Theory]
+    [MemberData(nameof(MalformedAuthorization))]
+    public async Task A_malformed_authorization_header_is_a_401_and_never_tokenless(string[] headerLines)
+    {
+        var settings = Settings(FreePort());
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk]));
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        // The same request with no header line is admitted, so the refusal below is the
+        // header's and not the route's.
+        Assert.Equal(200, await RawGetStatusAsync(settings.McpServerPort, AskBacklogHook.RoutePath, []));
+
+        Assert.Equal(401, await RawGetStatusAsync(settings.McpServerPort, AskBacklogHook.RoutePath, headerLines));
+    }
+
+    /// <summary>Sends one HTTP/1.1 GET with exactly <paramref name="headerLines"/> besides Host
+    /// and Connection, and answers the status code the listener wrote.</summary>
+    private static async Task<int> RawGetStatusAsync(int port, string path, IReadOnlyList<string> headerLines)
+    {
+        using var tcp = new TcpClient();
+        await tcp.ConnectAsync(IPAddress.Loopback, port, TestContext.Current.CancellationToken);
+        await using var stream = tcp.GetStream();
+
+        var request = new System.Text.StringBuilder()
+            .Append("GET ").Append(path).Append(" HTTP/1.1\r\n")
+            .Append("Host: 127.0.0.1:").Append(port.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");
+        foreach (var line in headerLines) request.Append(line).Append("\r\n");
+        request.Append("Connection: close\r\n\r\n");
+
+        await stream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(request.ToString()), TestContext.Current.CancellationToken);
+
+        using var reader = new StreamReader(stream, System.Text.Encoding.ASCII);
+        var statusLine = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+
+        Assert.NotNull(statusLine);
+        return int.Parse(statusLine.Split(' ')[1], System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Local ADR 0059 §3, the fourth row: a valid grant token is judged by its grant
+    /// alone - the Unauthenticated row's scopes are not merged into it.</summary>
+    [Fact]
+    public async Task A_valid_grant_keeps_its_own_scopes_and_gets_none_of_the_unauthenticated_rows()
+    {
+        var grants = new FileMcpGrantStore(Path.Combine(_temp.Path, "grants-" + Guid.NewGuid().ToString("N"), FileMcpGrantStore.FileName));
+        var tokens = new McpGrantTokens(grants, TimeProvider.System);
+        var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
+        var settings = Settings(FreePort());
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk]));
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var exporter = tokens.Mint(grants.Create("Telemetry", [McpScopes.TelemetryWrite], "jobsc").Id).Token!.Value;
+
+        // Its own scope reaches its route.
+        using (var response = await client.SendAsync(Export(exporter), TestContext.Current.CancellationToken))
+        {
+            Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        // The row's notify:ask is not added: the hook script stays out of its reach.
+        using (var response = await client.SendAsync(Hook(exporter), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("insufficient_scope", response.Headers.WwwAuthenticate.Single().Parameter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The failed-bearer lockout keeps its place in front of everything (local ADR 0059
+    /// §5): a tokenless request while it holds is a 429, as a bearer one is.</summary>
+    [Fact]
+    public async Task A_tokenless_request_during_a_lockout_is_refused_with_429()
+    {
+        var settings = EscapeHatchSettings(FreePort());
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk]));
+
+        using var worker = new McpServerWorker(_services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+
+        for (var i = 0; i < McpBearerLimiter.MaxFailures; i++)
+        {
+            using var refused = await client.SendAsync(Hook(EnvironmentToken + "-wrong"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        using var response = await client.SendAsync(Hook(token: null), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    }
+
+    /// <summary>A JSON-RPC <c>ping</c> on <c>/mcp</c>, with <paramref name="token"/> as its
+    /// bearer, or no <c>Authorization</c> header at all for null.</summary>
+    private static HttpRequestMessage Ping(string? token) => Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token);
+
     /// <summary>One JSON-RPC <c>tools/call</c> of <paramref name="tool"/>.</summary>
     private static string Call(string tool) =>
         "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"" + tool + "\",\"arguments\":{}}}";
@@ -818,7 +1030,7 @@ public sealed class McpServerWorkerTests : IDisposable
     /// script sends one.</summary>
     private static HttpRequestMessage ToolCall(string tool, string token) => Rpc(Call(tool), token);
 
-    private static HttpRequestMessage Rpc(string body, string token)
+    private static HttpRequestMessage Rpc(string body, string? token)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, McpServerWorker.EndpointPath)
         {
@@ -826,7 +1038,7 @@ public sealed class McpServerWorkerTests : IDisposable
         };
         request.Headers.Accept.ParseAdd("application/json");
         request.Headers.Accept.ParseAdd("text/event-stream");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return request;
     }
 

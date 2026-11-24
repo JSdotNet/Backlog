@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
@@ -35,6 +36,11 @@ namespace Backlog.HostComposition.UnitTests;
 public sealed class McpScopeGateTests
 {
     private const string ScopesHeader = "X-Test-Scopes";
+
+    /// <summary>Puts the tokenless caller of local ADR 0059 on the request, holding the
+    /// header's scopes, the way the desktop listener does for a call with no
+    /// <c>Authorization</c> header while the Unauthenticated row is open.</summary>
+    private const string UnauthenticatedHeader = "X-Test-Unauthenticated";
 
     private const string TestGrant = "Test grant (g_test0000000000000)";
 
@@ -127,13 +133,101 @@ public sealed class McpScopeGateTests
         Assert.Equal(McpAudit.HarnessCaller, Assert.Single(audit.Records).Caller);
     }
 
+    /// <summary>A tokenless caller's <c>tools/list</c> names only the tools its scopes reach,
+    /// and never <c>request_access</c> (local ADR 0059 §3).</summary>
+    [Fact]
+    public async Task The_unauthenticated_caller_lists_only_the_tools_its_scopes_reach()
+    {
+        await using var harness = new Harness(new RecordingAuditLog());
+        using var client = harness.CreateClient();
+
+        var names = await ListToolsAsync(client, UnauthenticatedHeader, [McpScopes.TasksRead]);
+
+        Assert.Contains("find_item", names);
+        Assert.Contains("list_entries", names);
+        Assert.DoesNotContain("comment", names);
+        Assert.DoesNotContain("delete_goal", names);
+        Assert.DoesNotContain("devbook_get_state", names);
+        Assert.DoesNotContain("request_access", names);
+        Assert.All(names, name => Assert.Equal(McpScopes.TasksRead, McpToolScopes.ScopeOf(name)));
+    }
+
+    /// <summary>The filter is the tokenless caller's alone: a grant holding one scope and the
+    /// harness's own caller still list every tool the feature switches expose, as before.</summary>
+    [Fact]
+    public async Task A_grant_and_the_harness_still_list_every_exposed_tool()
+    {
+        await using var harness = new Harness(new RecordingAuditLog());
+        using var client = harness.CreateClient();
+
+        var everything = await ListToolsAsync(client, header: null, scopes: null);
+        var grant = await ListToolsAsync(client, ScopesHeader, [McpScopes.TasksRead]);
+
+        Assert.Contains("request_access", everything);
+        Assert.Contains("comment", everything);
+        Assert.Contains("delete_goal", everything);
+        Assert.Equal(everything, grant);
+    }
+
+    /// <summary>A tokenless call outside the row's scopes is refused in-band - a JSON-RPC
+    /// answer, never a 401 that would send the client to OAuth - and the audit names the caller
+    /// <c>unauthenticated</c> (local ADR 0059 §3, §5).</summary>
+    [Fact]
+    public async Task A_tokenless_call_outside_its_scopes_is_refused_in_band_and_audited_as_unauthenticated()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit);
+        using var client = harness.CreateClient();
+
+        var refused = await CallToolAsync(client, "comment", UnauthenticatedHeader, [McpScopes.TasksRead], new { });
+        var admitted = await CallToolAsync(client, "find_item", UnauthenticatedHeader, [McpScopes.TasksRead], new { });
+
+        Assert.Contains("needs the scope " + Escaped(McpScopes.TasksWrite), refused, StringComparison.Ordinal);
+        Assert.DoesNotContain("needs the scope", admitted, StringComparison.Ordinal);
+        Assert.Collection(
+            audit.Records,
+            record =>
+            {
+                Assert.Equal("comment", record.Tool);
+                Assert.Equal(McpCallOutcome.Refused, record.Outcome);
+                Assert.Equal(McpAudit.UnauthenticatedCaller, record.Caller);
+            },
+            record =>
+            {
+                Assert.Equal("find_item", record.Tool);
+                Assert.Equal(McpAudit.UnauthenticatedCaller, record.Caller);
+            });
+    }
+
+    /// <summary><c>request_access</c> asks on behalf of a grant, and a tokenless caller has none:
+    /// it is refused to it, in-band like any other refused call and never with a 401, and the
+    /// audit names the caller <c>unauthenticated</c> (local ADR 0059 §3).</summary>
+    [Fact]
+    public async Task Request_access_is_refused_to_a_tokenless_caller_in_band_and_audited()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "request_access", UnauthenticatedHeader, [.. McpScopes.UnauthenticatedOfferable], new { });
+
+        Assert.Contains("needs a grant token", body, StringComparison.Ordinal);
+        var call = Assert.Single(audit.Records);
+        Assert.Equal("request_access", call.Tool);
+        Assert.Equal(McpCallOutcome.Refused, call.Outcome);
+        Assert.Equal(McpAudit.UnauthenticatedCaller, call.Caller);
+    }
+
     /// <summary>A scope as the JSON body spells it inside the message: in escaped apostrophes.</summary>
     private static string Escaped(string scope) => @"\u0027" + scope + @"\u0027";
 
     private static Task<string> CallToolAsync(HttpClient client, string name, IReadOnlyList<string> scopes) =>
         CallToolAsync(client, name, scopes, name == "open_window" ? new { surface = "tasks", target = "desktop" } : new { });
 
-    private static async Task<string> CallToolAsync(HttpClient client, string name, IReadOnlyList<string>? scopes, object arguments)
+    private static Task<string> CallToolAsync(HttpClient client, string name, IReadOnlyList<string>? scopes, object arguments) =>
+        CallToolAsync(client, name, scopes is null ? null : ScopesHeader, scopes, arguments);
+
+    private static async Task<string> CallToolAsync(HttpClient client, string name, string? header, IReadOnlyList<string>? scopes, object arguments)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
         {
@@ -149,7 +243,7 @@ public sealed class McpScopeGateTests
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
 
-        if (scopes is not null) request.Headers.Add(ScopesHeader, string.Join(' ', scopes));
+        if (header is not null && scopes is not null) request.Headers.Add(header, string.Join(' ', scopes));
 
         using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -157,6 +251,35 @@ public sealed class McpScopeGateTests
         Assert.True(response.IsSuccessStatusCode, $"{name} answered {(int)response.StatusCode}. Body:\n{body}");
 
         return body;
+    }
+
+    /// <summary>The tool names a <c>tools/list</c> answers, sorted, for the caller the header
+    /// puts on the request, or the harness's own with none.</summary>
+    private static async Task<IReadOnlyList<string>> ListToolsAsync(HttpClient client, string? header, IReadOnlyList<string>? scopes)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
+        {
+            Content = JsonContent.Create(new { jsonrpc = "2.0", id = 1, method = "tools/list", @params = new { } })
+        };
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        if (header is not null && scopes is not null) request.Headers.Add(header, string.Join(' ', scopes));
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode, $"tools/list answered {(int)response.StatusCode}. Body:\n{body}");
+
+        // A streamable HTTP answer may come as one SSE event: its data line is the JSON.
+        var json = body.TrimStart().StartsWith('{')
+            ? body
+            : body.Split('\n').Single(line => line.StartsWith("data:", StringComparison.Ordinal))["data:".Length..];
+
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        return [.. document.RootElement.GetProperty("result").GetProperty("tools").EnumerateArray()
+            .Select(tool => tool.GetProperty("name").GetString()!)
+            .Order(StringComparer.Ordinal)];
     }
 
     private sealed class Harness(IMcpAuditLog audit, bool sessions = true) : IsolatedHarnessFactory<DesktopHarness::Program>
@@ -185,6 +308,11 @@ public sealed class McpScopeGateTests
                     context.User = McpScopePolicies.Static(
                         TestGrant,
                         scopes.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                }
+                else if (context.Request.Headers.TryGetValue(UnauthenticatedHeader, out var opened))
+                {
+                    context.User = McpScopePolicies.Unauthenticated(
+                        opened.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
                 }
 
                 await inner(context);

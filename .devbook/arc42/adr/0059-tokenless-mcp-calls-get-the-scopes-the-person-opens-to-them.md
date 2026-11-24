@@ -93,9 +93,8 @@ The unit is the scope, because the named policies of ADR 0058 §4 enforce scopes
 ```meta
 ```
 
-The row offers the rest of ADR 0058 §4's table, except `inbox:capture`, which no tool
-on the desktop listener uses and the row therefore leaves out. These six are drawn
-locked:
+The row offers the rest of ADR 0058 §4's table, `inbox:capture` included, since
+`capture_to_inbox` is served on the desktop listener too. These six are drawn locked:
 
 | Scope | Why never offered |
 | --- | --- |
@@ -106,8 +105,9 @@ locked:
 | `telemetry:write` | The telemetry exporter keeps its own grant; others must not write its logs. |
 | `ui:open` | Each pop-out link it mints buys a cookie that lives up to 8 idle hours (ADR 0043 §7); a tokenless caller must not hold one. |
 
-The listener refuses these six to the `unauthenticated` principal even if a hand
-edit of the grants file put them there.
+The row's scopes live in the workspace settings, not in the grants file, so the
+broker can never mint a token for it. The listener refuses these six to the
+`unauthenticated` principal even if a hand edit of the settings put them there.
 
 ### 3. How the listener decides, per request
 
@@ -124,8 +124,12 @@ The `Origin` check of ADR 0012 §1 runs first, as now. Then:
 | A valid grant token | either | Applies that grant's scopes only |
 
 - **An admitted tokenless call sees only what its scopes reach.** `tools/list` leaves
-  out every other tool. A call to one of them answers `403 insufficient_scope`, never
-  a `401`, so the client does not fall back to OAuth.
+  out every other tool, and `request_access`, which needs a grant. A call to one of
+  them is refused for insufficient scope, never with a `401`, so the client does not
+  fall back to OAuth: in band, as a JSON-RPC error, on `/mcp`, and as a
+  `403 insufficient_scope` on a route.
+- **The bearer lockout keeps its place.** While it holds, a tokenless call is a `429`
+  like any other.
 - **A bad token is never downgraded** to the unauthenticated scopes. It stays a `401`.
 - **A valid grant gets nothing added.** The unauthenticated scopes are not merged into
   any grant's.
@@ -150,6 +154,9 @@ leaves the row as it was. Switching a scope off asks nothing.
   outcome and correlation id, as for a grant (ADR 0058 §3).
 - **The rate limit on failed bearer attempts stays** (ADR 0058, Phase 0).
 - **The web harness keeps no auth** (ADR 0058 §9). It shows no Unauthenticated row.
+- **The sync service's `/mcp` always requires a token** (ADR 0058 §8). The
+  Unauthenticated row belongs to the desktop's loopback listener alone; the sync
+  service has no such row, and a tokenless call there stays a `401`.
 
 ## Consequences
 

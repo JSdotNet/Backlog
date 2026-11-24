@@ -171,6 +171,79 @@ public sealed class McpScopePoliciesTests
         Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, validated.Principal, "comment"));
     }
 
+    /// <summary>The Unauthenticated row's offer (local ADR 0059 §2): every grantable scope but
+    /// the six it draws locked. <c>inbox:capture</c> is offered: <c>capture_to_inbox</c> is
+    /// served on the desktop listener.</summary>
+    [Fact]
+    public void The_unauthenticated_row_offers_every_grantable_scope_but_the_six_locked()
+    {
+        Assert.Equal(
+            [McpScopes.TasksAdmin, McpScopes.DevbookDecide, McpScopes.UiOpen, McpScopes.SessionsDispatch, McpScopes.TelemetryWrite, McpScopes.AgentsGrant],
+            McpScopes.NeverUnauthenticated);
+
+        Assert.Equal(
+            [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.RunsWrite, McpScopes.NotifyAsk, McpScopes.InboxCapture],
+            McpScopes.UnauthenticatedOfferable);
+
+        Assert.Empty(McpScopes.UnauthenticatedOfferable.Intersect(McpScopes.NeverUnauthenticated));
+        Assert.Equal(
+            McpScopes.Grantable.Order(StringComparer.Ordinal),
+            McpScopes.UnauthenticatedOfferable.Concat(McpScopes.NeverUnauthenticated.Where(McpScopes.IsGrantable)).Order(StringComparer.Ordinal));
+    }
+
+    public static TheoryData<string> NeverUnauthenticatedScopes => [.. McpScopes.NeverUnauthenticated.Where(McpScopes.IsGrantable)];
+
+    /// <summary>The second guard (local ADR 0059 §2): even a principal named
+    /// <c>unauthenticated</c> that claims a locked scope — a hand edit, a bug upstream — is
+    /// refused by that scope's policy, and the same principal holding an offered one passes.</summary>
+    [Theory]
+    [MemberData(nameof(NeverUnauthenticatedScopes))]
+    public async Task The_unauthenticated_caller_is_refused_a_scope_the_row_never_offers_even_when_it_claims_it(string scope)
+    {
+        var claiming = McpScopePolicies.Static(McpAudit.UnauthenticatedCaller, [scope, McpScopes.TasksRead]);
+
+        Assert.False((await Authorization.AuthorizeAsync(claiming, McpScopePolicies.PolicyName(scope))).Succeeded);
+        Assert.True((await Authorization.AuthorizeAsync(claiming, McpScopePolicies.PolicyName(McpScopes.TasksRead))).Succeeded);
+
+        // A grant holding the same scope is not touched by the guard.
+        Assert.True((await Authorization.AuthorizeAsync(Holding(scope), McpScopePolicies.PolicyName(scope))).Succeeded);
+    }
+
+    /// <summary>The tools any admitted caller may call - <c>request_access</c> - are refused to
+    /// the tokenless caller, which has no grant to ask on behalf of; a grant holding nothing
+    /// still reaches them.</summary>
+    [Fact]
+    public async Task Request_access_is_refused_to_the_unauthenticated_caller_and_open_to_any_grant()
+    {
+        var everything = McpScopePolicies.Unauthenticated(McpScopes.UnauthenticatedOfferable);
+
+        Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, everything, "request_access"));
+        Assert.True(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(), "request_access"));
+    }
+
+    /// <summary>A tokenless call is audited as <c>unauthenticated</c>, the principal's own name
+    /// (local ADR 0059 §5).</summary>
+    [Fact]
+    public void A_tokenless_call_is_audited_as_unauthenticated()
+    {
+        Assert.Equal("unauthenticated", McpAudit.UnauthenticatedCaller);
+        Assert.Equal(
+            McpAudit.UnauthenticatedCaller,
+            McpScopePolicies.CallerOf(McpScopePolicies.Unauthenticated([McpScopes.TasksRead])));
+    }
+
+    /// <summary>The principal the listener admits a tokenless call as holds only what the row
+    /// offers, whatever it is handed.</summary>
+    [Fact]
+    public void The_unauthenticated_principal_holds_only_offered_scopes()
+    {
+        var principal = McpScopePolicies.Unauthenticated([McpScopes.TasksRead, McpScopes.UiOpen, McpScopes.InboxCapture, McpScopes.AgentsGrant, "made:up"]);
+
+        Assert.Equal(
+            [McpScopes.InboxCapture, McpScopes.TasksRead],
+            McpScopePolicies.ScopesOf(principal).Order(StringComparer.Ordinal));
+    }
+
     [Fact]
     public void The_grant_store_refuses_devbook_decide_and_any_scope_it_does_not_know()
     {

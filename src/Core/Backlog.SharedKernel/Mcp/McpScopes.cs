@@ -74,4 +74,22 @@ public static class McpScopes
     /// <summary>Whether a granter agent may hand <paramref name="scope"/> on: grantable and not
     /// in <see cref="NonDelegable"/>.</summary>
     public static bool IsDelegable(string? scope) => IsGrantable(scope) && !NonDelegable.Contains(scope!, StringComparer.Ordinal);
+
+    /// <summary>The scopes the Unauthenticated row draws locked (local ADR 0059 §2), in
+    /// <see cref="All"/>'s order: deletes and bulk changes, which need a caller that answers for
+    /// them; granting; dispatching sessions, which run code; deciding, which no agent does; the
+    /// telemetry exporter's own route; and pop-out links, whose cookie outlives the call. The
+    /// listener refuses them to a tokenless call even where a hand edit put them in the row.</summary>
+    public static IReadOnlyList<string> NeverUnauthenticated { get; } =
+        [TasksAdmin, DevbookDecide, UiOpen, SessionsDispatch, TelemetryWrite, AgentsGrant];
+
+    /// <summary>The scopes the Unauthenticated row offers as switches (local ADR 0059 §2):
+    /// <see cref="Grantable"/> without <see cref="NeverUnauthenticated"/>, in its order.</summary>
+    public static IReadOnlyList<string> UnauthenticatedOfferable { get; } =
+        [.. Grantable.Where(scope => !NeverUnauthenticated.Contains(scope, StringComparer.Ordinal))];
+
+    /// <summary>Whether the Unauthenticated row may hold <paramref name="scope"/>: one of
+    /// <see cref="UnauthenticatedOfferable"/>, spelled exactly.</summary>
+    public static bool IsUnauthenticatedOfferable(string? scope) =>
+        scope is not null && UnauthenticatedOfferable.Contains(scope, StringComparer.Ordinal);
 }

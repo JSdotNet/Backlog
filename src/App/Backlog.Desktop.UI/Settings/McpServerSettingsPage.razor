@@ -282,6 +282,31 @@
                     }
                 </ul>
             }
+
+            @* The Unauthenticated row (local ADR 0059 §1), last and in a list of its own: it is
+               no agent, so neither the headline nor the empty sentence counts it. It holds no
+               token, so it has no Revoke; switching every scope off closes it. Opening a scope
+               asks Windows Hello first (§4); the six it never offers are drawn locked (§2). *@
+            @if (_workspace is not null)
+            {
+                <ul class="agent-list" aria-label="@McpAgents.UnauthenticatedName" data-testid="mcp-server-agents-unauthenticated">
+                    <AgentGrantRow Name="@McpAgents.UnauthenticatedName"
+                                   Meta="@McpAgents.UnauthenticatedMeta"
+                                   Scopes="@_workspace.McpServerUnauthenticatedScopes"
+                                   CanRevoke="false"
+                                   Expanded="@_editingUnauthenticated"
+                                   EditorId="mcp-agent-editor-unauthenticated"
+                                   TestId="mcp-server-agent-unauthenticated"
+                                   OnEditScopes="ToggleEditingUnauthenticated">
+                        <AgentScopeSwitches Options="@McpAgents.UnauthenticatedScopes"
+                                            Selected="@_workspace.McpServerUnauthenticatedScopes"
+                                            IdPrefix="mcp-agent-unauthenticated"
+                                            AriaLabel="@($"Scopes of {McpAgents.UnauthenticatedName}")"
+                                            TestId="mcp-server-unauthenticated-scopes"
+                                            OnChanged="SetUnauthenticatedScopeAsync" />
+                    </AgentGrantRow>
+                </ul>
+            }
         }
     </SettingsCard>
 
@@ -759,6 +784,14 @@
     /// <summary>The grant whose switches are open under its row, or null. One at a time.</summary>
     private string? _editing;
 
+    /// <summary>The workspace settings holding the Unauthenticated row's scopes, or null in a host
+    /// that keeps no grants or composes no workspace settings - then the row is not drawn.</summary>
+    private WorkspaceSettingsStore? _workspace;
+
+    /// <summary>Whether the Unauthenticated row's switches are open. One editor at a time, so
+    /// opening it closes a grant's, and the other way round.</summary>
+    private bool _editingUnauthenticated;
+
     /// <summary>Where Add agent stands.</summary>
     private enum AddStep
     {
@@ -827,6 +860,13 @@
         if (_grants is null) return;
 
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        // The Unauthenticated row's scopes live in the workspace settings, never in the grants
+        // file, so the broker can never mint a token for them (local ADR 0059).
+        _workspace = Services.GetService<WorkspaceSettingsStore>();
+
+        // The row follows a change made anywhere, on any thread: the store announces it.
+        if (_workspace is not null) _workspace.McpChanged += OnWorkspaceMcpChanged;
 
         // A grant changes from here, and from the broker's own writes - a reseal, and later
         // an agent that registers itself: the card follows both.
@@ -974,26 +1014,69 @@
     /// when <paramref name="scopes"/> hold none that asks for it, or the person confirmed it.
     /// Otherwise the card says why, and nothing is written.
     /// </summary>
-    private async Task<bool> ConfirmGranterAsync(string name, IEnumerable<string> scopes)
-    {
-        if (!scopes.Any(scope => McpAgents.NeedsHello.Contains(scope, StringComparer.Ordinal))) return true;
+    private Task<bool> ConfirmGranterAsync(string name, IEnumerable<string> scopes) =>
+        scopes.Any(scope => McpAgents.NeedsHello.Contains(scope, StringComparer.Ordinal))
+            ? ConfirmAsync(McpAgents.GranterConsent(name), McpAgents.GranterNotConfirmed, McpAgents.GranterHelloUnavailable)
+            : Task.FromResult(true);
 
+    /// <summary>
+    /// Asks Windows Hello <paramref name="question"/> (local ADR 0058 §6): true when the person
+    /// confirmed it. Otherwise the card says <paramref name="notConfirmed"/>, or
+    /// <paramref name="unavailable"/> where Windows Hello cannot ask, and the caller writes nothing.
+    /// </summary>
+    private async Task<bool> ConfirmAsync(string question, string notConfirmed, string unavailable)
+    {
         var consent = Services.GetService<IUserConsent>();
         var outcome = consent is null
             ? UserConsentOutcome.NotAvailable
-            : await consent.VerifyAsync(McpAgents.GranterConsent(name));
+            : await consent.VerifyAsync(question);
 
         if (outcome == UserConsentOutcome.Verified) return true;
 
-        _agentsError = outcome == UserConsentOutcome.NotAvailable ? McpAgents.GranterHelloUnavailable : McpAgents.GranterNotConfirmed;
+        _agentsError = outcome == UserConsentOutcome.NotAvailable ? unavailable : notConfirmed;
         return false;
+    }
+
+    private void ToggleEditingUnauthenticated()
+    {
+        _editingUnauthenticated = !_editingUnauthenticated;
+        if (_editingUnauthenticated) _editing = null;
+    }
+
+    /// <summary>Stores one of the Unauthenticated row's switches at once (local ADR 0059 §1, §4).
+    /// Opening a scope asks Windows Hello first and a cancelled or unavailable prompt leaves the
+    /// row as it was; closing one asks nothing.</summary>
+    private async Task SetUnauthenticatedScopeAsync(AgentScopeChange change)
+    {
+        if (_workspace is null) return;
+
+        if (change.On && !await ConfirmAsync(
+                McpAgents.UnauthenticatedConsent(change.Scope),
+                McpAgents.UnauthenticatedNotConfirmed(change.Scope),
+                McpAgents.UnauthenticatedHelloUnavailable(change.Scope)))
+        {
+            return;
+        }
+
+        var current = _workspace.McpServerUnauthenticatedScopes;
+        IEnumerable<string> scopes = change.On
+            ? [.. current, change.Scope]
+            : current.Where(scope => scope != change.Scope);
+
+        // The store refuses a scope the row never offers; a locked switch cannot raise one, so
+        // a refusal here is a sentence to show rather than a state to recover.
+        _agentsError = _workspace.SetMcpServerUnauthenticatedScopes(scopes);
     }
 
     /// <summary>When each agent last made a call, from the records the Activity card already
     /// holds.</summary>
     private IReadOnlyDictionary<string, DateTimeOffset> LastUsed => McpAgents.LastUsed(_agents, _activity);
 
-    private void ToggleEditing(McpGrant grant) => _editing = _editing == grant.Id ? null : grant.Id;
+    private void ToggleEditing(McpGrant grant)
+    {
+        _editing = _editing == grant.Id ? null : grant.Id;
+        if (_editing is not null) _editingUnauthenticated = false;
+    }
 
     /// <summary>Stores one switch at once: the grant takes its new scopes and a new version,
     /// so the agent's next request fetches a token that carries them. Switching agents:grant on
@@ -1095,6 +1178,11 @@
     private string CopilotRegistration(McpGrant grant) => McpAgents.Copilot(Address, grant.Id, DebugBroker);
 
     /// <summary>Raised on whichever thread wrote the grants, so it marshals.</summary>
+    private void OnWorkspaceMcpChanged() => _ = InvokeAsync(() =>
+    {
+        if (!_disposed) StateHasChanged();
+    });
+
     private void OnGrantsChanged() => _ = InvokeAsync(() =>
     {
         if (_disposed) return;
@@ -1187,6 +1275,7 @@
         if (_audit is not null) _audit.Changed -= OnAuditChanged;
         if (_grants is not null) _grants.Changed -= OnGrantsChanged;
         if (_desk is not null) _desk.Changed -= OnGrantsChanged;
+        if (_workspace is not null) _workspace.McpChanged -= OnWorkspaceMcpChanged;
         if (_settings is not null) _settings.TrayChanged -= OnTrayChanged;
     }
 }
