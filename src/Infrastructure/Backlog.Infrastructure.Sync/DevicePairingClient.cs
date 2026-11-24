@@ -59,6 +59,11 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <summary>How long the browser has to come back by default.</summary>
     public static readonly TimeSpan DefaultSignInTimeout = TimeSpan.FromMinutes(5);
 
+    /// <summary>How long the Windows Hello prompt for a refusal stands before it expires
+    /// (<see cref="RefuseDeviceAsync"/>). A Refuse answered on the phone raises it on a desktop
+    /// nobody may be at, and the answers queued behind it wait until it settles.</summary>
+    public static readonly TimeSpan RefuseConfirmationWindow = TimeSpan.FromMinutes(2);
+
     private readonly HttpClient _http;
     private readonly IDeviceCredentialStore _credentials;
     private readonly PairingSubjects? _pairings;
@@ -82,9 +87,9 @@ public sealed class DevicePairingClient : IDeviceRoster
     /// <param name="keys">This device's key (local ADR 0058 §2): with one, registering and
     /// pairing send its public key and the service hands back no credential to keep. None
     /// on a host that keeps no key, which goes on with a credential.</param>
-    /// <param name="stepUp">Windows Hello before minting a pairing code or revoking a device
-    /// (local ADR 0058 §6). None on a host that keeps no step-up — the web harness and the
-    /// phone — which mints and revokes without asking.</param>
+    /// <param name="stepUp">Windows Hello before minting a pairing code, revoking a device or
+    /// refusing one (local ADR 0058 §6). None on a host that keeps no step-up — the web harness
+    /// and the phone — which mints, revokes and refuses without asking.</param>
     public DevicePairingClient(
         HttpClient http,
         IDeviceCredentialStore credentials,
@@ -320,8 +325,21 @@ public sealed class DevicePairingClient : IDeviceRoster
     }
 
     /// <inheritdoc />
-    public Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
-        DeleteDeviceAsync(deviceId, cancellationToken);
+    public async Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default)
+    {
+        if (_stepUp is not null)
+        {
+            var confirmed = await _stepUp.ConfirmWithinAsync(
+                "Refuse a device that just paired, so it can no longer sync your backlog?",
+                "The device was not refused",
+                RefuseConfirmationWindow,
+                cancellationToken).ConfigureAwait(false);
+
+            if (confirmed.IsFailure) return confirmed;
+        }
+
+        return await DeleteDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
+    }
 
     private async Task<Result> DeleteDeviceAsync(Guid deviceId, CancellationToken cancellationToken)
     {

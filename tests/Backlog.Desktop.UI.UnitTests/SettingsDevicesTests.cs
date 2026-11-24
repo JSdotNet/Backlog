@@ -17,6 +17,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -463,14 +464,14 @@ public sealed class SettingsDevicesTests
         var section = new ServiceCollection().AddSyncSettings()
             .Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>().Single();
         Assert.Equal(
-            ["Sync service", "This device", "Sync tasks", "Sync sessions", "Register this device", "Pair with another device", "Let another device in"],
+            ["Sync service", "This device", "Paired devices", "Sync tasks", "Sync sessions", "Register this device", "Pair with another device", "Let another device in"],
             section.CardTitles!);
 
         using var context = RenderSettings(syncEnabled: true, paired: paired, registerSessionSync: true);
         OpenDevicesTab(context.Component);
 
         string[] expected = paired
-            ? ["This device", "Sync tasks", "Sync sessions", "Let another device in"]
+            ? ["This device", "Paired devices", "Sync tasks", "Sync sessions", "Let another device in"]
             : ["This device", "Register this device", "Pair with another device"];
 
         context.Component.WaitForAssertion(() =>
@@ -483,7 +484,7 @@ public sealed class SettingsDevicesTests
         });
 
         foreach (var testId in paired
-            ? new[] { "devices-status", "devices-sync", "devices-session-sync", "devices-generate-code" }
+            ? new[] { "devices-status", "devices-list", "devices-sync", "devices-session-sync", "devices-generate-code" }
             : ["devices-status", "devices-register", "devices-pair"])
         {
             Assert.Single(context.Component.FindAll($"section.settings-card[data-testid='{testId}']"));
@@ -492,6 +493,222 @@ public sealed class SettingsDevicesTests
 
     private static string Headline(IRenderedComponent<Settings> component) =>
         component.Find("[data-testid='settings-headline']").TextContent.Trim();
+
+    // --- Paired devices -------------------------------------------------------
+
+    private static readonly Guid Phone = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid Tablet = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid Laptop = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+    /// <summary>Every device the service lists is a row, oldest first as it lists them, and
+    /// each row says how the device came in. A row this desktop cannot revoke names the
+    /// device that can.</summary>
+    [Fact]
+    public void A_paired_device_lists_every_device_of_its_owner_and_marks_itself()
+    {
+        var devices = Owners();
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(devices));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(
+                ["Workshop PC", "Pixel 8", "Galaxy Tab", "Old laptop"],
+                context.Component.FindAll("[data-testid='devices-row-name']").Select(name => name.TextContent.Trim())));
+
+        var mine = Meta(context, Device);
+        Assert.StartsWith("This device · Registered with GitHub sign-in", mine, StringComparison.Ordinal);
+        Assert.StartsWith("Paired by this device", Meta(context, Phone), StringComparison.Ordinal);
+        Assert.StartsWith("Paired by Pixel 8; revoke it there", Meta(context, Laptop), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Revoke_is_offered_only_on_the_rows_this_device_paired()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(Owners()));
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(4, context.Component.FindAll("[data-testid='devices-row']").Count));
+
+        Assert.Empty(Row(context, Device).QuerySelectorAll("[data-testid='devices-row-revoke']"));
+        Assert.Single(Row(context, Phone).QuerySelectorAll("[data-testid='devices-row-revoke']"));
+        Assert.Single(Row(context, Tablet).QuerySelectorAll("[data-testid='devices-row-revoke']"));
+        Assert.Empty(Row(context, Laptop).QuerySelectorAll("[data-testid='devices-row-revoke']"));
+    }
+
+    /// <summary>The first Revoke asks, in the row's own actions, and sends nothing; Keep puts
+    /// the row back as it was.</summary>
+    [Fact]
+    public void The_first_Revoke_asks_in_place_and_Keep_restores_the_row()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(Owners()));
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
+
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(
+                "Revoke Pixel 8? It can no longer sync your backlog.",
+                Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-question']")!.TextContent.Trim()));
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']"));
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-keep']"));
+        Assert.Empty(context.Service.Deletes);
+
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-keep']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-row-revoke-question']"));
+        Assert.DoesNotContain(context.Service.Methods, method => method == HttpMethod.Delete);
+    }
+
+    /// <summary>The second Revoke asks Windows Hello, then revokes that device once; its row
+    /// goes and the list is read again.</summary>
+    [Fact]
+    public void The_second_Revoke_revokes_the_device_once_and_its_row_goes()
+    {
+        var consent = new ScriptedConsent(UserConsentOutcome.Verified);
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(Owners()), consent: consent);
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
+
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Null(Row(context, Phone));
+            Assert.Contains("Pixel 8 is revoked", context.Component.Find("[data-testid='devices-message']").TextContent, StringComparison.Ordinal);
+        });
+
+        Assert.Equal($"/api/sync/devices/{Phone:D}", Assert.Single(context.Service.Deletes));
+        Assert.Single(consent.Prompts);
+        Assert.Equal(3, context.Component.FindAll("[data-testid='devices-row']").Count);
+    }
+
+    /// <summary>Windows Hello cancelled or missing: nothing is sent, the row stays with its
+    /// Revoke, and the page's status line says why.</summary>
+    [Theory]
+    [InlineData(UserConsentOutcome.Declined, "Windows Hello was cancelled")]
+    [InlineData(UserConsentOutcome.NotAvailable, "Windows Hello is not available")]
+    public void A_revocation_Windows_Hello_did_not_confirm_leaves_the_row(UserConsentOutcome outcome, string reason)
+    {
+        using var context = RenderSettings(
+            syncEnabled: true, paired: true, respond: Roster(Owners()), consent: new ScriptedConsent(outcome));
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Phone)));
+
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")));
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-confirm']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var message = context.Component.Find("[data-testid='devices-message']");
+            Assert.Contains(reason, message.TextContent, StringComparison.Ordinal);
+            Assert.Equal("alert", message.GetAttribute("role"));
+        });
+
+        Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']"));
+        Assert.Empty(context.Service.Deletes);
+    }
+
+    [Fact]
+    public void Only_one_row_asks_at_a_time()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true, respond: Roster(Owners()));
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() => Assert.NotNull(Row(context, Tablet)));
+
+        Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke-question']")));
+
+        Row(context, Tablet).QuerySelector("[data-testid='devices-row-revoke']")!.Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='devices-row-revoke-question']"));
+            Assert.NotNull(Row(context, Tablet).QuerySelector("[data-testid='devices-row-revoke-question']"));
+            Assert.NotNull(Row(context, Phone).QuerySelector("[data-testid='devices-row-revoke']"));
+        });
+    }
+
+    [Fact]
+    public void A_device_list_the_service_would_not_give_says_so_on_the_card()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            respond: (request, _) => IsListRequest(request)
+                ? Problem(HttpStatusCode.ServiceUnavailable, "sync.unavailable", "The service is busy.")
+                : Roster(Owners())(request, 0));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-list-unread']")));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-row']"));
+    }
+
+    /// <summary>This desktop, registered with the sign-in; a phone and a tablet it paired;
+    /// and a laptop the phone paired.</summary>
+    private static List<DeviceSummary> Owners()
+    {
+        var day = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
+
+        return
+        [
+            new DeviceSummary(Device, "Workshop PC", day, null),
+            new DeviceSummary(Phone, "Pixel 8", day.AddDays(1), Device),
+            new DeviceSummary(Tablet, "Galaxy Tab", day.AddDays(2), Device),
+            new DeviceSummary(Laptop, "Old laptop", day.AddDays(3), Phone),
+        ];
+    }
+
+    /// <summary>A service holding <paramref name="devices"/>: the status counts them, the list
+    /// answers them, and a revocation takes one out.</summary>
+    private static Func<HttpRequestMessage, int, HttpResponseMessage> Roster(List<DeviceSummary> devices) => (request, _) =>
+    {
+        lock (devices)
+        {
+            if (IsStatusRequest(request)) return Status(devices.Count);
+            if (IsListRequest(request)) return DeviceList([.. devices]);
+
+            if (request.Method == HttpMethod.Delete)
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                var id = Guid.Parse(path[(path.LastIndexOf('/') + 1)..]);
+                devices.RemoveAll(device => device.DeviceId == id);
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+    };
+
+    private static AngleSharp.Dom.IElement Row(SettingsRenderContext context, Guid device) =>
+        context.Component.FindAll($"[data-testid='devices-row'][data-device='{device}']").SingleOrDefault()!;
+
+    private static string Meta(SettingsRenderContext context, Guid device) =>
+        Row(context, device).QuerySelector("[data-testid='devices-row-meta']")!.TextContent.Trim();
+
+    /// <summary>A Windows Hello that answers <paramref name="outcome"/> and keeps every prompt.</summary>
+    private sealed class ScriptedConsent(UserConsentOutcome outcome) : IUserConsent
+    {
+        public List<string> Prompts { get; } = [];
+
+        public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default)
+        {
+            Prompts.Add(message);
+            return Task.FromResult(outcome);
+        }
+    }
 
     // --- The session loop's card ----------------------------------------------
 
@@ -839,6 +1056,9 @@ public sealed class SettingsDevicesTests
                 // The status call sent again with the token just minted.
                 3 when IsStatusRequest(request) => Status(pairedDeviceCount: 3),
 
+                // The status answered, so the Paired devices card reads the list.
+                4 when IsListRequest(request) => DeviceList(new DeviceSummary(Device, "Workshop PC", DateTimeOffset.UtcNow, null)),
+
                 _ => throw new InvalidOperationException($"Unexpected call #{index} to {request.RequestUri}."),
             });
 
@@ -854,14 +1074,20 @@ public sealed class SettingsDevicesTests
         Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']"));
 
         // Once. The second status call is the answer being used, not a retry
-        // loop: two status calls and two token calls, in that order.
-        Assert.Equal(
-            ["/api/sync/devices/token", "/api/sync/devices/me", "/api/sync/devices/token", "/api/sync/devices/me"],
-            context.Service.Paths);
+        // loop: two status calls and two token calls, in that order, and then the
+        // one read of the device list that a status answer lets through.
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal(
+                ["/api/sync/devices/token", "/api/sync/devices/me", "/api/sync/devices/token", "/api/sync/devices/me", "/api/sync/devices"],
+                context.Service.Paths));
     }
 
     private static bool IsStatusRequest(HttpRequestMessage request) =>
         request.RequestUri?.AbsolutePath.EndsWith("/devices/me", StringComparison.Ordinal) == true;
+
+    private static bool IsListRequest(HttpRequestMessage request) =>
+        request.Method == HttpMethod.Get
+        && request.RequestUri?.AbsolutePath.EndsWith("/devices", StringComparison.Ordinal) == true;
 
     private static bool IsTokenRequest(HttpRequestMessage request) =>
         request.RequestUri?.AbsolutePath.EndsWith("/devices/token", StringComparison.Ordinal) == true;
@@ -1354,7 +1580,8 @@ public sealed class SettingsDevicesTests
         Dictionary<string, string>? environment = null,
         bool registerSection = true,
         IDeviceKeyStore? keys = null,
-        bool keyBound = false)
+        bool keyBound = false,
+        IUserConsent? consent = null)
     {
         var temp = new TemporaryDirectory("backlog-settings-devices-tests");
         var root = temp.Path;
@@ -1434,7 +1661,11 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddTransient(_ =>
         {
             pairingClientsResolved.Value++;
-            return new DevicePairingClient(http, credentials, browser: new NoBrowser());
+            return new DevicePairingClient(
+                http,
+                credentials,
+                browser: new NoBrowser(),
+                stepUp: consent is null ? null : new DeviceStepUp(consent));
         });
         if (tokens is not null) testContext.Services.AddSingleton(tokens);
 
@@ -1568,12 +1799,19 @@ public sealed class SettingsDevicesTests
 
         public List<string> Paths { get; } = [];
 
+        public List<HttpMethod> Methods { get; } = [];
+
+        /// <summary>The path of every DELETE, in order.</summary>
+        public List<string> Deletes { get; } = [];
+
         public string LastBody { get; private set; } = string.Empty;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri?.AbsolutePath ?? string.Empty;
             Paths.Add(path);
+            Methods.Add(request.Method);
+            if (request.Method == HttpMethod.Delete) Deletes.Add(path);
 
             if (request.Content is not null)
             {
@@ -1615,6 +1853,17 @@ public sealed class SettingsDevicesTests
                     $$"""{"accessToken":"a-token","expiresAt":"{{DateTimeOffset.UtcNow.AddMinutes(30):O}}","tokenType":"Bearer"}""");
             }
 
+            // The owner's devices: this one alone, registered with the GitHub sign-in.
+            if (request.Method == HttpMethod.Get && path.EndsWith("/devices", StringComparison.Ordinal))
+            {
+                return DeviceList(new DeviceSummary(Device, "Workshop PC", DateTimeOffset.UtcNow.AddDays(-30), null));
+            }
+
+            if (request.Method == HttpMethod.Delete)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (path.EndsWith("/sessions", StringComparison.Ordinal))
             {
                 return request.Method == HttpMethod.Post
@@ -1639,6 +1888,18 @@ public sealed class SettingsDevicesTests
         private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
+
+    /// <summary>The device list as the service answers it to this device.</summary>
+    private static HttpResponseMessage DeviceList(params DeviceSummary[] devices) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(
+                    new DeviceListResponse(Device, devices),
+                    new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)),
+                Encoding.UTF8,
+                "application/json")
+        };
 
     /// <summary>One task, stamped now, so a push has exactly one thing to
     /// send and the reported count is a number a test can name.</summary>

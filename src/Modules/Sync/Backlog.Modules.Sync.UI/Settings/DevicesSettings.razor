@@ -206,6 +206,73 @@
         </p>
     </SettingsCard>
 
+    @* Every device of this owner, one row each, read from the service once it has
+       said who this device is. The service lets only the device whose code paired
+       another revoke it, and no device revoke itself, so Revoke is on those rows
+       alone; any other row says who paired it, so the person knows where to go.
+       Revoke is confirmed in place, in the row's own actions, never in a dialog
+       (.devbook/design/settings-pages.md#lists-that-expand-in-place), and the
+       second Revoke goes through the pairing client, which asks Windows Hello
+       where the host composed it (local ADR 0058 §6). One row asks at a time. *@
+    @if (IsPaired && _devicePairing is not null)
+    {
+        <SettingsCard Title="@PairedDevicesCardTitle"
+                      Description="Every device that syncs your backlog. A device can shut out only the devices its own pairing codes let in."
+                      TestId="devices-list">
+            @if (_devices is { } devices)
+            {
+                <ul class="device-list" aria-label="Your devices" data-testid="devices-rows">
+                    @foreach (var device in devices.Devices)
+                    {
+                        <li class="device-row" @key="device.DeviceId" data-testid="devices-row" data-device="@device.DeviceId">
+                            <div class="device-row__who">
+                                <span class="device-row__name" data-testid="devices-row-name">@device.Name</span>
+                                <span class="device-row__meta" data-testid="devices-row-meta">@DeviceMeta(device, devices)</span>
+                            </div>
+
+                            <div class="device-row__actions">
+                                @if (_confirmingRevoke == device.DeviceId)
+                                {
+                                    <Alert BaseClass="device-row__confirm"
+                                           TestId="devices-row-revoke-question"
+                                           Message="@RevokeQuestion(device.Name)" />
+                                    <DeleteButton Label="Revoke"
+                                                  ShowIcon="false"
+                                                  AriaLabel="@($"Revoke {device.Name} now")"
+                                                  Busy="@_revoking"
+                                                  TestId="devices-row-revoke-confirm"
+                                                  OnClick="() => RevokeDeviceAsync(device)" />
+                                    <AppButton TestId="devices-row-revoke-keep" Disabled="@_revoking" OnClick="KeepDevice">
+                                        Keep
+                                    </AppButton>
+                                }
+                                else if (CanRevoke(device, devices))
+                                {
+                                    <DeleteButton Label="Revoke"
+                                                  ShowIcon="false"
+                                                  AriaLabel="@($"Revoke {device.Name}")"
+                                                  Disabled="@_revoking"
+                                                  TestId="devices-row-revoke"
+                                                  OnClick="() => AskToRevoke(device)" />
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+            else if (_devicesUnread)
+            {
+                <Alert Message="The device list could not be read from the sync service. Open this page again to try once more."
+                       TestId="devices-list-unread"
+                       BaseClass="setting__note" />
+            }
+            else
+            {
+                <Spinner Label="Reading your devices" TestId="devices-list-busy" />
+            }
+        </SettingsCard>
+    }
+
     @* Only for a device that is already one: an unpaired device has no
        owner to replicate under, and nothing to sync. And only where a
        host composed the loop at all - a head that registered no
@@ -449,6 +516,7 @@
 
     public const string SyncServiceCardTitle = "Sync service";
     public const string ThisDeviceCardTitle = "This device";
+    public const string PairedDevicesCardTitle = "Paired devices";
     public const string SyncTasksCardTitle = "Sync tasks";
     public const string SyncSessionsCardTitle = "Sync sessions";
     public const string RegisterCardTitle = "Register this device";
@@ -458,14 +526,15 @@
     /// <summary>
     /// Every card the page can draw, in the order it draws them - what its
     /// <c>SettingsSection.CardTitles</c> declares. No device shows them all at
-    /// once: an unpaired device has Register and Pair where a paired one has the
-    /// two sync cards and Let another device in, and the settings search finds a
+    /// once: an unpaired device has Register and Pair where a paired one has its
+    /// paired devices, the two sync cards and Let another device in, and the settings search finds a
     /// card by either state's name.
     /// </summary>
     public static IReadOnlyList<string> CardTitles { get; } =
     [
         SyncServiceCardTitle,
         ThisDeviceCardTitle,
+        PairedDevicesCardTitle,
         SyncTasksCardTitle,
         SyncSessionsCardTitle,
         RegisterCardTitle,
@@ -480,6 +549,133 @@
         paired ? "This device is paired with the sync service." : "This device is not paired.";
 
     private bool IsPaired => StoredDevice is not null && !NeedsRecovery;
+
+    /// <summary>The sentence the second Revoke on a device row stands beside.</summary>
+    public static string RevokeQuestion(string name) => $"Revoke {name}? It can no longer sync your backlog.";
+
+    /// <summary>The owner's devices as the service last listed them, or null before they
+    /// were read and when they could not be.</summary>
+    private DeviceListResponse? _devices;
+
+    /// <summary>Set when reading the list failed, so the card says so instead of waiting.</summary>
+    private bool _devicesUnread;
+
+    /// <summary>The row whose Revoke is asking, or null. One field, so one row asks at a time.</summary>
+    private Guid? _confirmingRevoke;
+
+    private bool _revoking;
+
+    /// <summary>The service lets a device revoke only the devices its own codes paired, and
+    /// never itself: Revoke is offered on exactly those rows.</summary>
+    private static bool CanRevoke(DeviceSummary device, DeviceListResponse list) =>
+        device.DeviceId != list.CallerDeviceId && device.PairedBy == list.CallerDeviceId;
+
+    /// <summary>One line saying what a row is: this device or not, how it came in, and when.
+    /// A row this device cannot revoke names the device that can (local ADR 0058 §6).</summary>
+    private static string DeviceMeta(DeviceSummary device, DeviceListResponse list)
+    {
+        var parts = new List<string>(3);
+
+        if (device.DeviceId == list.CallerDeviceId) parts.Add("This device");
+
+        parts.Add(device.PairedBy switch
+        {
+            null => "Registered with GitHub sign-in",
+            { } pairer when pairer == list.CallerDeviceId => "Paired by this device",
+            { } pairer => list.Devices.FirstOrDefault(other => other.DeviceId == pairer) is { } other
+                ? $"Paired by {other.Name}; revoke it there"
+                : "Paired by a device that is no longer listed",
+        });
+
+        parts.Add("added " + device.RegisteredAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.CurrentCulture));
+
+        return string.Join(" · ", parts);
+    }
+
+    private void AskToRevoke(DeviceSummary device)
+    {
+        if (_revoking) return;
+
+        _confirmingRevoke = device.DeviceId;
+    }
+
+    private void KeepDevice()
+    {
+        if (_revoking) return;
+
+        _confirmingRevoke = null;
+    }
+
+    /// <summary>
+    /// The second Revoke: through the pairing client, which asks Windows Hello first where
+    /// the host composed it. Revoked — or gone already — the row leaves at once and the list
+    /// and the count are read again; refused, by the person at the prompt or by the service,
+    /// the row stays and the page's status line says why.
+    /// </summary>
+    private async Task RevokeDeviceAsync(DeviceSummary device)
+    {
+        if (_devicePairing is null || _revoking) return;
+
+        _revoking = true;
+
+        try
+        {
+            var revoked = await _devicePairing.RevokeDeviceAsync(device.DeviceId);
+
+            if (revoked.IsFailure && !string.Equals(revoked.Error.Code, SyncErrorCodes.DeviceNotFound, StringComparison.Ordinal))
+            {
+                ReportDeviceOutcome(revoked.Error.Message, failed: true);
+                return;
+            }
+
+            if (_devices is { } list)
+            {
+                _devices = list with { Devices = [.. list.Devices.Where(other => other.DeviceId != device.DeviceId)] };
+            }
+
+            ReportDeviceOutcome($"{device.Name} is revoked. It can no longer sync your backlog.", failed: false);
+            await RefreshDeviceStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            _deviceLog?.LogError(ex, "Revoking a device on the sync service failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _revoking = false;
+            _confirmingRevoke = null;
+        }
+    }
+
+    /// <summary>Reads the owner's devices for the Paired devices card. A failure is kept as
+    /// a flag and said on the card; what it was goes to the log.</summary>
+    private async Task RefreshDevicesAsync()
+    {
+        if (_devicePairing is null || !IsPaired)
+        {
+            _devices = null;
+            _devicesUnread = false;
+            return;
+        }
+
+        try
+        {
+            var listed = await _devicePairing.ListDevicesAsync();
+
+            // A body that parsed without a device list is not a list, whatever its status said.
+            _devices = listed.IsSuccess && listed.Value.Devices is not null ? listed.Value : null;
+            _devicesUnread = _devices is null;
+
+            if (listed.IsFailure) _deviceLog?.LogDebug("The device list was not read: {Error}", listed.Error.Message);
+        }
+        catch (Exception ex)
+        {
+            _deviceLog?.LogWarning(ex, "Reading the device list from the sync service failed unexpectedly.");
+            _devices = null;
+            _devicesUnread = true;
+        }
+    }
 
     private DevicePairingClient? _devicePairing;
     private SyncServiceSettingsStore? _syncService;
@@ -1060,7 +1256,8 @@
     }
 
     /// <summary>Who the service says this device is, which is where the count of
-    /// paired devices comes from. An ordinary failure is still not reported: the
+    /// paired devices comes from, and then the owner's devices for the Paired
+    /// devices card. An ordinary failure is still not reported: the
     /// card has the stored identity to show, and an unreachable service saying so
     /// twice on one screen is noise.
     /// <para>
@@ -1083,6 +1280,24 @@
     /// </para>
     /// </summary>
     private async Task RefreshDeviceStatusAsync()
+    {
+        await RefreshStatusOnlyAsync();
+
+        // The list goes out only once the status has come back: that answer is the
+        // service accepting this device, and a device it does not accept would be
+        // refused the list as well, one more call for the same verdict.
+        if (_deviceStatus is not null)
+        {
+            await RefreshDevicesAsync();
+        }
+        else
+        {
+            _devices = null;
+            _devicesUnread = StoredDevice is not null;
+        }
+    }
+
+    private async Task RefreshStatusOnlyAsync()
     {
         if (_devicePairing is null || StoredDevice is null)
         {
@@ -1188,6 +1403,9 @@
         // Everything on the panel described the credential that has just gone.
         _deviceStatus = null;
         _deviceStatusRejected = false;
+        _devices = null;
+        _devicesUnread = false;
+        _confirmingRevoke = null;
         _issuedCode = null;
         _pairingCodeCountdown?.Dispose();
         _pairingCodeCountdown = null;

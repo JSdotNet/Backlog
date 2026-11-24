@@ -46,6 +46,43 @@ internal static class PairingQuestion
             Origin: NotificationOrigin.Fit(NotificationOrigins.Backlog, "Pairing"));
     }
 
+    /// <summary>
+    /// The alert raised when the person answered Refuse but did not confirm it with Windows
+    /// Hello (<see cref="PairingAnswers"/>): the device is still paired, and the way to refuse it
+    /// again is Revoke on its row in Settings → Devices. About no subject, so the pairing ending
+    /// does not close it; it stays until it is acknowledged.
+    /// </summary>
+    /// <param name="pairingId">The pairing the refusal answered.</param>
+    /// <param name="deviceId">The device that stays paired.</param>
+    /// <param name="deviceName">Its name, or null when nothing here knows it.</param>
+    /// <param name="reason">The step-up's own sentence: why nothing was sent.</param>
+    internal static NotificationDraft NotRefused(Guid pairingId, Guid deviceId, string? deviceName, string reason)
+    {
+        var name = OneLine(deviceName);
+        var named = name.Length > 0;
+        if (!named) name = "A device";
+
+        const int Frame = 16; // " was not refused"
+        var title = $"{NotificationText.Cut(name, MaxTitleLength - Frame)} was not refused";
+        var who = named ? $"**{name}**" : "The device that redeemed this desktop's pairing code";
+
+        return new NotificationDraft(
+            new NotificationSource(SyncNotificationSubjects.Context, SyncNotificationSubjects.SourceKey(pairingId, deviceId)),
+            Subject: null,
+            NotificationKind.Alert,
+            NotificationSeverity.Warning,
+            title,
+            "Windows Hello was not confirmed, so it is still paired. Refuse it again: Revoke it in Settings → Devices.",
+            $"""
+            You answered **Refuse**, and nothing was revoked. {OneLine(reason)}
+
+            {who} is still paired with your account and can sync your backlog.
+
+            To refuse it again, open **Settings → Devices** on this desktop and choose **Revoke** on its row. Windows Hello asks you to confirm.
+            """,
+            Origin: NotificationOrigin.Fit(NotificationOrigins.Backlog, "Pairing"));
+    }
+
     /// <summary>"Pair &lt;name&gt;?", the name shortened to fit the title's 80 characters.</summary>
     private static string Title(string name)
     {

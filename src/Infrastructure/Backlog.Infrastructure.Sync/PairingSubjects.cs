@@ -128,6 +128,7 @@ public sealed class PairingSubjects : IDisposable
             if (pairing.Ended || pairing.RedeemedBy is not null) return Task.CompletedTask;
 
             pairing.RedeemedBy = deviceId;
+            pairing.DeviceName = deviceName;
         }
 
         _claimed[deviceId] = 0;
@@ -140,6 +141,45 @@ public sealed class PairingSubjects : IDisposable
     /// <summary>The question about the device that redeemed <paramref name="pairingId"/> was
     /// settled: the pairing ends. Nothing for one already ended.</summary>
     public Task SettledAsync(Guid pairingId) => EndAsync(pairingId);
+
+    /// <summary>
+    /// The person answered Refuse about the device that redeemed <paramref name="pairingId"/>,
+    /// but did not confirm it with Windows Hello, so the device is still paired: an alert says
+    /// so and asks them to refuse it again from Settings → Devices. The device is named from
+    /// the pairing while this process holds it, else from the device list, else not at all.
+    /// Never throws: the device stays paired either way, and the answer is settled.
+    /// </summary>
+    /// <param name="pairingId">The pairing the refusal answered.</param>
+    /// <param name="deviceId">The device that stays paired.</param>
+    /// <param name="reason">Why nothing was sent, in the step-up's own words.</param>
+    public async Task NotRefusedAsync(Guid pairingId, Guid deviceId, string reason)
+    {
+        try
+        {
+            if (_notifications() is not { } notifications) return;
+
+            var name = _open.TryGetValue(pairingId, out var pairing) ? pairing.DeviceName : null;
+            name ??= await NameFromRosterAsync(deviceId).ConfigureAwait(false);
+
+            var alerted = await notifications.PublishAsync(PairingQuestion.NotRefused(pairingId, deviceId, name, reason)).ConfigureAwait(false);
+            if (alerted.IsFailure) _logger.LogDebug("The alert that the device of pairing {Id} was not refused was not published: {Error}", pairingId, alerted.Error.Message);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Publishing the alert that the device of pairing {Id} was not refused failed; the device stays paired.", pairingId);
+        }
+    }
+
+    private async Task<string?> NameFromRosterAsync(Guid deviceId)
+    {
+        if (_roster() is not { } roster) return null;
+
+        var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
+
+        return listed.IsSuccess
+            ? listed.Value.Devices.FirstOrDefault(device => device.DeviceId == deviceId)?.Name
+            : null;
+    }
 
     /// <summary>The close the last end started; what a test awaits.</summary>
     internal Task LastEnd { get; private set; } = Task.CompletedTask;
@@ -295,6 +335,8 @@ public sealed class PairingSubjects : IDisposable
         public ITimer? Expiry { get; set; }
 
         public Guid? RedeemedBy { get; set; }
+
+        public string? DeviceName { get; set; }
 
         public bool Ended { get; set; }
     }
