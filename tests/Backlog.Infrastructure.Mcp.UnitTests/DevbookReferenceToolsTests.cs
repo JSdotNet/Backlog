@@ -33,7 +33,7 @@ public class DevbookReferenceToolsTests
         var resolver = new FakeDevbookReferenceResolver(ChapterAnswer, PageAnswer);
         var tools = Tools(entries, resolver);
 
-        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [Chapter, Page], TestContext.Current.CancellationToken);
+        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [Chapter, Page], cancellationToken: TestContext.Current.CancellationToken);
 
         var write = Assert.Single(entries.DevbookReferenceWrites);
         Assert.Equal(id, write.Id);
@@ -92,7 +92,7 @@ public class DevbookReferenceToolsTests
         var id = Guid.NewGuid();
         var tools = Tools(new FakeTaskItems(Entries.Entry("The one", id: id)), new FakeDevbookReferenceResolver(ChapterAnswer));
 
-        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [Chapter, Chapter], TestContext.Current.CancellationToken);
+        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [Chapter, Chapter], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal([Chapter], answer.References.Select(reference => reference.Reference));
     }
@@ -104,7 +104,7 @@ public class DevbookReferenceToolsTests
         var entries = new FakeTaskItems(Entries.Entry("The one", id: id, devbookReferences: [Chapter]));
         var tools = Tools(entries, new FakeDevbookReferenceResolver());
 
-        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [], TestContext.Current.CancellationToken);
+        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Empty(answer.References);
         Assert.Empty(Assert.Single(entries.DevbookReferenceWrites).References);
@@ -118,7 +118,7 @@ public class DevbookReferenceToolsTests
         var id = Guid.NewGuid();
         var tools = Tools(new FakeTaskItems(Entries.Entry("The one", id: id)), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [".devbook/domain/gone.md"], TestContext.Current.CancellationToken);
+        var answer = await tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [".devbook/domain/gone.md"], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("unknown-page", Assert.Single(answer.References).State);
     }
@@ -130,7 +130,7 @@ public class DevbookReferenceToolsTests
         var tools = Tools(new FakeTaskItems(Entries.Entry("The one", id: id)), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", ["readme"], TestContext.Current.CancellationToken));
+            tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", ["readme"], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("entry.invalid_devbook_reference", failure.Message, StringComparison.Ordinal);
     }
@@ -141,7 +141,7 @@ public class DevbookReferenceToolsTests
         var tools = Tools(new FakeTaskItems(), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.SetDevbookReferencesAsync(Guid.NewGuid(), "JSdotNet/Backlog", [Chapter], TestContext.Current.CancellationToken));
+            tools.SetDevbookReferencesAsync(Guid.NewGuid(), "JSdotNet/Backlog", [Chapter], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("entry.not_found", failure.Message, StringComparison.Ordinal);
     }
@@ -156,7 +156,7 @@ public class DevbookReferenceToolsTests
         var tools = Tools(entries, new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.SetDevbookReferencesAsync(id, "Someone/Else", [Chapter], TestContext.Current.CancellationToken));
+            tools.SetDevbookReferencesAsync(id, "Someone/Else", [Chapter], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains(RepositoryScope.NotFoundCode, failure.Message, StringComparison.Ordinal);
         Assert.Empty(entries.DevbookReferenceWrites);
@@ -200,7 +200,7 @@ public class DevbookReferenceToolsTests
             });
         var entries = new FakeTaskItems(Entries.Entry("The one", id: id));
 
-        var answer = await Tools(entries, resolver).SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], TestContext.Current.CancellationToken);
+        var answer = await Tools(entries, resolver).SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal([reference], Assert.Single(entries.DevbookReferenceWrites).References);
         var part = Assert.Single(Assert.Single(answer.References).Parts!);
@@ -276,7 +276,7 @@ public class DevbookReferenceToolsTests
             });
 
         var answer = await Tools(new FakeTaskItems(Entries.Entry("The one", id: id)), resolver)
-            .SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], TestContext.Current.CancellationToken);
+            .SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, Assert.Single(Assert.Single(answer.References).Parts!).FailedStep);
     }

@@ -68,6 +68,8 @@ public sealed class EventTools(IEventsPane events, TimeProvider? clock = null)
         decimal? costAmount = null,
         [Description("Optional. The cost's currency code, e.g. EUR; needs costAmount.")]
         string? costCurrency = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var zone = (clock ?? TimeProvider.System).LocalTimeZone;

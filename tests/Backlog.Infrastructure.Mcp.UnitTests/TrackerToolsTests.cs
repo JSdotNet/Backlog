@@ -307,7 +307,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, order: 7, status: from));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.TransitionAsync(id, token, TestContext.Current.CancellationToken);
+        var answer = await tools.TransitionAsync(id, token, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(answer.Changed);
         Assert.Null(answer.Refusal);
@@ -332,7 +332,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, status: EntryStatus.Draft));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.TransitionAsync(id, "done", TestContext.Current.CancellationToken);
+        var answer = await tools.TransitionAsync(id, "done", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(answer.Changed);
         Assert.Equal("draft", answer.Status);
@@ -350,7 +350,7 @@ public class TrackerToolsTests
         var id = Guid.NewGuid();
         var tools = Tools(Entries.Entry("Fix the parser", id: id, status: EntryStatus.Ready));
 
-        var answer = await tools.TransitionAsync(id, "in-progress", TestContext.Current.CancellationToken);
+        var answer = await tools.TransitionAsync(id, "in-progress", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["done", "ready"], answer.NextStatuses);
     }
@@ -368,7 +368,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, status: EntryStatus.InProgress));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.TransitionAsync(id, "in-progress", TestContext.Current.CancellationToken);
+        var answer = await tools.TransitionAsync(id, "in-progress", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(answer.Changed);
         Assert.Null(answer.Refusal);
@@ -393,7 +393,7 @@ public class TrackerToolsTests
 
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        await tools.TransitionAsync(id, "in-progress", TestContext.Current.CancellationToken);
+        await tools.TransitionAsync(id, "in-progress", cancellationToken: TestContext.Current.CancellationToken);
 
         var save = Assert.Single(entries.Saves);
         var parsed = EntryTextParser.Parse(save.RawText);
@@ -415,7 +415,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, order: 4, status: EntryStatus.InProgress));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        var answer = await tools.SetBlockedAsync(id, blocked: true, TestContext.Current.CancellationToken);
+        var answer = await tools.SetBlockedAsync(id, blocked: true, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(answer.Changed);
         Assert.Equal(new DateOnly(2026, 9, 23), answer.BlockedSince);
@@ -435,7 +435,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, blockedSince: new DateOnly(2026, 9, 1)));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        var answer = await tools.SetBlockedAsync(id, blocked: false, TestContext.Current.CancellationToken);
+        var answer = await tools.SetBlockedAsync(id, blocked: false, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(answer.Changed);
         Assert.Null(answer.BlockedSince);
@@ -455,7 +455,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, blockedSince: since));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        var answer = await tools.SetBlockedAsync(id, blocked, TestContext.Current.CancellationToken);
+        var answer = await tools.SetBlockedAsync(id, blocked, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(answer.Changed);
         Assert.Equal(since, answer.BlockedSince);
@@ -468,7 +468,7 @@ public class TrackerToolsTests
         var tools = Tools(Entries.Entry("Something else"));
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.SetBlockedAsync(Guid.NewGuid(), blocked: true, TestContext.Current.CancellationToken));
+            tools.SetBlockedAsync(Guid.NewGuid(), blocked: true, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
     }
@@ -505,7 +505,7 @@ public class TrackerToolsTests
 
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        var answer = await tools.CommentAsync(id, "Picked this up.", TestContext.Current.CancellationToken);
+        var answer = await tools.CommentAsync(id, "Picked this up.", cancellationToken: TestContext.Current.CancellationToken);
 
         var save = Assert.Single(entries.Saves);
         var parsed = EntryTextParser.Parse(save.RawText);
@@ -548,7 +548,7 @@ public class TrackerToolsTests
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var refusal = await Assert.ThrowsAsync<McpException>(
-            () => tools.CommentAsync(id, text, TestContext.Current.CancellationToken));
+            () => tools.CommentAsync(id, text, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("comment.not_prose", refusal.Message, StringComparison.Ordinal);
         Assert.Contains(offending, refusal.Message, StringComparison.Ordinal);
@@ -579,7 +579,7 @@ public class TrackerToolsTests
         var answer = await tools.CommentAsync(
             id,
             "Picked this up.\nThe cause is the trailing-token branch, filed under #deploy.",
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var save = Assert.Single(entries.Saves);
         var parsed = EntryTextParser.Parse(save.RawText);
@@ -598,7 +598,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        await tools.CommentAsync(id, "Opened the pull request.", TestContext.Current.CancellationToken);
+        await tools.CommentAsync(id, "Opened the pull request.", cancellationToken: TestContext.Current.CancellationToken);
 
         var save = Assert.Single(entries.Saves);
 
@@ -619,7 +619,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        await tools.CommentAsync(id, "Picked this up.", TestContext.Current.CancellationToken);
+        await tools.CommentAsync(id, "Picked this up.", cancellationToken: TestContext.Current.CancellationToken);
 
         var usage = Assert.Single(entries.Usages);
 
@@ -637,8 +637,8 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
-        await tools.CommentAsync(id, "First.", TestContext.Current.CancellationToken);
-        await tools.CommentAsync(id, "Second.", TestContext.Current.CancellationToken);
+        await tools.CommentAsync(id, "First.", cancellationToken: TestContext.Current.CancellationToken);
+        await tools.CommentAsync(id, "Second.", cancellationToken: TestContext.Current.CancellationToken);
 
         var last = entries.Saves[^1].RawText;
 
@@ -656,7 +656,7 @@ public class TrackerToolsTests
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.CommentAsync(id, "   ", TestContext.Current.CancellationToken));
+            tools.CommentAsync(id, "   ", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("comment.required", failure.Message, StringComparison.Ordinal);
         Assert.Empty(entries.Saves);
@@ -677,7 +677,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.LinkChangeAsync(id, "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken);
+        var answer = await tools.LinkChangeAsync(id, "JSdotNet/Backlog", "582", cancellationToken: TestContext.Current.CancellationToken);
 
         var link = Assert.Single(entries.Links);
 
@@ -698,7 +698,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        await tools.LinkChangeAsync(id, "jsdotnet/backlog", "582", TestContext.Current.CancellationToken);
+        await tools.LinkChangeAsync(id, "jsdotnet/backlog", "582", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", Assert.Single(entries.Links).RepoId);
     }
@@ -714,7 +714,7 @@ public class TrackerToolsTests
         var tools = new TrackerTools(entries, directory, new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.LinkChangeAsync(id, "JSdotNet/Nowhere", "582", TestContext.Current.CancellationToken));
+            tools.LinkChangeAsync(id, "JSdotNet/Nowhere", "582", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("repository.not_found", failure.Message, StringComparison.Ordinal);
         Assert.Empty(entries.Links);
@@ -730,7 +730,7 @@ public class TrackerToolsTests
         var tools = Tools(Entries.Entry("Fix the parser"));
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.LinkChangeAsync(Guid.NewGuid(), "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken));
+            tools.LinkChangeAsync(Guid.NewGuid(), "JSdotNet/Backlog", "582", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("entry.not_found", failure.Message, StringComparison.Ordinal);
     }
@@ -947,12 +947,12 @@ public class TrackerToolsTests
         await tools.CreateItemAsync(
             "# Needs a home\n`task` `!ready`",
             "JSdotNet/Backlog",
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         await tools.CreateItemAsync(
             "# Already has one\n`task` `!ready` `repo:JSdotNet/Other`",
             "JSdotNet/Backlog",
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["JSdotNet/Backlog"], EntryTextParser.Parse(entries.Saves[0].RawText).RepoIds);
         Assert.Equal(["JSdotNet/Other"], EntryTextParser.Parse(entries.Saves[1].RawText).RepoIds);

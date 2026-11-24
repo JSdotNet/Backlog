@@ -1,4 +1,5 @@
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Tests;
@@ -15,6 +16,7 @@ internal sealed class RecordingNotifications : INotifications
     private readonly List<(NotificationSubject Subject, string Reason)> _closed = [];
     private readonly List<(Guid Id, NotificationDraft Draft)> _published = [];
     private readonly List<(Guid Id, string? Reason)> _closedById = [];
+    private readonly List<ChangeSet?> _publishedUnder = [];
     private readonly Lock _gate = new();
 
     /// <summary>Thrown from <see cref="CloseForSubjectAsync"/> and <see cref="PublishAsync"/>
@@ -48,12 +50,27 @@ internal sealed class RecordingNotifications : INotifications
         }
     }
 
+    /// <summary>The change set current at each publish (local ADR 0061 §2), in order: what
+    /// the entry point that published named, or null when it named none.</summary>
+    public IReadOnlyList<ChangeSet?> PublishedUnder
+    {
+        get
+        {
+            lock (_gate) return [.. _publishedUnder];
+        }
+    }
+
     public Task<Result<Guid>> PublishAsync(NotificationDraft draft, CancellationToken cancellationToken = default)
     {
         if (Fails is { } failure) throw failure;
 
         var id = draft.Id ?? Guid.NewGuid();
-        lock (_gate) _published.Add((id, draft));
+        lock (_gate)
+        {
+            _published.Add((id, draft));
+            _publishedUnder.Add(ChangeContext.Current);
+        }
+
         return Task.FromResult(Result.Success(id));
     }
 

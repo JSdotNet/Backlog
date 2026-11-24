@@ -231,6 +231,8 @@ public sealed class TrackerTools(
         Guid id,
         [Description("The status to move to: draft, ready, in-progress, done or archived.")]
         string status,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
@@ -304,6 +306,8 @@ public sealed class TrackerTools(
         Guid id,
         [Description("True to mark the entry blocked, false to unblock it.")]
         bool blocked,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
@@ -362,6 +366,8 @@ public sealed class TrackerTools(
             + "markdown heading, a `- [ ]` checklist item or a ``` fence - those are how the entry's own structure "
             + "is written, and a comment carrying one is refused rather than allowed to rewrite the entry.")]
         string text,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         // Written through the one comment rule Tasks publishes, which the
@@ -409,6 +415,8 @@ public sealed class TrackerTools(
         string repository,
         [Description("The pull request number, e.g. 582.")]
         string externalId,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
@@ -557,6 +565,8 @@ public sealed class TrackerTools(
             "Optional. The repository in owner/name form to file it against, applied only when the text names no "
             + "`repo:` token of its own.")]
         string? repository = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var scope = string.IsNullOrWhiteSpace(repository)
@@ -627,6 +637,8 @@ public sealed class TrackerTools(
             + "#brain:<path>[#heading-slug], e.g. #brain:projects/sync.md. Repeats are dropped; a value with neither a "
             + "folder nor a .md ending, and a #brain: value naming no note, is refused.")]
         string[] references,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         // Before the write, so an owner/name nobody registered changes nothing.

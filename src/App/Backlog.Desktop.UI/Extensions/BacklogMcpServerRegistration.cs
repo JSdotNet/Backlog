@@ -142,6 +142,10 @@ public static class BacklogMcpServerRegistration
         // tool runs.
         services.TryAddScoped<McpCallContext>();
 
+        // The change sets MCP writes are grouped into (local ADR 0061 §3), held across the
+        // stateless transport's per-call scopes.
+        services.TryAddSingleton(provider => new McpChangeSets(provider.GetService<TimeProvider>()));
+
         return services
             .AddMcpServer()
             // Read off the group table rather than named one by one, so a group
@@ -176,7 +180,10 @@ public static class BacklogMcpServerRegistration
             .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter))
             // After every check, so only a write that is about to run takes the checkpoint
             // an agent's mistake can be put back from.
-            .WithRequestFilters(filters => filters.AddCallToolFilter(AgentCheckpointFilter.Filter));
+            .WithRequestFilters(filters => filters.AddCallToolFilter(AgentCheckpointFilter.Filter))
+            // Inside the audit filter, so a write's change set keeps that call's correlation
+            // id, and last, so a refused call opens none (local ADR 0061 §3).
+            .WithRequestFilters(filters => filters.AddCallToolFilter(next => McpChangeSetFilter.Filter(next, caller)));
     }
 
     /// <summary>

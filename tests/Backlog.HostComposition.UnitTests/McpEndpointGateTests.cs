@@ -13,6 +13,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
 using Backlog.Tests;
 
@@ -797,6 +798,51 @@ public class McpEndpointGateTests
         var call = Assert.Single(audit.Records);
         Assert.Equal("read_item", call.Tool);
         Assert.Equal(McpCallOutcome.Failed, call.Outcome);
+    }
+
+    /// <summary>
+    /// A write tool runs under its change set (local ADR 0061 §3): actor agent, the harness's
+    /// caller, the session the call names, and the correlation id its audit record carries.
+    /// Over the real endpoint, because what holds it is the order the host installed its
+    /// filters in: the change set's inside the audit's.
+    /// </summary>
+    [Fact]
+    public async Task A_write_runs_under_an_agent_change_set_that_carries_the_audit_record_s_correlation_id()
+    {
+        var audit = new RecordingAuditLog();
+        var notifications = new RecordingNotifications();
+        await using var harness = new Harness(notifications: notifications, audit: audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "notify", new { title = "Backlog · Journal · Look", sessionId = "sess-61" });
+
+        Assert.DoesNotContain("\"isError\":true", body, StringComparison.Ordinal);
+        var changeSet = Assert.Single(notifications.PublishedUnder);
+        Assert.NotNull(changeSet);
+        Assert.Equal(ChangeActor.Agent, changeSet.Actor);
+        Assert.Equal(McpAudit.HarnessCaller, changeSet.Caller);
+        Assert.Equal("sess-61", changeSet.SessionId);
+        Assert.Equal(Assert.Single(audit.Records).CorrelationId, changeSet.CorrelationId);
+        Assert.Equal("notify", changeSet.Label);
+    }
+
+    /// <summary>Two writes from one session, back to back, are one change set, which keeps
+    /// the first call's correlation id.</summary>
+    [Fact]
+    public async Task Two_writes_from_one_session_join_one_change_set()
+    {
+        var audit = new RecordingAuditLog();
+        var notifications = new RecordingNotifications();
+        await using var harness = new Harness(notifications: notifications, audit: audit);
+        using var client = harness.CreateClient();
+
+        await CallToolAsync(client, "notify", new { title = "Backlog · One · Look", sessionId = "sess-62" });
+        await CallToolAsync(client, "notify", new { title = "Backlog · Two · Look", sessionId = "sess-62" });
+
+        Assert.Equal(2, notifications.PublishedUnder.Count);
+        var first = notifications.PublishedUnder[0]!;
+        Assert.Same(first, notifications.PublishedUnder[1]);
+        Assert.Equal(audit.Records[0].CorrelationId, first.CorrelationId);
     }
 
     /// <summary>The audit log in memory, in the order the calls were recorded.</summary>
