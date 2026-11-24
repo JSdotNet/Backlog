@@ -55,7 +55,7 @@ That list holds only the agent skills org ADR 0013 installs for every session: t
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its thirteen skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its fourteen skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -71,6 +71,11 @@ always unattended.
 implemented against the session's specification and runs the build and tests, and that review
 changes nothing; the gaps the person then accepts are fixed in that session through the gate, so
 it is no flow and adds no path beside it.
+`catch-up` is model- or user-invoked in a session that has already produced work: it brings the
+branch level with its base, then re-checks that session's artifacts, import plans, branch and pull
+requests against what landed and republishes a stale artifact or plan view to its same link. It is
+no flow: a merge conflict it resolves is part of updating the branch, and any other repository
+change it makes runs through the gate.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
 whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it answers
@@ -209,6 +214,9 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `plugins/backlog-tools/skills/final-check/SKILL.md` — closes a finished plan once, in the
   session that wrote it: what each entry implemented, that it all builds, and the accepted gaps
   fixed through the gate; user-invoked only.
+- `plugins/backlog-tools/skills/catch-up/SKILL.md` — brings a long-running session level with
+  its base branch and re-checks its artifacts, import plans, branch and pull requests against
+  what landed; no flow, its repository changes go through the gate.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left

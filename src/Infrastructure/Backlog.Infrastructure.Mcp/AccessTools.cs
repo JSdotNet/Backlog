@@ -13,10 +13,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// Backlog's request window forward. It changes no grant — the caller's least of all — because
 /// only the person answers a request, in the desktop window, with Windows Hello.
 /// <para>
-/// <b>Any grant may call it, whatever its scopes</b> (<see cref="McpToolScopes.AnyCaller"/>):
-/// an agent that lacks a scope is exactly the one that needs to ask. A caller that holds no
-/// grant — the shared token, the harness — is refused by the host, which has no grant to add
-/// to.
+/// <b>Any grant holding a tool scope may call it</b> (<see cref="McpToolScopes.RequesterTools"/>):
+/// an agent that lacks a scope is exactly the one that needs to ask. A grant holding only
+/// <see cref="McpScopes.SinglePurpose"/> scopes is refused by the host, so a leaked Telemetry
+/// or Question hook block asks for nothing; so is a caller that holds no grant — the shared
+/// token, the harness — which has no grant to add to.
 /// </para>
 /// <para>
 /// <b>Ungated</b>, like <c>open_window</c>: asking adds nothing and removes nothing, and a host

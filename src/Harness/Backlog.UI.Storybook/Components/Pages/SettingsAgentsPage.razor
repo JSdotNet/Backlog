@@ -3,7 +3,7 @@
 <PageTitle>Agents — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Agents"
-           Summary="AgentGrantRow, AgentScopeSwitches, AgentRegistration and AgentAccessRequest: the MCP server page's Agents card — one row per agent with its role, source, last use and scopes, its switches opened in place, Revoke confirmed in place, the registration a new agent is given, and a request waiting for the person, on the page and in its own window."
+           Summary="AgentGrantRow, AgentScopeSwitches, AgentRegistration and AgentAccessRequest: the MCP server page's Agents card — one row per agent with its role, source, last use and scopes, its switches opened in place, Revoke confirmed in place, the same row without scopes for a paired device, the registration a new agent is given, and a request waiting for the person, on the page and in its own window."
            Guidelines="@Rules">
 
     <Story Name="A list of agents"
@@ -67,6 +67,52 @@ Its switches draw the scopes it never offers locked - deleting, granting, dispat
                                             AriaLabel="Scopes of Unauthenticated"
                                             OnChanged="FlipUnauthenticated" />
                     </AgentGrantRow>
+                </ul>
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="A row without scopes"
+           Description="The same row on the Devices page's Paired devices card: a paired device holds no scopes, so its host turns them off, and the two lists of things that can be shut out read and behave the same. The host words the question for what revoking a device does, and names each Revoke button with the day the device was added, so two devices of one name are two different buttons to a screen reader.
+
+The host binds the question, so one row asks at a time: asking on one row puts the other back. The focus moves to the confirming Revoke when the question appears, and back to the row's Revoke on Keep or when the revocation fails. A failure says why in the row, beside that Revoke - here the first Pixel 8 fails as a cancelled Windows Hello would, and the second is revoked."
+           Code="@DeviceRowCode">
+        <div class="sb-stack" data-testid="settings-agents-device-rows">
+            <SettingsCard Title="Paired devices" Description="Every device that syncs your backlog.">
+                <ul class="agent-list" aria-label="Your devices">
+                    @foreach (var device in _devices)
+                    {
+                        <AgentGrantRow @key="device.Id"
+                                       Name="@device.Name"
+                                       AccessibleName="@($"{device.Name}, added {device.Added}")"
+                                       Meta="@device.Meta"
+                                       ShowScopes="false"
+                                       CanEditScopes="false"
+                                       CanRevoke="@device.Revocable"
+                                       Question="@($"Revoke {device.Name}? It can no longer sync your backlog.")"
+                                       Confirming="@(_deviceAsking == device.Id)"
+                                       ConfirmingChanged="asking => AskDevice(device, asking)"
+                                       RevokeError="@(_deviceFailure == device.Id ? "The device was not revoked: Windows Hello was cancelled." : null)"
+                                       OnRevoke="() => RevokeDevice(device)" />
+                    }
+                </ul>
+            </SettingsCard>
+        </div>
+    </Story>
+
+    <Story Name="Revoke while another revocation runs"
+           Description="While the host carries out one revocation - Windows Hello is open for another device - every other row's Revoke is drawn but cannot be pressed, so one revocation runs at a time. The host sets RevokeDisabled on those rows and clears it when the revocation ends, however it ends."
+           Code="@DisabledRevokeCode">
+        <div class="sb-stack" data-testid="settings-agents-revoke-disabled">
+            <SettingsCard Title="Paired devices" Description="Every device that syncs your backlog.">
+                <ul class="agent-list" aria-label="Your devices while one is being revoked">
+                    <AgentGrantRow Name="Pixel 8"
+                                   AccessibleName="Pixel 8, added 14 Oct 2026"
+                                   Meta="Paired by this device · added 14 Oct 2026"
+                                   ShowScopes="false"
+                                   CanEditScopes="false"
+                                   RevokeDisabled="true"
+                                   OnRevoke="() => { }" />
                 </ul>
             </SettingsCard>
         </div>
@@ -283,6 +329,77 @@ Its switches draw the scopes it never offers locked - deleting, granting, dispat
                                 Selected="@opened"
                                 OnChanged="OpenWithHelloOrClose" />
         </AgentGrantRow>
+        """;
+
+    private sealed record SampleDevice(string Id, string Name, string Added, string Meta, bool Revocable, bool Fails = false);
+
+    private List<SampleDevice> _devices =
+    [
+        new("d_desk", "Workshop PC", "1 Oct 2026", "This device · Registered with GitHub sign-in · added 1 Oct 2026", Revocable: false),
+        new("d_phone_1", "Pixel 8", "2 Oct 2026", "Paired by this device · added 2 Oct 2026", Revocable: true, Fails: true),
+        new("d_phone_2", "Pixel 8", "14 Oct 2026", "Paired by this device · added 14 Oct 2026", Revocable: true),
+        new("d_laptop", "Old laptop", "3 Oct 2026", "Paired by Pixel 8; revoke it there · added 3 Oct 2026", Revocable: false)
+    ];
+
+    private string? _deviceAsking;
+
+    private string? _deviceFailure;
+
+    private void AskDevice(SampleDevice device, bool asking)
+    {
+        if (asking)
+        {
+            _deviceAsking = device.Id;
+            _deviceFailure = null;
+        }
+        else if (_deviceAsking == device.Id)
+        {
+            _deviceAsking = null;
+        }
+    }
+
+    private void RevokeDevice(SampleDevice device)
+    {
+        _deviceAsking = null;
+
+        if (device.Fails)
+        {
+            _deviceFailure = device.Id;
+            return;
+        }
+
+        _devices = [.. _devices.Where(candidate => candidate.Id != device.Id)];
+    }
+
+    private const string DeviceRowCode = """
+        <ul class="agent-list" aria-label="Your devices">
+            @foreach (var device in devices)
+            {
+                <AgentGrantRow @key="device.DeviceId"
+                               Name="@device.Name"
+                               AccessibleName="@spokenName"
+                               Meta="@meta"
+                               ShowScopes="false"
+                               CanEditScopes="false"
+                               CanRevoke="@pairedByThisDevice"
+                               Question="@($"Revoke {device.Name}? It can no longer sync your backlog.")"
+                               Confirming="@(asking == device.DeviceId)"
+                               ConfirmingChanged="on => Ask(device, on)"
+                               RevokeError="@failureOf(device)"
+                               OnRevoke="() => RevokeWithHelloAsync(device)" />
+            }
+        </ul>
+        """;
+
+    private const string DisabledRevokeCode = """
+        <AgentGrantRow Name="@device.Name"
+                       AccessibleName="@spokenName"
+                       Meta="@meta"
+                       ShowScopes="false"
+                       CanEditScopes="false"
+                       CanRevoke="@pairedByThisDevice"
+                       RevokeDisabled="@revoking"
+                       OnRevoke="() => RevokeWithHelloAsync(device)" />
         """;
 
     private void FlipSample(AgentScopeChange change) =>

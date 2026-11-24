@@ -29,7 +29,7 @@ public sealed class GrantToolsTests
         {
             Assert.Contains(tool, BacklogMcpTools.ToolNames);
             Assert.Equal(McpScopes.AgentsGrant, McpToolScopes.ScopeOf(tool));
-            Assert.DoesNotContain(tool, McpToolScopes.AnyCaller);
+            Assert.DoesNotContain(tool, McpToolScopes.RequesterTools);
         });
     }
 

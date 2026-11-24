@@ -25,8 +25,7 @@ public class RoadmapPlanAliasMoveTests
             BandColours.Of(colours.Select(c => new KeyValuePair<string, int>(c.Alias, c.Colour))));
 
     private static RoadmapItem ItemUnder(RoadmapPlan plan, params string[] aliases) =>
-        Assert.IsType<Ok<RoadmapItem>>(
-            plan.AddItem("Ship the sync", PlannedWindow.Of(Day(2), Day(6)), scope: RepositoryScope.Of(aliases)).Value).Value;
+        Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Ship the sync", PlannedWindow.Of(Day(2), Day(6)), scope: RepositoryScope.Of(aliases)).Value).Value;
 
     private static Milestone MilestoneUnder(RoadmapPlan plan, params string[] aliases) =>
         Assert.IsType<Ok<Milestone>>(plan.AddMilestone("Release", Day(9), scope: RepositoryScope.Of(aliases)).Value).Value;

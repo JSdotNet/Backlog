@@ -216,8 +216,39 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
     public async Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         await CountOwnedBy(ownerId, cancellationToken).ConfigureAwait(false) > 0;
 
+    /// <summary>A cross-partition query for one id of a device under any other owner,
+    /// <c>TOP 1</c> so it stops at the first. Run only by a signed-in enrolment on a
+    /// service with no pinned owner, a handful of times a year.</summary>
+    public async Task<bool> AnyOutside(OwnerId ownerId, CancellationToken cancellationToken = default)
+    {
+        // A document with no ownerId compares as undefined and is not counted: it is
+        // not one this service wrote.
+        var query = new QueryDefinition("SELECT TOP 1 VALUE c.id FROM c WHERE c.ownerId != @owner")
+            .WithParameter("@owner", ReplicaDocumentSerialization.Key(ownerId.Value));
+
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var results = container.GetItemQueryIterator<string>(query);
+
+        try
+        {
+            while (results.HasMoreResults)
+            {
+                if ((await results.ReadNextAsync(cancellationToken).ConfigureAwait(false)).Count > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (CosmosException failure)
+        {
+            throw Fault(failure);
+        }
+    }
+
     /// <summary>
-    /// The one query in this adapter, and it crosses partitions on purpose —
+    /// The count query, and it crosses partitions on purpose —
     /// see <see cref="DeviceDocument"/>. One query rather than a count and an
     /// exists apiece: the count is what both callers actually want, and a
     /// separate <c>EXISTS</c> would save nothing on a result set bounded by how

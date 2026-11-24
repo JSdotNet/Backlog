@@ -1,8 +1,9 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Thirteen skills: one for each direction of a plan,
-one for running a whole plan, one for checking it once it has run, one for closing the entries
+general-purpose or devbook tooling. Fourteen skills: one for each direction of a plan,
+one for running a whole plan, one for checking it once it has run, one for bringing a
+long-running session's work level with its base branch, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
 remarks a person leaves while reading, one that dispatches the session requests the app
 queues, one that tends a person's Brain, one that runs the weekly review, one that reports what
@@ -111,6 +112,21 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   to fix; on a yes it fixes them in that same session as one run of the repository's gate, on a
   branch cut from the tip. User-invoked only; until that yes it edits and commits nothing, and it
   never transitions an entry.
+- **`catch-up`** — brings a session that has already produced work level with its base branch,
+  for the ask "update the branch and see if the artifacts need further updates". It fetches and
+  merges the base — through the host's own sync-with-base tool in a worktree session, by
+  fast-forward on a plain checkout with no commits of its own — and never switches a folder that
+  has become the main checkout, which happens once the session's worktree is removed. Then it
+  reads what landed since the session's old merge base — decision records, domain chapters, the
+  code areas the outputs name, pull requests covering the same ground — and re-checks each output
+  against it: a published artifact is read back by URL, edited where stale and republished to the
+  same URL (also the way back to a source the scratch directory lost); an `import-plan` plan is
+  updated against the current template with every `id:` and its `+tag` kept and its review view
+  republished to the same link; the branch's diff is checked for duplicates of or contradictions
+  with what landed; an open pull request for conflicts, checks and a description that no longer
+  matches. It reports one table: what moved, the output it touches, what changed or why nothing
+  did. Model- or user-invoked; it is no flow, and any repository change it makes runs through the
+  repository's gate.
 - **`close-merged`** — moves to Done every entry whose pull request has merged into the
   default branch or a plan integration branch: the merges `run-plan-item` and `execute-plan` did
   not see, made on GitHub's own page or after the session ended. It lists the repository's
@@ -318,8 +334,8 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   and is no flow. `tests/track-goals-tools.test.mjs` holds every tool it names to a tool the
   server has.
 
-`import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `close-merged`,
-`handle-remarks`, `tend-brain`, `weekly-review` and `track-goals` open what they hand back with
+`import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `catch-up`,
+`close-merged`, `handle-remarks`, `tend-brain`, `weekly-review` and `track-goals` open what they hand back with
 the `show-me` skill's orientation card when it has one, and read as before without it. `devbook-sweep` and
 `dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
 those three skip it.
@@ -337,7 +353,7 @@ in only under `/loop`, so a one-off tick never reads as a loop. `track-goals` do
 yet: `check_in` accepts no kind for it. `tests/loop-skills.test.mjs`
 holds every `/loop`-started skill to all of it, and to the 40-line body budget.
 
-`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Eleven
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Twelve
 skills point to it from their report step — `track-goals` except for its `weekly` report, which a
 stakeholder reads in full sentences; `devbook-sweep` and `dispatch-sessions` run with nobody
 present, so they do not.

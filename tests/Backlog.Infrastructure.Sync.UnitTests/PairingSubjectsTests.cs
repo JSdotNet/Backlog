@@ -270,6 +270,89 @@ public sealed class PairingSubjectsTests
         Assert.True(pairings.IsOpen(id));
     }
 
+    /// <summary>
+    /// A Refuse the person did not confirm with Windows Hello — cancelled, unavailable, or left
+    /// until the prompt expired — revokes nothing: the device stays paired, the answer is
+    /// consumed rather than replayed (which would ask again on every start), the pairing ends,
+    /// and an alert names the device and asks the person to refuse it again from Settings →
+    /// Devices.
+    /// </summary>
+    [Theory]
+    [InlineData(DeviceStepUp.DeclinedCode, "The device was not refused: Windows Hello was cancelled.")]
+    [InlineData(DeviceStepUp.UnavailableCode, "The device was not refused: it needs Windows Hello, and Windows Hello is not available on this PC.")]
+    [InlineData(DeviceStepUp.ExpiredCode, "The device was not refused: Windows Hello was not confirmed within 2 minutes.")]
+    public async Task A_refusal_not_confirmed_keeps_the_device_and_asks_to_refuse_it_again(string code, string reason)
+    {
+        using var pairings = Pairings();
+        var id = pairings.Issued(new PairingCodeResponse("K7MN9PQR", Nine.AddMinutes(10)));
+        await pairings.RedeemedAsync(id, Phone, "Pixel 8");
+        var answers = new PairingAnswers(pairings, () => _roster);
+        _roster.RefuseResult = Result.Failure(Error.Validation(code, reason));
+
+        await answers.HandleAnswerAsync(Answer(id, Phone, "refuse"), TestContext.Current.CancellationToken);
+        await pairings.LastEnd;
+
+        Assert.False(pairings.IsOpen(id));
+        Assert.Single(_notifications.Closed);
+
+        var alert = Assert.Single(_notifications.Published, published => published.Draft.Kind == NotificationKind.Alert).Draft;
+        Assert.Null(alert.Subject);
+        Assert.Equal(NotificationSeverity.Warning, alert.Severity);
+        Assert.Equal("Pixel 8 was not refused", alert.Title);
+        Assert.Contains("still paired", alert.Summary, StringComparison.Ordinal);
+        Assert.Contains("Settings → Devices", alert.Summary, StringComparison.Ordinal);
+        Assert.Contains(reason, alert.BodyMarkdown, StringComparison.Ordinal);
+        Assert.Contains("**Revoke**", alert.BodyMarkdown, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Each step-up failure asks something different of the person, so the alert is worded by
+    /// its code. Cancelled: refuse again. Expired: a Windows Hello prompt still on screen does
+    /// nothing now. Unavailable: Revoke asks for Windows Hello as well, so it fails the same way
+    /// until Windows Hello is set up — the alert says to set it up first.
+    /// </summary>
+    [Theory]
+    [InlineData(DeviceStepUp.DeclinedCode, "Windows Hello was cancelled, so it is still paired", "To refuse it again, open **Settings → Devices**")]
+    [InlineData(DeviceStepUp.ExpiredCode, "Windows Hello was not confirmed in time, so it is still paired", "A Windows Hello prompt still on screen from this refusal has no effect now")]
+    [InlineData(DeviceStepUp.UnavailableCode, "Windows Hello is not set up on this PC, so it is still paired. Set up Windows Hello", "Revoke asks for Windows Hello too, so it fails the same way until Windows Hello is set up. Set it up first")]
+    public async Task The_not_refused_alert_is_worded_by_why_Windows_Hello_did_not_confirm(string code, string summary, string nextStep)
+    {
+        using var pairings = Pairings();
+        var id = pairings.Issued(new PairingCodeResponse("K7MN9PQR", Nine.AddMinutes(10)));
+        await pairings.RedeemedAsync(id, Phone, "Pixel 8");
+        var answers = new PairingAnswers(pairings, () => _roster);
+        _roster.RefuseResult = Result.Failure(Error.Validation(code, "The device was not refused."));
+
+        await answers.HandleAnswerAsync(Answer(id, Phone, "refuse"), TestContext.Current.CancellationToken);
+
+        var alert = Assert.Single(_notifications.Published, published => published.Draft.Kind == NotificationKind.Alert).Draft;
+        Assert.StartsWith(summary, alert.Summary, StringComparison.Ordinal);
+        Assert.Contains(nextStep, alert.BodyMarkdown, StringComparison.Ordinal);
+
+        string[] others =
+        [
+            "To refuse it again",
+            "has no effect now",
+            "until Windows Hello is set up",
+        ];
+        Assert.Single(others, other => alert.BodyMarkdown.Contains(other, StringComparison.Ordinal));
+    }
+
+    /// <summary>After a restart nothing in memory has the device's name, so the alert reads it
+    /// off the device list, and says "A device" when the list cannot be read.</summary>
+    [Fact]
+    public async Task A_refusal_not_confirmed_after_a_restart_names_the_device_from_the_list()
+    {
+        using var pairings = Pairings();
+        var answers = new PairingAnswers(pairings, () => _roster);
+        _roster.Devices.Add(new DeviceSummary(Phone, "Pixel 8", Nine.AddMinutes(1), ThisDesktop));
+        _roster.RefuseResult = Result.Failure(Error.Validation(DeviceStepUp.DeclinedCode, "The device was not refused: Windows Hello was cancelled."));
+
+        await answers.HandleAnswerAsync(Answer(Guid.NewGuid(), Phone, "refuse"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Pixel 8 was not refused", Assert.Single(_notifications.Published).Draft.Title);
+    }
+
     [Fact]
     public async Task The_pairing_client_lists_and_revokes_devices_on_the_sync_service()
     {
@@ -327,7 +410,11 @@ public sealed class PairingSubjectsTests
             return Task.FromResult(RevokeResult);
         }
 
+        /// <summary>What a refusal answers when set; otherwise it revokes as
+        /// <see cref="RevokeDeviceAsync"/> does.</summary>
+        public Result? RefuseResult { get; set; }
+
         public Task<Result> RefuseDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
-            RevokeDeviceAsync(deviceId, cancellationToken);
+            RefuseResult is { } refused ? Task.FromResult(refused) : RevokeDeviceAsync(deviceId, cancellationToken);
     }
 }

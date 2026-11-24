@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Cosmos.AssertionReplays;
 using Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 using Backlog.Infrastructure.Cosmos.Devices;
 using Backlog.Infrastructure.Cosmos.Extensions;
@@ -151,6 +152,36 @@ public class CosmosReplicaRegistrationTests
         Assert.IsType<CosmosConnectorClientStore>(provider.GetRequiredService<IConnectorClientStore>());
         Assert.IsType<CosmosConnectorRefreshTokenStore>(provider.GetRequiredService<IConnectorRefreshTokenStore>());
         Assert.IsType<InMemoryConnectorAuthorizationStore>(provider.GetRequiredService<IConnectorAuthorizationStore>());
+    }
+
+    /// <summary>Spent assertion ids must be shared by every instance of the service,
+    /// a second revision during a deploy included, and survive a restart (local ADR
+    /// 0058 §2), so with Cosmos configured the module's in-memory cache yields.</summary>
+    [Fact]
+    public void With_cosmos_configured_the_module_yields_its_assertion_replay_cache()
+    {
+        var builder = Builder(Environments.Production);
+        builder.Configuration["Sync:Cosmos:AccountEndpoint"] = UnreachableAccount;
+
+        builder.AddCosmosReplicas();
+        builder.Services.AddSyncModule();
+
+        using var provider = builder.Services.BuildServiceProvider();
+
+        Assert.IsType<CosmosAssertionReplayCache>(provider.GetRequiredService<IAssertionReplayCache>());
+    }
+
+    [Fact]
+    public void A_development_run_with_no_cosmos_keeps_the_in_memory_assertion_replay_cache()
+    {
+        var builder = Builder(Environments.Development);
+
+        builder.AddCosmosReplicas();
+        builder.Services.AddSyncModule();
+
+        using var provider = builder.Services.BuildServiceProvider();
+
+        Assert.IsType<InMemoryAssertionReplayCache>(provider.GetRequiredService<IAssertionReplayCache>());
     }
 
     [Fact]
