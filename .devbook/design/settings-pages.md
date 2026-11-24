@@ -305,7 +305,9 @@ Rules:
   account this machine is signed in as.*
 - The Agents card bends the editor rule: its editor is the agent's switches alone,
   with no title of its own, and Revoke stays in the row's actions. A row's whole
-  editor is one set of switches, and the row already names the agent.
+  editor is one set of switches, and the row already names the agent. The built-in
+  Unauthenticated row, last on the card, has no Revoke: it holds no token, and
+  switching every scope off closes it (local ADR 0059).
 - A destructive act on a row MUST be confirmed in place, in the row's own actions:
   the sentence says what happens, then the act again and Keep. The Agents card's
   Revoke asks *Revoke <name>? Its sessions lose access now.* No dialog opens.

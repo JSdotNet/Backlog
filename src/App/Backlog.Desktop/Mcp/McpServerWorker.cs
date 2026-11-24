@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Claims;
 
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
@@ -895,7 +896,21 @@ public sealed class McpServerWorker : IDisposable
             if (grant.Principal is not null) credential = McpCredential.Grant;
         }
 
-        if (credential == McpCredential.None)
+        // No Authorization header at all, and the person opened the Unauthenticated row: the
+        // call is admitted under the row's scopes, read per request so opening or closing it
+        // needs no restart (local ADR 0059 §3). Only a missing header qualifies — a header that
+        // is present but bad stays a 401 below, so the headersHelper mints again, and is never
+        // downgraded to these scopes.
+        ClaimsPrincipal? principal = null;
+
+        if (credential == McpCredential.None
+            && authorization.Count == 0
+            && _settings.McpServerUnauthenticatedScopes is { Count: > 0 } opened)
+        {
+            principal = McpScopePolicies.Unauthenticated(opened);
+        }
+
+        if (credential == McpCredential.None && principal is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.Headers.WWWAuthenticate = "Bearer";
@@ -942,10 +957,11 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
-        // Who the call is: a grant's own principal, or the fixed one of the static token it
-        // matched. The route's named policy is asked of it here, and each tool's by the call
-        // filter after it; the audit names its caller (local ADR 0058 §3, §4).
-        var principal = credential switch
+        // Who the call is: the tokenless caller admitted above, a grant's own principal, or the
+        // fixed one of the static token it matched. The route's named policy is asked of it
+        // here, and each tool's by the call filter after it; the audit names its caller (local
+        // ADR 0058 §3, §4).
+        principal ??= credential switch
         {
             McpCredential.Grant => grant!.Principal!,
             McpCredential.Mcp => McpScopePolicies.SharedTokenCaller,

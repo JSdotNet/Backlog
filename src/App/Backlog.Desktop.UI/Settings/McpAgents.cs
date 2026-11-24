@@ -68,6 +68,48 @@ public static class McpAgents
     public static IReadOnlyList<AgentScopeOption> Scopes { get; } =
         [.. McpScopes.All.Select(name => new AgentScopeOption(name, Descriptions[name], Locked.Contains(name, StringComparer.Ordinal)))];
 
+    /// <summary>The built-in row a call with no token is judged by (local ADR 0059 §1).</summary>
+    public const string UnauthenticatedName = "Unauthenticated";
+
+    /// <summary>The Unauthenticated row's line: what it is, and how it is closed, since it has
+    /// no Revoke.</summary>
+    public const string UnauthenticatedMeta = "Built in · what a call with no token gets · switch every scope off to close it";
+
+    /// <summary>The Unauthenticated row's switches (local ADR 0059 §2): every scope in
+    /// <see cref="McpScopes.All"/>'s order, with <see cref="McpScopes.NeverUnauthenticated"/>
+    /// drawn locked so the boundary shows.</summary>
+    public static IReadOnlyList<AgentScopeOption> UnauthenticatedScopes { get; } =
+        [.. Scopes.Select(option => McpScopes.IsUnauthenticatedOfferable(option.Name)
+            ? option with { Locked = false }
+            : option with { Locked = true, Description = UnauthenticatedLockedReason(option.Name) })];
+
+    /// <summary>Why <paramref name="scope"/> is never opened to calls with no token (local ADR
+    /// 0059 §2), shown on its locked switch in place of the agent-worded description.</summary>
+    public static string UnauthenticatedLockedReason(string scope) => scope switch
+    {
+        McpScopes.TasksAdmin => "Never without a token: deletes and bulk changes need a grant",
+        McpScopes.DevbookDecide => "Never without a token: approve and accept happen in the app",
+        McpScopes.UiOpen => "Never without a token: a pop-out link outlives the call",
+        McpScopes.SessionsDispatch => "Never without a token: only the Manager session",
+        McpScopes.TelemetryWrite => "Never without a token: only the telemetry hook",
+        McpScopes.AgentsGrant => "Never without a token: it would grant real access",
+        _ => "Never without a token",
+    };
+
+    /// <summary>What Windows Hello asks before <paramref name="scope"/> is opened to calls with
+    /// no token (local ADR 0059 §4).</summary>
+    public static string UnauthenticatedConsent(string scope) =>
+        $"Let calls with no token use {scope}?";
+
+    /// <summary>What the card says when Windows Hello did not confirm opening
+    /// <paramref name="scope"/>.</summary>
+    public static string UnauthenticatedNotConfirmed(string scope) =>
+        $"Windows Hello did not confirm it, so {scope} stays closed to calls with no token.";
+
+    /// <summary>What the card says where Windows Hello cannot ask, so nothing can be opened.</summary>
+    public static string UnauthenticatedHelloUnavailable(string scope) =>
+        $"Windows Hello is not available here, so {scope} cannot be opened to calls with no token.";
+
     /// <summary>The scopes drawn in the alert tone on a row: the ones that reach furthest.</summary>
     public static IReadOnlyList<string> Highlighted { get; } = [McpScopes.AgentsGrant, McpScopes.TasksAdmin];
 

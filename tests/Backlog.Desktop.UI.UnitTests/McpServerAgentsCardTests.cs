@@ -410,6 +410,173 @@ public sealed class McpServerAgentsCardTests
         Assert.Single(page.FindAll("[data-testid='mcp-server-agent']"));
     }
 
+    /// <summary>The Unauthenticated row (local ADR 0059 §1): last on the card, saying it is
+    /// what a call with no token gets, with Edit scopes and no Revoke - and it is no agent, so
+    /// the headline does not count it.</summary>
+    [Fact]
+    public void The_unauthenticated_row_comes_last_with_no_Revoke_and_is_not_counted_as_an_agent()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        var workspace = Workspace(temp);
+        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.TasksRead]));
+        var grants = new FakeGrantStore();
+        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        context.Services.AddSingleton(workspace);
+
+        var frame = context.Render<SettingsFrame>(parameters => parameters
+            .Add(f => f.Title, "MCP server")
+            .AddChildContent<McpServerSettingsPage>());
+
+        Assert.Equal("1 agent can reach Backlog.", frame.Find("[data-testid='settings-headline']").TextContent.Trim());
+        // Last on the card: the last row drawn is the Unauthenticated one.
+        Assert.Equal(
+            ["Backlog delivery", McpAgents.UnauthenticatedName],
+            frame.FindAll("[data-testid='agent-row-name']").Select(name => name.TextContent.Trim()));
+        Assert.Equal(
+            "mcp-server-agent-unauthenticated",
+            frame.FindAll("[data-testid='agent-row-name']")[^1].Closest("li")!.GetAttribute("data-testid"));
+
+        var row = frame.Find("[data-testid='mcp-server-agent-unauthenticated']");
+        Assert.Equal(McpAgents.UnauthenticatedMeta, row.QuerySelector("[data-testid='agent-row-meta']")!.TextContent.Trim());
+        Assert.Equal(["tasks:read"], row.QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim()));
+        Assert.Null(row.QuerySelector("[data-testid='agent-row-revoke']"));
+        Assert.NotNull(row.QuerySelector("[data-testid='agent-row-edit']"));
+    }
+
+    /// <summary>With no agent at all the card still says so - the row is no agent - and still
+    /// draws the row under the sentence.</summary>
+    [Fact]
+    public void With_no_agent_the_card_says_so_and_still_draws_the_unauthenticated_row()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(Workspace(temp));
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Contains("No agent yet.", Text(page, "mcp-server-agents-none"), StringComparison.Ordinal);
+        var row = page.Find("[data-testid='mcp-server-agent-unauthenticated']");
+        Assert.Equal(["no scopes"], row.QuerySelectorAll(".badge").Select(chip => chip.TextContent.Trim()));
+    }
+
+    /// <summary>A host that keeps no grants - the web harness - shows no Unauthenticated row
+    /// (local ADR 0059 §5).</summary>
+    [Fact]
+    public void A_host_that_keeps_no_grants_draws_no_unauthenticated_row()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        using var context = Context(new FakeMcpServer { IsListening = true });
+        context.Services.AddSingleton(Workspace(temp));
+
+        var page = context.Render<McpServerSettingsPage>();
+
+        Assert.Empty(page.FindAll("[data-testid='mcp-server-agent-unauthenticated']"));
+    }
+
+    /// <summary>Its switches draw every scope, the six it never offers locked and the rest -
+    /// inbox:capture among them - switchable (local ADR 0059 §2).</summary>
+    [Fact]
+    public void The_unauthenticated_switches_lock_the_six_and_offer_the_rest_inbox_capture_included()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(Workspace(temp));
+        var page = context.Render<McpServerSettingsPage>();
+
+        page.Find("[data-testid='mcp-server-agent-unauthenticated'] [data-testid='agent-row-edit']").Click();
+
+        var drawn = page.FindAll("[data-testid='mcp-server-unauthenticated-scopes'] [data-scope]").Select(toggle => toggle.GetAttribute("data-scope")!).ToList();
+        Assert.Equal(McpScopes.All, drawn);
+        Assert.False(Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.InboxCapture).HasAttribute("disabled"));
+
+        foreach (var locked in McpScopes.NeverUnauthenticated)
+        {
+            Assert.True(Switch(page, "mcp-server-unauthenticated-scopes", locked).HasAttribute("disabled"), locked);
+        }
+
+        foreach (var offered in McpScopes.UnauthenticatedOfferable)
+        {
+            Assert.False(Switch(page, "mcp-server-unauthenticated-scopes", offered).HasAttribute("disabled"), offered);
+        }
+    }
+
+    /// <summary>Switching a scope on asks Windows Hello first and stores it only on a yes; a
+    /// cancelled or unavailable prompt leaves the row as it was. Switching one off asks
+    /// nothing (local ADR 0059 §4).</summary>
+    [Theory]
+    [InlineData(UserConsentOutcome.Verified, true)]
+    [InlineData(UserConsentOutcome.Declined, false)]
+    [InlineData(UserConsentOutcome.NotAvailable, false)]
+    public void Opening_an_unauthenticated_scope_asks_Windows_Hello_and_closing_one_does_not(UserConsentOutcome answer, bool opened)
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        var workspace = Workspace(temp);
+        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.TasksRead]));
+        var consent = new FakeConsent { Answer = answer };
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(workspace);
+        context.Services.AddSingleton<IUserConsent>(consent);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='mcp-server-agent-unauthenticated'] [data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.DevbookRead).Click();
+
+        Assert.Equal([McpAgents.UnauthenticatedConsent(McpScopes.DevbookRead)], consent.Asked);
+        Assert.Equal(
+            opened ? [McpScopes.TasksRead, McpScopes.DevbookRead] : [McpScopes.TasksRead],
+            workspace.McpServerUnauthenticatedScopes);
+        Assert.Equal(opened ? "true" : "false", Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.DevbookRead).GetAttribute("aria-checked"));
+        if (!opened) Assert.NotEmpty(page.FindAll("[data-testid='mcp-server-agents-error']"));
+
+        // Closing one asks nothing and stores at once.
+        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.TasksRead).Click();
+
+        Assert.Single(consent.Asked);
+        Assert.DoesNotContain(McpScopes.TasksRead, workspace.McpServerUnauthenticatedScopes);
+    }
+
+    /// <summary>inbox:capture opens like any offered scope: Windows Hello first, then stored.</summary>
+    [Fact]
+    public void Opening_inbox_capture_to_calls_with_no_token_asks_Windows_Hello_and_stores_it()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        var workspace = Workspace(temp);
+        var consent = new FakeConsent { Answer = UserConsentOutcome.Verified };
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(workspace);
+        context.Services.AddSingleton<IUserConsent>(consent);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='mcp-server-agent-unauthenticated'] [data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.InboxCapture).Click();
+
+        Assert.Equal([McpAgents.UnauthenticatedConsent(McpScopes.InboxCapture)], consent.Asked);
+        Assert.Equal([McpScopes.InboxCapture], workspace.McpServerUnauthenticatedScopes);
+    }
+
+    /// <summary>The card follows the row when it changes from outside the page - another
+    /// window, a test - since the workspace settings announce it.</summary>
+    [Fact]
+    public async Task The_unauthenticated_row_follows_a_change_made_elsewhere()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        var workspace = Workspace(temp);
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(workspace);
+        var page = context.Render<McpServerSettingsPage>();
+
+        await Task.Run(() => workspace.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk]), TestContext.Current.CancellationToken);
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ["notify:ask"],
+            page.Find("[data-testid='mcp-server-agent-unauthenticated']").QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim())));
+    }
+
+    /// <summary>The workspace settings over a test's own folder.</summary>
+    private static Backlog.Infrastructure.FileSystem.WorkspaceSettingsStore Workspace(TemporaryDirectory temp) =>
+        new(temp.Path, Path.Combine(temp.Path, "settings.json"));
+
     [Fact]
     public void No_agent_yet_says_so_in_a_sentence()
     {

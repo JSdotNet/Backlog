@@ -126,10 +126,14 @@ public static class McpScopePolicies
         return Fallback;
     }
 
-    /// <summary>Whether <paramref name="user"/> may call <paramref name="toolName"/>.</summary>
+    /// <summary>Whether <paramref name="user"/> may call <paramref name="toolName"/>. A tool
+    /// <see cref="McpToolScopes.AnyCaller"/> names - <c>request_access</c> - is refused to the
+    /// tokenless caller of local ADR 0059: it asks on behalf of a grant, and that caller has none.</summary>
     public static async Task<bool> AuthorizeToolAsync(IAuthorizationService authorization, ClaimsPrincipal? user, string? toolName)
     {
         ArgumentNullException.ThrowIfNull(authorization);
+
+        if (NeedsGrantToken(user, toolName)) return false;
 
         var result = await authorization.AuthorizeAsync(user ?? Anonymous(), ToolPolicy(toolName)).ConfigureAwait(false);
         return result.Succeeded;
@@ -182,6 +186,24 @@ public static class McpScopePolicies
             StaticAuthenticationType));
     }
 
+    /// <summary>The principal the listener admits a call with no <c>Authorization</c> header as
+    /// (local ADR 0059 §3): <see cref="McpAudit.UnauthenticatedCaller"/>, holding the row's
+    /// <paramref name="scopes"/> that the row may offer and nothing else.</summary>
+    public static ClaimsPrincipal Unauthenticated(IEnumerable<string> scopes)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        return Static(McpAudit.UnauthenticatedCaller, scopes.Where(McpScopes.IsUnauthenticatedOfferable));
+    }
+
+    /// <summary>Whether <paramref name="toolName"/> is one any grant may call that
+    /// <paramref name="user"/>, the tokenless caller, may not, for want of a grant token.</summary>
+    public static bool NeedsGrantToken(ClaimsPrincipal? user, string? toolName) =>
+        toolName is not null && McpToolScopes.AnyCaller.Contains(toolName) && IsUnauthenticated(user);
+
+    /// <summary>Whether <paramref name="user"/> is the tokenless caller of local ADR 0059.</summary>
+    public static bool IsUnauthenticated(ClaimsPrincipal? user) =>
+        string.Equals(CallerOf(user), McpAudit.UnauthenticatedCaller, StringComparison.Ordinal);
+
     private static ClaimsPrincipal Anonymous() => new(new ClaimsIdentity());
 
     /// <summary>The requirement one scope's policy adds.</summary>
@@ -194,11 +216,18 @@ public static class McpScopePolicies
     internal sealed class DenyRequirement : IAuthorizationRequirement;
 
     /// <summary>Meets a <see cref="ScopeRequirement"/> when the principal holds the scope, and
-    /// never one for <see cref="McpScopes.DevbookDecide"/>, whatever a token claims.</summary>
+    /// never one for <see cref="McpScopes.DevbookDecide"/>, whatever a token claims; nor, for
+    /// the tokenless caller, one the Unauthenticated row never offers (local ADR 0059 §2) —
+    /// the second guard behind <see cref="Unauthenticated"/>.</summary>
     internal sealed class ScopeHandler : AuthorizationHandler<ScopeRequirement>
     {
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ScopeRequirement requirement)
         {
+            if (IsUnauthenticated(context.User) && !McpScopes.IsUnauthenticatedOfferable(requirement.Scope))
+            {
+                return Task.CompletedTask;
+            }
+
             if (McpScopes.IsGrantable(requirement.Scope) && ScopesOf(context.User).Contains(requirement.Scope))
             {
                 context.Succeed(requirement);

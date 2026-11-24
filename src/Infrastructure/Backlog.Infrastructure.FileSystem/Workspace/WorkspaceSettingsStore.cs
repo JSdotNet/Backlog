@@ -5,6 +5,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Mcp;
 using Backlog.SharedKernel.Storage;
 using Microsoft.Data.Sqlite;
 
@@ -118,6 +119,7 @@ public sealed class WorkspaceSettingsStore
         _retiredMcpTokenFields = (Clean(settings?.McpServer?.Token), Clean(settings?.McpServer?.HookToken), Clean(settings?.McpServer?.TelemetryToken));
         McpServerGrants = settings?.McpServer?.Grants?.ToGrants();
         McpServerAcceptsEnvironmentToken = settings?.McpServer?.AcceptEnvironmentToken == true;
+        McpServerUnauthenticatedScopes = OfferableUnauthenticated(settings?.McpServer?.UnauthenticatedScopes ?? []);
 
         // The legacy name is consulted only when the current one is absent, so a
         // file written before the context was renamed reads as the same choice
@@ -256,6 +258,16 @@ public sealed class WorkspaceSettingsStore
     /// <c>"mcpServer": { "acceptEnvironmentToken": true }</c>, which only a hand edit writes.
     /// </summary>
     public bool McpServerAcceptsEnvironmentToken { get; private set; }
+
+    /// <summary>
+    /// The Unauthenticated row's scopes (local ADR 0059 §1): what the loopback listener admits a
+    /// call with no <c>Authorization</c> header under. Empty until the person opens one, so a
+    /// fresh or upgraded install answers such a call with a bare 401. Never a grant, so the
+    /// broker can never mint a token for it. Only <see cref="McpScopes.UnauthenticatedOfferable"/>
+    /// is ever held here, in <see cref="McpScopes.All"/>'s order: a hand-edited scope the row
+    /// never offers is dropped on read.
+    /// </summary>
+    public IReadOnlyList<string> McpServerUnauthenticatedScopes { get; private set; } = [];
 
     /// <summary>The escape hatch's environment variable.</summary>
     public const string EnvironmentTokenVariable = "BACKLOG_MCP_TOKEN";
@@ -1031,6 +1043,42 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
+    /// Sets the Unauthenticated row's scopes (local ADR 0059 §1). A scope the row never offers —
+    /// one of <see cref="McpScopes.NeverUnauthenticated"/>, or one the app does not know — is
+    /// refused with a sentence and the row does not move. Otherwise the row moves even when the
+    /// write fails, as every setter here does, and <see cref="McpChanged"/> is raised.
+    /// <para>
+    /// <b>This method asks nobody.</b> Every widening opens a scope to any process on this
+    /// machine, so the caller must have asked for Windows Hello, and been answered yes, for each
+    /// scope it adds (local ADR 0059 §4) before calling this. Only the MCP server page's
+    /// Unauthenticated row calls it; narrowing needs no such check.
+    /// </para>
+    /// </summary>
+    public string? SetMcpServerUnauthenticatedScopes(IEnumerable<string> scopes)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+
+        var asked = scopes.ToList();
+        if (asked.FirstOrDefault(scope => !McpScopes.IsUnauthenticatedOfferable(scope)) is { } refused)
+        {
+            return $"A call with no token can't be given {refused}.";
+        }
+
+        McpServerUnauthenticatedScopes = OfferableUnauthenticated(asked);
+        var error = SaveSettings("Changed, but the choice couldn't be saved for next time.");
+        McpChanged?.Invoke();
+        return error;
+    }
+
+    /// <summary>The scopes of <paramref name="scopes"/> the Unauthenticated row offers, once each,
+    /// in <see cref="McpScopes.All"/>'s order.</summary>
+    private static IReadOnlyList<string> OfferableUnauthenticated(IEnumerable<string?> scopes)
+    {
+        var held = scopes.OfType<string>().ToHashSet(StringComparer.Ordinal);
+        return [.. McpScopes.UnauthenticatedOfferable.Where(held.Contains)];
+    }
+
+    /// <summary>
     /// Drops the retired shared tokens from <c>settings.json</c>, once what named them has been
     /// rewritten (local ADR 0058, Phase 1). Answers null, or the sentence saying the file still
     /// carries them, in which case they are kept so the next start can try again.
@@ -1146,7 +1194,7 @@ public sealed class WorkspaceSettingsStore
                 // recorded, no port chosen, no retired token - so a workspace that has
                 // never switched the MCP server on keeps producing the file it
                 // always did.
-                McpServer = StoreMcpServerSettings.From(McpServerPort, _retiredMcpTokenFields, McpServerGrants, McpServerAcceptsEnvironmentToken),
+                McpServer = StoreMcpServerSettings.From(McpServerPort, _retiredMcpTokenFields, McpServerGrants, McpServerAcceptsEnvironmentToken, McpServerUnauthenticatedScopes),
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
@@ -1363,6 +1411,11 @@ public sealed class WorkspaceSettingsStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? AcceptEnvironmentToken { get; init; }
 
+        /// <summary>The Unauthenticated row's scopes (local ADR 0059), written only while it
+        /// holds one. Scope names, not secrets.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyList<string?>? UnauthenticatedScopes { get; init; }
+
         /// <summary>The stored port as a port, or null when it does not read as
         /// one — a hand-edited file is a file like any other here, and a number
         /// outside the range <see cref="SetMcpServerPort"/> would have accepted
@@ -1372,14 +1425,15 @@ public sealed class WorkspaceSettingsStore
             Port is int port && port >= LowestAllowedMcpServerPort && port <= 65535 ? port : null;
 
         /// <summary>The row to write, or null when there is nothing yet to say: the default
-        /// port with no grants, no retired token and the escape hatch off, which is the state
-        /// every workspace starts in.</summary>
+        /// port with no grants, no retired token, the escape hatch off and the Unauthenticated
+        /// row closed, which is the state every workspace starts in.</summary>
         public static StoreMcpServerSettings? From(
             int port,
             (string? Token, string? Hook, string? Telemetry) retired,
             McpInstalledGrants? grants,
-            bool acceptEnvironmentToken) =>
-            retired == default && grants is null && !acceptEnvironmentToken && port == DefaultMcpServerPort
+            bool acceptEnvironmentToken,
+            IReadOnlyList<string> unauthenticatedScopes) =>
+            retired == default && grants is null && !acceptEnvironmentToken && port == DefaultMcpServerPort && unauthenticatedScopes.Count == 0
                 ? null
                 : new StoreMcpServerSettings
                 {
@@ -1388,7 +1442,8 @@ public sealed class WorkspaceSettingsStore
                     TelemetryToken = retired.Telemetry,
                     Port = port == DefaultMcpServerPort ? null : port,
                     Grants = grants is null ? null : new StoreMcpGrantIds { Delivery = grants.Delivery, QuestionHook = grants.QuestionHook, Telemetry = grants.Telemetry, Manager = grants.Manager },
-                    AcceptEnvironmentToken = acceptEnvironmentToken ? true : null
+                    AcceptEnvironmentToken = acceptEnvironmentToken ? true : null,
+                    UnauthenticatedScopes = unauthenticatedScopes.Count == 0 ? null : [.. unauthenticatedScopes]
                 };
     }
 

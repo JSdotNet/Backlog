@@ -46,6 +46,32 @@ An agent another agent granted sits indented under its granter, saying who grant
         </div>
     </Story>
 
+    <Story Name="The Unauthenticated row"
+           Description="The built-in row, last on the card: what a call that carries no token gets. It starts with no scopes, so such a call is refused until the person opens one. It holds no token, so it has no Revoke; switching every scope off closes it.
+
+Its switches draw the scopes it never offers locked - deleting, granting, dispatching sessions, deciding, the telemetry route and pop-out windows. Opening a scope asks for Windows Hello first; here it answers yes. Closing one asks nothing. It is no agent, so the card's count leaves it out."
+           Code="@UnauthenticatedCode">
+        <div class="sb-stack" data-testid="settings-agents-unauthenticated">
+            <SettingsCard Title="Agents" Description="Each agent reaches Backlog with a grant of its own.">
+                <ul class="agent-list" aria-label="Unauthenticated">
+                    <AgentGrantRow Name="Unauthenticated"
+                                   Meta="Built in · what a call with no token gets · switch every scope off to close it"
+                                   Scopes="@_unauthenticated"
+                                   CanRevoke="false"
+                                   Expanded="@_editingUnauthenticated"
+                                   EditorId="sb-agent-editor-unauthenticated"
+                                   OnEditScopes="() => _editingUnauthenticated = !_editingUnauthenticated">
+                        <AgentScopeSwitches Options="@UnauthenticatedOptions"
+                                            Selected="@_unauthenticated"
+                                            IdPrefix="sb-agent-unauthenticated"
+                                            AriaLabel="Scopes of Unauthenticated"
+                                            OnChanged="FlipUnauthenticated" />
+                    </AgentGrantRow>
+                </ul>
+            </SettingsCard>
+        </div>
+    </Story>
+
     <Story Name="Scope switches"
            Description="One switch per scope with the line saying what it opens. A locked scope is drawn disabled as the grant holds it: devbook:decide is a boundary no agent crosses, and a list that left it out would let a reader think it was forgotten. The switches flow into as many columns as the card has room for."
            Code="@SwitchesCode">
@@ -140,7 +166,7 @@ An agent another agent granted sits indented under its granter, saying who grant
         new("runs:write", "Report delivery runs"),
         new("inbox:capture", "Capture into your Inbox"),
         new("agents:grant", "Grant other agents a subset of its own scopes; Windows Hello to switch on"),
-        new("devbook:decide", "Never for an agent: approve and accept happen in the app", Locked: true)
+        new("devbook:decide", "Never without a token: approve and accept happen in the app", Locked: true)
     ];
 
     private static readonly IReadOnlyList<string> Highlighted = ["agents:grant", "tasks:admin"];
@@ -219,6 +245,45 @@ An agent another agent granted sits indented under its granter, saying who grant
         var scopes = change.On ? [.. agent.Scopes, change.Scope] : agent.Scopes.Where(scope => scope != change.Scope).ToList();
         _agents = [.. _agents.Select(candidate => candidate.Id == agent.Id ? candidate with { Scopes = scopes, Meta = "Role: Custom · added in Settings · last used 4 min ago" } : candidate)];
     }
+
+    private static readonly IReadOnlyList<AgentScopeOption> UnauthenticatedOptions =
+    [
+        new("tasks:read", "Find and read items, goals, the roadmap"),
+        new("tasks:write", "Create, comment, transition, block"),
+        new("tasks:admin", "Never without a token: deletes and bulk changes need a grant", Locked: true),
+        new("devbook:read", "Chapters, notes, states"),
+        new("devbook:write", "Post and resolve notes, set to draft"),
+        new("devbook:decide", "Never without a token: approve and accept happen in the app", Locked: true),
+        new("runs:write", "Report delivery runs"),
+        new("notify:ask", "Ask you a question, tell you something"),
+        new("ui:open", "Never without a token: a pop-out link outlives the call", Locked: true),
+        new("sessions:dispatch", "Never without a token: only the Manager session", Locked: true),
+        new("telemetry:write", "Never without a token: only the telemetry hook", Locked: true),
+        new("inbox:capture", "Capture into your Inbox"),
+        new("agents:grant", "Never without a token: it would grant real access", Locked: true)
+    ];
+
+    private List<string> _unauthenticated = [];
+
+    private bool _editingUnauthenticated;
+
+    private void FlipUnauthenticated(AgentScopeChange change) =>
+        _unauthenticated = change.On
+            ? [.. UnauthenticatedOptions.Select(option => option.Name).Where(scope => scope == change.Scope || _unauthenticated.Contains(scope))]
+            : [.. _unauthenticated.Where(scope => scope != change.Scope)];
+
+    private const string UnauthenticatedCode = """
+        <AgentGrantRow Name="Unauthenticated"
+                       Meta="@meta"
+                       Scopes="@opened"
+                       CanRevoke="false"
+                       Expanded="@editing"
+                       OnEditScopes="Toggle">
+            <AgentScopeSwitches Options="@offeredWithSixLocked"
+                                Selected="@opened"
+                                OnChanged="OpenWithHelloOrClose" />
+        </AgentGrantRow>
+        """;
 
     private void FlipSample(AgentScopeChange change) =>
         _selected = change.On ? [.. _selected, change.Scope] : [.. _selected.Where(scope => scope != change.Scope)];

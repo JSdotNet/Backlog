@@ -17,6 +17,11 @@ public static class McpAudit
     /// because it is not the installed app (local ADR 0058).</summary>
     public const string HarnessCaller = "web harness, no token";
 
+    /// <summary>The caller of a call the listener admits with no <c>Authorization</c> header,
+    /// under the scopes the person opened in the Unauthenticated row (local ADR 0059): nobody
+    /// it could name beyond that.</summary>
+    public const string UnauthenticatedCaller = "unauthenticated";
+
     /// <summary>The caller of a record the listener writes for requests that carried no
     /// valid bearer token: nobody it could name.</summary>
     public const string NoValidTokenCaller = "no valid token";

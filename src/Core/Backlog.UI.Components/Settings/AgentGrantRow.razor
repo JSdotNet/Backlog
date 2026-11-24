@@ -66,11 +66,14 @@
                     @(Expanded ? "Done" : "Edit scopes")
                 </AppButton>
             }
-            <DeleteButton Label="Revoke"
-                          ShowIcon="false"
-                          AriaLabel="@($"Revoke {Name}")"
-                          TestId="agent-row-revoke"
-                          OnClick="Ask" />
+            @if (CanRevoke)
+            {
+                <DeleteButton Label="Revoke"
+                              ShowIcon="false"
+                              AriaLabel="@($"Revoke {Name}")"
+                              TestId="agent-row-revoke"
+                              OnClick="Ask" />
+            }
         }
     </div>
 
@@ -112,6 +115,12 @@
     /// <summary>Whether the row offers Edit scopes.</summary>
     [Parameter]
     public bool CanEditScopes { get; set; } = true;
+
+    /// <summary>Whether the row offers Revoke. Off for a row that holds no token, so has
+    /// nothing to revoke - the Unauthenticated row (local ADR 0059 §1), which is closed by
+    /// switching its scopes off.</summary>
+    [Parameter]
+    public bool CanRevoke { get; set; } = true;
 
     /// <summary>Whether the switches are open under the row.</summary>
     [Parameter]

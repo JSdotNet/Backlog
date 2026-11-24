@@ -158,6 +158,9 @@ public static class BacklogMcpServerRegistration
             // After the gates, so a switched-off tool is unknown whatever the caller holds,
             // and before the argument check, so a call no scope admits reads nothing.
             .WithRequestFilters(filters => filters.AddCallToolFilter(ApplyScopePolicy))
+            // The tokenless caller's list alone, after the gates: it names only what the
+            // Unauthenticated row's scopes reach (local ADR 0059 §3).
+            .WithRequestFilters(filters => filters.AddListToolsFilter(ListOnlyWhatTheUnauthenticatedCallerReaches))
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => (request, cancellationToken) =>
             {
                 if (request.Services?.GetService<McpCallContext>() is { } call) call.User = request.User;
@@ -234,7 +237,9 @@ public static class BacklogMcpServerRegistration
     /// host put on the HTTP request — a grant's, a static token's, or the harness's.
     /// <para>
     /// <b>The tool list is left alone.</b> A scope decides who may call a listed tool; what
-    /// is listed is the feature flags' (§4, ADR 0012 §7), and those filters run first.
+    /// is listed is the feature flags' (§4, ADR 0012 §7), and those filters run first. The
+    /// tokenless caller of local ADR 0059 is the one exception, filtered by
+    /// <see cref="ListOnlyWhatTheUnauthenticatedCallerReaches"/>.
     /// </para>
     /// </summary>
     private static McpRequestHandler<CallToolRequestParams, CallToolResult> ApplyScopePolicy(
@@ -252,12 +257,41 @@ public static class BacklogMcpServerRegistration
                 // grant, and a refusal is not where to list it.
                 var scope = McpToolScopes.ScopeOf(name);
 
-                throw new McpException(scope is null
-                    ? $"The tool '{name}' is served under no scope, so no grant may call it."
-                    : $"The tool '{name}' needs the scope '{scope}', which this caller does not hold.");
+                throw new McpException(
+                    McpScopePolicies.NeedsGrantToken(request.User, name)
+                        ? $"The tool '{name}' needs a grant token, which a call with no token does not carry."
+                        : scope is null
+                            ? $"The tool '{name}' is served under no scope, so no grant may call it."
+                            : $"The tool '{name}' needs the scope '{scope}', which this caller does not hold.");
             }
 
             return await next(request, cancellationToken).ConfigureAwait(false);
+        };
+
+    /// <summary>
+    /// The one exception to "the tool list is left alone" (local ADR 0059 §3): a call the
+    /// listener admitted with no token lists only the tools whose scope the Unauthenticated row
+    /// holds, and never <c>request_access</c>, which asks on behalf of a grant it does not have.
+    /// A grant, the escape hatch and the harness's caller list as before — what they list is
+    /// the feature flags' alone.
+    /// </summary>
+    private static McpRequestHandler<ListToolsRequestParams, ListToolsResult> ListOnlyWhatTheUnauthenticatedCallerReaches(
+        McpRequestHandler<ListToolsRequestParams, ListToolsResult> next) => async (request, cancellationToken) =>
+        {
+            var result = await next(request, cancellationToken).ConfigureAwait(false);
+
+            if (McpScopePolicies.IsUnauthenticated(request.User))
+            {
+                var held = McpScopePolicies.ScopesOf(request.User);
+
+                result.Tools = [.. result.Tools.Where(tool =>
+                    !McpToolScopes.AnyCaller.Contains(tool.Name)
+                    && McpToolScopes.ScopeOf(tool.Name) is { } scope
+                    && McpScopes.IsUnauthenticatedOfferable(scope)
+                    && held.Contains(scope))];
+            }
+
+            return result;
         };
 
     /// <summary>The feature switches for this request, out of the request's own

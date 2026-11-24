@@ -60,6 +60,21 @@ public sealed class AgentComponentsTests
         Assert.Empty(row.FindAll("[data-testid='agent-row-revoke-question']"));
     }
 
+    /// <summary>A row that holds no token - the Unauthenticated row of local ADR 0059 - has
+    /// nothing to revoke: no Revoke, while Edit scopes stays.</summary>
+    [Fact]
+    public void A_row_that_cannot_be_revoked_draws_no_Revoke_and_keeps_Edit_scopes()
+    {
+        using var context = new BunitContext();
+
+        var row = context.Render<AgentGrantRow>(parameters => parameters
+            .Add(r => r.Name, "Unauthenticated")
+            .Add(r => r.CanRevoke, false));
+
+        Assert.Empty(row.FindAll("[data-testid='agent-row-revoke']"));
+        Assert.Single(row.FindAll("[data-testid='agent-row-edit']"));
+    }
+
     [Fact]
     public void Edit_scopes_names_the_editor_it_opens_and_draws_it_under_the_row_only_while_open()
     {
