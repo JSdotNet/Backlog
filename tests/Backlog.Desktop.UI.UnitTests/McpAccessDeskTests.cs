@@ -24,7 +24,7 @@ public sealed class McpAccessDeskTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 12, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-access-desk-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-access-desk-tests");
     private readonly FakeTimeProvider _clock = new(Now);
     private readonly FileMcpGrantStore _grants;
     private readonly FileMcpAccessRequestStore _requests;
@@ -36,8 +36,8 @@ public sealed class McpAccessDeskTests : IDisposable
 
     public McpAccessDeskTests()
     {
-        _grants = new FileMcpGrantStore(Path.Combine(_root, FileMcpGrantStore.FileName), _clock);
-        _requests = new FileMcpAccessRequestStore(Path.Combine(_root, FileMcpAccessRequestStore.FileName), _clock);
+        _grants = new FileMcpGrantStore(_root.Combine(FileMcpGrantStore.FileName), _clock);
+        _requests = new FileMcpAccessRequestStore(_root.Combine(FileMcpAccessRequestStore.FileName), _clock);
         _tokens = new McpGrantTokens(_grants, _clock, _requests);
         _desk = new McpAccessDesk(_grants, _requests, _consent, _clock, _windows, _notifications);
     }
@@ -289,13 +289,13 @@ public sealed class McpAccessDeskTests : IDisposable
     public async Task Show_opens_the_window_of_the_grant_s_waiting_request_and_changes_nothing()
     {
         var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
-        var before = File.ReadAllText(Path.Combine(_root, FileMcpAccessRequestStore.FileName));
+        var before = File.ReadAllText(_root.Combine(FileMcpAccessRequestStore.FileName));
 
         var shown = await _desk.ShowAsync(registered.Grant!.Id);
 
         Assert.True(shown.WindowOpened);
         Assert.Equal([registered.Request!.Id], _windows.Shown);
-        Assert.Equal(before, File.ReadAllText(Path.Combine(_root, FileMcpAccessRequestStore.FileName)));
+        Assert.Equal(before, File.ReadAllText(_root.Combine(FileMcpAccessRequestStore.FileName)));
         Assert.Equal(McpAccessRefusals.NoRequest, (await _desk.ShowAsync("g_nothingwaitshere")).Refusal);
     }
 
@@ -338,7 +338,7 @@ public sealed class McpAccessDeskTests : IDisposable
     public async Task A_self_registered_grant_stays_pending_when_its_requests_are_lost()
     {
         var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
-        File.Delete(Path.Combine(_root, FileMcpAccessRequestStore.FileName));
+        File.Delete(_root.Combine(FileMcpAccessRequestStore.FileName));
 
         Assert.Equal(McpGrantRefusal.Pending, _tokens.Mint(registered.Grant!.Id).Refusal);
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", registered.Grant.Id)], McpGrantTokens.AuthenticationType));
@@ -348,8 +348,7 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task A_registration_whose_request_cannot_be_written_is_refused_and_leaves_no_working_grant()
     {
-        Directory.CreateDirectory(_root);
-        File.WriteAllText(Path.Combine(_root, FileMcpAccessRequestStore.FileName), "{ not json");
+        File.WriteAllText(_root.Combine(FileMcpAccessRequestStore.FileName), "{ not json");
 
         var outcome = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
 
@@ -391,10 +390,7 @@ public sealed class McpAccessDeskTests : IDisposable
         return JsonNode.Parse(Encoding.UTF8.GetString(stream.Written).TrimEnd('\n'))!;
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _root.Dispose();
 
     private sealed class FakeConsent : IUserConsent
     {

@@ -130,12 +130,11 @@ public static class C4ChapterViews
             && string.Equals(embed.SectionTitle, title, StringComparison.Ordinal))];
 
     /// <summary>The heading's anchor, made the way the panel and the knowledge writer
-    /// make it: letters and digits kept, every run of anything else one hyphen.</summary>
-    public static string Slug(string heading)
-    {
-        var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
-        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
-    }
+    /// make it: letters and digits kept, every run of anything else one hyphen. Not
+    /// <see cref="Backlog.SharedKernel.Markdown.HeadingAnchor.Of"/>, which keeps runs:
+    /// a reference written in the collapsed form would stop finding its section, and
+    /// the element ids built from it would change.</summary>
+    public static string Slug(string heading) => DevbookHeadingDocument.Slug(heading);
 
     private static string? Anchor(string reference)
     {

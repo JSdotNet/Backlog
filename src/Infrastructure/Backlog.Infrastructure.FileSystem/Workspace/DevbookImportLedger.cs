@@ -21,6 +21,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// cannot read; the import then runs again and writes nothing new.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: its file follows the storage root, asked on every call, and that store holds one fixed path.
 public sealed class DevbookImportLedger : IDevbookImportLedger
 {
     /// <summary>The folder under the storage root the file goes in.</summary>

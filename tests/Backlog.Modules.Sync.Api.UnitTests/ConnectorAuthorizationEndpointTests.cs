@@ -27,9 +27,9 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// </summary>
 public sealed class ConnectorAuthorizationEndpointTests : IDisposable
 {
-    private const long OwnerGitHubId = 7655166;
-    private const string OwnerCode = "code-from-the-owner";
-    private const string StrangerCode = "code-from-someone-else";
+    private const long OwnerGitHubId = StubGitHubOwnerSignIn.OwnerGitHubId;
+    private const string OwnerCode = StubGitHubOwnerSignIn.OwnerCode;
+    private const string StrangerCode = StubGitHubOwnerSignIn.StrangerCode;
     private const string Issuer = "https://sync.test";
     private const string Resource = "https://sync.test/mcp";
     private const string ClientId = "claude-connector";
@@ -49,7 +49,7 @@ public sealed class ConnectorAuthorizationEndpointTests : IDisposable
         TestServices = services =>
         {
             services.RemoveAll<IGitHubOwnerSignIn>();
-            services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+            services.AddSingleton<IGitHubOwnerSignIn>(new StubGitHubOwnerSignIn());
             services.RemoveAll<IConnectorClientStore>();
             services.AddSingleton<BusySwitch>();
             services.AddSingleton<InMemoryConnectorClientStore>();
@@ -612,19 +612,6 @@ public sealed class ConnectorAuthorizationEndpointTests : IDisposable
 
     private static string?[] Strings(JsonElement element, string name) =>
         [.. element.GetProperty(name).EnumerateArray().Select(e => e.GetString())];
-
-    private sealed class FakeGitHub : IGitHubOwnerSignIn
-    {
-        public Task<long?> ResolveUserIdAsync(string authorizationCode, CancellationToken cancellationToken = default) =>
-            Task.FromResult<long?>(authorizationCode switch
-            {
-                OwnerCode => OwnerGitHubId,
-                StrangerCode => 1,
-                _ => null,
-            });
-
-        public Uri AuthorizeAddress(string state) => new($"https://github.test/login/oauth/authorize?state={Uri.EscapeDataString(state)}");
-    }
 
     /// <summary>Turns the client store's throttling on for one test.</summary>
     private sealed class BusySwitch

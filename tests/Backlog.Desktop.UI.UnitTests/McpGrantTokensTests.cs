@@ -19,7 +19,7 @@ public sealed class McpGrantTokensTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 9, 30, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-grant-tokens-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-grant-tokens-tests");
     private readonly FakeTimeProvider _clock = new(Now);
     /// <summary>64 bytes rather than the 32 the app draws, so the same key can sign HS512 too:
     /// what refuses that token is then its algorithm alone, not its signature.</summary>
@@ -29,7 +29,7 @@ public sealed class McpGrantTokensTests : IDisposable
 
     public McpGrantTokensTests()
     {
-        _grants = new FileMcpGrantStore(Path.Combine(_root, FileMcpGrantStore.FileName), _clock);
+        _grants = new FileMcpGrantStore(_root.Combine(FileMcpGrantStore.FileName), _clock);
         _tokens = new McpGrantTokens(_grants, _clock, _key);
     }
 
@@ -206,7 +206,7 @@ public sealed class McpGrantTokensTests : IDisposable
         var token = _tokens.Mint(grant.Id).Token!.Value;
 
         // What a person does by hand until the Agents card exists, and what a rotation will do.
-        var path = Path.Combine(_root, FileMcpGrantStore.FileName);
+        var path = _root.Combine(FileMcpGrantStore.FileName);
         var file = JsonNode.Parse(File.ReadAllText(path))!;
         file["grants"]![0]!["version"] = 2;
         File.WriteAllText(path, file.ToJsonString());
@@ -241,16 +241,7 @@ public sealed class McpGrantTokensTests : IDisposable
         Assert.Null(validation.Principal);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _root.Dispose();
 
     /// <summary>A token signed with this process's key but otherwise as the caller says.</summary>
     private string Forge(

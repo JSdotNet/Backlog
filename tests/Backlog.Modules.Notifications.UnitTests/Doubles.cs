@@ -40,11 +40,6 @@ internal static class Drafts
         new(Guid.NewGuid(), notification.Id, ownerInstance ?? notification.OwnerInstanceId, from ?? Phone, choices ?? [], text, Now, note);
 }
 
-internal sealed class FixedDevice(Guid id) : IDeviceIdentitySource
-{
-    public DeviceIdentity Current { get; } = new(id, "WORKSTATION-01");
-}
-
 /// <summary>An in-memory <see cref="INotificationRepository"/> that stores each notification as a
 /// fresh copy, the way a database row would, so a test sees only what was saved.</summary>
 internal sealed class InMemoryNotificationRepository : INotificationRepository

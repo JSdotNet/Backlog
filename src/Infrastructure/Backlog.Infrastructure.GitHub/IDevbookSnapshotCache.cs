@@ -1,3 +1,5 @@
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
@@ -166,7 +168,7 @@ public static class DevbookSnapshotSelection
     /// still keep beside a chapter (local ADR 0057 §4). Hundreds of kilobytes each
     /// and never shown, so every reader that fetches a folder whole excludes it —
     /// the area stores and the one-time devbook import alike.</summary>
-    public const string RenderedArtifactsFolder = "_archify";
+    public const string RenderedArtifactsFolder = DevbookLayout.RenderedArtifactsDirectory;
 
     /// <summary>Repository-relative, <c>/</c>-separated, no leading <c>./</c>
     /// or <c>/</c> — the spelling the index uses, whatever the caller typed.</summary>

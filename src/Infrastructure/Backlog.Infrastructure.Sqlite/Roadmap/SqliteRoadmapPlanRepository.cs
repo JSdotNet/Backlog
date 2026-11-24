@@ -65,9 +65,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     /// same root the tasks use, and the same file inside it.</summary>
     public SqliteRoadmapPlanRepository(string? rootDir = null)
     {
-        var root = rootDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+        var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
     }

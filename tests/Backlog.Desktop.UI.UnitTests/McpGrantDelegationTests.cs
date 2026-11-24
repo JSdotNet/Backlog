@@ -27,7 +27,7 @@ public sealed class McpGrantDelegationTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 13, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-delegation-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-delegation-tests");
     private readonly FakeTimeProvider _clock = new(Now);
     private readonly FileMcpGrantStore _grants;
     private readonly FileMcpAccessRequestStore _requests;
@@ -38,8 +38,8 @@ public sealed class McpGrantDelegationTests : IDisposable
 
     public McpGrantDelegationTests()
     {
-        _grants = new FileMcpGrantStore(Path.Combine(_root, FileMcpGrantStore.FileName), _clock);
-        _requests = new FileMcpAccessRequestStore(Path.Combine(_root, FileMcpAccessRequestStore.FileName), _clock);
+        _grants = new FileMcpGrantStore(_root.Combine(FileMcpGrantStore.FileName), _clock);
+        _requests = new FileMcpAccessRequestStore(_root.Combine(FileMcpAccessRequestStore.FileName), _clock);
         _tokens = new McpGrantTokens(_grants, _clock, _requests);
         _desk = new McpAccessDesk(_grants, _requests, new AlwaysConsent(), _clock, notifications: _notifications, audit: _audit);
     }
@@ -423,10 +423,7 @@ public sealed class McpGrantDelegationTests : IDisposable
         return (await _tokens.ValidateAsync(minted.Token.Value, Cancel)).Principal!;
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
+    public void Dispose() => _root.Dispose();
 
     private sealed class AlwaysConsent : IUserConsent
     {

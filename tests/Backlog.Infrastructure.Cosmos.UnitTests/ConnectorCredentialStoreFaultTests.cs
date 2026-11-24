@@ -273,6 +273,7 @@ public class ConnectorCredentialStoreFaultTests
         return services.BuildServiceProvider();
     }
 
+    // Differs from RecordingLogger: counts the warnings and keeps nothing else.
     private sealed class CountingLogger<T> : ILogger<T>
     {
         public int Warnings { get; private set; }

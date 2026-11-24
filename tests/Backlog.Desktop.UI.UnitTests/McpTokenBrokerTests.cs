@@ -21,14 +21,14 @@ public sealed class McpTokenBrokerTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 9, 30, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-token-broker-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-token-broker-tests");
     private readonly FileMcpGrantStore _grants;
     private readonly McpGrantTokens _tokens;
 
     public McpTokenBrokerTests()
     {
         var clock = new FakeTimeProvider(Now);
-        _grants = new FileMcpGrantStore(Path.Combine(_root, FileMcpGrantStore.FileName), clock);
+        _grants = new FileMcpGrantStore(_root.Combine(FileMcpGrantStore.FileName), clock);
         _tokens = new McpGrantTokens(_grants, clock);
     }
 
@@ -299,16 +299,7 @@ public sealed class McpTokenBrokerTests : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _root.Dispose();
 
     [SupportedOSPlatform("windows")]
     private static void AssertOneRuleFor(SecurityIdentifier sid)

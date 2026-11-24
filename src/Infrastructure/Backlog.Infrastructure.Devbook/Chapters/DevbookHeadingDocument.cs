@@ -150,7 +150,9 @@ internal static class DevbookHeadingDocument
 
     /// <summary>The index of the heading's <c>meta</c> fence opener, or -1 when the
     /// heading carries no fence. Blank lines between the heading and the fence are
-    /// skipped, because that is how the convention writes them.</summary>
+    /// skipped, because that is how the convention writes them. A literal compare
+    /// rather than <see cref="Backlog.SharedKernel.Metadata.MetadataFence.IsGeneratorOpener"/>,
+    /// which is case-sensitive where this takes <c>```META</c> too.</summary>
     internal static int FindFence(IReadOnlyList<string> lines, int headingIndex)
     {
         var index = headingIndex + 1;
@@ -161,6 +163,11 @@ internal static class DevbookHeadingDocument
             : -1;
     }
 
+    /// <summary>The anchor every writer and panel finds a heading by: letters and
+    /// digits kept, every run of anything else one hyphen. Not
+    /// <see cref="Backlog.SharedKernel.Markdown.HeadingAnchor.Of"/>, which keeps runs
+    /// and drops punctuation: a chapter link written in this form would stop
+    /// finding its heading.</summary>
     internal static string Slug(string heading)
     {
         var chars = heading

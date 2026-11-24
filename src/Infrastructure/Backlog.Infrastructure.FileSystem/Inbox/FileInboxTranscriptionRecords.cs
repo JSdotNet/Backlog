@@ -16,6 +16,7 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// for a lookup, and a save then refuses rather than overwrite records it could not read.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: asynchronous, under a folder that can move, and written through a temporary file and a move.
 public sealed class FileInboxTranscriptionRecords(Func<string> inboxDirectory) : IInboxTranscriptionRecords
 {
     public const string FileName = "transcriptions.json";

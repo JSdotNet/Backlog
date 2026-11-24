@@ -52,6 +52,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// from a branch snapshot, is left unmarked, so it imports when a clone does.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
 public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore
 {
     /// <summary>The folders whose Markdown the import reads, by the key the

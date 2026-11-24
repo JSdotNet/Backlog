@@ -30,8 +30,8 @@ public sealed class NotificationCentreScreenTests : IDisposable
     public NotificationCentreScreenTests()
     {
         var store = new ObservedNotificationRepository(_inner);
-        _owner = new OwnerNotifications(store, new FixedDevice(Owner), new AnswerDelivery([], store, _time), _time);
-        _centre = new NotificationCentre(store, _owner, new FixedDevice(Owner), _time);
+        _owner = new OwnerNotifications(store, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), new AnswerDelivery([], store, _time), _time);
+        _centre = new NotificationCentre(store, _owner, new StubDeviceIdentity(new(Owner, "WORKSTATION-01")), _time);
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _context.Services.AddSingleton<INotificationCentre>(_centre);

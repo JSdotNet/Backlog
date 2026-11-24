@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Brain.Abstractions;
+using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.Brain;
 
@@ -23,6 +24,7 @@ namespace Backlog.Infrastructure.Brain;
 /// stopping the app from opening.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: it creates its folder only when it saves, and a refused save names the exception in its message.
 public sealed class BrainSettingsStore : IBrainSettings
 {
     /// <summary>The file's name beside <c>settings.json</c>.</summary>
@@ -39,7 +41,7 @@ public sealed class BrainSettingsStore : IBrainSettings
     /// <summary>The installed app's file, in the same per-user folder as the
     /// workspace settings.</summary>
     public BrainSettingsStore()
-        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
+        : this(AppDataPaths.Head(FileName))
     {
     }
 

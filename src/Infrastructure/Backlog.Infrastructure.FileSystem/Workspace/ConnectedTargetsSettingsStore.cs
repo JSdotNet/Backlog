@@ -23,6 +23,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// be read and hand-edited, and a token belongs in the platform's credential store.
 /// </para>
 /// </summary>
+// Not on JsonFileStore<T>: it writes through a temporary file and a move, which that store's plain write would drop.
 public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

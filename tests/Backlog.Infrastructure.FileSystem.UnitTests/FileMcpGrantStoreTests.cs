@@ -15,9 +15,9 @@ public sealed class FileMcpGrantStoreTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 9, 30, 0, TimeSpan.Zero);
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "mcp-grant-store-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _root = new("mcp-grant-store-tests");
 
-    private string GrantsPath => Path.Combine(_root, FileMcpGrantStore.FileName);
+    private string GrantsPath => _root.Combine(FileMcpGrantStore.FileName);
 
     private FileMcpGrantStore Store() => new(GrantsPath, new FakeTimeProvider(Now));
 
@@ -297,7 +297,6 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_file_that_does_not_parse_reads_as_no_grants()
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(GrantsPath, "{ not json");
 
         Assert.Empty(Store().List());
@@ -311,7 +310,6 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [InlineData("{\"grants\":[{\"id\":\"g_handseeded000000\",\"version\":3,},]}")]
     public void A_file_that_does_not_parse_is_never_written_over(string unreadable)
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(GrantsPath, unreadable);
         var store = Store();
 
@@ -323,7 +321,6 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_record_with_a_blank_id_is_kept_on_save_and_never_listed()
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(GrantsPath, "{\"grants\":[{\"id\":\"\",\"name\":\"half-written\",\"secret\":\"dpapi:x\"}]}");
         var store = Store();
 
@@ -337,7 +334,6 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void Members_this_release_does_not_know_are_kept_on_save()
     {
-        Directory.CreateDirectory(_root);
         File.WriteAllText(
             GrantsPath,
             "{\"policy\":{\"maxGrants\":5},\"grants\":[{\"id\":\"g_handseeded000000\",\"name\":\"x\",\"secret\":\"dpapi:x\",\"rotatedAt\":\"2026-11-01\"}]}");
@@ -350,16 +346,7 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         Assert.True((bool?)file["grants"]![0]!["revoked"]);
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-    }
+    public void Dispose() => _root.Dispose();
 
     /// <summary>A record as a person writes it by hand for a check: no secret, or the one
     /// given, at version 3.</summary>
@@ -377,8 +364,6 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         };
 
         if (secret is not null) record["secret"] = secret;
-
-        Directory.CreateDirectory(_root);
         File.WriteAllText(GrantsPath, new JsonObject { ["grants"] = new JsonArray(record) }.ToJsonString());
     }
 

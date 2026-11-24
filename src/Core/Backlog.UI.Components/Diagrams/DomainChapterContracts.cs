@@ -312,7 +312,9 @@ public static partial class DomainChapterContracts
     }
 
     /// <summary>The body without its <c>meta</c> and <c>annotation</c> fences: the
-    /// one is the chapter's record, the other a review note, and neither is prose.</summary>
+    /// one is the chapter's record, the other a review note, and neither is prose.
+    /// Not <see cref="MarkdownFence"/>: this takes three-backtick fences alone and
+    /// closes at the first bare <c>```</c>, so moving it would change what counts as prose.</summary>
     private static List<string> WithoutFences(List<string> lines)
     {
         var result = new List<string>();

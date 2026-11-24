@@ -134,6 +134,8 @@ public sealed class SurfaceWindowTests
         Assert.Equal("alpha", request.SurfaceId);
         Assert.Equal("kept", request.Value("note"));
         Assert.Equal(1, host.Windows.Activations);
+        // Shown in the main window, not popped out into another one.
+        Assert.Empty(host.Windows.Opened);
     }
 
     /// <summary>
@@ -549,59 +551,6 @@ public sealed class SurfaceWindowTests
         }
 
         public void Dispose() => Pane.Dispose();
-    }
-
-    private sealed class RecordingShellWindows : IShellWindows
-    {
-        public Dictionary<string, string> Titles { get; } = new(StringComparer.Ordinal);
-
-        public List<string> Closed { get; } = [];
-
-        public int Activations { get; private set; }
-
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
-            throw new NotSupportedException("No test here pops a surface out.");
-
-        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
-            throw new NotSupportedException("No test here pops a surface out.");
-
-        public void Close(string windowKey) => Closed.Add(windowKey);
-
-        public void SetTitle(string windowKey, string title) => Titles[windowKey] = title;
-
-        public void ActivateMainWindow() => Activations++;
-
-        public bool CanRemember { get; init; }
-
-        public List<string> Remembered { get; } = [];
-
-        /// <summary>The surface and the query, keys in order, last reported.</summary>
-        public (string SurfaceId, string Query)? LastShowing { get; private set; }
-
-        public bool IsRemembered(string windowKey) => Remembered.Contains(windowKey);
-
-        public void SetRemembered(string windowKey, bool remembered)
-        {
-            Remembered.Remove(windowKey);
-            if (remembered) Remembered.Add(windowKey);
-        }
-
-        public void ReportShowing(string windowKey, string surfaceId, IReadOnlyDictionary<string, string> query) =>
-            LastShowing = (surfaceId, string.Join(';', query
-                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-                .Select(pair => $"{pair.Key}={pair.Value}")));
-
-        public bool CanKeepOnTop { get; init; }
-
-        public HashSet<string> OnTop { get; } = new(StringComparer.Ordinal);
-
-        public bool IsOnTop(string windowKey) => OnTop.Contains(windowKey);
-
-        public void SetOnTop(string windowKey, bool onTop)
-        {
-            if (onTop) OnTop.Add(windowKey);
-            else OnTop.Remove(windowKey);
-        }
     }
 
     /// <summary>A surface that draws the query it was handed, jumps to
