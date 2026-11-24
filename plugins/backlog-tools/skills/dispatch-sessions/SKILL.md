@@ -15,19 +15,17 @@ the Manager grant (local ADR 0058), which `backlog` does not send: in Bash, `nod
 
 ## Each turn
 
-1. **Check in** per `../../resources/standing-session.md#check-in`, `sessionId` `${CLAUDE_SESSION_ID}`, `state`
-   `holding` if a limit held the last queue, `heartbeatMinutes` step 9's last pace (30 at first), `sessions:` step 6's count,
+1. **Check in** per `../../resources/standing-session.md#check-in`, `sessionId` `${CLAUDE_SESSION_ID}`, `state` `holding` if a limit held the last queue, `heartbeatMinutes` step 9's last pace (30 at first), `sessions:` step 6's count,
    and the limits `maxSessions` `sessions`, `maxUsagePercent` `usage`, `maxCpuPercent` `cpu`, `minFreeMemoryGb` `memory`.
-2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. One Monitor, longest timeout, re-armed on expiry or
-   `stopped`: `node assets/wait-requests.mjs --session ${CLAUDE_SESSION_ID}`, each wait a check-in; never loop on tools.
+2. **Wait.** `node assets/wait-requests.mjs --name` prints your `dispatcher`. One Monitor, longest timeout, re-armed on expiry or `stopped`: `node assets/wait-requests.mjs --session ${CLAUDE_SESSION_ID}`, each wait a check-in; never loop on tools.
 3. **Restart.** First unpaused turn only: mark this session per `../../resources/standing-session.md#mark`; `released` (`mark_session_request`, `mark_delivery`) each your `dispatcher` holds in either list's `state: claimed`.
-4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first: `claim_delivery` (id, `dispatcher`),
-   `claimed: false` → next; `send_message` to that id: "You asked: <question>. The answer from Backlog: <answer>", both verbatim.
+4. **Deliver** each `list_deliveries` `state: pending` with a `desktopSessionId`, oldest first: `claim_delivery` (id, `dispatcher`), `claimed: false` → next; `send_message` to that id: "You asked: <question>. The answer from Backlog: <answer>", both verbatim.
    Sent or queued → `mark_delivery` `delivered`; the session no longer exists, or any other failure → `released`.
 5. **Queue.** `list_session_requests` `state: requested`, in the order listed — the person's queue order, never reordered; empty
    → step 8; `paused: true` (every claim is refused until the person resumes it) → step 9. Any other Monitor line than `delivery`, `request`, `ready` → say it once, step 9.
+   **Cards** first, per row of step 7's card file: a `list_sessions` (`linked: true`) row with its `title` → `claim_session_request`, `mark_session_request` `started` with that row's id, drop the row; its request no longer `requested` → `dismiss_task` its `proposal_id`, drop the row.
 6. **Capacity**, before each start: hold the queue on step 1's answer's `capacity` `hasRoom: false`, or once its `workingSessions`, plus starts
-   since it and your running `CI fix` sessions (the app counts no fixer), reach `sessions`. Measure each figure it lacks (absent or `null`), or all with no `capacity`; first failing holds:
+   since it, open cards and your running `CI fix` sessions (the app counts no fixer), reach `sessions`. Measure each figure it lacks (absent or `null`), or all with no `capacity`; first failing holds:
    - `workingSessions`: fewer than `sessions` rows of `list_sessions` (`linked: true`, `limit: 100`) with `startedBy` your id
      (`get_session` `self`) and `isRunning: true`, not counting a `desktopSessionId` `backlog`'s `list_sessions` reads `Waiting`;
    - `planUsagePercent`: every plan limit `get_usage` reports under `usage` percent (`not_applicable` passes);
@@ -36,9 +34,11 @@ the Manager grant (local ADR 0058), which `backlog` does not send: in Bash, `nod
    `cwd` its `cloneFolder`, `use_worktree: true`, `prompt` its `brief` verbatim, `wake_when_done: true`, `title` the entry's `read_item` title or plan's `+tag` (<60 chars),
    `background` "Started by dispatch-sessions for Backlog session request <id>." Failed → `released`. Started → `mark_session_request` `started` with its id, even past the lease;
    `marked: false`, another holds the claim → never release: say both sessions started for <id>, naming yours and the holder's, so the person stops one. → 6; none left → 8.
+   Only a turn the person typed starts: Claude Desktop refuses `user_asked` on a `/loop` line, Monitor event, wake-up or `<side-sessions-event>`. On those, claim nothing (a lease is 2 minutes, a card waits for a click): per request with no card, at most three a turn,
+   the same `start_session` with `initiation: own_initiative`, adding `{ requestId, proposalId, title }` to a scratch card file kept across turns, and say once a click starts it. A typed turn claims, then starts a carded request by its `proposal_id` alone; a start refused for the turn → `released`, then card it.
 8. **Mend** (ADR 0038 §6): Write Claude Desktop's `list_sessions` (`include_archived`, `limit: 100`) rows' `title`, `prNumber`, `isArchived` to a scratch
    JSON file; per `mend` folder `node assets/red-bot-prs.mjs <folder> --sessions <file>`. Each line with a `brief`: step 6, then `start_session` as step 7, `cwd`
-   the folder, `prompt` and `title` its `brief` and `title` verbatim, `background` "Started by dispatch-sessions to mend <repo>#<number>." Else say a `gave-up` or error once.
+   the folder, `prompt` and `title` its `brief` and `title` verbatim, `background` "Started by dispatch-sessions to mend <repo>#<number>." — on a turn step 7 cards, a card, once per pull request. Else say a `gave-up` or error once.
 9. **Pace.** End the turn. `/loop` is only the fallback: 300 s if a limit held the queue, else 1800 s.
 
 ## Never
