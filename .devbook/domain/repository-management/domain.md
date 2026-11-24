@@ -16,7 +16,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 
 ```meta
 type: aggregate
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 aliases: [RepositoryRegistry]
 ```
 
@@ -25,6 +25,7 @@ The global singleton that owns all registered repositories, the technology and d
 Besides the repositories, the registry remembers what became of names it no longer holds, because entries elsewhere still write them:
 
 - a [Rename Record](#rename-record) for each rename, so an old name keeps meaning the repository it became;
+- an [alias move](#repository-alias) for each relabel, so an old alias keeps meaning the repository that held it;
 - a [Removal Record](#removal-record) for each removal, so a removed name is not registered again by accident.
 
 A repository the registry still holds is either active or [archived](#archived-repository). Archive and Unarchive are two of the seven registry edits ([Following a repository rename](features.md#following-a-repository-rename)). Unlike a removal, an archive forgets nothing, so it needs no record of its own (local ADR 0029).
@@ -68,12 +69,14 @@ A detected technology that the portfolio's technology baseline does not allow wi
 ```meta
 type: value-object
 aliases: [alias, repository alias]
-related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registry-configuration]
+related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registry-configuration, .devbook/domain/repository-management/features.md#following-a-repository-rename, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 ```
 
 The short name a person and the rest of the product use for a registered repository, such as `app`. A task files itself against a repository by naming its alias, and a Roadmap [Repository Scope](../roadmap/domain.md#repository-scope) holds aliases as opaque strings. Equality is by value: an alias is stored trimmed and in lower case. A repository registered without an alias takes its name as its alias.
 
 Aliases are unique in the registry, because every consumer keys on them: the filters, the colours and the settings subpages. Relabelling an alias changes nothing about which repository is meant.
+
+A rename relabels a repository whose alias is still its old name, and leaves an alias the person chose alone. Every relabel leaves an **alias move** in the registry: the old alias, the new one, the repository and when. What is keyed by the old alias follows it, and an old alias still written somewhere resolves through the moves. A registered alias always wins over a move (local ADR 0060).
 
 ### Rename Record
 
