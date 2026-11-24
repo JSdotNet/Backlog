@@ -24,10 +24,15 @@ internal sealed class InMemoryTaskRepository(params IEnumerable<TaskItem> entrie
     public TaskItem Successor(Guid completedId) =>
         Assert.Single(Entries.Values, entry => entry.Id != completedId);
 
+    /// <summary>The change set each entry was last saved under (local ADR 0061 §2),
+    /// null for a save under none.</summary>
+    public Dictionary<Guid, Backlog.SharedKernel.Changes.ChangeSet?> SavedUnder { get; } = [];
+
     public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
     {
         Writes++;
         Entries[task.Id] = task;
+        SavedUnder[task.Id] = Backlog.SharedKernel.Changes.ChangeContext.Current;
         return Task.CompletedTask;
     }
 

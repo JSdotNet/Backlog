@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -119,22 +120,6 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
             RoadmapPlanDocument.From(plan), RoadmapPlanDocument.JsonOptions);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-
-        // One statement for the first save and every later one alike: the plan is
-        // written whole either way, so there is nothing for two code paths to
-        // disagree about.
-        command.CommandText =
-            """
-            INSERT INTO roadmap_plan (id, document, updated_at)
-            VALUES ($id, $document, $updated_at)
-            ON CONFLICT(id) DO UPDATE SET
-                document = excluded.document,
-                updated_at = excluded.updated_at;
-            """;
-
-        command.Parameters.AddWithValue("$id", PlanRowId);
-        command.Parameters.AddWithValue("$document", document);
 
         // Round-trippable, and the same format a task's timestamps use, because it has
         // to mean the same thing: an instant that survives a read on another machine
@@ -154,9 +139,28 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
             else if (stamp <= held) stamp = held.AddTicks(1);
         }
 
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
+
+        // One statement for the first save and every later one alike: the plan is
+        // written whole either way, so there is nothing for two code paths to
+        // disagree about.
+        command.CommandText =
+            """
+            INSERT INTO roadmap_plan (id, document, updated_at)
+            VALUES ($id, $document, $updated_at)
+            ON CONFLICT(id) DO UPDATE SET
+                document = excluded.document,
+                updated_at = excluded.updated_at;
+            """;
+
+        command.Parameters.AddWithValue("$id", PlanRowId);
+        command.Parameters.AddWithValue("$document", document);
         command.Parameters.AddWithValue("$updated_at", Format(stamp));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // --- The replicated document (local ADR 0018) ---------------------------
@@ -201,7 +205,9 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         if (!IsPlanDocument(copy.Content)) return false;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
 
         command.CommandText =
             """
@@ -217,6 +223,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         command.Parameters.AddWithValue("$updated_at", Format(copy.UpdatedAt));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return true;
     }

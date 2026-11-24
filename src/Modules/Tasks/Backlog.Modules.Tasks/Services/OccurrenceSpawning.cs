@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Changes;
 
 namespace Backlog.Modules.Tasks.Services;
 
@@ -80,7 +81,14 @@ public static class OccurrenceSpawning
         if (existing is not null) return null;
 
         var successor = RecurrencePolicy.NextOccurrence(completed);
-        await tasks.SaveAsync(successor, cancellationToken).ConfigureAwait(false);
+
+        // The successor is the system's change set, not the tick's (local ADR 0061
+        // §2): taking back the tick a person made, or the page a sync applied, does
+        // not decide whether the next occurrence stays.
+        using (ChangeContext.Begin(ChangeActor.System, "spawning the next occurrence"))
+        {
+            await tasks.SaveAsync(successor, cancellationToken).ConfigureAwait(false);
+        }
 
         return successor;
     }

@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Services;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
@@ -309,6 +310,26 @@ public sealed class RecurringTaskTests
         Assert.Equal(new DateOnly(2026, 2, 28), store.Successor(id).DueOn);
     }
 
+    /// <summary>The successor is the system's change set, not the tick's (local ADR
+    /// 0061 §2), so taking back the person's tick is a decision apart from the spawn.</summary>
+    [Fact]
+    public async Task The_successor_is_saved_under_a_system_change_set_of_its_own()
+    {
+        var store = new InMemoryTaskRepository();
+        var id = await Save(store, null, Text(Open));
+
+        using (ChangeContext.Begin(ChangeActor.Person, "ticking"))
+        {
+            await Save(store, id, Text(Ticked));
+        }
+
+        var tick = store.SavedUnder[id];
+        var spawn = store.SavedUnder[store.Successor(id).Id];
+
+        Assert.Equal(ChangeActor.Person, tick?.Actor);
+        Assert.Equal(ChangeActor.System, spawn?.Actor);
+        Assert.NotEqual(tick!.Id, spawn!.Id);
+    }
     private static string Text(string statusToken, string repeat = "weekly") =>
         $"# Weekly review\n`task` `{statusToken}` `due:2026-08-21` `repeat:{repeat}`\n";
 

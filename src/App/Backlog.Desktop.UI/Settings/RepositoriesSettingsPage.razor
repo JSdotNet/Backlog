@@ -1,4 +1,4 @@
-﻿@*
+@*
     One page of the Settings screen, in a file of its own so a change to this
     page is a change to this file. The screen (Settings.razor) keeps the menu,
     the headline and the panel this is drawn in; what is on the page, and what it
@@ -11,6 +11,7 @@
 @namespace Backlog.Desktop.UI.Shell
 @inherits SettingsPageBase
 @using Backlog.SharedKernel
+@using Backlog.SharedKernel.Changes
 @using Backlog.SharedKernel.Results
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
@@ -1438,6 +1439,10 @@
     {
         var tasks = Services.GetService<ITaskItems>();
         var inbox = Services.GetService<IInboxItems>();
+
+        // One rename is one change set (local ADR 0061 §2), every entry and inbox
+        // item it moves included.
+        using var change = ChangeContext.Begin(ChangeActor.Person, $"renaming {rename.OldId} to {rename.NewId}");
 
         var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
         var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
