@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -24,10 +25,11 @@ public class RoadmapPlanAliasMoveTests
             BandColours.Of(colours.Select(c => new KeyValuePair<string, int>(c.Alias, c.Colour))));
 
     private static RoadmapItem ItemUnder(RoadmapPlan plan, params string[] aliases) =>
-        plan.AddItem("Ship the sync", PlannedWindow.Of(Day(2), Day(6)), scope: RepositoryScope.Of(aliases)).Value;
+        Assert.IsType<Ok<RoadmapItem>>(
+            plan.AddItem("Ship the sync", PlannedWindow.Of(Day(2), Day(6)), scope: RepositoryScope.Of(aliases)).Value).Value;
 
     private static Milestone MilestoneUnder(RoadmapPlan plan, params string[] aliases) =>
-        plan.AddMilestone("Release", Day(9), scope: RepositoryScope.Of(aliases)).Value;
+        Assert.IsType<Ok<Milestone>>(plan.AddMilestone("Release", Day(9), scope: RepositoryScope.Of(aliases)).Value).Value;
 
     // The plan
 
@@ -113,7 +115,7 @@ public class RoadmapPlanAliasMoveTests
         // An unresolved scope alias is kept (roadmap invariant): only moved aliases move.
         var plan = PlanColoured(("gone-repo", 2));
         var item = ItemUnder(plan, "gone-repo");
-        var unfiled = plan.AddItem("Think", PlannedWindow.Of(Day(2), Day(3))).Value;
+        var unfiled = Assert.IsType<Ok<RoadmapItem>>(plan.AddItem("Think", PlannedWindow.Of(Day(2), Day(3))).Value).Value;
 
         var changed = plan.MoveRepositoryAliases(Map(("other", "elsewhere")));
 
