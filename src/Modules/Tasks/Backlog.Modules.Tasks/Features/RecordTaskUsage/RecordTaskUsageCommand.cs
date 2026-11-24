@@ -1,3 +1,4 @@
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Handlers;
 
 namespace Backlog.Modules.Tasks.Features.RecordTaskUsage;
@@ -21,6 +22,12 @@ public sealed class RecordTaskUsageCommandHandler(ITaskRepository entries)
         if (entry is null) return;
 
         entry.RecordUsage(command.Action);
-        await entries.SaveAsync(entry, cancellationToken);
+
+        // Noting a use changes nothing a person would take back, so the change
+        // journal skips it (local ADR 0061 §2).
+        using (ChangeContext.Unjournalled())
+        {
+            await entries.SaveAsync(entry, cancellationToken);
+        }
     }
 }
