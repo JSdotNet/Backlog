@@ -19,6 +19,8 @@
 @using Backlog.UI.Components.Selects
 @* MetricGrid and MetricTile draw the Backup card's two figures. *@
 @using Backlog.UI.Components.Metrics
+@* DataTable lists the checkpoints. *@
+@using Backlog.UI.Components.Data
 @* The Brain card, drawn by the library and fed here. *@
 @using Backlog.UI.Components.Brain
 @* For the optional logger a missing backup worker is noted in, rather than
@@ -371,6 +373,59 @@
     </SettingsCard>
 </div>
 
+@* The checkpoints the MCP server takes before an agent's write
+   (AgentCheckpoints): read-only, and deliberately without a restore button -
+   putting one back is a file copy a person makes, as it is for a backup
+   (local ADR 0010). Always drawn, so the settings search never names a card
+   that is not there; a host that composes none says so. *@
+<SettingsCard Title="Checkpoints"
+              Id="storage-checkpoints-title"
+              TestId="storage-checkpoints-settings">
+    @if (_checkpoints is null)
+    {
+        <p class="setting__note" data-testid="storage-checkpoints-unavailable">
+            This host takes no checkpoints.
+        </p>
+    }
+    else
+    {
+        <p class="setting__body">
+            Before an agent changes anything through the MCP server, a copy of the database and
+            the devbook state and remarks is kept in <code>@_checkpoints.Directory</code> - at most
+            one every @((int)AgentCheckpoints.MinimumInterval.TotalMinutes) minutes, and the newest
+            @AgentCheckpoints.Keep only. To go back to one, close Backlog and copy its files over
+            the ones in the backlog folder.
+        </p>
+
+        <Alert Message="@_checkpointError"
+               BaseClass="setting__warning"
+               Id="storage-checkpoints-error"
+               TestId="storage-checkpoints-error" />
+
+        <DataTable TItem="AgentCheckpoint"
+                   Items="@_checkpointList"
+                   Columns="@CheckpointColumns"
+                   AriaLabel="Checkpoints"
+                   RowNoun="checkpoint"
+                   RowKey="checkpoint => checkpoint.FolderPath"
+                   EmptyMessage="No checkpoint yet."
+                   EmptyDescription="One is taken before an agent's first change."
+                   TestId="storage-checkpoints">
+            <Row Context="checkpoint">
+                <td class="data-table__mono" data-testid="storage-checkpoint-time">@checkpoint.TakenAt.ToLocalTime().ToString("d MMMM yyyy HH:mm", CultureInfo.CurrentCulture)</td>
+                <td class="data-table__mono" data-testid="storage-checkpoint-size">@Size(checkpoint.SizeBytes)</td>
+                <td>
+                    <AppButton Variant="ButtonVariant.None"
+                               TestId="storage-checkpoint-show"
+                               OnClick="() => ShowCheckpoint(checkpoint)">
+                        Show in folder
+                    </AppButton>
+                </td>
+            </Row>
+        </DataTable>
+    }
+</SettingsCard>
+
 @* The person's Brain (local ADR 0026): one folder outside every
    repository, picked here once. Below the two columns rather than in
    either, because it is neither the backlog's folder nor its backup -
@@ -417,6 +472,13 @@
         // here has to reach the page, because otherwise the line below the
         // button never moves.
         if (_backup is not null) _backup.Changed += OnBackupChanged;
+
+        _checkpoints = Services.GetService<AgentCheckpoints>();
+        if (_checkpoints is not null)
+        {
+            _checkpointList = _checkpoints.List();
+            _checkpoints.Changed += OnCheckpointsChanged;
+        }
 
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
@@ -807,5 +869,41 @@
     {
         if (_brainSettings is not null) _brainSettings.Changed -= OnBrainSettingsChanged;
         if (_backup is not null) _backup.Changed -= OnBackupChanged;
+        if (_checkpoints is not null) _checkpoints.Changed -= OnCheckpointsChanged;
     }
+
+    // ---- Checkpoints --------------------------------------------------------
+
+    /// <summary>The checkpoints, or null in a host that composes none.</summary>
+    private AgentCheckpoints? _checkpoints;
+
+    private IReadOnlyList<AgentCheckpoint> _checkpointList = [];
+
+    private string? _checkpointError;
+
+    private static readonly IReadOnlyList<DataTableColumn> CheckpointColumns =
+    [
+        new("Taken"),
+        new("Size"),
+        new("Folder"),
+    ];
+
+    /// <summary>A checkpoint was taken while the page is open - on the MCP request's
+    /// thread, so the list is re-read and redrawn on the renderer's.</summary>
+    private void OnCheckpointsChanged() => _ = InvokeAsync(() =>
+    {
+        _checkpointList = _checkpoints?.List() ?? [];
+        StateHasChanged();
+    });
+
+    private void ShowCheckpoint(AgentCheckpoint checkpoint) =>
+        _checkpointError = AgentCheckpoints.ShowInFolder(checkpoint);
+
+    /// <summary>A size in the unit a person reads it in.</summary>
+    private static string Size(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / (1024.0 * 1024):0.#} MB",
+    };
 }

@@ -74,6 +74,31 @@ public sealed class SettingsBackupTests
         Assert.NotNull(storage.CardTitles);
         Assert.Contains("Where the backlog is stored", storage.CardTitles);
         Assert.Contains("Backup", storage.CardTitles);
+        Assert.Contains("Checkpoints", storage.CardTitles);
+    }
+
+    /// <summary>The checkpoints an agent's write leaves are listed read-only: when and how
+    /// big, a way to the folder, and no restore - putting one back is a file copy.</summary>
+    [Fact]
+    public void The_checkpoints_card_lists_each_checkpoint_with_a_way_to_its_folder_and_no_restore()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='storage-checkpoints-settings']");
+        Assert.Equal("Checkpoints", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.NotNull(card.QuerySelector("[data-testid='storage-checkpoints-empty']"));
+
+        Assert.True(settings.TestContext.Services.GetRequiredService<AgentCheckpoints>().TakeIfDue());
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var times = settings.Component.FindAll("[data-testid='storage-checkpoint-time']");
+            Assert.Single(times);
+            Assert.Single(settings.Component.FindAll("[data-testid='storage-checkpoint-size']"));
+            Assert.Equal("Show in folder", settings.Component.Find("[data-testid='storage-checkpoint-show']").TextContent.Trim());
+        });
+        Assert.DoesNotContain("Restore", settings.Component.Find("[data-testid='storage-checkpoints-settings']").TextContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -351,6 +376,7 @@ public sealed class SettingsBackupTests
         var worker = new BackupWorker(store, gitHub, stateStore, time);
         context.Services.AddSingleton(worker);
         context.Services.AddSingleton<TimeProvider>(time);
+        context.Services.AddSingleton(new AgentCheckpoints(() => store.RootDirectory, time));
 
         return new SettingsRenderContext(temp, store, gitHub, worker, context, context.Render<Settings>());
     }

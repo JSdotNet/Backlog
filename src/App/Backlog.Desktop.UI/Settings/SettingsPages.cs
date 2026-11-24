@@ -47,7 +47,7 @@ public static class SettingsPages
             CardTitles: [.. AppFeatures.Sections.Select(section => section.Title)]),
         new(Storage, "Storage & backup", 1, typeof(StorageSettingsPage),
             Group: SettingsGroup.Workspace,
-            CardTitles: ["Where the backlog is stored", "Branch snapshot folder", "Backup", "Brain"]),
+            CardTitles: ["Where the backlog is stored", "Branch snapshot folder", "Backup", "Checkpoints", "Brain"]),
         new(Repositories, "Repositories", 2, typeof(RepositoriesSettingsPage),
             Group: SettingsGroup.Workspace,
             CardTitles: ["Repositories"]),
