@@ -362,10 +362,10 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
         if (!TryTakeGuard(settledOnly)) return;
 
-        Changed?.Invoke();
-
         try
         {
+            Changed?.Invoke();
+
             var session = ResolveSession();
 
             if (session is null) return;
