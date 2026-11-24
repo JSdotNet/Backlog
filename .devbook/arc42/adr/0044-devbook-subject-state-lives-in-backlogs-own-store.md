@@ -1,7 +1,7 @@
 # ADR 0044: A devbook subject's workflow state lives in Backlog's own store, outside git, and replicates through its own container
 
 ```meta
-date: 2026-11-19
+date: 2026-11-24
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/devbook/domain.md#remark", ".devbook/domain/devbook/context.md#devbook-status", ".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/domain/devbook/requirements.md#requirement-leaving-a-decision-step-takes-its-record-with-it", ".devbook/domain/repository-management/requirements.md#requirement-remarks-are-not-written-into-an-archived-devbook", ".devbook/domain/sync/context.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
@@ -153,8 +153,11 @@ Markdown, so state kept there would be lost on the next build. Nothing under
 
 `DevbookFingerprint`, in `Backlog.Infrastructure.Devbook/Fingerprints`, computes
 `devbook.chapter.fingerprint@1` for a block and for a change. `DevbookFingerprint.Change`
-takes a change's proposal and deltas, as its caller read them from
-`openspec/changes/<name>/`. `ChapterFingerprintVectorTests` holds it to
+takes a change's proposal and deltas. `DevbookFingerprint.ReadChange` reads them
+from `openspec/changes/<name>/` — `proposal.md` and every Markdown file and demo
+under `devbook-delta/` — and hands them to `Change`. `DevbookChangeFolders.Fingerprint`
+calls it, so the Proposals tab decides on the change as its files stand now.
+`ChapterFingerprintVectorTests` holds it to
 every case of devbook's shared vector, copied byte for byte to
 `tests/Fixtures/devbook-fingerprint/chapter-fingerprint.vector.json`. An approval
 whose fingerprint differs from the change's current one has lapsed, and the caller
@@ -442,6 +445,7 @@ Built, and held by these tests:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | §3 names `ReadChange` again. Commit `ef9d9f92a` brought `DevbookFingerprint.ReadChange` back, and `DevbookChangeFolders.Fingerprint` reads a change from disk through it. The decision is unchanged. | The human-only Approve and Accept in the Proposals tab need the change's fingerprint as its files stand now. |
 | 2026-11-11 | Built §6's 2026-11-11 amendment, entry 2 (`human-only-decisions`): the Proposals tab in the Instructions area carries Approve and Accept over `DevbookProposalDecision`, `devbook_set_state` refuses all but `draft`, and MCP writes are stamped `agent via MCP`. | Plan `zero-trust-auth`. |
 | 2026-11-11 | Amended §6 by local ADR 0058: `devbook_approve` and `devbook_accept` leave MCP for buttons in the devbook view, `devbook_set_state` over MCP accepts `draft` only, and other MCP decision writes are stamped "agent via MCP". Not built yet. | Plan `zero-trust-auth`: an agent could approve its own change under the person's name. |
 | 2026-11-19 | §3 no longer names `ReadChange`. Only tests read a change from disk through it, and PR #1911 deleted it. `DevbookFingerprint.Change` takes the proposal and deltas its caller read. The decision is unchanged. | Plan `codebase-pruning` step 3 deleted the member, and step 17 brought this record level with the code. |
