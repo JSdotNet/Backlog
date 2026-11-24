@@ -355,7 +355,7 @@ public sealed record DevbookChapterWriteResult(string Text, DevbookChapterStatus
 /// heading that owns it.
 /// <para>
 /// Per fence, because a chapter file holds more than the chapter's own metadata:
-/// the domain panel addresses a section as <c>document.md#slug</c> and the
+/// the Domain view addresses a section as <c>document.md#slug</c> and the
 /// technology panel a node as <c>.tech/layer.md#slug</c>, and
 /// <see cref="DevbookMarkdownRatingWriter"/> upserts into the fence under
 /// whichever heading it was handed. A single value could not tell those apart, and

@@ -4,10 +4,11 @@ namespace Backlog.UI.Components.UnitTests;
 /// The type mark on the surface a `.domain` document is actually read from: the
 /// file pane, and the markdown view inside it.
 ///
-/// <para>The marks shipped once already on the wrong surface. The domain panel
-/// draws a summary card for a document nobody opened and hands the opened one
-/// whole to <see cref="FileView"/>, and the mark was wired into the card — so
-/// every route a reader has to a chapter landed on the branch with no mark in it.
+/// <para>The marks shipped once already on the wrong surface. The Domain panel
+/// before the Domain view drew a summary card for a document nobody opened and
+/// handed the opened one whole to <see cref="FileView"/>, and the mark was wired
+/// into the card — so every route a reader had to a chapter landed on the branch
+/// with no mark in it.
 /// These tests are written against the branch tree navigation produces: the file
 /// pane, given the file's text.</para>
 ///
@@ -244,7 +245,7 @@ public sealed class DevbookTypeMarkerReadSurfaceTests
     [Fact]
     public void The_mark_survives_the_pane_being_told_to_draw_no_fields_at_all()
     {
-        // Which is the setting the domain panel actually passes, and the reason the
+        // Which is the setting the devbook panels actually pass, and the reason the
         // suppression above is not the whole story: with the fields off there is no
         // row to remove, and the mark is then the only statement of the type on the
         // screen. It has to be there, and it has to be named.

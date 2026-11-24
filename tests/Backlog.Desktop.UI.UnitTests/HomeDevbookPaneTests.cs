@@ -69,7 +69,7 @@ public sealed class HomeDevbookPaneTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal);
+            Assert.EndsWith("tasks/domain.md", DomainPath(component), StringComparison.Ordinal);
         });
 
         // The scope the reader chose is left alone: the list still shows every
@@ -107,7 +107,7 @@ public sealed class HomeDevbookPaneTests
         component.WaitForElement(ReferenceChip);
         await component.ClickAsync(ReferenceChip);
         component.WaitForAssertion(() =>
-            Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal));
+            Assert.EndsWith("tasks/domain.md", DomainPath(component), StringComparison.Ordinal));
 
         // Hidden: pressing its toggle closes it.
         await component.ClickAsync("[data-testid='devbook-pane-option']");
@@ -121,17 +121,20 @@ public sealed class HomeDevbookPaneTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.NotEmpty(component.FindAll(".file-view__path"));
+            Assert.NotEmpty(component.FindAll(".devbook-menu__item--active"));
         });
 
         // The jump, when it happened, landed a moment after the pane's own first
         // file: so this waits for it, and passes only if it never comes.
         Assert.Throws<Bunit.Extensions.WaitForHelpers.WaitForFailedException>(() => component.WaitForAssertion(
-            () => Assert.Contains(
-                component.FindAll(".file-view__path").Select(element => element.TextContent),
-                text => text.EndsWith("tasks/domain.md", StringComparison.Ordinal)),
+            () => Assert.EndsWith("tasks/domain.md", DomainPath(component) ?? string.Empty, StringComparison.Ordinal),
             TimeSpan.FromSeconds(2)));
     }
+
+    /// <summary>The Domain chapter the Devbook pane has open; null while no Domain
+    /// view is drawn or it has nothing selected.</summary>
+    private static string? DomainPath(IRenderedComponent<Home> component) =>
+        component.FindComponents<DomainView>().SingleOrDefault()?.Instance.SelectedPath;
 
     private const string ReferenceChip = "[data-testid='entry-devbook-reference'] button.devbook-chip__label";
 

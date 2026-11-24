@@ -119,8 +119,9 @@ public sealed class DevbookFolderChangeRefreshTests
         using var workspace = DevbookWorkspace.Create();
         using var context = workspace.CreateBunitContext();
 
-        var component = context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
+        var component = context.Render<DomainView>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias)
+            .Add(parameter => parameter.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal));
 
@@ -388,8 +389,9 @@ public sealed class DevbookFolderChangeRefreshTests
         using var workspace = DevbookWorkspace.Create();
         using var context = workspace.CreateBunitContext();
 
-        var component = context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
+        var component = context.Render<DomainView>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias)
+            .Add(parameter => parameter.SelectedPath, "context-map.md"));
 
         component.WaitForAssertion(() => Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal));
 
@@ -419,47 +421,26 @@ public sealed class DevbookFolderChangeRefreshTests
         var source = new CountingDevbookFolderSource(workspace.Folders);
         var context = workspace.CreateBunitContext(source);
 
-        context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
+        context.Render<DomainView>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias)
+            .Add(parameter => parameter.SelectedPath, "context-map.md"));
         context.Render<DesignDevbookView>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
         context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        // Three panels, and the two stores behind the first two: each keeps a
-        // per-file parse cache and listens so a folder change empties it. The
-        // instructions panel reads through discovery, which keeps none.
-        Assert.Equal(5, source.SubscriberCount);
+        // The Domain view's two listeners on the open page — the Context map page
+        // and its Demo strip, each through the domain store — the other two
+        // panels, and the two stores behind the first two: each keeps a per-file
+        // parse cache and listens so a folder change empties it. The instructions
+        // panel reads through discovery, which keeps none.
+        Assert.Equal(6, source.SubscriberCount);
 
         // Disposing the container disposes the stores as well as the renderer,
         // so the stores' handlers have to go with it too.
         await context.DisposeAsync();
 
         Assert.Equal(0, source.SubscriberCount);
-    }
-
-    /// <summary>
-    /// A panel handed its view by the parent does not own the load, so the
-    /// folder-change signal must not make it re-read the store behind the
-    /// parent's back.
-    /// </summary>
-    [Fact]
-    public void Domain_knowledge_panel_keeps_a_parent_supplied_view_across_a_folder_move()
-    {
-        using var workspace = DevbookWorkspace.Create();
-        using var context = workspace.CreateBunitContext();
-        var supplied = DomainDevbookView.Unavailable("Supplied by the parent.");
-
-        var component = context.Render<DomainDevbookPanel>(parameters => parameters
-            .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias)
-            .Add(parameter => parameter.View, supplied));
-
-        Assert.Contains("Supplied by the parent.", component.Markup, StringComparison.Ordinal);
-
-        workspace.PointRepositoryAt(workspace.SecondRepositoryPath);
-
-        Assert.Contains("Supplied by the parent.", component.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Context Map:", component.Markup, StringComparison.Ordinal);
     }
 }
 

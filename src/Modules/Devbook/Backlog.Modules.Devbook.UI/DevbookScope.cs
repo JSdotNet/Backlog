@@ -128,6 +128,17 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
     /// </summary>
     public static DevbookViewerSwitches Watch(DevbookScope? scope, Func<Func<Task>, Task> dispatch, Func<Task> onChanged) =>
         new(scope, dispatch, onChanged);
+
+    /// <summary>The scope a host composed, or null — also where it registered the
+    /// scope without the feature settings it reads, which a host drawing a view
+    /// for some other reason may do. Null answers as <see cref="EditOfferedBy"/>
+    /// and <see cref="StatusShownBy"/> say.</summary>
+    public static DevbookScope? Optional(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        return services.GetService(typeof(IAppFeatureSettings)) is null ? null : services.GetService(typeof(DevbookScope)) as DevbookScope;
+    }
 }
 
 /// <summary>

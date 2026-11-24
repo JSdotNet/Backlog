@@ -49,11 +49,11 @@ public sealed record DomainFeatureGate(DomainFeatureGateKind Kind, DomainNamedCh
     public string KindWord => Word.ToLowerInvariant();
 
     /// <summary>What a gate chip's tooltip reads: its kind and name, then what
-    /// its chapter states — <c>Flag: New domain view · default off</c>.</summary>
+    /// its chapter states — <c>Flag: Inbox pane · default off</c>.</summary>
     public string Description => $"{Word}: {Chapter.Title}" + string.Concat(Facts.Select(fact => " · " + fact));
 
     /// <summary>What a gate chip that follows to its chapter is called: <c>Gated
-    /// by flag New domain view</c>, <c>Configured by setting Brain folder</c>.</summary>
+    /// by flag Inbox pane</c>, <c>Configured by setting Brain folder</c>.</summary>
     public string Spoken => $"{(Kind == DomainFeatureGateKind.Setting ? "Configured by" : "Gated by")} {KindWord} {Chapter.Title}";
 }
 

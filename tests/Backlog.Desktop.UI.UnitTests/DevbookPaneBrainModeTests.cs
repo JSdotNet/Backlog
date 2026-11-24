@@ -1,4 +1,3 @@
-using Backlog.Infrastructure.Copilot;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -348,9 +347,8 @@ public sealed class DevbookPaneBrainModeTests
 
         harness.Context.Services.AddSingleton<IDevbookSyncVerdicts>(new EveryChapterVerdict());
 
-        // What the domain panel the scenario page sits under asks for; the harness
-        // composes no domain panel of its own.
-        harness.Context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
+        // The store the Domain view reads the scenarios file's page through; the
+        // harness composes none of its own.
         harness.Context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
     }
 

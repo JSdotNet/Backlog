@@ -42,6 +42,13 @@
 </article>
 
 @code {
+    /// <summary>Whether the status the chapters state is drawn: the Devbook status
+    /// switch, as the host cascades it. None cascaded draws it.</summary>
+    [CascadingParameter]
+    public DomainStatusDisplay? StatusDisplay { get; set; }
+
+    private bool StatusShown => DomainStatusDisplay.IsShown(StatusDisplay);
+
     /// <summary>The file the menu row opened.</summary>
     [Parameter, EditorRequired]
     public DomainChapterFile File { get; set; } = default!;
@@ -59,29 +66,31 @@
     private readonly string _id = $"domain-file-{Guid.NewGuid():N}";
     private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
     private DomainChapterFile? _read;
+    private bool _readShown;
     private string _title = string.Empty;
     private string _kicker = string.Empty;
     private IReadOnlyList<string> _covered = [];
 
     protected override void OnParametersSet()
     {
-        if (ReferenceEquals(_read, File)) return;
+        if (ReferenceEquals(_read, File) && _readShown == StatusShown) return;
         _read = File;
+        _readShown = StatusShown;
         _markdown.Clear();
 
         var stem = FileStem(File.Path);
         _title = File.Title.Length > 0 ? File.Title : stem;
-        _kicker = Kicker(File, stem);
+        _kicker = Kicker(File, stem, StatusShown);
         _covered = [File.Path, .. File.AllChapters().Select(File.ReferenceTo)];
     }
 
     /// <summary>The file's kind and status, as a unit page's kicker reads: its
     /// <c>type</c>, else its file name, then its <c>rating</c> or <c>status</c>
     /// when it states one — "actors · review".</summary>
-    internal static string Kicker(DomainChapterFile file, string stem)
+    internal static string Kicker(DomainChapterFile file, string stem, bool statusShown = true)
     {
         var kind = file.Meta.GetValueOrDefault("type") is { Length: > 0 } type ? type : stem;
-        var status = DomainUnits.StatusOf(file.Meta);
+        var status = statusShown ? DomainUnits.StatusOf(file.Meta) : null;
         return status is null ? kind : $"{kind} · {status}";
     }
 

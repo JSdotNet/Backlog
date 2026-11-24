@@ -3,14 +3,19 @@
 @using Backlog.UI.Components.Brain
 
 @*
-    The Domain area read by unit (local ADR 0047), behind the New domain view
-    switch. It names the page the selected menu row opens and draws it: Context
-    map, Domain, Context, Features, Requirements and Model; any other file
-    — actors.md, skills.md, a page a context adds, a legacy flow.md — as
-    written; and a
-    placeholder when no row is selected. Above the page, the Demo strip for
-    whatever demos it owns. With the switch off the pane renders
-    DomainDevbookPanel and never this.
+    The Domain area read by unit (local ADR 0047). It names the page the selected
+    menu row opens and draws it: Context map, Domain, Context, Features,
+    Requirements and Model; any other file — actors.md, skills.md, a scenarios
+    file with its journeys' runs, a page a context adds, a legacy flow.md — as
+    written; and a placeholder when no row is selected. Above the page, the Demo
+    strip for whatever demos it owns.
+
+    Above the page, Unit view | As written: the pages read by unit, or the selected
+    row's file itself in the shared file view (DomainViewAsWritten), where a chapter
+    is edited, compared, remarked on and given a sync direction. The choice stays
+    while the reader moves between rows. The unit pages show the status their
+    chapters state only while the Devbook status switch is on, cascaded to them as
+    a DomainStatusDisplay.
 
     Every page reads the same Brain and task links, cascaded as DomainChapterLinks:
     the owner's Brain notes linking to each chapter, read once per repository
@@ -25,15 +30,31 @@
 @* Above every page, once: a page's demo is the same Demo button wherever it is
    drawn, and it draws nothing on a page that owns none. *@
 <DomainViewDemos RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
+@if (Page != DomainViewPage.None)
+{
+    @* One of two readings, so a fused group with one pressed
+       (interaction-guidelines.md#group-shape-says-cardinality). *@
+    <ButtonGroup CssClass="domain-view__modes" AriaLabel="Reading" TestId="domain-view-modes">
+        <ToggleButton Pressed="@(!_asWritten)" PressedChanged="_ => ShowAsWritten(false)" TestId="domain-view-mode-units">Unit view</ToggleButton>
+        <ToggleButton Pressed="@_asWritten" PressedChanged="_ => ShowAsWritten(true)" TestId="domain-view-mode-written">As written</ToggleButton>
+    </ButtonGroup>
+}
+@if (_asWritten && Page != DomainViewPage.None)
+{
+    <DomainViewAsWritten @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@DomainViewUnit.WrittenFile(SelectedPath)" Focus="@WrittenFocus" OnNavigateToChapter="OnNavigateToChapter" />
+}
+else
+{
+<CascadingValue Value="@StatusDisplay" IsFixed="false">
 <CascadingValue Value="@Links" IsFixed="false">
     @if (Page == DomainViewPage.ContextMap)
     {
         @* Through OpenAsync, so an owner's model.md#events opens Model on Events. *@
-        <DomainViewContextMapPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync" />
+        <DomainViewContextMapPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync" />
     }
     else if (Page == DomainViewPage.Domain)
     {
-        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync"
+        <DomainViewDomainPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OpenAsync"
                               OpenUnit="@Asked?.Anchor"
                               OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)"
                               OpenRule="@Asked?.Rule"
@@ -42,7 +63,7 @@
     }
     else if (Page == DomainViewPage.Features)
     {
-        <DomainViewContextFilesPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
+        <DomainViewContextFilesPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
             <DomainFeatureBoard Columns="@Columns(context)"
                                 ContextName="@context.ContextName"
                                 ActiveFeature="@Asked?.Anchor"
@@ -54,7 +75,7 @@
     }
     else if (Page == DomainViewPage.Requirements)
     {
-        <DomainViewContextFilesPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Requirements">
+        <DomainViewContextFilesPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Requirements">
             <DomainRequirementsView Groups="@Groups(context)"
                                     DocumentPath="@context.Page!.Path"
                                     ActiveGroup="@Asked?.Anchor"
@@ -66,17 +87,17 @@
     }
     else if (Page == DomainViewPage.Context)
     {
-        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
+        <DomainViewContextPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Model)
     {
-        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" OnOpenMove="OpenMoveAsync" />
+        <DomainViewModelPage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OpenAnchor="@Asked?.Anchor" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" OnOpenMove="OpenMoveAsync" />
     }
     else if (Page == DomainViewPage.File)
     {
         @* Followed like the context page's links, so a related link to a feature
            or a requirement group opens on it. *@
-        <DomainViewFilePage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" />
+        <DomainViewFilePage @key="PageInstance" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Focus="@Focus" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" />
     }
     else
     {
@@ -89,6 +110,8 @@
                 role="status" />
     }
 </CascadingValue>
+</CascadingValue>
+}
 </section>
 
 @code {
@@ -102,6 +125,12 @@
     /// on: <c>tasks/dependencies.md</c> selects the <c>tasks</c> row.</summary>
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>The part of the selected file a followed reference's <c>#anchor</c>
+    /// names, when it names one: a scenarios file's journey part is marked and
+    /// revealed on the file's page.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
 
     /// <summary>A reference a page's reader followed, handed to the pane that
     /// holds the selection.</summary>
@@ -142,8 +171,37 @@
     private DomainChapterLinks Links { get; set; } = DomainChapterLinks.None;
     private static readonly RenderFragment NoBox = _ => { };
 
+    /// <summary>Whether the selected row is read as written rather than by unit.</summary>
+    private bool _asWritten;
+
+    private DevbookViewerSwitches _switches = null!;
+
+    /// <summary>The Devbook status switch, as the unit pages read it.</summary>
+    private DomainStatusDisplay StatusDisplay => _switches.StatusShown ? DomainStatusDisplay.On : DomainStatusDisplay.Off;
+
+    /// <summary>The request standing in the pane when As written was last entered.
+    /// The reading is drawn afresh each time it is entered, so it is handed only a
+    /// request made since: one already followed is not followed a second time.</summary>
+    private int _writtenSince;
+
+    private DevbookFocus? WrittenFocus => Focus is { } focus && focus.Sequence > _writtenSince ? focus : null;
+
+    private void ShowAsWritten(bool asWritten)
+    {
+        if (asWritten && !_asWritten) _writtenSince = Focus?.Sequence ?? 0;
+        _asWritten = asWritten;
+    }
+
     protected override void OnInitialized()
     {
+        // Asked of the scope, as every devbook panel asks it; a host with none
+        // shows the status (DevbookScope.StatusShownBy).
+        _switches = DevbookScope.Watch(DevbookScope.Optional(Services), InvokeAsync, () =>
+        {
+            StateHasChanged();
+            return Task.CompletedTask;
+        });
+
         // The notes are the pane mode's (local ADR 0040 §2): the Brain supplies
         // them, and a rebuilt Brain is announced on the mode's own source.
         _mode = Services.GetService<IDevbookPaneMode>();
@@ -247,6 +305,7 @@
     public void Dispose()
     {
         _disposed = true;
+        _switches?.Dispose();
         _reading?.Cancel();
         _reading?.Dispose();
         _reading = null;
@@ -261,7 +320,7 @@
     /// group, Features on the feature, Domain on the unit's Always true tab, or
     /// on the lifecycle a move on Model's Events named (<paramref name="Flow"/>).
     /// </summary>
-    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue, string? Rule = null, int? Flow = null);
+    private sealed record AskedChapter(string RelativePath, string? Anchor, bool AlwaysTrue, string? Rule = null, int? Flow = null);
 
     private AskedChapter? _asked;
     private string? _shownPath;
@@ -278,6 +337,52 @@
         // The reader moved somewhere other than where the link asked to go.
         if (!string.Equals(_shownPath, SelectedPath, StringComparison.OrdinalIgnoreCase) && Asked is null) _asked = null;
         _shownPath = SelectedPath;
+
+        // A reference followed from outside the view — a search hit, an atlas
+        // link, a task's Devbook reference — is asked for the way a link on a
+        // page is, once per request: the page opens on the unit, feature, group
+        // or tab its anchor names, and is drawn afresh so a part asked for again
+        // after the reader moved on is opened again.
+        // A link followed on one of this view's own pages comes back from the pane
+        // as a focus too; what the link asked for is already held, and richer.
+        if (Focus is { } focus && focus.Sequence != _focusSeen && SelectedPath is { } path)
+        {
+            _focusSeen = focus.Sequence;
+            var followed = _followed;
+            _followed = null;
+            if (followed is not null
+                && string.Equals(followed.Anchor, focus.Anchor, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(followed.RelativePath, focus.File ?? path, StringComparison.OrdinalIgnoreCase)) return;
+
+            _asked = FromFocus(focus, path);
+            _focusRequest = focus.Sequence;
+        }
+    }
+
+    private int _focusSeen;
+    private int _focusRequest;
+
+    /// <summary>The link a page of this view last followed, until the pane's focus
+    /// for it arrives.</summary>
+    private DevbookChapterLink? _followed;
+
+    /// <summary>The page instance: one per file, and a fresh one per request from
+    /// outside, so a page that keeps the reader's own pick starts from the
+    /// request's.</summary>
+    private string PageInstance => $"{SelectedPath}|{_focusRequest}";
+
+    /// <summary>What a followed reference's anchor asks of the page. One into a
+    /// file with no row of its own (<see cref="DevbookFocus.File"/>) names a heading
+    /// of that file: a rule in an invariants file opens its unit's Always true on
+    /// it; the neighbours in <c>dependencies.md</c> ask nothing of the page, whose
+    /// heading the pane brings into view.</summary>
+    private static AskedChapter? FromFocus(DevbookFocus focus, string path)
+    {
+        if (focus.File is not { } file) return new AskedChapter(path, focus.Anchor, AlwaysTrue: false);
+
+        return file.EndsWith(".invariants.md", StringComparison.OrdinalIgnoreCase)
+            ? new AskedChapter(path, Anchor: null, AlwaysTrue: true, Rule: $"{file}#{focus.Anchor}")
+            : null;
     }
 
     private Task NavigateAsync(DevbookReference reference) =>
@@ -305,6 +410,7 @@
     private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue, string? rule = null, int? flow = null)
     {
         _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue, rule, flow) : null;
+        _followed = target.Anchor is { Length: > 0 } ? target : null;
         return OnNavigateToChapter.InvokeAsync(target);
     }
 

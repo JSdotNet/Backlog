@@ -1,0 +1,622 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's As written reading (local ADR 0047): the selected file itself,
+    in the file view every other devbook area reads a chapter through, wired as the
+    arc42 panel wires it — remarks in the margin, kept per branch and read-only on an
+    archived repository (local ADR 0029 §4); Edit behind the Devbook editing switch
+    and never on a branch snapshot; Compare against the chapter as opened and as last
+    committed; the sync direction beside each heading; and the status where the
+    Devbook status switch draws it.
+
+    The unit pages compose several files into one page and draw cards rather than
+    blocks, so none of this has a place on them; here the file is one file, and a
+    remark sits beside the block it was left on — the same file and block a remark
+    left before the unit view named, so those line up again. A page built from more
+    than one file opens its primary file, with a chip to each companion.
+*@
+
+<section class="domain-view__written" data-testid="domain-view-written" aria-label="As written">
+    @if (_problem is not null)
+    {
+        <EmptyState BaseClass="devbook-empty"
+                    TitleCssClass="devbook-empty__title"
+                    DescriptionCssClass="@(null)"
+                    Title="As written"
+                    Description="@_problem"
+                    TestId="domain-view-written-problem"
+                    role="status" />
+    }
+    else if (_view is not null && _shownPath is { } shown)
+    {
+        @if (_files.Count > 1)
+        {
+            @* The page's files, the primary first: one is shown, so a fused group
+               with one pressed (interaction-guidelines.md#group-shape-says-cardinality). *@
+            <ButtonGroup CssClass="domain-view__written-files" AriaLabel="Files of this page" TestId="domain-view-written-files">
+                @foreach (var file in _files)
+                {
+                    <ToggleButton Pressed="@string.Equals(file, shown, StringComparison.OrdinalIgnoreCase)"
+                                  PressedChanged="_ => ShowFileAsync(file)"
+                                  TestId="domain-view-written-file"
+                                  data-path="@file">@FileName(file)</ToggleButton>
+                }
+            </ButtonGroup>
+        }
+
+        <Alert Message="@_saveError" TestId="domain-chapter-save-error" Role="status" />
+        <Alert Message="@_syncError" TestId="domain-chapter-sync-error" Role="status" />
+
+        <CascadingValue Value="@_syncScope" IsFixed="false">
+            <FileView @ref="_chapterView"
+                      Name="@_title"
+                      Kind="@_kind"
+                      Path="@DocumentPath"
+                      Body="@_chapter.Text"
+                      MaxHeight="@(null)"
+                      TestId="domain-chapter-file"
+                      AllowCopy="@(_chapter.Chapter is not null)"
+                      AllowChapterCopy="true"
+                      RenderDevbookMetadata="true"
+                      RenderDevbookMetadataFields="false"
+                      DevbookFolder="DevbookFolder.Domain"
+                      DevbookDocumentPath="@DocumentPath"
+                      ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Services.GetService<IDevbookFolderSource>(), RepositoryAlias, DocumentPath)"
+                      CanEditDevbookStatus="false"
+                      ShowDevbookStatus="@StatusShown"
+                      OnDevbookNavigate="NavigateAsync"
+                      Comments="@_comments"
+                      OnAddComment="@Remarks.Add"
+                      OnResolveComment="@Remarks.Resolve"
+                      OnEditComment="@Remarks.Edit"
+                      OnDeleteComment="@Remarks.Delete"
+                      CanEdit="@(EditOffered && _chapter.Chapter is { CanEdit: true })"
+                      Editing="@(EditOffered && _editing && _chapter.Chapter is { CanEdit: true })"
+                      EditingChanged="OnEditingChangedAsync"
+                      EditBodyContent="@ChapterEditor()"
+                      Comparing="@_comparing"
+                      ComparingChanged="OnComparingChangedAsync"
+                      CompareBaselines="@Baselines()"
+                      CompareBaselineId="@_baselineId"
+                      CompareBaselineIdChanged="OnBaselineChangedAsync" />
+        </CascadingValue>
+    }
+</section>
+
+@code {
+    /// <summary>The chapter as it was when it was opened, and as it was last
+    /// committed: what have I changed in this sitting, and what has changed since
+    /// this was agreed.</summary>
+    private const string OpenedBaselineId = "opened";
+
+    private const string CommittedBaselineId = "committed";
+
+    /// <summary>The repository whose Domain folder this is.</summary>
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The page's primary file, relative to the Domain folder:
+    /// <c>context-map.md</c>, <c>tasks/domain.task.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>The heading a followed reference named, while it is a request this
+    /// reading has not followed yet. One naming a companion file
+    /// (<see cref="DevbookFocus.File"/>) — <c>tasks/domain.invariants.md#rule</c> —
+    /// opens that file here; one naming the primary file brings it back from a
+    /// companion. The pane brings the heading into view.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
+
+    /// <summary>A reference in the file the reader followed, handed to the pane
+    /// that holds the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private DomainDevbookStore? _store;
+    private IGitFileHistoryService? _history;
+    private IDevbookAnnotationStore _annotations = null!;
+    private IDevbookSyncDirectionStore _directions = null!;
+    private IDevbookSyncVerdicts? _syncVerdicts;
+    private DevbookViewerSwitches _switches = null!;
+    private DevbookChapterFileReader _reader = DevbookChapterFileReader.Disk;
+
+    private DomainDevbookView? _view;
+    private (string? Alias, string? Path)? _loaded;
+
+    /// <summary>The primary file and its companions the folder holds, the primary
+    /// first.</summary>
+    private IReadOnlyList<string> _files = [];
+
+    /// <summary>The file on screen: the primary, or a companion picked by its chip.</summary>
+    private string? _shownPath;
+    private string _title = string.Empty;
+    private string _kind = string.Empty;
+    private string? _problem;
+
+    private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private int _read;
+    private FileView? _chapterView;
+    private DevbookChapterEditor? _editor;
+    private IReadOnlyList<MarkdownComment> _comments = [];
+    private DevbookSyncScope? _syncScope;
+    private string? _saveError;
+    private string? _syncError;
+
+    private string? _chapterOf;
+    private string? _chapterRoot;
+    private string? _openedText;
+    private string? _committedText;
+    private string? _committedUnavailable;
+    private bool _committedRead;
+    private bool _editing;
+    private bool _comparing;
+    private string _baselineId = OpenedBaselineId;
+    private bool _disposed;
+
+    /// <summary>The file as the domain store and the remark store name it:
+    /// <c>.domain/tasks/domain.md</c>.</summary>
+    private string DocumentPath => ".domain/" + _shownPath;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>Whether this repository is archived, which leaves its remarks
+    /// readable and nothing more (local ADR 0029 §4).</summary>
+    private bool RepositoryArchived => _view is { RepositoryArchived: true };
+
+    /// <summary>The branch the folder was read from, which a remark is kept under:
+    /// null for a clone or the default branch.</summary>
+    private string? RemarkBranch => _view?.Branch;
+
+    private DevbookRemarkCallbacks Remarks => DevbookRemarkControls.For(
+        this, RepositoryArchived, AddComment, ResolveComment, EditComment, DeleteComment);
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the Domain view's pages resolve their
+        // stores: a host composing fewer services gets less, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+        _history = Services.GetService<IGitFileHistoryService>();
+        _reader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+
+        _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _annotations.Changed += OnAnnotationsChanged;
+
+        _directions = Services.GetService<IDevbookSyncDirectionStore>() ?? new SessionDevbookSubjectStateStore();
+        _directions.Changed += OnDirectionsChanged;
+
+        _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
+        if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        _switches = DevbookScope.Watch(DevbookScope.Optional(Services), InvokeAsync, OnSwitchesChangedAsync);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Each followed reference once: the file it names, when that is one of
+        // this page's, is the one shown. A reference with no file of its own names
+        // a heading of the primary file.
+        if (Focus is { } focus && focus.Sequence != _focusSeen)
+        {
+            _focusSeen = focus.Sequence;
+            _wantedFile = focus.File ?? SelectedPath;
+        }
+
+        if (_loaded == (RepositoryAlias, SelectedPath))
+        {
+            if (TakeWantedFile() is { } wanted) await ShowFileAsync(wanted);
+            return;
+        }
+
+        _loaded = (RepositoryAlias, SelectedPath);
+        _shownPath = SelectedPath;
+        await ReloadAsync();
+    }
+
+    private int _focusSeen;
+    private string? _wantedFile;
+
+    /// <summary>The file a followed reference asked for, once, when this page
+    /// has it; null otherwise.</summary>
+    private string? TakeWantedFile()
+    {
+        var wanted = _wantedFile;
+        if (wanted is null || _files.Count == 0) return null;
+        _wantedFile = null;
+        return _files.FirstOrDefault(file => string.Equals(file, wanted, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The folder, the page's files and the file shown, read again: on
+    /// arrival, after a save, and when the folder changed.</summary>
+    private async Task ReloadAsync()
+    {
+        var alias = RepositoryAlias;
+        var primary = SelectedPath;
+        if (_store is null)
+        {
+            _problem = "This host has no domain folder to read the file from.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(primary))
+        {
+            _problem = "Choose a file in the menu to read it as written.";
+            return;
+        }
+
+        DomainDevbookView view;
+        IReadOnlyList<string> files;
+        try
+        {
+            view = await _store.LoadAsync(alias);
+            files = await Task.Run(() => ExistingFiles(view, primary));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (Current(alias, primary)) _problem = $"The file could not be read: {ex.Message}";
+            return;
+        }
+
+        if (!Current(alias, primary)) return;
+
+        _view = view;
+        _files = files;
+        _problem = view.Error ?? (files.Count == 0 ? $"No file at {primary}." : null);
+        if (TakeWantedFile() is { } wanted) _shownPath = wanted;
+        if (_shownPath is null || !files.Contains(_shownPath, StringComparer.OrdinalIgnoreCase)) _shownPath = files.FirstOrDefault();
+        if (_problem is null) await LoadChapterAsync();
+    }
+
+    private bool Current(string? alias, string? primary) =>
+        !_disposed
+        && string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)
+        && string.Equals(primary, SelectedPath, StringComparison.Ordinal);
+
+    /// <summary>The primary file and those of its companions the folder holds.</summary>
+    private static IReadOnlyList<string> ExistingFiles(DomainDevbookView view, string primary) =>
+        [.. new[] { primary }.Concat(DomainViewUnit.Companions(primary))
+            .Where(file => DomainDevbookStore.ReadText(view, ".domain/" + file) is not null)];
+
+    /// <summary>
+    /// Reads the shown file, its remarks and its sync state. Only the latest read
+    /// lands: reads overlap whenever a save, a folder change and a chip press come
+    /// close together, and one finishing late must not put another file's text
+    /// under this one's name.
+    /// </summary>
+    private async Task LoadChapterAsync()
+    {
+        if (_view is not { } view || _shownPath is null) return;
+
+        var documentPath = DocumentPath;
+        // The same path under another root is another file: another repository's
+        // copy, or the branch snapshot of this one's. A baseline or an edit mode
+        // carried across would compare or write one against the other.
+        var root = view.RootPath;
+        var sameChapter = string.Equals(documentPath, _chapterOf, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(root, _chapterRoot, StringComparison.OrdinalIgnoreCase);
+        var read = ++_read;
+        var chapter = await DevbookChapterContent.LoadAsync("domain", view.RootPath, documentPath, view.CanEdit, reader: _reader);
+        var sync = await _store!.ReadSyncAsync(RepositoryAlias, documentPath, Stated(RepositoryAlias));
+        if (read != _read || _disposed) return;
+
+        _chapter = chapter;
+        _chapterOf = documentPath;
+        _chapterRoot = root;
+        _saveError = null;
+        _syncScope = SyncScope(documentPath, sync);
+        _title = Title(chapter.Text, _shownPath);
+        _kind = (DomainDevbookDocument.Empty with { Kind = DomainDevbookStore.KindFromFile(_shownPath) }).KindLabel;
+        RefreshComments();
+
+        if (sameChapter)
+        {
+            // The working copy moved on; the commit did not.
+            _openedText ??= _chapter.Text;
+        }
+        else
+        {
+            _openedText = _chapter.Text;
+            _committedText = null;
+            _committedUnavailable = null;
+            _committedRead = false;
+            _baselineId = OpenedBaselineId;
+            _editing = false;
+            _comparing = false;
+        }
+
+        // A component reference outlives the component it pointed at.
+        if (_chapter.Chapter is null) _editor = null;
+
+        BeginCommittedBaselineRead();
+    }
+
+    /// <summary>The file's title as its heading writes it, else its file name.</summary>
+    private static string Title(string? text, string path) =>
+        text is { Length: > 0 } && DomainUnits.Parse(text, path).Title is { Length: > 0 } title ? title : FileName(path);
+
+    private static string FileName(string path) => path[(path.Replace('\\', '/').LastIndexOf('/') + 1)..];
+
+    private async Task ShowFileAsync(string file)
+    {
+        if (string.Equals(file, _shownPath, StringComparison.OrdinalIgnoreCase)) return;
+
+        // What was typed goes to disk before the editor goes with its file.
+        await FlushEditorAsync();
+        _shownPath = file;
+        await LoadChapterAsync();
+    }
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+
+    // --- Edit ------------------------------------------------------------------
+
+    private RenderFragment ChapterEditor() => @<DevbookChapterEditor @ref="_editor"
+                                                                       Chapter="@_chapter.Chapter"
+                                                                       InitialText="@_chapter.Text"
+                                                                       Bare="true"
+                                                                       Fill="true"
+                                                                       OnSaved="ReloadAsync"
+                                                                       OnSaveFailed="message => _saveError = message" />;
+
+    private Task FlushEditorAsync() =>
+        _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
+
+    /// <summary>Into the editor, or out of it: leaving writes what the debounce
+    /// still owes and reads the file again, so the reading is the file as it now is.</summary>
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        await FlushEditorAsync();
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    /// <summary>Edit switched off under an open editor leaves edit mode through the
+    /// path that writes what was typed.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
+    }
+
+    // --- Compare ---------------------------------------------------------------
+
+    private async Task OnComparingChangedAsync(bool comparing)
+    {
+        if (!comparing)
+        {
+            _comparing = false;
+            return;
+        }
+
+        await FlushEditorAsync();
+        _comparing = true;
+        await ReloadAsync();
+        await ReadCommittedBaselineAsync();
+    }
+
+    private async Task OnBaselineChangedAsync(string baselineId)
+    {
+        _baselineId = baselineId;
+        await ReadCommittedBaselineAsync();
+    }
+
+    /// <summary>Asks git what the file last looked like as it opens, so the offer
+    /// to compare is decided from an answer rather than from a press.</summary>
+    private async void BeginCommittedBaselineRead()
+    {
+        if (_committedRead || _chapter.Chapter is null) return;
+
+        try
+        {
+            await ReadCommittedBaselineAsync();
+            if (!_disposed) await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // An async void read: a failed git call is not worth the process. The
+            // comparison then offers only the opened baseline.
+        }
+    }
+
+    private async Task ReadCommittedBaselineAsync()
+    {
+        if (_committedRead || _chapter.Chapter is not { } chapter || _history is null) return;
+
+        _committedRead = true;
+        var result = await _history.ReadAtHeadAsync(chapter.FullPath);
+
+        (_committedText, _committedUnavailable) = result.State switch
+        {
+            GitFileAtRevisionState.Committed => (result.Content, (string?)null),
+            GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The devbook folder is not inside a git repository."),
+            _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
+        };
+    }
+
+    /// <summary>What the file can be compared against: the commit joins the list
+    /// once git has answered for it.</summary>
+    private IReadOnlyList<FileCompareBaseline> Baselines()
+    {
+        var opened = new FileCompareBaseline(
+            OpenedBaselineId,
+            "As opened",
+            _openedText,
+            _openedText is null ? "Nothing was read from this chapter when it was opened." : null);
+
+        return _committedRead
+            ? [opened, new FileCompareBaseline(CommittedBaselineId, "Last commit", _committedText, _committedUnavailable)]
+            : [opened];
+    }
+
+    // --- Remarks ---------------------------------------------------------------
+
+    /// <summary>The shown file's remarks, kept by repository, file and branch.</summary>
+    private void RefreshComments() =>
+        _comments = _shownPath is null
+            ? []
+            : DevbookRemarkControls.Shown(DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, DocumentPath, RemarkBranch)), RepositoryArchived);
+
+    private void OnAnnotationsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+            RefreshComments();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>An empty remark where it was asked for: the read view opens it
+    /// straight into its own textarea.</summary>
+    private void AddComment(int blockIndex)
+    {
+        if (_shownPath is null || RepositoryArchived) return;
+
+        _annotations.Add(
+            RepositoryAlias,
+            DocumentPath,
+            blockIndex,
+            DevbookAnnotationComments.LocalAuthor,
+            _chapterView?.BlockDigestAt(blockIndex),
+            branch: RemarkBranch);
+        RefreshComments();
+    }
+
+    private void ResolveComment(string id)
+    {
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (_annotations.Find(annotationId) is not { } annotation) return;
+
+        _annotations.SetResolved(annotationId, !annotation.Resolved);
+        RefreshComments();
+    }
+
+    private void EditComment(MarkdownComment edited)
+    {
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
+
+        _annotations.Edit(annotationId, edited.Body);
+        RefreshComments();
+    }
+
+    private void DeleteComment(string id)
+    {
+        if (RepositoryArchived || DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+
+        _annotations.Delete(annotationId);
+        RefreshComments();
+    }
+
+    // --- Sync direction --------------------------------------------------------
+
+    private Func<string, string?> Stated(string? alias) => address => _directions.Get(alias, address);
+
+    /// <summary>The scope cascaded over the file: a direction may be set wherever
+    /// the repository is not archived — on a branch snapshot too, since it is the
+    /// map's and no file changes (local ADR 0029 §4).</summary>
+    private DevbookSyncScope SyncScope(string documentPath, DevbookSyncReading sync) =>
+        sync.Scope(documentPath, RepositoryArchived ? null : ChangeSyncAsync);
+
+    /// <summary>A direction picked in the file, stated in the repository's direction
+    /// map; no file is written. The map's own event rebuilds the scope.</summary>
+    private Task ChangeSyncAsync(string itemPath, string? direction)
+    {
+        var hadError = _syncError is not null;
+        _syncError = null;
+        if (RepositoryArchived) return Task.CompletedTask;
+
+        try
+        {
+            _directions.Set(RepositoryAlias, DevbookSync.Address(DevbookFolder.Domain, itemPath), direction, DevbookLocalAuthor.Name);
+        }
+        catch (ArgumentException ex)
+        {
+            _syncError = ex.Message;
+            hadError = true;
+        }
+
+        // The pick re-renders the record that raised it, not this view.
+        if (hadError) StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void OnDirectionsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed || _store is null || _shownPath is null) return;
+
+            var documentPath = DocumentPath;
+            var read = _read;
+            DevbookSyncReading sync;
+            try
+            {
+                sync = await _store.ReadSyncAsync(RepositoryAlias, documentPath, Stated(RepositoryAlias));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return;
+            }
+
+            if (_disposed || read != _read || !string.Equals(documentPath, DocumentPath, StringComparison.OrdinalIgnoreCase)) return;
+            _syncScope = SyncScope(documentPath, sync);
+            StateHasChanged();
+        });
+    }
+
+    private void OnSyncVerdictsChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
+    }
+
+    /// <summary>The folder moved or was pulled: read again. The same file read
+    /// again keeps an open editor and its buffer.</summary>
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // The reading that last landed stays up; the next change asks again.
+            }
+
+            if (!_disposed) StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+        _annotations.Changed -= OnAnnotationsChanged;
+        _directions.Changed -= OnDirectionsChanged;
+        if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
+        _switches?.Dispose();
+    }
+}

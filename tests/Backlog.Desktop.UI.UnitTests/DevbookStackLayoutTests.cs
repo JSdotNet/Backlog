@@ -88,7 +88,7 @@ public sealed class DevbookStackLayoutTests
         Assert.Contains("overflow: hidden;", layout, StringComparison.Ordinal);
 
         // The article is the scroll box, as it is on the Chapters tab.
-        Assert.Contains("overflow: auto;", RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .devbook-document,"), StringComparison.Ordinal);
+        Assert.Contains("overflow: auto;", RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .devbook-document {"), StringComparison.Ordinal);
 
         var components = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")));
         var grid = RuleBody(components, ".c4-zoom-explorer__surface {\n");
@@ -148,7 +148,7 @@ public sealed class DevbookStackLayoutTests
     }
 
     [Fact]
-    public void Domain_and_architecture_outer_panels_clip_instead_of_owning_the_scrollbar()
+    public void Architecture_outer_panel_clips_instead_of_owning_the_scrollbar()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
         var ruleStart = css.IndexOf(".devbook-stack__section > .devbook-pane--arc42,", StringComparison.Ordinal);
@@ -160,33 +160,25 @@ public sealed class DevbookStackLayoutTests
 
         var rule = css[ruleStart..ruleEnd];
 
-        // The domain panel has one rule of its own, after the shared one, so the
-        // values it ends up with are written in one place (issue #760).
-        var domain = RuleBody(css, ".devbook-stack__section > .domain-devbook {");
-
-        foreach (var panel in new[] { rule, domain })
-        {
-            Assert.Contains("max-height: 100%;", panel, StringComparison.Ordinal);
-            Assert.Contains("min-height: 0;", panel, StringComparison.Ordinal);
-            Assert.Contains("overflow: hidden;", panel, StringComparison.Ordinal);
-            Assert.DoesNotContain("overflow: auto;", panel, StringComparison.Ordinal);
-        }
+        Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow: auto;", rule, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Domain_and_architecture_documents_own_the_knowledge_scrollbar()
+    public void Architecture_documents_own_the_knowledge_scrollbar()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
-        var ruleStart = css.IndexOf(".devbook-stack__section > .devbook-pane--arc42 .devbook-document,", StringComparison.Ordinal);
+        var ruleStart = css.IndexOf(".devbook-stack__section > .devbook-pane--arc42 .devbook-document {", StringComparison.Ordinal);
 
-        Assert.True(ruleStart >= 0, "Architecture and Domain documents should share the scroll container rule.");
+        Assert.True(ruleStart >= 0, "Architecture documents should keep the scroll container rule.");
 
         var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
         Assert.True(ruleEnd > ruleStart, "The document scroll rule should be complete.");
 
         var rule = css[ruleStart..ruleEnd];
 
-        Assert.Contains(".devbook-stack__section > .domain-devbook > .domain-document", rule, StringComparison.Ordinal);
         Assert.Contains("flex: 1 1 auto;", rule, StringComparison.Ordinal);
         Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
@@ -226,7 +218,7 @@ public sealed class DevbookStackLayoutTests
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var cardRuleStart = css.IndexOf(".design-token,\n.folder-section,\n.domain-document", StringComparison.Ordinal);
+        var cardRuleStart = css.IndexOf(".design-token,\n.folder-section {", StringComparison.Ordinal);
         Assert.True(cardRuleStart >= 0, "The knowledge card rule should still exist for the documents that are lists of files rather than one file.");
 
         var cardRuleEnd = css.IndexOf("}\n", cardRuleStart, StringComparison.Ordinal);
@@ -237,44 +229,6 @@ public sealed class DevbookStackLayoutTests
         // The architecture article holds a file view on every render, and the file
         // view draws its own edge, so a card here is a card around a card.
         Assert.DoesNotContain(".devbook-document", cardRule, StringComparison.Ordinal);
-
-        var withdrawalStart = css.IndexOf(".domain-document--chapter {", StringComparison.Ordinal);
-        Assert.True(withdrawalStart > cardRuleStart,
-            "The domain chapter must withdraw the card after the rule that sets it, or the card wins on source order.");
-
-        var withdrawal = css[withdrawalStart..css.IndexOf("}\n", withdrawalStart, StringComparison.Ordinal)];
-
-        // The inset goes with the edge. A frame's padding without its border is a
-        // gap with nothing to explain it.
-        Assert.Contains("padding: 0;", withdrawal, StringComparison.Ordinal);
-        Assert.Contains("border: 0;", withdrawal, StringComparison.Ordinal);
-        Assert.Contains("background: transparent;", withdrawal, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Domain_metadata_keeps_consecutive_relations_apart()
-    {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
-
-        // Both rules were deleted once already, by a commit that was replacing the
-        // block beneath them, and the strip spent that time rendering its chips as
-        // one unbroken run of text — two relation paths reading as one. The gap is
-        // the whole of what was lost, so the gap is what is pinned.
-        var stripStart = css.IndexOf(".domain-metadata {", StringComparison.Ordinal);
-        Assert.True(stripStart >= 0, "The domain metadata strip needs its own rule; without one its chips run together.");
-
-        var strip = css[stripStart..css.IndexOf("}\n", stripStart, StringComparison.Ordinal)];
-
-        Assert.Contains("display: flex;", strip, StringComparison.Ordinal);
-        Assert.Contains("gap: var(--spacing-xs);", strip, StringComparison.Ordinal);
-
-        var itemStart = css.IndexOf(".domain-metadata__item {", StringComparison.Ordinal);
-        Assert.True(itemStart >= 0, "A metadata chip needs its own rule; a chip pinning two relations has to keep them apart inside it.");
-
-        var item = css[itemStart..css.IndexOf("}\n", itemStart, StringComparison.Ordinal)];
-
-        Assert.Contains("display: inline-flex;", item, StringComparison.Ordinal);
-        Assert.Contains("gap: var(--spacing-xs);", item, StringComparison.Ordinal);
     }
 
     [Fact]

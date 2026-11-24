@@ -238,9 +238,8 @@
     }
 
     /// <summary>Where the remarks on a chapter live: the host's annotation
-    /// store, or a session-scoped one when the host composed none — the same
-    /// arrangement the Domain panel has, and resolved from the provider for the
-    /// same reason. See that panel for why the store rather than a dictionary
+    /// store, or a session-scoped one when the host composed none — and resolved
+    /// from the provider, like the other optional stores, rather than a dictionary
     /// on the component.</summary>
     private IDevbookAnnotationStore _annotations = null!;
 
@@ -383,8 +382,7 @@
     /// screen. So following a reference is a request rather than a move: the panel
     /// says which chapter was asked for and the host decides whether it exists. A
     /// host that does not take the callback gets a reference that still reads
-    /// correctly and goes nowhere, which is what the standalone page has. The same
-    /// shape the Domain panel already keeps.
+    /// correctly and goes nowhere, which is what the standalone page has.
     /// </para>
     /// </summary>
     [Parameter]
