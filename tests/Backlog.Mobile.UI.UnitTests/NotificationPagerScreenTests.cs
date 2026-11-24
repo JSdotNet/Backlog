@@ -364,7 +364,7 @@ public sealed class NotificationPagerScreenTests
         var app = host.Open("notifications");
 
         app.WaitForAssertion(() => Assert.Equal("1 / 1", Position(app)));
-        Assert.Equal("Alert", app.Find("[data-testid='notification-kind']").TextContent);
+        Assert.Equal("Alert", app.Find("[data-testid='notification-kind']").TextContent.Trim());
         Assert.Empty(app.FindAll("[data-testid='notification-answer']"));
     }
 

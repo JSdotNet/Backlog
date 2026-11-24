@@ -5,8 +5,8 @@
 
 @*
     One notification on the phone, as the proposal's phone mockup draws it: the
-    kind and severity with its age, where it came from (the origin's system badge
-    and place, as the desktop card draws them), the title, the summary, the answer controls
+    one line of kind and severity as glyphs, where it came from (the origin's
+    system — a glyph for a system the app knows — and place) and its age, then the title, the summary, the answer controls
     while the phone may answer, where it stands, and the desktop that owns it
     with whether that desktop is running (.devbook/domain/notifications/context.md).
 
@@ -30,24 +30,34 @@
 
 <article class="phone-notification" data-testid="notification-card" data-standing="@StandingSlug"
          data-notification="@Notification.Id" aria-labelledby="@TitleId">
+    @* One line: kind and severity as glyphs, where it came from, then its age. A glyph's
+       word is its tooltip and, hidden, what a screen reader says, so the glyph never
+       carries the meaning alone. *@
     <header class="phone-notification__meta">
         <span class="phone-notification__tags">
-            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@KindSlug" TestId="notification-kind">@KindLabel</Badge>
-            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@SeveritySlug" TestId="notification-severity">@SeverityLabel</Badge>
+            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@KindSlug" Title="@KindLabel" TestId="notification-kind">@Glyph(KindGlyph)<span class="sr-only">@KindLabel</span></Badge>
+            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@SeveritySlug" Title="@SeverityLabel" TestId="notification-severity">@Glyph(SeverityGlyph)<span class="sr-only">@SeverityLabel</span></Badge>
         </span>
+        @if (Item.Origin is { } origin)
+        {
+            <span class="phone-notification__origin" data-testid="notification-origin">
+                @* A system the app knows wears its glyph; any other keeps its name in the badge. *@
+                @if (SystemGlyph(origin.System) is { } glyph)
+                {
+                    <Badge BaseClass="phone-notification__tag" Kind="" Slug="system" Title="@origin.System" TestId="notification-origin-system">@Glyph(glyph)<span class="sr-only">@origin.System</span></Badge>
+                }
+                else
+                {
+                    <Badge Kind="notification-origin" Slug="system" TestId="notification-origin-system">@origin.System</Badge>
+                }
+                @if (!string.IsNullOrWhiteSpace(origin.Place))
+                {
+                    <span class="phone-notification__place" title="@origin.Place" data-testid="notification-origin-place">@origin.Place</span>
+                }
+            </span>
+        }
         <span class="phone-notification__age" data-testid="notification-age">@Age</span>
     </header>
-
-    @if (Item.Origin is { } origin)
-    {
-        <p class="phone-notification__origin" data-testid="notification-origin">
-            <Badge Kind="notification-origin" Slug="system" TestId="notification-origin-system">@origin.System</Badge>
-            @if (!string.IsNullOrWhiteSpace(origin.Place))
-            {
-                <span class="phone-notification__place" data-testid="notification-origin-place">@origin.Place</span>
-            }
-        </p>
-    }
 
     @if (Href is not null)
     {
@@ -140,6 +150,35 @@
         NotificationSeverity.Critical => "Critical",
         NotificationSeverity.Warning => "Warning",
         _ => "Info"
+    };
+
+    /// <summary>The glyph a system the app names in <see cref="NotificationOrigins"/> wears —
+    /// sparkles for Claude Code, the AI agent's own mark; a scroll for spec-manager — or null
+    /// for any other, which keeps its name. Backlog keeps its name too: its own glyph, the bell,
+    /// is already the alert kind's.</summary>
+    private static Type? SystemGlyph(string system) => system switch
+    {
+        NotificationOrigins.ClaudeCode => typeof(SparklesIcon),
+        NotificationOrigins.SpecManager => typeof(ScrollTextIcon),
+        _ => null
+    };
+
+    private Type KindGlyph => Item.Kind == NotificationKind.Question ? typeof(CircleHelpIcon) : typeof(BellIcon);
+
+    private Type SeverityGlyph => Item.Severity switch
+    {
+        NotificationSeverity.Critical => typeof(CircleAlertIcon),
+        NotificationSeverity.Warning => typeof(TriangleAlertIcon),
+        _ => typeof(InfoIcon)
+    };
+
+    /// <summary>A tag's glyph at the tag's size, drawn from code so the badge holds no
+    /// whitespace beside its hidden word.</summary>
+    private static RenderFragment Glyph(Type icon) => builder =>
+    {
+        builder.OpenComponent(0, icon);
+        builder.AddAttribute(1, "Size", "14");
+        builder.CloseComponent();
     };
 
     private string StandingSlug => Notification.Standing switch

@@ -660,19 +660,33 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
-    public void An_agents_question_is_marked_ai_agent_and_names_who_it_acted_for_and_its_session()
+    public void An_agents_question_marks_its_system_ai_agent_and_names_who_it_acted_for_and_its_session()
     {
         using var context = Context();
         var origin = SpecManager with { Via = "Fix rounding", Asker = NotificationCardAsker.Agent };
 
         var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = origin }));
 
-        var asker = card.Find("[data-testid='notification-card-asker']");
-        Assert.Equal("agent", asker.GetAttribute("data-asker"));
-        Assert.Equal("AI agent", asker.TextContent.Trim());
-        Assert.NotNull(asker.QuerySelector("svg.sparkles-icon"));
+        var system = card.Find("[data-testid='notification-card-system']");
+        Assert.Equal("agent", system.GetAttribute("data-asker"));
+        Assert.NotNull(system.QuerySelector("svg.sparkles-icon"));
+        Assert.Equal("spec-manager (AI agent)", system.TextContent.Trim());
+        Assert.Equal("spec-manager · AI agent", system.GetAttribute("title"));
         Assert.Equal("for Ada Lovelace · Fix rounding", card.Find("[data-testid='notification-card-asked-by']").TextContent);
         Assert.DoesNotContain("Asked by", card.Find("[data-testid='notification-card-asked']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_agents_question_says_ai_agent_once()
+    {
+        using var context = Context();
+        var origin = new NotificationCardOrigin("Claude Code", "JSdotNet/Backlog", Asker: NotificationCardAsker.Agent);
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = origin }));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-asker']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-asked']"));
+        Assert.Single(card.FindAll("svg.sparkles-icon"));
     }
 
     [Fact]

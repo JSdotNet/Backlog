@@ -165,8 +165,14 @@ public sealed class NotificationScreenTests
         var app = OpenCard(host);
 
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
-        Assert.Equal("Question", app.Find("[data-testid='notification-kind']").TextContent);
-        Assert.Equal("Warning", app.Find("[data-testid='notification-severity']").TextContent);
+        Assert.Equal("Question", app.Find("[data-testid='notification-kind']").TextContent.Trim());
+        Assert.Equal("Warning", app.Find("[data-testid='notification-severity']").TextContent.Trim());
+        // Each a glyph, the word its tooltip and hidden for a screen reader.
+        Assert.NotNull(app.Find("[data-testid='notification-kind'] svg.circle-help-icon"));
+        Assert.Equal("Question", app.Find("[data-testid='notification-kind']").GetAttribute("title"));
+        Assert.Equal("Question", app.Find("[data-testid='notification-kind'] .sr-only").TextContent);
+        Assert.NotNull(app.Find("[data-testid='notification-severity'] svg.triangle-alert-icon"));
+        Assert.Equal("Warning", app.Find("[data-testid='notification-severity']").GetAttribute("title"));
         Assert.Equal("2m ago", app.Find("[data-testid='notification-age']").TextContent);
         Assert.Equal("Owned by WORKSTATION-01 · online", app.Find("[data-testid='notification-owner']").TextContent.Trim());
         Assert.Equal("done", app.Find("[data-testid='notification-presence']").GetAttribute("data-tone"));
@@ -184,8 +190,26 @@ public sealed class NotificationScreenTests
 
         var app = host.Open(detail ? $"notifications/{question.Id}" : "notifications");
 
-        app.WaitForAssertion(() => Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").TextContent));
+        app.WaitForAssertion(() => Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").TextContent.Trim()));
         Assert.Equal("JSdotNet/Backlog · Notification origin", app.Find("[data-testid='notification-origin-place']").TextContent);
+        // Claude Code is a system the app knows: the AI agent's sparkles, its name the tooltip.
+        Assert.NotNull(app.Find("[data-testid='notification-origin-system'] svg.sparkles-icon"));
+        Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").GetAttribute("title"));
+        // One line with the kind, the severity and the age.
+        Assert.NotNull(app.Find("header.phone-notification__meta [data-testid='notification-origin']"));
+    }
+
+    [Fact]
+    public void A_system_the_app_does_not_know_keeps_its_name_in_the_badge()
+    {
+        var question = Migration() with { Origin = new NotificationOrigin("Jira", "BL-7") };
+        var (host, _, _) = Phone(question);
+        using var disposing = host;
+
+        var app = host.Open("notifications");
+
+        app.WaitForAssertion(() => Assert.Equal("Jira", app.Find("[data-testid='notification-origin-system']").TextContent.Trim()));
+        Assert.Empty(app.FindAll("[data-testid='notification-origin-system'] svg"));
     }
 
     [Fact]
@@ -508,8 +532,8 @@ public sealed class NotificationScreenTests
 
         var app = OpenCard(host);
 
-        app.WaitForAssertion(() => Assert.Equal("Alert", app.Find("[data-testid='notification-kind']").TextContent));
-        Assert.Equal("Info", app.Find("[data-testid='notification-severity']").TextContent);
+        app.WaitForAssertion(() => Assert.Equal("Alert", app.Find("[data-testid='notification-kind']").TextContent.Trim()));
+        Assert.Equal("Info", app.Find("[data-testid='notification-severity']").TextContent.Trim());
         Assert.Equal("1h ago", app.Find("[data-testid='notification-age']").TextContent);
         Assert.Empty(app.FindAll("[data-testid='notification-answer']"));
         Assert.Empty(app.FindAll("[data-testid='notification-standing']"));

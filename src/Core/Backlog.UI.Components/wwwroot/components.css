@@ -30966,6 +30966,19 @@ button.domain-field-rules[aria-expanded="true"] {
     font-weight: var(--font-weight-semibold);
 }
 
+/* An agent's system carries the AI agent mark — the sparkles on the asker badge's own info
+   fill — so the card names the agent once, not as a system and again as an asker. */
+.badge--notification-origin-system[data-asker="agent"] {
+    position: relative;
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+    background: var(--color-info);
+}
+
+.badge--notification-origin-system[data-asker="agent"] > svg {
+    flex: none;
+}
+
 .badge--notification-origin-via {
     background: transparent;
     border: var(--border-width) solid var(--color-border-strong);
