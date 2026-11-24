@@ -81,6 +81,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     private const string PlanRefusedTestId = "plan-entry-refused";
 
+    /// <summary>The notice and toast a save refused as stale raises. See
+    /// <see cref="ReloadAfterStaleWriteAsync"/>.</summary>
+    public const string StaleWriteTestId = "entry-stale-write";
+
     /// <summary>The toast a save raises when its edit and a write from elsewhere
     /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
     private const string ChangedElsewhereTestId = "entry-changed-elsewhere";
@@ -5937,6 +5941,18 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
                 return error;
             }
 
+            // Somebody else — an agent, another window — saved this entry between
+            // the read this save was made on and the write, and the store refused
+            // to put the older text back over theirs. Not a state a typist passes
+            // through, so not held quietly as the two below are: the entry is
+            // reloaded as the store now holds it and the row says so beside the
+            // editor.
+            if (error.Code == TaskEntryErrorCodes.StaleWrite)
+            {
+                await ReloadAfterStaleWriteAsync(row);
+                return error;
+            }
+
             // Nothing has gone wrong *for a typist*: an entry still being typed
             // has no title yet, and one deleted from under us has nowhere to go.
             // Neither is worth alarming anybody about, so the indicator stays
@@ -5949,6 +5965,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         // Out of the refusal, so the next one is announced again.
         row.PlanRefused = false;
+        row.StaleWriteNotice = null;
 
         var entry = savedTask.Entry;
         _entries[entry.Id] = entry;
@@ -5966,6 +5983,65 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (savedTask.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
 
         return Result.Success();
+    }
+
+    /// <summary>What the row says beside the editor after a save was refused as
+    /// stale and the entry reloaded.</summary>
+    public const string StaleWriteMessage = "This entry changed somewhere else. It has been reloaded.";
+
+    /// <summary>
+    /// Takes the entry back as the store holds it after a save was refused as
+    /// stale (<see cref="TaskEntryErrorCodes.StaleWrite"/>), and says so: on the
+    /// row beside the editor, which stays until the next save of the row lands,
+    /// and once as a toast for a reader whose eyes are elsewhere.
+    /// <para>
+    /// Reloaded by merging, not by replacing: the reader's own edit, which was
+    /// never written, is carried onto the stored entry the way
+    /// <see cref="RebaseOnStoreAsync"/> carries one onto an outside write (see
+    /// <see cref="EntryTextMerge"/>), and the stored entry becomes the row's base.
+    /// So the next save — the next keystroke's, or the flush when the editor
+    /// closes — is made on the version the store holds and is not refused again,
+    /// and nothing typed is lost to the reload.
+    /// </para>
+    /// <para>
+    /// The band reads Error rather than Saved until then — the text on screen was
+    /// not written, and a band saying otherwise is what this refusal exists to stop.
+    /// </para>
+    /// </summary>
+    private async Task ReloadAfterStaleWriteAsync(EntryRow row)
+    {
+        SetSaveState(AppSaveState.Error);
+
+        if (row.Id is { } id)
+        {
+            TaskItemDto? stored = null;
+            try
+            {
+                stored = await _entryUseCases.GetAsync(id);
+            }
+            catch (Exception)
+            {
+                // A store that cannot be read now leaves the row as it is; the
+                // notice still says the save did not land.
+            }
+
+            if (stored is not null)
+            {
+                // Read after the await, so a keystroke typed while the read was in
+                // flight is merged rather than overwritten.
+                var baseText = _entries.TryGetValue(id, out var loaded) ? EntryTextParser.ToRawText(loaded) : null;
+                var storedText = EntryTextParser.ToRawText(stored);
+                _entries[id] = stored;
+
+                row.RawText = baseText is null
+                    ? storedText
+                    : EntryTextMerge.Merge(baseText, row.RawText, storedText).Text;
+            }
+        }
+
+        var announce = row.StaleWriteNotice is null;
+        row.StaleWriteNotice = StaleWriteMessage;
+        if (announce) AnnounceRowFailure(row, StaleWriteMessage, StaleWriteTestId);
     }
 
     /// <summary>
@@ -6994,6 +7070,11 @@ public sealed class EntryRow
     /// <c>plan</c> entry. Held so the toast is raised on the way into that state
     /// and not once per keystroke while the text sits there unchanged.</summary>
     public bool PlanRefused { get; set; }
+
+    /// <summary>What the row says beside the editor after its last save was refused
+    /// as stale and the entry reloaded, or null. Cleared by the next save that lands;
+    /// also what keeps the toast to one per refusal rather than one per keystroke.</summary>
+    public string? StaleWriteNotice { get; set; }
 
     public EntryType Type { get; set; } = EntryType.Task;
 
