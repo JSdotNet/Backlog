@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Globalization;
 
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
@@ -408,6 +406,9 @@ public sealed class NotificationSyncSession
         var accepted = 0;
         var rejected = 0;
 
+        // Each device's standing is read once a cycle, however many of its replies it takes.
+        var standings = new Dictionary<Guid, DeviceStanding>();
+
         // The order the service took them in; its stamp is in seconds, so two replies in the
         // same second are put in the order the people made them.
         foreach (var record in listed.Value.Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
@@ -425,7 +426,7 @@ public sealed class NotificationSyncSession
                 }
                 else
                 {
-                    var paired = await FromPairedDeviceAsync(record, snapshot, me, cancellationToken).ConfigureAwait(false);
+                    var paired = await FromPairedDeviceAsync(record, snapshot, me, standings, cancellationToken).ConfigureAwait(false);
 
                     // Stop here, before the delete: the reply is listed again next cycle.
                     if (paired.IsFailure) return Result.Failure<(int, int)>(paired.Error);
@@ -477,12 +478,14 @@ public sealed class NotificationSyncSession
     /// left to the gate, which rejects it for that, so a stray reply is never audited. One
     /// that is not paired is logged by its device and notification, never its text, and
     /// recorded in the audit log as the question relay records a dropped answer. A device
-    /// that cannot be checked is a failure, never taken as paired.
+    /// that cannot be checked is a failure, never taken as paired. A standing read is kept in
+    /// <paramref name="standings"/> for the rest of the cycle.
     /// </summary>
     private async Task<Result<bool>> FromPairedDeviceAsync(
         NotificationReplyRecord record,
         NotificationSnapshot? snapshot,
         DeviceCredential me,
+        Dictionary<Guid, DeviceStanding> standings,
         CancellationToken cancellationToken)
     {
         if (_devices is null
@@ -492,53 +495,44 @@ public sealed class NotificationSyncSession
             return true;
         }
 
-        DeviceStanding standing;
-        try
+        if (!standings.TryGetValue(record.FromDeviceId, out var standing))
         {
-            standing = await _devices.StandingOfAsync(record.FromDeviceId, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            _log.LogWarning(
-                exception,
-                "Could not check whether device {Device}, which replied to notification {NotificationId}, is paired; the reply is read again next cycle.",
-                record.FromDeviceId,
-                record.Reply.NotificationId);
+            try
+            {
+                standing = await _devices.StandingOfAsync(record.FromDeviceId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _log.LogWarning(
+                    exception,
+                    "Could not check whether device {Device}, which replied to notification {NotificationId}, is paired; the reply is read again next cycle.",
+                    record.FromDeviceId,
+                    record.Reply.NotificationId);
 
-            return Result.Failure<bool>(Error.Unexpected(
-                "sync.devices_unreadable",
-                "The owner's devices could not be read, so a reply waits until they can."));
+                return Result.Failure<bool>(Error.Unexpected(
+                    "sync.devices_unreadable",
+                    "The owner's devices could not be read, so a reply waits until they can."));
+            }
+
+            standings[record.FromDeviceId] = standing;
         }
 
         if (standing == DeviceStanding.Paired) return true;
 
-        var device = standing == DeviceStanding.Revoked ? "revoked device" : "unknown device";
-
         _log.LogWarning(
             "The reply to notification {NotificationId} came from {Standing} {Device}; it is rejected and the notification stays open.",
             record.Reply.NotificationId,
-            device,
+            DroppedAnswerAudit.DeviceLabel(standing),
             record.FromDeviceId);
 
-        if (_audit is not null)
-        {
-            var audited = new McpAuditRecord(
-                _time.GetUtcNow(),
-                string.Create(CultureInfo.InvariantCulture, $"{device} {record.FromDeviceId:D}"),
-                McpAudit.DroppedAnswer,
-                record.Reply.NotificationId.ToString("D"),
-                McpCallOutcome.Refused,
-                Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
-
-            try
-            {
-                await _audit.AppendAsync(audited, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                _log.LogWarning(exception, "The rejected reply to notification {NotificationId} was not written to the audit log.", record.Reply.NotificationId);
-            }
-        }
+        await DroppedAnswerAudit.AppendAsync(
+            _audit,
+            _time.GetUtcNow(),
+            standing,
+            record.FromDeviceId,
+            record.Reply.NotificationId,
+            exception => _log.LogWarning(exception, "The rejected reply to notification {NotificationId} was not written to the audit log.", record.Reply.NotificationId),
+            cancellationToken).ConfigureAwait(false);
 
         return false;
     }

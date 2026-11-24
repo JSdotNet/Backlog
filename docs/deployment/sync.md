@@ -372,14 +372,9 @@ lifetime plus a two-minute clock skew on either end, and a one-minute grace. Whe
 container cannot be reached, the token exchange answers `503 sync.replica_unavailable`
 rather than mint on an assertion it could not check.
 
-**Provision before the first release that carries it.** The service does not create the
-container; `infra/sync/main.bicep` does. Run a `provision` (or a full `deploy`) before
-merging the change that carries it — at the latest before the next nightly Release All, which
-`.github/workflows/release-all.yml` starts on a schedule at 02:00 Amsterdam time. Release All
-redeploys in `service` mode and provisions nothing, and an
-image that finds no `assertionReplays` container answers every key-bound device's token
-request with that 503 until a provision creates it. `GET /` stays healthy meanwhile, so
-Release All's post-deploy check does not catch it.
+The service does not create the container; `infra/sync/main.bicep` does, so it is
+provisioned before the first release that carries it — see
+[Run from GitHub Actions](#run-from-github-actions).
 
 ### The `sessions` index
 
@@ -720,9 +715,10 @@ follow a `provision` or `deploy` run. The `assertionReplays` container is one: i
 exist before an image that keeps spent assertion ids in Cosmos runs. Run **Deploy Sync** in
 `provision` (or `deploy`) mode before merging the change that carries it — at the latest
 before the next nightly Release All, which `.github/workflows/release-all.yml` starts on a
-schedule. Otherwise every key-bound device's token request answers
-`503 sync.replica_unavailable` until it is provisioned, and step 5 of a `service` run still
-passes, because `GET /` reads no container.
+schedule at 02:00 Amsterdam time and which deploys in `service` mode. Otherwise every
+key-bound device's token request answers `503 sync.replica_unavailable` until it is
+provisioned, and step 5 of a `service` run — Release All's post-deploy check — still passes,
+because `GET /` reads no container.
 
 ## Run locally
 

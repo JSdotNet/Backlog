@@ -472,6 +472,25 @@ public sealed class NotificationSyncTests
         Assert.Empty(audit.Records);
     }
 
+    /// <summary>A device's standing is read once a cycle however many of its replies the
+    /// cycle takes, so a burst from one phone is one read of the owner's devices.</summary>
+    [Fact]
+    public async Task Three_replies_from_one_device_read_its_standing_once_a_cycle()
+    {
+        NotificationSnapshot[] questions = [Question(Guid.CreateVersion7()), Question(Guid.CreateVersion7()), Question(Guid.CreateVersion7())];
+        var replies = questions.Select((question, index) => ReplyFrom(Phone, question, index + 1)).ToList();
+        var devices = new StandingDevices { [Phone] = DeviceStanding.Paired };
+
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, replies: replies);
+        fixture.Replication.Open.AddRange(questions);
+
+        var synced = await fixture.Session(devices: devices).SyncAsync(Cancellation);
+
+        Assert.True(synced.IsSuccess, synced.IsFailure ? synced.Error.Message : null);
+        Assert.Equal(3, synced.Value.Accepted);
+        Assert.Equal(1, devices.Reads);
+    }
+
     /// <summary>A device whose standing cannot be read is never taken as paired: its reply is
     /// neither accepted nor deleted, so the next cycle reads it again.</summary>
     [Fact]
@@ -806,10 +825,17 @@ public sealed class NotificationSyncTests
             set => _standing[device] = value;
         }
 
-        public Task<DeviceStanding> StandingOfAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
-            Unreadable
+        /// <summary>How many times a device's standing was asked for.</summary>
+        public int Reads { get; private set; }
+
+        public Task<DeviceStanding> StandingOfAsync(Guid deviceId, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+
+            return Unreadable
                 ? Task.FromException<DeviceStanding>(new InvalidOperationException("The owner's devices could not be read: sync.unavailable."))
                 : Task.FromResult(this[deviceId]);
+        }
     }
 
     private sealed class RecordingAuditLog : IMcpAuditLog

@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Backlog.Modules.Notifications.Abstractions;
@@ -456,33 +455,20 @@ public sealed class QuestionRelay : IQuestionRelay
         var standing = await devices.StandingOfAsync(answer.FromDeviceId, cancellationToken).ConfigureAwait(false);
         if (standing == DeviceStanding.Paired) return true;
 
-        var device = standing == DeviceStanding.Revoked ? "revoked device" : "unknown device";
-
         _logger.LogWarning(
             "The answer to waiting question {Question} came from {Standing} {Device}; it is dropped and never reaches the session.",
             question.Id,
-            device,
+            DroppedAnswerAudit.DeviceLabel(standing),
             answer.FromDeviceId);
 
-        if (_audit?.Invoke() is { } audit)
-        {
-            var record = new McpAuditRecord(
-                Now,
-                string.Create(CultureInfo.InvariantCulture, $"{device} {answer.FromDeviceId:D}"),
-                McpAudit.DroppedAnswer,
-                question.Id.ToString("D"),
-                McpCallOutcome.Refused,
-                Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
-
-            try
-            {
-                await audit.AppendAsync(record, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                _logger.LogWarning(exception, "The dropped answer to waiting question {Question} was not written to the audit log.", question.Id);
-            }
-        }
+        await DroppedAnswerAudit.AppendAsync(
+            _audit?.Invoke(),
+            Now,
+            standing,
+            answer.FromDeviceId,
+            question.Id,
+            exception => _logger.LogWarning(exception, "The dropped answer to waiting question {Question} was not written to the audit log.", question.Id),
+            cancellationToken).ConfigureAwait(false);
 
         return false;
     }
