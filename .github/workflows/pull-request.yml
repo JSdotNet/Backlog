@@ -380,12 +380,17 @@ jobs:
           -p:AppxPackageSigningEnabled=false
           -p:GenerateAppxPackageOnBuild=false
 
+      # PublishReadyToRun off: since .NET 11 the Android head runs on CoreCLR, and a
+      # Release build turns ReadyToRun on, which wants a runtime pack the win-x64
+      # override restored above cannot supply (NETSDK1094). This job proves the head
+      # compiles; release-all.yml publishes it on its own Android runtime identifiers.
       - name: Build the Android head
         run: >
           dotnet build src\App\Backlog.Mobile\Backlog.Mobile.csproj
           --no-restore
           --configuration Release
           -p:TreatWarningsAsErrors=true
+          -p:PublishReadyToRun=false
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false
