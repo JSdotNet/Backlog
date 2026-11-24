@@ -64,7 +64,7 @@ public class OwnerPinTests
         var fixture = new SyncModuleFixture();
         var legacy = DeviceOf(Pinned, "Study desktop");
         await fixture.Devices.Add(legacy, Cancellation);
-        var log = new CapturingLogger<RegisterFirstDeviceCommandHandler>();
+        var log = new RecordingLogger<RegisterFirstDeviceCommandHandler>();
         var unpinned = new OwnerEnrolment(GitHubUser, GuardsUnpinnedOwner: true);
 
         var result = await Register(fixture, unpinned, log).Handle(await fixture.Enrolled("New laptop"), Cancellation);
@@ -153,18 +153,5 @@ public class OwnerPinTests
             new RandomRegistrationCredentialGenerator(),
             new NoNotificationPushChannel(),
             fixture.Clock,
-            log ?? new CapturingLogger<RegisterFirstDeviceCommandHandler>());
-
-    private sealed class CapturingLogger<T> : ILogger<T>
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state)
-            where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-            Entries.Add((logLevel, formatter(state, exception)));
-    }
+            log ?? new RecordingLogger<RegisterFirstDeviceCommandHandler>());
 }

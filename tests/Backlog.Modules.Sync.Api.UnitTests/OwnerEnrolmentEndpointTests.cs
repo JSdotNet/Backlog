@@ -262,7 +262,7 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
             TestServices = services =>
             {
                 services.RemoveAll<IGitHubOwnerSignIn>();
-                services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+                services.AddSingleton<IGitHubOwnerSignIn>(new StubGitHubOwnerSignIn());
                 services.RemoveAll<OwnerEnrolment>();
                 services.AddSingleton(new OwnerEnrolment(OwnerGitHubId, GuardsUnpinnedOwner: true));
             },
@@ -344,7 +344,7 @@ public sealed class OwnerEnrolmentEndpointTests : IDisposable
         TestServices = services =>
         {
             services.RemoveAll<IGitHubOwnerSignIn>();
-            services.AddSingleton<IGitHubOwnerSignIn>(new FakeGitHub());
+            services.AddSingleton<IGitHubOwnerSignIn>(new StubGitHubOwnerSignIn());
         },
     };
 

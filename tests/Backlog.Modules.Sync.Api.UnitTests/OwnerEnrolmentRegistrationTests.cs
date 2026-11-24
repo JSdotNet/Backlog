@@ -93,6 +93,7 @@ public class OwnerEnrolmentRegistrationTests
         {
         }
 
+        // Differs from RecordingLogger: a provider hands it out for every category the host logs under, and all of them write to one list.
         private sealed class Logger(CapturingLoggerProvider provider) : ILogger
         {
             public IDisposable? BeginScope<TState>(TState state)
