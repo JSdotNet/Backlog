@@ -62,7 +62,10 @@ public sealed class QuestionRelay : IQuestionRelay
     /// <see cref="SessionLookupLimit"/> leaves the title naming no place.</param>
     /// <param name="devices">Whether the device an answer came from is paired now, asked before
     /// the answer reaches the hook or the Manager. Null, or a factory answering null, takes every
-    /// answer — a host with no sync client receives none from another device.</param>
+    /// answer — a host with no sync client receives none from another device. The notification
+    /// exchange already rejects a reply from a device not paired before it is accepted, so this
+    /// is the second line: it still catches an answer accepted before a revocation and replayed
+    /// at the next start, and one whose device was revoked between the two checks.</param>
     /// <param name="audit">Where an answer dropped for its device is recorded; null records it
     /// in the log alone.</param>
     public QuestionRelay(
@@ -438,6 +441,13 @@ public sealed class QuestionRelay : IQuestionRelay
     /// Whether <paramref name="answer"/> came from a device paired now. One that did not —
     /// revoked, or never one of the owner's — is dropped: logged by its device and the
     /// question's id, never its text, and recorded in the audit log.
+    /// <para>
+    /// The second line. <c>NotificationSyncSession</c> rejects a reply from a device not paired
+    /// before Notifications accepts it, so its notification stays open and can be answered
+    /// again. An answer dropped here was accepted already — before a revocation, or in the
+    /// moment between the two checks — so its notification reads answered while the question
+    /// stays open and is answered in the session or times out.
+    /// </para>
     /// </summary>
     private async Task<bool> FromPairedDeviceAsync(WaitingQuestion question, NotificationAnswer answer, CancellationToken cancellationToken)
     {

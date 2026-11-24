@@ -83,6 +83,12 @@ public static class NotificationsErrors
     public static Error ReplyForeignOwner() =>
         Error.Conflict("reply.foreign_owner", "The reply comes from a device under another owner.");
 
+    /// <summary>A reply from a device that is not one of the owner's paired devices now —
+    /// revoked, or never one of them. Rejected before the reply is accepted, so the
+    /// notification stays open and a paired device can still answer it (ADR 0058, Phase 2).</summary>
+    public static Error ReplyUnpairedDevice() =>
+        Error.Conflict("reply.unpaired_device", "The reply comes from a device that is not paired now.");
+
     public static Error ReplyWrongInstance() =>
         Error.Conflict("reply.wrong_instance", "The reply is addressed to another owner instance.");
 

@@ -373,8 +373,10 @@ container cannot be reached, the token exchange answers `503 sync.replica_unavai
 rather than mint on an assertion it could not check.
 
 **Provision before the first release that carries it.** The service does not create the
-container; `infra/sync/main.bicep` does. Run a `provision` (or a full `deploy`) before the
-next Release All: Release All redeploys in `service` mode and provisions nothing, and an
+container; `infra/sync/main.bicep` does. Run a `provision` (or a full `deploy`) before
+merging the change that carries it — at the latest before the next nightly Release All, which
+`.github/workflows/release-all.yml` starts on a schedule at 02:00 Amsterdam time. Release All
+redeploys in `service` mode and provisions nothing, and an
 image that finds no `assertionReplays` container answers every key-bound device's token
 request with that 503 until a provision creates it. `GET /` stays healthy meanwhile, so
 Release All's post-deploy check does not catch it.
@@ -700,13 +702,6 @@ A `service` run:
 The image tag stays azd's own (`azd-deploy-<timestamp>`); the release number is what
 `GET /` reports as `release`.
 
-**A `service` run provisions nothing**, so a release whose code needs a new resource must
-follow a `provision` or `deploy` run. The `assertionReplays` container is one: it must
-exist before an image that keeps spent assertion ids in Cosmos runs. Run **Deploy Sync** in
-`provision` (or `deploy`) mode before the next Release All; otherwise every key-bound
-device's token request answers `503 sync.replica_unavailable` until it is provisioned,
-and step 5 above still passes, because `GET /` reads no container.
-
 Open **Actions -> Deploy Sync -> Run workflow**:
 
 | Input | Default | Notes |
@@ -719,6 +714,15 @@ about to change before it changes it. A dispatched run carries no release number
 `deploy` or `service` run from here reports `"release": null` on `GET /` — visibly not a
 release; the number comes only through Release All's call (`release` input). Its `version`
 is the project's `<Version>` either way.
+
+**A `service` run provisions nothing**, so a release whose code needs a new resource must
+follow a `provision` or `deploy` run. The `assertionReplays` container is one: it must
+exist before an image that keeps spent assertion ids in Cosmos runs. Run **Deploy Sync** in
+`provision` (or `deploy`) mode before merging the change that carries it — at the latest
+before the next nightly Release All, which `.github/workflows/release-all.yml` starts on a
+schedule. Otherwise every key-bound device's token request answers
+`503 sync.replica_unavailable` until it is provisioned, and step 5 of a `service` run still
+passes, because `GET /` reads no container.
 
 ## Run locally
 

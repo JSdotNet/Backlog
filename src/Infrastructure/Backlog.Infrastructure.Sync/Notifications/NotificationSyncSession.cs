@@ -1,7 +1,11 @@
+using System.Diagnostics;
+using System.Globalization;
+
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Mcp;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
@@ -35,6 +39,14 @@ public sealed record NotificationSyncSummary(int Pushed, int Accepted, int Rejec
 /// The owner checks the account again before it accepts: a reply the replica stamped with
 /// another owner is rejected as <c>reply.foreign_owner</c> — the service's partition already
 /// keeps one out, and this is the second check ADR 0039 §2 asks for.
+/// </para>
+/// <para>
+/// It checks the device too: a reply to an open notification from a device that is not one of
+/// the owner's paired devices now — revoked, or never one of them — is rejected as
+/// <c>reply.unpaired_device</c> before the gate takes it, for every source, and audited as a
+/// dropped answer (ADR 0058, Phase 2). The notification stays open, so a paired device can
+/// still answer it. A device that cannot be checked stops the exchange before that reply is
+/// deleted, and the next cycle reads it again.
 /// </para>
 /// <para>
 /// Processing is idempotent, so a reply whose delete failed is safe to see again: one that is
@@ -81,6 +93,8 @@ public sealed class NotificationSyncSession
     private readonly TimeProvider _time;
     private readonly INotifications? _owner;
     private readonly INotificationRepositorySource? _repositories;
+    private readonly IPairedDevices? _devices;
+    private readonly IMcpAuditLog? _audit;
     private readonly ILogger _log;
 
     /// <summary>Why a notification the replica holds under another owner instance is closed
@@ -98,7 +112,9 @@ public sealed class NotificationSyncSession
         TimeProvider time,
         ILogger<NotificationSyncSession>? log = null,
         INotifications? owner = null,
-        INotificationRepositorySource? repositories = null)
+        INotificationRepositorySource? repositories = null,
+        IPairedDevices? devices = null,
+        IMcpAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(notifications);
@@ -117,6 +133,8 @@ public sealed class NotificationSyncSession
         _time = time;
         _owner = owner;
         _repositories = repositories;
+        _devices = devices;
+        _audit = audit;
         _log = log ?? NullLogger<NotificationSyncSession>.Instance;
     }
 
@@ -399,9 +417,23 @@ public sealed class NotificationSyncSession
 
             if (!AlreadyProcessed(record, snapshot))
             {
-                var outcome = record.OwnerId != me.OwnerId
-                    ? Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyForeignOwner())
-                    : await _replies.AcceptReplyAsync(ToReply(record, me), cancellationToken).ConfigureAwait(false);
+                Result<NotificationAnswer> outcome;
+
+                if (record.OwnerId != me.OwnerId)
+                {
+                    outcome = Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyForeignOwner());
+                }
+                else
+                {
+                    var paired = await FromPairedDeviceAsync(record, snapshot, me, cancellationToken).ConfigureAwait(false);
+
+                    // Stop here, before the delete: the reply is listed again next cycle.
+                    if (paired.IsFailure) return Result.Failure<(int, int)>(paired.Error);
+
+                    outcome = paired.Value
+                        ? await _replies.AcceptReplyAsync(ToReply(record, me), cancellationToken).ConfigureAwait(false)
+                        : Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyUnpairedDevice());
+                }
 
                 if (outcome.IsSuccess)
                 {
@@ -435,6 +467,80 @@ public sealed class NotificationSyncSession
         }
 
         return (accepted, rejected);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="record"/> comes from a device paired now (ADR 0058, Phase 2),
+    /// asked before the owner's gate so a reply from a revoked or unknown device never answers
+    /// the notification: it stays open, and a paired device can still answer it. A reply from
+    /// this desktop is paired by definition; one to a notification that is not open here is
+    /// left to the gate, which rejects it for that, so a stray reply is never audited. One
+    /// that is not paired is logged by its device and notification, never its text, and
+    /// recorded in the audit log as the question relay records a dropped answer. A device
+    /// that cannot be checked is a failure, never taken as paired.
+    /// </summary>
+    private async Task<Result<bool>> FromPairedDeviceAsync(
+        NotificationReplyRecord record,
+        NotificationSnapshot? snapshot,
+        DeviceCredential me,
+        CancellationToken cancellationToken)
+    {
+        if (_devices is null
+            || record.FromDeviceId == me.DeviceId
+            || snapshot is not { State: NotificationState.Open })
+        {
+            return true;
+        }
+
+        DeviceStanding standing;
+        try
+        {
+            standing = await _devices.StandingOfAsync(record.FromDeviceId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _log.LogWarning(
+                exception,
+                "Could not check whether device {Device}, which replied to notification {NotificationId}, is paired; the reply is read again next cycle.",
+                record.FromDeviceId,
+                record.Reply.NotificationId);
+
+            return Result.Failure<bool>(Error.Unexpected(
+                "sync.devices_unreadable",
+                "The owner's devices could not be read, so a reply waits until they can."));
+        }
+
+        if (standing == DeviceStanding.Paired) return true;
+
+        var device = standing == DeviceStanding.Revoked ? "revoked device" : "unknown device";
+
+        _log.LogWarning(
+            "The reply to notification {NotificationId} came from {Standing} {Device}; it is rejected and the notification stays open.",
+            record.Reply.NotificationId,
+            device,
+            record.FromDeviceId);
+
+        if (_audit is not null)
+        {
+            var audited = new McpAuditRecord(
+                _time.GetUtcNow(),
+                string.Create(CultureInfo.InvariantCulture, $"{device} {record.FromDeviceId:D}"),
+                McpAudit.DroppedAnswer,
+                record.Reply.NotificationId.ToString("D"),
+                McpCallOutcome.Refused,
+                Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                await _audit.AppendAsync(audited, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _log.LogWarning(exception, "The rejected reply to notification {NotificationId} was not written to the audit log.", record.Reply.NotificationId);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Whether this reply was handled on an earlier run whose delete did not land: it
