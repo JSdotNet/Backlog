@@ -955,12 +955,13 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
-> Local ADR 0062 decides these requirements. None is built yet.
+> Local ADR 0062 decides these requirements. The switch and the plan rail are built; the rest is not yet.
 
 ### Requirement: The Tasks list opens on Plans and remembers the switch
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_list_opens_on_Plans_the_first_time_and_reopens_on_the_grouping_last_picked, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.The_switch_reads_Plans_and_picking_Flat_takes_the_rail_away_and_tells_the_host]
 ```
 
 The Tasks list SHALL open on Plans in a window that never chose, and SHALL reopen each window on the Plans or Flat choice it last made.
@@ -981,6 +982,7 @@ The Tasks list SHALL open on Plans in a window that never chose, and SHALL reope
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.The_rail_lists_My_Day_Now_each_plan_and_Unplanned_in_order_with_their_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.Each_plan_carries_its_done_and_total_a_progress_line_and_its_run_state_as_coloured_text]
 ```
 
 The Plans view SHALL list on its rail My Day, Now across plans, each plan with a progress line, its done and total entry counts and its run state as text, and Unplanned with its count, in that order.

@@ -842,6 +842,76 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         row.PreviewStatus is EntryStatus.Ready && !IsFinished(row) && HasPlan(row);
 
     /// <summary>
+    /// True while the view is narrowed to the plan rail's <b>Now, across plans</b>: the
+    /// entries in a session in any plan (local ADR 0062 §2), read as
+    /// <see cref="IsInPlanSession"/>.
+    /// </summary>
+    public bool NowAcrossPlansOnly { get; private set; }
+
+    /// <summary>Whether a row is plan work in a session: open, filed under a plan and
+    /// In progress — the status a session moves an entry to when it picks it up.</summary>
+    public bool IsInPlanSession(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.InProgress && !IsFinished(row) && HasPlan(row);
+
+    /// <summary>Whether a row is filed under no plan, as the rail's Unplanned and the
+    /// "No plan" chip read it.</summary>
+    public static bool IsUnplanned(EntryRow row) => !HasPlan(row);
+
+    /// <summary>Whether the plan rail's <paramref name="item"/> is the one selected:
+    /// the scope or the plan it stands for is the one in force.</summary>
+    /// <param name="item">The rail item.</param>
+    /// <param name="planTag">The plan's tag, <c>+</c> and all, for
+    /// <see cref="PlanRailItem.Plan"/>; ignored otherwise.</param>
+    public bool IsRailItemSelected(PlanRailItem item, string? planTag = null) => item switch
+    {
+        PlanRailItem.MyDay => MyDayOn is not null,
+        PlanRailItem.NowAcrossPlans => NowAcrossPlansOnly,
+        PlanRailItem.Plan => IsTagSelected(planTag),
+        PlanRailItem.Unplanned => IsTagSelected(NoPlanTag),
+        _ => false,
+    };
+
+    /// <summary>
+    /// Selects one item of the plan rail (local ADR 0062 §2): the list then shows that
+    /// plan or that list — today's My Day, the plan work in a session, or the entries in
+    /// no plan. One item at a time, so selecting one lets go of the others; selecting the
+    /// one already selected lets go of it, and the list is everything again. People and
+    /// general tags stay pressed, as a plan chip's press leaves them.
+    /// </summary>
+    /// <param name="item">The rail item.</param>
+    /// <param name="planTag">The plan's tag, <c>+</c> and all, for
+    /// <see cref="PlanRailItem.Plan"/>.</param>
+    /// <param name="today">The reader's local date, for <see cref="PlanRailItem.MyDay"/>:
+    /// the pane holds the clock.</param>
+    public void SelectRailItem(PlanRailItem item, string? planTag, DateOnly today)
+    {
+        if (item is PlanRailItem.Plan && TagText.Kind(planTag) is not TagKind.Plan)
+        {
+            throw new ArgumentException($"'{planTag}' is not a plan tag.", nameof(planTag));
+        }
+
+        var wasSelected = IsRailItemSelected(item, planTag);
+
+        LetGoOfShownPlan();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        MyDayOn = null;
+        NowAcrossPlansOnly = false;
+
+        if (!wasSelected)
+        {
+            switch (item)
+            {
+                case PlanRailItem.MyDay: MyDayOn = today; break;
+                case PlanRailItem.NowAcrossPlans: NowAcrossPlansOnly = true; break;
+                case PlanRailItem.Plan: _selectedTags.Add(planTag!.ToLowerInvariant()); break;
+                case PlanRailItem.Unplanned: _selectedTags.Add(NoPlanTag); break;
+            }
+        }
+
+        ApplyFilter();
+    }
+
+    /// <summary>
     /// The state <paramref name="row"/> shows because its plan is queued only as a
     /// whole (local ADR 0062 §4), or null when the row is in no plan. The one answer
     /// the row, the plan sections and My Day read: waiting is this state's own
@@ -1849,6 +1919,16 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>Turns the rail's Now, across plans on or off. See
+    /// <see cref="NowAcrossPlansOnly"/> for what it keeps.</summary>
+    public void SetNowAcrossPlansFilter(bool only)
+    {
+        if (NowAcrossPlansOnly == only) return;
+
+        NowAcrossPlansOnly = only;
+        ApplyFilter();
+    }
+
     /// <summary>Turns the Waiting slice on or off. See
     /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
     public void SetWaitingForFilter(bool only)
@@ -1957,6 +2037,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _selectedRepositoryAliases.Clear();
         MyDayOn = null;
         ReadyInPlanOnly = false;
+        NowAcrossPlansOnly = false;
         WaitingForOnly = false;
         NextActionsOnly = false;
         SelectedArea = null;
@@ -2026,6 +2107,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (ReadyInPlanOnly && !IsReadyInPlan(row))
         {
             ReadyInPlanOnly = false;
+            widened = true;
+        }
+
+        if (NowAcrossPlansOnly && !IsInPlanSession(row))
+        {
+            NowAcrossPlansOnly = false;
             widened = true;
         }
 
@@ -6433,6 +6520,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (ReadyInPlanOnly)
         {
             rows = rows.Where(IsReadyInPlan);
+        }
+
+        // And the rail's Now, across plans, on the same terms again.
+        if (NowAcrossPlansOnly)
+        {
+            rows = rows.Where(IsInPlanSession);
         }
 
         // And the Waiting slice, on the same terms again.

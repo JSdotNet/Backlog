@@ -1204,6 +1204,49 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Tasks list opens on Plans in a window that never chose, and the Plans / Flat
+    /// choice is remembered beside the Board's columns, so a fresh shell reopens on the
+    /// grouping last picked (local ADR 0062 §1;
+    /// <c>.devbook/domain/tasks/requirements.md#plans-view</c>).
+    /// </summary>
+    [Fact]
+    public void The_list_opens_on_Plans_the_first_time_and_reopens_on_the_grouping_last_picked()
+    {
+        using var temp = new TemporaryDirectory("backlog-workspace-surface-tests");
+        var path = temp.Combine("shell", "shell-navigation.json");
+
+        var shellNavigation = new ShellNavigationStore(path);
+        using (var harness = CreateHarness(shellNavigation: shellNavigation))
+        {
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("true", component.Find("[data-testid='list-grouping-option'][data-grouping='Plans']").GetAttribute("aria-checked"));
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='plan-rail']"));
+                Assert.Equal(ShellNavigationStore.DefaultTasksGrouping, shellNavigation.TasksGrouping);
+            });
+
+            component.Find("[data-testid='list-grouping-option'][data-grouping='Flat']").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("Flat", shellNavigation.TasksGrouping);
+                Assert.Empty(component.FindAll("[data-testid='plan-rail']"));
+            });
+        }
+
+        using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+        var again = Render(reopened);
+
+        again.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", again.Find("[data-testid='list-grouping-option'][data-grouping='Flat']").GetAttribute("aria-checked"));
+            Assert.Empty(again.FindAll("[data-testid='plan-rail']"));
+        });
+    }
+
+    /// <summary>
     /// The Board is a main view over the same Tasks pane: the filter bar stays,
     /// the list gives way to the columns, and the switch reads Board pressed. Its
     /// name is what the shell remembers, and the Columns choice is remembered

@@ -4,7 +4,7 @@ using Backlog.Infrastructure.FileSystem;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The Board's columns, kept per device in the shell's own navigation file beside the
+/// The Board's columns and the Tasks list's Plans / Flat grouping, kept per device in the shell's own navigation file beside the
 /// view it reopens on — the Tasks views' <see cref="ITasksViewPreferences"/>. The
 /// Calendar's range is kept beside them by <see cref="ShellCalendarViewPreferences"/>.
 /// <para>
@@ -18,6 +18,10 @@ public sealed class ShellTasksViewPreferences(ShellNavigationStore store) : ITas
     public TaskBoardGrouping BoardGrouping => Remembered(store.BoardColumns, TaskBoardGrouping.Status);
 
     public void SetBoardGrouping(TaskBoardGrouping grouping) => store.SetBoardColumns(grouping.ToString());
+
+    public TaskListGrouping ListGrouping => Remembered(store.TasksGrouping, TaskListGrouping.Plans);
+
+    public void SetListGrouping(TaskListGrouping grouping) => store.SetTasksGrouping(grouping.ToString());
 
     /// <summary>
     /// A choice stored by its enum name, read back as that member, or
