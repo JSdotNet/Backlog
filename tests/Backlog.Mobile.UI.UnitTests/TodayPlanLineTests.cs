@@ -4,7 +4,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// A plan on the phone's Today tab (local ADR 0062 §8): in today's My Day by exactly the
+/// A plan on the phone's Today tab (local ADR 0072 §8): in today's My Day by exactly the
 /// rule a task is, under the same Clear My Day overnight switch, and drawn as one line —
 /// its name, done of total and run state, never its entries.
 /// </summary>

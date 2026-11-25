@@ -218,6 +218,46 @@ public sealed class McpScopeGateTests
         Assert.Equal(McpAudit.UnauthenticatedCaller, call.Caller);
     }
 
+    /// <summary>The change journal's two agent tools over the real endpoint (local ADR 0071 §5):
+    /// a grant holding <c>tasks:read</c> alone reads the change sets, and is refused
+    /// <c>propose_restore</c>, which needs <c>tasks:write</c> — the refusal comes before any
+    /// question is asked.</summary>
+    [Fact]
+    public async Task A_grant_without_tasks_write_lists_change_sets_but_is_refused_propose_restore()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit);
+        using var client = harness.CreateClient();
+
+        var listed = await CallToolAsync(client, "list_change_sets", [McpScopes.TasksRead], new { });
+        var proposed = await CallToolAsync(client, "propose_restore", [McpScopes.TasksRead, McpScopes.NotifyAsk], new { changeSetId = Guid.NewGuid() });
+
+        Assert.DoesNotContain("needs the scope", listed, StringComparison.Ordinal);
+        Assert.Contains("needs the scope " + Escaped(McpScopes.TasksWrite), proposed, StringComparison.Ordinal);
+        Assert.Collection(
+            audit.Records,
+            record => Assert.Equal("list_change_sets", record.Tool),
+            record =>
+            {
+                Assert.Equal("propose_restore", record.Tool);
+                Assert.Equal(McpCallOutcome.Refused, record.Outcome);
+                Assert.Equal(TestGrant, record.Caller);
+            });
+    }
+
+    [Fact]
+    public async Task A_grant_holding_tasks_write_reaches_propose_restore()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "propose_restore", [McpScopes.TasksWrite], new { changeSetId = Guid.NewGuid() });
+
+        Assert.DoesNotContain("needs the scope", body, StringComparison.Ordinal);
+        Assert.Equal("propose_restore", Assert.Single(audit.Records).Tool);
+    }
+
     /// <summary>A grant holding only a single-purpose scope - the Question hook's
     /// <c>notify:ask</c> - calls no tool, <c>request_access</c> included: the refusal is
     /// in-band, says how to ask instead, and the audit names the grant (local ADR 0024).</summary>

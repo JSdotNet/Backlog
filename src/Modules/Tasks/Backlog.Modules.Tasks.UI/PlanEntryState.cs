@@ -5,7 +5,7 @@ using Backlog.UI.Components.Badges;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>The state a plan entry shows because its plan is queued only as a whole
-/// (local ADR 0062 §4; the design board "Row states — entry ↔ queue").</summary>
+/// (local ADR 0072 §4; the design board "Row states — entry ↔ queue").</summary>
 public enum PlanEntryQueueState
 {
     /// <summary>The entry waits on another entry, or is not yet ready itself.</summary>
@@ -61,7 +61,7 @@ public sealed record PlanRun(bool Queued, IReadOnlyDictionary<Guid, string> Stag
 
 /// <summary>
 /// A plan entry's state in its plan's queue, and its stage while a plan session runs it
-/// (local ADR 0062 §4). Derived, never stored: from the entry, the plan's session
+/// (local ADR 0072 §4). Derived, never stored: from the entry, the plan's session
 /// request and the plan run, so the row, the plan sections and My Day read one answer.
 /// <para>
 /// The first rule that holds wins, in this order: Done, Landed, Left for you, Held for
@@ -76,7 +76,7 @@ public sealed record PlanRun(bool Queued, IReadOnlyDictionary<Guid, string> Stag
 /// when the run reported one, else null.</param>
 /// <param name="WaitsOnOpen">Whether a <see cref="PlanEntryQueueState.LeftForYou"/> entry
 /// waits on another open entry: its state stays Left for you, but the plan sections read
-/// it under Later's waiting line rather than Next (local ADR 0062 §2). False for every
+/// it under Later's waiting line rather than Next (local ADR 0072 §2). False for every
 /// other state, whose own state already says whether it waits.</param>
 public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = null, bool WaitsOnOpen = false)
 {

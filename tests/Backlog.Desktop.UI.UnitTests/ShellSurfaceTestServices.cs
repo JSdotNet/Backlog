@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Changes;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
@@ -36,6 +37,7 @@ internal static class ShellSurfaceTestServices
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
+        services.AddChangesSurface();
         services.AddDevbookSurface();
         services.AddInboxSurface();
         services.AddEventsSurface();

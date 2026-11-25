@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.Goals;
 
 /// <summary>
 /// The hook a host supplies, as a cascading value, to name the open impediment that holds
-/// a plan back (local ADR 0035 §5; local ADR 0062 §2–§3): the Tasks pane's rail and folded
+/// a plan back (local ADR 0035 §5; local ADR 0072 §2–§3): the Tasks pane's rail and folded
 /// plan lines read it to say what a Blocked plan waits on.
 /// <para>
 /// A cascading value for the reason <see cref="GoalControlSlot"/> is one: an impediment is

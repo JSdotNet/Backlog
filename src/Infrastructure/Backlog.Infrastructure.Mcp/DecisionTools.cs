@@ -170,7 +170,9 @@ public sealed class DecisionTools(
         [Description(SubjectDescription)]
         DevbookSubjectArgument subject,
         [Description("draft, the one state set over MCP.")]
-        string state)
+        string state,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null)
     {
         var scope = Scope(repository, writes: true);
 
@@ -246,7 +248,9 @@ public sealed class DecisionTools(
         [Description("comment (the default), question, suggestion or flag. A new note only; not with replyTo.")]
         string? kind = null,
         [Description("The id of the note this replies to, as devbook_list_notes reports it. Not with kind.")]
-        string? replyTo = null)
+        string? replyTo = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null)
     {
         var scope = Scope(repository, writes: true);
         var (path, slug) = Address(address);
@@ -310,7 +314,9 @@ public sealed class DecisionTools(
         [Description(RepositoryDescription)]
         string repository,
         [Description("The note's id, as devbook_list_notes or devbook_post_note reports it.")]
-        string id)
+        string id,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null)
     {
         var scope = Scope(repository, writes: true);
 

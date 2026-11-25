@@ -163,6 +163,26 @@ public sealed class EventsCalendarEventsTests
         Assert.False(read.Available);
     }
 
+    [Fact]
+    public async Task An_event_held_at_an_address_with_no_venue_name_is_placed_at_its_address()
+    {
+        var calendar = On(Decided("dotNET Friday", KnowledgeEventState.Going, May12, null, address: "Wijkerstraatweg 1, 3431 AB Nieuwegein"));
+
+        var read = await calendar.ReadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Wijkerstraatweg 1, 3431 AB Nieuwegein", Assert.Single(read.Events).Place);
+    }
+
+    [Fact]
+    public async Task A_venue_name_is_the_place_even_when_the_event_has_an_address()
+    {
+        var calendar = On(Decided("Techorama", KnowledgeEventState.Going, May12, May14, venue: "Kinepolis", address: "Groenendaallaan 394, 2030 Antwerpen"));
+
+        var read = await calendar.ReadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Kinepolis", Assert.Single(read.Events).Place);
+    }
+
     private static EventsCalendarEvents On(params DecidedEventDto[] events) =>
         new(new ListedReader(events), new Features(events: true));
 
@@ -173,8 +193,9 @@ public sealed class EventsCalendarEventsTests
         DateOnly? end,
         string? venue = null,
         bool online = false,
-        IReadOnlyList<KeyDateDto>? keyDates = null) =>
-        new(Guid.NewGuid(), title, state, start, end, venue, online, keyDates ?? []);
+        IReadOnlyList<KeyDateDto>? keyDates = null,
+        string? address = null) =>
+        new(Guid.NewGuid(), title, state, start, end, venue, online, keyDates ?? [], address);
 
     private sealed class ListedReader(IReadOnlyList<DecidedEventDto> events) : IKnowledgeEventReader
     {

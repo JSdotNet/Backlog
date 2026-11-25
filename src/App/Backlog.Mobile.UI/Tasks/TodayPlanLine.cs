@@ -28,7 +28,7 @@ public enum TodayPlanState
 }
 
 /// <summary>
-/// One plan in today's My Day as the phone's Today tab draws it (local ADR 0062 §8;
+/// One plan in today's My Day as the phone's Today tab draws it (local ADR 0072 §8;
 /// <c>.devbook/domain/tasks/features.md#my-day</c>): its name, how many of its entries are
 /// done, and its run state — one line, without its entries.
 /// <para>

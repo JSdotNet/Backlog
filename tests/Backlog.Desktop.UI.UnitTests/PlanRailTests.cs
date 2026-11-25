@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Tasks list's Plans / Flat switch and the Plans view's rail (local ADR 0062 §1, §2;
+/// The Tasks list's Plans / Flat switch and the Plans view's rail (local ADR 0072 §1, §2;
 /// <c>.devbook/domain/tasks/requirements.md#plans-view</c>): the switch on the bar, the
 /// rail's items in order with their counts, each plan's progress and run state, a rail
 /// item selecting its plan or list, and the plan chips leaving the tag strip in Plans.

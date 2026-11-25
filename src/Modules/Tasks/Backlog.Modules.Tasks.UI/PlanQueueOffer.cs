@@ -30,7 +30,7 @@ public sealed record PlanQueueOffer(string Tag, string? Repository, string? Clon
     public bool IsEnabled => DisabledReason is null;
 
     /// <summary>Why a plan entry's own queue is refused: a plan is queued only as a
-    /// whole (local ADR 0062 §4) — the tooltip
+    /// whole (local ADR 0072 §4) — the tooltip
     /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c> words.</summary>
     public const string QueueThePlanAsAWhole = "Queued with its plan — queue the plan as a whole";
 

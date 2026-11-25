@@ -5,7 +5,7 @@ using Backlog.UI.Components.Badges;
 
 namespace Backlog.Desktop.UI.Tasks;
 
-/// <summary>The kinds of item on the Plans view's rail (local ADR 0062 §2), top to bottom.</summary>
+/// <summary>The kinds of item on the Plans view's rail (local ADR 0072 §2), top to bottom.</summary>
 public enum PlanRailItem
 {
     /// <summary>Today's My Day.</summary>
@@ -21,7 +21,7 @@ public enum PlanRailItem
     Unplanned
 }
 
-/// <summary>A plan's run state as its rail row words it (local ADR 0062 §2).</summary>
+/// <summary>A plan's run state as its rail row words it (local ADR 0072 §2).</summary>
 public enum PlanRunState
 {
     /// <summary>Nothing to say: no request, nothing ready, blocked or all draft.</summary>
@@ -89,7 +89,7 @@ public sealed record PlanRailPlan(
 }
 
 /// <summary>
-/// The Plans view's rail (local ADR 0062 §2): which plans it lists and the run state
+/// The Plans view's rail (local ADR 0072 §2): which plans it lists and the run state
 /// each one's row words. Pure, so the counts and states are answered from what the pane
 /// already holds — the tag filter's plan chips, the rows in scope, the plans' open
 /// session requests and the queue's order — and never read again.

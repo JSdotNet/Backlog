@@ -15,7 +15,7 @@
     (or next), then Agenda, Anytime today and Done today — under a line saying
     how far through it the person is. The plans in today's My Day come first, one
     line each — name, done of total and run state, never their entries (local ADR
-    0062 §8).
+    0072 §8).
 
     Each row ticks itself off and back on through TaskEdits, and opens the task's
     own page. Nothing else about a task is changed here. Adding is the capture
@@ -173,7 +173,7 @@ else
     };
 
     /// <summary>
-    /// The plans in today's My Day, one line each, above the task groups (local ADR 0062
+    /// The plans in today's My Day, one line each, above the task groups (local ADR 0072
     /// §8): the plan's name, how many of its entries are done and its run state. No entry
     /// of a plan is listed, and the line opens nothing — the phone has no plan page.
     /// </summary>
@@ -209,13 +209,17 @@ else
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+    private void OnResumed() => _ = InvokeAsync(RefreshAndRenderAsync);
+
+    /// <summary>A refresh nothing on the page asked for — a resume, a delivery — drawn the
+    /// way the refresh button's is.</summary>
+    private Task RefreshAndRenderAsync() => HandlerRendering.RunAsync(RefreshAsync, StateHasChanged);
 
     /// <summary>The replica has the write now; the pull brings back its own copy,
     /// which replaces the one this phone wrote.</summary>
     private void OnDelivered(OutboxEntry entry)
     {
-        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAsync);
+        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAndRenderAsync);
     }
 
     /// <summary>
@@ -245,8 +249,6 @@ else
         {
             _refreshing = false;
         }
-
-        StateHasChanged();
     }
 
     private Task ToggleAsync(Guid id, bool done) =>

@@ -464,7 +464,7 @@ It exists for the row that was projected from a document the task itself does no
     [
         new("idle", "idle", QueueButtonState.Idle, "`QueueButton` with `State=\"Idle\"`, for a row nothing is queued for: a press queues a session. The host's `Label` names that act."),
         new("queued", "queued", QueueButtonState.Queued, "`State=\"Queued\"`, for a row a session is queued for: a press takes it off the queue, and the host's `Label` says so. `DisabledReason` refuses it once there is nothing left to take back."),
-        new("plan-entry", "plan entry", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"`, for an entry of a plan, which is queued only as a whole (local ADR 0062 §4): refused, with the reason on its tooltip and in an sr-only span the button points at."),
+        new("plan-entry", "plan entry", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"`, for an entry of a plan, which is queued only as a whole (local ADR 0072 §4): refused, with the reason on its tooltip and in an sr-only span the button points at."),
         new("plan-queued", "plan entry, plan queued", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"` with `PlanQueued`, for an entry whose plan has a session request open: still refused, but lit amber as a queued row's button is, so the row reads as queued with its plan.", PlanQueued: true)
     ];
 

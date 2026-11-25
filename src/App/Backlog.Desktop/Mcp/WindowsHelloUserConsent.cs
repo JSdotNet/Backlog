@@ -23,7 +23,16 @@ namespace Backlog.Desktop.Mcp;
 public sealed class WindowsHelloUserConsent(ShellWindows windows) : IUserConsent
 {
     /// <inheritdoc />
-    public async Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default)
+    public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default) =>
+        AskAsync(message, cancellationToken);
+
+    /// <inheritdoc />
+    /// <remarks>This consent remembers nothing, so it asks exactly as <see cref="VerifyAsync"/>
+    /// does.</remarks>
+    public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+        AskAsync(message, cancellationToken);
+
+    private async Task<UserConsentOutcome> AskAsync(string message, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
@@ -71,27 +72,42 @@ public sealed class SqliteTaskRepository : ITaskRepository
         ArgumentNullException.ThrowIfNull(task);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await WriteAsync(connection, transaction: null, task, cancellationToken).ConfigureAwait(false);
+
+        // A write under a change set records it in the same transaction (local ADR
+        // 0071 §2); one under none stays the single statement it always was. A save
+        // refused as stale throws before the commit, so its change set rolls back
+        // with it.
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await WriteAsync(connection, journal.Transaction, task, cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        task.MarkPersisted();
     }
 
     /// <summary>Every task in one transaction on one connection: one open, one
-    /// fsync, and either all of a drag's new ranks land or none do.</summary>
+    /// fsync, and either all of a drag's new ranks land or none do — a stale one
+    /// among them included, which rolls the whole batch back and throws
+    /// <see cref="StaleTaskWriteException"/>.</summary>
     public async Task SaveManyAsync(IReadOnlyCollection<TaskItem> tasks, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(tasks);
         if (tasks.Count == 0) return;
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
-        await using var transaction = (SqliteTransaction)await connection
-            .BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await using var journal = await ChangeSetTransaction
+            .BeginAsync(connection, requireTransaction: true, cancellationToken).ConfigureAwait(false);
 
         foreach (var task in tasks)
         {
             ArgumentNullException.ThrowIfNull(task, nameof(tasks));
-            await WriteAsync(connection, transaction, task, cancellationToken).ConfigureAwait(false);
+            await WriteAsync(connection, journal.Transaction, task, cancellationToken).ConfigureAwait(false);
         }
 
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // After the commit, not per write: a batch rolled back by a later refusal
+        // left the store holding the versions these tasks were read at.
+        foreach (var task in tasks) task.MarkPersisted();
     }
 
     private static async Task WriteAsync(
@@ -106,6 +122,15 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // One statement for create and update alike: the aggregate is written
         // whole either way, so there is nothing for two code paths to disagree
         // about.
+        //
+        // The DO UPDATE is conditional: a task read from this store carries the
+        // stamp it was read at, and the update applies only while the row still
+        // holds it. Otherwise another writer saved in between, and this copy is the
+        // older version — writing it would erase theirs with nothing said. The
+        // statement then changes no row, and that is the refusal. Coalesced to
+        // created_at exactly as Read coalesces it, so a row without a stamp
+        // compares as the value it was read as. A task no store handed out
+        // ($loaded_at null: a create, a replica merge copy) writes as before.
         command.CommandText = $"""
             INSERT INTO tasks ({Columns})
             VALUES (
@@ -153,7 +178,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 planned_hours = excluded.planned_hours,
                 source_notification_id = excluded.source_notification_id,
                 waiting_for = excluded.waiting_for,
-                follow_up_on = excluded.follow_up_on;
+                follow_up_on = excluded.follow_up_on
+            WHERE $loaded_at IS NULL OR COALESCE(tasks.updated_at, tasks.created_at) = $loaded_at;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -220,7 +246,14 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // record's other members are read off the path, so the path is the value.
         command.Parameters.AddWithValue("$attachment_path", Nullable(task.Attachment?.Path));
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        command.Parameters.AddWithValue(
+            "$loaded_at",
+            Nullable(task.LoadedUpdatedAt?.ToString("O", CultureInfo.InvariantCulture)));
+
+        var written = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+        // No row inserted and none updated: the conditional update above refused.
+        if (written == 0) throw new StaleTaskWriteException(task.Id);
     }
 
     public async Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -350,14 +383,94 @@ public sealed class SqliteTaskRepository : ITaskRepository
         return tasks;
     }
 
+    // --- The change journal's reads -----------------------------------------
+
+    /// <summary>A connection to <paramref name="databasePath"/> with the tasks table,
+    /// the journal and its triggers set up — what the change journal's reader opens,
+    /// so a database no task was ever written to still answers it.</summary>
+    internal static Task<SqliteConnection> OpenForJournalAsync(string databasePath, CancellationToken cancellationToken) =>
+        OpenAsync(databasePath, cancellationToken);
+
+    /// <summary>Every column, the before-image's keys, in SELECT-list order.</summary>
+    private static IReadOnlyList<string> ColumnNames =>
+        Columns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>The task whose row is <paramref name="beforeJson"/> — a before-image
+    /// the journal's triggers wrote — read as a stored row is, or null when the image
+    /// does not read as one.</summary>
+    internal static async Task<TaskItem?> ReadBeforeImageAsync(
+        SqliteConnection connection,
+        string beforeJson,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT " + string.Join(", ", ColumnNames.Select(column => $"json_extract($image, '$.{column}')")) + ";";
+        command.Parameters.AddWithValue("$image", beforeJson);
+
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+        }
+        catch (Exception exception) when (exception is FormatException or InvalidCastException or SqliteException or ArgumentException)
+        {
+            // An image from an older shape of the table, or one written by hand: the
+            // reader falls back to its fields rather than failing the whole change set.
+            return null;
+        }
+    }
+
+    /// <summary>The task as stored now, a tombstone included, or null when the row
+    /// is gone.</summary>
+    internal static async Task<TaskItem?> ReadCurrentAsync(
+        SqliteConnection connection,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Columns} FROM tasks WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+    }
+
     // --- Schema -------------------------------------------------------------
 
     /// <summary>Creates the database and its schema if they are not there yet.
     /// Called on the way into every operation; the setup itself runs only on a file
     /// not yet stamped with this <see cref="Schema"/>, for the reasons
     /// <see cref="SqliteSchema.OpenAsync"/> gives.</summary>
-    private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+    private static async Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken)
+    {
+        var connection = await SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            // The change journal's tables, then the triggers that journal this one
+            // (local ADR 0071 §2) — after Schema, because the triggers name its
+            // columns.
+            await SqliteJournal.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
+            await SqliteSchema.EnsureSetUpAsync(connection, JournalSchema, cancellationToken).ConfigureAwait(false);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    /// <summary>The triggers that write a revision for every insert into and update
+    /// of <c>tasks</c>, its before-image keyed by every column <see cref="Columns"/>
+    /// names — so a column added there changes this fingerprint and re-creates
+    /// them.</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:tasks",
+        ddl: SqliteJournal.Triggers(
+            "tasks",
+            "task",
+            Columns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)));
 
     /// <summary>The instant the Done-entry tick seed below is bounded by: after
     /// the tick split had shipped and the stripped copies had spread, and before
@@ -641,9 +754,21 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // updated_at is coalesced to created_at rather than trusted to be present:
         // the column arrived after rows already existed, and a row inserted by
         // something that does not know about it still has to read.
+        var storedStamp = Text(row, Col.UpdatedAt) ?? row.GetString(Col.CreatedAt);
+
         task.LoadStamps(
             ParseInstant(Text(row, Col.UpdatedAt)) ?? task.CreatedAt,
             ParseInstant(Text(row, Col.DeletedAt)));
+
+        // The version this read saw, which a save of this instance is checked
+        // against (WriteAsync) — as text, so only when the stamp read back writes
+        // the same text again. One that does not (unreadable, or written in some
+        // other form by hand) would never compare equal and would refuse every
+        // save of the row for good; such a task saves unchecked instead.
+        if (string.Equals(task.UpdatedAt.ToString("O", CultureInfo.InvariantCulture), storedStamp, StringComparison.Ordinal))
+        {
+            task.MarkPersisted();
+        }
 
         return task;
     }

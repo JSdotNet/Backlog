@@ -39,7 +39,7 @@ public sealed class TaskViewProjection : IDisposable
     private MyDayPreferencesDocument? _preferences;
 
     /// <summary>The roadmap plan document last pulled, under <see cref="_rowsLock"/> — read
-    /// for the plans on My Day alone (local ADR 0062 §8).</summary>
+    /// for the plans on My Day alone (local ADR 0072 §8).</summary>
     private RoadmapPlanCopy? _roadmapPlan;
 
     public TaskViewProjection(ITaskViewStore store, DeviceOutbox outbox, CloudSyncClient sync, TimeProvider clock)
@@ -120,7 +120,7 @@ public sealed class TaskViewProjection : IDisposable
 
     /// <summary>
     /// The plans in the My Day of <paramref name="today"/>, one line each, in the roadmap's
-    /// item order (local ADR 0062 §8): a plan is in by exactly the rule a task is, under the
+    /// item order (local ADR 0072 §8): a plan is in by exactly the rule a task is, under the
     /// same <see cref="ClearsOvernight"/>. Empty until a desktop has sent the roadmap plan.
     /// </summary>
     public IReadOnlyList<TodayPlanLine> PlansToday(DateOnly today)

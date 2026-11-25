@@ -30,7 +30,7 @@ namespace Backlog.Mobile;
 /// </remarks>
 [Service(Exported = false)]
 [IntentFilter(new[] { "com.google.firebase.MESSAGING_EVENT" })]
-public sealed class BacklogFirebaseMessagingService : FirebaseMessagingService
+public sealed partial class BacklogFirebaseMessagingService : FirebaseMessagingService
 {
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(15);
 
@@ -61,14 +61,14 @@ public sealed class BacklogFirebaseMessagingService : FirebaseMessagingService
             // A worker thread Firebase owns, which must not return before the tray is drawn.
             if (!Task.Run(() => ShowAsync(services, push)).Wait(Budget))
             {
-                services.GetService<ILogger<BacklogFirebaseMessagingService>>()
-                    ?.LogWarning("A push was not shown within {Budget}; the tray may not hold it.", Budget);
+                if (services.GetService<ILogger<BacklogFirebaseMessagingService>>() is { } logger)
+                    LogPushNotShownInBudget(logger, Budget);
             }
         }
         catch (AggregateException ex)
         {
-            services.GetService<ILogger<BacklogFirebaseMessagingService>>()
-                ?.LogWarning("A push could not be shown: {Error}", ex.InnerException?.GetType().Name);
+            if (services.GetService<ILogger<BacklogFirebaseMessagingService>>() is { } logger)
+                LogPushNotShown(logger, ex.InnerException?.GetType().Name);
         }
     }
 
@@ -87,8 +87,8 @@ public sealed class BacklogFirebaseMessagingService : FirebaseMessagingService
         }
         catch (Exception ex)
         {
-            services.GetService<ILogger<BacklogFirebaseMessagingService>>()
-                ?.LogInformation("The pull after a push did not answer: {Error}", ex.GetType().Name);
+            if (services.GetService<ILogger<BacklogFirebaseMessagingService>>() is { } logger)
+                LogPullAfterPushUnanswered(logger, ex.GetType().Name);
         }
 
         if (!push.Shows) return;
@@ -102,4 +102,13 @@ public sealed class BacklogFirebaseMessagingService : FirebaseMessagingService
             presenter.Cancel(push.Id);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A push was not shown within {Budget}; the tray may not hold it.")]
+    private static partial void LogPushNotShownInBudget(ILogger logger, TimeSpan budget);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A push could not be shown: {Error}")]
+    private static partial void LogPushNotShown(ILogger logger, string? error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The pull after a push did not answer: {Error}")]
+    private static partial void LogPullAfterPushUnanswered(ILogger logger, string error);
 }

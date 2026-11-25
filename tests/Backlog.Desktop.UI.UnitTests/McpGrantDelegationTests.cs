@@ -429,5 +429,8 @@ public sealed class McpGrantDelegationTests : IDisposable
     {
         public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default) =>
             Task.FromResult(UserConsentOutcome.Verified);
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 }

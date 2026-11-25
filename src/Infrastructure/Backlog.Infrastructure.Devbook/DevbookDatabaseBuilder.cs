@@ -63,8 +63,9 @@ public static class DevbookDatabaseBuilder
     /// <see langword="false"/> — writing nothing — when there is nothing to read:
     /// no devbook folder in a repository, none of a profile's folders on disk.
     /// </summary>
+    /// <remarks><paramref name="clock"/> stamps the <c>meta</c> table's generated-at time; omitted, it is the system clock.</remarks>
     /// <exception cref="IOException">The finished database could not be moved into place.</exception>
-    public static bool Build(string root, string target, DevbookCorpusProfile profile, CancellationToken cancellationToken = default)
+    public static bool Build(string root, string target, DevbookCorpusProfile profile, CancellationToken cancellationToken = default, TimeProvider? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
@@ -79,7 +80,7 @@ public static class DevbookDatabaseBuilder
 
         try
         {
-            Write(repositoryRoot, layout, temporary, target, cancellationToken);
+            Write(repositoryRoot, layout, temporary, target, (clock ?? TimeProvider.System).GetUtcNow(), cancellationToken);
             DeleteSidecars(temporary);
             MoveIntoPlace(temporary, target, cancellationToken);
         }
@@ -126,7 +127,7 @@ public static class DevbookDatabaseBuilder
     public static bool HasDevbook(string root, DevbookCorpusProfile profile) =>
         DevbookBuildLayout.Discover(Path.GetFullPath(root), profile).Folders.Count > 0;
 
-    private static void Write(string root, DevbookBuildLayout layout, string temporary, string previous, CancellationToken cancellationToken)
+    private static void Write(string root, DevbookBuildLayout layout, string temporary, string previous, DateTimeOffset generatedAt, CancellationToken cancellationToken)
     {
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
@@ -181,7 +182,7 @@ public static class DevbookDatabaseBuilder
                 [
                     (DevbookDatabaseSchema.SchemaVersionKey, DevbookDatabaseSchema.Version.ToString(CultureInfo.InvariantCulture)),
                     (DevbookDatabaseSchema.GeneratedByKey, GeneratedBy),
-                    (DevbookDatabaseSchema.GeneratedAtKey, DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)),
+                    (DevbookDatabaseSchema.GeneratedAtKey, generatedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)),
                     (DevbookDatabaseSchema.ScopesKey, string.Join(',', layout.Scopes)),
                     (InputsKey, inputs),
                     .. carriedModel is null ? [] : new[] { (DevbookDatabaseSchema.EmbeddingModelKey, carriedModel) }

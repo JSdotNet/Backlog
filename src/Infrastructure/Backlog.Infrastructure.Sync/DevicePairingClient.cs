@@ -32,7 +32,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <see cref="SyncErrorCodes"/> is what it branches on.
 /// </para>
 /// </summary>
-public sealed class DevicePairingClient : IDeviceRoster
+public sealed partial class DevicePairingClient : IDeviceRoster
 {
     /// <summary>Where a failure that never reached the service is filed. It is
     /// not one of <see cref="SyncErrorCodes"/> on purpose — those are codes the
@@ -60,8 +60,9 @@ public sealed class DevicePairingClient : IDeviceRoster
     public static readonly TimeSpan DefaultSignInTimeout = TimeSpan.FromMinutes(5);
 
     /// <summary>How long the Windows Hello prompt for a refusal stands before it expires
-    /// (<see cref="RefuseDeviceAsync"/>). A Refuse answered on the phone raises it on a desktop
-    /// nobody may be at, and the answers queued behind it wait until it settles.</summary>
+    /// (<see cref="RefuseDeviceAsync"/>). A Refuse replayed at the next start raises it on a
+    /// desktop nobody may be at yet, and the answers queued behind it wait until it settles,
+    /// because answers are handed over one at a time.</summary>
     public static readonly TimeSpan RefuseConfirmationWindow = TimeSpan.FromMinutes(2);
 
     private readonly HttpClient _http;
@@ -372,7 +373,7 @@ public sealed class DevicePairingClient : IDeviceRoster
         catch (CryptographicException ex)
         {
             var level = Interlocked.Exchange(ref _keyFailing, 1) == 0 ? LogLevel.Warning : LogLevel.Debug;
-            _log.Log(level, ex, "This device's key could not be opened or made, so it registers with a credential instead.");
+            LogKeyUnavailable(_log, level, ex);
             return null;
         }
     }
@@ -408,4 +409,7 @@ public sealed class DevicePairingClient : IDeviceRoster
 
         return Result.Success(credential);
     }
+
+    [LoggerMessage(Message = "This device's key could not be opened or made, so it registers with a credential instead.")]
+    private static partial void LogKeyUnavailable(ILogger logger, LogLevel level, Exception exception);
 }

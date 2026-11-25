@@ -2,7 +2,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// How the Tasks list groups its rows, picked from the <b>Plans / Flat</b> switch on
-/// its filter bar (local ADR 0062 §1).
+/// its filter bar (local ADR 0072 §1).
 /// <para>
 /// The shell remembers the member's name beside the Board's columns, as
 /// <c>tasksGrouping</c> in <c>shell-navigation.json</c>, so a name here is a stored

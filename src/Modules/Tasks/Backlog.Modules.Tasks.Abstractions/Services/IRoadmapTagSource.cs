@@ -37,7 +37,7 @@ public interface IRoadmapTagSource
 
     /// <summary>
     /// The plans put on My Day and the day each was picked for, keyed by the bare plan
-    /// tag without regard to case (local ADR 0062 §8). The date lives on the plan's
+    /// tag without regard to case (local ADR 0072 §8). The date lives on the plan's
     /// Roadmap Items in Roadmap Planning; this side reads it by the task rule and never
     /// stores it. A plan whose items disagree answers the latest day. Empty for a host
     /// with no plan — which is what this default answers, so a source that knows no My

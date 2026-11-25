@@ -6,7 +6,7 @@ using Bunit;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A whole plan on My Day (local ADR 0062 §8; <c>.devbook/domain/tasks/features.md#my-day</c>):
+/// A whole plan on My Day (local ADR 0072 §8; <c>.devbook/domain/tasks/features.md#my-day</c>):
 /// the plan's My Day date is read by exactly the task rule under the Clear My Day overnight
 /// switch, the sun on the plan's heading and its waves view puts it on today's My Day and
 /// takes it off, the rail's My Day item counts plans and tasks, and the My Day list shows

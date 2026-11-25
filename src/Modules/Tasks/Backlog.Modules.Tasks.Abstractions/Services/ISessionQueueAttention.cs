@@ -2,7 +2,7 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
 /// One question a session is waiting on the person for, as the docked session queue's
-/// <b>Needs you</b> group lists it (local ADR 0062 §6, local ADR 0041). Tasks' own copy of
+/// <b>Needs you</b> group lists it (local ADR 0072 §6, local ADR 0041). Tasks' own copy of
 /// the Sessions context's waiting question, for the reason
 /// <see cref="EntrySessionRequestState"/> is one: a screen asks its own module.
 /// </summary>
@@ -30,7 +30,7 @@ public sealed record SessionQueueAttention(IReadOnlyList<SessionQueueQuestion> Q
 
 /// <summary>
 /// The docked session queue's read of what needs the person and how full the Manager is
-/// (local ADR 0062 §6). Answered by an adapter over the Sessions context's waiting
+/// (local ADR 0072 §6). Answered by an adapter over the Sessions context's waiting
 /// questions and loop register, so this module never references Sessions; a host that
 /// composes neither registers nothing, and the queue shows no questions and no slots.
 /// </summary>

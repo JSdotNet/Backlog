@@ -2,7 +2,7 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
 /// The stage each plan entry's session has reached, as the plan session reports it to the
-/// delivery surface (local ADR 0062 §2: <b>Now</b> lists a plan's entries in a session
+/// delivery surface (local ADR 0072 §2: <b>Now</b> lists a plan's entries in a session
 /// "each with the session and its stage"). Answered by an adapter over the Sessions
 /// context's delivery runs, so this module never references Sessions; a host that composes
 /// no run source registers one that answers with nothing, and an entry in a session reads

@@ -33,7 +33,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// an audit file that is locked or full is not a reason to stop every session's tools.
 /// </para>
 /// </summary>
-public static class McpCallAudit
+public static partial class McpCallAudit
 {
     /// <summary>The longest target id a record keeps; anything longer is cut, so an
     /// argument a client filled with prose cannot grow the log without bound.</summary>
@@ -43,6 +43,22 @@ public static class McpCallAudit
     /// session passes its own id to <c>link_session</c>, <c>ask</c> and the delivery
     /// surface, and it is never the call's target.</summary>
     private static readonly HashSet<string> CallerIds = new(StringComparer.Ordinal) { "sessionId" };
+
+    private static readonly AsyncLocal<string?> s_correlation = new();
+
+    /// <summary>The correlation id of the call this flow runs inside, as its audit record
+    /// carries it — what an MCP write's change set keeps (local ADR 0071 §3). Null outside a
+    /// call.</summary>
+    internal static string? CurrentCorrelationId => s_correlation.Value;
+
+    /// <summary>Runs <paramref name="call"/> as a call whose record carries
+    /// <paramref name="correlationId"/> — what the filter does for every call — and puts the
+    /// flow back as it was when it ends.</summary>
+    internal static async Task<T> WithCorrelationAsync<T>(string correlationId, Func<Task<T>> call)
+    {
+        s_correlation.Value = correlationId;
+        return await call().ConfigureAwait(false);
+    }
 
     /// <summary>Wraps <paramref name="next"/> so its outcome is recorded against the
     /// caller the request's principal names (<see cref="McpScopePolicies.CallerOf"/>) — a
@@ -58,13 +74,17 @@ public static class McpCallAudit
 
         return async (request, cancellationToken) =>
         {
+            // Set for the call's own flow, which an async lambda restores on return, so the
+            // filters inside — the change set's — read the id this record carries.
+            var correlation = CorrelationId();
+            s_correlation.Value = correlation;
+
             var log = request.Services?.GetService<IMcpAuditLog>();
             if (log is null) return await next(request, cancellationToken).ConfigureAwait(false);
 
             // Read before the call: the argument check may replace the arguments.
             var tool = request.Params?.Name ?? string.Empty;
             var target = TargetId(request.Params?.Arguments);
-            var correlation = CorrelationId();
             var outcome = McpCallOutcome.Failed;
 
             try
@@ -150,9 +170,11 @@ public static class McpCallAudit
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            services?.GetService<ILoggerFactory>()?
-                .CreateLogger(typeof(McpCallAudit))
-                .LogError(ex, "The MCP call to {Tool} could not be written to the audit log.", record.Tool);
+            if (services?.GetService<ILoggerFactory>()?.CreateLogger(typeof(McpCallAudit)) is { } logger)
+                LogAuditWriteFailed(logger, ex, record.Tool);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP call to {Tool} could not be written to the audit log.")]
+    private static partial void LogAuditWriteFailed(ILogger logger, Exception exception, string tool);
 }

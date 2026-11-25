@@ -314,6 +314,9 @@ public sealed class McpServerAgentsCardTests
             Asked.Add(message);
             return Task.FromResult(Answer);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     [Fact]

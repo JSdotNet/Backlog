@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -40,7 +41,7 @@ namespace Backlog.Modules.Tasks.Features.CompleteLinkedTask;
 /// by the next sync, as it would have been with the setting off.
 /// </para>
 /// </summary>
-public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
+public sealed partial class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
 {
     /// <summary>How long a request waits before the source is asked.</summary>
     internal static readonly TimeSpan Grace = TimeSpan.FromSeconds(5);
@@ -162,6 +163,9 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
             await _turns.WaitAsync(_stopping).ConfigureAwait(false);
             try
             {
+                // Background work, so the system's change set (local ADR 0071 §2) — the
+                // flow suppressed in Request carries no person's in.
+                using var change = ChangeContext.Begin(ChangeActor.System, "completing a linked task at its source");
                 var outcome = await CompleteAsync(taskId).ConfigureAwait(false);
                 if (outcome == LinkedTaskWriteBackOutcome.Completed) ScheduleSync();
             }
@@ -176,7 +180,7 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Completing linked task {TaskId} at its source threw.", taskId);
+            LogCompletionThrew(_log, ex, taskId);
         }
     }
 
@@ -194,9 +198,7 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
             if (result is not Ok<LinkedTaskWriteBackOutcome>(var outcome))
             {
                 var error = (Error)result.Value!;
-                _log.LogWarning(
-                    "Completing linked task {TaskId} at its source did not run: {Code} {Message}",
-                    taskId, error.Code, error.Message);
+                LogCompletionDidNotRun(_log, taskId, error.Code, error.Message);
                 return LinkedTaskWriteBackOutcome.NotAsked;
             }
 
@@ -238,4 +240,10 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
 
         _ = _sync!.RequestSync();
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Completing linked task {TaskId} at its source threw.")]
+    private static partial void LogCompletionThrew(ILogger logger, Exception exception, Guid taskId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Completing linked task {TaskId} at its source did not run: {Code} {Message}")]
+    private static partial void LogCompletionDidNotRun(ILogger logger, Guid taskId, string code, string message);
 }

@@ -77,7 +77,7 @@ public static class TasksCrossContextAdapterRegistration
         // controls ask the same instance (local ADR 0038 §4, amended).
         services.AddSingleton<ISessionQueueOrder>(sp => sp.GetRequiredService<SessionRequestActions>());
 
-        // What the docked queue shows beside the requests (local ADR 0062 §6): the
+        // What the docked queue shows beside the requests (local ADR 0072 §6): the
         // questions sessions wait on and the Manager's slots, each read where the host
         // composed its store and answered with nothing where it did not.
         services.AddSingleton<ISessionQueueAttention>(sp => new SessionQueueAttentionReader(
@@ -85,7 +85,7 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<ILoopRegister>(),
             sp.GetService<ILogger<SessionQueueAttentionReader>>()));
 
-        // The stage each plan entry's session has reached (local ADR 0062 §2), off the
+        // The stage each plan entry's session has reached (local ADR 0072 §2), off the
         // delivery runs this machine recorded; nothing where the host composed no source.
         services.AddSingleton<IPlanEntryStages>(sp => new PlanEntryStageReader(
             sp.GetService<IDeliveryRunSource>(),

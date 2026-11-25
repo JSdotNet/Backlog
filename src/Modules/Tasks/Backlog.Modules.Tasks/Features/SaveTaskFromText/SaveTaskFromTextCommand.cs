@@ -24,7 +24,15 @@ namespace Backlog.Modules.Tasks.Features.SaveTaskFromText;
 /// null for an entry typed by hand. Read on create only: the aggregate holds it
 /// as constructor-only provenance, so an update carries it for nothing and the
 /// stored value stands.</param>
-public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order, string? SourceInboxId = null);
+/// <param name="ExpectedUpdatedAt">The version the caller read the entry at, or
+/// null to save on whatever the store holds. Read on update only: another version
+/// refuses the save (<see cref="DomainModels.TaskItem.RequireLoadedAt"/>).</param>
+public sealed record SaveTaskFromTextCommand(
+    Guid? Id,
+    string RawText,
+    int Order,
+    string? SourceInboxId = null,
+    DateTimeOffset? ExpectedUpdatedAt = null);
 
 /// <param name="writeBack">Where a save that finishes a linked task asks for its item
 /// to be finished at the source too, or null in a composition that registers no
@@ -32,9 +40,12 @@ public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order
 public sealed class SaveTaskFromTextCommandHandler(
     ITaskRepository entries,
     IRepositoryDirectory repositories,
-    ILinkedTaskWriteBack? writeBack = null)
+    ILinkedTaskWriteBack? writeBack = null,
+    TimeProvider? clock = null)
     : ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>An entry needs a title before it can exist. Somebody halfway
     /// through typing one has not failed at anything, so this is an ordinary
     /// outcome the editor holds on to rather than an error it reports.</summary>
@@ -82,7 +93,7 @@ public sealed class SaveTaskFromTextCommandHandler(
         parsed = ResolveRepos(parsed);
 
         return command.Id is { } id
-            ? await UpdateAsync(id, parsed, cancellationToken)
+            ? await UpdateAsync(id, parsed, command.ExpectedUpdatedAt, cancellationToken)
             : await CreateAsync(parsed, command.Order, command.SourceInboxId, cancellationToken);
     }
 
@@ -119,7 +130,7 @@ public sealed class SaveTaskFromTextCommandHandler(
     {
         if (string.IsNullOrWhiteSpace(parsed.Title)) return NeedsTitle;
 
-        var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
+        var entry = TaskEntryFields.CreateFrom(parsed, order, _clock, sourceInboxId);
 
         await entries.SaveAsync(entry, cancellationToken);
 
@@ -134,10 +145,13 @@ public sealed class SaveTaskFromTextCommandHandler(
     private async Task<Result<SavedTaskDto>> UpdateAsync(
         Guid id,
         EntryTextParser.ParsedEntry parsed,
+        DateTimeOffset? expectedUpdatedAt,
         CancellationToken cancellationToken)
     {
         var entry = await entries.GetAsync(id, cancellationToken);
         if (entry is null) return NotFound;
+
+        entry.RequireLoadedAt(expectedUpdatedAt);
 
         // Read before anything is applied, because "this save completed the
         // entry" is a statement about the step from unticked to ticked. The tick,
@@ -156,7 +170,7 @@ public sealed class SaveTaskFromTextCommandHandler(
 
         TaskEntryFields.ApplyToExisting(entry, parsed);
 
-        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday);
+        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday(_clock));
 
         // Reopening a task takes back the refusal it carried: the person is no longer
         // asking the source to finish anything, and a task finished again is asked

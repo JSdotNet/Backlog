@@ -200,7 +200,7 @@ public static class SessionQueue
         return $"{(int)elapsed.TotalDays} d ago";
     }
 
-    /// <summary>The docked column's header line (local ADR 0062 §6): whether the Manager is
+    /// <summary>The docked column's header line (local ADR 0072 §6): whether the Manager is
     /// online, silent or not heard yet, and while it is online how many of its slots are
     /// working — "Manager online · 2 of 3 slots".</summary>
     public static string ManagerLabel(DispatcherContactReading contact, SessionQueueSlots? slots)

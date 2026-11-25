@@ -237,7 +237,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .today__list { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 
 /* A plan in today's My Day: one line, as quiet as a task row beside it, with no
-   entries under it (local ADR 0062 §8). */
+   entries under it (local ADR 0072 §8). */
 .today-plan {
     display: flex;
     align-items: center;

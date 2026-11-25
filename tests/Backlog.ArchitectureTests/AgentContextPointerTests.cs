@@ -164,7 +164,7 @@ public partial class AgentContextPointerTests
 
     /// <summary>
     /// Pointers retired in the same change as what they named: the vendored Aspire
-    /// skills, deleted for the Aspire CLI's own help and the Aspire MCP docs tools,
+    /// skills, deleted for the Aspire CLI's own help and docs commands,
     /// and the multi-account design document, retired into local ADR 0031. Checked
     /// in the devbook chapters and the Copilot files too, since both named them.
     /// The Aspire skills themselves came back as the <c>aspire@aspire-skills</c>
@@ -188,17 +188,49 @@ public partial class AgentContextPointerTests
 
     /// <summary>
     /// The <c>run</c> procedure is where a flow learns the Aspire CLI; with the
-    /// vendored skills gone it points at the CLI's own help and the Aspire MCP docs
-    /// tools, which answer for the pinned version.
+    /// vendored skills gone it points at the CLI's own help and its docs commands,
+    /// which answer for the pinned version. Resource state comes from the CLI too
+    /// (org ADR 0013, CLI first), so neither it nor the diagnose procedure names an
+    /// Aspire MCP tool.
     /// </summary>
     [Fact]
-    public void The_run_procedure_points_at_the_aspire_cli_help_and_the_mcp_docs_tools()
+    public void The_run_procedure_points_at_the_aspire_cli_help_and_docs_commands()
     {
         var run = Read(".claude/skills/run-backlog/SKILL.md");
 
         Assert.Contains("aspire <command> --help", run, StringComparison.Ordinal);
-        Assert.Contains("search_docs", run, StringComparison.Ordinal);
-        Assert.Contains("get_doc", run, StringComparison.Ordinal);
+        Assert.Contains("aspire docs search", run, StringComparison.Ordinal);
+        Assert.Contains("aspire describe", run, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(".claude/skills/run-backlog/SKILL.md")]
+    [InlineData(".agents/skills/diagnose.md")]
+    public void The_run_and_diagnose_procedures_read_resource_state_through_the_cli(string path)
+    {
+        var text = Read(path);
+
+        foreach (var tool in new[] { "list_apphosts", "select_apphost", "list_resources", "list_console_logs", "list_structured_logs", "list_traces", "execute_resource_command", "Aspire MCP" })
+        {
+            Assert.DoesNotContain(tool, text, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Org ADR 0013: the Aspire dashboard MCP server is configured only for a host without a
+    /// shell, and <c>.mcp.json</c> points at the org defaults server through <c>dnx</c>.
+    /// </summary>
+    [Fact]
+    public void The_mcp_configuration_carries_the_defaults_server_and_no_aspire_server()
+    {
+        using var mcp = System.Text.Json.JsonDocument.Parse(Read(".mcp.json"));
+        var servers = mcp.RootElement.GetProperty("mcpServers");
+
+        Assert.False(servers.TryGetProperty("aspire", out _), ".mcp.json still configures the aspire MCP server.");
+
+        var defaults = servers.GetProperty("jsdotnet-app-defaults");
+        Assert.Equal("dnx", defaults.GetProperty("command").GetString());
+        Assert.Equal(["JSdotNet.AppDefaults.Mcp", "--yes"], defaults.GetProperty("args").EnumerateArray().Select(arg => arg.GetString()));
     }
 
     private static IEnumerable<FileInfo> MarkdownUnder(string folder)

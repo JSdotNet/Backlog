@@ -825,6 +825,9 @@ public sealed class SettingsDevicesTests
             Prompts.Add(message);
             return Task.FromResult(outcome);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     /// <summary>A Windows Hello that keeps asking until the test answers it.</summary>
@@ -839,6 +842,9 @@ public sealed class SettingsDevicesTests
             Prompts.Enqueue(message);
             return _answer.Task;
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
 
         public void Answer(UserConsentOutcome outcome) => _answer.TrySetResult(outcome);
     }

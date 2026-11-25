@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// stops the timer.
 /// </para>
 /// </summary>
-public sealed class RunSubjectWatch : IDisposable
+public sealed partial class RunSubjectWatch : IDisposable
 {
     /// <summary>How often it looks: a question about a run that ended is moot, not urgent.</summary>
     public static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
@@ -108,7 +108,7 @@ public sealed class RunSubjectWatch : IDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Looking for validation questions whose run ended failed; the next tick tries again.");
+            EndedRunSweepFailed(_logger, exception);
         }
     }
 
@@ -126,12 +126,12 @@ public sealed class RunSubjectWatch : IDisposable
         }
         catch (OperationCanceledException exception) when (bound.IsCancellationRequested)
         {
-            _logger.LogDebug(exception, "Whether run {Run} ended was not read within {Bound}; its validation question stays open until the next tick.", run.Id, ReadBound);
+            RunEndReadTimedOut(_logger, exception, run.Id, ReadBound);
             return;
         }
         catch (Exception exception)
         {
-            _logger.LogDebug(exception, "Whether run {Run} ended could not be read; its validation question stays open.", run.Id);
+            RunEndReadFailed(_logger, exception, run.Id);
             return;
         }
 
@@ -151,4 +151,13 @@ public sealed class RunSubjectWatch : IDisposable
         && notification.Subject is { Context: SessionNotificationSubjects.Context, Type: SessionNotificationSubjects.Run }
         && string.Equals(notification.Source.Context, SessionNotificationSubjects.Context, StringComparison.Ordinal)
         && SessionNotificationSubjects.ParseValidationSourceKey(notification.Source.Key) is not null;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Looking for validation questions whose run ended failed; the next tick tries again.")]
+    private static partial void EndedRunSweepFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Whether run {Run} ended was not read within {Bound}; its validation question stays open until the next tick.")]
+    private static partial void RunEndReadTimedOut(ILogger logger, Exception exception, string run, TimeSpan bound);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Whether run {Run} ended could not be read; its validation question stays open.")]
+    private static partial void RunEndReadFailed(ILogger logger, Exception exception, string run);
 }

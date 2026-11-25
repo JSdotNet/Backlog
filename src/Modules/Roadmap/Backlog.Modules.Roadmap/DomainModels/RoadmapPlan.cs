@@ -213,7 +213,7 @@ public sealed class RoadmapPlan
 
     /// <summary>
     /// Puts the plan <paramref name="tag"/> names on the My Day of <paramref name="on"/>, or
-    /// takes it off with null (local ADR 0062 §8). A plan is a tag, so every item carrying
+    /// takes it off with null (local ADR 0072 §8). A plan is a tag, so every item carrying
     /// it takes the date: a shared tag is one plan read as a group.
     /// <para>
     /// A tag no item carries yet is a plan the entries name but the roadmap has not drawn,

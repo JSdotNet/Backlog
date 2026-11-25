@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The host's side of the impediment a Blocked plan names (local ADR 0035 §5; local ADR
-/// 0062 §2–§3): the open impediment holding back the plan by its tag or one of its
+/// 0072 §2–§3): the open impediment holding back the plan by its tag or one of its
 /// entries by id, read again when an impediment is stored, with nothing named when none
 /// is linked or the Progress port is not composed.
 /// </summary>

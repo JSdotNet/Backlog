@@ -99,12 +99,29 @@ public static class TaskComments
     /// something it never was.
     /// </para>
     /// </summary>
+    public static Task<Result<TaskItemDto>> CommentAsync(
+        this ITaskItems entries,
+        Guid id,
+        string? text,
+        DateOnly today,
+        string usageAction,
+        CancellationToken cancellationToken = default) =>
+        entries.CommentAsync(id, text, today, usageAction, expectedUpdatedAt: null, cancellationToken);
+
+    /// <summary>
+    /// Comments as the overload above does, saved only while the store still holds
+    /// <paramref name="expectedUpdatedAt"/> — the <see cref="ITaskItems.GetUpdatedAtAsync"/>
+    /// the caller read before it decided what to say — and refused with
+    /// <see cref="StaleTaskWrites.StaleWrite"/> otherwise. Null saves on whatever the
+    /// store holds.
+    /// </summary>
     public static async Task<Result<TaskItemDto>> CommentAsync(
         this ITaskItems entries,
         Guid id,
         string? text,
         DateOnly today,
         string usageAction,
+        DateTimeOffset? expectedUpdatedAt,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -130,8 +147,11 @@ public static class TaskComments
         // grammar and a comment is not a step somebody has to tick.
         var appended = parent.Length == 0 ? dated : $"{parent}\n\n{dated}";
 
-        var saved = await entries
-            .SaveFromTextAsync(entry.Id, EntryTextParser.ReplaceParentText(raw, appended), entry.Order, cancellationToken: cancellationToken)
+        var commented = EntryTextParser.ReplaceParentText(raw, appended);
+
+        var saved = await (expectedUpdatedAt is { } version
+                ? entries.SaveFromTextAsync(entry.Id, commented, entry.Order, version, cancellationToken)
+                : entries.SaveFromTextAsync(entry.Id, commented, entry.Order, cancellationToken: cancellationToken))
             .ConfigureAwait(false);
 
         if (saved is not Ok<SavedTaskDto>(var savedTask))

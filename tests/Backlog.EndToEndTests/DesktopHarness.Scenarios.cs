@@ -141,9 +141,19 @@ internal sealed partial class DesktopHarness
             () => Page.GetByTestId("sessions-panel").IsVisibleAsync(),
             "showing Sessions");
 
+        // The pane's first read walks every session transcript on the machine,
+        // which on a developer machine full of worktrees outlasts Playwright's
+        // 30 s click timeout; the button is busy and disabled meanwhile. So the
+        // click waits for that read, and the refresh it starts, to finish.
         var refresh = Page.GetByTestId("sessions-refresh");
-        if (await refresh.CountAsync() > 0) await refresh.ClickAsync();
+        if (await refresh.CountAsync() == 0) return;
+
+        await refresh.ClickAsync(new LocatorClickOptions { Timeout = (float)SessionsRead.TotalMilliseconds });
+        await Task.Delay(500); // the circuit marks the button busy a round trip after the click
+        await Assertions.Expect(refresh).ToBeEnabledAsync(new LocatorAssertionsToBeEnabledOptions { Timeout = (float)SessionsRead.TotalMilliseconds });
     }
+
+    private static readonly TimeSpan SessionsRead = TimeSpan.FromMinutes(3);
 
     /// <summary>
     /// Presses one option of the Sessions pane's Show strip — <c>live</c> or
@@ -189,14 +199,19 @@ internal sealed partial class DesktopHarness
 
         await Assertions.Expect(DeliveryRun(runId).GetByTestId("sessions-run-title")).ToHaveTextAsync(runTitle);
 
+        // The latest run on a row is drawn whole and has no fold; only an earlier
+        // one folds to its header (DeliveryRunLine's Collapsible).
         var fold = DeliveryRun(runId).GetByTestId("sessions-run-fold");
-        await Interactive.RepeatAsync(
-            async () =>
-            {
-                if (await fold.GetAttributeAsync("aria-expanded") != "true") await fold.ClickAsync();
-            },
-            async () => await fold.GetAttributeAsync("aria-expanded") == "true",
-            "unfolding the run");
+        if (await fold.CountAsync() > 0)
+        {
+            await Interactive.RepeatAsync(
+                async () =>
+                {
+                    if (await fold.GetAttributeAsync("aria-expanded") != "true") await fold.ClickAsync();
+                },
+                async () => await fold.GetAttributeAsync("aria-expanded") == "true",
+                "unfolding the run");
+        }
 
         var stageRow = DeliveryRun(runId).Locator($"[data-testid='sessions-stage'][data-stage='{stage}']");
         var toggle = stageRow.GetByTestId("sessions-stage-toggle");

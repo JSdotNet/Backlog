@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Changes;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
@@ -6,6 +7,7 @@ using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
@@ -61,10 +63,12 @@ using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Composition;
@@ -96,7 +100,7 @@ namespace Backlog.Desktop.Composition;
 /// composition that only one head's test ever starts.
 /// </para>
 /// </summary>
-public static class DesktopCompositionRegistration
+public static partial class DesktopCompositionRegistration
 {
     public static IServiceCollection AddDesktopComposition(this IServiceCollection services, DesktopCompositionOptions options)
     {
@@ -214,6 +218,11 @@ public static class DesktopCompositionRegistration
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
+        // An agent's restore proposal (local ADR 0071 §5): Restore shows the Changes view on
+        // the change set's confirmation panel, which still asks; Keep does nothing.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, RestoreProposalAnswers>(sp => new RestoreProposalAnswers(
+            sp.GetRequiredService<MainWindowSurfaces>(),
+            sp.GetService<ILogger<RestoreProposalAnswers>>())));
         // The Settings page's test question: the page reads its answer off the centre, so the
         // handler only takes it, for the same reason.
         services.AddNotificationAnswerHandler<TestNotificationAnswers>();
@@ -233,6 +242,10 @@ public static class DesktopCompositionRegistration
         // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
         // feature is on. Its pane is the Events takeover AddEventsSurface registers below,
         // behind the same feature; it has no settings section or Ask AI source yet.
+        // Its two map ports over Azure Maps (local ADR 0061 §4), before the module whose own
+        // registrations are TryAdd: the geocoder an address is sent to once on save, and the
+        // tile source the map draws from, both silent until the person enters a key in Settings.
+        services.AddAzureMaps(options.AzureMapsSettings);
         services.AddEventsModule();
 
         // Calendar (local ADR 0055, local ADR 0056): it owns no data, and its services are
@@ -324,6 +337,17 @@ public static class DesktopCompositionRegistration
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
+        // The change journal's daily prune and its clear action (local ADR 0071 §6),
+        // over the same workspace settings and clock.
+        services.AddSingleton<ChangeHistoryWorker>();
+        // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
+        // a folder beside backlog.db, following the root as the stores it copies do, and
+        // holding the per-user settings files the change journal leaves out (local ADR 0071 §8).
+        services.AddSingleton(sp => new AgentCheckpoints(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<AgentCheckpoints>>(),
+            settingsFiles: () => CheckpointedSettingsFiles(sp, options.CheckpointedHeadFiles)));
 
         // Where the sync service is, asked per client rather than fixed here: the URL
         // on the Settings page, then BACKLOG_SYNC_URL, then "https+http://sync",
@@ -424,6 +448,9 @@ public static class DesktopCompositionRegistration
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
+        // The change journal read back (local ADR 0071): a view the shell's own
+        // project draws, since no module owns the journal.
+        global::Backlog.Desktop.UI.Changes.ChangesSurfaceRegistration.AddChangesSurface(services);
         services.AddDevbookSurface();
         services.AddInboxSurface();
         services.AddEventsSurface();
@@ -676,6 +703,29 @@ public static class DesktopCompositionRegistration
         return services;
     }
 
+    /// <summary>
+    /// The per-user settings files an agent checkpoint copies, asked of the stores this
+    /// composition holds so a head that scopes them elsewhere is copied where they are: the
+    /// GitHub accounts (local ADR 0021), the pace (ADR 0018), My Day (ADR 0032), the iteration
+    /// settings (ADR 0036), then <paramref name="headFiles"/>, which the head keeps alone - the
+    /// MCP grants (ADR 0058 §3). The repository registry sits under the root and is the
+    /// checkpoint's own. A store this head does not compose names nothing.
+    /// </summary>
+    public static IReadOnlyList<string?> CheckpointedSettingsFiles(IServiceProvider services, IEnumerable<string> headFiles)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(headFiles);
+
+        return
+        [
+            services.GetService<GitHubSettingsStore>()?.SettingsPath,
+            services.GetService<PlanningVelocitySettingsStore>()?.SettingsPath,
+            services.GetService<MyDayPreferencesStore>()?.SettingsPath,
+            services.GetService<IterationSettingsStore>()?.SettingsPath,
+            .. headFiles,
+        ];
+    }
+
     /// <summary>The base-address callback the three sync registrations share, so
     /// they cannot disagree about which service a head is talking to.</summary>
     private static Uri SyncServiceAddress(IServiceProvider services) =>
@@ -754,7 +804,11 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(sp =>
             new DevbookAnnotationStore(
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+                folders: sp.GetRequiredService<IDevbookFolderSource>(),
+                journal: sp.GetService<IDocumentRevisionJournal>()));
+        // Journalled beside backlog.db (local ADR 0071 §2), so a restore writes a remark
+        // back through this store.
+        services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookAnnotationStore>());
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
             new RemarkNotificationStore(
                 sp.GetRequiredService<DevbookAnnotationStore>(),
@@ -773,7 +827,9 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(sp =>
             new DevbookSubjectStateStore(
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+                folders: sp.GetRequiredService<IDevbookFolderSource>(),
+                journal: sp.GetService<IDocumentRevisionJournal>()));
+        services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
         services.AddSingleton<IDevbookSubjectStateStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
         services.AddSingleton<IDevbookSyncDirectionStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
 
@@ -872,11 +928,14 @@ public static class DesktopCompositionRegistration
     {
         try
         {
-            logger?.LogError(failure, "Starting the repository alias follower failed.");
+            if (logger is not null) LogAliasFollowerStartFailed(logger, failure);
         }
         catch (Exception)
         {
             // Nothing is left to report it to.
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Starting the repository alias follower failed.")]
+    private static partial void LogAliasFollowerStartFailed(ILogger logger, Exception exception);
 }

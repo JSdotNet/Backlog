@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Roadmap.UnitTests;
 
 /// <summary>
-/// A whole plan on My Day (local ADR 0062 §8): a My Day date on the plan's Roadmap Items,
+/// A whole plan on My Day (local ADR 0072 §8): a My Day date on the plan's Roadmap Items,
 /// kept until the person takes it off. Whether the plan is in a given day's My Day is a
 /// reading question Tasks answers; these cover the stamp the plan keeps and the item a
 /// plan tag with no Roadmap Item gets.

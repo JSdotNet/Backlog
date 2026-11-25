@@ -4,7 +4,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The roadmap plan document on the phone (local ADR 0062 §8): folded off the task feed by
+/// The roadmap plan document on the phone (local ADR 0072 §8): folded off the task feed by
 /// its own stamps, kept whole, and read for one thing — which plans are on My Day and for
 /// which day.
 /// </summary>

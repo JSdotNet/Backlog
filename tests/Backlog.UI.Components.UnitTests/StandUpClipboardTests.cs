@@ -44,6 +44,21 @@ public sealed class StandUpClipboardTests
 
     private static string[] Lines(string text) => text.Split("\r\n");
 
+    [Fact]
+    public void A_finished_plan_reads_its_entries_done_and_the_heading_counts_them()
+    {
+        var standUp = Week with
+        {
+            Finished = [new StandUpGroup("Customers get paid faster", [new StandUpEntry("bank-integration", Completed: 9), new StandUpEntry("Invoice PDF export")])]
+        };
+
+        var lines = Lines(StandUpClipboard.Text(Board(standUp, Paid)));
+
+        Assert.Contains("Finished 10", lines);
+        Assert.Contains("- bank-integration · 9 done", lines);
+        Assert.Contains("- Invoice PDF export", lines);
+    }
+
     /// <summary>Scenario "A week's stand-up": four blocks, in order, each with its count.</summary>
     [Fact]
     public void The_four_blocks_head_with_their_counts_in_order()

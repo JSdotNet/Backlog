@@ -13,7 +13,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The session queue docked beside the Tasks list (local ADR 0062 §6;
+/// The session queue docked beside the Tasks list (local ADR 0072 §6;
 /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>): a column on
 /// the right in Plans and in Flat, with the Manager's state and Pause at its head, then
 /// Needs you, Running, Up next, Landed today and the long-running agents; folded back into

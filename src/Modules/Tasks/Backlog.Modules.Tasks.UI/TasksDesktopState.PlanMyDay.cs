@@ -5,7 +5,7 @@ using Backlog.UI.Components.Feedback;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// A whole plan on My Day (local ADR 0062 §8; <c>.devbook/domain/tasks/features.md#my-day</c>).
+/// A whole plan on My Day (local ADR 0072 §8; <c>.devbook/domain/tasks/features.md#my-day</c>).
 /// <para>
 /// The date lives on the plan's Roadmap Items in Roadmap Planning and rides the roadmap
 /// plan document on the task feed (ADR 0018); this state only reads it, through its own
@@ -140,7 +140,7 @@ public sealed partial class TasksDesktopState
         SetPlanMyDayAsync(plan, IsPlanInMyDay(plan, today) ? null : today);
 
     /// <summary>
-    /// What Plans today lists under a plan (local ADR 0062 §8): only its open entries that
+    /// What Plans today lists under a plan (local ADR 0072 §8): only its open entries that
     /// are the person's — left for you, held for you, or awaiting validation on an open pull
     /// request — in the store's order.
     /// </summary>

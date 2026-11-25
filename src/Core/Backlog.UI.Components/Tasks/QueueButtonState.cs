@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.Tasks;
 
 /// <summary>
-/// Which of its three looks a <see cref="QueueButton"/> wears (local ADR 0062 §4).
+/// Which of its three looks a <see cref="QueueButton"/> wears (local ADR 0072 §4).
 /// </summary>
 public enum QueueButtonState
 {

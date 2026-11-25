@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// The Tasks list's <b>Plans / Flat</b> switch and the Plans view's rail (local ADR 0062
+/// The Tasks list's <b>Plans / Flat</b> switch and the Plans view's rail (local ADR 0072
 /// §1, §2; <c>.devbook/domain/tasks/features.md#plans-view</c>).
 /// <para>
 /// The switch is the window's view choice: the host remembers it beside the Board's

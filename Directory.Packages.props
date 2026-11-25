@@ -28,6 +28,9 @@
 
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="17.0.0" />
+    <!-- AddAzureApplicationInsights: the sync tier's component in the published model, and
+         the exception alert that watches it (org ADR 0002). Publish mode only. -->
+    <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="17.0.0" />
@@ -196,10 +199,10 @@
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <PackageVersion Include="Microsoft.Maui.Core" Version="$(MauiVersion)" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <!-- Browser end-to-end tests only (tests/Backlog.EndToEndTests). Its browsers
          are installed separately, by the playwright.ps1 the build writes to bin. -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.65.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.3" />
     <!--
@@ -215,8 +218,8 @@
          reference of any kind, which is what lets the registration both hosts
          share sit in a library instead of being written twice. -->
     <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
     <!--
@@ -227,6 +230,11 @@
       The version is the one Microsoft.Extensions.Http.Resilience above resolves.
     -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
+    <!--
+      The sync service's API reference (org ADR 0004): it renders the OpenAPI
+      document in Development, the only environment that maps the document.
+    -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="3.2.1" />
     <!--
       The phone's talk note shrinks a slide photo to 1600 px JPEG before it
       enters the outbox. MIT, with the Android and Windows natives in the box, so

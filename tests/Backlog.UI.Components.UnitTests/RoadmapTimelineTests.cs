@@ -1220,17 +1220,38 @@ public sealed class RoadmapTimelineTests
     /// </summary>
     private sealed class FocusRecordingRuntime : IJSRuntime
     {
+        // The log is its own object: a call the runtime makes on itself reads to the
+        // Blazor analyzers as a script call (BL0016), which a fake's bookkeeping is not.
+        private readonly FocusLog _log = new();
+
+        public Func<string, AngleSharp.Dom.IElement?>? Chart
+        {
+            get => _log.Chart;
+            set => _log.Chart = value;
+        }
+
+        public List<(string Id, string? Row)> Focused => _log.Focused;
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+        {
+            _log.Record(identifier, args);
+            return ValueTask.FromResult(default(TValue)!);
+        }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            _log.Record(identifier, args);
+            return ValueTask.FromResult(default(TValue)!);
+        }
+    }
+
+    private sealed class FocusLog
+    {
         public Func<string, AngleSharp.Dom.IElement?>? Chart { get; set; }
 
         public List<(string Id, string? Row)> Focused { get; } = [];
 
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
-            Record<TValue>(identifier, args);
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
-            Record<TValue>(identifier, args);
-
-        private ValueTask<TValue> Record<TValue>(string identifier, object?[]? args)
+        public void Record(string identifier, object?[]? args)
         {
             if (identifier == "backlogFocus" && args is [string id, ..])
             {
@@ -1238,8 +1259,6 @@ public sealed class RoadmapTimelineTests
 
                 Focused.Add((id, row));
             }
-
-            return ValueTask.FromResult(default(TValue)!);
         }
     }
 

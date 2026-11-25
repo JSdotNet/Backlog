@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Plans view's main column with a plan selected (local ADR 0062 §3;
+/// The Plans view's main column with a plan selected (local ADR 0072 §3;
 /// <c>.devbook/domain/tasks/requirements.md#requirement-the-selected-plan-reads-as-now-next-and-later</c>):
 /// the selected plan's entries grouped into Now, Next and Later, Later's unlock and done
 /// lines, the other plans folded to a line each, and Unplanned closing the column.

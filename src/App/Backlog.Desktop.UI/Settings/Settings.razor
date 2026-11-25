@@ -32,7 +32,7 @@
 
     The pages beside this file - FeaturesSettingsPage, AiSettingsPage,
     StorageSettingsPage, GitHubAccountsSettingsPage, RepositoriesSettingsPage,
-    McpServerSettingsPage - declare the same namespace for the same reason, and
+    McpServerSettingsPage, EventsSettingsPage - declare the same namespace for the same reason, and
     are named so that none of them is called Settings.
 *@
 @namespace Backlog.Desktop.UI.Shell
@@ -42,6 +42,8 @@
 @using Backlog.Modules.Brain.Abstractions
 @using Backlog.Infrastructure.Claude
 @using Backlog.Modules.DevPc.Abstractions
+@using Backlog.Modules.Events.Abstractions
+@using Backlog.Infrastructure.AzureMaps
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -160,6 +162,18 @@
                              data-testid="mcp-server-settings"
                              aria-label="MCP server settings">
                         <McpServerSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.McpServer)" />
+                    </section>
+                </CascadingValue>
+            }
+
+            @if (IsOpen(SettingsPages.Events))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.Events)">
+                    <section class="setting"
+                             hidden="@(!IsShowing(SettingsPages.Events))"
+                             data-testid="events-settings"
+                             aria-label="Events settings">
+                        <EventsSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Events)" />
                     </section>
                 </CascadingValue>
             }
@@ -359,6 +373,10 @@
         // usage reports. With neither on there is nothing for the page to say, so
         // it is not offered rather than offered empty.
         SettingsPages.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
+
+        // The map's key is all the page holds: with Events off there is no map, and
+        // a host that composes no Azure Maps store has no key to keep.
+        SettingsPages.Events => Features.IsEnabled(EventsFeatures.Events) && Services.GetService<AzureMapsSettingsStore>() is not null,
         _ => false
     };
 

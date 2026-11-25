@@ -385,6 +385,36 @@ Left and Right still describe the separator rather than the number, so here Left
         <p class="sb-state" data-testid="split-end-state">End width: @_endWidth.ToString("0.##") rem</p>
     </Story>
 
+    <Story Name="SplitPane, stacked"
+           Description="`Orientation` set to `SplitPaneOrientation.Vertical` stacks the panes — a map above the list it pins — and the bound value becomes the fixed pane's height. The separator is a horizontal one, and says so in its `aria-orientation`, so Up and Down move it and Left and Right do nothing; PageUp/PageDown and Home/End work as beside.
+
+The split takes its height from its host, and its ceiling is that height less the bottom pane's floor: this frame is 23rem, so the top pane runs from 4rem to 12rem. The ceiling is measured again whenever the host's height changes."
+           Code="@SplitStackedCode">
+        <SplitPane Orientation="SplitPaneOrientation.Vertical"
+                   FixedWidthRem="_stackHeight"
+                   FixedWidthRemChanged="v => _stackHeight = v"
+                   MinRem="4"
+                   MaxRem="12"
+                   AriaLabel="Storybook pane height"
+                   CssClass="sb-pane sb-pane--stacked"
+                   TestId="demo-split-stacked"
+                   SeparatorTestId="demo-split-stacked-separator">
+            <Start>
+                <div class="sb-surface">
+                    <p class="sb-label">Top pane</p>
+                    <p>Fixed height, committed once the drag settles.</p>
+                </div>
+            </Start>
+            <End>
+                <div class="sb-surface">
+                    <p class="sb-label">Bottom pane</p>
+                    <p>Takes whatever height is left.</p>
+                </div>
+            </End>
+        </SplitPane>
+        <p class="sb-state" data-testid="split-stacked-state">Top height: @_stackHeight.ToString("0.##") rem</p>
+    </Story>
+
     <Story Name="Scrollbar"
            Description="Not a component but the chrome every overflowing region wears, and nothing opts into it. The thumb is --color-border and lifts to --color-border-strong on hover; track and corner stay transparent so a scrolling panel gains no second edge. Firefox reads scrollbar-width and scrollbar-color, Chromium and WebView2 the ::-webkit-scrollbar pseudo-elements. A region whose content must not jump sideways as the bar appears adds scrollbar-gutter: stable. Both boxes below take tab focus, because a region a mouse can scroll a keyboard has to be able to reach."
            Code="@ScrollCode">
@@ -442,6 +472,10 @@ Left and Right still describe the separator rather than the number, so here Left
     /// separators cannot move each other — they are two layouts on one page, not one
     /// layout twice.</summary>
     private double _endWidth = 20;
+
+    /// <summary>The stacked story's top-pane height, its own for the same
+    /// reason.</summary>
+    private double _stackHeight = 6;
 
     private const string TabsCode = """
         <Tabs ActiveId="@_activeTab" ActiveIdChanged="id => _activeTab = id" AriaLabel="Entry views">
@@ -617,6 +651,16 @@ Left and Right still describe the separator rather than the number, so here Left
                    MinRem="12" MaxRem="48">
             <Start>...takes what is left...</Start>
             <End>...fixed...</End>
+        </SplitPane>
+        """;
+
+    private const string SplitStackedCode = """
+        @* Stacked: the bound value is the top pane's height, and Up/Down move it. *@
+        <SplitPane Orientation="SplitPaneOrientation.Vertical"
+                   FixedWidthRem="_height" FixedWidthRemChanged="v => _height = v"
+                   MinRem="4" MaxRem="12" AriaLabel="Map height">
+            <Start>...map...</Start>
+            <End>...list...</End>
         </SplitPane>
         """;
 }

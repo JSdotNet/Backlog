@@ -5,7 +5,7 @@ using Backlog.UI.Components.Feedback;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// The session queue docked as a column on the right of the Tasks list (local ADR 0062
+/// The session queue docked as a column on the right of the Tasks list (local ADR 0072
 /// §6; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>): the
 /// same queue the bar's popover lists, read from the same polls and moved, cancelled and
 /// paused through the same handlers, grouped as Needs you, Running, Up next, Landed today
@@ -162,7 +162,7 @@ public partial class TasksPane
         && string.Equals(plan.TrimStart('+'), bareTag, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// A column item selected: the list is filtered to it (local ADR 0062 §6), and
+    /// A column item selected: the list is filtered to it (local ADR 0072 §6), and
     /// selecting it again lets go. An entry request is an entry; a plan request selects
     /// that plan on the rail, switching Flat to Plans first, since Flat lists no plan.
     /// </summary>

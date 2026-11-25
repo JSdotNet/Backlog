@@ -227,8 +227,8 @@ related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/te
 The tool-server protocol that gives agents capabilities they do not ship with.
 
 - **Used for** — the servers `.mcp.json` declares: `backlog`, served by the
-  running desktop app with its bearer token from
-  `tools/mcp/backlog-mcp-headers.mjs` (local ADR 0012); `aspire`; `playwright`;
+  running desktop app, with a 15-minute token for the Backlog delivery grant that
+  `tools/mcp/backlog-mcp-headers.mjs` prints (local ADRs 0012 and 0058 §3); `aspire`; `playwright`;
   and `microsoft-learn`. Plugins add the `qa` plugin's Aspire and Playwright pair
   and the delivery surfaces.
 - **Why** — these expose live state an agent cannot read from the repository.

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
 /// <summary>
-/// The Tasks pane's <see cref="IPlanEntryStages"/> (local ADR 0062 §2), answered out of the
+/// The Tasks pane's <see cref="IPlanEntryStages"/> (local ADR 0072 §2), answered out of the
 /// delivery runs this machine recorded: each run under way or parked that names a Backlog
 /// entry by its stored id gives that entry the stage it is on. A cross-context join, here
 /// for the reason <see cref="SessionQueueAttentionReader"/> is: the Tasks pane may not
@@ -15,7 +15,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <param name="runs">This machine's delivery runs, or null when none is composed.</param>
 /// <param name="changes">The signal a run write raises, or null when none is composed.</param>
 /// <param name="logger">Where an unreadable source is said; nothing when null.</param>
-public sealed class PlanEntryStageReader(
+public sealed partial class PlanEntryStageReader(
     IDeliveryRunSource? runs,
     IDeliveryRunChangeSignal? changes,
     ILogger<PlanEntryStageReader>? logger = null) : IPlanEntryStages
@@ -40,7 +40,7 @@ public sealed class PlanEntryStageReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger?.LogWarning(exception, "The delivery runs could not be read for the plan entries' stages.");
+            if (logger is not null) RunsUnreadable(logger, exception);
             return Nothing;
         }
     }
@@ -121,4 +121,7 @@ public sealed class PlanEntryStageReader(
 
         return -1;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The delivery runs could not be read for the plan entries' stages.")]
+    private static partial void RunsUnreadable(ILogger logger, Exception exception);
 }

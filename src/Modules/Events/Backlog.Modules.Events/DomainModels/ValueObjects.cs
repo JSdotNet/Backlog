@@ -35,42 +35,145 @@ public sealed record EventDate
 }
 
 /// <summary>
-/// Where the event happens: a venue, in free text, or online
-/// (<c>.devbook/domain/events/domain.md#place</c>). Equality is by value.
+/// Where the event happens: online, or in person with a venue name in free text, an
+/// <see cref="Address"/>, or both (<c>.devbook/domain/events/domain.md#place</c>). A place with an
+/// address holds its <see cref="AddressLookup"/>, and its <see cref="MapPoint"/> when that lookup
+/// placed it. Equality is by value.
 /// </summary>
 public sealed record Place
 {
-    private Place(string? venue, bool isOnline)
+    private Place(string? venue, bool isOnline, Address? address, AddressLookup? lookup, MapPoint? point)
     {
         Venue = venue;
         IsOnline = isOnline;
+        Address = address;
+        Lookup = lookup;
+        Point = point;
     }
 
-    /// <summary>The venue, trimmed, or null for an online event.</summary>
+    /// <summary>The venue name, trimmed, or null when there is none or the event is online.</summary>
     public string? Venue { get; }
 
-    /// <summary>Whether the event happens online rather than at a venue.</summary>
+    /// <summary>Whether the event happens online rather than in person.</summary>
     public bool IsOnline { get; }
 
-    /// <summary>An online event's place.</summary>
-    public static Place Online { get; } = new(venue: null, isOnline: true);
+    /// <summary>Where an in-person event is held, or null.</summary>
+    public Address? Address { get; }
 
-    /// <summary>A venue, trimmed. Refused for a blank one (<c>place.invalid</c>).</summary>
+    /// <summary>What geocoding answered for <see cref="Address"/>; set exactly when there is one.</summary>
+    public AddressLookup? Lookup { get; }
+
+    /// <summary>The spot on the map; set exactly when <see cref="Lookup"/> is Placed.</summary>
+    public MapPoint? Point { get; }
+
+    /// <summary>An online event's place.</summary>
+    public static Place Online { get; } = new(venue: null, isOnline: true, address: null, lookup: null, point: null);
+
+    /// <summary>A venue name alone, trimmed. Refused for a blank one (<c>place.invalid</c>).</summary>
     public static Result<Place> AtVenue(string venue) => Create(venue, online: false);
 
-    /// <summary>A venue or online. Refused for both, for neither, and for a blank venue
-    /// (<c>place.invalid</c>).</summary>
-    public static Result<Place> Create(string? venue, bool online)
+    /// <summary>A venue name or online, with no address. Refused for both, for neither, and for a
+    /// blank venue name (<c>place.invalid</c>).</summary>
+    public static Result<Place> Create(string? venue, bool online) =>
+        Create(venue, online, address: null, lookup: null, point: null);
+
+    /// <summary>
+    /// A place, its venue name trimmed and a blank one counted as none. Refused, in this order,
+    /// for an online place with a venue name, an address, a lookup or a point, and for an
+    /// in-person one with neither a venue name nor an address (<c>place.invalid</c>); then for a
+    /// lookup without an address or an address without one, and for a point on a lookup that is
+    /// not Placed or a Placed lookup without one (<c>place.lookup_mismatch</c>).
+    /// </summary>
+    public static Result<Place> Create(string? venue, bool online, Address? address, AddressLookup? lookup, MapPoint? point)
     {
+        if (lookup is { } answer && !Enum.IsDefined(answer))
+            throw new ArgumentOutOfRangeException(nameof(lookup), lookup, "An address is placed, not found, or not looked up yet.");
+
         var trimmed = string.IsNullOrWhiteSpace(venue) ? null : venue.Trim();
 
-        return (trimmed, online) switch
+        if (online)
         {
-            (null, true) => Online,
-            (not null, false) => new Place(trimmed, isOnline: false),
-            _ => EventsErrors.PlaceInvalid()
-        };
+            return trimmed is null && address is null && lookup is null && point is null
+                ? Online
+                : EventsErrors.PlaceInvalid();
+        }
+
+        if (trimmed is null && address is null) return EventsErrors.PlaceInvalid();
+
+        if ((address is null) != (lookup is null)) return EventsErrors.PlaceLookupMismatch();
+
+        if ((lookup == AddressLookup.Placed) != (point is not null)) return EventsErrors.PlaceLookupMismatch();
+
+        return new Place(trimmed, isOnline: false, address, lookup, point);
     }
+
+    /// <summary>This place with its address's lookup and point replaced. Only the aggregate calls
+    /// it, for a place that holds an address, with a point exactly when the lookup is Placed.</summary>
+    internal Place WithLookup(AddressLookup lookup, MapPoint? point) =>
+        new(Venue, IsOnline, Address, lookup, point);
+}
+
+/// <summary>
+/// Where an in-person event is held, in four optional parts — street, postcode, town and
+/// country — each kept trimmed (<c>.devbook/domain/events/domain.md#address</c>). Equality is by
+/// value, part by part.
+/// </summary>
+public sealed record Address
+{
+    private Address(string? street, string? postcode, string? town, string? country)
+    {
+        Street = street;
+        Postcode = postcode;
+        Town = town;
+        Country = country;
+    }
+
+    public string? Street { get; }
+
+    public string? Postcode { get; }
+
+    public string? Town { get; }
+
+    public string? Country { get; }
+
+    /// <summary>An address with each part trimmed and a blank part kept as none. Refused when
+    /// every part is blank (<c>address.empty</c>).</summary>
+    public static Result<Address> Create(string? street, string? postcode, string? town, string? country)
+    {
+        var address = new Address(Part(street), Part(postcode), Part(town), Part(country));
+
+        return address is { Street: null, Postcode: null, Town: null, Country: null }
+            ? EventsErrors.AddressEmpty()
+            : address;
+    }
+
+    private static string? Part(string? part) => string.IsNullOrWhiteSpace(part) ? null : part.Trim();
+}
+
+/// <summary>
+/// The spot on the map where an in-person event is held, in degrees
+/// (<c>.devbook/domain/events/domain.md#map-point</c>). Only a lookup that placed the address sets
+/// it. Equality is by value.
+/// </summary>
+public sealed record MapPoint
+{
+    private MapPoint(double latitude, double longitude)
+    {
+        Latitude = latitude;
+        Longitude = longitude;
+    }
+
+    public double Latitude { get; }
+
+    public double Longitude { get; }
+
+    /// <summary>A map point. Refused for a latitude outside -90 to 90 or a longitude outside -180 to
+    /// 180, bounds included, and for a coordinate that is not a number
+    /// (<c>map_point.out_of_range</c>).</summary>
+    public static Result<MapPoint> Create(double latitude, double longitude) =>
+        latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180
+            ? new MapPoint(latitude, longitude)
+            : EventsErrors.MapPointOutOfRange();
 }
 
 /// <summary>

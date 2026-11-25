@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// The docked session queue's read of what needs the person and how full the Manager is
-/// (local ADR 0062 §6): the open waiting questions, oldest first, by their first question,
+/// (local ADR 0072 §6): the open waiting questions, oldest first, by their first question,
 /// and the Manager's latest check-in's working sessions against its session limit.
 /// </summary>
 public sealed class SessionQueueAttentionReaderTests

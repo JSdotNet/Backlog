@@ -1,4 +1,5 @@
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -49,7 +50,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// fails holds back only itself. It is offered the group again on the next pass.
 /// </para>
 /// </summary>
-public sealed class RepositoryAliasFollower : IDisposable
+public sealed partial class RepositoryAliasFollower : IDisposable
 {
     private readonly GitHubSettingsStore _settings;
     private readonly IReadOnlyList<IRepositoryAliasKeyedStore> _replicated;
@@ -113,6 +114,7 @@ public sealed class RepositoryAliasFollower : IDisposable
     private async Task StartOnPoolAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using var change = ChangeContext.Begin(ChangeActor.System, "following a repository rename");
         try
         {
             if (_started || _disposed) return;
@@ -130,7 +132,7 @@ public sealed class RepositoryAliasFollower : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Relabelling the repositories renamed before their alias followed failed.");
+                RelabellingRenamedFailed(_logger, ex);
             }
 
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
@@ -189,22 +191,34 @@ public sealed class RepositoryAliasFollower : IDisposable
         // already waiting on the gate sees the edit coming.
         Interlocked.Increment(ref _pendingEdits);
 
-        Track(Task.Run(() => PassAsync(
-            async cancellationToken =>
-            {
-                try
+        // Started off the registry save's flow, so the pass carries none of its
+        // ambient state. The edit's re-key is the person's: one change set for every
+        // document the relabel moves (local ADR 0071 §2). What follows is the system's.
+        using (ChangeContext.Detach())
+        {
+            Track(Task.Run(() => PassAsync(
+                async cancellationToken =>
                 {
-                    await ReKeyReplicatedAsync(moves, cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref _pendingEdits);
-                }
+                    try
+                    {
+                        using (ChangeContext.Begin(ChangeActor.Person, "renaming a repository"))
+                        {
+                            await ReKeyReplicatedAsync(moves, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _pendingEdits);
+                    }
 
-                await CatchUpLocalAsync(cancellationToken).ConfigureAwait(false);
-                await BackstopAsync(cancellationToken).ConfigureAwait(false);
-            },
-            whenSkipped: () => Interlocked.Decrement(ref _pendingEdits))));
+                    using (ChangeContext.Begin(ChangeActor.System, "following a repository rename"))
+                    {
+                        await CatchUpLocalAsync(cancellationToken).ConfigureAwait(false);
+                        await BackstopAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                },
+                whenSkipped: () => Interlocked.Decrement(ref _pendingEdits))));
+        }
     }
 
     private void OnChanged()
@@ -213,11 +227,15 @@ public sealed class RepositoryAliasFollower : IDisposable
         // and its pass does everything this one would.
         if (_settings.IsSavingAliasMovesOnThisThread) return;
 
-        Track(Task.Run(() => PassAsync(async cancellationToken =>
+        using (ChangeContext.Detach())
         {
-            await CatchUpLocalAsync(cancellationToken).ConfigureAwait(false);
-            await BackstopAsync(cancellationToken).ConfigureAwait(false);
-        })));
+            Track(Task.Run(() => PassAsync(async cancellationToken =>
+            {
+                using var change = ChangeContext.Begin(ChangeActor.System, "following a repository rename");
+                await CatchUpLocalAsync(cancellationToken).ConfigureAwait(false);
+                await BackstopAsync(cancellationToken).ConfigureAwait(false);
+            })));
+        }
     }
 
     private void Track(Task pass)
@@ -257,7 +275,7 @@ public sealed class RepositoryAliasFollower : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Following a repository alias move failed.");
+            FollowingAliasMoveFailed(_logger, ex);
         }
         finally
         {
@@ -374,7 +392,7 @@ public sealed class RepositoryAliasFollower : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Reading the aliases {Store} holds failed.", store.GetType().Name);
+            ReadingHeldAliasesFailed(_logger, ex, store.GetType().Name);
             return null;
         }
     }
@@ -386,7 +404,7 @@ public sealed class RepositoryAliasFollower : IDisposable
     {
         if (_settings.MarkAliasMovesApplied(key, at) is { } error)
         {
-            _logger.LogWarning("The alias move cursor of {Store} could not be saved: {Error}", key, error);
+            AliasMoveCursorNotSaved(_logger, key, error);
         }
     }
 
@@ -400,8 +418,8 @@ public sealed class RepositoryAliasFollower : IDisposable
         {
             if (await store.MoveAliasesAsync(mapping, origin, cancellationToken).ConfigureAwait(false))
             {
-                _logger.LogInformation(
-                    "Moved repository aliases in {Store}: {Mapping}.",
+                AliasesMoved(
+                    _logger,
                     store.GetType().Name,
                     string.Join(", ", mapping.Select(m => $"{m.Key} -> {m.Value}")));
             }
@@ -410,7 +428,7 @@ public sealed class RepositoryAliasFollower : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _logger.LogWarning(ex, "Moving repository aliases in {Store} failed.", store.GetType().Name);
+            MovingAliasesFailed(_logger, ex, store.GetType().Name);
             return false;
         }
     }
@@ -444,4 +462,22 @@ public sealed class RepositoryAliasFollower : IDisposable
         foreach (var move in group) mapping[move.OldAlias] = move.NewAlias;
         return mapping;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Relabelling the repositories renamed before their alias followed failed.")]
+    private static partial void RelabellingRenamedFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Following a repository alias move failed.")]
+    private static partial void FollowingAliasMoveFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the aliases {Store} holds failed.")]
+    private static partial void ReadingHeldAliasesFailed(ILogger logger, Exception exception, string store);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The alias move cursor of {Store} could not be saved: {Error}")]
+    private static partial void AliasMoveCursorNotSaved(ILogger logger, string store, string error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Moved repository aliases in {Store}: {Mapping}.")]
+    private static partial void AliasesMoved(ILogger logger, string store, string mapping);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Moving repository aliases in {Store} failed.")]
+    private static partial void MovingAliasesFailed(ILogger logger, Exception exception, string store);
 }

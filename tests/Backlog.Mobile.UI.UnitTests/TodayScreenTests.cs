@@ -270,7 +270,7 @@ public sealed class TodayScreenTests
             StringComparison.Ordinal));
     }
 
-    /// <summary>Local ADR 0062 §8: a plan in today's My Day is one line above the task
+    /// <summary>Local ADR 0072 §8: a plan in today's My Day is one line above the task
     /// groups — name, done of total and run state — and none of its entries is listed under
     /// it. The day's progress still counts the tasks alone.</summary>
     [Fact]

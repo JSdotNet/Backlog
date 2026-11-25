@@ -174,7 +174,7 @@ internal sealed record RoadmapItemDocument
     public DateOnly? CompletedOn { get; init; }
 
     /// <summary>The day a person put this item's plan on My Day, written as a plain
-    /// <c>yyyy-MM-dd</c> (local ADR 0062 §8); omitted while it is on none, so an ordinary
+    /// <c>yyyy-MM-dd</c> (local ADR 0072 §8); omitted while it is on none, so an ordinary
     /// item costs no key. Spelled out for the reason <see cref="CompletedOn"/>'s name is: it
     /// is persisted and synced on the task feed with the whole document (ADR 0018), and a
     /// renamed property would silently take every plan off My Day. Additive, absent means

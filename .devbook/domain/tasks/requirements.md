@@ -9,7 +9,7 @@ related: [.devbook/domain/tasks/features.md]
 
 ```meta
 type: requirements
-related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 > A carried task is defined under [My Day](domain.md#my-day).
@@ -286,7 +286,7 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 
 ```meta
 type: requirement
-related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_on_a_plan_picked_yesterday_has_left_My_Day, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteRoadmapPlanReplicaTests.A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayPlanLineTests.A_plan_is_in_by_the_task_rule, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskViewProjectionMyDayTests.With_the_switch_off_a_plan_picked_yesterday_carries_over_until_it_is_finished]
 ```
 
@@ -963,10 +963,10 @@ The system SHALL keep the next occurrence of a repeating task when the occurrenc
 
 ```meta
 type: requirements
-related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
-> Local ADR 0062 decides these requirements. The switch and the plan rail are built; the rest is not yet.
+> Local ADR 0072 decides these requirements. The switch and the plan rail are built; the rest is not yet.
 
 ### Requirement: The Tasks list opens on Plans and remembers the switch
 
@@ -1258,3 +1258,58 @@ When the same task was edited on two devices, the system SHALL keep on both the 
 - **Given** a task renamed on the desktop at ten and renamed again on the laptop at eleven
 - **When** both devices have synced
 - **Then** both hold the laptop's copy of the task
+
+## Saving one task from two places
+
+```meta
+type: requirements
+related: [.devbook/domain/tasks/features.md#refinement-and-prioritization, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/domain.md#task]
+```
+
+### Requirement: A save made on an older version is refused
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.The_first_of_two_saves_from_one_read_lands_and_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.Of_two_concurrent_saves_from_one_read_exactly_one_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.A_batch_with_one_stale_task_writes_none_of_it, unit:dotnet:Backlog.Modules.Tasks.UnitTests.StaleWriteRefusalTests.A_text_save_the_store_refuses_answers_stale_write, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_stale_write_is_refused_with_read_again_and_retry, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSaveStateBandTests.A_save_refused_as_stale_reloads_the_entry_and_says_so, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Read_item_answers_the_version_it_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_built_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_on_the_current_version_lands_pinned_to_it, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_no_op_on_an_outdated_read_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Of_two_comments_on_one_read_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_save_landing_inside_the_call_refuses_the_rebuilt_text, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Without_versions_a_write_is_unpinned_as_before, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_version_is_the_stamp_the_store_holds_and_moves_on_every_save, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_save_on_the_version_read_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_second_save_on_one_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_link_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.Devbook_references_on_an_outdated_read_are_refused_and_write_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_comment_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.SelfAttributedTaskItemsTests.A_pinned_save_and_its_version_are_forwarded_and_marked_as_the_panes_write]
+```
+
+When a task was saved by another writer after a save read it, the system SHALL refuse that save as `tasks.stale_write` and write nothing, so the earlier save stands.
+
+#### Scenario: Two sessions save one task
+
+- **Given** two sessions that read the same version of a task
+- **When** the first saves its change and the second then saves its own
+- **Then** the task holds the first change, and the second save is refused as `tasks.stale_write`
+
+#### Scenario: An agent's write is refused
+
+- **Given** an MCP write tool whose save of a task is refused as stale
+- **When** the tool answers
+- **Then** the refusal names `tasks.stale_write` and tells the agent to read the task again and retry
+
+#### Scenario: An agent's write built on an older read is refused
+
+- **Given** an agent that read a task with `read_item`, and a save of that task by another writer since
+- **When** the agent calls a write tool on the task with `expectedUpdatedAt` set to the `updatedAt` that read answered
+- **Then** the write is refused as `tasks.stale_write` and writes nothing, and a write whose `expectedUpdatedAt` still matches lands
+
+#### Scenario: The editor's save is refused
+
+- **Given** a task open in the Tasks pane whose save is refused as stale
+- **When** the refusal comes back
+- **Then** the pane reloads the task with the reader's unsaved edit merged onto it and says "This entry changed somewhere else. It has been reloaded." beside the editor
+
+### Requirement: A copy pulled from another device is not refused as stale
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeStaleWriteTests.A_later_pulled_copy_is_written_over_a_row_edited_here_since_any_read, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeStaleWriteTests.An_older_pulled_copy_is_still_held_by_precedence_alone, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeStaleWriteTests.A_local_writer_that_read_before_the_merge_is_refused_after_it]
+```
+
+The system SHALL decide a copy pulled from the replica by [the later edit wins whole](#requirement-the-later-edit-wins-whole) alone, and SHALL NOT refuse it because the local task changed since a read.
+
+#### Scenario: A pulled copy lands over a local edit
+
+- **Given** a task edited on this device after it was last read
+- **When** a copy stamped later arrives from another device
+- **Then** the pulled copy is written, and a local save based on the earlier read is refused

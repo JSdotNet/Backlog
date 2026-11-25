@@ -78,7 +78,7 @@ including those of the value objects below.
 ```meta
 type: entity
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet, .devbook/domain/tasks/features.md#my-day, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet, .devbook/domain/tasks/features.md#my-day, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 A single piece of planned work, identified by `roadmap_item_id`. It holds:
@@ -126,7 +126,7 @@ The effort is laid out one [part](#part) per repository, and the window the item
 stores is the one
 [its parts make together](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
 
-`in_my_day_on` is the plan's My Day date, the counterpart of a task's (local ADR 0062).
+`in_my_day_on` is the plan's My Day date, the counterpart of a task's (local ADR 0072).
 It rides the plan document on the task feed (ADR 0018) with the rest of the item, and
 whether the plan is in today's My Day is read from it by the task rule, under the
 person's Clear My Day overnight setting (ADR 0032). It is not a window: it never moves

@@ -54,6 +54,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Renders the OpenAPI document in Development (org ADR 0004). -->
+    <PackageReference Include="Scalar.AspNetCore" />
     <!-- The signing key and the named secrets, read from Key Vault with the
          service's managed identity (local ADR 0058). -->
     <PackageReference Include="Azure.Identity" />

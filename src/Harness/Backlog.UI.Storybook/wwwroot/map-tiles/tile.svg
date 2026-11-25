@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- A stand-in map tile for the storybook: one tile served for every z/x/y, so
+       the TileMap stories draw, pan and zoom with no network and no key. A grid,
+       not a place, so nobody mistakes it for a map. -->
+  <rect width="256" height="256" fill="#2a2a2e"/>
+  <path d="M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256" stroke="#3a3a3f" stroke-width="1"/>
+  <path d="M0 0.5H256M0.5 0V256" stroke="#55555b" stroke-width="1"/>
+</svg>

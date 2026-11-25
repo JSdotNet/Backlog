@@ -6,7 +6,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>How the one-plan view lays its entries out: in waves, or as the
-/// Now / Next / Later list (local ADR 0062 §7).</summary>
+/// Now / Next / Later list (local ADR 0072 §7).</summary>
 public enum PlanFocusLayout
 {
     /// <summary>Columns by dependency depth.</summary>
@@ -101,7 +101,7 @@ public sealed record PlanWave(int Number, IReadOnlyList<PlanWaveEntry> Entries, 
 }
 
 /// <summary>
-/// One plan's waves (local ADR 0062 §7;
+/// One plan's waves (local ADR 0072 §7;
 /// <c>.devbook/domain/tasks/requirements.md#requirement-a-plans-waves-follow-its-dependencies</c>):
 /// its entries in columns by dependency depth. Wave n holds the entries whose longest
 /// chain of <c>after:</c> links inside the plan is n − 1 long, so an entry sits one

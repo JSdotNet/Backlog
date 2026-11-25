@@ -112,7 +112,7 @@ public interface IRoadmapPlanning
 
     /// <summary>
     /// Puts the plan <paramref name="tag"/> names on the My Day of <paramref name="on"/>,
-    /// or takes it off with null (local ADR 0062 §8): every item carrying the tag takes the
+    /// or takes it off with null (local ADR 0072 §8): every item carrying the tag takes the
     /// date. A tag no item carries gets its item, titled by the tag and placed on that day;
     /// taking such a tag off creates nothing. Answers the items now carrying the date.
     /// </summary>

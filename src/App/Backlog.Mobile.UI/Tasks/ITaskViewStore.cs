@@ -30,7 +30,7 @@ public interface ITaskViewStore
 
     /// <summary>As <see cref="SaveAsync(IReadOnlyList{TaskViewRow}, string?, MyDayPreferencesDocument?, CancellationToken)"/>,
     /// and, when <paramref name="roadmapPlan"/> is given, writes it over the plan document
-    /// kept — in the same transaction, for the same reason (local ADR 0062 §8).</summary>
+    /// kept — in the same transaction, for the same reason (local ADR 0072 §8).</summary>
     Task SaveAsync(
         IReadOnlyList<TaskViewRow> rows,
         string? cursor,

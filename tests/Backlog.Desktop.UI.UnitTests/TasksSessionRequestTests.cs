@@ -280,7 +280,7 @@ public sealed class TasksSessionRequestTests
         Assert.Empty(queue.Asked);
     }
 
-    /// <summary>A plan is queued only as a whole (local ADR 0062 §4): a plan entry's own
+    /// <summary>A plan is queued only as a whole (local ADR 0072 §4): a plan entry's own
     /// icon is disabled, its name and reason say to queue the plan, and a press asks for
     /// nothing.</summary>
     [Fact]
@@ -310,7 +310,7 @@ public sealed class TasksSessionRequestTests
     }
 
 /// <summary>While the plan has a request open, a plan entry's row says Queued with
-    /// plan and its still-refused icon is lit, naming the queued plan (local ADR 0062 §4;
+    /// plan and its still-refused icon is lit, naming the queued plan (local ADR 0072 §4;
     /// the board "Row states — entry ↔ queue").</summary>
     [Fact]
     public async Task While_its_plan_is_queued_a_plan_entry_s_row_says_so_and_its_refused_icon_is_lit()

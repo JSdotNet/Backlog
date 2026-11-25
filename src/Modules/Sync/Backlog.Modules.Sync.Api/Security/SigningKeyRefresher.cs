@@ -39,9 +39,7 @@ internal sealed class SigningKeyRefresher(
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    logger.LogWarning(
-                        "Refreshing the device-token signing key failed ({Reason}); the keys already loaded stay in use.",
-                        exception.GetType().Name);
+                    RefreshFailed(logger, exception.GetType().Name, null);
                 }
             }
         }
@@ -50,4 +48,11 @@ internal sealed class SigningKeyRefresher(
             // Shutting down.
         }
     }
+
+    // LoggerMessage.Define rather than [LoggerMessage], for the reason GitHubOwnerSignIn
+    // gives: this project sees two copies of the logging source generator.
+    private static readonly Action<ILogger, string, Exception?> RefreshFailed = LoggerMessage.Define<string>(
+        LogLevel.Warning,
+        new EventId(1, nameof(RefreshFailed)),
+        "Refreshing the device-token signing key failed ({Reason}); the keys already loaded stay in use.");
 }

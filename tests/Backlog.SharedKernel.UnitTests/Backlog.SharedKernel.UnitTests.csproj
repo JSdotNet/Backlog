@@ -9,4 +9,9 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- RememberedUserConsent's window runs on a TimeProvider the tests advance. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
 </Project>

@@ -81,7 +81,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         // before the preferences table folded their document away and moved its
         // cursor past it, so the first build that keeps it pulls the feed again from
         // the start. The rows stay — a full pull folds over them to the same result.
-        // The roadmap plan document takes the same replay (local ADR 0062 §8): every
+        // The roadmap plan document takes the same replay (local ADR 0072 §8): every
         // build before its table folded it away too.
         if (!hadPreferences || !hadRoadmapPlan)
         {

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// One plan's waves view (local ADR 0062 §7;
+/// One plan's waves view (local ADR 0072 §7;
 /// <c>.devbook/domain/tasks/requirements.md#requirement-a-plans-waves-follow-its-dependencies</c>):
 /// wave n holds the entries whose longest <c>after:</c> chain inside the plan is n − 1
 /// long, the current wave is the first not all done, and the view opened from the

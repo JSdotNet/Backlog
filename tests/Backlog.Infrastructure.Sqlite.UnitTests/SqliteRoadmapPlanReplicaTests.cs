@@ -132,7 +132,7 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
     }
 
     /// <summary>A plan's My Day date travels inside the plan document on the task feed
-    /// (local ADR 0062 §8, ADR 0018): the copy one device sent carries it to the device that
+    /// (local ADR 0072 §8, ADR 0018): the copy one device sent carries it to the device that
     /// took it, taking it off travels the same way, and a copy written before the field
     /// existed reads as on no My Day.</summary>
     [Fact]

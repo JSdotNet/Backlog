@@ -1579,7 +1579,7 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
-/* The Plans view (local ADR 0062 §2): the plan rail on the left of the rows under the
+/* The Plans view (local ADR 0072 §2): the plan rail on the left of the rows under the
    bar. The list column becomes a two-by-two grid — the bar across the top, the rail
    and the scroller under it — only while the rail stands beside the list; at 48rem
    or narrower the pane draws the rail inside the Filter menu instead, so the column
@@ -1599,7 +1599,7 @@ h1, h2, h3 {
     grid-column: 2;
 }
 
-/* The session queue docked beside the rows (local ADR 0062 §6), in Plans and in Flat:
+/* The session queue docked beside the rows (local ADR 0072 §6), in Plans and in Flat:
    one more column on the list's grid, on the right, under the bar — and, in Plans,
    after the rail. A quiet column with no box, as the board draws it. It takes its
    width from the rows, which the decision accepts; at 48rem or narrower the pane
@@ -1852,7 +1852,7 @@ h1, h2, h3 {
     margin-block-start: 0;
 }
 
-/* The Tasks list's Flat view (local ADR 0062 §3): quiet text tabs in place of the
+/* The Tasks list's Flat view (local ADR 0072 §3): quiet text tabs in place of the
    chip rows, one line of text actions while rows are picked, and a footer line. */
 .flat-tab,
 .flat-action {
@@ -2053,7 +2053,7 @@ h1, h2, h3 {
     background: var(--color-error-text);
 }
 
-/* The Plans view's main column with a plan selected (local ADR 0062 §3): the plan
+/* The Plans view's main column with a plan selected (local ADR 0072 §3): the plan
    expanded as Now, Next and Later, the other plans folded, then Unplanned. */
 .plan-sections {
     display: flex;
@@ -2252,7 +2252,7 @@ h1, h2, h3 {
 .plan-sections__folded-note--running { color: var(--color-primary); }
 .plan-sections__folded-note--blocked { color: var(--color-error-text); }
 
-/* A plan's sun (local ADR 0062 §8): a 26px borderless icon button, lit while the
+/* A plan's sun (local ADR 0072 §8): a 26px borderless icon button, lit while the
    plan is in today's My Day. */
 .plan-myday-toggle {
     display: inline-flex;
@@ -2384,7 +2384,7 @@ h1, h2, h3 {
     outline-offset: var(--border-width-2);
 }
 
-/* One plan alone (local ADR 0062 §7): heading, waves or list, and the run line. */
+/* One plan alone (local ADR 0072 §7): heading, waves or list, and the run line. */
 .plan-focus {
     display: flex;
     flex-direction: column;
@@ -3079,7 +3079,7 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* A plan entry's state in its plan's queue (local ADR 0062 §4), in words, as quiet
+/* A plan entry's state in its plan's queue (local ADR 0072 §4), in words, as quiet
    as the Devbook count. A held entry takes the error ink and a landed one the
    success ink; Queued with plan stays secondary until an amber ink is sanctioned
    (the plan's review), while the lit queue icon beside it carries the amber. The
@@ -14023,4 +14023,28 @@ a.pull-request-detail-checks__name:hover {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* The Changes view (local ADR 0071): the change journal read back, one column that
+   scrolls on its own, its title row beside Refresh. */
+.changes-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--spacing-lg);
+}
+
+.changes-view__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.changes-view__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
 }

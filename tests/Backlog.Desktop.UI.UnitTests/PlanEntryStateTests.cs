@@ -3,7 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A plan entry's state in its plan's queue (local ADR 0062 §4; the design board "Row
+/// A plan entry's state in its plan's queue (local ADR 0072 §4; the design board "Row
 /// states — entry ↔ queue"): each state derived from the entry, the plan's session
 /// request and the plan run, the order the rules win in, and the Tasks state's reading
 /// for the row and the plan section.

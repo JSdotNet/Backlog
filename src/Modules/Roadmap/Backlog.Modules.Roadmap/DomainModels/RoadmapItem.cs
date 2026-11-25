@@ -116,7 +116,7 @@ public sealed class RoadmapItem
     public DateOnly? CompletedOn { get; private set; }
 
     /// <summary>The day a person put this item's plan on My Day, or null while it is on none
-    /// (local ADR 0062 §8). A stamp, read by exactly the rule a task's <c>myday:</c> stamp is
+    /// (local ADR 0072 §8). A stamp, read by exactly the rule a task's <c>myday:</c> stamp is
     /// read by, under the same Clear My Day overnight setting — so nothing rewrites it when a
     /// day passes, and whether the plan is in today's My Day is a reading question Tasks
     /// answers.</summary>

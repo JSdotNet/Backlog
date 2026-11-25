@@ -295,7 +295,7 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 > order the Requested ones, warns when no dispatcher has been heard, and pauses and resumes the queue. The dispatcher side is the wait route and the claim,
 > mark and list tools a Manager session uses.
 >
-> Local ADR 0062 adds the plan-entry, docked-queue and queue-filter requirements below,
+> Local ADR 0072 adds the plan-entry, docked-queue and queue-filter requirements below,
 > built on the plan branch `plan/plan-first-tasks`.
 
 ### Requirement: Only a click in the app requests a session
@@ -638,7 +638,7 @@ The system SHALL hand out no request on the wait route and refuse every claim wh
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 The system SHALL disable the queue icon of an entry whose plan a roadmap item carries, and SHALL queue that entry only through its plan's request.
@@ -659,7 +659,7 @@ The system SHALL disable the queue icon of an entry whose plan a roadmap item ca
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_ready_prompt_of_a_queued_plan_is_queued_with_the_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_the_plan_session_runs_is_in_the_plan_session_with_its_stage, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_in_progress_with_a_linked_session_is_in_the_plan_session_without_a_stage, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_the_run_held_for_an_unreadable_source_is_held_for_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_task_or_test_entry_is_left_for_you_however_the_plan_stands, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.An_entry_whose_pull_request_merged_into_the_plan_branch_has_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_pull_request_merged_into_the_default_branch_is_not_a_landing_on_the_plan_branch]
 ```
 
@@ -681,7 +681,7 @@ The system SHALL show each entry of a queued plan as Queued with plan while it i
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_waiting_on_another_entry_of_an_unqueued_plan_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_waiting_on_nothing_in_an_unqueued_plan_is_ready, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_waiting_prompt_of_a_queued_plan_still_waits, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_that_is_not_ready_and_in_no_session_waits_even_in_a_queued_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_finished_entry_is_done_even_after_it_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.The_tasks_state_reads_waiting_from_its_own_dependency_chain]
 ```
 
@@ -703,7 +703,7 @@ The system SHALL show a plan entry as Done once it is Done or Archived, as Waiti
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_finished_entry_is_done_even_after_it_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_task_or_test_entry_is_left_for_you_however_the_plan_stands, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_held_prompt_stays_held_while_the_run_reports_a_stage_for_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_waiting_prompt_of_a_queued_plan_still_waits]
 ```
 
@@ -719,7 +719,7 @@ The system SHALL give a plan entry the first state that holds, in the order Done
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 The session queue SHALL dock as a column beside the Tasks list, grouped as Needs you, Running, Up next and Landed today, with Pause queue and Long-running agents, while the pane is wider than 48rem, and SHALL fold into the filter bar's button at 48rem or narrower.
@@ -740,7 +740,7 @@ The session queue SHALL dock as a column beside the Tasks list, grouped as Needs
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_an_entry_request_filters_the_list_to_that_entry_and_Show_all_lets_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_draft_filters_the_list_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_plan_request_in_Flat_switches_to_Plans_and_selects_that_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_plan_entry_in_Flat_shows_its_plan_in_Plans_rather_than_an_empty_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_landed_entry_in_Flat_shows_it_though_Flat_opens_on_the_open_entries]
 ```
 
@@ -768,7 +768,7 @@ The system SHALL filter the Tasks list to a queue item's entry, or to its plan, 
 
 ```meta
 type: requirement
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Folded_the_queue_keeps_the_entry_it_filtered_the_list_to_with_Show_all_on_the_bar]
 ```
 

@@ -35,7 +35,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// the answer is recorded only while the run's approval is not newer than the question.
 /// </para>
 /// </summary>
-internal static class ValidationQuestions
+internal static partial class ValidationQuestions
 {
     private const string Key = "validationQuestion";
     private const int MaxTitleLength = 80;
@@ -126,7 +126,7 @@ internal static class ValidationQuestions
                 // pull request reads open again — or reads as nothing.
                 if (await PullRequestsEndedAsync(run, pullRequests, clock ?? TimeProvider.System, logger, runId, cancellationToken).ConfigureAwait(false))
                 {
-                    logger.LogDebug("The run {Run}'s pull request already ended; its validation question is not asked.", runId);
+                    PullRequestAlreadyEnded(logger, runId);
                     return;
                 }
 
@@ -134,7 +134,7 @@ internal static class ValidationQuestions
 
                 if (published is not Ok<Guid>(var notificationId))
                 {
-                    logger.LogDebug("The validation question about run {Run} was not published: {Error}", runId, ((Error)published.Value!).Message);
+                    QuestionNotPublished(logger, runId, ((Error)published.Value!).Message);
                     return;
                 }
 
@@ -157,7 +157,7 @@ internal static class ValidationQuestions
 
                     if (closed is Error error)
                     {
-                        logger.LogDebug("The validation question about run {Run} was not closed: {Error}", runId, error.Message);
+                        QuestionNotClosed(logger, runId, error.Message);
                     }
 
                     asked!["closed"] = true;
@@ -166,7 +166,7 @@ internal static class ValidationQuestions
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger.LogWarning(exception, "Asking or closing the validation question about run {Run} failed; the stage update stands.", runId);
+            AskingOrClosingFailed(logger, exception, runId);
         }
     }
 
@@ -415,11 +415,11 @@ internal static class ValidationQuestions
         {
             if (budget.IsCancellationRequested)
             {
-                logger.LogDebug(exception, "Reading the pull requests of run {Run} outlasted the gate's budget; its validation question is asked.", runId);
+                PullRequestReadOutlastedBudget(logger, exception, runId);
             }
             else
             {
-                logger.LogDebug(exception, "Reading the pull requests of run {Run} failed; its validation question is asked.", runId);
+                PullRequestReadFailed(logger, exception, runId);
             }
 
             return false;
@@ -486,6 +486,24 @@ internal static class ValidationQuestions
 
     private static string? Text(JsonObject owner, string name) =>
         owner[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The run {Run}'s pull request already ended; its validation question is not asked.")]
+    private static partial void PullRequestAlreadyEnded(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The validation question about run {Run} was not published: {Error}")]
+    private static partial void QuestionNotPublished(ILogger logger, string run, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The validation question about run {Run} was not closed: {Error}")]
+    private static partial void QuestionNotClosed(ILogger logger, string run, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Asking or closing the validation question about run {Run} failed; the stage update stands.")]
+    private static partial void AskingOrClosingFailed(ILogger logger, Exception exception, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Reading the pull requests of run {Run} outlasted the gate's budget; its validation question is asked.")]
+    private static partial void PullRequestReadOutlastedBudget(ILogger logger, Exception exception, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Reading the pull requests of run {Run} failed; its validation question is asked.")]
+    private static partial void PullRequestReadFailed(ILogger logger, Exception exception, string run);
 }
 
 /// <summary>What an answer asks of the run, decided under its gate.</summary>

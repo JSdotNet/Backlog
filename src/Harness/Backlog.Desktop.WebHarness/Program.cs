@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
@@ -136,6 +137,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     PullRequestPins = _ => CreateLocalDevelopmentPullRequestPinsStore(builder.Environment.ContentRootPath),
     ClaudeSettings = _ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath),
     AzureFoundrySettings = _ => azureFoundrySettings,
+    // Per worktree, like the Foundry file: a map key typed in a harness session is not the
+    // installed app's, and the harness never reads the person's own.
+    AzureMapsSettings = _ => CreateLocalDevelopmentAzureMapsSettingsStore(builder.Environment.ContentRootPath),
     // The desktop head's own tools adapter, configured to read the catalog and run
     // nothing: a browser session operates the pane without touching the machine.
     DevToolService = sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()),
@@ -183,6 +187,19 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
 if (builder.Configuration.GetValue<bool>(FakeInboxTriageAdvisor.ConfigurationKey))
 {
     builder.Services.Replace(ServiceDescriptor.Singleton<IInboxTriageAdvisor, FakeInboxTriageAdvisor>());
+}
+
+// The Events map (local ADR 0061) without Azure: when Events:FakeMap is true, the default in
+// this harness's Development settings, a geocoder answering from a fixed table of towns and
+// tiles served from this harness's own origin replace the Azure Maps adapter the composition
+// registered. After the composition on purpose: its geocoder is a typed client, registered
+// plainly rather than TryAdd, so only a later registration wins. Off, the harness uses the
+// adapter over its own per-worktree key file, as the desktop app uses the person's.
+var fakeEventMap = builder.Configuration.GetValue<bool>(HarnessAddressGeocoder.ConfigurationKey);
+if (fakeEventMap)
+{
+    builder.Services.Replace(ServiceDescriptor.Transient<Backlog.Modules.Events.IAddressGeocoder, HarnessAddressGeocoder>());
+    builder.Services.Replace(ServiceDescriptor.Singleton<Backlog.Modules.Events.Abstractions.IEventMapTiles, HarnessEventMapTiles>());
 }
 
 // A connector of this harness's own, so the linked-task screens can be driven
@@ -254,6 +271,18 @@ if (DevelopmentWorkspace.Current is { } workspace)
 
 var app = builder.Build();
 
+// Knowledge events for the Events pane and its map to show: Upcoming and Past, placed, online,
+// with no venue, not found and not looked up yet (see EventsSeed). Each is added under a fixed
+// id only while the workspace holds none under it, so nothing else is touched and a second start
+// adds nothing. Before the loops below start, so the first sync sees them. Off unless the
+// configuration turns it on, and appsettings.Development.json does not: the workspace is the one
+// every worktree's harness and the Debug app share, so a QA run sets Harness__SeedEvents=true.
+if (app.Configuration.GetValue(EventsSeed.ConfigurationKey, false)
+    && !await EventsSeed.SeedAsync(app.Services, TimeProvider.System))
+{
+    ProgramLog.EventsSeedSkipped(app.Logger);
+}
+
 // The background sync loop, asked for once and then left alone. A singleton
 // nobody resolves is a singleton that never runs, and this one is nothing but a
 // constructor that starts a timer - so without this line the harness would only
@@ -298,6 +327,9 @@ _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.No
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();
+
+// And the change journal's daily prune, for the same reason.
+_ = app.Services.GetRequiredService<ChangeHistoryWorker>();
 
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
@@ -409,6 +441,13 @@ app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
 // 0041). Served only: the harness is not the installed app, so it writes no hooks folder.
 app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
 
+// And the Events map's stand-in tiles, from this origin, while the fake map is on.
+if (fakeEventMap)
+{
+    app.MapGet(HarnessEventMapTiles.RoutePattern, (int z, int x, int y) =>
+        Results.Bytes(HarnessEventMapTiles.Tile(z, x, y), HarnessEventMapTiles.ContentType));
+}
+
 // And the hook telemetry a session forwards, attributed to the run it is driving —
 // into this harness's profile folders, which are the real ones.
 app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
@@ -436,7 +475,7 @@ app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
 
     context.Response.StatusCode = reply.StatusCode;
     if (reply.ContentType is not null) context.Response.ContentType = reply.ContentType;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+    if (reply.Failure is not null) ProgramLog.TelemetryNotStored(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
@@ -467,8 +506,8 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     }
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null && reply.StatusCode == 503) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
-    else if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
+    if (reply.Failure is not null && reply.StatusCode == 503) ProgramLog.SessionRequestQueueUnreadable(app.Logger, reply.Failure);
+    else if (reply.Failure is not null) ProgramLog.SessionRequestWaitServedPastFailure(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
@@ -491,7 +530,7 @@ app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
         context.RequestAborted);
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+    if (reply.Failure is not null) ProgramLog.ScheduleRunReportNotRecorded(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
@@ -753,6 +792,17 @@ static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string co
     return new ShellNavigationStore(settingsPath);
 }
 
+static AzureMapsSettingsStore CreateLocalDevelopmentAzureMapsSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_AZURE_MAPS_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "azure-maps.settings.json");
+    }
+
+    return new AzureMapsSettingsStore(settingsPath);
+}
+
 static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_CLAUDE_SETTINGS_PATH");
@@ -785,4 +835,36 @@ static string? ResolveRepositoryRoot(string contentRootPath)
     }
 
     return null;
+}
+
+/// <summary>The log messages the top-level statements above write (org ADR 0007).
+/// LoggerMessage.Define rather than [LoggerMessage], for the reason
+/// <c>GitHubOwnerSignIn</c> in the sync service gives: a web project here sees two
+/// copies of the logging source generator.</summary>
+internal static class ProgramLog
+{
+    private static readonly Action<ILogger, Exception?> TelemetryNotStoredMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(1, nameof(TelemetryNotStored)), "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+
+    private static readonly Action<ILogger, Exception?> SessionRequestQueueUnreadableMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(2, nameof(SessionRequestQueueUnreadable)), "The session request queue could not be read; the dispatcher was asked to retry.");
+
+    private static readonly Action<ILogger, Exception?> SessionRequestWaitServedPastFailureMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(3, nameof(SessionRequestWaitServedPastFailure)), "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
+
+    private static readonly Action<ILogger, Exception?> ScheduleRunReportNotRecordedMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(4, nameof(ScheduleRunReportNotRecorded)), "A scheduled run's report could not be recorded; the hook was asked to retry.");
+
+    private static readonly Action<ILogger, Exception?> EventsSeedSkippedMessage = LoggerMessage.Define(
+        LogLevel.Warning, new EventId(5, nameof(EventsSeedSkipped)), "The events seed was skipped: this build or workspace may be the installed app's own.");
+
+    public static void TelemetryNotStored(ILogger logger, Exception exception) => TelemetryNotStoredMessage(logger, exception);
+
+    public static void SessionRequestQueueUnreadable(ILogger logger, Exception exception) => SessionRequestQueueUnreadableMessage(logger, exception);
+
+    public static void SessionRequestWaitServedPastFailure(ILogger logger, Exception exception) => SessionRequestWaitServedPastFailureMessage(logger, exception);
+
+    public static void ScheduleRunReportNotRecorded(ILogger logger, Exception exception) => ScheduleRunReportNotRecordedMessage(logger, exception);
+
+    public static void EventsSeedSkipped(ILogger logger) => EventsSeedSkippedMessage(logger, null);
 }

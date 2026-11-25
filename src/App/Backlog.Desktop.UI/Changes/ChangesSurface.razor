@@ -1,0 +1,296 @@
+@using Backlog.SharedKernel.Changes
+@using Backlog.UI.Components.Changes
+@inherits ComponentBase
+@inject IServiceProvider Services
+
+@*
+    The Changes view (local ADR 0071 §2, local ADR 0022 §1): every change set the
+    journal holds, newest first, who made it, and — opened in place — what each
+    document was before it beside what it is now.
+
+    An opened change set offers Restore (local ADR 0071 §4) when the host composes a
+    restore: the plan comes back as an in-page panel in that row — how many documents
+    it restores, how many conflict, a choice per conflict — and Restore runs it as the
+    person's own change set, "Restore of <label>". The list is read again after it,
+    so the restored row shows as restored and the restore appears as its own row.
+
+    `session=<id>` narrows it to the change sets an agent made in that session — the
+    Sessions pane's Changes action. The narrowing is said out loud above the list with
+    the way back to every change set, because a list that silently shows a fraction
+    of the journal reads as a journal that recorded a fraction.
+
+    `restore=<change set id>` opens that change set with its restore confirmation
+    panel — what an agent's restore proposal answered Restore jumps to (local ADR 0071
+    §5). Opening the panel restores nothing: the person still presses Restore or Cancel.
+
+    A host that composes no journal says so rather than drawing an empty list.
+*@
+<section class="changes-view" id="changes-view" aria-labelledby="changes-view-title" data-testid="changes-view">
+    <div class="changes-view__head">
+        <h2 class="changes-view__title" id="changes-view-title">Changes</h2>
+        @if (_journal is not null)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Busy="@_loading"
+                       BusyLabel="Reading"
+                       TestId="changes-refresh"
+                       OnClick="RefreshAsync">
+                Refresh
+            </AppButton>
+        }
+    </div>
+
+    @if (_journal is null)
+    {
+        <Alert Message="This app records no change journal." Role="status" TestId="changes-unavailable" />
+    }
+    else
+    {
+        @if (_session is { } session)
+        {
+            <Callout Heading="@($"Session {session}")"
+                     ActionLabel="Show every change set"
+                     ActionTestId="changes-show-all"
+                     OnAction="ShowAllAsync"
+                     TestId="changes-session-filter">
+                Only the change sets an agent made in this session are listed.
+            </Callout>
+        }
+
+        @if (_entries.Count >= Limit)
+        {
+            <Alert Message="@($"Showing the newest {Limit} change sets; the chips count those.")" Role="status" TestId="changes-capped" />
+        }
+
+        @if (_error is not null)
+        {
+            <Alert Message="@_error" TestId="changes-error" />
+        }
+
+        @if (_restored is not null)
+        {
+            @* A note, not an Alert: an Alert wears the error style, and a restore that
+               finished is no error. *@
+            <Callout Role="status" TestId="changes-restored">@_restored</Callout>
+        }
+
+        <ChangeSetList Entries="@_entries"
+                       @bind-Filter="_filter"
+                       ChangedDocuments="@_documents"
+                       OnOpen="OpenAsync"
+                       OnRestore="@(_restore is null ? default(EventCallback<Guid>) : EventCallback.Factory.Create<Guid>(this, PlanRestoreAsync))"
+                       PendingRestore="@_pending"
+                       Restoring="@_restoring"
+                       OnConfirmRestore="RestoreAsync"
+                       OnCancelRestore="CancelRestore"
+                       EmptyTitle="@(_session is null ? "No changes recorded yet" : "No change sets from this session")"
+                       EmptyDescription="@(_session is null ? "Every write to a task is recorded here, with who made it." : "The agent wrote nothing under this session id, or named another.")"
+                       TestId="changes-list" />
+    }
+</section>
+
+@code {
+    /// <summary>The query the view was shown with: <c>session</c>, <c>restore</c>, or
+    /// nothing.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>The shell's close callback, declared because the shell hands it to
+    /// every surface. Unused: a view is replaced, never closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>How many change sets the view reads, newest first.</summary>
+    internal const int Limit = 200;
+
+    private IChangeJournal? _journal;
+    private IReadOnlyList<ChangeSetEntry> _entries = [];
+    private Dictionary<Guid, IReadOnlyList<ChangedDocument>> _documents = [];
+    private ChangeSetFilter _filter;
+    private string? _session;
+    private IReadOnlyDictionary<string, string>? _appliedQuery;
+    private bool _applied;
+    private bool _loading;
+    private string? _error;
+
+    private IChangeRestore? _restore;
+    private RestorePlan? _pending;
+    private bool _restoring;
+    private string? _restored;
+
+    protected override void OnInitialized()
+    {
+        _journal = Services.GetService<IChangeJournal>();
+        _restore = Services.GetService<IChangeRestore>();
+    }
+
+    private async Task PlanRestoreAsync(Guid changeSetId)
+    {
+        if (_restore is null) return;
+
+        _error = null;
+        _restored = null;
+        try
+        {
+            _pending = await _restore.PlanAsync(changeSetId);
+            if (_pending is null) _error = "That change set is no longer in the journal.";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _pending = null;
+            _error = $"The restore could not be planned: {exception.Message}";
+        }
+    }
+
+    private void CancelRestore() => _pending = null;
+
+    private async Task RestoreAsync(IReadOnlySet<DocumentKey> restoreAnyway)
+    {
+        if (_restore is null || _pending is not { } plan) return;
+
+        _restoring = true;
+        _error = null;
+        try
+        {
+            var outcome = await _restore.RestoreAsync(plan.ChangeSetId, restoreAnyway);
+            _restored = outcome.Restored == 0
+                ? "Nothing was restored: every document was kept as it is."
+                : $"{outcome.Label}: {DocumentWord(outcome.Restored)} restored{(outcome.Kept > 0 ? $", {outcome.Kept} kept as {(outcome.Kept == 1 ? "it is" : "they are")}" : string.Empty)}.";
+            _pending = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The restore did not finish: {exception.Message}";
+            return;
+        }
+        finally
+        {
+            _restoring = false;
+        }
+
+        await LoadAsync();
+    }
+
+    private static string DocumentWord(int count) => count == 1 ? "1 document" : $"{count} documents";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // A new query is a new jump — the Sessions pane on another session, or the
+        // header's option with none — and is followed once; a re-render for any other
+        // reason keeps what the reader did since.
+        if (_applied && ReferenceEquals(Query, _appliedQuery)) return;
+
+        _applied = true;
+        _appliedQuery = Query;
+        _session = Query is not null && Query.TryGetValue(ChangesSurfaceQuery.SessionKey, out var session) && session.Length > 0
+            ? session
+            : null;
+        ForgetRestore();
+        await LoadAsync();
+
+        if (Query is not null
+            && Query.TryGetValue(ChangesSurfaceQuery.RestoreKey, out var restore)
+            && Guid.TryParse(restore, out var changeSetId))
+        {
+            await OpenRestoreAsync(changeSetId);
+        }
+    }
+
+    /// <summary>
+    /// Opens <paramref name="changeSetId"/>'s row with its restore confirmation panel, the
+    /// jump an agent's restore proposal makes. Every actor is shown, so the row is listed
+    /// whoever made it. A change set already restored, or one the view does not list,
+    /// is said out loud instead: the panel would offer nothing to confirm.
+    /// </summary>
+    private async Task OpenRestoreAsync(Guid changeSetId)
+    {
+        _filter = ChangeSetFilter.All;
+
+        if (_entries.FirstOrDefault(entry => entry.ChangeSet.Id == changeSetId) is not { } entry)
+        {
+            _error ??= "That change set is not among the change sets listed here.";
+            return;
+        }
+
+        await OpenAsync(changeSetId);
+
+        if (entry.ChangeSet.UndoneBy is not null)
+        {
+            _restored = "That change set was already restored.";
+            return;
+        }
+
+        await PlanRestoreAsync(changeSetId);
+    }
+
+    private Task RefreshAsync()
+    {
+        ForgetRestore();
+        return LoadAsync();
+    }
+
+    private Task ShowAllAsync()
+    {
+        _session = null;
+        ForgetRestore();
+        return LoadAsync();
+    }
+
+    /// <summary>A new list is a new look: a restore still waiting is dropped, and so
+    /// is the word on the last one.</summary>
+    private void ForgetRestore()
+    {
+        _pending = null;
+        _restored = null;
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_journal is null) return;
+
+        _loading = true;
+        _error = null;
+        try
+        {
+            _entries = await _journal.ListAsync(_session, Limit);
+
+            // A row the reader opened stays open across a reload, so what it changed
+            // is read again for every one still listed — never left saying it is
+            // reading — and dropped for the rest.
+            var listed = _entries.Select(entry => entry.ChangeSet.Id).ToHashSet();
+            var reopened = new Dictionary<Guid, IReadOnlyList<ChangedDocument>>();
+            foreach (var id in _documents.Keys.Where(listed.Contains))
+            {
+                reopened[id] = await _journal.ReadAsync(id);
+            }
+
+            _documents = reopened;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The change journal could not be read: {exception.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenAsync(Guid changeSetId)
+    {
+        if (_journal is null) return;
+
+        try
+        {
+            _documents[changeSetId] = await _journal.ReadAsync(changeSetId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _documents[changeSetId] = [];
+            _error = $"What that change set changed could not be read: {exception.Message}";
+        }
+
+        // A fresh dictionary, so the list sees a new parameter value and redraws.
+        _documents = new Dictionary<Guid, IReadOnlyList<ChangedDocument>>(_documents);
+    }
+}

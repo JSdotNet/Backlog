@@ -1,0 +1,207 @@
+@*
+    One page of the Settings screen, in a file of its own so a change to this
+    page is a change to this file. The screen (Settings.razor) keeps the menu,
+    the headline and the panel this is drawn in; what is on the page, and what it
+    writes, is here.
+
+    The Events map's key (local ADR 0061 §4). The page is the shell's rather than
+    Events.UI's because the key's store is the Azure Maps adapter's, and a module's
+    UI asks only its own published surface - the same arrangement the AI page has
+    with the Azure Foundry adapter.
+
+    The namespace is the screen's rather than the folder's, and this folder has
+    no _Imports.razor, for the reason the note at the top of Settings.razor
+    gives.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits SettingsPageBase
+@using Backlog.Infrastructure.AzureMaps
+@using Backlog.Modules.Events.Abstractions
+@implements IDisposable
+@inject AzureMapsSettingsStore AzureMaps
+@* Read off rather than injected, so a host that composes no Events pane can
+   still render the page; without one the key-first pass has nothing to run. *@
+@inject IServiceProvider Services
+
+<SettingsHeadline>@Headline</SettingsHeadline>
+
+<div class="setting-columns">
+    <SettingsCard Title="@AzureMapsCardTitle"
+                  Description="Draws the street map under the Events pane's pins and finds where an in-person event's address is. An address goes to Azure Maps once, when you save it; the map's view goes with each tile it loads."
+                  TestId="azure-maps-settings">
+        @* The key is written but never read back into the field: the placeholder
+           is what says one is stored, as the Azure Foundry key's field does. *@
+        <TextField Bare="true"
+                   LabelCssClass="setting__label"
+                   InputCssClass="setting__input"
+                   Label="Azure Maps key"
+                   Id="azure-maps-key"
+                   data-testid="azure-maps-key-input"
+                   Type="password"
+                   spellcheck="false"
+                   autocomplete="off"
+                   Placeholder="@(AzureMaps.Current.IsConfigured ? StoredHidden : "key")"
+                   Value="@_draftKey"
+                   ValueChanged="value => _draftKey = value"
+                   @onchange="ApplyKey"
+                   @onkeydown="OnKeyDown" />
+
+        <Alert BaseClass="setting__status"
+               Role="status"
+               Message="@KeyStatusLine"
+               TestId="azure-maps-status" />
+
+        @* What the pass the key's first save started is doing or got back - this
+           page's, or another window's that this page found running. Its own line, so
+           the key's own answer above it is not overwritten when the pass ends. *@
+        <Alert BaseClass="setting__status"
+               Role="status"
+               Message="@_passMessage"
+               TestId="azure-maps-pass-status" />
+
+        <div class="setting__actions">
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="azure-maps-clear-key-button"
+                       Disabled="@(!AzureMaps.Current.IsConfigured)"
+                       OnClick="ClearKey">
+                Forget key
+            </AppButton>
+        </div>
+
+        <p class="setting__note">
+            The key is kept in <code>@AzureMaps.SettingsPath</code>, sealed for your Windows account - outside the backlog folder, so it is never synced or committed with entries.
+        </p>
+    </SettingsCard>
+</div>
+
+@code {
+    /// <summary>The page's one card, as <see cref="SettingsPages"/> declares it.</summary>
+    public const string AzureMapsCardTitle = "Azure Maps";
+
+    /// <summary>The key field's placeholder while a key is stored.</summary>
+    public const string StoredHidden = "stored - hidden";
+
+    /// <summary>What the pass line says while the addresses saved before the key
+    /// are being looked up.</summary>
+    public const string LookingUp = "Looking up the addresses saved before the key...";
+
+    /// <summary>Typed, never loaded: a stored key is not read back into its field.</summary>
+    private string _draftKey = string.Empty;
+
+    /// <summary>What the last change to the key answered; null until one is made.</summary>
+    private string? _message;
+
+    /// <summary>What the key-first pass is doing or got back; null when none ran.</summary>
+    private string? _passMessage;
+
+    private bool _disposed;
+
+    private string Headline => AzureMaps.Current.IsConfigured
+        ? "The Events map draws from Azure Maps."
+        : "The Events map needs an Azure Maps key.";
+
+    /// <summary>The key's status line: what the last change answered, else the key's state.</summary>
+    private string KeyStatusLine => _message ?? (AzureMaps.Current.IsConfigured
+        ? "The Events map draws its tiles and looks up addresses with this key."
+        : "Without a key the Events map shows no tiles, and no address is looked up.");
+
+    /// <summary>The app's one key-first pass; see <see cref="KeyFirstAddressPass"/>.</summary>
+    private KeyFirstAddressPass Pass => KeyFirstAddressPass.For(AzureMaps);
+
+    protected override void OnInitialized()
+    {
+        AzureMaps.Changed += OnKeyChanged;
+
+        // A pass started from another window, or from this page before it was last
+        // closed, is still the app's: say so, and show its answer when it comes.
+        if (Pass.Running is { } running) Follow(running);
+    }
+
+    private void ApplyKey()
+    {
+        // Enter raises keydown and then change; the first call empties the draft,
+        // so the second finds nothing to store.
+        if (string.IsNullOrWhiteSpace(_draftKey)) return;
+
+        var hadKey = AzureMaps.Current.IsConfigured;
+        var error = AzureMaps.SetApiKey(_draftKey);
+        _message = error ?? "Azure Maps key stored.";
+        _draftKey = string.Empty;
+
+        // The key's first save looks up each address saved before it, once
+        // (.devbook/domain/events/domain.md#address-lookup). A replaced key is not
+        // a first save, so it starts nothing.
+        if (!hadKey && AzureMaps.Current.IsConfigured) StartPendingPass();
+    }
+
+    private void ClearKey()
+    {
+        var error = AzureMaps.ClearApiKey();
+        _message = error ?? "Azure Maps key forgotten.";
+        _draftKey = string.Empty;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyKey();
+        else if (e.Key == "Escape") _draftKey = string.Empty;
+    }
+
+    /// <summary>
+    /// Starts the pass, or joins the one already running, and returns at once: each
+    /// address can take the geocoder's whole budget, so the field the person just
+    /// left must not wait on it. It is not cancelled when the page closes - the
+    /// key's save is the one act that looks these addresses up, and nothing would
+    /// start it again.
+    /// </summary>
+    private void StartPendingPass()
+    {
+        if (Services.GetService<IEventsPane>() is not { } pane) return;
+
+        Follow(Pass.Start(() => pane.LookUpPendingAsync()));
+    }
+
+    private void Follow(Task<AddressLookupPassDto> pass)
+    {
+        _passMessage = LookingUp;
+        _ = ReportPassAsync(pass);
+    }
+
+    private async Task ReportPassAsync(Task<AddressLookupPassDto> pass)
+    {
+        try
+        {
+            _passMessage = PassLine(await pass);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _passMessage = "Couldn't look up the addresses saved before the key. Saving an event looks its address up.";
+        }
+
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>What the pass got back, in one sentence.</summary>
+    public static string PassLine(AddressLookupPassDto pass)
+    {
+        var sent = pass.Placed + pass.NotFound + pass.NotLookedUpYet;
+        if (sent == 0) return "No address was waiting to be looked up.";
+
+        return $"Looked up {Addresses(sent)} saved before the key: {pass.Placed} on the map, "
+            + $"{pass.NotFound} not found, {pass.NotLookedUpYet} not looked up yet.";
+    }
+
+    private static string Addresses(int count) => count == 1 ? "1 address" : $"{count} addresses";
+
+    /// <summary>The key was changed, here or in another window.</summary>
+    private void OnKeyChanged()
+    {
+        if (!_disposed) _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        AzureMaps.Changed -= OnKeyChanged;
+    }
+}

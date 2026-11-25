@@ -48,17 +48,6 @@
     -->
     <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
     <NoWarn>$(NoWarn);CS8524</NoWarn>
-
-    <!--
-      Blazor analyzers new in .NET 11, held back by the .NET 11 move so that a
-      framework upgrade changes no component behaviour. BL0012 (a StateHasChanged
-      the analyzer thinks redundant) and BL0016 (JS interop outside a try/catch)
-      each need a per-call judgement - a mid-method StateHasChanged can be what
-      paints a busy state - so they come back in their own change, which reviews
-      every site. Set here rather than in .editorconfig because the Razor source
-      generator's trees match none of its globs.
-    -->
-    <NoWarn>$(NoWarn);BL0012;BL0016</NoWarn>
   </PropertyGroup>
 
   <!-- On a runner only: it maps the source paths in the PDBs, which a debugger

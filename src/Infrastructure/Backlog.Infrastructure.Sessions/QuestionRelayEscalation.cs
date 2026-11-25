@@ -14,7 +14,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// never stops the timer.
 /// </para>
 /// </summary>
-public sealed class QuestionRelayEscalation : IDisposable
+public sealed partial class QuestionRelayEscalation : IDisposable
 {
     /// <summary>How often the relay looks for a question whose delay has passed: well
     /// under the shortest "notify after" setting of one minute.</summary>
@@ -62,11 +62,17 @@ public sealed class QuestionRelayEscalation : IDisposable
         {
             var published = await _relay.EscalateDueAsync().ConfigureAwait(false);
 
-            if (published > 0) _logger.LogDebug("Published {Count} waiting question(s) whose notify delay passed.", published);
+            if (published > 0) DueQuestionsPublished(_logger, published);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Publishing the waiting questions whose notify delay passed failed; the next tick tries again.");
+            PublishingDueQuestionsFailed(_logger, exception);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Published {Count} waiting question(s) whose notify delay passed.")]
+    private static partial void DueQuestionsPublished(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing the waiting questions whose notify delay passed failed; the next tick tries again.")]
+    private static partial void PublishingDueQuestionsFailed(ILogger logger, Exception exception);
 }

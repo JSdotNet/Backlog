@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// What the quiet task row (TaskItem <c>Quiet</c>, local ADR 0062) paints, asserted
+/// What the quiet task row (TaskItem <c>Quiet</c>, local ADR 0072) paints, asserted
 /// against the stylesheet for the reason <c>DraftCheckCircleTests</c> gives: bUnit
 /// brings no layout engine, so the markup can be right while the look is not.
 /// Every value is one of the library's own tokens.

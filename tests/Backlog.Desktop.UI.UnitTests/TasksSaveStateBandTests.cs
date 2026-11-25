@@ -1,6 +1,8 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
@@ -199,6 +201,62 @@ public sealed class TasksSaveStateBandTests : IDisposable
     }
 
     /// <summary>
+    /// A save the store refused because the entry changed somewhere else — an
+    /// agent's write landing between this save's read and its write — reloads the
+    /// entry as the store holds it, keeps the reader's unsaved edit merged onto it,
+    /// and says so beside the editor. Not swallowed the way a half-typed title is:
+    /// the band reads Error, not Saved.
+    /// </summary>
+    [Fact]
+    public async Task A_save_refused_as_stale_reloads_the_entry_and_says_so()
+    {
+        var toasts = new ToastChannel();
+        Interleaving? interleaving = null;
+        var (state, _) = Build(toasts: toasts, wrapRepository: inner => interleaving = new Interleaving(inner));
+        await state.InitializeAsync();
+
+        var row = await WriteEntryAsync(state, "# Shared entry");
+        interleaving!.NextSaveOf = row.Id;
+
+        state.OnRawTextInput(row, "# Shared entry, as I typed it");
+        await state.EndEditAsync(row);
+
+        Assert.Equal(AppSaveState.Error, state.SaveState);
+        Assert.Equal(TasksDesktopState.StaleWriteMessage, row.StaleWriteNotice);
+        Assert.Contains("Agent's note.", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("as I typed it", row.RawText, StringComparison.Ordinal);
+
+        var toast = Assert.Single(toasts.Visible);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Contains(TasksDesktopState.StaleWriteMessage, toast.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The notice stays until the row's next save lands, and that save — made
+    /// on the reloaded version — is not refused, and keeps the other writer's change.</summary>
+    [Fact]
+    public async Task The_next_save_after_a_stale_refusal_lands_and_clears_the_notice()
+    {
+        var toasts = new ToastChannel();
+        Interleaving? interleaving = null;
+        var (state, _) = Build(toasts: toasts, wrapRepository: inner => interleaving = new Interleaving(inner));
+        await state.InitializeAsync();
+
+        var row = await WriteEntryAsync(state, "# Shared entry");
+        interleaving!.NextSaveOf = row.Id;
+        state.OnRawTextInput(row, "# Shared entry, as I typed it");
+        await state.EndEditAsync(row);
+        Assert.NotNull(row.StaleWriteNotice);
+
+        state.OnRawTextInput(row, row.RawText + "\nAnd mine.\n");
+        await state.EndEditAsync(row);
+
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+        Assert.Null(row.StaleWriteNotice);
+        Assert.Contains("Agent's note.", row.RawText, StringComparison.Ordinal);
+        Assert.Single(toasts.Visible, toast => toast.Message.Contains(TasksDesktopState.StaleWriteMessage, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Setting the state to what it already is changes nothing and says nothing.
     /// <para>
     /// The guard is not tidiness. <c>Changed</c> re-renders the whole of TasksPane,
@@ -328,7 +386,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
         Func<ITaskItems, ITaskItems>? decorate = null,
         TasksCopilotCli? copilot = null,
         IToastChannel? toasts = null,
-        IRepositoryDirectory? repositories = null)
+        IRepositoryDirectory? repositories = null,
+        Func<ITaskRepository, ITaskRepository>? wrapRepository = null)
     {
         var temp = new TemporaryDirectory("backlog-save-band");
         _tempDirs.Add(temp);
@@ -340,7 +399,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
 
-        var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store), repositories);
+        var repository = TasksTestHost.RepositoryFor(store);
+        var entries = TasksTestHost.EntriesFor(wrapRepository is null ? repository : wrapRepository(repository), repositories);
         var state = new TasksDesktopState(
             TasksTestHost.TaskStoreFor(store),
             decorate is null ? entries : decorate(entries),
@@ -378,6 +438,44 @@ public sealed class TasksSaveStateBandTests : IDisposable
             TestDatabases.Release(dir.Path);
             dir.Dispose();
         }
+    }
+
+    /// <summary>
+    /// The real store, with one other writer's save slipped in front of the next save
+    /// of <see cref="NextSaveOf"/> — after the save path read the entry, before it
+    /// wrote. That is the race the store's stale-write check refuses, so the refusal
+    /// the pane meets here is the real one.
+    /// </summary>
+    // Differs from InMemoryTaskRepository: wraps the real SQLite store and lands another writer's save before one chosen save.
+    private sealed class Interleaving(ITaskRepository inner) : ITaskRepository
+    {
+        public Guid? NextSaveOf { get; set; }
+
+        public async Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
+        {
+            if (NextSaveOf is { } id && task.Id == id)
+            {
+                NextSaveOf = null;
+
+                var theirs = (await inner.GetAsync(id, cancellationToken))!;
+                theirs.UpdateContent("Agent's note.\n");
+                await inner.SaveAsync(theirs, cancellationToken);
+            }
+
+            await inner.SaveAsync(task, cancellationToken);
+        }
+
+        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+            inner.GetAsync(id, cancellationToken);
+
+        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
+            inner.GetIncludingDeletedAsync(id, cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
+            inner.ListAsync(cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default) =>
+            inner.ListChangedSinceAsync(since, cancellationToken);
     }
 
     /// <summary>The module, with its import replaced by a throw. Everything else

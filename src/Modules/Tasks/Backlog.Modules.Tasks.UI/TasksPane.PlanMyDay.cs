@@ -2,7 +2,7 @@ using Backlog.Modules.Tasks.Abstractions;
 
 namespace Backlog.Desktop.UI.Tasks;
 
-/// <summary>One plan on today's My Day, as <b>Plans today</b> lists it (local ADR 0062 §8).</summary>
+/// <summary>One plan on today's My Day, as <b>Plans today</b> lists it (local ADR 0072 §8).</summary>
 /// <param name="Plan">The plan, as its rail row reads it: name, progress and run state.</param>
 /// <param name="ForYou">Only its entries the person holds: left for you, held for you, or
 /// awaiting validation.</param>
@@ -34,7 +34,7 @@ public sealed record PlanToday(PlanRailPlan Plan, IReadOnlyList<(EntryRow Row, P
 }
 
 /// <summary>
-/// A whole plan on My Day in the Tasks pane (local ADR 0062 §8;
+/// A whole plan on My Day in the Tasks pane (local ADR 0072 §8;
 /// <c>.devbook/domain/tasks/features.md#my-day</c>): the sun on the plan's heading and its
 /// waves view, the rail's My Day count over plans and tasks, and <b>Plans today</b> above the
 /// tasks while the list shows today's My Day. My Day shows no suggestions.

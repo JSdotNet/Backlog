@@ -5,7 +5,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.Tasks;
 
-/// <summary>The three groups the Plans view reads the selected plan in (local ADR 0062 §3).</summary>
+/// <summary>The three groups the Plans view reads the selected plan in (local ADR 0072 §3).</summary>
 public enum PlanSection
 {
     /// <summary>In a session.</summary>
@@ -90,7 +90,7 @@ public sealed record PlanSectionsView(
 public sealed record FoldedPlan(PlanRailPlan Plan, string Note);
 
 /// <summary>
-/// The Plans view's main column (local ADR 0062 §3;
+/// The Plans view's main column (local ADR 0072 §3;
 /// <c>.devbook/domain/tasks/requirements.md#requirement-the-selected-plan-reads-as-now-next-and-later</c>):
 /// the selected plan read as Now, Next and Later, the other plans folded to one line
 /// each. Pure, over the plan entry states the Tasks state already derives.

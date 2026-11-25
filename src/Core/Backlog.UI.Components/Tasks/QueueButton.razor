@@ -7,7 +7,7 @@
     colour is never the only carrier. No aria-pressed: the label already changes with
     the state, and a toggle whose name changed too would be announced twice. PlanEntry is refused, natively disabled, with the reason
     on the tooltip and in an sr-only span the button points at: a plan is queued only
-    as a whole (local ADR 0062 §4), and a control that vanished would read as one the
+    as a whole (local ADR 0072 §4), and a control that vanished would read as one the
     product cannot do. While its plan has a session request open, PlanQueued lights the
     still-refused icon amber, so the row reads as queued with its plan.
 
@@ -55,7 +55,7 @@
 
     /// <summary>The row's plan has a session request open: a
     /// <see cref="QueueButtonState.PlanEntry"/> button stays refused but is lit amber,
-    /// as a queued row's is (local ADR 0062 §4). Ignored in every other state.</summary>
+    /// as a queued row's is (local ADR 0072 §4). Ignored in every other state.</summary>
     [Parameter]
     public bool PlanQueued { get; set; }
 

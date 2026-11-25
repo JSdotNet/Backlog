@@ -207,7 +207,7 @@ public sealed class TaskViewProjectionMyDayTests : IDisposable
         Assert.Equal(["Picked today"], _view.Day(Today).Select(Title));
     }
 
-    /// <summary>Local ADR 0062 §8: the roadmap plan document is folded off the feed, kept in
+    /// <summary>Local ADR 0072 §8: the roadmap plan document is folded off the feed, kept in
     /// the same write as its page's cursor, and read for today's plans — never as a row.</summary>
     [Fact]
     public async Task The_roadmap_plan_is_kept_with_its_page_and_puts_its_plans_on_Today()

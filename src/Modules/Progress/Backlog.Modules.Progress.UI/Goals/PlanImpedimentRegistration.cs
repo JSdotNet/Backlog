@@ -9,7 +9,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
 /// Cascades the <see cref="PlanImpedimentSource"/> the Tasks pane names a Blocked plan's
-/// impediment by (local ADR 0035 §5; local ADR 0062 §2–§3), the way
+/// impediment by (local ADR 0035 §5; local ADR 0072 §2–§3), the way
 /// <see cref="GoalControlRegistration"/> cascades the goal control: Tasks asks the
 /// shared library's hook and never this module (local ADR 0035 §6).
 /// </summary>

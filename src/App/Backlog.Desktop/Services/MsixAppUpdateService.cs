@@ -28,7 +28,7 @@ namespace Backlog.Desktop.Services;
 /// <see cref="AppUpdateAvailability.Unsupported"/> rather than crashing.
 /// </para>
 /// </summary>
-public sealed class MsixAppUpdateService : IAppUpdateService
+public sealed partial class MsixAppUpdateService : IAppUpdateService
 {
     private const string UnpackagedMessage =
         "Updates are managed by however you started this build. This unpackaged run updates when you rebuild or reinstall it.";
@@ -102,7 +102,7 @@ public sealed class MsixAppUpdateService : IAppUpdateService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Update check failed.");
+            if (_logger is not null) LogUpdateCheckFailed(_logger, ex);
             return AppUpdateCheckResult.Failed("The update check failed. Check your connection and try again.");
         }
     }
@@ -138,7 +138,7 @@ public sealed class MsixAppUpdateService : IAppUpdateService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Update install failed.");
+            if (_logger is not null) LogUpdateInstallFailed(_logger, ex);
             return AppUpdateInstallResult.Failed("Installing the update failed. Try again, or reinstall from the latest release.");
         }
     }
@@ -180,7 +180,7 @@ public sealed class MsixAppUpdateService : IAppUpdateService
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            _logger?.LogDebug(ex, "Could not read the available version from the App Installer manifest.");
+            if (_logger is not null) LogAvailableVersionUnreadable(_logger, ex);
             return null;
         }
     }
@@ -229,4 +229,13 @@ public sealed class MsixAppUpdateService : IAppUpdateService
 #endif
         return AppVersion.Of(Assembly.GetExecutingAssembly());
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update check failed.")]
+    private static partial void LogUpdateCheckFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update install failed.")]
+    private static partial void LogUpdateInstallFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Could not read the available version from the App Installer manifest.")]
+    private static partial void LogAvailableVersionUnreadable(ILogger logger, Exception exception);
 }

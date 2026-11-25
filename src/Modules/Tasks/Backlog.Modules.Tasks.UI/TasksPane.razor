@@ -130,7 +130,7 @@
                     @* The list's own control, first on its bar for the Columns select's
                        reason: it decides what everything under the bar is — the plans
                        on a rail beside the list, or one flat list. One of two, so a
-                       radiogroup in the statuses' shape (local ADR 0062 §1). *@
+                       radiogroup in the statuses' shape (local ADR 0072 §1). *@
                     @if (Layout == TasksLayout.List)
                     {
                         <div class="filter-group filter-group--grouping" role="radiogroup" aria-label="Group the list" data-testid="list-grouping">
@@ -151,7 +151,7 @@
                         </div>
                     }
 
-                    @* Flat's own bar (local ADR 0062 §3): quiet text tabs in place of the
+                    @* Flat's own bar (local ADR 0072 §3): quiet text tabs in place of the
                        chip rows — see RenderFlatBar. *@
                     @if (FlatListed)
                     {
@@ -612,7 +612,7 @@
                     @if (FlatListed)
                     {
                         @* Flat's selection: one line of text actions, up while rows
-                           are picked (local ADR 0062 §3). *@
+                           are picked (local ADR 0072 §3). *@
                         @if (State.SelectionCount > 0)
                         {
                             @RenderFlatSelection()
@@ -636,7 +636,7 @@
                     }
 
                     @* Today's My Day holds plans as well as tasks: the plans first, each
-                       with only what it holds for the person (local ADR 0062 §8). *@
+                       with only what it holds for the person (local ADR 0072 §8). *@
                     @if (PlansTodayShown)
                     {
                         @RenderPlansToday()
@@ -644,7 +644,7 @@
                     }
 
                     @* Flat's heading: what the list is, whatever the bar narrows it to
-                       (local ADR 0062 §3). *@
+                       (local ADR 0072 §3). *@
                     @if (FlatListed)
                     {
                         <h3 class="plan-sections__group-title flat-heading" data-testid="flat-heading">@FlatHeadingText</h3>
@@ -729,7 +729,7 @@
                     {
                         @* The Plans view with a plan selected on the rail: that plan
                            expanded as Now, Next and Later, the other plans folded to a
-                           line each, then Unplanned (local ADR 0062 §3) — or, opened
+                           line each, then Unplanned (local ADR 0072 §3) — or, opened
                            from its heading, that plan alone (§7). *@
                         @if (PlanFocusShown)
                         {
@@ -837,7 +837,7 @@
                             </RowActions>
                             <RowTrailing Context="task">
                                 @* The quiet row's last square, after the copy: the
-                                   queue button and its three looks (local ADR 0062). *@
+                                   queue button and its three looks (local ADR 0072). *@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
                                     @RenderRowQueue(entry, task.Title)
@@ -885,7 +885,7 @@
                     }
                 </div>
 
-                @* The session queue docked on the right of the rows (local ADR 0062 §6),
+                @* The session queue docked on the right of the rows (local ADR 0072 §6),
                    in Plans and in Flat alike, while the column is wider than 48rem; at
                    or under it the queue folds back into the bar's popover above. *@
                 @if (QueueDocked)
@@ -1219,7 +1219,7 @@
         if (_focusInlineFilterChip is { } inlineChip)
         {
             _focusInlineFilterChip = null;
-            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusIfLost", inlineChip, FilterMenuSelector));
+            await FocusQuietlyAsync("backlogFocusIfLost", inlineChip, FilterMenuSelector);
         }
 
         if (_focusDevbookPicker && _devbookPicker is not null)
@@ -1237,7 +1237,7 @@
         if (_focusTagChip is { } chip)
         {
             _focusTagChip = null;
-            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
+            await FocusQuietlyAsync("backlogFocusTagChip", TagFilterChipId(chip));
         }
 
         if (_focusSessionQueue is { } queueTarget)
@@ -1245,12 +1245,12 @@
             _focusSessionQueue = null;
             if (queueTarget.Length == 0)
             {
-                if (QueueDocked) await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", SessionQueueColumnHeadingId));
+                if (QueueDocked) await FocusQuietlyAsync("backlogFocus", SessionQueueColumnHeadingId);
                 else if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
             }
             else
             {
-                await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", queueTarget));
+                await FocusQuietlyAsync("backlogFocus", queueTarget);
             }
         }
 
@@ -1491,13 +1491,13 @@
 
     /// <summary>
     /// The quiet row's queue button for <paramref name="row"/>, in the look its queue
-    /// state calls for, or null when queueing offers nothing on it (local ADR 0062).
+    /// state calls for, or null when queueing offers nothing on it (local ADR 0072).
     /// <para>
     /// Idle when nothing is queued: a press queues a session, as the open entry's icon
     /// does. Queued once a request is open: amber, and a press takes the request back —
     /// refused, with the request's state as the reason, once a dispatcher has picked it
     /// up, on the open entry's terms for its Cancel. A plan entry's is refused and dim,
-    /// labelled to queue the plan as a whole (local ADR 0062 §4).
+    /// labelled to queue the plan as a whole (local ADR 0072 §4).
     /// </para>
     /// </summary>
     private RenderFragment? RenderRowQueue(EntryRow row, string title)
@@ -1554,7 +1554,7 @@
         $"Queued with the {plan} plan — its entries run with it";
 
     /// <summary>
-    /// A plan entry's plan state for its list row (local ADR 0062 §4; the boards "Row
+    /// A plan entry's plan state for its list row (local ADR 0072 §4; the boards "Row
     /// states — entry ↔ queue" and "Tasks — flat list, queue docked"), or null when the
     /// row is in no plan or the state says nothing its own status and blocked mark do not.
     /// <para>
@@ -1749,7 +1749,7 @@
         if (!_sessionRequests.IsOffered || _sessionRequests.OpenFor(row.Id) is not null) return null;
 
         // A plan entry's own queue is refused: the plan is queued only as a whole
-        // (local ADR 0062 §4), so the icon is drawn disabled with the reason.
+        // (local ADR 0072 §4), so the icon is drawn disabled with the reason.
         return SessionStartOffer.For(
             row.PreviewType,
             row.IsPersisted && row.Id is not null,
@@ -2064,7 +2064,7 @@
         </section>;
 
     /// <summary>
-    /// The docked column (local ADR 0062 §6): the header with the Manager's state and
+    /// The docked column (local ADR 0072 §6): the header with the Manager's state and
     /// slots and Pause or Resume, then Needs you, Running, Up next, Landed today and the
     /// long-running agents, each group drawn only while it holds something but the last.
     /// Every request control is the popover's own — the same ids, handlers and keys — so
@@ -2948,7 +2948,7 @@
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
             // A plan's entry in the Flat list is there only because it is in
-            // today's My Day, and says which plan it belongs to (local ADR 0062 §3).
+            // today's My Day, and says which plan it belongs to (local ADR 0072 §3).
             MyDayPlan = FlatMyDayPlan(row),
             // Only while the row was put in My Day today: a slot belongs to the
             // stamp's day, so a slot in yesterday's plan is no slot today, even on
@@ -4326,7 +4326,7 @@
     /// so neither number changes meaning when a tag or a status is picked. Open, as on a
     /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
     /// no longer something to do. Derived here because this is where the clock is.
-    /// The plans in today's My Day count beside the tasks (local ADR 0062 §8): the list
+    /// The plans in today's My Day count beside the tasks (local ADR 0072 §8): the list
     /// the scope opens shows both.</summary>
     private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row)) + PlansInMyDayCount;
 
@@ -4503,6 +4503,11 @@
                                     OnChanged="value => OnStatusChangedAsync(row, value)" />
                 </StatusContent>
                 <Filing>
+                    @* Beside the editor, and staying until the row's next save lands:
+                       a save refused because the entry changed somewhere else, and
+                       the entry reloaded as the store holds it. *@
+                    <Alert Message="@row.StaleWriteNotice" BaseClass="entry-doc__gh-error" TestId="@TasksDesktopState.StaleWriteTestId" Role="status" />
+
                     @if (IsFeatureEnabled(TasksFeatures.GitHubIntegration))
                     {
                         <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />
@@ -5653,6 +5658,19 @@
         }
     }
 
+    /// <summary>One focusing script call, kept as quiet as
+    /// <see cref="FocusQuietlyAsync(Func{ValueTask})"/> keeps a control's own.</summary>
+    private async Task FocusQuietlyAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
     /// <summary>
     /// The picker's options: each page under its folder, each chapter after its
     /// page. The control draws a section per run of one group and never sorts, so
@@ -5955,7 +5973,9 @@
     // "the reader's current local date", and there is exactly one place here that
     // knows what that is.
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+    // The clock is the injected TimeProvider (app-defaults ADR 0005), the one the
+    // session ages are read against too.
+    private DateOnly Today => DateOnly.FromDateTime(_sessionClock.GetLocalNow().DateTime);
 
     /// <summary>An entry is in My Day while its stamp is today's local date. A
     /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
@@ -5968,7 +5988,7 @@
     /// <summary>Whether the entry was put in My Day today rather than carried
     /// over: the only case that owns an agenda slot, since a slot belongs to the
     /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
-    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
+    private bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {
@@ -6447,7 +6467,7 @@
 
     /// <summary>Whether the entry's follow-up day has passed while it is still open:
     /// a ticked-off entry is never overdue, the way a finished date is not.</summary>
-    private static bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
+    private bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
         !row.IsPreviewCompleted && waiting.IsFollowUpOverdue(Today);
 
     /// <summary>What the row's waiting badge says: who, and the follow-up day when
@@ -6728,7 +6748,7 @@
     }
 
     /// <summary>
-    /// Flat's bar (local ADR 0062 §3), left to right: the quick views, each with its
+    /// Flat's bar (local ADR 0072 §3), left to right: the quick views, each with its
     /// count; the Type, Source and #tag menus; the status tabs; and the sort. Text tabs
     /// rather than chips — a radiogroup each where one of a set is in force, the menus
     /// disclosures of the chips the other views draw on the bar.
@@ -6771,7 +6791,7 @@
         </text>;
 
     /// <summary>
-    /// The Plans view's bar, in Flat's quiet text (local ADR 0062 §3): Select and the
+    /// The Plans view's bar, in Flat's quiet text (local ADR 0072 §3): Select and the
     /// slices as text toggles with their counts — each narrows what the rest left in
     /// view, so aria-pressed rather than one of a set — the areas while Next actions is
     /// on, then Flat's own Type, Source and #tag menus, status tabs and sort. On a narrow
@@ -7114,7 +7134,7 @@
     private static readonly TaskListGrouping[] ListGroupings = [TaskListGrouping.Plans, TaskListGrouping.Flat];
 
     /// <summary>
-    /// The Plans view's rail (local ADR 0062 §2), top to bottom: My Day, Now across
+    /// The Plans view's rail (local ADR 0072 §2), top to bottom: My Day, Now across
     /// plans, each plan with a 2px progress line, done/total and its run state as
     /// coloured text, and Unplanned last. Each item is a toggle: pressed, the list shows
     /// that plan or that list; pressed again, everything. One item at a time — see
@@ -7190,7 +7210,7 @@
     }
 
     /// <summary>
-    /// The Plans view's main column while a plan is selected on the rail (local ADR 0062
+    /// The Plans view's main column while a plan is selected on the rail (local ADR 0072
     /// §3): that plan's heading and its Now, Next and Later; every other plan folded to
     /// one line; and Unplanned last, with its first rows and Select → new plan.
     /// </summary>
@@ -7380,7 +7400,7 @@
         </text>;
 
     /// <summary>
-    /// One plan alone, opened from the expanded plan's heading (local ADR 0062 §7): a
+    /// One plan alone, opened from the expanded plan's heading (local ADR 0072 §7): a
     /// way back to Plans, the plan's name, bar and counts and a Waves / List toggle;
     /// then its waves — columns by dependency depth, the current one on a soft
     /// background — or its Now, Next and Later; and a run line naming the plan branch
@@ -7496,7 +7516,7 @@
         </section>;
     }
 
-    /// <summary>A plan's sun (local ADR 0062 §8): pressed while the plan is in today's My
+    /// <summary>A plan's sun (local ADR 0072 §8): pressed while the plan is in today's My
     /// Day; pressing it puts the plan on today's My Day or takes it off. A plan tag no
     /// Roadmap Item carries gets its item on the first press.</summary>
     private RenderFragment RenderPlanSun(string plan, string testId) =>
@@ -7514,7 +7534,7 @@
 
     /// <summary>
     /// <b>Plans today</b>, above the tasks while the list shows today's My Day (local ADR
-    /// 0062 §8; the design board "My Day — plans and tasks for today"): each plan with its
+    /// 0072 §8; the design board "My Day — plans and tasks for today"): each plan with its
     /// progress, its run state, its queue toggle and its sun, and under it only its entries
     /// left for you, held for you, or awaiting validation. No suggestions: My Day is the
     /// person's choice for today.

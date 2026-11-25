@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The quiet row the Tasks pane opts into (local ADR 0062): <see cref="TaskItem.Quiet"/>,
+/// The quiet row the Tasks pane opts into (local ADR 0072): <see cref="TaskItem.Quiet"/>,
 /// the <see cref="TaskItem.Trailing"/> slot after the copy, and the three looks of
 /// <see cref="QueueButton"/>. What the quiet look paints is the stylesheet's and
 /// asserted there (<c>QuietTaskRowStylesheetTests</c>); these hold the markup the

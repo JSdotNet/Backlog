@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// relay cannot be read — gets the list as its sources answered it.
 /// </para>
 /// </summary>
-internal sealed class WaitingSessionSource(
+internal sealed partial class WaitingSessionSource(
     IAgentSessionSource inner,
     Func<QuestionRelay?> relay,
     ILogger? logger = null) : IAgentSessionSource
@@ -41,7 +41,7 @@ internal sealed class WaitingSessionSource(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The waiting questions could not be read; sessions read as their sources answered.");
+            WaitingQuestionsUnreadable(_logger, exception);
             return catalog;
         }
 
@@ -57,4 +57,7 @@ internal sealed class WaitingSessionSource(
 
         return catalog with { Sessions = sessions };
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The waiting questions could not be read; sessions read as their sources answered.")]
+    private static partial void WaitingQuestionsUnreadable(ILogger logger, Exception exception);
 }

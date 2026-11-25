@@ -9,7 +9,7 @@ namespace Backlog.Mobile.UI.Tasks;
 /// The roadmap plan document as the phone last pulled it: the whole plan a desktop writes
 /// on the task feed (.devbook/arc42/adr/0018), kept verbatim beside the rows. The phone
 /// reads one thing off it — which plans were put on My Day, and for which day (local ADR
-/// 0062 §8) — and never writes it.
+/// 0072 §8) — and never writes it.
 /// </summary>
 /// <param name="UpdatedAt">The document's own last-write-wins stamp.</param>
 /// <param name="ServerTimestamp">The replica's ordering stamp, which breaks a tie between

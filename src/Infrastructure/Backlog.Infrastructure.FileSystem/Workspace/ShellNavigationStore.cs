@@ -122,7 +122,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     public const string DefaultBoardColumns = "Status";
 
     /// <summary>How the Tasks list groups when nothing else was remembered: by plan
-    /// (local ADR 0062 §1).</summary>
+    /// (local ADR 0072 §1).</summary>
     public const string DefaultTasksGrouping = "Plans";
 
     /// <summary>The Calendar's range when nothing else was remembered.</summary>
@@ -240,7 +240,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
 
     /// <summary>
     /// How the Tasks list was last grouped — the name of a <c>TaskListGrouping</c>
-    /// member, <c>Plans</c> or <c>Flat</c> (local ADR 0062 §1) — kept beside the Board's
+    /// member, <c>Plans</c> or <c>Flat</c> (local ADR 0072 §1) — kept beside the Board's
     /// columns for <see cref="BoardColumns"/>' reason. <see cref="DefaultTasksGrouping"/>
     /// until changed, and left out of the file while it is.
     /// </summary>

@@ -116,8 +116,8 @@ public sealed class DeviceStepUpTests
         Assert.Empty(handler.Requests);
     }
 
-    /// <summary>A Refuse answered on the phone raises the prompt on a desktop nobody may be
-    /// at, and every answer behind it waits on it: unconfirmed for
+    /// <summary>A Refuse replayed at the next start raises the prompt on a desktop nobody may
+    /// be at yet, and every answer behind it waits on it: unconfirmed for
     /// <see cref="DevicePairingClient.RefuseConfirmationWindow"/>, the prompt expires, and
     /// nothing is sent.</summary>
     [Fact]
@@ -140,6 +140,43 @@ public sealed class DeviceStepUpTests
         Assert.Equal(DeviceStepUp.ExpiredCode, refusedError.Code);
         Assert.Equal("The device was not refused: Windows Hello was not confirmed within 2 minutes.", refusedError.Message);
         Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>A Refuse is raised from the phone, not by the person at the desk, so a
+    /// confirmation the desktop remembers from a moment ago does not answer it: the prompt
+    /// still shows.</summary>
+    [Fact]
+    public async Task A_refusal_asks_even_within_a_remembered_confirmation()
+    {
+        var clock = new FakeTimeProvider();
+        var inner = new ScriptedConsent(UserConsentOutcome.Verified);
+        var consent = new RememberedUserConsent(inner, clock);
+        var (client, handler) = Client(consent, clock);
+
+        await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
+        var refused = await client.RefuseDeviceAsync(Phone, TestContext.Current.CancellationToken);
+
+        Assert.IsType<Ok>(refused.Value);
+        Assert.Equal(2, inner.Prompts.Count);
+        Assert.StartsWith("Refuse a device", inner.Prompts[1], StringComparison.Ordinal);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    /// <summary>Revoking from the Devices page is the person's own act, so a confirmation
+    /// within the window answers it without asking again.</summary>
+    [Fact]
+    public async Task A_revocation_within_a_remembered_confirmation_is_not_asked_again()
+    {
+        var clock = new FakeTimeProvider();
+        var inner = new ScriptedConsent(UserConsentOutcome.Verified);
+        var (client, handler) = Client(new RememberedUserConsent(inner, clock), clock);
+
+        await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
+        var revoked = await client.RevokeDeviceAsync(Phone, TestContext.Current.CancellationToken);
+
+        Assert.IsType<Ok>(revoked.Value);
+        Assert.Single(inner.Prompts);
+        Assert.Equal(2, handler.Requests.Count);
     }
 
     /// <summary>The window bounds the refusal alone: making a code and revoking from the
@@ -275,6 +312,9 @@ public sealed class DeviceStepUpTests
                 return UserConsentOutcome.Declined;
             }
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     /// <summary>A consent that answers <paramref name="outcome"/> and keeps every prompt it was shown.</summary>
@@ -287,5 +327,8 @@ public sealed class DeviceStepUpTests
             Prompts.Add(message);
             return Task.FromResult(outcome);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 }

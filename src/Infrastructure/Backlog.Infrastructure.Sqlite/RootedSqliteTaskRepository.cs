@@ -38,7 +38,7 @@ namespace Backlog.Infrastructure.Sqlite;
 /// The close comes after the write and never fails it.
 /// </para>
 /// </summary>
-public sealed class RootedSqliteTaskRepository(
+public sealed partial class RootedSqliteTaskRepository(
     Func<string> currentRootDirectory,
     ITaskChangeSignal? changes = null,
     Func<INotifications?>? notifications = null,
@@ -128,7 +128,7 @@ public sealed class RootedSqliteTaskRepository(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "Reading which tasks this write ends failed; their notifications close at the next start.");
+            ReadingEndingTasksFailed(_logger, exception);
             ending.Clear();
         }
 
@@ -148,11 +148,11 @@ public sealed class RootedSqliteTaskRepository(
                 if (_notifications?.Invoke() is not { } notifications) return;
 
                 var closed = await notifications.CloseForSubjectAsync(subject, TaskNotificationSubjects.EndedReason, cancellationToken).ConfigureAwait(false);
-                if (closed is Error error) _logger.LogDebug("Notifications about task {Id} were not closed: {Error}", id, error.Message);
+                if (closed is Error error) NotificationsNotClosed(_logger, id, error.Message);
             }
             catch (Exception exception)
             {
-                _logger.LogWarning(exception, "Closing the notifications about task {Id} failed; the next start's probe asks again.", id);
+                ClosingNotificationsFailed(_logger, exception, id);
             }
         }
     }
@@ -179,4 +179,13 @@ public sealed class RootedSqliteTaskRepository(
         DateTimeOffset since,
         CancellationToken cancellationToken = default) =>
         Current.ListChangedSinceAsync(since, cancellationToken);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading which tasks this write ends failed; their notifications close at the next start.")]
+    private static partial void ReadingEndingTasksFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notifications about task {Id} were not closed: {Error}")]
+    private static partial void NotificationsNotClosed(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the notifications about task {Id} failed; the next start's probe asks again.")]
+    private static partial void ClosingNotificationsFailed(ILogger logger, Exception exception, Guid id);
 }

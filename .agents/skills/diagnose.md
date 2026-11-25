@@ -23,26 +23,24 @@ DevTools endpoint.
 
 ## Observe
 
-Use the Aspire MCP tools, whose prefix you resolve from the live tool list.
+Use the Aspire CLI (org ADR 0013: CLI first), from the worktree root.
 
-- **Check the AppHost first.** Call `list_apphosts` and confirm that this worktree's AppHost
-  is in scope. The MCP otherwise answers about whichever AppHost it last selected, which can
-  be another worktree's.
-- `select_apphost` it when more than one is running.
+- **Name the AppHost on every call.** Pass `--apphost src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`; several worktrees run one at once,
+  and a call without it can answer about another worktree's. `aspire ps` lists the running ones.
 
 | Question | Query |
 | --- | --- |
-| Which resource is unhealthy? | `list_resources`: state, health and the last exit code per resource |
-| What did it print? | `list_console_logs` with `resourceName`, or `aspire logs <resource> --apphost src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj` |
-| Which log line is the error? | `list_structured_logs` with `resourceName` and a `search` term, for example the exception type, a route, or an entry id |
-| Where did the request go? | `list_traces` with `resourceName`, then `list_trace_structured_logs` with the `traceId` of the failing span |
+| Which resource is unhealthy? | `aspire describe --format Json`: state, health and the last exit code per resource |
+| What did it print? | `aspire logs <resource>` |
+| Which log line is the error? | `aspire otel logs <resource> --search <term>`, for example the exception type, a route, or an entry id; `--severity Error` narrows it |
+| Where did the request go? | `aspire otel traces <resource>`, then `aspire otel logs <resource> --trace-id <id>` for the failing span |
 | What does a person see? | The Aspire dashboard `run` reports: the same data, when you need to show it rather than quote it |
 | What did the browser see? | The browser tool's console and network requests, against `desktop-web-harness` or `mobile-web-harness` |
 | What is on disk? | `%LOCALAPPDATA%\Backlog.Debug`: `backlog.db`, `devbook-cache`, `activity-cache` |
 
 Ask for the slice, not the stream. The dashboard's telemetry filtering is matched on the
-server, so pass `resourceName` and `search` on every log and trace call, including a
-background log monitor's. Pulling everything and filtering it yourself fills the session
+server, so name the resource and pass `--search` (and `--limit`) on every log and trace call,
+including a background log monitor's. Pulling everything and filtering it yourself fills the session
 and makes the one error slower to notice.
 
 The `%LOCALAPPDATA%\Backlog.Debug` folder is shared by every worktree on the machine, so
@@ -55,13 +53,16 @@ copy a file before you take any step that could change it.
 Traces reach the dashboard from `sync`, the three harnesses, and the `desktop` resource when
 Aspire started it. Two sources send nothing:
 
-- The installed desktop app. Read it over CDP instead.
+- The installed desktop app. Reproduce in a Debug build and read it over CDP instead.
 - The Android head, unless the run pins the dashboard's OTLP port.
 
 ## The installed desktop app: CDP on 9222
 
-On Windows, every desktop build starts WebView2 with `--remote-debugging-port=9222`: the
-installed MSIX, and the Aspire `desktop` resource alike (`MauiProgram.ConfigureWebView2RemoteDebugging`).
+On Windows, a Debug desktop build starts WebView2 with `--remote-debugging-port=9222`, as the
+Aspire `desktop` resource does (`MauiProgram.ConfigureWebView2RemoteDebugging`). A Release
+build — the installed MSIX from a commit after local ADR 0058 §6's 5-minute Hello window —
+opens no port, so a script cannot click through an in-window Windows Hello check. Reproduce
+against a Debug build instead.
 
 1. Check which build is answering.
    - Run `Get-Process Backlog.Desktop | Select-Object Path`. The installed app lives under
@@ -87,7 +88,7 @@ When a log cannot tell you what a value was, find out yourself:
   assertion, at that line. Rebuild, reproduce, and read it, then remove it before anything
   else happens, and say that you did.
   - A running harness locks the module DLLs, so a rebuild fails with `MSB3027`. Stop the
-    affected harness resource with `execute_resource_command`, rebuild, and start it again:
+    affected harness resource with `aspire resource <name> stop --apphost src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`, rebuild, and start it again:
     its proxied URL survives.
   - Never stop another worktree's AppHost.
 
@@ -102,7 +103,7 @@ Put back everything this session changed, and list each item in the report:
 - **Feature flags and harness settings you toggled.** Examples: Settings → Features, the
   per-worktree harness settings under `obj/local-development/`, and a devbook folder
   override. Set each one back to the value it had before.
-- **Installed desktop app, if it was driven over CDP.** Put back
+- **A desktop build, if it was driven over CDP.** Put back
   `%LOCALAPPDATA%\Backlog\github.json`, the repository registry, and any setting changed in
   the UI.
 - **Resources you stopped or started for the investigation.** Return each to its prior

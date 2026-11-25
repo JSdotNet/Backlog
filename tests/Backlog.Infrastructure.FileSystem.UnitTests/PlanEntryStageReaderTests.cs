@@ -4,7 +4,7 @@ using Backlog.Modules.Sessions.Abstractions;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The stage each plan entry's session reports (local ADR 0062 §2), off the delivery runs:
+/// The stage each plan entry's session reports (local ADR 0072 §2), off the delivery runs:
 /// a run under way or parked that names an entry by id gives it the stage it is on, as
 /// <c>Review · 8 of 9</c>, and nothing else gives an entry a stage.
 /// </summary>

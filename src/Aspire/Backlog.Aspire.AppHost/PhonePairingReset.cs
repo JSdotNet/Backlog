@@ -22,7 +22,7 @@ namespace Backlog.Aspire.AppHost;
 /// files and the one staging folder rather than the whole directory, which also
 /// holds the harness's other per-worktree settings.</para>
 /// </summary>
-internal static class PhonePairingReset
+internal static partial class PhonePairingReset
 {
     public const string Resource = "mobile-web-harness";
 
@@ -82,8 +82,8 @@ internal static class PhonePairingReset
 
         var started = await commands.ExecuteCommandAsync(Resource, KnownResourceCommands.StartCommand, context.CancellationToken);
 
-        context.Logger.LogInformation(
-            "Forgot the pairing of {Resource}: removed {Files}.",
+        LogPairingForgotten(
+            context.Logger,
             Resource,
             removed.Count == 0 ? "nothing" : string.Join(", ", removed));
 
@@ -93,4 +93,7 @@ internal static class PhonePairingReset
                 : $"{Resource} is a phone that was never paired — removed {string.Join(", ", removed)}.")
             : CommandResults.Failure($"Removed the pairing, but {Resource} did not start again: {started.Message}");
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Forgot the pairing of {Resource}: removed {Files}.")]
+    private static partial void LogPairingForgotten(ILogger logger, string resource, string files);
 }

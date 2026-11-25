@@ -332,7 +332,7 @@ occurrence carries over.
 type: feature
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/roadmap/domain.md#roadmap-item]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/roadmap/domain.md#roadmap-item]
 ```
 
 Pick the tasks to work on today, separately from when they are due. A task
@@ -350,7 +350,7 @@ ticked, until the day ends. One ticked off on an earlier day is gone, and a task
 and every paired device follows it.
 
 A plan can be put on My Day too, by a My Day date on its
-[Roadmap Item](../roadmap/domain.md#roadmap-item) (local ADR 0062). The plan is in
+[Roadmap Item](../roadmap/domain.md#roadmap-item) (local ADR 0072). The plan is in
 today's My Day by exactly the rule a task is, under the same Clear My Day overnight
 setting. Putting a plan tag that no Roadmap Item carries on My Day creates its item.
 On the desktop, the plan shows its progress, its run state, and only its entries left
@@ -865,12 +865,12 @@ with its copy, and the focus stays on the moved chip.
 
 ```meta
 type: sub-feature
-related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/requirements.md#plans-view, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
+related: [.devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/requirements.md#plans-view, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
 ```
 
 The Tasks list groups by plan. A **Plans / Flat** switch heads it, opening on Plans
 the first time and remembered per window, as the window's other view choices are
-(local ADR 0062). A plan here is a [Roadmap Tag](domain.md#roadmap-tag) the entries in
+(local ADR 0072). A plan here is a [Roadmap Tag](domain.md#roadmap-tag) the entries in
 view carry.
 
 **Plans** sets a plan rail beside the main column. The rail lists, top to bottom:
@@ -1062,7 +1062,7 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 Queue a coding session that runs a prompt, in its repository's clone folder, without
 copying it. The queue icon sits beside the copy button, on the row and
 in the open entry. On a plan entry it is disabled: a plan is queued only as a whole
-(local ADR 0062). Pressing it creates a session request in the Sessions context, and the
+(local ADR 0072). Pressing it creates a session request in the Sessions context, and the
 entry shows it is waiting for a session until the session links itself. The
 [Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
 offered it and what the waiting chip shows.
@@ -1384,6 +1384,26 @@ getting a backup back is a decision the person carries out by hand. That keeps a
 becoming the shared-folder arrangement that
 [Refresh from shared storage](#refresh-from-shared-storage) records the cost of.
 It is not [Multi-device sync](#multi-device-sync): a backup leaves and stays behind, while sync is a live copy that comes back.
+
+### Checkpoint before an agent's write
+
+```meta
+type: feature
+related: [.devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md]
+```
+
+Before the MCP server runs a tool that can write, the app keeps a checkpoint on this
+machine, so an agent's mistake can be put back by hand. A checkpoint is a folder
+`checkpoints/<UTC time>/` beside `backlog.db`: a consistent copy of the database, and
+copies of the devbook state and remarks stores. One is taken at most every 30 minutes,
+and the newest 10 are kept.
+
+A checkpoint that cannot be taken is logged and never stops the agent's write.
+
+Settings → Storage & backup lists the checkpoints read-only, with when each was taken,
+its size, and **Show in folder**. There is no restore: as for a backup, going back is a
+file copy the person makes with the app closed. A backup never carries the
+`checkpoints/` folder.
 
 ## Roadmap planning
 

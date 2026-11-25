@@ -58,7 +58,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// <param name="store">The owner's store, read whole for an alert id the centre no longer lists —
 /// it lists the settled for a week only — so a switch-off's closing is found however long ago it
 /// was; resolved per sweep, and null where the host composed none.</param>
-public sealed class SessionAlertPublisher(
+public sealed partial class SessionAlertPublisher(
     IScheduleRegister? schedules,
     ILoopRegister? loops,
     IAgentSessionSource? sessions,
@@ -236,7 +236,7 @@ public sealed class SessionAlertPublisher(
             var result = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
             if (result is Ok<int>(var count)) closed += count;
-            else _logger.LogDebug("The alert {Key} was not closed: {Error}", subject.Id, ((Error)result.Value!).Message);
+            else AlertNotClosed(_logger, subject.Id, ((Error)result.Value!).Message);
         }
 
         // Open, acknowledged or closed, an alert the owner holds is not raised again. The one
@@ -254,7 +254,7 @@ public sealed class SessionAlertPublisher(
 
             var result = await port.PublishAsync(Draft(alert, sessionIdOf) with { Id = id.Value }, cancellationToken).ConfigureAwait(false);
 
-            if (result is Error error) _logger.LogDebug("No alert was raised for {Key}: {Error}", alert.Key, error.Message);
+            if (result is Error error) AlertNotRaised(_logger, alert.Key, error.Message);
             else published++;
         }
 
@@ -428,7 +428,7 @@ public sealed class SessionAlertPublisher(
         {
             var (published, closed) = await SweepAsync(_stopping.Token).ConfigureAwait(false);
 
-            if (published + closed > 0) _logger.LogDebug("Raised {Published} schedule or loop alert(s) and closed {Closed}.", published, closed);
+            if (published + closed > 0) AlertsSwept(_logger, published, closed);
         }
         catch (OperationCanceledException)
         {
@@ -440,7 +440,19 @@ public sealed class SessionAlertPublisher(
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Reading the schedule and loop alerts failed; the next sweep tries again.");
+            AlertSweepFailed(_logger, exception);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The alert {Key} was not closed: {Error}")]
+    private static partial void AlertNotClosed(ILogger logger, string key, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "No alert was raised for {Key}: {Error}")]
+    private static partial void AlertNotRaised(ILogger logger, string key, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Raised {Published} schedule or loop alert(s) and closed {Closed}.")]
+    private static partial void AlertsSwept(ILogger logger, int published, int closed);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the schedule and loop alerts failed; the next sweep tries again.")]
+    private static partial void AlertSweepFailed(ILogger logger, Exception exception);
 }

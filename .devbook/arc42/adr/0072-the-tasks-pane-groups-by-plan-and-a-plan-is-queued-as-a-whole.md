@@ -1,4 +1,4 @@
-# ADR 0062: The Tasks pane groups by plan, and a plan is queued only as a whole
+# ADR 0072: The Tasks pane groups by plan, and a plan is queued only as a whole
 
 ```meta
 date: 2026-11-25

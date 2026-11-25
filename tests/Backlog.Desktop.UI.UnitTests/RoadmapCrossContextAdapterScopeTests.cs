@@ -242,7 +242,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
     }
 
     /// <summary>
-    /// A plan on My Day through the real join (local ADR 0062 §8): Tasks' port puts a plan
+    /// A plan on My Day through the real join (local ADR 0072 §8): Tasks' port puts a plan
     /// tag no Roadmap Item carries on My Day, Roadmap Planning creates its item with the
     /// date, and the port reads the date back by the bare tag — then takes it off again.
     /// </summary>

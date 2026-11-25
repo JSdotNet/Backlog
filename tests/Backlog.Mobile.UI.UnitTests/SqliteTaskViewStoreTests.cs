@@ -127,7 +127,7 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         Assert.Null(new SqliteTaskViewStore(_path).ReadRoadmapPlan());
     }
 
-    /// <summary>Local ADR 0062 §8: the roadmap plan document is kept whole with the page that
+    /// <summary>Local ADR 0072 §8: the roadmap plan document is kept whole with the page that
     /// carried it, beside the preferences, and comes back after a restart.</summary>
     [Fact]
     public async Task The_roadmap_plan_survives_a_new_store_beside_the_preferences_and_cursor_of_its_page()

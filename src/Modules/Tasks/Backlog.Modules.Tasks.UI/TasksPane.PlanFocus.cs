@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// One plan alone (local ADR 0062 §7; <c>.devbook/domain/tasks/features.md#plans-view</c>):
+/// One plan alone (local ADR 0072 §7; <c>.devbook/domain/tasks/features.md#plans-view</c>):
 /// opened from the expanded plan's heading, it shows the plan's name, bar and counts, a
 /// Waves / List toggle and a run line naming the plan branch the run lands on.
 /// </summary>

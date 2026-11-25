@@ -43,6 +43,13 @@ The build engine, and the directory-scoped property files that configure it.
 
 Each subtree file re-imports the root one, because MSBuild loads only the nearest.
 
+No analyzer is held back. The .NET 11 move suppressed the new Blazor analyzers BL0012 (a
+`StateHasChanged` Blazor already does) and BL0016 (script interop outside a try/catch) with
+`NoWarn`; each site has since been fixed and the suppression removed, so both fail the build
+like any other warning. A component method bound as a handler leaves rendering to Blazor. Its
+callers from a timer, a script or a service's event run it through `HandlerRendering`, which
+renders the way Blazor renders around a handler.
+
 ## .NET SDK
 
 ```meta

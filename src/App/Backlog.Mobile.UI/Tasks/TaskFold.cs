@@ -24,7 +24,7 @@ public static class TaskFold
     /// <summary>The kind tokens of the roadmap's two documents — the whole plan and
     /// the pace it is drawn at (.devbook/arc42/adr/0018). Never a row: the projection keeps
     /// the plan document whole beside the rows, as <see cref="RoadmapPlanCopy"/>, for the
-    /// plans on My Day (local ADR 0062 §8), and keeps no pace. Literals duplicated from
+    /// plans on My Day (local ADR 0072 §8), and keeps no pace. Literals duplicated from
     /// the desktop's sync client, for the reason <see cref="CaptureType"/> is.</summary>
     public const string RoadmapPlanType = "roadmap-plan";
 

@@ -6,8 +6,11 @@ using System.Net.Http.Json;
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Infrastructure.Mcp;
+using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Modules.Progress.DomainModels;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -92,6 +95,23 @@ public sealed class McpStepUpTests
         Assert.Equal(McpCallOutcome.Refused, Assert.Single(audit.Records).Outcome);
     }
 
+    /// <summary>The five minutes one confirmation holds cover the person's own acts at the
+    /// desk, never an agent's call: two calls in a row through the desktop's remembering
+    /// consent each ask.</summary>
+    [Fact]
+    public async Task An_admin_tool_asks_every_time_even_within_a_remembered_confirmation()
+    {
+        var inner = new ScriptedConsent(UserConsentOutcome.Verified);
+        var consent = new RememberedUserConsent(inner);
+        await using var harness = new Harness(new RecordingAuditLog(), consent);
+        using var client = harness.CreateClient();
+
+        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+
+        Assert.Equal(2, inner.Prompts.Count);
+    }
+
     [Fact]
     public async Task A_transition_asks_for_nothing()
     {
@@ -118,6 +138,34 @@ public sealed class McpStepUpTests
         Assert.DoesNotContain("Windows Hello", body, StringComparison.Ordinal);
         Assert.Contains("goal_not_found", body, StringComparison.Ordinal);
         Assert.Empty(consent.Prompts);
+    }
+
+    [Fact]
+    public async Task A_confirmed_delete_goal_leaves_a_revision_with_the_goal_before_it()
+    {
+        var consent = new ScriptedConsent(UserConsentOutcome.Verified);
+        await using var harness = new Harness(new RecordingAuditLog(), consent);
+        using var client = harness.CreateClient();
+        var goals = harness.Services.GetRequiredService<RootedSqliteGoalRepository>();
+
+        var goal = Assert.IsType<Ok<Goal>>(Goal.Create(Guid.NewGuid(), "Ship the journal", "Every write restorable", null).Value).Value;
+        await goals.SaveAsync(goal, TestContext.Current.CancellationToken);
+
+        var body = await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = goal.Id });
+
+        Assert.DoesNotContain("Windows Hello", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("goal_not_found", body, StringComparison.Ordinal);
+        Assert.Single(consent.Prompts);
+        Assert.Null(await goals.GetAsync(goal.Id, TestContext.Current.CancellationToken));
+
+        // The tombstone was written under the agent's change set, and the revision it
+        // left keeps the goal as it stood before the call.
+        var revision = Assert.Single(
+            await JournalRows.ReadAsync(goals.DatabasePath, TestContext.Current.CancellationToken),
+            row => row.DocumentKind == "goal" && row.DocumentId == goal.Id.ToString() && row.ActorKind == "agent");
+        Assert.NotNull(revision.Before);
+        Assert.Contains("Ship the journal", revision.Before, StringComparison.Ordinal);
+        Assert.Contains("Every write restorable", revision.Before, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -229,6 +277,9 @@ public sealed class McpStepUpTests
             lock (_prompts) _prompts.Add(message);
             return Task.FromResult(outcome);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     private sealed class RecordingAuditLog : IMcpAuditLog

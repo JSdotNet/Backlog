@@ -6,6 +6,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Changes;
 
 using Bunit;
 
@@ -74,6 +75,34 @@ public sealed class SettingsBackupTests
         Assert.NotNull(storage.CardTitles);
         Assert.Contains("Where the backlog is stored", storage.CardTitles);
         Assert.Contains("Backup", storage.CardTitles);
+        Assert.Contains("Checkpoints", storage.CardTitles);
+    }
+
+    /// <summary>The checkpoints an agent's write leaves are listed read-only: when and how
+    /// big, a way to the folder, and no restore - putting one back is a file copy.</summary>
+    [Fact]
+    public void The_checkpoints_card_lists_each_checkpoint_with_a_way_to_its_folder_and_no_restore()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='storage-checkpoints-settings']");
+        Assert.Equal("Checkpoints", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.NotNull(card.QuerySelector("[data-testid='storage-checkpoints-empty']"));
+        var described = string.Join(' ', card.TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("the repositories, and the GitHub account, pace, My Day, iteration and agent settings", described, StringComparison.Ordinal);
+        Assert.Contains($"those in its {AgentCheckpoints.SettingsFolderName} folder", described, StringComparison.Ordinal);
+
+        Assert.True(settings.TestContext.Services.GetRequiredService<AgentCheckpoints>().TakeIfDue());
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var times = settings.Component.FindAll("[data-testid='storage-checkpoint-time']");
+            Assert.Single(times);
+            Assert.Single(settings.Component.FindAll("[data-testid='storage-checkpoint-size']"));
+            Assert.Equal("Show in folder", settings.Component.Find("[data-testid='storage-checkpoint-show']").TextContent.Trim());
+        });
+        Assert.DoesNotContain("Restore", settings.Component.Find("[data-testid='storage-checkpoints-settings']").TextContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -290,6 +319,112 @@ public sealed class SettingsBackupTests
         Assert.Equal(BackupCadence.Daily, settings.Store.BackupSchedule.Cadence);
     }
 
+    /// <summary>The Change history card: how long the journal is kept, 90 days
+    /// until somebody picks 30 or 365 (local ADR 0071 §6).</summary>
+    [Fact]
+    public void The_change_history_card_offers_30_90_and_365_days_with_90_chosen()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='storage-change-history-settings']");
+        Assert.Equal("Change history", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.Contains("Keep change history for", card.TextContent, StringComparison.Ordinal);
+
+        var select = settings.Component.Find("[data-testid='storage-change-history-days'] select");
+        Assert.Equal(["30", "90", "365"], select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
+        Assert.Equal("90", select.GetAttribute("value") ?? select.QuerySelector("option[selected]")?.GetAttribute("value"));
+
+        select.Change("365");
+
+        Assert.Equal(365, settings.Store.ChangeHistoryDays);
+        Assert.Contains("Change history", SettingsPages.BuiltIn.Single(page => page.Id == SettingsPages.Storage).CardTitles!);
+    }
+
+    /// <summary>Clearing asks first, in the page, saying it cannot be undone; only
+    /// the confirmation deletes, and cancelling keeps everything.</summary>
+    [Fact]
+    public async Task Clear_change_history_asks_first_and_then_deletes_every_revision_and_change_set()
+    {
+        using var settings = RenderSettings();
+        var repository = new SqliteTaskRepository(settings.Store.RootDirectory);
+        using (ChangeContext.Begin(ChangeActor.Agent, "agent run"))
+        {
+            await repository.SaveAsync(new TaskItem("Journalled", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        }
+
+        OpenStorageTab(settings.Component);
+
+        settings.Component.Find("[data-testid='storage-change-history-clear']").Click();
+        var dialog = settings.Component.Find("[data-testid='storage-change-history-clear-dialog']");
+        Assert.Contains("cannot be undone", dialog.TextContent, StringComparison.Ordinal);
+
+        settings.Component.Find("[data-testid='storage-change-history-clear-cancel']").Click();
+        Assert.Equal(1L, await CountAsync(settings.Store.DatabasePath, "change_sets"));
+
+        settings.Component.Find("[data-testid='storage-change-history-clear']").Click();
+        settings.Component.Find("[data-testid='storage-change-history-clear-confirm']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Contains("cleared", settings.Component.Find("[data-testid='storage-change-history-status']").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(0L, await CountAsync(settings.Store.DatabasePath, "change_sets"));
+        Assert.Equal(0L, await CountAsync(settings.Store.DatabasePath, "revisions"));
+        Assert.Equal(1L, await CountAsync(settings.Store.DatabasePath, "tasks"));
+    }
+
+    /// <summary>The Backup card warns once the copy the last backup uploaded is past
+    /// 50 MB; at exactly 50 MB it says nothing. It reads the copy, which leaves the
+    /// change journal out (local ADR 0071 §6), so it no longer offers clearing the
+    /// history as the way to shrink it.</summary>
+    [Theory]
+    [InlineData(50L * 1024 * 1024, false)]
+    [InlineData((50L * 1024 * 1024) + 1, true)]
+    public void The_backup_card_warns_when_the_last_backup_copy_is_larger_than_50_MB(long bytes, bool warns)
+    {
+        var at = new DateTimeOffset(2026, 11, 25, 9, 0, 0, TimeSpan.Zero);
+        using var settings = RenderSettings(new BackupState(at, at, true, null) { LastCopyBytes = bytes });
+
+        OpenStorageTab(settings.Component);
+
+        var warnings = settings.Component.FindAll("[data-testid='storage-backup-size-warning']");
+        if (!warns)
+        {
+            Assert.Empty(warnings);
+            return;
+        }
+
+        var warning = Assert.Single(warnings);
+        Assert.Contains("last backup", warning.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("change history", warning.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(settings.Component.Find("[data-testid='storage-backup-settings']").QuerySelector("[data-testid='storage-backup-size-warning']"));
+    }
+
+    /// <summary>The live <c>backlog.db</c> still holds the journal, so its size on
+    /// disk raises no warning: only the copy a backup sends counts.</summary>
+    [Fact]
+    public void A_large_backlog_db_raises_no_warning_before_a_backup_measured_its_copy()
+    {
+        using var settings = RenderSettings();
+        using (var file = File.Create(settings.Store.DatabasePath))
+        {
+            file.SetLength((50L * 1024 * 1024) + 1);
+        }
+
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll("[data-testid='storage-backup-size-warning']"));
+    }
+
+    private static async Task<long> CountAsync(string databasePath, string table)
+    {
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT count(*) FROM {table};";
+        return (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+    }
+
     /// <summary>A field bound the way this screen binds its text fields — the
     /// draft on input, the commit on change — needs both events.</summary>
     private static void Commit(AngleSharp.Dom.IElement field, string value)
@@ -324,6 +459,8 @@ public sealed class SettingsBackupTests
         var gitHub = new RecordingGitHub();
 
         var context = new BunitContext();
+        // The change history's confirmation is a modal, which moves focus through JS.
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(
@@ -351,6 +488,8 @@ public sealed class SettingsBackupTests
         var worker = new BackupWorker(store, gitHub, stateStore, time);
         context.Services.AddSingleton(worker);
         context.Services.AddSingleton<TimeProvider>(time);
+        context.Services.AddSingleton(new AgentCheckpoints(() => store.RootDirectory, time));
+        context.Services.AddSingleton(_ => new ChangeHistoryWorker(store, time));
 
         return new SettingsRenderContext(temp, store, gitHub, worker, context, context.Render<Settings>());
     }

@@ -12,7 +12,7 @@ type: domain
 ```meta
 type: aggregate
 aliases: [device registration, registered device]
-related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#requirement-a-key-bound-device-is-taken-only-on-an-assertion-its-key-signed, .devbook/domain/tasks/domain.md#device]
 ```
 
 One machine's registration with the sync service. It holds:
@@ -20,18 +20,24 @@ One machine's registration with the sync service. It holds:
 - the machine's [DeviceId](#deviceid);
 - the [OwnerId](#ownerid) whose data it may see;
 - the name a person calls it in the device list;
-- a hash of its [Registration credential](#registration-credential).
+- the public half of its [Device key](#device-key), or, on a device not yet
+  bound to one, a hash of its [Registration credential](#registration-credential).
 
-The service never holds the credential itself, so a copy of the record is not a
-copy of the secret.
+It holds one proof or the other, never both. Neither is a secret on the service,
+so a copy of the record is not a copy of one.
 
 A device comes in once, by registering as the first device of a new owner or by
 redeeming a [Pairing Code](#pairing-code). A paired device also names the device
 whose code it redeemed, so the desktop that issued the code can ask its person
 whether to keep it. It is the consistency boundary for "who is this caller": a
-token is minted only for a device whose stored hash matches the credential it
-presents. The device whose code paired it can revoke it. Its credential then
-mints no further token, and a token it already holds lasts until it expires.
+token is minted only for a device that signs a [Device assertion](#device-assertion)
+with the key on file, or, without a key, presents the credential its stored hash
+matches. The device whose code paired it can revoke it. Its proof then mints no
+further token, and a token it already holds lasts until it expires.
+
+A device on a credential moves onto a key once, at a token fetch, and the binding
+drops its credential hash. Its credential path is closed from then on (local
+[ADR 0058 §2](../../arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key)).
 
 It is not the machine. The machine is the shared kernel's
 [Device](../tasks/domain.md#device), which every context shares. This aggregate is
@@ -52,11 +58,83 @@ letters and digits (`PairingCodeFormat`), and the person sees it as `XXXX-XXXX`.
 and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
 so a code that leaks unused stops being a way in on its own.
 
-It is an invitation, not a credential: it authorizes one act, minting a
-registration credential, and only within its window. The service stores it by
+It is an invitation, not a credential: it authorizes one act, adding a device
+with its key or a new registration credential, and only within its window. The service stores it by
 hash and records who issued it, when it expires, and whether it has been redeemed.
 Redeeming it is the one transition, and the code is burned before the new
 [Device](#device) is added.
+
+## Enrolment Ticket
+
+```meta
+type: aggregate
+aliases: [EnrolmentTicket, enrolment code, owner sign-in]
+related: [.devbook/domain/sync/domain.md#owner, .devbook/domain/sync/requirements.md#requirement-an-unpinned-deployed-service-enrols-no-device-beside-another-owners, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#1-the-owner-is-one-github-account-matched-by-its-numeric-user-id]
+```
+
+One step of the [Owner](#owner)'s GitHub sign-in, which enrols the first device or
+recovers one. A `SignIn` ticket stands for a sign-in that left for GitHub, and a
+`Code` ticket for the one-time code the sign-in handed back to the device's
+loopback. Each is stored by the hash of its state or code, beside the device's S256
+challenge and loopback redirect, and expires within minutes.
+
+A code authorizes one registration, and only with the verifier behind its challenge
+(`enrolment.verifier_mismatch`). Like a [Pairing Code](#pairing-code) it is an
+invitation, not a credential, and the registration it allows burns it.
+
+## Connector Client
+
+```meta
+type: aggregate
+aliases: [ConnectorClient, claude-connector, remote connector, connector secret]
+related: [.devbook/domain/sync/domain.invariants.md#connector-client, .devbook/domain/sync/features.md#capturing-from-claudeai, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#8-a-remote-agent-reaches-backlog-through-oauth-21-on-the-sync-service]
+```
+
+The one OAuth client the sync service's authorization server knows: claude.ai's
+custom connector, `claude-connector`. It is registered statically, so no other
+client can appear. The owner's desktop mints its secret, which the service shows
+once and keeps only as a hash, and can revoke it.
+
+Its generation moves on every new secret and every revoke. Each
+[Connector Authorization](#connector-authorization),
+[Connector Refresh Token](#connector-refresh-token) and
+[Connector token](#connector-token) carries the generation it was issued under, so a
+new secret or a revoke kills all of them without a query. The client, its
+authorizations and its refresh tokens live in the `connectorCredentials` container.
+
+## Connector Authorization
+
+```meta
+type: aggregate
+aliases: [ConnectorAuthorization, authorization code, consent ticket]
+related: [.devbook/domain/sync/domain.invariants.md#connector-authorization, .devbook/domain/sync/features.md#capturing-from-claudeai]
+```
+
+One run of claude.ai's authorization code grant, step by step:
+
+- `SignIn`: an authorize request that left for GitHub;
+- `Consent`: the owner signed in and the consent page is showing;
+- `Code`: the owner allowed it, and a code is on its way to claude.ai.
+
+Each step is stored by the hash of its state, ticket or code, beside claude.ai's S256
+challenge, its redirect, the scope asked for and the `/mcp` resource the token is
+for. It lives minutes and is burned once. Only the owner's GitHub account gets past
+`SignIn`; any other account goes back to claude.ai as `access_denied`. A code starts
+a refresh-token family, so a code used twice can revoke what its first use issued.
+
+## Connector Refresh Token
+
+```meta
+type: aggregate
+aliases: [ConnectorRefreshToken, refresh token, token family]
+related: [.devbook/domain/sync/domain.invariants.md#connector-refresh-token, .devbook/domain/sync/requirements.md#requirement-a-refresh-token-works-once]
+```
+
+What lets claude.ai get a new [Connector token](#connector-token) without the owner
+signing in again. It is stored by hash, lasts thirty days, and rotates on use: the
+answer to a refresh carries its replacement, and the presented token stops working.
+Every token of one authorization shares a family, so a rotated token presented
+again is a replay, and the whole family is revoked.
 
 ## Change Precedence
 
@@ -208,34 +286,76 @@ It is the partition each stored document and file carries:
 - a devbook subject state;
 - an attachment.
 
+### Device key
+
+```meta
+type: term
+aliases: [device signing key, non-exportable key, hardware-bound key]
+related: [.devbook/domain/sync/domain.md#device-assertion, .devbook/domain/sync/domain.md#device, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
+```
+
+The P-256 key pair a device makes for itself, whose private half cannot be exported:
+in the TPM through CNG on Windows, in Android Keystore on the phone. The service
+gets only the public half, at registration, at pairing, or when the device moves off
+its [Registration credential](#registration-credential). A copy of the app's folder
+on another machine has no key, so it cannot sync.
+
+### Device assertion
+
+```meta
+type: term
+aliases: [private_key_jwt, client assertion, assertion]
+related: [.devbook/domain/sync/domain.md#device-key, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.invariants.md#invariant-an-assertion-is-taken-once]
+```
+
+The `private_key_jwt` (RFC 7523) a device signs with its [Device key](#device-key)
+and trades for a [Device token](#device-token). It names the device as issuer and
+subject and the token exchange as audience, carries a random id, and lives at most
+five minutes. The service takes each one once.
+
 ### Registration credential
 
 ```meta
 type: term
 aliases: [device credential, credential]
-related: [.devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.md#device]
+related: [.devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#device-key]
 ```
 
-The long-lived secret a device receives at first registration or at pairing, and
+The long-lived secret a device without a [Device key](#device-key) receives at first
+registration or at pairing, and
 [is shown once](requirements.md#requirement-the-registration-credential-is-shown-once).
 The device keeps it in its own OS credential store rather than anywhere the backlog
-itself is stored. Before every sync call, a device exchanges it for a
-[Device token](#device-token) rather than presenting the credential itself on the
-wire.
+itself is stored, and exchanges it for a [Device token](#device-token) instead of
+presenting it on a sync call. A device that moves onto a key deletes it, and the
+service drops its hash.
 
 ### Device token
 
 ```meta
 type: term
 aliases: [access token, device session token, sync token]
-related: [.devbook/domain/sync/domain.md#registration-credential, .devbook/domain/sync/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
+related: [.devbook/domain/sync/domain.md#device-assertion, .devbook/domain/sync/domain.md#registration-credential, .devbook/domain/sync/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
 ```
 
 The short-lived credential a device actually presents on a sync call. It lasts
 thirty minutes unless the deployment sets a lifetime between 15 and 60, and
 [an expired one is refused](requirements.md#requirement-a-device-token-expires).
-The device obtains it by exchanging its
-[Registration credential](#registration-credential), so the registration
-credential itself never crosses the wire a second time. It names the device and
-the [Owner](#owner) it belongs to, and
+The device obtains it with a [Device assertion](#device-assertion), or, without a
+key, by exchanging its [Registration credential](#registration-credential). It names
+the device and the [Owner](#owner) it belongs to, and
 [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
+`/mcp` refuses it.
+
+### Connector token
+
+```meta
+type: term
+aliases: [connector access token, remote MCP token]
+related: [.devbook/domain/sync/domain.md#connector-client, .devbook/domain/sync/requirements.md#requirement-a-connector-token-reaches-only-mcp]
+```
+
+The access token the authorization server issues claude.ai for the owner. It lasts
+fifteen minutes, its audience is the sync service's `/mcp` resource, and it carries
+the scopes granted, starting with `inbox:capture`, and the
+[Connector Client](#connector-client)'s generation. It is signed with a key of its
+own, so the sync API refuses it as a [Device token](#device-token).

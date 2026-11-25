@@ -12,7 +12,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Tasks list's <b>Flat</b> view (local ADR 0062 §3;
+/// The Tasks list's <b>Flat</b> view (local ADR 0072 §3;
 /// <c>.devbook/domain/tasks/features.md#plans-view</c>): the entries in no plan, plus a
 /// plan entry in today's My Day wearing "☀ My Day · &lt;plan&gt;" on its second line,
 /// under quiet text tabs, with one line of text actions while rows are picked and a

@@ -12,7 +12,7 @@ public interface ITasksViewPreferences
 
     void SetBoardGrouping(TaskBoardGrouping grouping);
 
-    /// <summary>How the Tasks list groups: by plan, or flat (local ADR 0062 §1).</summary>
+    /// <summary>How the Tasks list groups: by plan, or flat (local ADR 0072 §1).</summary>
     TaskListGrouping ListGrouping { get; }
 
     void SetListGrouping(TaskListGrouping grouping);

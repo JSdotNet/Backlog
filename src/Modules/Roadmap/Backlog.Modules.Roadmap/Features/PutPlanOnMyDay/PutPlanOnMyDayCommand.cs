@@ -8,7 +8,7 @@ namespace Backlog.Modules.Roadmap.Features.PutPlanOnMyDay;
 
 /// <summary>
 /// Puts a plan on My Day, or takes it off, by a My Day date on its Roadmap Items (local
-/// ADR 0062 §8). The plan is named by its tag, with or without the <c>+</c> the entries
+/// ADR 0072 §8). The plan is named by its tag, with or without the <c>+</c> the entries
 /// wear. The day is the caller's — today, as the person sees it — so the command stays a
 /// plain record of what was said; whether the plan is in a given day's My Day is read
 /// later, by the task rule.

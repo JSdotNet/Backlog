@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
 /// <summary>
-/// The docked session queue's <see cref="ISessionQueueAttention"/> (local ADR 0062 §6),
+/// The docked session queue's <see cref="ISessionQueueAttention"/> (local ADR 0072 §6),
 /// answered out of the Sessions context's waiting questions (local ADR 0041) and its loop
 /// register (local ADR 0051 §3). A cross-context join, here for the reason
 /// <see cref="SessionRequestActions"/> is: the Tasks pane may not reference Sessions.
@@ -14,7 +14,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <param name="questions">This machine's waiting questions, or null when none is composed.</param>
 /// <param name="loops">This machine's loop register, or null when none is composed.</param>
 /// <param name="logger">Where an unreadable store is said; nothing when null.</param>
-public sealed class SessionQueueAttentionReader(
+public sealed partial class SessionQueueAttentionReader(
     IWaitingQuestionStore? questions,
     ILoopRegister? loops,
     ILogger<SessionQueueAttentionReader>? logger = null) : ISessionQueueAttention
@@ -50,7 +50,7 @@ public sealed class SessionQueueAttentionReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger?.LogWarning(exception, "The waiting questions could not be read for the session queue.");
+            if (logger is not null) WaitingQuestionsUnreadable(logger, exception);
             return [];
         }
     }
@@ -74,8 +74,14 @@ public sealed class SessionQueueAttentionReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger?.LogWarning(exception, "The loop register could not be read for the session queue.");
+            if (logger is not null) LoopRegisterUnreadable(logger, exception);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The waiting questions could not be read for the session queue.")]
+    private static partial void WaitingQuestionsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The loop register could not be read for the session queue.")]
+    private static partial void LoopRegisterUnreadable(ILogger logger, Exception exception);
 }

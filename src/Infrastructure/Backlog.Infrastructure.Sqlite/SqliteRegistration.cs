@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Notifications;
@@ -13,6 +14,7 @@ using Backlog.Modules.Roadmap;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Changes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -61,6 +63,27 @@ public static class SqliteRegistration
                 // handler writes tasks cannot make the two singletons wait on each other.
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RootedSqliteTaskRepository>>()));
+
+        // The change journal's read side (local ADR 0071 §2): the change sets and
+        // revisions the task writes record, in the same file and following the same root.
+        services.AddSingleton<IChangeJournal>(sp =>
+            new RootedSqliteChangeJournal(() => rootDirectory(sp)));
+
+        // Restoring a change set (local ADR 0071 §4): a later save the person makes,
+        // tasks through the same store the app writes, so the pane and the sync hear it.
+        // The kinds kept outside this file — devbook subject states, remarks — go back
+        // through the stores that keep them, resolved per restore so the order the hosts
+        // register them in does not matter.
+        services.AddSingleton<IChangeRestore>(sp =>
+            new RootedSqliteChangeRestore(
+                () => rootDirectory(sp),
+                sp.GetRequiredService<ITaskRepository>(),
+                () => sp.GetServices<IJournalledDocumentStore>()));
+
+        // The journal port a JSON file store records its revisions through before it
+        // writes (local ADR 0071 §2), into the same tables the triggers fill.
+        services.AddSingleton<IDocumentRevisionJournal>(sp =>
+            new SqliteDocumentJournal(() => rootDirectory(sp)));
 
         services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));

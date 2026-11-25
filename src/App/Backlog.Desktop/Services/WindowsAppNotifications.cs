@@ -31,7 +31,7 @@ namespace Backlog.Desktop.Services;
 /// why; the centre in the shell works regardless.
 /// </para>
 /// </summary>
-internal sealed class WindowsAppNotifications(
+internal sealed partial class WindowsAppNotifications(
     INotificationCentre centre,
     NotificationCentreRequests requests,
     ShellWindows windows,
@@ -60,7 +60,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Windows app notifications are unavailable; the notification centre still works.");
+            LogRegistrationUnavailable(logger, exception);
             return;
         }
 
@@ -81,7 +81,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogDebug(exception, "Unregistering Windows app notifications failed on the way out.");
+            LogUnregisterFailed(logger, exception);
         }
     }
 
@@ -111,7 +111,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Raising the tray hint failed.");
+            LogTrayHintFailed(logger, exception);
             return;
         }
 
@@ -126,7 +126,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Raising the Windows notification for {NotificationId} failed.", content.NotificationId);
+            LogShowFailed(logger, exception, content.NotificationId);
         }
     }
 
@@ -138,7 +138,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogDebug(exception, "Taking down the Windows notification for {NotificationId} failed.", notificationId);
+            LogRemoveFailed(logger, exception, notificationId);
         }
     }
 
@@ -213,7 +213,7 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Answering notification {NotificationId} from Windows failed.", action.NotificationId);
+            LogAnswerFailed(logger, exception, action.NotificationId);
             OpenCentre(action.NotificationId);
         }
     }
@@ -235,7 +235,28 @@ internal sealed class WindowsAppNotifications(
         }
         catch (Exception exception)
         {
-            logger.LogDebug(exception, "Bringing the window forward failed.");
+            LogBringForwardFailed(logger, exception);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Windows app notifications are unavailable; the notification centre still works.")]
+    private static partial void LogRegistrationUnavailable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Unregistering Windows app notifications failed on the way out.")]
+    private static partial void LogUnregisterFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Raising the tray hint failed.")]
+    private static partial void LogTrayHintFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Raising the Windows notification for {NotificationId} failed.")]
+    private static partial void LogShowFailed(ILogger logger, Exception exception, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Taking down the Windows notification for {NotificationId} failed.")]
+    private static partial void LogRemoveFailed(ILogger logger, Exception exception, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Answering notification {NotificationId} from Windows failed.")]
+    private static partial void LogAnswerFailed(ILogger logger, Exception exception, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Bringing the window forward failed.")]
+    private static partial void LogBringForwardFailed(ILogger logger, Exception exception);
 }
