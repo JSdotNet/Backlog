@@ -5,6 +5,7 @@ using Backlog.Modules.Tasks.Features.CountTasks;
 using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.GetTask;
+using Backlog.Modules.Tasks.Features.GetTaskVersion;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
@@ -45,7 +46,8 @@ internal sealed class TaskItems(
     IQueryHandler<GetTaskQuery, TaskItemDto?> get,
     IQueryHandler<CountTasksQuery, int> count,
     ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>> createIfAbsent,
-    ICommandHandler<SetTaskDueCommand, Result<TaskItemDto>> setDue) : ITaskItems
+    ICommandHandler<SetTaskDueCommand, Result<TaskItemDto>> setDue,
+    IQueryHandler<GetTaskVersionQuery, DateTimeOffset?> getVersion) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -55,6 +57,42 @@ internal sealed class TaskItems(
 
     public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
         count.Handle(new CountTasksQuery(), cancellationToken);
+
+    public Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default) =>
+        getVersion.Handle(new GetTaskVersionQuery(id), cancellationToken);
+
+    // The versioned writes hand the version to the handler, which checks it against
+    // the entry it loads and saves conditionally on that same load - one atomic step,
+    // where the port's defaults compare first and write after.
+    public Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid id,
+        string rawText,
+        int order,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        RefuseStale(() => save.Handle(
+            new SaveTaskFromTextCommand(id, rawText, order, ExpectedUpdatedAt: expectedUpdatedAt),
+            cancellationToken));
+
+    public Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        RefuseStale(() => link.Handle(
+            new LinkTaskToIssueCommand(id, repoId, externalId, targetType, expectedUpdatedAt),
+            cancellationToken));
+
+    public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        RefuseStale(() => setDevbookReferences.Handle(
+            new SetDevbookReferencesCommand(id, references, expectedUpdatedAt),
+            cancellationToken));
 
     public Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,
@@ -149,13 +187,8 @@ internal sealed class TaskItems(
 
     /// <summary>The refusal every write answering a <see cref="Result"/> gives
     /// when the store holds a later version of an entry than the one the write was
-    /// made on. A single-entry write wrote nothing; a write over many entries —
-    /// an import, a repository rename — stopped at that entry, with the ones before
-    /// it written, as any failure part-way through those always has.</summary>
-    public static readonly Error StaleWrite = Error.Conflict(
-        TaskEntryErrorCodes.StaleWrite,
-        "This entry changed somewhere else while the change was being made, so nothing was written. "
-        + "Read the entry again, then retry the change on the version you read.");
+    /// made on: <see cref="StaleTaskWrites.StaleWrite"/>.</summary>
+    public static Error StaleWrite => StaleTaskWrites.StaleWrite;
 
     /// <summary>
     /// Runs one write and answers a refused save as

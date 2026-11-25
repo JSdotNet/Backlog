@@ -68,6 +68,88 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     /// <c>tasks.stale_write</c>. Still recorded, so a test can see it was asked.</summary>
     public Error? RefuseWritesWith { get; set; }
 
+    /// <summary>When set, every entry carries a version the way the module's store
+    /// does: <see cref="GetUpdatedAtAsync"/> answers it, every write that lands moves
+    /// it on, and a versioned write is refused as <c>tasks.stale_write</c> unless it
+    /// names the version held. Off, the port keeps no versions, as before.</summary>
+    public bool Versioned { get; init; }
+
+    /// <summary>Runs after every <see cref="GetAsync"/>, so a test can land another
+    /// writer's save between a tool's read and its write.</summary>
+    public Action<Guid>? AfterGet { get; set; }
+
+    /// <summary>The version every versioned write was pinned to, in order — what a
+    /// tool handed the port as the version its change was built on.</summary>
+    public List<DateTimeOffset> Pins { get; } = [];
+
+    private readonly Dictionary<Guid, DateTimeOffset> _versions = [];
+    private DateTimeOffset _clock = new(2026, 11, 25, 9, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Another writer saving <paramref name="id"/>: its version moves on and
+    /// its text stays. Answers the new version.</summary>
+    public DateTimeOffset SaveElsewhere(Guid id)
+    {
+        _clock = _clock.AddTicks(1);
+        _versions[id] = _clock;
+        return _clock;
+    }
+
+    public Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        DateTimeOffset? version = Versioned && _entries.Any(entry => entry.Id == id)
+            ? _versions.TryGetValue(id, out var held) ? held : _clock
+            : null;
+
+        return Task.FromResult(version);
+    }
+
+    public async Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid id,
+        string rawText,
+        int order,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        Pins.Add(expectedUpdatedAt);
+        if (await IsStaleAsync(id, expectedUpdatedAt, cancellationToken)) return StaleTaskWrites.StaleWrite;
+        return Landed(id, await SaveFromTextAsync(id, rawText, order, cancellationToken: cancellationToken));
+    }
+
+    public async Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        Pins.Add(expectedUpdatedAt);
+        if (await IsStaleAsync(id, expectedUpdatedAt, cancellationToken)) return StaleTaskWrites.StaleWrite;
+        return Landed(id, await LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken));
+    }
+
+    public async Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        Pins.Add(expectedUpdatedAt);
+        if (await IsStaleAsync(id, expectedUpdatedAt, cancellationToken)) return StaleTaskWrites.StaleWrite;
+        return Landed(id, await SetDevbookReferencesAsync(id, references, cancellationToken));
+    }
+
+    private async Task<bool> IsStaleAsync(Guid id, DateTimeOffset expected, CancellationToken cancellationToken) =>
+        await GetUpdatedAtAsync(id, cancellationToken) != expected;
+
+    private Result<T> Landed<T>(Guid id, Result<T> written)
+    {
+        if (written is Ok<T>) SaveElsewhere(id);
+        return written;
+    }
+
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -81,7 +163,10 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
         cancellationToken.ThrowIfCancellationRequested();
         Gets.Add(id);
 
-        return Task.FromResult(_entries.FirstOrDefault(entry => entry.Id == id));
+        var entry = _entries.FirstOrDefault(entry => entry.Id == id);
+        AfterGet?.Invoke(id);
+
+        return Task.FromResult(entry);
     }
 
     public Task<int> CountAsync(CancellationToken cancellationToken = default)

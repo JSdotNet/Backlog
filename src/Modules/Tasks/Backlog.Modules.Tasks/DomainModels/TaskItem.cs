@@ -161,11 +161,13 @@ public sealed class TaskItem
     /// </para>
     /// <para>
     /// What it guards is each save's own read-modify-write — a use case reads the
-    /// task, applies a change, saves it. It does not reach further back: a caller
-    /// that built its text on an older read hands that text to a use case that
-    /// reads the task afresh. The Tasks pane closes that gap itself by merging its
-    /// edit onto the stored entry before it saves (<c>RebaseOnStoreAsync</c>), and
-    /// the MCP tools read and write inside one call.
+    /// task, applies a change, saves it. On its own it does not reach further back:
+    /// a caller that built its text on an older read hands that text to a use case
+    /// that reads the task afresh. A caller that names the version it read
+    /// (<see cref="RequireLoadedAt"/>) carries the guard back to that read — the MCP
+    /// tools do, with the version <c>read_item</c> answered or the one they read
+    /// themselves. The Tasks pane closes the gap its own way, by merging its edit
+    /// onto the stored entry before it saves (<c>RebaseOnStoreAsync</c>).
     /// </para>
     /// <para>
     /// Null is deliberate and means "not read from this store": a task being
@@ -959,6 +961,21 @@ public sealed class TaskItem
     /// can be saved again. Not an edit: <see cref="UpdatedAt"/> stays where it is.
     /// See <see cref="LoadedUpdatedAt"/>.</summary>
     public void MarkPersisted() => LoadedUpdatedAt = UpdatedAt;
+
+    /// <summary>Refuses a change built on another version than the one the store
+    /// handed out: when <paramref name="expected"/> is set and is not
+    /// <see cref="LoadedUpdatedAt"/>, throws <see cref="StaleTaskWriteException"/>
+    /// before anything is applied. Null asks nothing.
+    /// <para>
+    /// What carries <see cref="LoadedUpdatedAt"/>'s guard back past the use case's own
+    /// read to the caller's: checked here against the version just loaded, and the
+    /// save that follows is conditional on that same version, so the check and the
+    /// write cannot be split by another writer.
+    /// </para></summary>
+    public void RequireLoadedAt(DateTimeOffset? expected)
+    {
+        if (expected is { } version && LoadedUpdatedAt != version) throw new StaleTaskWriteException(Id);
+    }
 
     // --- Internals ----------------------------------------------------------
 
