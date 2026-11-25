@@ -283,6 +283,7 @@ public sealed class PlanRailTests
         using var _host = host;
 
         var plans = RenderPlans(host);
+        await plans.Find("[data-testid='flat-tag-menu-button']").ClickAsync(new());
         var stripped = plans.FindAll("[data-testid='tag-filter-option']").Select(Text).ToList();
 
         Assert.True(stripped.Any(label => label.StartsWith("@bob", StringComparison.Ordinal)), string.Join(" | ", stripped));
@@ -293,6 +294,52 @@ public sealed class PlanRailTests
         var flat = host.Render();
         var all = flat.FindAll("[data-testid='tag-filter-option']").Select(Text).ToList();
         Assert.True(all.Any(label => label.StartsWith("+alpha", StringComparison.Ordinal)), string.Join(" | ", all));
+    }
+
+    /// <summary>The control kinds a bar draws, outside the Plans / Flat switch and the
+    /// session queue: each control's own base class, and whether it is a menu.</summary>
+    private static IReadOnlySet<string> BarControlKinds(IRenderedComponent<TasksPane> pane) =>
+        pane.FindAll(".filter-bar button")
+            .Where(button => button.Closest("[data-testid='list-grouping']") is null
+                && button.Closest(".filter-group--queue") is null
+                && button.Closest(".filter-group--summary") is null
+                && button.Closest(".popover-button__panel, [data-testid$='-panel']") is null)
+            .Select(button => button.ClassList.Contains("flat-tab--menu") ? "flat-tab--menu" : button.ClassList.First())
+            .ToHashSet();
+
+    [Fact]
+    public async Task Plans_and_Flat_draw_the_same_quiet_filter_bar_controls()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+
+        var plans = RenderPlans(host);
+        var plansKinds = BarControlKinds(plans);
+        var flat = host.Context.Render<TasksPane>(parameters => parameters.Add(pane => pane.ListGrouping, TaskListGrouping.Flat));
+        var flatKinds = BarControlKinds(flat);
+
+        Assert.Equal(["flat-tab", "flat-tab--menu"], plansKinds.Order());
+        Assert.Equal(flatKinds.Order(), plansKinds.Order());
+
+        // No chip on Plans' bar: the slices read as words with counts, and Type, Source
+        // and #tag are Flat's own menus.
+        var stray = plans.FindAll(".filter-bar .chip")
+            .Where(chip => chip.Closest("[data-testid='list-grouping']") is null
+                && chip.Closest(".filter-group--queue") is null
+                && chip.Closest(".filter-group--summary") is null)
+            .Select(chip => chip.OuterHtml)
+            .ToList();
+        Assert.True(stray.Count == 0, string.Join("\n", stray));
+        Assert.Empty(plans.FindAll(".filter-bar svg.chip__icon"));
+        Assert.Empty(plans.FindAll("[data-testid='tag-filter-row']"));
+        foreach (var menu in new[] { "flat-type-menu", "flat-source-menu", "flat-tag-menu" })
+        {
+            Assert.NotEmpty(plans.FindAll($"[data-testid='{menu}-button']"));
+        }
+
+        Assert.Equal(
+            ["Select", "My Day", "Ready in a plan", "Waiting", "Next actions"],
+            plans.FindAll("[data-testid='plans-slices'] button").Select(button => button.ChildNodes.OfType<AngleSharp.Dom.IText>().Select(text => text.Text.Trim()).FirstOrDefault(text => text.Length > 0) ?? Text(button)));
     }
 
     [Fact]

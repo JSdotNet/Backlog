@@ -662,6 +662,8 @@ public sealed class CalendarSurfaceTests
         host.WithCalendarSurface();
 
         var list = host.Context.Render<TasksSurface>();
+        // The list opens on Plans, whose bar keeps Type in a menu.
+        list.Find("[data-testid='flat-type-menu-button']").Click();
         list.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
         await host.OpenAsync(prompt);
         list.WaitForAssertion(() => Assert.Single(list.FindAll("[data-testid='entry-detail']")));
