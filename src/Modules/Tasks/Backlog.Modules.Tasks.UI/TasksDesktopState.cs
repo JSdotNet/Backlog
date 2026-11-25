@@ -6967,6 +6967,40 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             gathered.Count(IsFinished));
     }
 
+    /// <summary>
+    /// A plan chip counted over the whole plan: every entry the repository scope leaves in
+    /// view (<see cref="ScopedRows"/>), whatever slice — My Day, Now across plans, Waiting,
+    /// a type or a source — narrowed the bar. The Plans rail's <c>done/total</c> and
+    /// progress line read this, so a plan reads the same in every rail selection, as its
+    /// run state already does; the chip on the bar keeps counting what the slice left
+    /// (local ADR 0062 §2). The plan <see cref="ShowPlan"/> holds is counted by what it
+    /// gathers, as its chip is. Any other option comes back as it is.
+    /// </summary>
+    public TagFilterOption WholePlanChip(TagFilterOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+
+        if (TagText.Kind(option.Value) is not TagKind.Plan) return option;
+
+        if (_shownPlan is { } shown && string.Equals(shown, option.Value, StringComparison.OrdinalIgnoreCase))
+        {
+            return ShownPlanChip(shown, ScopedRows) with { Label = option.Label };
+        }
+
+        var open = 0;
+        var finished = 0;
+
+        foreach (var row in ScopedRows)
+        {
+            if (!row.PreviewTags.Contains(option.Value, StringComparer.OrdinalIgnoreCase)) continue;
+
+            if (IsFinished(row)) finished++;
+            else open++;
+        }
+
+        return option with { OpenCount = open, CompletedCount = finished };
+    }
+
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
         // Held only while it is still pressed: a widening that cleared the selection
