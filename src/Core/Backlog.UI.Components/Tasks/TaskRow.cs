@@ -217,7 +217,7 @@ public sealed record TaskRow(
                     marked,
                     .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
-                    InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
+                    InMyDay ? new TaskDetail(TaskDetailKind.MyDay, MyDayText) : null,
                     Agenda is null ? null : new TaskDetail(TaskDetailKind.Agenda, Agenda),
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
                     Reminder is null ? null : new TaskDetail(TaskDetailKind.Reminder, Reminder),
@@ -228,7 +228,7 @@ public sealed record TaskRow(
                     marked,
                     .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
-                    InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
+                    InMyDay ? new TaskDetail(TaskDetailKind.MyDay, MyDayText) : null,
                     Agenda is null ? null : new TaskDetail(TaskDetailKind.Agenda, Agenda),
                     steps,
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
@@ -251,6 +251,13 @@ public sealed record TaskRow(
     /// means nothing without it. Null leaves it off, which is every task without
     /// a slot and every task outside My Day.</summary>
     public string? Agenda { get; init; }
+
+    /// <summary>The plan a row in My Day belongs to, bare of its <c>+</c>, for a list
+    /// that shows a plan's entry only because it is in today's My Day: its My Day fact
+    /// then reads "My Day · zero-trust-auth". Null leaves the fact "My Day".</summary>
+    public string? MyDayPlan { get; init; }
+
+    private string MyDayText => MyDayPlan is { Length: > 0 } plan ? $"My Day · {plan}" : "My Day";
 
     /// <summary>How often it recurs, already said — "Weekly", "Every weekday".
     /// Null falls back to saying only that it does.</summary>
