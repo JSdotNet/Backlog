@@ -2,6 +2,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 
@@ -295,6 +296,92 @@ public sealed class BackupWorkerTests : IDisposable
 
         Assert.Equal(6, worker.Last.DailyCopies);
         Assert.Equal(6, new FileBackupStateStore(_state.StorePath).Current.DailyCopies);
+    }
+
+    /// <summary>The backup copy leaves the change journal out (local ADR 0070 §6): the
+    /// committed file holds the tasks and no revision or change set, and is smaller
+    /// than the live database, which keeps every revision it had.</summary>
+    [Fact]
+    public async Task The_backup_copy_leaves_the_change_journal_out_and_the_live_database_keeps_it()
+    {
+        var repository = new SqliteTaskRepository(_settings.RootDirectory);
+        var body = new string('x', 64 * 1024);
+        for (var i = 0; i < 20; i++)
+        {
+            var task = new TaskItem($"Task {i}", body, EntryType.Task);
+            using (ChangeContext.Enter(ChangeSet.Start(ChangeActor.Person, $"Create {i}")))
+            {
+                await repository.SaveAsync(task, TestContext.Current.CancellationToken);
+            }
+
+            // A second change set over the same task leaves a revision holding the
+            // whole earlier document — what makes the journal weigh.
+            using (ChangeContext.Enter(ChangeSet.Start(ChangeActor.Person, $"Edit {i}")))
+            {
+                task.UpdateContent(body + i);
+                await repository.SaveAsync(task, TestContext.Current.CancellationToken);
+            }
+        }
+
+        SqliteConnection.ClearAllPools();
+        var liveRevisions = await CountAsync(_settings.DatabasePath, "revisions");
+        Assert.True(liveRevisions >= 20, $"Expected the seed to journal revisions, found {liveRevisions}.");
+
+        _settings.TrySetRepository("JSdotNet/Notes");
+        using var worker = Worker();
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+
+        var commit = Assert.Single(_gitHub.Commits);
+        var restored = _temp.Combine("restored.db");
+        await File.WriteAllBytesAsync(restored, commit.Content, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0L, await CountAsync(restored, "revisions"));
+        Assert.Equal(0L, await CountAsync(restored, "change_sets"));
+        Assert.Equal(20L, await CountAsync(restored, "tasks"));
+
+        // Vacuumed: the freed pages left the file, so the copy is smaller than the
+        // live file by at least the revisions' bodies.
+        var live = new FileInfo(_settings.DatabasePath).Length;
+        Assert.True(commit.Content.LongLength < live - (20L * 64 * 1024),
+            $"The copy is {commit.Content.LongLength} bytes beside a live file of {live}.");
+        Assert.Equal(commit.Content.LongLength, worker.Last.LastCopyBytes);
+
+        SqliteConnection.ClearAllPools();
+        Assert.Equal(liveRevisions, await CountAsync(_settings.DatabasePath, "revisions"));
+    }
+
+    /// <summary>A database from before the journal existed backs up as it is.</summary>
+    [Fact]
+    public async Task A_database_without_journal_tables_backs_up_unchanged()
+    {
+        var path = _settings.DatabasePath;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE tasks (id TEXT PRIMARY KEY); INSERT INTO tasks VALUES ('a');";
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        _settings.TrySetRepository("JSdotNet/Notes");
+        using var worker = Worker();
+        await RunToEndAsync(worker, worker.RequestBackupAsync);
+
+        var commit = Assert.Single(_gitHub.Commits);
+        var restored = _temp.Combine("restored.db");
+        await File.WriteAllBytesAsync(restored, commit.Content, TestContext.Current.CancellationToken);
+        Assert.Equal(1L, await CountAsync(restored, "tasks"));
+        Assert.Equal(0L, await CountAsync(restored, "sqlite_master WHERE name = 'revisions'"));
+    }
+
+    private static async Task<long> CountAsync(string databasePath, string table)
+    {
+        await using var connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT count(*) FROM {table};";
+        return (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
     }
 
     // Differs from StubGitHubClient: records each backup commit and can hold one open.

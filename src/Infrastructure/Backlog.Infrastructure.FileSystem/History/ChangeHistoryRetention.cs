@@ -2,8 +2,7 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// The numbers that keep the change journal bounded (local ADR 0070 §6): the periods
-/// the person may keep it for, and the database size past which the Backup card says
-/// the history is something that can be cleared.
+/// the person may keep it for, and the backup size past which the Backup card warns.
 /// </summary>
 public static class ChangeHistoryRetention
 {
@@ -13,9 +12,9 @@ public static class ChangeHistoryRetention
     /// <summary>The period kept until somebody chooses another.</summary>
     public const int DefaultDays = 90;
 
-    /// <summary>The size of <c>backlog.db</c> above which the Backup card warns: 50 MB.
-    /// A backup commits the whole file (local ADR 0010), and the GitHub Contents API
-    /// refuses a file far past this.</summary>
+    /// <summary>The size of the last backup copy above which the Backup card warns:
+    /// 50 MB. A backup commits the whole copy (local ADR 0010), the journal left out
+    /// (local ADR 0070 §6), and GitHub refuses a file past 100 MB.</summary>
     public const long LargeDatabaseBytes = 50L * 1024 * 1024;
 
     /// <summary>A stored period, or <see cref="DefaultDays"/> when it is absent or
