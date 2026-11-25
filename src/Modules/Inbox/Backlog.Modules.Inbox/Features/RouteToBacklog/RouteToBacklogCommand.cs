@@ -81,6 +81,9 @@ public sealed class RouteToBacklogCommandHandler(
         var item = await items.GetAsync(command.Id, cancellationToken).ConfigureAwait(false);
         if (item is null) return InboxErrors.ItemNotFound;
 
+        // The item and the home it goes to are one change set (local ADR 0061 §2).
+        using var change = TriageChangeSet.Begin(item.Title);
+
         // Refused before Tasks is asked, so an item that cannot take the
         // routing costs no entries. The same guard the aggregate applies below;
         // stated here because "route twice" is the one mistake a double-click

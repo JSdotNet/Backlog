@@ -61,6 +61,7 @@ using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
@@ -763,7 +764,11 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(sp =>
             new DevbookAnnotationStore(
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+                folders: sp.GetRequiredService<IDevbookFolderSource>(),
+                journal: sp.GetService<IDocumentRevisionJournal>()));
+        // Journalled beside backlog.db (local ADR 0061 §2), so a restore writes a remark
+        // back through this store.
+        services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookAnnotationStore>());
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
             new RemarkNotificationStore(
                 sp.GetRequiredService<DevbookAnnotationStore>(),
@@ -782,7 +787,9 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(sp =>
             new DevbookSubjectStateStore(
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+                folders: sp.GetRequiredService<IDevbookFolderSource>(),
+                journal: sp.GetService<IDocumentRevisionJournal>()));
+        services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
         services.AddSingleton<IDevbookSubjectStateStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
         services.AddSingleton<IDevbookSyncDirectionStore>(sp => sp.GetRequiredService<DevbookSubjectStateStore>());
 

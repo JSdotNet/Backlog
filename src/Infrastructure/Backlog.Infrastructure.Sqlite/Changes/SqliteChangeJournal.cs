@@ -153,18 +153,33 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
         }
     }
 
-    /// <summary>The <c>title</c> a before-image holds, or null.</summary>
-    private static string? TitleOf(string? image)
+    /// <summary>The title a before-image holds, or null: its <c>title</c> — an inbox
+    /// item's row — else the <c>title</c> inside its stored <c>document</c> — a knowledge
+    /// event's or a goal's — else a devbook subject's key or a remark's chapter, as the
+    /// file stores keep them.</summary>
+    internal static string? TitleOf(string? image)
     {
         if (image is null) return null;
 
         try
         {
             using var document = JsonDocument.Parse(image);
-            return document.RootElement.ValueKind is JsonValueKind.Object
-                && document.RootElement.TryGetProperty("title", out var title)
-                && title.ValueKind is JsonValueKind.String
-                    ? title.GetString()
+            var root = document.RootElement;
+            if (root.ValueKind is not JsonValueKind.Object) return null;
+
+            if (StringOf(root, "title") is { } title) return title;
+
+            if (StringOf(root, "document") is { } stored) return TitleOf(stored);
+
+            if (root.TryGetProperty("subject", out var subject) && subject.ValueKind is JsonValueKind.Object
+                && StringOf(subject, "key") is { } key)
+            {
+                return StringOf(subject, "state") is { } state ? $"{key}: {state}" : key;
+            }
+
+            return root.TryGetProperty("annotation", out var annotation) && annotation.ValueKind is JsonValueKind.Object
+                && StringOf(annotation, "chapterPath") is { } chapter
+                    ? $"Remark on {chapter}"
                     : null;
         }
         catch (JsonException)
@@ -172,6 +187,11 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
             return null;
         }
     }
+
+    private static string? StringOf(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String && value.GetString() is { Length: > 0 } text
+            ? text
+            : null;
 
     private static string? Text(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);

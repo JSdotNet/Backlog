@@ -35,6 +35,9 @@ public sealed class LinkToTaskCommandHandler(
         var item = await items.GetAsync(command.Id, cancellationToken).ConfigureAwait(false);
         if (item is null) return Result.Failure(InboxErrors.ItemNotFound);
 
+        // The item and the home it goes to are one change set (local ADR 0061 §2).
+        using var change = TriageChangeSet.Begin(item.Title);
+
         IReadOnlyList<string> repoIds = [.. item.RepoIds];
 
         if (taskReferences is not null)

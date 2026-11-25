@@ -71,8 +71,19 @@ public static class SqliteRegistration
 
         // Restoring a change set (local ADR 0061 §4): a later save the person makes,
         // tasks through the same store the app writes, so the pane and the sync hear it.
+        // The kinds kept outside this file — devbook subject states, remarks — go back
+        // through the stores that keep them, resolved per restore so the order the hosts
+        // register them in does not matter.
         services.AddSingleton<IChangeRestore>(sp =>
-            new RootedSqliteChangeRestore(() => rootDirectory(sp), sp.GetRequiredService<ITaskRepository>()));
+            new RootedSqliteChangeRestore(
+                () => rootDirectory(sp),
+                sp.GetRequiredService<ITaskRepository>(),
+                () => sp.GetServices<IJournalledDocumentStore>()));
+
+        // The journal port a JSON file store records its revisions through before it
+        // writes (local ADR 0061 §2), into the same tables the triggers fill.
+        services.AddSingleton<IDocumentRevisionJournal>(sp =>
+            new SqliteDocumentJournal(() => rootDirectory(sp)));
 
         services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));

@@ -62,6 +62,9 @@ public sealed class CreatePlanCommandHandler(
         var item = await items.GetAsync(command.Id, cancellationToken).ConfigureAwait(false);
         if (item is null) return InboxErrors.ItemNotFound;
 
+        // The item and the home it goes to are one change set (local ADR 0061 §2).
+        using var change = TriageChangeSet.Begin(item.Title);
+
         if (item.IsRouted) return InboxErrors.InvalidTransition(
             new InvalidInboxTransitionException(item.Status, "routed again").Message);
         if (item.Status is InboxStatus.Archived) return InboxErrors.InvalidTransition(
