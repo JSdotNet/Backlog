@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
@@ -131,12 +133,31 @@ public sealed class DeviceIdentityStoreTests : IDisposable
     {
         Directory.CreateDirectory(_root);
         File.WriteAllText(IdentityPath, string.Empty);
-        File.SetLastWriteTimeUtc(IdentityPath, DateTime.UtcNow.AddHours(-1));
+        var clock = new FakeTimeProvider(new DateTimeOffset(File.GetLastWriteTimeUtc(IdentityPath), TimeSpan.Zero));
+        clock.Advance(TimeSpan.FromHours(1));
 
-        var store = new DeviceIdentityStore(IdentityPath, "DEV-TOWER");
+        var store = new DeviceIdentityStore(IdentityPath, "DEV-TOWER", DeviceIdentityStore.DefaultAdoptionWindow, clock);
 
         Assert.NotEqual(Guid.Empty, store.Current.Id);
         Assert.Equal(store.Current.Id.ToString(), Stored().Id);
+    }
+
+    /// <summary>
+    /// The age is read off the injected clock: the same empty file, one second old by
+    /// that clock, is still a write in flight and is left alone.
+    /// </summary>
+    [Fact]
+    public void An_empty_file_young_by_the_injected_clock_is_left_alone()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(IdentityPath, string.Empty);
+        var clock = new FakeTimeProvider(new DateTimeOffset(File.GetLastWriteTimeUtc(IdentityPath), TimeSpan.Zero));
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        var store = new DeviceIdentityStore(IdentityPath, "DEV-TOWER", TimeSpan.FromMilliseconds(50), clock);
+
+        Assert.NotEqual(Guid.Empty, store.Current.Id);
+        Assert.Equal(string.Empty, File.ReadAllText(IdentityPath));
     }
 
     /// <summary>

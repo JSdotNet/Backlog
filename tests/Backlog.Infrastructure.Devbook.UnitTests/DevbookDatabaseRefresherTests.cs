@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Devbook.UnitTests;
 
@@ -45,6 +46,21 @@ public class DevbookDatabaseRefresherTests : IDisposable
         Assert.NotNull(database);
         Assert.Equal(DevbookDatabaseBuilder.GeneratedBy, database.Meta[DevbookDatabaseSchema.GeneratedByKey]);
         Assert.Contains(database.Chapters(".devbook/domain/inbox/domain.md"), chapter => chapter.Slug == "inbox-item");
+    }
+
+    /// <summary>The generated-at stamp comes from the refresher's clock, not a
+    /// direct clock read (app-defaults ADR 0005).</summary>
+    [Fact]
+    public async Task The_build_is_stamped_with_the_refreshers_clock()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 3, 14, 9, 26, 53, 589, TimeSpan.Zero));
+        var refresher = new DevbookDatabaseRefresher(() => _cache, quietInterval: TimeSpan.FromMinutes(5), time: clock);
+
+        Assert.True(await refresher.RefreshAsync(_root, TestContext.Current.CancellationToken));
+
+        using var database = DevbookDatabase.TryOpen(Target);
+        Assert.NotNull(database);
+        Assert.Equal("2026-03-14T09:26:53.589Z", database.Meta[DevbookDatabaseSchema.GeneratedAtKey]);
     }
 
     [Fact]

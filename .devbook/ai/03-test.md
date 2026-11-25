@@ -29,7 +29,10 @@ flowchart LR
 ```
 
 The agent starts the application on Aspire through the `run` procedure, drives the Blazor
-harnesses with Playwright, and monitors Aspire's logs and traces throughout. Each harness
+harnesses with Playwright, and monitors Aspire's resource state, logs and traces throughout
+through the Aspire CLI — `aspire describe`, `aspire logs` and `aspire otel`, each naming this
+worktree's AppHost with `--apphost`. `.mcp.json` configures no Aspire MCP server (org ADR
+0013, CLI first). Each harness
 also sends its browser console to the dashboard through `.WithBrowserLogs()`, so a
 client-side error shows beside the server's. It returns an evidence path for every
 scenario it reports.

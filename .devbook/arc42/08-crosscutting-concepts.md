@@ -691,10 +691,22 @@ return await handler.Handle(command, ct) switch
 - **Asserting:** a test reads the case with `Assert.IsType<Ok<T>>(result.Value).Value`
   or `Assert.IsType<Error>(result.Value)`.
 
+- **Several statements per arm:** a switch expression over a local function per arm,
+  never a `switch` statement with `case Ok<T>:` labels. **Why:** a statement compiles
+  without the CS8509 check, so a new case would pass it unnoticed.
+  `ResultSwitchStatementTests` fails on such a label anywhere in `src/`.
+
+  ```csharp
+  LastError = result switch
+  {
+      Ok<TaskSyncSummary>(var summary) => Completed(summary),
+      Error error => Failed(error),
+  };
+  ```
+
 Every project reads results this way; the class-based members `IsSuccess`, `Error`,
-`Unwrap()` and `TryGetValue` are gone. A `switch` statement over the cases compiles
-without the CS8509 check, so the few call sites that branch into several statements,
-the sync workers among them, are where a new case would pass unnoticed.
+`Unwrap()` and `TryGetValue` are gone, and so are the `switch` statements the sync workers
+and the MCP connector settings page used to branch with.
 
 ## Shared Data Types
 

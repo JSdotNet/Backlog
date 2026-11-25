@@ -5442,7 +5442,9 @@
     // "the reader's current local date", and there is exactly one place here that
     // knows what that is.
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+    // The clock is the injected TimeProvider (app-defaults ADR 0005), the one the
+    // session ages are read against too.
+    private DateOnly Today => DateOnly.FromDateTime(_sessionClock.GetLocalNow().DateTime);
 
     /// <summary>An entry is in My Day while its stamp is today's local date. A
     /// stamp from yesterday is not "in My Day yesterday" — with Clear My Day
@@ -5455,7 +5457,7 @@
     /// <summary>Whether the entry was put in My Day today rather than carried
     /// over: the only case that owns an agenda slot, since a slot belongs to the
     /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
-    private static bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
+    private bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)
     {
@@ -5934,7 +5936,7 @@
 
     /// <summary>Whether the entry's follow-up day has passed while it is still open:
     /// a ticked-off entry is never overdue, the way a finished date is not.</summary>
-    private static bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
+    private bool IsFollowUpOverdue(EntryRow row, WaitingFor waiting) =>
         !row.IsPreviewCompleted && waiting.IsFollowUpOverdue(Today);
 
     /// <summary>What the row's waiting badge says: who, and the follow-up day when

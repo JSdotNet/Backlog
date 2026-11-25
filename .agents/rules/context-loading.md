@@ -55,6 +55,10 @@ call a run complete without the person's explicit approval.
   Aspire AppHost and says what healthy looks like and which harness answers which question;
   under `.agents/skills/`, `capture.md` places evidence; `diagnose.md` finds a cause from
   logs and traces; `estimate.md` sizes work. A flow's `phase-verify` calls `run` rather than guessing a command.
+- **Resource state for QA** — the `qa:qa` agent and its monitor read this worktree's AppHost
+  through the Aspire CLI (`aspire describe`, `aspire logs`, `aspire otel`, each with
+  `--apphost`), the way `run` and `diagnose.md` do; `.mcp.json` configures no Aspire MCP
+  server, and a QA brief names the commands rather than an MCP tool.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.
