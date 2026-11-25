@@ -18,8 +18,9 @@ Roadmap Item.
 ```meta
 ```
 
-Proposed, 2026-11-25. Not yet built; the later entries of the plan `+plan-first-tasks`
-build it.
+Proposed, 2026-11-25. Built on `plan/plan-first-tasks` by the entries of the plan
+`+plan-first-tasks`; it moves on when that branch merges, as the plan's sign-off entry
+decides.
 
 A **local** decision, numbered in the local sequence. 0061 is taken by the agent change
 journal on its plan branch. Every bare ADR number below means the local one.
@@ -97,15 +98,19 @@ plan entries live under Plans only.
 ```meta
 ```
 
-Queuing a plan sets a **plan entry state** on each of its entries:
+Each entry of a plan shows a **plan entry state**, derived from the entry, its plan's
+request and run, and its pull request; the first that holds wins, top to bottom:
 
 | State | When |
 | --- | --- |
-| Queued with plan | The plan is queued and the entry is ready. |
-| In plan session | A plan session runs the entry. |
-| Held for you | A Read-first source the entry names cannot be read, so the run holds it. |
-| Left for you | A `test` or `task` entry: the run never does it. |
+| Done | The entry is Done or Archived. |
 | Landed | Its pull request merged into the plan branch. |
+| Left for you | A `test` or `task` entry: the run never does it. |
+| Held for you | The entry is blocked. `execute-plan` blocks an entry whose Read-first source it cannot read, so the run holds it. |
+| In plan session | A plan session runs the entry. |
+| Waiting | The entry is not ready, or waits on another open entry. |
+| Queued with plan | The plan is queued and the entry is ready. |
+| Ready | The plan is not queued and the entry is ready. |
 
 An entry's own queue button is disabled on a plan entry, with a tooltip saying to queue
 the plan. An unplanned prompt entry keeps its own queue button. Plan sessions run
@@ -202,6 +207,7 @@ line, without its entries. My Day shows no suggestions.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-25 | The design system sanctions no teal or amber plan-state ink, so the rail's Queued keeps secondary text and the lit sun keeps `color-primary`. Teal `#7FD1C1` is the Brain's and a repository's band 2 ([the Brain's accent](../../design/color-scheme.md#the-brains-accent)), and a Tasks row already wears both, the **◆ n note** badge and a band-2 repository edge, beside its plan state; a teal state would read as either, and a near-teal of its own is the borrowing that rule forbids. The palette's only amber ink is `color-primary`, since `color-warning` is a dark fill; the one other amber, `color-domain-core-line`, is the Domain view's and may share its value only where the two never show at once, and the Devbook pane shows beside Tasks. A third gold would not be told apart from those two. The sun is a toggle, a control that acts, so `color-primary` is its ink, as it is for the queued queue button. Left for the person: the plan sections' Queued, the waves view's Left for you and ready marks, and the quiet row's ready ink already spend `color-band-2`, which the Brain rule forbids and the task-rows guideline's *ready teal* allows. | Closes the review's ink gap: the colour rules decide it, not the boards. |
+| 2026-11-25 | §4 lists the eight plan entry states `PlanEntryState` derives, Waiting, Ready and Done added, in the order the first that holds wins, and says Held for you reads the entry's blocked status. Status says the record is built on the plan branch and moves on when it merges. The docked queue's selection and Show all chip are written into the sessions chapters, not here. | The plan's review found these code-ahead of the record. |
 | 2026-11-25 | Reviewed against the five boards and §1–§8: every building entry of `+plan-first-tasks` landed on `plan/plan-first-tasks` (#1997, #1998, #2000, #2002, #2004, #2006, #2012–#2016), and the mobile head built in CI. Six gaps the entries deferred are filed under the plan: the quiet row of §5 is not in the design guideline's task rows; the plan entry states Waiting, Ready and Done and the docked queue's Show all chip are code-ahead of the chapters; Now shows no stage, since nothing yet reports one for a plan session; a blocked plan's folded line names no impediment; the teal and amber ink the boards use has no sanctioned token, so Queued reads secondary and the lit sun reads primary; the plan-run states need a live pass with a dispatcher. This record stays Proposed until the plan branch merges. | Closes the plan's review before its sign-off. |
 | 2026-11-25 | Checked end to end in the desktop and mobile web harnesses against the five boards, on an imported fixture of a queued plan, an unqueued plan and unplanned entries. Plans is remembered across reloads; the rail reads `Queued 5th`, then `Queued 3rd` after a move, and `n ready` or Draft otherwise; queuing the plan turned its ready prompts to Queued with plan, and Later named `#4 when #2 and #3 land`; a plan entry's own queue button is disabled with the plan tooltip; the docked queue paused and resumed, reordered by button and Alt+↑, cancelled, filtered the list to the entry or plan selected, and folded into the popover between 860 and 720 pixels of list; the waves view and its List toggle matched *One plan — dependency waves*; two plans put on My Day showed in Plans today with only the entries left for you, and on the phone's Today as one line each. Six mismatches are filed under `+plan-first-tasks`: a Done-status entry with no completion date counts open on the rail and blocks its dependents; the rail and the phone count waiting entries as ready; a waiting `test` sits in Next; Flat keeps the rail's plan or Unplanned selection; the rail recounts done/total under My Day and Now across plans; a plan entry's row outside Plans shows its status, not its plan state. Running, Blocked, In plan session, Held for you, Landed, Needs you and Landed today were not reached: no dispatcher ran a plan session. | §1–§8 were each built on their own; this checks them together against the design. |
 | 2026-11-25 | Proposed: Plans / Flat switch, plan rail with Now / Next / Later, plans queued whole with a state per entry, status as text on the rows, the queue docked, a plan's waves view, and a plan on My Day through its Roadmap Item. | The plan-first design the person settled for `+plan-first-tasks`. |

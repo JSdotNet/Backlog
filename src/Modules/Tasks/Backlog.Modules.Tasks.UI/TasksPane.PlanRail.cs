@@ -58,7 +58,14 @@ public partial class TasksPane
 
     /// <summary>The rail's plans, with their counts and run states.</summary>
     private IReadOnlyList<PlanRailPlan> RailPlans() =>
-        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows());
+        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows(), ReadsAsNext);
+
+    /// <summary>Whether an entry reads under Next in its plan's sections — the one
+    /// reading the rail's <c>N ready</c>, the expanded plan and its folded note share.</summary>
+    private bool ReadsAsNext(EntryRow row) =>
+        PlanEntryState.PlanTagOf(row) is { } tag
+        && State.PlanEntryStateOf(row, PlanRunOf(tag)) is { } state
+        && PlanSections.SectionOf(row, state) is PlanSection.Next;
 
     /// <summary>How many open entries are plan work in a session, off the rows the
     /// repository scope leaves in view — the pool the bar's scope chips count.</summary>

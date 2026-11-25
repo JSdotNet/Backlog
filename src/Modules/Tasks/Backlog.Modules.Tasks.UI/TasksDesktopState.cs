@@ -2048,6 +2048,23 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
         tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
 
     /// <summary>
+    /// Lets go of the plan rail's plan and Unplanned selection — a pressed plan, No
+    /// plan, a plan <see cref="ShowPlan"/> holds, and Now across plans — for a view that
+    /// draws no rail: the Flat view lists the unplanned work plus a plan entry on My Day
+    /// whatever the rail had selected (local ADR 0062 §3). People and general tags, and
+    /// My Day, stay.
+    /// </summary>
+    public void LetGoOfPlanSelection()
+    {
+        if (_shownPlan is null && !NowAcrossPlansOnly && !_selectedTags.Any(IsPlanFilter)) return;
+
+        LetGoOfShownPlan();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        NowAcrossPlansOnly = false;
+        ApplyFilter();
+    }
+
+    /// <summary>
     /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
     /// pressed, and the list shows every entry the roadmap gathers under the item — what
     /// a roadmap item's "Open in Tasks" asks for.
@@ -6891,7 +6908,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             .Select(row => new TaskRow(
                 row.TaskId,
                 string.Empty,
-                Done: row.IsPreviewCompleted,
+                Done: IsFinished(row),
                 DependsOn: ResolvedDependsOn(row, dependencies)))
             .ToList();
 
@@ -7087,12 +7104,13 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
         _selectedTags.RemoveWhere(tag => !remaining.Contains(tag));
     }
 
-    /// <summary>Finished means ticked off, and only that: a Done or Archived
-    /// entry the person has not ticked is still on their list, which is the whole
-    /// reason the tick is a separate fact. Off the preview rather than the stored
+    /// <summary>Finished means ticked off, or a Done or Archived status with no
+    /// completion date (<see cref="EntryRow.IsPreviewFinished"/>) — one answer with
+    /// <see cref="PlanEntryState.For"/>, so a plan's sections, its rail and its chain
+    /// do not count the same entry two ways. Off the preview rather than the stored
     /// text, the same reader the status filter uses, so a token just typed into
     /// the editor counts before it is saved.</summary>
-    private static bool IsFinished(EntryRow row) => row.IsPreviewCompleted;
+    private static bool IsFinished(EntryRow row) => row.IsPreviewFinished;
 
     private static bool HasPlan(EntryRow row) =>
         row.PreviewTags.Any(tag => TagText.Kind(tag) is TagKind.Plan);
@@ -7585,6 +7603,14 @@ public sealed class EntryRow
     /// <c>PreviewStatus is Done</c>: the tick and the lifecycle are two facts, and
     /// this is the one the list, the Completed section and the row menu read.</summary>
     public bool IsPreviewCompleted => PreviewCompletedOn is not null;
+
+    /// <summary>Whether the entry's work is over: ticked off, or its status Done or
+    /// Archived without a completion date (imported as <c>!done</c>, or moved there by
+    /// <c>transition</c>). What the counts, the plan rail's done/total and the
+    /// dependency chain read, so they agree with <c>PlanEntryState</c>; the checkbox
+    /// stays <see cref="IsPreviewCompleted"/>.</summary>
+    public bool IsPreviewFinished =>
+        IsPreviewCompleted || PreviewStatus is EntryStatus.Done or EntryStatus.Archived;
 
     /// <summary>The day a person marked the entry blocked by hand, or null while
     /// it is not marked. A preview like the tick: the <c>blocked:</c> token is in
