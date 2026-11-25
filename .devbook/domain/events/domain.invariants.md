@@ -216,6 +216,30 @@ So a point found for an old address never lands on a new one. When the save geoc
 
 Enforced at: `SetPlace()`
 
+### Invariant: A lookup answer lands only on the address it was asked for
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_stale_answer_for_an_address_since_changed_is_ignored, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.An_answer_for_an_event_with_no_address_is_ignored]
+```
+
+A geocoder answer for an address the event no longer holds, because it changed, was cleared or went online while the call ran, changes nothing.
+So a point found for one address never lands on another.
+
+Enforced at: `RecordLookup()`
+
+### Invariant: A lookup answer never moves the lookup back
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_late_answer_that_did_not_place_leaves_a_placed_address_on_the_map, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_retry_that_got_no_answer_leaves_an_address_not_found, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_retry_that_finds_an_address_not_found_places_it]
+```
+
+An answer that did not place leaves a Placed address on the map, and an answer that got nothing back leaves an address Address not found.
+Placed leaves only when the address changes, and Address not found only on a match, per [the online map decision](../../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md).
+
+Enforced at: `RecordLookup()`
+
 ### Invariant: An address has a part
 
 ```meta

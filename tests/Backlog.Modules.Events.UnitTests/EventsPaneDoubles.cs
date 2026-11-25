@@ -212,7 +212,39 @@ internal sealed class FakeAddressGeocoder : IAddressGeocoder
 {
     private readonly Dictionary<string, GeocodeAnswer> _answers = new(StringComparer.Ordinal);
 
-    public List<Address> Sent { get; } = [];
+    private readonly Lock _lock = new();
+
+    private readonly List<Address> _sent = [];
+
+    private readonly List<(int Count, TaskCompletionSource Reached)> _waiting = [];
+
+    /// <summary>What was sent, in order: lookups send from the thread pool, so a copy.</summary>
+    public IReadOnlyList<Address> Sent
+    {
+        get
+        {
+            lock (_lock) return [.. _sent];
+        }
+    }
+
+    public void ClearSent()
+    {
+        lock (_lock) _sent.Clear();
+    }
+
+    /// <summary>Completes once <paramref name="count"/> addresses have been sent: a lookup that
+    /// has sent has started, so nothing queued behind it can merge into it.</summary>
+    public Task SentAsync(int count)
+    {
+        lock (_lock)
+        {
+            if (_sent.Count >= count) return Task.CompletedTask;
+
+            var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _waiting.Add((count, reached));
+            return reached.Task;
+        }
+    }
 
     /// <summary>When set, a lookup waits on it after it is sent, as a slow call would.</summary>
     public TaskCompletionSource? Gate { get; set; }
@@ -227,7 +259,16 @@ internal sealed class FakeAddressGeocoder : IAddressGeocoder
 
     public async Task<GeocodeAnswer> GeocodeAsync(Address address, CancellationToken cancellationToken = default)
     {
-        Sent.Add(address);
+        lock (_lock)
+        {
+            _sent.Add(address);
+            foreach (var waiting in _waiting.Where(waiting => _sent.Count >= waiting.Count).ToList())
+            {
+                _waiting.Remove(waiting);
+                waiting.Reached.SetResult();
+            }
+        }
+
         if (Gate is { } gate) await gate.Task;
         if (Throws is { } thrown) throw thrown;
 

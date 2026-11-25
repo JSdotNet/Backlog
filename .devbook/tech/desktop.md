@@ -87,7 +87,7 @@ related: [".devbook/tech/cloud.md#azure-maps", ".devbook/tech/shared.md#mermaid"
 alternatives: ["MapLibre GL JS"]
 ```
 
-The JavaScript map library behind the Events map, vendored and not yet built.
+The JavaScript map library behind the Events map, vendored at 1.9.4; the map is built on it.
 
 - **Used for** — drawing the Azure Maps raster tiles, panning and zooming. Pins and
   controls are the component library's buttons, placed by Leaflet's projection.

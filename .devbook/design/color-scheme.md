@@ -950,7 +950,7 @@ colour.
 | Spotted or Considering | No fill inside a dashed `color-primary` edge: 1px on a row, 2px on a pin | `color-text-primary` |
 | Grey: past, Skipped, or Attended and Harvested while still upcoming | No fill inside a solid 2px `color-border-strong` ring | Only while upcoming, in `color-text-secondary` |
 | Online | `◎` in `color-text-secondary`, row only | None |
-| No venue, or address not found | `–` in `color-text-secondary`, row only | None |
+| "No venue yet", a venue with no address, "Address not looked up yet", or address not found | `–` in `color-text-secondary`, row only | None |
 
 A list row sits on `color-background-alt`, and a selected row on
 `color-background-raised`. Every ratio is computed with the WCAG 2.1
@@ -1001,11 +1001,19 @@ Rules:
   its number, title, state, date and venue. The legend names each tone in words.
   The `◎` and `–` glyphs are hidden from assistive technology, because the words
   beside them, such as "Online · not on the map", carry the meaning.
+- **Pins stack by weight.** Numbered pins draw above unnumbered ones, and the
+  selected or focused pin above all, so a grey pin never hides a number.
+- **Pins and edge pills keep out of the controls and the legend.** No pin or
+  pill lands under their plates, and pills sit at least 44px apart.
+- **The press area outgrows the mark.** A pin presses across 44px while its
+  mark draws at 1.75rem.
+- **The tooltip stays inside the map.** It flips to the other side of its pin
+  when the map's edge would cut it.
 
 The palette gains nothing: every value above is a palette token, used as one.
 
-Review surface: the Events pane in the desktop web harness.
-`[TODO: clarify]` the storybook story that will show the marks.
+Review surface: the storybook, Diagrams → **Tile map** (`/diagrams/tile-map`),
+and the Events pane in the desktop web harness.
 
 ### Chart roles
 

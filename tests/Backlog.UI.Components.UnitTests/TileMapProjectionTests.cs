@@ -167,6 +167,176 @@ public sealed class TileMapProjectionTests
         Assert.Equal(new MapBounds(50.85, 4.35, 50.85, 4.35), TileMapProjection.Bounds([Brussels]));
     }
 
+    /// <summary>The map's own chrome — the zoom controls down the right, the legend and
+    /// attribution along the foot — covers the tiles under it. A point there is not in view:
+    /// a pin there could not be seen or picked.</summary>
+    [Fact]
+    public void A_point_under_the_maps_chrome_is_not_in_view()
+    {
+        var chromed = OnBelgium() with { Reserved = new TileMapInsets(0, 60, 80, 0) };
+        var underFoot = new MapCoordinate(49.75, 4.35);
+        var underControls = new MapCoordinate(50.85, 7.35);
+
+        Assert.True(TileMapProjection.IsInView(OnBelgium(), underFoot));
+        Assert.True(TileMapProjection.IsInView(OnBelgium(), underControls));
+        Assert.InRange(TileMapProjection.Project(chromed, underFoot).Y, 320, 400);
+        Assert.InRange(TileMapProjection.Project(chromed, underControls).X, 540, 600);
+
+        Assert.False(TileMapProjection.IsInView(chromed, underFoot));
+        Assert.False(TileMapProjection.IsInView(chromed, underControls));
+        Assert.True(TileMapProjection.IsInView(chromed, Brussels));
+    }
+
+    /// <summary>An edge pill sits on the edge of the part of the map the chrome leaves free,
+    /// never under the legend or the controls.</summary>
+    [Fact]
+    public void An_edge_pill_stays_clear_of_the_maps_chrome()
+    {
+        var chromed = OnBelgium() with { Reserved = new TileMapInsets(0, 60, 80, 0) };
+
+        foreach (var point in new[] { Oslo, Lisbon, new MapCoordinate(50.85, 30), new MapCoordinate(30, 4.35), new MapCoordinate(49.75, 4.35) })
+        {
+            var placement = TileMapProjection.EdgePlacement(chromed, point, inset: 24);
+
+            Assert.NotNull(placement);
+            Assert.InRange(placement.Value.Position.X, 24 - 1e-9, 600 - 60 - 24 + 1e-9);
+            Assert.InRange(placement.Value.Position.Y, 24 - 1e-9, 400 - 80 - 24 + 1e-9);
+        }
+
+        Assert.Equal(TileMapEdge.Bottom, TileMapProjection.EdgePlacement(chromed, new MapCoordinate(49.75, 4.35), inset: 24)!.Value.Edge);
+    }
+
+    /// <summary>Pills pushed to the same stretch of an edge are spread along it, a press
+    /// target apart, in the order their points lie — so each can be picked.</summary>
+    [Fact]
+    public void Pills_on_the_same_stretch_of_an_edge_are_spread_apart_in_order()
+    {
+        var pills = TileMapProjection.PlacePills(
+            OnBelgium(),
+            [("a", new MapCoordinate(30, 4.30)), ("b", new MapCoordinate(30, 4.35)), ("c", new MapCoordinate(30, 4.40))],
+            inset: 24,
+            spacing: 44);
+
+        Assert.Equal(["a", "b", "c"], pills.OrderBy(pill => pill.Value.Position.X).Select(pill => pill.Key));
+        Assert.All(pills.Values, pill => Assert.Equal(TileMapEdge.Bottom, pill.Edge));
+        var xs = pills.Values.Select(pill => pill.Position.X).Order().ToList();
+        Assert.True(xs[1] - xs[0] >= 44 - 1e-9);
+        Assert.True(xs[2] - xs[1] >= 44 - 1e-9);
+        Assert.All(pills.Values, pill => Assert.Equal(400 - 24, pill.Position.Y, 6));
+    }
+
+    /// <summary>Spread past the end of the free edge, the pills carry on round the corner
+    /// instead of running off the map or under the chrome, still a press target apart.</summary>
+    [Fact]
+    public void Pills_crowded_at_the_end_of_an_edge_stay_inside_and_apart()
+    {
+        var chromed = OnBelgium() with { Reserved = new TileMapInsets(0, 60, 80, 0) };
+
+        var pills = TileMapProjection.PlacePills(
+            chromed,
+            [("a", new MapCoordinate(30, 60)), ("b", new MapCoordinate(30.1, 60)), ("c", new MapCoordinate(30.2, 60))],
+            inset: 24,
+            spacing: 44);
+
+        Assert.Equal(3, pills.Count);
+        AssertApart(pills.Values, 44);
+        AssertInside(pills.Values, 24, 24, 600 - 60 - 24, 400 - 80 - 24);
+    }
+
+    /// <summary>Pills on two edges near the shared corner keep a press target apart too.</summary>
+    [Fact]
+    public void Pills_either_side_of_a_corner_keep_apart()
+    {
+        var pills = TileMapProjection.PlacePills(
+            OnBelgium(),
+            [("ne", new MapCoordinate(62.5, 40)), ("top", new MapCoordinate(75, 20))],
+            inset: 24,
+            spacing: 44);
+
+        Assert.Equal(2, pills.Count);
+        AssertApart(pills.Values, 44);
+    }
+
+    /// <summary>
+    /// The short maps the narrow layout draws: 390px wide and 128 or 160 tall, the chrome
+    /// reserving a strip down the right and a foot. Four close marks out of view are four
+    /// pills — none is dropped — each a press target from the next and on the map.
+    /// </summary>
+    [Theory]
+    [InlineData(128)]
+    [InlineData(160)]
+    public void Four_close_marks_off_a_short_map_are_four_pickable_pills(double height)
+    {
+        var shortMap = new TileMapViewport(new MapCoordinate(48.0, 2.0), 7, 390, height, new TileMapInsets(0, 44, 70, 0));
+
+        var pills = TileMapProjection.PlacePills(shortMap, CloseMarks(), inset: 24, spacing: 44);
+
+        Assert.Equal(["amsterdam", "hilversum", "nieuwegein", "utrecht"], pills.Keys.Order(StringComparer.Ordinal));
+        AssertApart(pills.Values, 44);
+        AssertInside(pills.Values, 0, 0, 390 - 44, height - 70);
+    }
+
+    /// <summary>Chrome reaching past the whole map leaves no free part: the map is taken
+    /// whole rather than holding nothing, so a mark is still a pin or a pill.</summary>
+    [Fact]
+    public void Chrome_that_covers_the_whole_map_is_not_reserved()
+    {
+        var covered = new TileMapViewport(new MapCoordinate(52.2, 5.2), 8, 390, 128, new TileMapInsets(0, 44, 140, 0));
+
+        Assert.All(CloseMarks(), mark => Assert.True(TileMapProjection.IsInView(covered, mark.Point)));
+        Assert.Empty(TileMapProjection.PlacePills(covered, CloseMarks(), inset: 24, spacing: 44));
+    }
+
+    /// <summary>Every out-of-view mark gets a pill, however small the free part is.</summary>
+    [Fact]
+    public void A_free_part_smaller_than_the_inset_still_places_every_pill()
+    {
+        var tiny = new TileMapViewport(new MapCoordinate(48.0, 2.0), 7, 60, 40, new TileMapInsets(0, 10, 10, 0));
+
+        var pills = TileMapProjection.PlacePills(tiny, CloseMarks(), inset: 24, spacing: 44);
+
+        Assert.Equal(4, pills.Count);
+        AssertInside(pills.Values, 0, 0, 50, 30);
+    }
+
+    /// <summary>Utrecht, Nieuwegein, Hilversum and Amsterdam: the re-verify's four.</summary>
+    private static (string Id, MapCoordinate Point)[] CloseMarks() =>
+    [
+        ("utrecht", new MapCoordinate(52.09, 5.12)),
+        ("nieuwegein", new MapCoordinate(52.03, 5.09)),
+        ("hilversum", new MapCoordinate(52.22, 5.18)),
+        ("amsterdam", new MapCoordinate(52.37, 4.90))
+    ];
+
+    private static void AssertApart(IEnumerable<TileMapEdgePlacement> pills, double spacing)
+    {
+        var list = pills.ToList();
+        for (var i = 0; i < list.Count; i++)
+        {
+            for (var j = i + 1; j < list.Count; j++)
+            {
+                var dx = list[i].Position.X - list[j].Position.X;
+                var dy = list[i].Position.Y - list[j].Position.Y;
+                Assert.True(Math.Sqrt((dx * dx) + (dy * dy)) >= spacing - 1e-6, $"{list[i]} and {list[j]} are closer than {spacing}.");
+            }
+        }
+    }
+
+    private static void AssertInside(IEnumerable<TileMapEdgePlacement> pills, double left, double top, double right, double bottom)
+    {
+        Assert.All(pills, pill =>
+        {
+            Assert.InRange(pill.Position.X, left - 1e-6, right + 1e-6);
+            Assert.InRange(pill.Position.Y, top - 1e-6, bottom + 1e-6);
+        });
+    }
+
+    [Fact]
+    public void A_point_in_view_gets_no_pill()
+    {
+        Assert.Empty(TileMapProjection.PlacePills(OnBelgium(), [("antwerp", Antwerp)], inset: 24, spacing: 44));
+    }
+
     private static TileMapScreenPoint Rounded(TileMapScreenPoint point) =>
         new(Math.Round(point.X, 6), Math.Round(point.Y, 6));
 }

@@ -37,6 +37,13 @@
 
     @if (State == TileMapState.Ready && _viewport is { } viewport)
     {
+        var ranks = Ranks();
+        var pills = TileMapProjection.PlacePills(
+            viewport,
+            Marks.Where(mark => mark.Label is not null).Select(mark => (mark.Id, mark.Point)),
+            PillInset,
+            PillSpacing);
+
         <div class="tile-map__marks">
             @foreach (var mark in Marks)
             {
@@ -46,8 +53,8 @@
                     <button @key="@($"pin:{mark.Id}")"
                             type="button"
                             id="@PinId(mark)"
-                            class="@MarkClass("tile-map__pin", mark)"
-                            style="@Position(position)"
+                            class="@PinClass(mark, position, viewport)"
+                            style="@Style(position, ranks, mark)"
                             aria-pressed="@(IsSelected(mark) ? "true" : "false")"
                             aria-label="@mark.AccessibleName"
                             data-mark-id="@mark.Id"
@@ -57,14 +64,13 @@
                         <span class="tile-map__tooltip" aria-hidden="true">@mark.Tooltip</span>
                     </button>
                 }
-                else if (mark.Label is not null
-                         && TileMapProjection.EdgePlacement(viewport, mark.Point, PillInset) is { } placement)
+                else if (pills.TryGetValue(mark.Id, out var placement))
                 {
                     <button @key="@($"pill:{mark.Id}")"
                             type="button"
                             id="@PillId(mark)"
                             class="@($"{MarkClass("tile-map__pill", mark)} tile-map__pill--{EdgeSlug(placement.Edge)}")"
-                            style="@Position(placement.Position)"
+                            style="@Style(placement.Position, ranks, mark)"
                             aria-pressed="@(IsSelected(mark) ? "true" : "false")"
                             aria-label="@mark.AccessibleName"
                             title="@mark.Tooltip"
@@ -77,40 +83,48 @@
                 }
             }
         </div>
-
-        <div class="tile-map__controls">
-            <IconButton AriaLabel="@ZoomInLabel"
-                        CssClass="tile-map__control"
-                        Disabled="@(viewport.Zoom >= MaxZoom)"
-                        TestId="@PartTestId("zoom-in")"
-                        OnClick="() => ZoomByAsync(1)">+</IconButton>
-            <IconButton AriaLabel="@ZoomOutLabel"
-                        CssClass="tile-map__control"
-                        Disabled="@(viewport.Zoom <= MinZoom)"
-                        TestId="@PartTestId("zoom-out")"
-                        OnClick="() => ZoomByAsync(-1)">&#x2212;</IconButton>
-            <IconButton AriaLabel="@FitLabel"
-                        CssClass="tile-map__control"
-                        Disabled="@(Marks.Count == 0)"
-                        TestId="@PartTestId("fit")"
-                        OnClick="FitAsync">&#x2922;</IconButton>
-        </div>
-
     }
 
-    @* One foot for the legend and the attribution, so on a narrow map they wrap
-       instead of one covering the other (ADR 0061 §6 wants the attribution
-       always visible). *@
-    @if (ShowsLegend || ShowsAttribution)
+    @* The chrome: the controls in a column of their own on the right, the legend and
+       the attribution in the foot beside it, so on a narrow map the legend wraps in its
+       column rather than covering Fit all, and the attribution stays visible (ADR 0061
+       §6). Drawn while the map starts too, so the map can measure what it covers before
+       it frames the first view; the zoom buttons wait for a view to zoom. *@
+    @if (ShowsControls || ShowsAttribution)
     {
-        <div class="tile-map__foot">
-            @if (ShowsLegend)
+        <div class="tile-map__chrome">
+            @if (ShowsControls)
             {
-                <div class="tile-map__legend" data-testid="@PartTestId("legend")">@Legend</div>
+                <div class="tile-map__controls">
+                    <IconButton AriaLabel="@ZoomInLabel"
+                                CssClass="tile-map__control"
+                                Disabled="@(_viewport is not { } zoomed || zoomed.Zoom >= MaxZoom)"
+                                TestId="@PartTestId("zoom-in")"
+                                OnClick="() => ZoomByAsync(1)">+</IconButton>
+                    <IconButton AriaLabel="@ZoomOutLabel"
+                                CssClass="tile-map__control"
+                                Disabled="@(_viewport is not { } zoomed2 || zoomed2.Zoom <= MinZoom)"
+                                TestId="@PartTestId("zoom-out")"
+                                OnClick="() => ZoomByAsync(-1)">&#x2212;</IconButton>
+                    <IconButton AriaLabel="@FitLabel"
+                                CssClass="tile-map__control"
+                                Disabled="@(_viewport is null || Marks.Count == 0)"
+                                TestId="@PartTestId("fit")"
+                                OnClick="FitAsync">&#x2922;</IconButton>
+                </div>
             }
-            @if (ShowsAttribution)
+            @if (ShowsLegend || ShowsAttribution)
             {
-                <p class="tile-map__attribution" data-testid="@PartTestId("attribution")">@Attribution</p>
+                <div class="tile-map__foot">
+                    @if (ShowsLegend)
+                    {
+                        <div class="tile-map__legend" data-testid="@PartTestId("legend")">@Legend</div>
+                    }
+                    @if (ShowsAttribution)
+                    {
+                        <p class="tile-map__attribution" data-testid="@PartTestId("attribution")">@Attribution</p>
+                    }
+                </div>
             }
         </div>
     }
@@ -150,6 +164,20 @@
     /// half a pill and a little air, so the whole pill is on the map.</summary>
     internal const double PillInset = 24;
 
+    /// <summary>How far apart two pills on one edge sit at the least: a press target,
+    /// 44px, so neither covers the other's.</summary>
+    internal const double PillSpacing = 44;
+
+    /// <summary>A rough width per character of a tooltip, in CSS pixels at its extra-small
+    /// size, and what its padding adds: enough to tell when one centred over a pin would
+    /// run past the free part of the map.</summary>
+    private const double TooltipCharacterWidth = 7;
+    private const double TooltipPadding = 12;
+
+    /// <summary>The room a tooltip above a pin takes: half the pin, the gap and its own
+    /// height. A pin nearer the top than this opens its tooltip below.</summary>
+    private const double TooltipRise = 48;
+
     private readonly string _mapId = "tile-map-" + Guid.NewGuid().ToString("N");
     private DotNetObjectReference<TileMap>? _self;
     private ElementReference _tiles;
@@ -159,6 +187,7 @@
     private bool _unavailable;
     private bool _fittedOnMarks;
     private string? _focusPinOf;
+    private (bool Controls, bool Legend, bool Attribution)? _measuredChrome;
 
     /// <summary>
     /// Leaflet's tile URL template — <c>{z}</c>, <c>{x}</c> and <c>{y}</c> are
@@ -270,7 +299,9 @@
 
     private bool HasSource => !string.IsNullOrWhiteSpace(TileUrlTemplate);
 
-    private bool ShowsLegend => Legend is not null && State == TileMapState.Ready;
+    private bool ShowsControls => State is TileMapState.Loading or TileMapState.Ready;
+
+    private bool ShowsLegend => Legend is not null && ShowsControls;
 
     private bool ShowsAttribution =>
         HasSource && !string.IsNullOrWhiteSpace(Attribution) && State != TileMapState.Unavailable;
@@ -309,12 +340,57 @@
 
     private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
 
-    private static string MarkClass(string block, TileMapMark mark) => mark.Tone switch
+    /// <summary>A pin's classes: its tone; numbered, which the stylesheet draws above an
+    /// unnumbered pin so a past event never hides an upcoming one at the same spot; and the
+    /// way its tooltip opens, turned inwards near an edge of the free part of the map so it
+    /// stays on the map and clear of the controls.</summary>
+    private static string PinClass(TileMapMark mark, TileMapScreenPoint position, TileMapViewport viewport)
     {
-        TileMapMarkTone.Dashed => $"{block} tile-map__mark--dashed",
-        TileMapMarkTone.Muted => $"{block} tile-map__mark--muted",
-        _ => $"{block} tile-map__mark--filled"
-    };
+        var classes = MarkClass("tile-map__pin", mark);
+
+        var half = ((mark.Tooltip.Length * TooltipCharacterWidth) + TooltipPadding) / 2;
+        var left = viewport.Reserved.Left;
+        var right = viewport.Width - viewport.Reserved.Right;
+        if (position.X + half > right) classes += " tile-map__pin--tip-end";
+        else if (position.X - half < left) classes += " tile-map__pin--tip-start";
+        if (position.Y - TooltipRise < viewport.Reserved.Top) classes += " tile-map__pin--tip-below";
+
+        return classes;
+    }
+
+    /// <summary>A mark's block, its tone, and — for a numbered mark — the class the
+    /// stylesheet stacks by the rank in its style, above every unnumbered mark.</summary>
+    private static string MarkClass(string block, TileMapMark mark)
+    {
+        var tone = mark.Tone switch
+        {
+            TileMapMarkTone.Dashed => $"{block} tile-map__mark--dashed",
+            TileMapMarkTone.Muted => $"{block} tile-map__mark--muted",
+            _ => $"{block} tile-map__mark--filled"
+        };
+
+        return mark.Label is null ? tone : $"{tone} tile-map__mark--numbered";
+    }
+
+    /// <summary>Each numbered mark's stacking rank, by id: the first in the host's order —
+    /// the lowest number — the highest, so where two numbered pins overlap the lower number
+    /// is the one seen and picked.</summary>
+    private Dictionary<string, int> Ranks()
+    {
+        var ranks = new Dictionary<string, int>(StringComparer.Ordinal);
+        var rank = TileMapRanks.Highest;
+        foreach (var mark in Marks.Where(mark => mark.Label is not null))
+        {
+            ranks.TryAdd(mark.Id, Math.Max(1, rank--));
+        }
+
+        return ranks;
+    }
+
+    private static string Style(TileMapScreenPoint point, Dictionary<string, int> ranks, TileMapMark mark) =>
+        ranks.TryGetValue(mark.Id, out var rank)
+            ? string.Create(CultureInfo.InvariantCulture, $"{Position(point)}; --tile-map-rank: {rank}")
+            : Position(point);
 
     private static string Position(TileMapScreenPoint point) => string.Create(
         CultureInfo.InvariantCulture,
@@ -338,12 +414,28 @@
 
     /// <summary>Reported by the map whenever its view moves, every frame of a
     /// pan, and once more with <paramref name="settled"/> when the move ends. On
-    /// the renderer's dispatcher, because a call from JS is not.</summary>
+    /// the renderer's dispatcher, because a call from JS is not.
+    /// <para><paramref name="reservedRight"/> and <paramref name="reservedBottom"/> are how
+    /// far in the controls' column and the foot reach, measured on the page; nothing to pick
+    /// is placed under them.</para></summary>
     [JSInvokable]
-    public Task ViewMoved(double latitude, double longitude, double zoom, double width, double height, bool settled) =>
+    public Task ViewMoved(
+        double latitude,
+        double longitude,
+        double zoom,
+        double width,
+        double height,
+        bool settled,
+        double reservedRight = 0,
+        double reservedBottom = 0) =>
         InvokeAsync(async () =>
         {
-            _viewport = new TileMapViewport(new MapCoordinate(latitude, longitude), zoom, width, height);
+            _viewport = new TileMapViewport(
+                new MapCoordinate(latitude, longitude),
+                zoom,
+                width,
+                height,
+                new TileMapInsets(0, reservedRight, reservedBottom, 0));
             StateHasChanged();
 
             if (settled) await ViewChanged.InvokeAsync(_viewport);
@@ -427,6 +519,7 @@
         }
 
         await FocusPickedPinAsync();
+        await MeasureChromeAsync();
 
         // Reachability is left as it is: the new source's first tile to load
         // reports TilesReachable(true), and that render takes an offline note
@@ -467,11 +560,25 @@
         await CallAsync("backlogFocus", PinId(mark), false);
     }
 
+    private (bool Controls, bool Legend, bool Attribution) Chrome => (ShowsControls, ShowsLegend, ShowsAttribution);
+
+    /// <summary>The chrome the map last measured, against what is drawn now: a legend handed
+    /// in late, the controls back after the offline note. When it changed, the map measures
+    /// what it covers again and reports the view with it.</summary>
+    private async Task MeasureChromeAsync()
+    {
+        if (_measuredChrome == Chrome) return;
+
+        _measuredChrome = Chrome;
+        await CallAsync("backlogTileMap.measure", _mapId);
+    }
+
     private async Task InitializeAsync()
     {
         _self ??= DotNetObjectReference.Create(this);
         _initializedSource = TileUrlTemplate;
         _fittedOnMarks = Marks.Count > 0 || InitialView is not null;
+        _measuredChrome = Chrome;
 
         var options = new
         {
@@ -502,6 +609,7 @@
         _viewport = null;
         _reachable = true;
         _fittedOnMarks = false;
+        _measuredChrome = null;
         await CallAsync("backlogTileMap.dispose", _mapId);
     }
 

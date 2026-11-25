@@ -67,6 +67,74 @@ public sealed class TileMapStylesheetTests
         Assert.DoesNotContain(BodiesOf(".tile-map__attribution"), body => Regex.IsMatch(body, @"position:\s*absolute"));
     }
 
+    /// <summary>The layers a pin can sit on, lowest first: an unnumbered (past) pin, the
+    /// numbered ones — each at the rank TileMap writes on it, the lowest number highest — the
+    /// selected one, and the one under the pointer or the keyboard. A past event at the same
+    /// place never hides an upcoming one, and pin 2 never hides pin 1.</summary>
+    [Fact]
+    public void Numbered_marks_draw_by_rank_above_unnumbered_ones_and_the_selected_above_all()
+    {
+        var numbered = Assert.Single(BodiesOf(".tile-map__mark--numbered"));
+        Assert.Matches(@"z-index:\s*var\(--tile-map-rank,\s*1\)", numbered);
+
+        var selected = ZIndex(".tile-map__pin[aria-pressed=\"true\"]");
+        var focused = ZIndex(".tile-map__pin:focus-visible");
+        var hovered = ZIndex(".tile-map__pin:hover");
+
+        Assert.True(selected > TileMapRanks.Highest);
+        Assert.True(focused > selected);
+        Assert.True(hovered > selected);
+        Assert.DoesNotContain(BodiesOf(".tile-map__pin"), body => Regex.IsMatch(body, @"z-index"));
+    }
+
+    /// <summary>One rule per selector: the pill's base rule is the only one naming it alone.</summary>
+    [Fact]
+    public void The_pill_is_styled_in_one_rule_of_its_own()
+    {
+        Assert.Single(BodiesOf(".tile-map__pill"));
+    }
+
+    /// <summary>The controls and the foot share one grid over the map: the controls in a
+    /// column of their own, the foot beside it. On a narrow map the legend wraps within its
+    /// column and never covers Fit all.</summary>
+    [Fact]
+    public void The_controls_and_the_foot_keep_to_their_own_columns()
+    {
+        var chrome = Assert.Single(BodiesOf(".tile-map__chrome"));
+        Assert.Matches(@"display:\s*grid", chrome);
+        Assert.Matches(@"pointer-events:\s*none", chrome);
+
+        var controls = Assert.Single(BodiesOf(".tile-map__controls"));
+        Assert.Matches(@"grid-column:\s*2", controls);
+        Assert.DoesNotMatch(@"position:\s*absolute", controls);
+
+        var foot = Assert.Single(BodiesOf(".tile-map__foot"));
+        Assert.Matches(@"grid-column:\s*1", foot);
+        Assert.DoesNotMatch(@"position:\s*absolute", foot);
+    }
+
+    /// <summary>A tooltip near an edge turns inwards rather than running off the map or
+    /// under the controls.</summary>
+    [Theory]
+    [InlineData(".tile-map__pin--tip-end .tile-map__tooltip", @"right:\s*0")]
+    [InlineData(".tile-map__pin--tip-start .tile-map__tooltip", @"left:\s*0")]
+    [InlineData(".tile-map__pin--tip-below .tile-map__tooltip", @"top:\s*calc\(100%")]
+    public void A_tooltip_near_an_edge_turns_inwards(string selector, string declaration)
+    {
+        Assert.Contains(BodiesOf(selector), body => Regex.IsMatch(body, declaration));
+    }
+
+    private static int ZIndex(string selector)
+    {
+        var values = BodiesOf(selector)
+            .Select(body => Regex.Match(body, @"z-index:\s*(\d+)"))
+            .Where(match => match.Success)
+            .Select(match => int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        Assert.True(values.Count > 0, $"No z-index for {selector}.");
+        return values.Max();
+    }
+
     /// <summary>Every rule body whose selector list names <paramref name="selector"/>
     /// exactly, as one of its comma-separated selectors.</summary>
     private static IEnumerable<string> BodiesOf(string selector)

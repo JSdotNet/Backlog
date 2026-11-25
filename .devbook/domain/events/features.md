@@ -58,6 +58,7 @@ flowchart LR
     Look -->|not found| None["Store no point: Address not found"]
     Look -->|offline, no key or failed| Later["Store no point: Not looked up yet"]
     Later -->|next save or Look up now| Look
+    None -->|Look up now| Look
     Point --> Draw["The map draws a pin from the stored point"]
 ```
 
@@ -77,11 +78,12 @@ the map's nearest edge, and picking it brings the event into view.
 editor. The legend names the tones in words: Going, Spotted or considering, Past.
 
 **Not on the map.** A row says why its event has no pin: *Online*, *No venue
-yet*, *Address not found*, or *Address not looked up yet*. Not found means the
+yet* for an event with no address, *Address not found*, or *Address not looked
+up yet*. Not found means the
 geocoder looked and found nothing; not looked up yet means it was never asked,
 because the app was offline, had no map key, or the call failed. The editor's
 venue field says the same, or gives the event's number when it is on the map,
-and offers *Look up now* for an address not looked up yet. Nothing retries in the
+and offers *Look up now* for an address not looked up yet or not found. Nothing retries in the
 background: the next save, *Look up now*, or the person first saving the map key
 looks it up.
 

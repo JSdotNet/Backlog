@@ -41,9 +41,25 @@ public sealed record TileMapMark(
     string? Label = null,
     TileMapMarkTone Tone = TileMapMarkTone.Filled);
 
+/// <summary>How far in from each side of the map its own chrome reaches, in CSS pixels:
+/// the zoom controls' column on the right, the legend and attribution along the bottom.
+/// The tiles under it are covered, so nothing to pick is placed there.</summary>
+public readonly record struct TileMapInsets(double Top, double Right, double Bottom, double Left);
+
 /// <summary>What a tile map shows: its centre, its zoom, and its size in CSS
-/// pixels, as Leaflet reports them.</summary>
-public sealed record TileMapViewport(MapCoordinate Center, double Zoom, double Width, double Height);
+/// pixels, as Leaflet reports them — and how much of it the map's chrome covers,
+/// which <see cref="TileMapProjection.IsInView"/> leaves out.</summary>
+public sealed record TileMapViewport(MapCoordinate Center, double Zoom, double Width, double Height, TileMapInsets Reserved = default);
+
+/// <summary>The stacking ranks a tile map writes on its numbered marks: the lowest number
+/// highest, so a nearby pin 2 never covers pin 1. Capped below the selected and focused
+/// layers in <c>components.css</c>, which sit above every rank.</summary>
+internal static class TileMapRanks
+{
+    /// <summary>The highest rank written, the first numbered mark's; the stylesheet's
+    /// selected layer is above it.</summary>
+    public const int Highest = 9000;
+}
 
 /// <summary>A centre and a zoom: where a map opens when the host says so.</summary>
 public sealed record TileMapView(MapCoordinate Center, double Zoom);

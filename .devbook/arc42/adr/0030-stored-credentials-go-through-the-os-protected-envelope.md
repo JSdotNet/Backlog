@@ -91,8 +91,9 @@ flowchart LR
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
 | MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
+| Azure Maps key (local ADR 0061 §4) | `AzureMapsSettingsStore` | DPAPI, per value | not composed |
 
-The three settings stores are desktop-only. Only the Windows head and the desktop
+The four settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,
 so none needs an Android secure store.
 

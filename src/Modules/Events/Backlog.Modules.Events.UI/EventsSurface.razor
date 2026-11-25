@@ -180,6 +180,7 @@
                                          Event="selected"
                                          MapNumber="SelectedMapNumber"
                                          InView="SelectedInView"
+                                         IsPast="SelectedIsPast"
                                          Writes="_writes"
                                          OnSaved="SavedAsync"
                                          OnOpenEvent="SelectAsync"
@@ -273,6 +274,11 @@
 
     /// <summary>The open event's map number, as its row and pin carry it.</summary>
     private int? SelectedMapNumber => SelectedSummary?.MapNumber;
+
+    /// <summary>Whether the open event is listed under Past.</summary>
+    private bool SelectedIsPast =>
+        _selectedId is { } id
+        && _sections.Any(section => section.Section == EventListSection.Past && section.Events.Any(summary => summary.Id == id));
 
     /// <summary>Whether the open event's pin is in the map's view: null while that is not
     /// known — the map hidden, not drawn yet, or the event not on it.</summary>

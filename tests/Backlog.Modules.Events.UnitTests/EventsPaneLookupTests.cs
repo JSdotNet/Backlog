@@ -294,6 +294,9 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         Assert.False(lookingUpWhenHeard);
     }
 
+    /// <summary>The second save comes once the first lookup has sent, so it has started and
+    /// the second queues behind it rather than merging into it; held at the gate, the first
+    /// keeps the second from sending.</summary>
     [Fact]
     public async Task Lookups_for_one_event_run_one_at_a_time_and_the_last_address_wins()
     {
@@ -301,11 +304,11 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         Read(await Pane.SetPlaceAsync(id, AtAddress(Antwerpen), Token));
+        await Geocoder.SentAsync(1).WaitAsync(Token);
         Read(await Pane.SetPlaceAsync(id, AtAddress(Brussel), Token));
-        while (Geocoder.Sent.Count == 0) await Task.Delay(10, Token);
-        await Task.Delay(50, Token);
 
         Assert.Equal(["Antwerpen"], Geocoder.Sent.Select(sent => sent.Town));
+        Assert.True(Pane.IsLookingUp(id));
 
         Geocoder.Gate.SetResult();
         await LookUpsSettledAsync();
@@ -327,7 +330,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         var id = await Add("Techorama Belgium");
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Read(await Pane.SetPlaceAsync(id, AtAddress(Antwerpen), Token));
-        while (Geocoder.Sent.Count == 0) await Task.Delay(10, Token);
+        await Geocoder.SentAsync(1).WaitAsync(Token);
 
         var renameHeld = Store.PauseNextSave();
         var renaming = Pane.RenameAsync(id, "Techorama Belgium 2027", Token);
@@ -353,7 +356,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         Read(await Pane.SetPlaceAsync(id, AtAddress(offline), Token));
-        while (Geocoder.Sent.Count == 0) await Task.Delay(10, Token);
+        await Geocoder.SentAsync(1).WaitAsync(Token);
         Read(await Pane.SetPlaceAsync(id, AtAddress(offline, venue: "Kinepolis Gent"), Token));
         Read(await Pane.SetPlaceAsync(id, AtAddress(offline, venue: "Kinepolis Gent 2"), Token));
         Read(await Pane.SetPlaceAsync(id, AtAddress(offline, venue: "Kinepolis Gent 3"), Token));
@@ -373,7 +376,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         var other = await Add("Cloudbrew");
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Read(await Pane.SetPlaceAsync(id, AtAddress(new AddressDto(null, null, "Gent", null)), Token));
-        while (Geocoder.Sent.Count < 2) await Task.Delay(10, Token);
+        await Geocoder.SentAsync(2).WaitAsync(Token);
         Read(await Pane.SetPlaceAsync(id, AtAddress(nowhere), Token));
 
         var retry = Pane.LookUpAddressAsync(id, Token);
@@ -469,12 +472,15 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         Assert.Equal(AntwerpenPoint, lookedUp.Event.Place!.Point);
     }
 
+    /// <summary>Look up now asked while a save's lookup is out queues behind it; that one
+    /// places the address, so the retry sends nothing and says so (Answer null).</summary>
     [Fact]
     public async Task Look_up_now_waits_for_the_lookup_a_save_started_and_sends_nothing_twice()
     {
         var id = await Add("Techorama Belgium");
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Read(await Pane.SetPlaceAsync(id, AtAddress(Antwerpen), Token));
+        await Geocoder.SentAsync(1).WaitAsync(Token);
 
         var lookingUp = Pane.LookUpAddressAsync(id, Token);
         Geocoder.Gate.SetResult();
@@ -482,6 +488,29 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
 
         Assert.Single(Geocoder.Sent);
         Assert.Null(lookedUp.Answer);
+        Assert.Equal(AddressLookup.Placed, lookedUp.Event.Place!.Lookup);
+    }
+
+    /// <summary>Look up now asked before the save's lookup has started merges into it: one
+    /// send, and the answer is that lookup's, since it sent. The save's lookup is held from
+    /// starting by one queued before it for the same event.</summary>
+    [Fact]
+    public async Task Look_up_now_merged_into_a_lookup_not_started_answers_what_that_lookup_sent()
+    {
+        var id = await Add("Techorama Belgium");
+        var offline = new AddressDto(null, null, "Gent", "Belgium");
+        Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Read(await Pane.SetPlaceAsync(id, AtAddress(offline), Token));
+        await Geocoder.SentAsync(1).WaitAsync(Token);
+        Read(await Pane.SetPlaceAsync(id, AtAddress(Antwerpen), Token));
+
+        var lookingUp = Pane.LookUpAddressAsync(id, Token);
+        Geocoder.Gate.SetResult();
+        var lookedUp = LookedUp(await lookingUp);
+        await LookUpsSettledAsync();
+
+        Assert.Equal(["Gent", "Antwerpen"], Geocoder.Sent.Select(sent => sent.Town));
+        Assert.Equal(AddressLookup.Placed, lookedUp.Answer);
         Assert.Equal(AddressLookup.Placed, lookedUp.Event.Place!.Lookup);
     }
 
@@ -527,7 +556,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         await PlacedAsync(placed, AtAddress(Antwerpen));
         await PlacedAsync(notFound, AtAddress(new AddressDto(null, null, "Nergenshuizen", null)));
         await PlacedAsync(online, new PlaceDto(null, true));
-        Geocoder.Sent.Clear();
+        Geocoder.ClearSent();
         Geocoder.Places("Gent", 51.0543, 3.7174);
         Geocoder.FindsNothingIn("Leuven");
 
@@ -549,7 +578,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         var id = await Add("Techorama Belgium");
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Read(await Pane.SetPlaceAsync(id, AtAddress(Antwerpen), Token));
-        while (Geocoder.Sent.Count == 0) await Task.Delay(10, Token);
+        await Geocoder.SentAsync(1).WaitAsync(Token);
 
         var passing = Pane.LookUpPendingAsync(Token);
         Geocoder.Gate.SetResult();
@@ -570,7 +599,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
         Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var passing = Pane.LookUpPendingAsync(Token);
-        while (Geocoder.Sent.Count < 2) await Task.Delay(10, Token);
+        await Geocoder.SentAsync(2).WaitAsync(Token);
 
         Assert.True(Pane.IsLookingUp(id));
 
@@ -584,7 +613,7 @@ public sealed class EventsPaneLookupTests : EventsPaneFixture
     {
         var id = await Add("Techorama Belgium");
         await PlacedAsync(id, AtAddress(Antwerpen));
-        Geocoder.Sent.Clear();
+        Geocoder.ClearSent();
 
         var pass = await Pane.LookUpPendingAsync(Token);
 

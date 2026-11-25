@@ -138,7 +138,7 @@
                            ValueChanged="VenueInput"
                            Disabled="_online"
                            Id="@VenueId"
-                           HelpText="@EventPresentation.VenueHint(Event.Place, MapNumber, InView, Pane.IsLookingUp(Event.Id))"
+                           HelpText="@EventPresentation.VenueHint(Event.Place, MapNumber, InView, Pane.IsLookingUp(Event.Id), Event.State == KnowledgeEventState.Skipped, IsPast)"
                            ErrorMessage="@Error("place")"
                            TestId="events-field-venue"
                            @onchange="@((ChangeEventArgs e) => CommitTextAsync(VenueInput, e))" />
@@ -194,6 +194,7 @@
                                    Busy="_lookingUp"
                                    BusyLabel="Looking up"
                                    TestId="events-lookup-now"
+                                   id="@LookUpId"
                                    OnClick="LookUpNowAsync">Look up now</AppButton>
                     </div>
                 }
@@ -520,6 +521,10 @@
     [Parameter]
     public bool? InView { get; set; }
 
+    /// <summary>Whether the event is listed under Past: on the map, its pin is grey.</summary>
+    [Parameter]
+    public bool IsPast { get; set; }
+
     /// <summary>What a Look up now that got no answer says: nothing was looked up, so the event
     /// reads as it did (an address not found stays not found).</summary>
     public const string LookUpNoAnswer = "Nothing was looked up: the map service could not be reached. Try again later.";
@@ -537,6 +542,8 @@
     private string TitleId => _id + "-title";
 
     private string VenueId => _id + "-venue";
+
+    private string LookUpId => _id + "-lookup";
 
     private string AddressId => _id + "-address";
 
@@ -908,7 +915,26 @@
             left = true;
         }
 
-        if (left) await CommitAddressAsync();
+        if (!left) return;
+
+        // A press on Look up now took the focus: the click saves the address and looks it up,
+        // in one go. Saved here, its lookup would hide the button under the pointer before the
+        // click landed, and the person would have to click again for the answer.
+        if (LookUpOffered && await FocusIsWithinAsync("#" + LookUpId)) return;
+
+        await CommitAddressAsync();
+    }
+
+    private async Task<bool> FocusIsWithinAsync(string selector)
+    {
+        try
+        {
+            return await Js.InvokeAsync<bool>("backlogFocusWithin", selector);
+        }
+        catch (JSException)
+        {
+            return false;
+        }
     }
 
     private Task AddressKeyAsync(KeyboardEventArgs args) => args.Key == "Enter" ? CommitAddressAsync() : Task.CompletedTask;
@@ -958,6 +984,12 @@
     {
         if (_lookingUp) return;
 
+        if (DraftAddress() != _committedAddress)
+        {
+            await SaveAndLookUpAsync();
+            return;
+        }
+
         _lookingUp = true;
         _lookUpNote = null;
         try
@@ -980,6 +1012,65 @@
         finally
         {
             _lookingUp = false;
+        }
+    }
+
+    /// <summary>
+    /// Look up now over an address edited and not saved yet: the address is saved, and that
+    /// save is what looks it up (ADR 0061 §5) — one click, one lookup, not a save's lookup and
+    /// a retry behind it. The editor waits for that lookup to be over and says how it went, as
+    /// Look up now does.
+    /// </summary>
+    private async Task SaveAndLookUpAsync()
+    {
+        _lookingUp = true;
+        _lookUpNote = null;
+        try
+        {
+            await CommitAddressAsync();
+            await LookUpOverAsync(Event.Id);
+
+            if (await Pane.GetAsync(Event.Id) is not Ok<KnowledgeEventDto>(var saved)) return;
+
+            if (saved.Place is { Address: not null, Lookup: AddressLookup.NotLookedUpYet }) _lookUpNote = LookUpNoAnswer;
+            await OnSaved.InvokeAsync(saved);
+            if (saved.Place is { Lookup: AddressLookup.Placed }) _focusVenue = true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _lookUpNote = "Could not look up: " + exception.Message;
+        }
+        finally
+        {
+            _lookingUp = false;
+        }
+    }
+
+    /// <summary>Completes once the pane is no longer looking the event's address up: at once
+    /// when it is not, else on the <see cref="IEventsPane.Changed"/> the pane raises when the
+    /// lookup is over, or after half a minute at the most.</summary>
+    private async Task LookUpOverAsync(Guid id)
+    {
+        var over = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Check()
+        {
+            if (!Pane.IsLookingUp(id)) over.TrySetResult();
+        }
+
+        Pane.Changed += Check;
+        try
+        {
+            Check();
+            // Bounded: the adapter times a call out at ten seconds, so a lookup still running
+            // after half a minute is not one this click is waiting on.
+            await over.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch (TimeoutException)
+        {
+        }
+        finally
+        {
+            Pane.Changed -= Check;
         }
     }
 

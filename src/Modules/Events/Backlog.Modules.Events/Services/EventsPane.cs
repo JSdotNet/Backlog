@@ -356,18 +356,29 @@ internal sealed class EventsPane(
         lock (_gate) return _lookUps.ContainsKey(id);
     }
 
-    /// <summary>Waits for every lookup this pane has running, the ones queued behind them too.</summary>
+    /// <summary>Waits for every lookup this pane has queued to be over — its answer kept and
+    /// <see cref="Changed"/> told — the ones queued meanwhile too. It waits on the lookups' own
+    /// tasks, not on <see cref="_lookUps"/>, which an event leaves just before it is told.</summary>
     internal async Task LookUpsSettledAsync()
     {
         while (true)
         {
             Task[] running;
-            lock (_gate) running = [.. _lookUps.Values.Select(lookUp => lookUp.Tail)];
+            lock (_gate)
+            {
+                _queued.RemoveAll(lookUp => lookUp.IsCompleted);
+                running = [.. _queued];
+            }
+
             if (running.Length == 0) return;
 
             await Task.WhenAll(running).ConfigureAwait(false);
         }
     }
+
+    /// <summary>Every lookup queued and not over, for <see cref="LookUpsSettledAsync"/>;
+    /// guarded by <see cref="_gate"/>.</summary>
+    private readonly List<Task> _queued = [];
 
     public Task<Result<KnowledgeEventDto>> SetLinkAsync(Guid id, string? link, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
@@ -572,6 +583,7 @@ internal sealed class EventsPane(
             var prior = queue.Tail;
             var entry = new QueuedLookUp { Retry = retry };
             entry.Answer = RunUnflowed(() => LookUpAfterAsync(prior, id, entry));
+            _queued.Add(entry.Answer);
             queue.Waiting = entry;
             queue.Tail = entry.Answer;
             return entry.Answer;

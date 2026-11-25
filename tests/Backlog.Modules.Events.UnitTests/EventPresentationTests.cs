@@ -142,6 +142,10 @@ public sealed class EventPresentationTests
             "Not looked up yet: it will be looked up when you save again, or Look up now.",
             EventPresentation.VenueHint(new PlaceDto(null, false, Antwerp, AddressLookup.NotLookedUpYet), null, null));
         Assert.Null(EventPresentation.VenueHint(Placed(), null, null));
+        Assert.Equal("On the map, in grey.", EventPresentation.VenueHint(Placed(), null, null, past: true));
+        Assert.Equal("Skipped: not on the map.", EventPresentation.VenueHint(Placed(), null, null, skipped: true));
+        Assert.Equal("Skipped: not on the map.", EventPresentation.VenueHint(Placed(), null, null, skipped: true, past: true));
+        Assert.Equal("Add an address to put it on the map.", EventPresentation.VenueHint(new PlaceDto("Jaarbeurs", false), null, null, skipped: true));
         Assert.Equal(EventPresentation.LookingUpHint, EventPresentation.VenueHint(new PlaceDto(null, false, Antwerp, AddressLookup.NotLookedUpYet), null, null, lookingUp: true));
         Assert.Equal("Online: not on the map.", EventPresentation.VenueHint(new PlaceDto(null, true), null, null, lookingUp: true));
     }

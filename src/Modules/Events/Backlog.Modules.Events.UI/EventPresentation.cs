@@ -213,17 +213,20 @@ public static class EventPresentation
     /// <summary>
     /// The line under the editor's venue field (<c>requirements.md</c>, "The venue field says where
     /// the event is on the map"): its number while on the map, out of view while its pin is off
-    /// the map's view, that its address is being looked up, or why it is not on the map. Null for
-    /// an event on the map that carries no number — past or Skipped — since none of the hints is
-    /// about it.
+    /// the map's view, that its address is being looked up, or why it is not on the map. A placed
+    /// Skipped event has no pin and says so; a placed past one wears the grey, unnumbered pin.
+    /// Null for an upcoming event on the map with no number, which numbering never leaves.
     /// </summary>
-    public static string? VenueHint(PlaceDto? place, int? mapNumber, bool? inView, bool lookingUp = false) => place switch
+    public static string? VenueHint(
+        PlaceDto? place, int? mapNumber, bool? inView, bool lookingUp = false, bool skipped = false, bool past = false) => place switch
     {
         { IsOnline: false, Address: not null } when lookingUp => LookingUpHint,
         { IsOnline: true } => "Online: not on the map.",
         null or { Address: null } => "Add an address to put it on the map.",
         { Point: null, Lookup: AddressLookup.NotFound } => "Address not found: check it.",
         { Point: null } => "Not looked up yet: it will be looked up when you save again, or Look up now.",
+        _ when skipped => "Skipped: not on the map.",
+        _ when mapNumber is null && past => "On the map, in grey.",
         _ when mapNumber is not { } number => null,
         _ when inView == false => "Outside the map's view.",
         _ => $"On the map as {mapNumber.Value.ToString(Invariant)}."

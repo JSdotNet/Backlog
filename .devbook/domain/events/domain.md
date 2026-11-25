@@ -405,7 +405,8 @@ related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/
 
 An event the map cannot show, because it has no [Map Point](#map-point). It is
 online, has no address yet, or its [Address Lookup](#address-lookup) reads
-Address not found or Not looked up yet. The pane says which of the four.
+Address not found or Not looked up yet. The pane says which of the four, and
+calls an event with no address No venue yet, whether or not it has a venue name.
 
 ### Talk picks
 

@@ -76,10 +76,10 @@ public sealed class TileMapScriptTests
         var result = Run("""
             await start({ x: 600, y: 400 });
             const fit = maps[0].fits[0];
-            console.log(`${JSON.stringify(fit.bounds)} padding=${fit.options.padding} maxZoom=${fit.options.maxZoom} views=${maps[0].views.length}`);
+            console.log(`${JSON.stringify(fit.bounds)} topLeft=${fit.options.paddingTopLeft} bottomRight=${fit.options.paddingBottomRight} maxZoom=${fit.options.maxZoom} views=${maps[0].views.length}`);
             """);
 
-        Assert.Equal("[[51,3],[60,11]] padding=48,48 maxZoom=13 views=0", result);
+        Assert.Equal("[[51,3],[60,11]] topLeft=48,48 bottomRight=48,48 maxZoom=13 views=0", result);
     }
 
     /// <summary>A map laid out after it started — a pane still opening — cannot
@@ -112,7 +112,109 @@ public sealed class TileMapScriptTests
             console.log(calls.map(c => `${c[0]}:${c.slice(1).join('/')}`).join(' '));
             """);
 
-        Assert.Equal("ViewMoved:50/6/7/600/400/true", result);
+        Assert.Equal("ViewMoved:50/6/7/600/400/true/0/0", result);
+    }
+
+    /// <summary>What the map's chrome covers — the controls' column on the right, the foot
+    /// along the bottom — is measured from the page and reported with every view, so the
+    /// pins and pills keep out from under it.</summary>
+    [Fact]
+    public void The_view_reports_what_the_chrome_covers()
+    {
+        var result = Run("""
+            chromed(element);
+            await start({ x: 600, y: 400 });
+            const last = calls.filter(c => c[0] === 'ViewMoved').at(-1);
+            console.log(last.slice(1).join('/'));
+            """);
+
+        // The map is 0..600 by 0..400; the controls start at x=548, the foot at y=330.
+        Assert.Equal("50/6/7/600/400/true/52/70", result);
+    }
+
+    /// <summary>Fit all frames the marks inside the part of the map the chrome leaves free:
+    /// no framed pin lands under the legend or the controls.</summary>
+    [Fact]
+    public void A_fit_pads_for_the_chrome()
+    {
+        var result = Run("""
+            chromed(element);
+            await start({ x: 600, y: 400 });
+            const fit = maps[0].fits[0];
+            console.log(`topLeft=${fit.options.paddingTopLeft} bottomRight=${fit.options.paddingBottomRight}`);
+            """);
+
+        Assert.Equal("topLeft=48,48 bottomRight=100,118", result);
+    }
+
+    /// <summary>A short map — 390px wide, 144 tall, the narrow layout — has less height
+    /// than the padding and the foot together. Fitting into a negative area sent Leaflet to
+    /// the closest zoom it was allowed, framing no pin. The chrome's reserve is dropped
+    /// first, then the padding shrinks, so the fit always has room to frame the marks.</summary>
+    [Fact]
+    public void A_map_too_short_for_its_chrome_fits_into_the_room_it_has()
+    {
+        var result = Run("""
+            chromed(element, { box: rect(0, 0, 390, 144), controls: rect(346, 8, 382, 110), foot: rect(8, 74, 338, 136) });
+            await start({ x: 390, y: 144 });
+            const o = maps[0].fits[0].options;
+            const free = [390 - o.paddingTopLeft[0] - o.paddingBottomRight[0], 144 - o.paddingTopLeft[1] - o.paddingBottomRight[1]];
+            console.log(`topLeft=${o.paddingTopLeft} bottomRight=${o.paddingBottomRight} free=${free}`);
+            """);
+
+        Assert.Equal("topLeft=48,48 bottomRight=48,48 free=294,48", result);
+    }
+
+    [Fact]
+    public void A_map_too_small_even_for_its_padding_shrinks_the_padding()
+    {
+        var result = Run("""
+            await start({ x: 120, y: 80 });
+            const o = maps[0].fits[0].options;
+            console.log(`topLeft=${o.paddingTopLeft} bottomRight=${o.paddingBottomRight}`);
+            """);
+
+        // 80px tall leaves 48 of room with 16 on either side.
+        Assert.Equal("topLeft=16,16 bottomRight=16,16", result);
+    }
+
+    /// <summary>
+    /// The short maps of the narrow layout, 390 wide and 128 or 160 tall: the chrome would
+    /// leave less than the fit's room, so it is not reserved — not in the fit and not in the
+    /// view reported for placing pins — and a mark the fit frames is drawn as a pin. A map
+    /// tall enough keeps its reserve in both.
+    /// </summary>
+    [Theory]
+    [InlineData(128, "reported=0/0 bottomRight=40,40")]
+    [InlineData(160, "reported=0/0 bottomRight=48,48")]
+    [InlineData(256, "reported=44/70 bottomRight=92,118")]
+    public void Fit_and_placement_reserve_the_chrome_by_one_rule(int height, string expected)
+    {
+        var result = Run($$"""
+            chromed(element, { box: rect(0, 0, 390, {{height}}), controls: rect(346, 8, 390, 110), foot: rect(8, {{height}} - 70, 338, {{height}}) });
+            await start({ x: 390, y: {{height}} });
+            const view = calls.filter(c => c[0] === 'ViewMoved').at(-1);
+            const o = maps[0].fits[0].options;
+            console.log(`reported=${view[7]}/${view[8]} bottomRight=${o.paddingBottomRight}`);
+            """);
+
+        Assert.Equal(expected, result);
+    }
+
+    /// <summary>The component asks for a measure when its chrome changed after the start; the
+    /// map answers with a settled view carrying the new frame.</summary>
+    [Fact]
+    public void Measure_reports_the_view_again_with_the_chrome_as_it_is_now()
+    {
+        var result = Run("""
+            await start({ x: 600, y: 400 });
+            chromed(element);
+            calls.length = 0;
+            window.backlogTileMap.measure('m');
+            console.log(calls.map(c => c.join('/')).join(' '));
+            """);
+
+        Assert.Equal("ViewMoved/50/6/7/600/400/true/52/70", result);
     }
 
     [Fact]
@@ -241,6 +343,17 @@ public sealed class TileMapScriptTests
 
             const dotnet = { invokeMethodAsync(method, ...args) { calls.push([method, ...args]); return Promise.resolve(); } };
             const element = { isConnected: true };
+
+            const rect = (left, top, right, bottom) => ({ left, top, right, bottom, width: right - left, height: bottom - top });
+            function chromed(target, layout) {
+                const parts = {
+                    '.tile-map__controls': { getBoundingClientRect: () => layout?.controls ?? rect(548, 8, 592, 120) },
+                    '.tile-map__foot': { getBoundingClientRect: () => layout?.foot ?? rect(8, 330, 540, 392) }
+                };
+                const section = { querySelector: selector => parts[selector] ?? null };
+                target.getBoundingClientRect = () => layout?.box ?? rect(0, 0, 600, 400);
+                target.closest = selector => selector === '.tile-map' ? section : null;
+            }
 
             class Events {
                 constructor() { this.handlers = {}; }

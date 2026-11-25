@@ -31960,10 +31960,24 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
     color: var(--color-text-secondary);
 }
 
+/* The layers, lowest first: an unnumbered (past) pin; the numbered pins and pills,
+   each at the rank TileMap writes on it (TileMapRanks), the lowest number highest
+   so pin 2 never covers pin 1; the selected one; and the one under the pointer or
+   the keyboard. A past event at the same place never hides an upcoming one, and a
+   hovered pin's tooltip is on top. */
+.tile-map__mark--numbered {
+    z-index: var(--tile-map-rank, 1);
+}
+
+.tile-map__pin:hover,
+.tile-map__pill:hover {
+    z-index: 9002;
+}
+
 /* Selected is width, not hue: the outer ring grows from 1px to 3px. */
 .tile-map__pin[aria-pressed="true"],
 .tile-map__pill[aria-pressed="true"] {
-    z-index: 1;
+    z-index: 9001;
     box-shadow: 0 0 0 calc(var(--border-width) + var(--border-width-2)) var(--color-text-primary);
 }
 
@@ -31974,7 +31988,7 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
    Contrast (accessibility.md#focus-visibility). */
 .tile-map__pin:focus-visible,
 .tile-map__pill:focus-visible {
-    z-index: 2;
+    z-index: 9002;
     outline: var(--border-width-2) solid transparent;
     outline-offset: var(--border-width-2);
     box-shadow:
@@ -32020,18 +32034,52 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
     display: block;
 }
 
+/* Near an edge of the free map the tooltip turns inwards (TileMap decides which),
+   so it stays on the map and clear of the controls' column. */
+.tile-map__pin--tip-end .tile-map__tooltip {
+    right: 0;
+    left: auto;
+    transform: none;
+}
+
+.tile-map__pin--tip-start .tile-map__tooltip {
+    left: 0;
+    transform: none;
+}
+
+.tile-map__pin--tip-below .tile-map__tooltip {
+    top: calc(100% + var(--spacing-xs));
+    bottom: auto;
+}
+
+/* The chrome: one grid over the map, holding the controls in a column of their own
+   and the foot beside it, so on a narrow map the legend wraps in its column and
+   never covers Fit all. The grid itself lets the pointer through to the tiles;
+   each plate on it takes the pointer back. TileMap measures what the column and
+   the foot cover and keeps pins, pills and a fit out from under them. */
+.tile-map__chrome {
+    position: absolute;
+    inset: var(--spacing-sm);
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: var(--spacing-sm);
+    pointer-events: none;
+}
+
 /* The controls, legend and attribution each sit on an opaque plate. */
 .tile-map__controls {
-    position: absolute;
-    z-index: 2;
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: start;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background-alt);
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
     display: flex;
     flex-direction: column;
     padding: var(--spacing-2xs);
+    pointer-events: auto;
 }
 
 .tile-map__control {
@@ -32043,11 +32091,10 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
    would meet, the row wraps and the legend stands above the attribution, so
    neither covers the other and the attribution stays visible (ADR 0061 §6). */
 .tile-map__foot {
-    position: absolute;
-    right: var(--spacing-sm);
-    bottom: var(--spacing-sm);
-    left: var(--spacing-sm);
-    z-index: 2;
+    grid-column: 1;
+    grid-row: 3;
+    align-self: end;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;

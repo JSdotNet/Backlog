@@ -7185,9 +7185,12 @@
         them where they were until it ended.
 
         What .NET is told:
-        - ViewMoved(lat, lng, zoom, width, height, settled) on every frame of a
-          move, at most once per animation frame, and once more settled when it
-          ends or the map is resized;
+        - ViewMoved(lat, lng, zoom, width, height, settled, right, bottom) on
+          every frame of a move, at most once per animation frame, and once more
+          settled when it ends, the map is resized, or the component asks for a
+          measure. right and bottom are how far in the controls' column and the
+          foot reach, measured on the page, so no pin or pill is placed under the
+          map's own chrome; a fit pads for them too;
         - TilesReachable(false) when a view finished loading with no tile on
           screen and at least one failed, or the browser says it went offline;
           TilesReachable(true) when a tile loads again. Tiles that fail beside
@@ -7239,6 +7242,60 @@
         return loading;
     }
 
+    // How far in from the map's right and bottom edges its chrome reaches: the
+    // controls' column and the foot (legend and attribution), read off the page
+    // because their size is the stylesheet's and the host's words. None drawn is 0.
+    function backlogTileMapReserved(element) {
+        const section = element?.closest?.('.tile-map');
+        if (!section || !element.getBoundingClientRect) return { right: 0, bottom: 0 };
+
+        const box = element.getBoundingClientRect();
+        const controls = section.querySelector('.tile-map__controls')?.getBoundingClientRect();
+        const foot = section.querySelector('.tile-map__foot')?.getBoundingClientRect();
+        return {
+            right: controls && controls.width > 0 ? Math.max(0, box.right - controls.left) : 0,
+            bottom: foot && foot.height > 0 ? Math.max(0, box.bottom - foot.top) : 0
+        };
+    }
+
+    // The smallest room, in CSS pixels each way, a fit frames its marks into.
+    const BACKLOG_TILE_MAP_FIT_ROOM = 48;
+
+    // The padding a fit keeps on each side: its own, plus what the chrome covers on
+    // the right and at the bottom. A map too short or narrow for that — the narrow
+    // layout's 144px map under a two-line legend — would leave a negative room, and
+    // Leaflet answers that with the closest zoom it may use, framing nothing. So the
+    // chrome's reserve goes first, then the padding shrinks, until the marks have
+    // at least BACKLOG_TILE_MAP_FIT_ROOM to be framed in.
+    function backlogTileMapFits(size, right, bottom, edge) {
+        return size.x - (2 * edge) - right >= BACKLOG_TILE_MAP_FIT_ROOM
+            && size.y - (2 * edge) - bottom >= BACKLOG_TILE_MAP_FIT_ROOM;
+    }
+
+    // The chrome's reserve as fit and placement both use it: kept while the map has a
+    // fit's room beside it, dropped otherwise. One rule for both, so a mark a fit frames
+    // is a pin, not a pill or nothing (a short map of the narrow layout drops it).
+    function backlogTileMapEffectiveReserved(size, padding, reserved) {
+        return backlogTileMapFits(size, reserved.right, reserved.bottom, padding)
+            ? reserved
+            : { right: 0, bottom: 0 };
+    }
+
+    function backlogTileMapFitPadding(size, padding, reserved) {
+        const room = BACKLOG_TILE_MAP_FIT_ROOM;
+        const fits = (right, bottom, edge) => backlogTileMapFits(size, right, bottom, edge);
+
+        if (fits(reserved.right, reserved.bottom, padding)) {
+            return { topLeft: [padding, padding], bottomRight: [padding + reserved.right, padding + reserved.bottom] };
+        }
+        if (fits(0, 0, padding)) {
+            return { topLeft: [padding, padding], bottomRight: [padding, padding] };
+        }
+
+        const edge = Math.max(0, Math.min(padding, (size.x - room) / 2, (size.y - room) / 2));
+        return { topLeft: [edge, edge], bottomRight: [edge, edge] };
+    }
+
     function backlogTileMapFit(state, fit) {
         const { map } = state;
         const size = map.getSize();
@@ -7254,9 +7311,10 @@
 
         state.pendingFit = null;
         const [south, west, north, east] = fit.bounds;
-        const padding = Number(fit.padding) || 0;
+        const padding = backlogTileMapFitPadding(size, Number(fit.padding) || 0, backlogTileMapReserved(state.element));
         map.fitBounds([[south, west], [north, east]], {
-            padding: [padding, padding],
+            paddingTopLeft: padding.topLeft,
+            paddingBottomRight: padding.bottomRight,
             maxZoom: fit.maxZoom,
             animate: false
         });
@@ -7295,14 +7353,16 @@
                 maxBoundsViscosity: 1
             });
 
-            const state = { map, layer: null, dotnet, frame: 0, drawn: new Set(), failed: 0, reachable: true, pendingFit: null };
+            const state = { map, element, padding: Number(options.fit?.padding) || 0, layer: null, dotnet, frame: 0, drawn: new Set(), failed: 0, reachable: true, pendingFit: null };
 
             const send = settled => {
                 const centre = map.getCenter();
                 const size = map.getSize();
-                dotnet.invokeMethodAsync('ViewMoved', centre.lat, centre.lng, map.getZoom(), size.x, size.y, settled)
+                const reserved = backlogTileMapEffectiveReserved(size, state.padding, backlogTileMapReserved(element));
+                dotnet.invokeMethodAsync('ViewMoved', centre.lat, centre.lng, map.getZoom(), size.x, size.y, settled, reserved.right, reserved.bottom)
                     .catch(() => { });
             };
+            state.send = send;
             const report = reachable => {
                 if (state.reachable === reachable) return;
                 state.reachable = reachable;
@@ -7394,6 +7454,12 @@
 
         retry(id) {
             backlogTileMaps.get(id)?.layer.redraw();
+        },
+
+        // The component's chrome changed (a legend handed in late, the controls back after
+        // the offline note): report the view again, settled, with what it covers now.
+        measure(id) {
+            backlogTileMaps.get(id)?.send(true);
         },
 
         dispose(id) {

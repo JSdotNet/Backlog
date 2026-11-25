@@ -33,6 +33,13 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     /// can focus, which backlogFocusWithin answers alike — unless a test moves it to the next part.</summary>
     private bool _focusLeftAddress = true;
 
+    /// <summary>Where the browser says the focus is when the editor asks about Look up now: on
+    /// it once a press on the button took the focus out of the address fields.</summary>
+    private bool _focusOnLookUp;
+
+    private static bool AsksAboutLookUp(Bunit.JSRuntimeInvocation invocation) =>
+        invocation.Arguments.Count > 0 && invocation.Arguments[0] is string selector && selector.EndsWith("-lookup", StringComparison.Ordinal);
+
     /// <summary>The Inbox's flag, <c>InboxFeatures.Pane</c>, as a string: the Events tests
     /// reference no Inbox project, as the Events module references none.</summary>
     private const string InboxPane = "inbox-pane";
@@ -45,8 +52,8 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         _clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("CET-screen", Cet, "CET", "CET"));
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
-        _context.JSInterop.Setup<bool>("backlogFocusWithin", _ => !_focusLeftAddress).SetResult(true);
-        _context.JSInterop.Setup<bool>("backlogFocusWithin", _ => _focusLeftAddress).SetResult(false);
+        _context.JSInterop.Setup<bool>("backlogFocusWithin", i => AsksAboutLookUp(i) ? _focusOnLookUp : !_focusLeftAddress).SetResult(true);
+        _context.JSInterop.Setup<bool>("backlogFocusWithin", i => AsksAboutLookUp(i) ? !_focusOnLookUp : _focusLeftAddress).SetResult(false);
         _context.Services.AddSingleton(Pane);
         _context.Services.AddSingleton<ISurfaceNavigator>(_navigator);
         _context.Services.AddSingleton<TimeProvider>(_clock);
@@ -1467,7 +1474,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     {
         var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
         var point = Saved(id).Place!.Point;
-        Geocoder.Sent.Clear();
+        Geocoder.ClearSent();
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-venue'] input"));
 
@@ -1493,7 +1500,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Antwerpen", null)), Token)).Value);
         await LookUpsSettledAsync();
         Assert.Equal(AddressLookup.NotLookedUpYet, Saved(id).Place!.Lookup);
-        Geocoder.Sent.Clear();
+        Geocoder.ClearSent();
         var pane = RenderOn(id);
         pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-venue'] input"));
         Assert.Equal("Not looked up yet: it will be looked up when you save again, or Look up now.", Hint(pane));
@@ -1520,7 +1527,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Brussel", null)), Token)).Value);
         await LookUpsSettledAsync();
         pane.WaitForAssertion(() => Assert.Equal("Brussel", pane.Find("[data-testid='events-field-town'] input").GetAttribute("value")));
-        Geocoder.Sent.Clear();
+        Geocoder.ClearSent();
 
         pane.Find("[data-testid='events-field-venue'] input").Input("Square");
         _clock.Advance(EventEditor.TextDelay + TimeSpan.FromMilliseconds(10));
@@ -1613,6 +1620,60 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.WaitForAssertion(() => Assert.Equal(EventEditor.LookUpNoAnswer, Text(pane, "events-lookup-note")));
         Assert.Equal("Address not found: check it.", Hint(pane));
         Assert.Equal(AddressLookup.NotFound, Saved(id).Place!.Lookup);
+    }
+
+    /// <summary>
+    /// An address edited and not saved yet, then Look up now: the press takes the focus out of
+    /// the address, and the one click saves the address and looks it up — once, the save's own
+    /// lookup — and says how it went. The focus leaving for the button saves nothing by itself:
+    /// that save's lookup hid the button under the pointer, so the click landed on nothing and a
+    /// second click was needed for the answer.
+    /// </summary>
+    [Fact]
+    public async Task Look_up_now_on_an_address_still_being_edited_saves_it_and_looks_it_up_once_in_one_click()
+    {
+        var id = await Dated("Mystery meetup", new DateOnly(2027, 5, 18));
+        Geocoder.FindsNothingIn("Nergenshuizen");
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto("Nowherestraat 1", null, "Nergenshuizen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-lookup-now']"));
+        Geocoder.ClearSent();
+        Geocoder.Throws = new HttpRequestException("offline");
+
+        pane.Find("[data-testid='events-field-town'] input").Input("Offline");
+        pane.Find("[data-testid='events-field-town'] input").Change("Offline");
+        _focusLeftAddress = true;
+        _focusOnLookUp = true;
+        pane.Find("[data-testid='events-field-town'] input").FocusOut();
+
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='events-lookup-now']")));
+        Assert.Equal("Nergenshuizen", Saved(id).Place!.Address!.Town);
+        Assert.Empty(Geocoder.Sent);
+
+        pane.Find("[data-testid='events-lookup-now']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(EventEditor.LookUpNoAnswer, Text(pane, "events-lookup-note")));
+        await LookUpsSettledAsync();
+        Assert.Equal("Offline", Saved(id).Place!.Address!.Town);
+        Assert.Equal(AddressLookup.NotLookedUpYet, Saved(id).Place!.Lookup);
+        Assert.Single(Geocoder.Sent);
+    }
+
+    [Fact]
+    public async Task A_past_event_on_the_map_reads_in_grey_and_a_skipped_one_says_it_is_not_on_the_map()
+    {
+        var past = await PlacedIn("Techorama 2025", new DateOnly(2025, 5, 20), "Antwerpen", 51.22, 4.40);
+        var skipped = await PlacedIn("NDC London", new DateOnly(2027, 1, 25), "London", 51.51, -0.13);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SkipAsync(skipped, "Too far", Token)).Value);
+        var pane = RenderPane();
+        pane.WaitForAssertion(() => pane.Find($"[data-testid='events-row-{past:N}']"));
+
+        pane.Find($"[data-testid='events-row-{past:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("On the map, in grey.", Hint(pane)));
+
+        pane.Find($"[data-testid='events-row-{skipped:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Skipped: not on the map.", Hint(pane)));
     }
 
     [Fact]

@@ -232,7 +232,8 @@ related: [".devbook/tech/desktop.md#leaflet", ".devbook/arc42/03-context-and-sco
 alternatives: ["MapTiler", "OpenStreetMap tiles and Nominatim", "OpenFreeMap"]
 ```
 
-The map service behind the Events map, on the EU endpoint. Not yet provisioned.
+The map service behind the Events map, on the EU endpoint, called from the adapter
+project `Backlog.Infrastructure.AzureMaps`. Built; the account is not yet provisioned.
 
 - **Used for** — two calls the desktop makes itself, with the key it stores:
   - **Render**, Get Map Tile: the raster road tiles the map shows.

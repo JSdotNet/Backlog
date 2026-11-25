@@ -1,7 +1,7 @@
 # ADR 0061: The Events map uses online tiles and geocodes an address on save
 
 ```meta
-date: 2026-11-24
+date: 2026-11-25
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0045-the-sync-service-relays-dictation-audio-to-foundry-and-keeps-none-of-it.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0057-archify-is-retired-and-mermaid-draws-every-chapter-diagram.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/features.md#events-pane", ".devbook/domain/events/domain.md#place", ".devbook/design/component-libraries.md#diagram-and-graph-strategy"]
 c4: [backlog.desktop.events]
 c4-touches: [backlog.desktop.sync, azureMaps]
@@ -23,7 +23,8 @@ proposed 2026-11-24 by that run. The
 domain chapters of the same run add the [Address](../../domain/events/domain.md#address)
 and the [Map Point](../../domain/events/domain.md#map-point) to a
 [Place](../../domain/events/domain.md#place) and link here for why the address leaves
-the machine. Not built.
+the machine. Built 2026-11-25 by the flow-code run that added the map, and amended
+to that code in §3, §5 and §6.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline".
@@ -97,7 +98,7 @@ One Azure Maps account, Gen2, serves both halves through the EU endpoint
 - **Tiles** come from Render's Get Map Tile as raster road tiles, 256 pixels square.
 - **Points** come from Search's Get Geocoding, `api-version=2026-01-01`, with the
   structured parameters. Street goes to `addressLine`, postcode to `postalCode`, town
-  to `locality` and country to `countryRegion`.
+  to `locality`, and the country's code to `countryRegion` (§3).
 
 The endpoint, the tileset and the api-version are settings, so a newer version is a
 setting change, not a decision.
@@ -130,8 +131,14 @@ point. This keeps every interactive mark a real button, as
 
 | Sent to | What | When | Never |
 |---|---|---|---|
-| The geocoder | The address's four parts, as typed, and the request headers of the desktop's HTTP client | When the person saves an address new or changed, or presses the retry | The venue name, title, dates, state, notes or any other event |
+| The geocoder | The street, postcode and town as typed, the country's code, and the desktop HTTP client's request headers | When the person saves an address new or changed, or presses the retry | The venue name, title, dates, state, notes or any other event |
 | The tile service | The zoom and tile coordinates of the view, and the WebView's ordinary request headers | While the Events pane is open with the map shown | Any event data: the pins are drawn locally |
+
+The country goes out as its ISO 3166-1 alpha-2 code, because `countryRegion` takes
+only that code. The desktop reads the code from the typed name or code, such as
+"België" or "BEL" for `BE`. A country it does not recognise is left out of the call.
+An address that holds only such a country sends nothing and is stored as not found,
+since no answer finer than a province could come back.
 
 The Azure Maps key travels with both, as §4 says. The person's IP address reaches
 Microsoft with every request, as with any web request.
@@ -186,6 +193,10 @@ stateDiagram-v2
 - **Nothing retries in the background.** No timer, no startup pass and no queue
   re-sends a failed lookup. The next save of that event, or the person's explicit
   retry, sends it again. A long offline spell therefore ends in no burst of calls.
+- **The key's first save looks up what waits.** Events saved before a key existed
+  have no point. When the person first saves the key in Settings, that act looks up
+  each address not looked up yet, once, one call at a time. It is the person's own
+  act, so the rule above still holds, and only one such pass runs at a time.
 - **Resilience,** per guideline 0015, sits on the adapter's `HttpClient`: a 10-second
   timeout, at most one retry on a `408`, `429` or `5xx`, and a circuit breaker.
 - **Nothing personal is logged.** Telemetry carries the outcome, the status code and
@@ -203,8 +214,11 @@ stateDiagram-v2
 - **A point** is its own cache: it is stored on the event, so the map never asks
   again. The event replicates with its point, so a second desktop does not look the
   same address up again.
-- **Attribution** shows at the map's bottom right, always visible, with the copyright
-  text Azure Maps requires for the tiles in view.
+- **Attribution** shows at the map's bottom right, always visible, as one fixed line:
+  "© Microsoft Azure Maps and its data providers". Azure Maps can word it per view
+  through Get Map Attribution, but the tile source hands the map only a URL template
+  and knows no view to ask about. The fixed line names the provider and its data
+  providers in every view.
 - **Limits.** One person's map stays far inside the free tier. A `429` is a failure
   like any other: the tiles that did not load stay blank, and a lookup stores no point.
 
@@ -256,18 +270,23 @@ Negative, and accepted:
 - **No map offline.** The pins have nothing to stand on until the connection returns.
 - **The terms on keeping geocodes are not settled.** See the open question below.
 
-**What the implementation has to build**, as a later flow-code change:
+**What the implementation built**, in the flow-code change of 2026-11-25:
 
-- the vendored Leaflet, with its README, and the map component over it;
-- the geocoder port in the Events module and its Azure Maps adapter project;
+- the vendored Leaflet 1.9.4, with its README, and the map component over it;
+- the geocoder port in the Events module and its adapter project,
+  `Backlog.Infrastructure.AzureMaps`;
 - the key in Settings, through the envelope of ADR 0030;
-- the lookup on save and the explicit retry, with the states of §5;
+- the lookup on save, the explicit retry and the key's first-save pass, with the
+  states of §5;
 - the attribution, the offline note and the missing-key note.
 
 **Follow-ups outside this record:**
 
-- The deployed sync service strips document fields it does not know. Until it is
-  redeployed, a point saved on one desktop does not reach the other.
+- **Update the desktops together.** The sync service stores the event document
+  unread, so it keeps the address, lookup and point. But under ADR 0050 §2 the copy
+  with the later stamp wins whole. A desktop on an older build drops the new fields
+  when it rewrites its row, and its edit to the event then wipes the address, lookup
+  and point everywhere.
 
 **Open questions for the person:**
 
@@ -279,9 +298,6 @@ Negative, and accepted:
   The local SQLite store is outside Azure, and the replica in Cosmos is inside. This
   record has not verified the current terms. Recommendation: read the Azure Maps
   section of the Product Terms before accepting.
-- **A pass after the key is first saved.** Events saved before a key exists have no
-  point. Recommendation: when the key is first saved, look up each unplaced address
-  once, one call at a time, as the person's own action.
 - **Who provisions the account.** Recommendation: by hand in `JS-AI` first, in West
   Europe, and in `infra/` once the map is built.
 
@@ -323,5 +339,6 @@ Negative, and accepted:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | Built, and amended to the code: the country goes out as its alpha-2 code or not at all; one fixed attribution line; the key's first save looks up waiting addresses; the follow-up names the older-build risk. | The person answered the flow-code run's Spec Check by amending the record to the built code. |
 | 2026-11-25 | Accepted. | The person approved the spec at Personal Validation. |
 | 2026-11-24 | Proposed: Azure Maps on the EU endpoint serves the Events map's tiles and geocodes an in-person event's address once on save, with Leaflet vendored and the key sealed on the desktop. | The person chose a street map with online tiles and addresses over an offline outline. |
