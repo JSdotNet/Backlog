@@ -911,6 +911,66 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>
+    /// The state <paramref name="row"/> shows because its plan is queued only as a
+    /// whole (local ADR 0062 §4), or null when the row is in no plan. The one answer
+    /// the row, the plan sections and My Day read: waiting is this state's own
+    /// <see cref="IsNotWaiting"/>, and <paramref name="run"/> is the plan's session
+    /// request and run — see <see cref="PlanEntryState.For"/>.
+    /// </summary>
+    public PlanEntryState? PlanEntryStateOf(EntryRow row, PlanRun? run = null)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return PlanEntryState.For(row, waiting: !IsNotWaiting(row), run);
+    }
+
+    /// <summary>
+    /// The plan <paramref name="row"/> is queued with, <c>+</c> and all, or null: its
+    /// plan tag when a roadmap item carries it (<see cref="RoadmapTags"/>). Such an
+    /// entry's own queue is refused, since the plan is queued only as a whole (local ADR
+    /// 0062 §4); a plan tag no roadmap item carries has no plan queue to send it to, so
+    /// its entry keeps its own.
+    /// </summary>
+    public string? QueuedOnlyWithPlan(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (PlanEntryState.PlanTagOf(row) is not { } tag) return null;
+
+        var bare = PlanQueueOffer.Bare(tag);
+
+        return RoadmapTags.Any(planned => string.Equals(PlanQueueOffer.Bare(planned), bare, StringComparison.OrdinalIgnoreCase))
+            ? tag
+            : null;
+    }
+
+    /// <summary>
+    /// Every entry of the plan <paramref name="plan"/> — with or without its <c>+</c>,
+    /// matched without regard to case — with its <see cref="PlanEntryStateOf"/>, in
+    /// the store's order: what a plan section groups into Now, Next and Later.
+    /// </summary>
+    public IReadOnlyList<(EntryRow Row, PlanEntryState State)> PlanEntryStatesOf(string plan, PlanRun? run = null)
+    {
+        var bare = PlanQueueOffer.Bare(plan);
+        if (bare.Length == 0) return [];
+
+        var states = new List<(EntryRow Row, PlanEntryState State)>();
+
+        foreach (var row in Rows)
+        {
+            if (PlanEntryState.PlanTagOf(row) is not { } tag
+                || !string.Equals(PlanQueueOffer.Bare(tag), bare, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (PlanEntryStateOf(row, run) is { } state) states.Add((row, state));
+        }
+
+        return states;
+    }
+
     /// <summary>Whether a row is open and waiting on nothing. Answered from
     /// <see cref="TaskChain"/> over every row the store holds rather than worked
     /// out here again, so the open-work report and the "Waiting for" line on the
