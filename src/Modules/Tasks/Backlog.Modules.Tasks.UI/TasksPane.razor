@@ -74,7 +74,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list" @ref="_backlogList">
+            <div class="@BacklogListCssClass" @ref="_backlogList">
                 @* Status narrows what is already in view, so it sits on the right.
                    Tags are the second label on an entry that already has one, built
                    from what people typed and with no ceiling on how many, so they
@@ -127,6 +127,43 @@
                         </div>
                     }
 
+                    @* The list's own control, first on its bar for the Columns select's
+                       reason: it decides what everything under the bar is — the plans
+                       on a rail beside the list, or one flat list. One of two, so a
+                       radiogroup in the statuses' shape (local ADR 0072 §1). *@
+                    @if (Layout == TasksLayout.List)
+                    {
+                        <div class="filter-group filter-group--grouping" role="radiogroup" aria-label="Group the list" data-testid="list-grouping">
+                            @foreach (var grouping in ListGroupings)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@((ListGrouping ?? TaskListGrouping.Flat) == grouping ? "chip--active" : null)"
+                                           TestId="list-grouping-option"
+                                           data-grouping="@grouping.ToString()"
+                                           role="radio"
+                                           aria-checked="@((ListGrouping ?? TaskListGrouping.Flat) == grouping ? "true" : "false")"
+                                           title="@(grouping == TaskListGrouping.Plans ? "Group the list by plan, with the plans on a rail" : "Show one flat list")"
+                                           OnClick="() => OnListGroupingPickedAsync(grouping)">
+                                    @grouping
+                                </AppButton>
+                            }
+                        </div>
+                    }
+
+                    @* Flat's own bar (local ADR 0072 §3): quiet text tabs in place of the
+                       chip rows — see RenderFlatBar. *@
+                    @if (FlatListed)
+                    {
+                        @RenderFlatBar()
+                    }
+                    else if (PlansGrouped)
+                    {
+                        @* Plans wears Flat's quiet bar too — see RenderPlansBar. *@
+                        @RenderPlansBar()
+                    }
+                    else
+                    {
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -264,6 +301,10 @@
                                 <ChildContent>
                                     @RenderSourceGroup()
                                     @RenderTypeGroup()
+                                    @if (PlansGrouped)
+                                    {
+                                        @RenderPlanRail()
+                                    }
                                 </ChildContent>
                             </PopoverButton>
                         </div>
@@ -312,6 +353,7 @@
                             <ArrowUpDownIcon />
                         </IconButton>
                     </div>
+                    }
 
                     @* The total the chips never gave, last on the bar — or beside
                        New entry in a narrow list column (RenderOpenWorkSummary). *@
@@ -329,10 +371,25 @@
                        queue never disappears again; the count is muted at 0. The
                        panel opens inward from that end. Read from the two polls the
                        chips already run: no timer of its own. *@
-                    @if (SessionQueueOffered)
+                    @if (SessionQueueOffered && !QueueDocked)
                     {
                         var queue = SessionQueueRows();
                         <div class="filter-group filter-group--queue">
+                            @* The entry a column item narrowed the list to, kept while the
+                               column is folded — an entry opened beside the list folds it —
+                               with its way back out on the bar, where the column's own
+                               Show all was. *@
+                            @if (SessionQueueFocusName() is { } focusName)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="chip--active session-queue-focus-chip"
+                                           TestId="session-queue-focus-bar"
+                                           title="@($"The list shows {focusName} alone. Show all")"
+                                           OnClick="OnSessionQueueFocusCleared">
+                                    Showing @focusName · Show all
+                                </AppButton>
+                            }
                             <PopoverButton @ref="_sessionQueuePopover"
                                            Id="session-queue"
                                            TestId="session-queue"
@@ -365,7 +422,7 @@
                        aria-pressed, and no "All" chip, because with nothing pressed
                        the list is already everything. That chip was the duplicate of
                        the statuses' own All. *@
-                    @if (State.TagFilters.Count > 0)
+                    @if (!FlatListed && !PlansGrouped && StripTags.Count > 0)
                     {
                         @* The strip's own row: last in the markup and, with
                            `order: 1`, below every other group, so it is a full
@@ -383,7 +440,7 @@
                                  class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null) @(_tagStripExpanded ? "filter-group--tags--expanded" : null)"
                                  role="group"
                                  aria-label="Filter by tag">
-                                @foreach (var tag in State.TagFilters)
+                                @foreach (var tag in StripTags)
                                 {
                                     @* Keyed by the tag, on whatever is the iteration's root,
                                        because a pressed plan moves: it leads the strip and
@@ -519,6 +576,13 @@
                     }
                 </div>
 
+                @* The Plans view's rail, on the left of the rows under the bar — or,
+                   on a narrow column, inside the Filter menu above. *@
+                @if (PlanRailBeside)
+                {
+                    @RenderPlanRail()
+                }
+
                 @* Everything below the filter bar scrolls, and the bar does not. The
                    list half used to be the scroll container, so the bar went up with
                    the rows and the scrollbar ran beside it — the filters were gone
@@ -545,7 +609,16 @@
                        the four things `.devbook/design/interaction-guidelines.md#focus-and-selection`
                        asks for by name, and they are the same four for every list in
                        the product. *@
-                    @if (State.SelectionMode || State.SelectionCount > 0)
+                    @if (FlatListed)
+                    {
+                        @* Flat's selection: one line of text actions, up while rows
+                           are picked (local ADR 0072 §3). *@
+                        @if (State.SelectionCount > 0)
+                        {
+                            @RenderFlatSelection()
+                        }
+                    }
+                    else if (State.SelectionMode || State.SelectionCount > 0)
                     {
                         <SelectionBar Count="@State.SelectionCount"
                                       Total="@State.FilteredRows.Count"
@@ -560,6 +633,21 @@
                                       CssClass="backlog-bulk-bar"
                                       TestId="bulk-bar"
                                       @onkeydown="OnSelectionBarKeyDown" />
+                    }
+
+                    @* Today's My Day holds plans as well as tasks: the plans first, each
+                       with only what it holds for the person (local ADR 0072 §8). *@
+                    @if (PlansTodayShown)
+                    {
+                        @RenderPlansToday()
+                        <h3 class="plan-sections__group-title plans-today__tasks-heading" data-testid="tasks-today-heading">Tasks today</h3>
+                    }
+
+                    @* Flat's heading: what the list is, whatever the bar narrows it to
+                       (local ADR 0072 §3). *@
+                    @if (FlatListed)
+                    {
+                        <h3 class="plan-sections__group-title flat-heading" data-testid="flat-heading">@FlatHeadingText</h3>
                     }
 
                     @if (State.IsLoading && State.Rows.Count == 0)
@@ -615,6 +703,8 @@
                                    Devbook. *@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
+                                    @RenderRowPlanState(entry)
+
                                     @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
                                     {
                                         @RenderRowWork(entry)
@@ -634,6 +724,21 @@
                                 }
                             </Badges>
                         </TaskBoard>
+                    }
+                    else if (PlanSectionsShown)
+                    {
+                        @* The Plans view with a plan selected on the rail: that plan
+                           expanded as Now, Next and Later, the other plans folded to a
+                           line each, then Unplanned (local ADR 0072 §3) — or, opened
+                           from its heading, that plan alone (§7). *@
+                        @if (PlanFocusShown)
+                        {
+                            @RenderPlanFocus()
+                        }
+                        else
+                        {
+                            @RenderPlanSections()
+                        }
                     }
                     else if (State.FilteredRows.Count == 0)
                     {
@@ -661,6 +766,11 @@
                            in, and the control that writes the first entry is the one
                            thing on this half that still has to be reachable. *@
                         @RenderAddEntry()
+
+                        @if (FlatListed)
+                        {
+                            @RenderFlatFooter()
+                        }
                     }
                     else
                     {
@@ -686,7 +796,7 @@
                                       Tasks="@EntryTasks()"
                                       Universe="@DependencyUniverse()"
                                       SelectedId="@SelectedTaskId"
-                                      SelectionEnabled="@State.SelectionMode"
+                                      SelectionEnabled="@(State.SelectionMode || FlatListed)"
                                       SelectedIds="@State.SelectedIds"
                                       SelectedIdsChanged="OnSelectionChanged"
                                       OnDismiss="OnRowDismiss"
@@ -704,6 +814,7 @@
                                       AllowCopy="true"
                                       RowCopyValue="@EntryCopyText"
                                       RowCssClass="@RepositoryMark"
+                                      QuietRows="true"
                                       AriaLabel="Tasks"
                                       TestId="entry-list">
                             <RowActions Context="task">
@@ -722,12 +833,16 @@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
                                     @RenderRowPickers(entry, task.Title)
-
-                                    @* Last in the slot, so it sits right before the
-                                       row's copy — where the open entry puts it too. *@
-                                    @QueueSessionFor(entry, QueueSessionPlace.Row)
                                 }
                             </RowActions>
+                            <RowTrailing Context="task">
+                                @* The quiet row's last square, after the copy: the
+                                   queue button and its three looks (local ADR 0072). *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @RenderRowQueue(entry, task.Title)
+                                }
+                            </RowTrailing>
                             <RowBadges Context="task">
                                 @* What work on the entry produced — its latest pull
                                    request and session. A fact to follow rather than a
@@ -735,6 +850,8 @@
                                    while the pickers stay among the controls after it. *@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
+                                    @RenderRowPlanState(entry)
+
                                     @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
                                     {
                                         @RenderRowWork(entry)
@@ -760,8 +877,21 @@
                                 @RenderAddEntry()
                             </AfterOpenRows>
                         </TaskListView>
+
+                        @if (FlatListed)
+                        {
+                            @RenderFlatFooter()
+                        }
                     }
                 </div>
+
+                @* The session queue docked on the right of the rows (local ADR 0072 §6),
+                   in Plans and in Flat alike, while the column is wider than 48rem; at
+                   or under it the queue folds back into the bar's popover above. *@
+                @if (QueueDocked)
+                {
+                    @RenderSessionQueueColumn(SessionQueueRows())
+                }
             </div>
         </Start>
 
@@ -1030,12 +1160,16 @@
         _sessionRequests.Refreshed += HandleSessionRequestsRefreshed;
         _sessionClock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
         _ = _sessionRequests.RefreshAsync();
+        _sessionAttention = Services.GetService(typeof(ISessionQueueAttention)) as ISessionQueueAttention;
+        _ = RefreshSessionAttentionAsync();
 
         _planSessions = new TasksPlanSessionRequests(
             Services.GetService(typeof(IPlanTagSessionRequests)) as IPlanTagSessionRequests,
             Services.GetService(typeof(TimeProvider)) as TimeProvider);
         _planSessions.Changed += HandleSessionRequestsChanged;
         _ = _planSessions.RefreshAsync(withRepositories: true);
+
+        StartPlanStages();
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -1111,7 +1245,8 @@
             _focusSessionQueue = null;
             if (queueTarget.Length == 0)
             {
-                if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
+                if (QueueDocked) await FocusQuietlyAsync("backlogFocus", SessionQueueColumnHeadingId);
+                else if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
             }
             else
             {
@@ -1295,43 +1430,36 @@
 
     private void HandleSessionRequestsChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>Where a queue icon is drawn: on the entry's list row, or on the
-    /// heading of the open entry. Both can be on screen at once for the same entry,
-    /// so each names its own reason element.</summary>
-    private enum QueueSessionPlace
-    {
-        Row,
-        Entry
-    }
-
     /// <summary>The queue icon's name: which repository the session is queued for,
     /// or that the press asks.</summary>
     private static string QueueSessionLabel(SessionStartOffer offer) =>
-        offer.Only is { } only
+        offer.PlanTag is { } plan
+            ? $"Queue the {plan} plan as a whole — its entries are not queued one by one"
+            : offer.Only is { } only
             ? $"Queue a session for this entry in {only.Repository}"
             : offer.AsksWhichRepository
                 ? "Queue a session for this entry — choose the repository"
                 : "Queue a session for this entry";
 
     /// <summary>
-    /// The queue icon for <paramref name="row"/> at <paramref name="place"/>, or null
-    /// when queueing offers nothing there — see <see cref="SessionQueueOfferFor"/>;
-    /// while a request is open the waiting chip stands in its place.
+    /// The open entry's queue icon for <paramref name="row"/>, or null when queueing
+    /// offers nothing there — see <see cref="SessionQueueOfferFor"/>; while a request
+    /// is open the waiting chip stands in its place. The list row draws its own, in
+    /// the quiet look — see <see cref="RenderRowQueue"/>.
     /// <para>
     /// Disabled rather than absent when there is no clone folder or no repository,
     /// with the reason to the pointer through the tooltip and to assistive technology
     /// through an sr-only span the button's <c>aria-describedby</c> names. That span's
-    /// id carries the entry and the place: every prompt row can draw one, and the
-    /// open entry draws its own beside its row's, so a fixed id would repeat.
+    /// id carries the entry and the place: the row draws its own beside this one, so a
+    /// fixed id would repeat.
     /// </para>
     /// </summary>
-    private RenderFragment? QueueSessionFor(EntryRow row, QueueSessionPlace place)
+    private RenderFragment? QueueSessionFor(EntryRow row)
     {
         if (row.Id is not { } id || SessionQueueOfferFor(row) is not { } offer) return null;
 
-        var (testId, buttonClass) = place == QueueSessionPlace.Row
-            ? ("row-queue-session", "task-item__action-button")
-            : ("entry-queue-session", "task-panel__action-button");
+        const string testId = "entry-queue-session";
+        const string buttonClass = "task-panel__action-button";
         var reasonId = $"{testId}-reason-{id:N}";
         var label = QueueSessionLabel(offer);
 
@@ -1360,6 +1488,118 @@
             }
         </text>;
     }
+
+    /// <summary>
+    /// The quiet row's queue button for <paramref name="row"/>, in the look its queue
+    /// state calls for, or null when queueing offers nothing on it (local ADR 0072).
+    /// <para>
+    /// Idle when nothing is queued: a press queues a session, as the open entry's icon
+    /// does. Queued once a request is open: amber, and a press takes the request back —
+    /// refused, with the request's state as the reason, once a dispatcher has picked it
+    /// up, on the open entry's terms for its Cancel. A plan entry's is refused and dim,
+    /// labelled to queue the plan as a whole (local ADR 0072 §4).
+    /// </para>
+    /// </summary>
+    private RenderFragment? RenderRowQueue(EntryRow row, string title)
+    {
+        if (row.Id is not { } id || !_sessionRequests.IsOffered) return null;
+
+        QueueButtonState state;
+        string label;
+        string? reason;
+        Func<Task> press;
+        var planQueued = false;
+
+        if (_sessionRequests.OpenFor(id) is { } waiting)
+        {
+            state = QueueButtonState.Queued;
+            label = $"Take {title} off the queue";
+            reason = waiting.State is EntrySessionRequestState.Requested ? null : SessionRequestTitle(waiting);
+            press = () => OnCancelSessionRequestAsync(row);
+        }
+        else if (SessionQueueOfferFor(row) is { } offer)
+        {
+            state = offer.PlanTag is null ? QueueButtonState.Idle : QueueButtonState.PlanEntry;
+            label = QueueSessionLabel(offer);
+            reason = offer.DisabledReason;
+            press = () => OnQueueSessionAsync(row);
+
+            // While the plan has a request open the inert icon is lit and says so,
+            // as the board "Row states — entry ↔ queue" draws it.
+            if (offer.PlanTag is { } plan && _planSessions.OpenFor(plan) is not null)
+            {
+                planQueued = true;
+                reason = PlanEntryQueuedReason(plan);
+            }
+        }
+        else
+        {
+            return null;
+        }
+
+        // One QueueButton for every state, so a cancel that turns it back to idle
+        // re-renders the same button and the focus stays on it.
+        return @<QueueButton State="@state"
+                             PlanQueued="@planQueued"
+                             Label="@label"
+                             DisabledReason="@reason"
+                             Busy="@_sessionRequests.IsBusy(id)"
+                             ReasonId="@($"row-queue-session-reason-{id:N}")"
+                             TestId="row-queue-session"
+                             OnClick="press" />;
+    }
+
+    /// <summary>What a plan entry's refused queue icon says while its plan is queued.</summary>
+    internal static string PlanEntryQueuedReason(string plan) =>
+        $"Queued with the {plan} plan — its entries run with it";
+
+    /// <summary>
+    /// A plan entry's plan state for its list row (local ADR 0072 §4; the boards "Row
+    /// states — entry ↔ queue" and "Tasks — flat list, queue docked"), or null when the
+    /// row is in no plan or the state says nothing its own status and blocked mark do not.
+    /// <para>
+    /// In plan session and Landed hold whether or not the plan is queued; Queued with
+    /// plan, Held for you and Left for you are run states, so they show only while the
+    /// plan has a request open (the requirement "A queued plan gives each entry its run
+    /// state"). Ready, Waiting and Done only repeat the status badge and the blocked
+    /// line, so the row leaves them off. The Plans view's own rows draw every state.
+    /// </para>
+    /// </summary>
+    internal PlanEntryState? RowPlanState(EntryRow row)
+    {
+        if (PlanEntryState.PlanTagOf(row) is not { } tag) return null;
+
+        var run = PlanRunOf(tag);
+
+        return State.PlanEntryStateOf(row, run) switch
+        {
+            { State: PlanEntryQueueState.InPlanSession or PlanEntryQueueState.Landed } state => state,
+            { State: PlanEntryQueueState.QueuedWithPlan or PlanEntryQueueState.HeldForYou or PlanEntryQueueState.LeftForYou } state when run.Queued => state,
+            _ => null
+        };
+    }
+
+    /// <summary>The plan state badge on a list row or a board card, or nothing — see
+    /// <see cref="RowPlanState"/>.</summary>
+    private RenderFragment? RenderRowPlanState(EntryRow row)
+    {
+        if (RowPlanState(row) is not { } planState) return null;
+
+        return @<Badge BaseClass="entry-row__plan-state"
+                       Kind=""
+                       Slug="@PlanStateSlug(planState.State)"
+                       TestId="row-plan-state">@planState.Label</Badge>;
+    }
+
+    /// <summary>The badge modifier for a plan state: <c>queued-with-plan</c>.</summary>
+    internal static string PlanStateSlug(PlanEntryQueueState state) => state switch
+    {
+        PlanEntryQueueState.QueuedWithPlan => "queued-with-plan",
+        PlanEntryQueueState.InPlanSession => "in-plan-session",
+        PlanEntryQueueState.HeldForYou => "held-for-you",
+        PlanEntryQueueState.LeftForYou => "left-for-you",
+        _ => state.ToString().ToLowerInvariant()
+    };
 
     // --- The plan filter's queue icon (local ADR 0038 §2) ----------------------
 
@@ -1404,7 +1644,7 @@
     /// an sr-only span, and kept in the tab order while a press is on its way, marked
     /// aria-disabled and aria-busy rather than natively disabled.
     /// </summary>
-    private RenderFragment? RenderPlanSession(string plan)
+    private RenderFragment? RenderPlanSession(string plan, string reasonId = PlanQueueReasonId)
     {
         if (_planSessions.OpenFor(plan) is { } waiting)
         {
@@ -1448,14 +1688,14 @@
                         aria-disabled="@(busy ? "true" : null)"
                         AriaLabel="@label"
                         Title="@(offer.DisabledReason ?? label)"
-                        aria-describedby="@(offer.DisabledReason is null ? null : PlanQueueReasonId)"
+                        aria-describedby="@(offer.DisabledReason is null ? null : reasonId)"
                         OnClick="() => OnQueuePlanSessionAsync(plan)">
                 <ListEndIcon />
             </IconButton>
 
             @if (offer.DisabledReason is { } reason)
             {
-                <span id="@PlanQueueReasonId" class="sr-only" data-testid="tag-filter-queue-plan-reason">@reason</span>
+                <span id="@reasonId" class="sr-only" data-testid="tag-filter-queue-plan-reason">@reason</span>
             }
         </span>;
     }
@@ -1508,10 +1748,13 @@
     {
         if (!_sessionRequests.IsOffered || _sessionRequests.OpenFor(row.Id) is not null) return null;
 
+        // A plan entry's own queue is refused: the plan is queued only as a whole
+        // (local ADR 0072 §4), so the icon is drawn disabled with the reason.
         return SessionStartOffer.For(
             row.PreviewType,
             row.IsPersisted && row.Id is not null,
-            row.PreviewRepoIds.Select(GitHub.ResolveRepository));
+            row.PreviewRepoIds.Select(GitHub.ResolveRepository),
+            State.QueuedOnlyWithPlan(row));
     }
 
     /// <summary>The press: straight into the one repository there is, or the chooser
@@ -1621,14 +1864,15 @@
             _sessionRequests.Open,
             _planSessions.Open,
             entryId => State.Rows.FirstOrDefault(row => row.Id == entryId) is { } entry ? entry.PreviewTitle ?? string.Empty : null,
-            bareTag => PlanChipFor(bareTag) is not null,
+            bareTag => PlanChipFor(bareTag) is not null || (QueueDocked && PlanIsLoaded(bareTag)),
             _sessionRequests.PendingOrder);
 
     private void OnSessionQueueOpenChanged(bool open) => _sessionQueueOpen = open;
 
     private void HandleSessionRequestsRefreshed()
     {
-        if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
+        if (QueueDocked) _ = RefreshSessionAttentionAsync();
+        else if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
     }
 
     /// <summary>The panel: the Pause or Resume control, the paused callout and the
@@ -1641,51 +1885,18 @@
     private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
     {
         var now = _sessionClock.GetUtcNow();
-        var contact = _sessionRequests.DispatcherContact;
-        var warns = contact.WarnsFor(queue.Select(row => row.Request));
         var waiting = SessionQueue.Waiting(queue);
         var reorder = _sessionRequests.CanReorder && waiting.Count > 1;
-
-        var paused = _sessionRequests.IsPaused;
 
         return @<text>
             <span class="sr-only" role="status" aria-live="polite" data-testid="session-queue-announcement">@_sessionQueueAnnouncement</span>
             @if (_sessionRequests.IsOffered)
             {
                 <div class="session-queue__controls">
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               Size="ButtonSize.Small"
-                               Busy="@_sessionRequests.IsPausing"
-                               BusyLabel="@(paused ? "Resuming" : "Pausing")"
-                               TestId="session-queue-pause"
-                               title="@(paused ? "Let a dispatcher start the waiting requests again" : "Hold every request where it is: a dispatcher starts nothing new")"
-                               OnClick="OnSessionQueuePauseAsync">
-                        @(paused ? "Resume queue" : "Pause queue")
-                    </AppButton>
+                    @RenderSessionQueuePause(ButtonVariant.Secondary)
                 </div>
-                @if (_sessionRequests.PauseError is { } pauseError)
-                {
-                    <Alert Message="@pauseError" TestId="session-queue-pause-error" />
-                }
             }
-
-            @if (paused)
-            {
-                <Callout Heading="Queue paused"
-                         TestId="session-queue-paused">
-                    <p>Nothing new will start until you resume the queue. Requests keep their place, and you can still queue or cancel one.</p>
-                </Callout>
-            }
-
-            @if (warns)
-            {
-                <Callout Tone="warning"
-                         Heading="No dispatcher is running"
-                         TestId="session-queue-dispatcher-warning">
-                    <p>@SessionQueue.SilenceSentence(contact, now)</p>
-                    <p>Start <code>@LongRunningAgents.DispatchSessions</code> in a pinned Claude Desktop session.</p>
-                </Callout>
-            }
+            @RenderSessionQueueNotices(queue)
 
             @if (queue.Count == 0)
             {
@@ -1726,68 +1937,359 @@
                             </span>
                             @if (movable)
                             {
-                                <span class="session-queue__order" data-testid="session-queue-order">
-                                    @foreach (var step in SessionQueueSteps)
-                                    {
-                                        var target = SessionQueue.MoveTarget(step, place, waiting.Count);
-                                        var label = SessionQueue.MoveLabel(step, row.Name);
-                                        <AppButton Variant="ButtonVariant.Ghost"
-                                                   Size="ButtonSize.Small"
-                                                   CssClass="@($"session-queue__move session-queue__move--{SessionQueueStepName(step)}")"
-                                                   IconAlone="@(step is not SessionQueueStep.Top)"
-                                                   Icon="@(step is SessionQueueStep.Top ? null : SessionQueueStepGlyph(step))"
-                                                   Disabled="@(target is null)"
-                                                   aria-label="@label"
-                                                   title="@label"
-                                                   TestId="@($"session-queue-move-{SessionQueueStepName(step)}")"
-                                                   id="@SessionQueueControlId($"move-{SessionQueueStepName(step)}", row)"
-                                                   OnClick="() => OnSessionQueueMoveAsync(row, step)">
-                                            @if (step is SessionQueueStep.Top)
-                                            {
-                                                <text>Top</text>
-                                            }
-                                        </AppButton>
-                                    }
-                                </span>
+                                @RenderSessionQueueMoves(row, place, waiting.Count)
                             }
                             @if (row.CanCancel)
                             {
-                                <AppButton Variant="ButtonVariant.Ghost"
-                                           Size="ButtonSize.Small"
-                                           CssClass="session-queue__cancel"
-                                           Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
-                                           BusyLabel="Cancelling"
-                                           aria-label="@($"Cancel the session request for {row.Name}")"
-                                           TestId="session-queue-cancel"
-                                           id="@SessionQueueControlId("cancel", row)"
-                                           OnClick="() => OnSessionQueueCancelAsync(row)">
-                                    Cancel
-                                </AppButton>
+                                @RenderSessionQueueCancel(row)
                             }
                         </li>
                     }
                 </ul>
             }
 
-            <section class="session-queue__agents" aria-labelledby="session-queue-agents-heading" data-testid="session-queue-agents">
-                <h3 class="session-queue__agents-heading" id="session-queue-agents-heading">Long-running agents</h3>
-                <ul class="session-queue__agents-list">
-                    @foreach (var agent in LongRunningAgents.All)
-                    {
-                        <li @key="agent.Command" class="session-queue__agent" data-testid="session-queue-agent">
-                            <span class="session-queue__agent-name">@agent.Name</span>
-                            <code class="session-queue__agent-command">@agent.Command</code>
-                            <CopyButton Text="@agent.Command"
-                                        Label="@($"Copy {agent.Command}")"
-                                        CssClass="session-queue__agent-copy"
-                                        TestId="session-queue-agent-copy" />
-                            <span class="session-queue__agent-purpose">@agent.Purpose</span>
-                        </li>
-                    }
-                </ul>
-            </section>
+            @RenderSessionQueueAgents()
         </text>;
     }
+
+    /// <summary>Pause queue, or Resume queue while paused, and the error a failed press
+    /// leaves under it: one control for the popover and the docked column.</summary>
+    private RenderFragment RenderSessionQueuePause(ButtonVariant variant)
+    {
+        var paused = _sessionRequests.IsPaused;
+
+        return @<text>
+            <AppButton Variant="@variant"
+                       Size="ButtonSize.Small"
+                       Busy="@_sessionRequests.IsPausing"
+                       BusyLabel="@(paused ? "Resuming" : "Pausing")"
+                       TestId="session-queue-pause"
+                       title="@(paused ? "Let a dispatcher start the waiting requests again" : "Hold every request where it is: a dispatcher starts nothing new, answers keep flowing")"
+                       OnClick="OnSessionQueuePauseAsync">
+                @(paused ? "Resume queue" : "Pause queue")
+            </AppButton>
+            @if (_sessionRequests.PauseError is { } pauseError)
+            {
+                <Alert Message="@pauseError" TestId="session-queue-pause-error" />
+            }
+        </text>;
+    }
+
+    /// <summary>The paused callout and the dispatcher warning, each when owed — both at
+    /// once, as they are independent facts.</summary>
+    private RenderFragment RenderSessionQueueNotices(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var contact = _sessionRequests.DispatcherContact;
+        var warns = contact.WarnsFor(queue.Select(row => row.Request));
+
+        return @<text>
+            @if (_sessionRequests.IsPaused)
+            {
+                <Callout Heading="Queue paused"
+                         TestId="session-queue-paused">
+                    <p>Nothing new will start until you resume the queue. Requests keep their place, and you can still queue or cancel one.</p>
+                </Callout>
+            }
+
+            @if (warns)
+            {
+                <Callout Tone="warning"
+                         Heading="No dispatcher is running"
+                         TestId="session-queue-dispatcher-warning">
+                    <p>@SessionQueue.SilenceSentence(contact, _sessionClock.GetUtcNow())</p>
+                    <p>Start <code>@LongRunningAgents.DispatchSessions</code> in a pinned Claude Desktop session.</p>
+                </Callout>
+            }
+        </text>;
+    }
+
+    /// <summary>A Requested row's Move up, Move down and Move to top.</summary>
+    private RenderFragment RenderSessionQueueMoves(SessionQueueRow row, int place, int count) =>
+        @<span class="session-queue__order" data-testid="session-queue-order">
+            @foreach (var step in SessionQueueSteps)
+            {
+                var target = SessionQueue.MoveTarget(step, place, count);
+                var label = SessionQueue.MoveLabel(step, row.Name);
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="@($"session-queue__move session-queue__move--{SessionQueueStepName(step)}")"
+                           IconAlone="@(step is not SessionQueueStep.Top)"
+                           Icon="@(step is SessionQueueStep.Top ? null : SessionQueueStepGlyph(step))"
+                           Disabled="@(target is null)"
+                           aria-label="@label"
+                           title="@label"
+                           TestId="@($"session-queue-move-{SessionQueueStepName(step)}")"
+                           id="@SessionQueueControlId($"move-{SessionQueueStepName(step)}", row)"
+                           OnClick="() => OnSessionQueueMoveAsync(row, step)">
+                    @if (step is SessionQueueStep.Top)
+                    {
+                        <text>Top</text>
+                    }
+                </AppButton>
+            }
+        </span>;
+
+    /// <summary>A row's Cancel.</summary>
+    private RenderFragment RenderSessionQueueCancel(SessionQueueRow row) =>
+        @<AppButton Variant="ButtonVariant.Ghost"
+                    Size="ButtonSize.Small"
+                    CssClass="session-queue__cancel"
+                    Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
+                    BusyLabel="Cancelling"
+                    aria-label="@($"Cancel the session request for {row.Name}")"
+                    TestId="session-queue-cancel"
+                    id="@SessionQueueControlId("cancel", row)"
+                    OnClick="() => OnSessionQueueCancelAsync(row)">
+            Cancel
+        </AppButton>;
+
+    /// <summary>The commands that start the long-running agents, each with its copy.</summary>
+    private static RenderFragment RenderSessionQueueAgents() =>
+        @<section class="session-queue__agents" aria-labelledby="session-queue-agents-heading" data-testid="session-queue-agents">
+            <h3 class="session-queue__agents-heading" id="session-queue-agents-heading">Long-running agents</h3>
+            <ul class="session-queue__agents-list">
+                @foreach (var agent in LongRunningAgents.All)
+                {
+                    <li @key="agent.Command" class="session-queue__agent" data-testid="session-queue-agent">
+                        <span class="session-queue__agent-name">@agent.Name</span>
+                        <code class="session-queue__agent-command">@agent.Command</code>
+                        <CopyButton Text="@agent.Command"
+                                    Label="@($"Copy {agent.Command}")"
+                                    CssClass="session-queue__agent-copy"
+                                    TestId="session-queue-agent-copy" />
+                        <span class="session-queue__agent-purpose">@agent.Purpose</span>
+                    </li>
+                }
+            </ul>
+        </section>;
+
+    /// <summary>
+    /// The docked column (local ADR 0072 §6): the header with the Manager's state and
+    /// slots and Pause or Resume, then Needs you, Running, Up next, Landed today and the
+    /// long-running agents, each group drawn only while it holds something but the last.
+    /// Every request control is the popover's own — the same ids, handlers and keys — so
+    /// a move keeps its focus and Alt+arrows reorder here as they do there. Selecting an
+    /// item filters the list to its entry or plan.
+    /// </summary>
+    private RenderFragment RenderSessionQueueColumn(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var now = _sessionClock.GetUtcNow();
+        var contact = _sessionRequests.DispatcherContact;
+        var waiting = SessionQueue.Waiting(queue);
+        var reorder = _sessionRequests.CanReorder && waiting.Count > 1;
+        var running = queue.Where(row => !row.CanMove).ToList();
+        var upNext = queue.Where(row => row.CanMove).ToList();
+        var questions = _attention.Questions;
+        var drafts = SessionQueueDrafts();
+        var landed = SessionQueueLanded();
+        var needsYou = questions.Count + drafts.Count;
+        var focused = SessionQueueFocusName();
+
+        return @<aside class="session-queue-column"
+                       aria-labelledby="@SessionQueueColumnHeadingId"
+                       data-testid="session-queue-column">
+            <span class="sr-only" role="status" aria-live="polite" data-testid="session-queue-announcement">@_sessionQueueAnnouncement</span>
+
+            <div class="session-queue-column__header">
+                <h2 class="session-queue-column__heading" id="@SessionQueueColumnHeadingId" tabindex="-1">Queue</h2>
+                <StatusDot Tone="@ManagerDotTone(contact)"
+                           CssClass="@($"session-queue-column__dot session-queue-column__dot--{SessionQueue.ManagerTone(contact)}")"
+                           TestId="session-queue-manager-dot" />
+                <span class="session-queue-column__manager" data-testid="session-queue-manager">@SessionQueue.ManagerLabel(contact, _attention.Slots)</span>
+                @if (_sessionRequests.IsOffered)
+                {
+                    <span class="session-queue-column__pause">
+                        @RenderSessionQueuePause(ButtonVariant.Ghost)
+                    </span>
+                }
+            </div>
+
+            @RenderSessionQueueNotices(queue)
+
+            @if (focused is not null)
+            {
+                <div class="session-queue-column__focus" data-testid="session-queue-focus">
+                    <span class="session-queue-column__focus-text">Showing @focused</span>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="session-queue-focus-clear"
+                               OnClick="OnSessionQueueFocusCleared">
+                        Show all
+                    </AppButton>
+                </div>
+            }
+
+            @if (needsYou > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-needs-heading" data-testid="session-queue-needs">
+                    <h3 class="session-queue-column__group-heading session-queue-column__group-heading--needs" id="session-queue-needs-heading">Needs you · @needsYou</h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var question in questions)
+                        {
+                            <li @key="question.Id" class="session-queue-column__item" data-testid="session-queue-question">
+                                <p class="session-queue-column__text">@(string.IsNullOrWhiteSpace(question.Text) ? "A session is waiting for your answer." : question.Text)</p>
+                                <span class="session-queue-column__meta">
+                                    <span class="session-queue-column__meta-text">Session question · @SessionQueue.Age(question.AskedAt, now)</span>
+                                    <AppButton Variant="ButtonVariant.Primary"
+                                               Size="ButtonSize.Small"
+                                               Disabled="@(!OnOpenSession.HasDelegate)"
+                                               TestId="session-queue-answer"
+                                               title="Open the session that asked, to answer it"
+                                               OnClick="() => OnSessionQueueAnswerAsync(question)">
+                                        Answer
+                                    </AppButton>
+                                </span>
+                            </li>
+                        }
+                        @foreach (var draft in drafts)
+                        {
+                            <li @key="draft.Key" class="session-queue-column__item" data-testid="session-queue-draft" data-key="@draft.Key">
+                                <ToggleButton BaseClass="session-queue-column__name"
+                                              PressedCssClass="session-queue-column__name--pressed"
+                                              Pressed="@IsSessionQueueEntrySelected(draft.EntryId)"
+                                              TestId="session-queue-draft-select"
+                                              Title="@($"Show {draft.Name} in the list")"
+                                              OnClick="() => OnSessionQueuePullRequestSelectAsync(draft)">
+                                    @draft.Name · draft PR @draft.PullRequest.Label
+                                </ToggleButton>
+                                <span class="session-queue-column__meta">
+                                    <span class="session-queue-column__meta-text">Personal Validation</span>
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               TestId="session-queue-dismiss"
+                                               aria-label="@($"Dismiss draft {draft.PullRequest.Label} of {draft.Name}")"
+                                               OnClick="() => OnSessionQueueDraftDismissed(draft)">
+                                        Dismiss
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.Secondary"
+                                               Size="ButtonSize.Small"
+                                               Href="@draft.PullRequest.Url"
+                                               TestId="session-queue-validate"
+                                               aria-label="@($"Validate draft {draft.PullRequest.Label} of {draft.Name} on GitHub")">
+                                        Validate
+                                    </AppButton>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (queue.Count == 0)
+            {
+                <EmptyState Title="Nothing is waiting for a session"
+                            Description="A session you queue on an entry or a plan waits here until a dispatcher starts it."
+                            TestId="session-queue-none" />
+            }
+
+            @if (running.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-running-heading" data-testid="session-queue-running">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-running-heading">
+                        <span>Running</span>
+                        <span class="session-queue-column__hint">cancel on hover</span>
+                    </h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var row in running)
+                        {
+                            @RenderSessionQueueColumnRow(row, null, waiting.Count, false, now)
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (upNext.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-next-heading" data-testid="session-queue-next">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-next-heading">
+                        <span>Up next</span>
+                        @if (reorder)
+                        {
+                            <span class="session-queue-column__hint">Alt+↑↓ to reorder</span>
+                        }
+                    </h3>
+                    <ol class="session-queue-column__list">
+                        @foreach (var row in upNext)
+                        {
+                            var place = IndexOfRequest(waiting, row.Request.Id);
+                            @RenderSessionQueueColumnRow(row, place, waiting.Count, reorder && place >= 0, now)
+                        }
+                    </ol>
+                </section>
+            }
+
+            @if (landed.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-landed-heading" data-testid="session-queue-landed">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-landed-heading">Landed today</h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var item in landed)
+                        {
+                            <li @key="item.Key" class="session-queue-column__item session-queue-column__item--landed" data-testid="session-queue-landed-item">
+                                <CheckIcon Size="14" CssClass="session-queue-column__landed-mark" />
+                                <ToggleButton BaseClass="session-queue-column__name"
+                                              PressedCssClass="session-queue-column__name--pressed"
+                                              Pressed="@IsSessionQueueEntrySelected(item.EntryId)"
+                                              TestId="session-queue-landed-select"
+                                              Title="@($"Show {item.Name} in the list")"
+                                              OnClick="() => OnSessionQueuePullRequestSelectAsync(item)">
+                                    @item.Name · PR @item.PullRequest.Label merged
+                                </ToggleButton>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            <div class="session-queue-column__agents">
+                @RenderSessionQueueAgents()
+            </div>
+        </aside>;
+    }
+
+    /// <summary>One Running or Up next row of the docked column: its name, which selects
+    /// it and filters the list to it; a line on what it is; and its controls — Cancel,
+    /// shown on hover and focus, and on an Up next row its place and Move controls.</summary>
+    private RenderFragment RenderSessionQueueColumnRow(SessionQueueRow row, int? place, int count, bool movable, DateTimeOffset now) =>
+        @<li @key="row.Key"
+             class="@(movable ? "session-queue-column__item session-queue-column__row session-queue__row--movable" : "session-queue-column__item session-queue-column__row")"
+             data-testid="session-queue-row"
+             data-key="@row.Key"
+             @onkeydown="e => OnSessionQueueRowKeyDownAsync(e, row)">
+            @if (place is { } at && at >= 0)
+            {
+                <span class="session-queue-column__place" aria-hidden="true">@(at + 1)</span>
+            }
+            <span class="session-queue-column__body">
+                @if (row.InView)
+                {
+                    <ToggleButton BaseClass="session-queue-column__name"
+                                  PressedCssClass="session-queue-column__name--pressed"
+                                  Pressed="@IsSessionQueueItemSelected(row)"
+                                  TestId="session-queue-jump"
+                                  id="@SessionQueueControlId("jump", row)"
+                                  Title="@(row.EntryId is null ? $"Show the {row.Name} plan" : $"Show {row.Name} in the list")"
+                                  OnClick="() => OnSessionQueueSelectAsync(row)">
+                        @row.Name
+                    </ToggleButton>
+                }
+                else
+                {
+                    <span class="session-queue-column__name session-queue-column__name--away" data-testid="session-queue-name">@row.Name</span>
+                }
+                <span class="session-queue-column__detail" data-testid="session-queue-meta">
+                    @SessionQueueRowDetail(row) · @SessionQueue.StateLabel(row.Request.State) · <span title="@row.Request.RequestedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)">@SessionQueue.Age(row.Request.RequestedAt, now)</span>
+                </span>
+            </span>
+            @if (movable && place is { } from)
+            {
+                @RenderSessionQueueMoves(row, from, count)
+            }
+            @if (row.CanCancel)
+            {
+                @RenderSessionQueueCancel(row)
+            }
+        </li>;
 
     /// <summary>Pause or Resume pressed: the whole queue, through the port. A failure
     /// is said in the panel and leaves the control as it was.</summary>
@@ -2395,8 +2897,14 @@
     /// repository, every area, every status, all at once, because a wait does
     /// not stop being real just because the reader scoped the list away from it.
     /// </para>
+    /// <para>
+    /// Done here is <see cref="EntryRow.IsPreviewFinished"/> rather than the tick: a
+    /// step whose status is Done or Archived without a completion date has landed,
+    /// so the entries after it read ready, as the Tasks state's own chain reads them.
+    /// </para>
     /// </summary>
-    private IReadOnlyList<TaskRow> DependencyUniverse() => ToTaskRows(State.Rows);
+    private IReadOnlyList<TaskRow> DependencyUniverse() =>
+        [.. State.Rows.Zip(ToTaskRows(State.Rows), (row, task) => task with { Done = row.IsPreviewFinished })];
 
     /// <summary>What a row is called in the list, live: the open panel's draft
     /// while that row is the one being retitled there, its saved title the rest
@@ -2439,6 +2947,9 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
+            // A plan's entry in the Flat list is there only because it is in
+            // today's My Day, and says which plan it belongs to (local ADR 0072 §3).
+            MyDayPlan = FlatMyDayPlan(row),
             // Only while the row was put in My Day today: a slot belongs to the
             // stamp's day, so a slot in yesterday's plan is no slot today, even on
             // a task Clear My Day overnight being off has carried into today's list
@@ -3814,8 +4325,10 @@
     /// repository scope leaves in view — the same pool the Ready in a plan chip counts,
     /// so neither number changes meaning when a tag or a status is picked. Open, as on a
     /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
-    /// no longer something to do. Derived here because this is where the clock is.</summary>
-    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row));
+    /// no longer something to do. Derived here because this is where the clock is.
+    /// The plans in today's My Day count beside the tasks (local ADR 0072 §8): the list
+    /// the scope opens shows both.</summary>
+    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row)) + PlansInMyDayCount;
 
     /// <summary>How many of those same rows are ready in a plan. The state decides,
     /// and the count asks it — see
@@ -3975,7 +4488,7 @@
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
                        Goal="@GoalFor(row)"
-                       HeaderActions="@QueueSessionFor(row, QueueSessionPlace.Entry)"
+                       HeaderActions="@QueueSessionFor(row)"
                        TestId="entry-panel">
                 <StatusContent>
                     @* On the heading line, where the list row also shows it. The
@@ -6234,9 +6747,889 @@
         </div>;
     }
 
-    /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — which the
-    /// Filter trigger wears as its count while it is not 0.</summary>
-    private int FilterMenuPressedCount => (State.SelectedSource is null ? 0 : 1) + (State.SelectedType is null ? 0 : 1);
+    /// <summary>
+    /// Flat's bar (local ADR 0072 §3), left to right: the quick views, each with its
+    /// count; the Type, Source and #tag menus; the status tabs; and the sort. Text tabs
+    /// rather than chips — a radiogroup each where one of a set is in force, the menus
+    /// disclosures of the chips the other views draw on the bar.
+    /// </summary>
+    private RenderFragment RenderFlatBar() =>
+        @<text>
+        <div class="filter-group flat-bar__views" role="radiogroup" aria-label="Quick view" data-testid="flat-quick-views">
+            @foreach (var view in Enum.GetValues<FlatQuickView>())
+            {
+                var count = FlatQuickViewCount(view);
+                var active = FlatQuickViewInForce == view;
+                <AppButton BaseClass="flat-tab"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(active ? "flat-tab--active" : null)"
+                           TestId="flat-quick-view"
+                           data-view="@view.ToString()"
+                           role="radio"
+                           aria-checked="@(active ? "true" : "false")"
+                           title="@FlatQuickViewLabel(view)"
+                           OnClick="() => OnFlatQuickViewPicked(view)">
+                    @if (FlatQuickViewIcon(view) is { } icon)
+                    {
+                        @icon<span class="sr-only">@($"{FlatQuickViewLabel(view)} ")</span>
+                    }
+                    else
+                    {
+                        @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    }
+                    @if (count is { } n)
+                    {
+                        <Badge BaseClass="flat-tab__count" Kind="">@n</Badge>
+                    }
+                </AppButton>
+            }
+        </div>
+
+        @RenderQuietMenus()
+        @RenderQuietStatusTabs(FlatStatusTabs)
+        @RenderQuietSort()
+        </text>;
+
+    /// <summary>
+    /// The Plans view's bar, in Flat's quiet text (local ADR 0072 §3): Select and the
+    /// slices as text toggles with their counts — each narrows what the rest left in
+    /// view, so aria-pressed rather than one of a set — the areas while Next actions is
+    /// on, then Flat's own Type, Source and #tag menus, status tabs and sort. On a narrow
+    /// column the rail folds into a Plan menu beside them.
+    /// </summary>
+    private RenderFragment RenderPlansBar() =>
+        @<text>
+        <div class="filter-group plans-bar__slices" role="group" aria-label="Scope" data-testid="plans-slices" @onkeydown="OnSelectionChipKeyDown">
+            <ToggleButton BaseClass="flat-tab"
+                          PressedCssClass="flat-tab--active"
+                          Pressed="@State.SelectionMode"
+                          TestId="bulk-select-toggle"
+                          Title="@(State.SelectionMode ? "Stop picking tasks" : "Pick tasks to act on in bulk")"
+                          PressedChanged="OnSelectionModeChanged">
+                Select
+            </ToggleButton>
+            @RenderQuietToggle("myday-filter-option", SunGlyph, "My Day", MyDayCount, MyDayOnly,
+                MyDayOnly ? "Show everything again" : "Show only what is in today's My Day", OnMyDayFilterChanged)
+            @RenderQuietToggle("readyinplan-filter-option", PlayGlyph, "Ready in a plan", ReadyInPlanCount, State.ReadyInPlanOnly,
+                State.ReadyInPlanOnly ? "Show everything again" : "Show only what is ready in a plan", State.SetReadyInPlanFilter)
+            @RenderQuietToggle("waitingfor-filter-option", HourglassGlyph, "Waiting", WaitingForCount, State.WaitingForOnly,
+                State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first", State.SetWaitingForFilter)
+            @RenderQuietToggle("nextactions-filter-option", ListTodoGlyph, "Next actions", NextActionsCount, State.NextActionsOnly,
+                State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context", State.SetNextActionsFilter)
+        </div>
+
+        @if (State.AreaFilters.Count > 0)
+        {
+            <div class="filter-group filter-group--area" role="group" aria-label="Filter by area">
+                @foreach (var area in State.AreaFilters)
+                {
+                    <ToggleButton BaseClass="flat-tab"
+                                  PressedCssClass="flat-tab--active"
+                                  Pressed="@(State.SelectedArea == area.Value)"
+                                  TestId="area-filter-option"
+                                  data-area="@(area.Value == TasksDesktopState.NoArea ? string.Empty : area.Value)"
+                                  Title="@(State.SelectedArea == area.Value ? "Show every area again" : $"Show only the next actions in {area.Label}")"
+                                  PressedChanged="pressed => State.SetAreaFilter(pressed ? area.Value : null)">
+                        @($"{area.Label} ")<Badge BaseClass="flat-tab__count" Kind="">@area.Count</Badge>
+                    </ToggleButton>
+                }
+            </div>
+        }
+
+        @RenderQuietMenus()
+
+        @if (ListNarrow)
+        {
+            <div class="filter-group filter-group--menu">
+                <PopoverButton TestId="filter-menu"
+                               Id="filter-menu"
+                               AriaLabel="Plan"
+                               Title="@FilterMenuTitle"
+                               TriggerBaseClass="@(FilterMenuPressedCount > 0 ? "flat-tab flat-tab--menu flat-tab--active" : "flat-tab flat-tab--menu")"
+                               PanelCssClass="filter-menu__panel"
+                               OpenChanged="OnFilterMenuOpenChanged">
+                    <Trigger>Plan<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                    <ChildContent>@RenderPlanRail()</ChildContent>
+                </PopoverButton>
+            </div>
+        }
+
+        @RenderQuietStatusTabs(State.StatusFilters.Select(filter => (filter.Label, filter.Wire)))
+        @RenderQuietSort()
+        </text>;
+
+    /// <summary>One slice of the Plans bar: its glyph and count, borderless, pressed
+    /// while it narrows the list. The word stays the name, in an sr-only span, and the
+    /// tooltip says what pressing it does.</summary>
+    private RenderFragment RenderQuietToggle(string testId, RenderFragment icon, string label, int count, bool pressed, string title, Action<bool> changed) =>
+        @<ToggleButton BaseClass="flat-tab"
+                       PressedCssClass="flat-tab--active"
+                       Pressed="@pressed"
+                       TestId="@testId"
+                       Title="@title"
+                       PressedChanged="changed">
+            @icon<span class="sr-only">@($"{label} ")</span><Badge BaseClass="flat-tab__count" Kind="">@count</Badge>
+        </ToggleButton>;
+
+    /// <summary>A Flat quick view's glyph; Everything has none and keeps its word.</summary>
+    private static RenderFragment? FlatQuickViewIcon(FlatQuickView view) => view switch
+    {
+        FlatQuickView.MyDay => SunGlyph,
+        FlatQuickView.InTheQueue => ListEndGlyph,
+        FlatQuickView.Waiting => HourglassGlyph,
+        _ => null,
+    };
+
+    // The slices' glyphs, one each, shared by the Plans and Flat bars.
+    private static readonly RenderFragment SunGlyph = @<SunIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment PlayGlyph = @<PlayIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment HourglassGlyph = @<HourglassIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListTodoGlyph = @<ListTodoIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListEndGlyph = @<ListEndIcon Size="14" CssClass="flat-tab__icon" />;
+
+    /// <summary>The Type, Source and #tag menus Flat and Plans share: disclosures of the
+    /// chips the chip bar draws inline.</summary>
+    private RenderFragment RenderQuietMenus() =>
+        @<div class="filter-group flat-bar__menus" data-testid="flat-menus">
+            <PopoverButton Id="flat-type-menu"
+                           TestId="flat-type-menu"
+                           AriaLabel="Type"
+                           Title="Filter by type"
+                           TriggerBaseClass="@(State.SelectedType is null ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>Type<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @(RenderTypeGroup() ?? RenderFlatMenuEmpty("One type in view"))
+                </ChildContent>
+            </PopoverButton>
+            <PopoverButton Id="flat-source-menu"
+                           TestId="flat-source-menu"
+                           AriaLabel="Source"
+                           Title="Filter by source"
+                           TriggerBaseClass="@(State.SelectedSource is null ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>Source<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @(RenderSourceGroup() ?? RenderFlatMenuEmpty("No linked sources in view"))
+                </ChildContent>
+            </PopoverButton>
+            <PopoverButton Id="flat-tag-menu"
+                           TestId="flat-tag-menu"
+                           AriaLabel="#tag"
+                           Title="Filter by tag"
+                           TriggerBaseClass="@(State.SelectedTags.Count == 0 ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>#tag<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @if (FlatTags.Count == 0)
+                    {
+                        @RenderFlatMenuEmpty("No tags in view")
+                    }
+                    else
+                    {
+                        <div class="filter-group filter-group--tags filter-group--tags--expanded" role="group" aria-label="Filter by tag">
+                            @foreach (var tag in FlatTags)
+                            {
+                                <ToggleButton @key="tag.Value"
+                                              BaseClass="chip chip--filter"
+                                              CssClass="@TagFilterClass(tag)"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@State.IsTagSelected(tag.Value)"
+                                              TestId="tag-filter-option"
+                                              Title="@TagFilterTitle(tag)"
+                                              PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                    @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </PopoverButton>
+        </div>;
+
+    /// <summary>The status tabs Flat and Plans share: one of a set, so a radiogroup —
+    /// each view with its own statuses (Flat opens on Open, Plans on All).</summary>
+    private RenderFragment RenderQuietStatusTabs(IEnumerable<(string Label, string Wire)> tabs) =>
+        @<div class="filter-group flat-bar__status" role="radiogroup" aria-label="Filter by status" data-testid="flat-status-tabs">
+            @foreach (var (label, wire) in tabs)
+            {
+                var active = State.SelectedStatusFilterWire == wire;
+                <AppButton BaseClass="flat-tab"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(active ? "flat-tab--active" : null)"
+                           TestId="flat-status-tab"
+                           data-status="@wire"
+                           role="radio"
+                           aria-checked="@(active ? "true" : "false")"
+                           OnClick="() => OnFilterChanged(wire)">
+                    @label
+                </AppButton>
+            }
+        </div>;
+
+    /// <summary>The sort Flat and Plans share, as text.</summary>
+    private RenderFragment RenderQuietSort() =>
+        @<div class="filter-group flat-bar__sort">
+            <AppButton BaseClass="flat-tab flat-tab--menu"
+                       Variant="ButtonVariant.None"
+                       TestId="sort-by-status"
+                       Disabled="@(!State.CanSortVisibleByStatus)"
+                       title="@(State.CanSortVisibleByStatus
+                                ? "Sort by status: move the tasks in view into status order. Tasks the filters hide keep their place."
+                                : "The tasks in view are already in status order.")"
+                       OnClick="State.SortVisibleByStatusAsync">
+                Sort: status
+            </AppButton>
+        </div>;
+
+    private static RenderFragment RenderFlatMenuEmpty(string text) =>
+        @<Alert BaseClass="flat-menu__empty" Role="status" Message="@text" TestId="flat-menu-empty" />;
+
+    private PopoverButton? _flatMakePlanMenu;
+    private PopoverButton? _flatAddToPlanMenu;
+    private PopoverButton? _flatStatusMenu;
+
+    /// <summary>
+    /// Flat's selection, one line of text actions while rows are picked: Make a plan,
+    /// Add to plan, Queue each, Status and Clear, after the count. Escape clears it,
+    /// as the bulk bar's does.
+    /// </summary>
+    private RenderFragment RenderFlatSelection()
+    {
+        var plans = FlatPlanTags();
+        var queueable = FlatQueueableSelection().Count;
+
+        return @<div class="flat-selection" role="toolbar" aria-label="Apply to the selected tasks" data-testid="flat-selection" @onkeydown="OnFlatSelectionKeyDown">
+            <Alert BaseClass="flat-selection__count" Role="status" Inline="true" Message="@($"{State.SelectionCount} selected")" TestId="flat-selection-count" />
+
+            <PopoverButton @ref="_flatMakePlanMenu"
+                           Id="flat-make-plan"
+                           TestId="flat-make-plan"
+                           AriaLabel="Make a plan"
+                           Title="File the selected tasks under a new plan"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Make a plan</Trigger>
+                <ChildContent>
+                    <TextField Label="Plan name"
+                               Value="@_flatNewPlanName"
+                               ValueChanged="value => _flatNewPlanName = value"
+                               Placeholder="zero-trust-auth"
+                               Compact="true"
+                               TestId="flat-make-plan-name" />
+                    <AppButton Variant="ButtonVariant.Primary"
+                               TestId="flat-make-plan-submit"
+                               Disabled="@(PlanTagFor(_flatNewPlanName) is null)"
+                               Busy="@IsBulkRunning(BulkAct.AddTags)"
+                               OnClick="OnFlatMakePlanPressedAsync">
+                        Make plan
+                    </AppButton>
+                </ChildContent>
+            </PopoverButton>
+
+            <PopoverButton @ref="_flatAddToPlanMenu"
+                           Id="flat-add-to-plan"
+                           TestId="flat-add-to-plan"
+                           AriaLabel="Add to plan"
+                           Title="File the selected tasks under a plan"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Add to plan<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @if (plans.Count == 0)
+                    {
+                        @RenderFlatMenuEmpty("No plans yet — make one")
+                    }
+                    else
+                    {
+                        <div class="flat-selection__options" role="group" aria-label="Plans">
+                            @foreach (var plan in plans)
+                            {
+                                <AppButton BaseClass="flat-action"
+                                           Variant="ButtonVariant.None"
+                                           TestId="flat-add-to-plan-option"
+                                           data-plan="@plan"
+                                           OnClick="() => OnFlatAddToPlanPressedAsync(plan)">
+                                    @plan
+                                </AppButton>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </PopoverButton>
+
+            <AppButton BaseClass="flat-action"
+                       Variant="ButtonVariant.None"
+                       TestId="flat-queue-each"
+                       Disabled="@(queueable == 0)"
+                       title="@(queueable == 0
+                                ? "None of the selected tasks can be queued on its own: a session is for an unplanned prompt in one repository, not already waiting."
+                                : $"Ask for a session for each of {queueable} selected {TaskWord(queueable)}")"
+                       OnClick="OnFlatQueueEachAsync">
+                Queue each
+            </AppButton>
+
+            <PopoverButton @ref="_flatStatusMenu"
+                           Id="flat-selection-status"
+                           TestId="flat-selection-status"
+                           AriaLabel="Status"
+                           Title="Set the status of the selected tasks"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Status<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    <div class="flat-selection__options" role="group" aria-label="Statuses">
+                        @foreach (var (label, status) in FlatSelectionStatuses)
+                        {
+                            <AppButton BaseClass="flat-action"
+                                       Variant="ButtonVariant.None"
+                                       TestId="flat-selection-status-option"
+                                       data-status="@status.ToString()"
+                                       OnClick="() => OnFlatSelectionStatusPressedAsync(status)">
+                                @label
+                            </AppButton>
+                        }
+                    </div>
+                </ChildContent>
+            </PopoverButton>
+
+            <AppButton BaseClass="flat-action flat-action--clear"
+                       Variant="ButtonVariant.None"
+                       TestId="flat-selection-clear"
+                       OnClick="OnClearSelection">
+                Clear
+            </AppButton>
+        </div>;
+    }
+
+    private async Task OnFlatMakePlanPressedAsync()
+    {
+        await OnFlatMakePlanAsync();
+        if (_flatMakePlanMenu is not null) await _flatMakePlanMenu.CloseAsync();
+    }
+
+    private async Task OnFlatAddToPlanPressedAsync(string plan)
+    {
+        await OnFlatAddToPlanAsync(plan);
+        if (_flatAddToPlanMenu is not null) await _flatAddToPlanMenu.CloseAsync();
+    }
+
+    private async Task OnFlatSelectionStatusPressedAsync(EntryStatus status)
+    {
+        await OnFlatSelectionStatusAsync(status);
+        if (_flatStatusMenu is not null) await _flatStatusMenu.CloseAsync();
+    }
+
+    private void OnFlatSelectionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape") OnClearSelection();
+    }
+
+    /// <summary>Flat's footer: the unplanned entries the bar leaves out, and where the
+    /// plan entries went.</summary>
+    private RenderFragment RenderFlatFooter() =>
+        @<p class="flat-footer" data-testid="flat-footer">@FlatFooterText</p>;
+
+    /// <summary>The Plans / Flat switch's two choices, in the order drawn.</summary>
+    private static readonly TaskListGrouping[] ListGroupings = [TaskListGrouping.Plans, TaskListGrouping.Flat];
+
+    /// <summary>
+    /// The Plans view's rail (local ADR 0072 §2), top to bottom: My Day, Now across
+    /// plans, each plan with a 2px progress line, done/total and its run state as
+    /// coloured text, and Unplanned last. Each item is a toggle: pressed, the list shows
+    /// that plan or that list; pressed again, everything. One item at a time — see
+    /// <see cref="TasksDesktopState.SelectRailItem"/>.
+    /// </summary>
+    private RenderFragment RenderPlanRail()
+    {
+        var plans = RailPlans();
+
+        return @<nav class="plan-rail" aria-label="Plans" data-testid="plan-rail">
+            <div class="plan-rail__heading" data-testid="plan-rail-heading">Plans · @plans.Count</div>
+            <ToggleButton BaseClass="plan-rail__item"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.MyDay)"
+                          TestId="plan-rail-myday"
+                          Title="Show what is in today's My Day"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.MyDay)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">My Day</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@MyDayCount</Badge>
+                </span>
+            </ToggleButton>
+            <ToggleButton BaseClass="plan-rail__item"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.NowAcrossPlans)"
+                          TestId="plan-rail-now"
+                          Title="Show the plan entries in a session, in every plan"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.NowAcrossPlans)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">Now, across plans</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@NowAcrossPlansCount</Badge>
+                </span>
+            </ToggleButton>
+            @foreach (var plan in plans)
+            {
+                <ToggleButton @key="plan.Tag"
+                              BaseClass="plan-rail__item plan-rail__item--plan"
+                              PressedCssClass="plan-rail__item--selected"
+                              Pressed="@State.IsRailItemSelected(PlanRailItem.Plan, plan.Tag)"
+                              TestId="plan-rail-plan"
+                              data-plan="@plan.Name"
+                              data-state="@plan.State.ToString()"
+                              aria-label="@RailPlanLabel(plan)"
+                              Title="@($"Show the {plan.Tag} plan")"
+                              PressedChanged="_ => OnRailItemPressed(PlanRailItem.Plan, plan.Tag)">
+                    <span class="plan-rail__line">
+                        <span class="plan-rail__name" data-testid="plan-rail-name">@plan.Name</span>
+                        @if (plan.StateText.Length > 0)
+                        {
+                            <Badge BaseClass="plan-rail__state" Kind="" Slug="@RailStateSlug(plan.State)" Title="@(plan.State == PlanRunState.Blocked ? plan.StateTitle : null)" TestId="plan-rail-state">@plan.StateText</Badge>
+                        }
+                    </span>
+                    <span class="plan-rail__line">
+                        <span class="plan-rail__bar @(plan.State == PlanRunState.Blocked ? "plan-rail__bar--blocked" : null)" aria-hidden="true">
+                            <span class="plan-rail__bar-fill" style="width: @(plan.ProgressPercent)%"></span>
+                        </span>
+                        <span class="plan-rail__progress" data-testid="plan-rail-progress">@plan.Done/@plan.Total</span>
+                    </span>
+                </ToggleButton>
+            }
+            <ToggleButton BaseClass="plan-rail__item plan-rail__item--unplanned"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.Unplanned)"
+                          TestId="plan-rail-unplanned"
+                          Title="Show the entries in no plan"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.Unplanned)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">Unplanned</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@UnplannedCount</Badge>
+                </span>
+            </ToggleButton>
+        </nav>;
+    }
+
+    /// <summary>
+    /// The Plans view's main column while a plan is selected on the rail (local ADR 0072
+    /// §3): that plan's heading and its Now, Next and Later; every other plan folded to
+    /// one line; and Unplanned last, with its first rows and Select → new plan.
+    /// </summary>
+    private RenderFragment RenderPlanSections()
+    {
+        var plans = RailPlans();
+        var view = SelectedPlanSections(plans);
+        var folded = PlanSections.Folded(plans, view?.Tag, PlanSectionCounts);
+        var unplanned = UnplannedRows();
+
+        return @<div class="plan-sections" data-testid="plan-sections">
+            @if (view is not null)
+            {
+                var (donePercent, nowPercent, nextPercent) = view.BarPercents;
+
+                <section class="plan-sections__plan" aria-label="@($"The {view.Name} plan")" data-testid="plan-expanded" data-plan="@view.Name">
+                    <header class="plan-sections__heading">
+                        <div class="plan-sections__title-line">
+                            <h2 class="plan-sections__name" data-testid="plan-expanded-name">
+                                <AppButton BaseClass="plan-sections__name-open"
+                                           Variant="ButtonVariant.None"
+                                           TestId="plan-expanded-open"
+                                           title="@($"Open the {view.Name} plan on its own, in waves")"
+                                           OnClick="() => OpenPlanFocus(view.Tag)">@view.Name</AppButton>
+                            </h2>
+                            <span class="plan-sections__progress" data-testid="plan-expanded-progress">@view.ProgressText</span>
+                            <span class="plan-sections__branch" data-testid="plan-expanded-branch">@view.Branch</span>
+                            @if (view.RunStateText.Length > 0)
+                            {
+                                <Badge BaseClass="plan-sections__run" Kind="" Slug="@RailStateSlug(view.RunState)" TestId="plan-expanded-run">@view.RunStateText</Badge>
+                            }
+                            <span class="plan-sections__actions">
+                                @if (OnOpenRoadmap.HasDelegate)
+                                {
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               CssClass="plan-sections__roadmap"
+                                               TestId="plan-expanded-roadmap"
+                                               aria-label="@($"Open the {view.Name} plan on the Roadmap")"
+                                               OnClick="() => OnOpenRoadmap.InvokeAsync(view.Name)">
+                                        Roadmap
+                                    </AppButton>
+                                }
+                                @RenderPlanSun(view.Tag, "plan-expanded-myday")
+                                <CopyButton Text="@view.Tag"
+                                            Label="@($"Copy {view.Tag}")"
+                                            CssClass="filter-bar__plan-copy"
+                                            ButtonBaseClass="filter-bar__plan-copy-button"
+                                            StatusCssClass="sr-only"
+                                            TestId="plan-expanded-copy"
+                                            ButtonTestId="plan-expanded-copy-button"
+                                            StatusTestId="plan-expanded-copy-status" />
+                                @RenderPlanSession(view.Tag, "plan-expanded-queue-reason")
+                            </span>
+                        </div>
+                        <span class="plan-sections__bar" aria-hidden="true" data-testid="plan-expanded-bar">
+                            <span class="plan-sections__bar-done" style="width: @(donePercent)%"></span>
+                            <span class="plan-sections__bar-now" style="width: @(nowPercent)%"></span>
+                            <span class="plan-sections__bar-next" style="width: @(nextPercent)%"></span>
+                        </span>
+                    </header>
+
+                    @RenderPlanGroups(view)
+                </section>
+            }
+
+            @if (folded.Count > 0)
+            {
+                <div class="plan-sections__folded" role="list" aria-label="Other plans" data-testid="plan-folded-list">
+                    @foreach (var other in folded)
+                    {
+                        <div @key="other.Plan.Tag" class="plan-sections__folded-row" role="listitem" data-testid="plan-folded" data-plan="@other.Plan.Name">
+                            <AppButton BaseClass="plan-sections__folded-open"
+                                       Variant="ButtonVariant.None"
+                                       TestId="plan-folded-open"
+                                       aria-label="@($"Show the {other.Plan.Tag} plan, {other.Plan.Done} of {other.Plan.Total} done, {other.Note}")"
+                                       OnClick="() => OnRailItemPressed(PlanRailItem.Plan, other.Plan.Tag)">
+                                <span class="plan-sections__folded-name">@other.Plan.Name</span>
+                                <span class="plan-sections__folded-bar" aria-hidden="true">
+                                    <span class="plan-sections__folded-fill" style="width: @(other.Plan.ProgressPercent)%"></span>
+                                </span>
+                                <span class="plan-sections__folded-done" data-testid="plan-folded-count">@other.Plan.Done of @other.Plan.Total</span>
+                                <span class="plan-sections__folded-note plan-sections__folded-note--@RailStateSlug(other.Plan.State)" data-testid="plan-folded-note">@other.Note</span>
+                            </AppButton>
+                            @RenderPlanSession(other.Plan.Tag, $"plan-folded-queue-reason-{other.Plan.Name}")
+                        </div>
+                    }
+                </div>
+            }
+
+            <section class="plan-sections__unplanned" aria-label="Unplanned" data-testid="plan-unplanned">
+                <header class="plan-sections__unplanned-heading">
+                    <h3 class="plan-sections__group-title">Unplanned</h3>
+                    <span class="plan-sections__progress" data-testid="plan-unplanned-count">@unplanned.Count open</span>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="plan-unplanned-select"
+                               title="Pick unplanned entries to file under a new plan"
+                               OnClick="OnSelectForNewPlan">
+                        Select → new plan
+                    </AppButton>
+                </header>
+                @foreach (var row in unplanned.Take(UnplannedShown))
+                {
+                    <AppButton @key="row.Key"
+                               BaseClass="plan-sections__row"
+                               Variant="ButtonVariant.None"
+                               TestId="plan-unplanned-row"
+                               data-task-id="@row.TaskId"
+                               OnClick="() => OnEntrySelectedAsync(row.TaskId)">
+                        <span class="plan-sections__row-title">@row.PreviewTitle</span>
+                        <span class="plan-sections__row-meta">@row.PreviewStatus</span>
+                    </AppButton>
+                }
+                @if (unplanned.Count > UnplannedShown)
+                {
+                    <AppButton BaseClass="plan-sections__later-line"
+                               Variant="ButtonVariant.None"
+                               TestId="plan-unplanned-more"
+                               OnClick="() => OnRailItemPressed(PlanRailItem.Unplanned)">
+                        @(unplanned.Count - UnplannedShown) more
+                    </AppButton>
+                }
+            </section>
+        </div>;
+    }
+
+    /// <summary>A plan's Now, Next and Later groups: under the expanded plan's heading,
+    /// and as the List side of one plan's own view.</summary>
+    private RenderFragment RenderPlanGroups(PlanSectionsView view) =>
+        @<text>
+                    @if (view.Now.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-now">
+                            <h3 class="plan-sections__group-title">Now · in a session</h3>
+                            @foreach (var entry in view.Now)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Now)
+                            }
+                        </div>
+                    }
+
+                    @if (view.Next.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-next">
+                            <h3 class="plan-sections__group-title">@(view.RunState == PlanRunState.Queued || view.RunState == PlanRunState.Running ? "Next · ready, queued with the plan" : "Next · ready")</h3>
+                            @foreach (var entry in view.Next)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Next)
+                            }
+                        </div>
+                    }
+
+                    <div class="plan-sections__group" data-testid="plan-section-later">
+                        <h3 class="plan-sections__group-title">Later</h3>
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-waiting"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Waiting ? "true" : "false")"
+                                   Disabled="@(view.Waiting.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Waiting)">
+                            @view.UnlockLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Waiting)
+                        {
+                            @foreach (var entry in view.Waiting)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Waiting)
+                            }
+                        }
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-done"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Done ? "true" : "false")"
+                                   Disabled="@(view.Done.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Done)">
+                            @view.DoneLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Done)
+                        {
+                            @foreach (var entry in view.Done)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Done)
+                            }
+                        }
+                    </div>
+        </text>;
+
+    /// <summary>
+    /// One plan alone, opened from the expanded plan's heading (local ADR 0072 §7): a
+    /// way back to Plans, the plan's name, bar and counts and a Waves / List toggle;
+    /// then its waves — columns by dependency depth, the current one on a soft
+    /// background — or its Now, Next and Later; and a run line naming the plan branch
+    /// it lands on, with the plan's copy and queue.
+    /// </summary>
+    private RenderFragment RenderPlanFocus()
+    {
+        var view = SelectedPlanSections(RailPlans());
+        if (view is null) return RenderPlanSections();
+
+        var (donePercent, nowPercent, nextPercent) = view.BarPercents;
+        IReadOnlyList<PlanWave> waves = _planFocusLayout == PlanFocusLayout.Waves
+            ? PlanWaves.Build(view.Entries, State.ResolvedDependsOn, view.Branch)
+            : [];
+
+        return @<section class="plan-focus" aria-label="@($"The {view.Name} plan")" data-testid="plan-focus" data-plan="@view.Name">
+            <header class="plan-focus__heading">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="plan-focus__back"
+                           TestId="plan-focus-back"
+                           aria-label="Back to all plans"
+                           OnClick="ClosePlanFocus">
+                    ← Plans
+                </AppButton>
+                <h2 class="plan-sections__name" data-testid="plan-focus-name">@view.Name</h2>
+                <span class="plan-sections__bar plan-focus__bar" aria-hidden="true" data-testid="plan-focus-bar"
+                      title="@($"{view.Done.Count} done · {view.Now.Count} in a session · {view.Next.Count} ready · {view.Waiting.Count} waiting")">
+                    <span class="plan-sections__bar-done" style="width: @(donePercent)%"></span>
+                    <span class="plan-sections__bar-now" style="width: @(nowPercent)%"></span>
+                    <span class="plan-sections__bar-next" style="width: @(nextPercent)%"></span>
+                </span>
+                <span class="plan-sections__progress" data-testid="plan-focus-counts">@PlanFocusCounts(view)</span>
+                @RenderPlanSun(view.Tag, "plan-focus-myday")
+                <div class="filter-group plan-focus__layout" role="radiogroup" aria-label="Layout" data-testid="plan-focus-layout">
+                    @foreach (var option in PlanFocusLayouts)
+                    {
+                        <AppButton BaseClass="chip chip--filter"
+                                   Variant="ButtonVariant.None"
+                                   CssClass="@(_planFocusLayout == option ? "chip--active" : null)"
+                                   TestId="plan-focus-layout-option"
+                                   data-layout="@option.ToString()"
+                                   role="radio"
+                                   aria-checked="@(_planFocusLayout == option ? "true" : "false")"
+                                   title="@(option == PlanFocusLayout.Waves ? "Lay the entries out in waves by dependency" : "List the entries as Now, Next and Later")"
+                                   OnClick="() => SetPlanFocusLayout(option)">
+                            @option
+                        </AppButton>
+                    }
+                </div>
+            </header>
+
+            @if (_planFocusLayout == PlanFocusLayout.Waves)
+            {
+                <div class="plan-waves" data-testid="plan-waves" style="--plan-waves-columns: @(Math.Max(1, waves.Count))">
+                    @foreach (var wave in waves)
+                    {
+                        <section @key="wave.Number"
+                                 class="@(wave.Current ? "plan-waves__wave plan-waves__wave--current" : "plan-waves__wave")"
+                                 aria-label="@($"Wave {wave.Number}, {wave.Label}")"
+                                 data-testid="plan-wave"
+                                 data-wave="@wave.Number"
+                                 data-current="@(wave.Current ? "true" : "false")">
+                            <div class="plan-waves__heading">
+                                <h3 class="plan-waves__title">Wave @wave.Number</h3>
+                                <span class="@(wave.Current ? "plan-waves__label plan-waves__label--current" : "plan-waves__label")" data-testid="plan-wave-label">@wave.Label</span>
+                            </div>
+                            @foreach (var card in wave.Entries)
+                            {
+                                <AppButton @key="card.Entry.Row.Key"
+                                           BaseClass="@(card.Waiting ? "plan-waves__card plan-waves__card--waiting" : "plan-waves__card")"
+                                           Variant="ButtonVariant.None"
+                                           TestId="plan-wave-card"
+                                           data-task-id="@card.Entry.Row.TaskId"
+                                           OnClick="() => OnEntrySelectedAsync(card.Entry.Row.TaskId)">
+                                    <span class="plan-waves__mark plan-waves__mark--@card.StateSlug" aria-hidden="true"></span>
+                                    <span class="plan-waves__text">
+                                        <span class="plan-waves__card-title" data-testid="plan-wave-card-title">@card.Title</span>
+                                        <span class="plan-waves__meta" data-testid="plan-wave-card-meta">@card.MetaLine</span>
+                                        @if (card.StateText.Length > 0)
+                                        {
+                                            <Badge BaseClass="plan-waves__state" Kind="" Slug="@card.StateSlug" TestId="plan-wave-card-state">@card.StateText</Badge>
+                                        }
+                                    </span>
+                                </AppButton>
+                            }
+                        </section>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="plan-focus__list" data-testid="plan-focus-list">
+                    @RenderPlanGroups(view)
+                </div>
+            }
+
+            <div class="plan-focus__run" data-testid="plan-focus-run">
+                <span class="plan-focus__run-title">Run</span>
+                <span data-testid="plan-focus-run-line">Lands on <code class="plan-focus__branch">@view.Branch</code> · Unattended, asks nothing</span>
+                <span class="plan-focus__run-actions">
+                    <CopyButton Text="@view.Tag"
+                                Label="@($"Copy {view.Tag}")"
+                                CssClass="filter-bar__plan-copy"
+                                ButtonBaseClass="filter-bar__plan-copy-button"
+                                StatusCssClass="sr-only"
+                                TestId="plan-focus-copy"
+                                ButtonTestId="plan-focus-copy-button"
+                                StatusTestId="plan-focus-copy-status" />
+                    @RenderPlanSession(view.Tag, "plan-focus-queue-reason")
+                </span>
+            </div>
+        </section>;
+    }
+
+    /// <summary>A plan's sun (local ADR 0072 §8): pressed while the plan is in today's My
+    /// Day; pressing it puts the plan on today's My Day or takes it off. A plan tag no
+    /// Roadmap Item carries gets its item on the first press.</summary>
+    private RenderFragment RenderPlanSun(string plan, string testId) =>
+        @<ToggleButton BaseClass="plan-myday-toggle"
+                       PressedCssClass="plan-myday-toggle--on"
+                       Pressed="@State.IsPlanInMyDay(plan, Today)"
+                       Busy="@IsPlanSunBusy(plan)"
+                       TestId="@testId"
+                       data-plan="@PlanQueueOffer.Bare(plan)"
+                       AriaLabel="@($"{plan} in My Day")"
+                       Title="@PlanSunTitle(plan)"
+                       PressedChanged="_ => OnPlanSunPressedAsync(plan)">
+            <SunIcon Size="14" />
+        </ToggleButton>;
+
+    /// <summary>
+    /// <b>Plans today</b>, above the tasks while the list shows today's My Day (local ADR
+    /// 0072 §8; the design board "My Day — plans and tasks for today"): each plan with its
+    /// progress, its run state, its queue toggle and its sun, and under it only its entries
+    /// left for you, held for you, or awaiting validation. No suggestions: My Day is the
+    /// person's choice for today.
+    /// </summary>
+    private RenderFragment RenderPlansToday()
+    {
+        var plans = PlansToday();
+
+        return @<section class="plans-today" aria-label="Plans today" data-testid="plans-today">
+            <h3 class="plan-sections__group-title">Plans today</h3>
+            @foreach (var today in plans)
+            {
+                <div @key="today.Plan.Tag" class="plans-today__plan" data-testid="plans-today-plan" data-plan="@today.Plan.Name">
+                    <div class="plans-today__line">
+                        <AppButton BaseClass="plans-today__open"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plans-today-open"
+                                   aria-label="@($"Show the {today.Plan.Tag} plan, {today.Plan.Done} of {today.Plan.Total} done, {today.StateText}")"
+                                   OnClick="() => OnRailItemPressed(PlanRailItem.Plan, today.Plan.Tag)">
+                            <span class="plans-today__name" data-testid="plans-today-name">@today.Plan.Name</span>
+                            <span class="plan-sections__folded-bar" aria-hidden="true">
+                                <span class="plan-sections__folded-fill" style="width: @(today.Plan.ProgressPercent)%"></span>
+                            </span>
+                            <span class="plan-sections__folded-done" data-testid="plans-today-progress">@today.Plan.Done of @today.Plan.Total</span>
+                        </AppButton>
+                        <Badge BaseClass="plans-today__state" Kind="" Slug="@RailStateSlug(today.Plan.State)" TestId="plans-today-state">@today.StateText</Badge>
+                        <span class="plans-today__actions">
+                            @RenderPlanSession(today.Plan.Tag, $"plans-today-queue-reason-{today.Plan.Name}")
+                            @RenderPlanSun(today.Plan.Tag, "plans-today-myday")
+                        </span>
+                    </div>
+                    @foreach (var (row, state) in today.ForYou)
+                    {
+                        <AppButton @key="row.Key"
+                                   BaseClass="plan-sections__row"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plans-today-entry"
+                                   data-task-id="@row.TaskId"
+                                   data-state="@state.State.ToString()"
+                                   OnClick="() => OnEntrySelectedAsync(row.TaskId)">
+                            <span class="plan-sections__row-title">@row.PreviewTitle</span>
+                            <span class="plan-sections__row-meta" data-testid="plans-today-entry-reason">@PlanToday.ReasonFor(row, state)</span>
+                        </AppButton>
+                    }
+                </div>
+            }
+        </section>;
+    }
+
+    /// <summary>One entry's line under its group: its number and title, then what the
+    /// group says of it — the session and its stage under Now, the type, points and
+    /// queue state under Next, the state under Later's lists. Pressed, it opens the entry.</summary>
+    private RenderFragment RenderPlanSectionRow(PlanSectionEntry entry, PlanSection section) =>
+        @<div @key="entry.Row.Key" class="plan-sections__row-wrap" data-testid="plan-section-row" data-section="@section.ToString()">
+            <AppButton BaseClass="plan-sections__row"
+                       Variant="ButtonVariant.None"
+                       TestId="plan-section-row-open"
+                       data-task-id="@entry.Row.TaskId"
+                       OnClick="() => OnEntrySelectedAsync(entry.Row.TaskId)">
+                <span class="plan-sections__row-title">@entry.Row.PreviewTitle</span>
+                @if (section == PlanSection.Next)
+                {
+                    <span class="plan-sections__row-meta" data-testid="plan-section-row-meta">@PlanRowTypeAndPoints(entry.Row)</span>
+                }
+                @if (section == PlanSection.Now && entry.State.Stage is { } stage)
+                {
+                    <span class="plan-sections__row-meta" data-testid="plan-section-row-stage">@stage</span>
+                }
+                @if (section != PlanSection.Now)
+                {
+                    <Badge BaseClass="plan-sections__row-state" Kind="" TestId="plan-section-row-state">@entry.State.Label</Badge>
+                }
+            </AppButton>
+            @if (section == PlanSection.Now && entry.Row.SessionLinks.Count > 0 && OnOpenSession.HasDelegate)
+            {
+                var link = entry.Row.SessionLinks[^1];
+
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="plan-sections__session"
+                           TestId="plan-section-row-session"
+                           aria-label="Open the session working on this entry"
+                           OnClick="() => OnOpenSession.InvokeAsync(link.SessionId)">
+                    Session ↗
+                </AppButton>
+            }
+        </div>;
+
+    /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — plus one while a
+    /// rail item other than My Day is selected in the menu, which the Filter trigger
+    /// wears as its count while it is not 0. My Day has its own chip on the bar.</summary>
+    private int FilterMenuPressedCount =>
+        (PlansGrouped || State.SelectedSource is null ? 0 : 1)
+        + (PlansGrouped || State.SelectedType is null ? 0 : 1)
+        + (PlansGrouped &&(State.NowAcrossPlansOnly || State.SelectedPlan is not null || State.IsTagSelected(TasksDesktopState.NoPlanTag)) ? 1 : 0);
 
     /// <summary>The Filter trigger in the chips' shape, reading pressed while a
     /// source or type is, so a narrowed list says so with the menu shut.</summary>
@@ -6250,11 +7643,14 @@
     {
         get
         {
-            var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0) switch
+            // In Plans the menu holds the rail alone: Type and Source are on the bar.
+            var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0, PlansGrouped) switch
             {
-                (true, true) => "Filter by source and type",
-                (true, false) => "Filter by source",
-                _ => "Filter by type",
+                (_, _, true) => "Pick a plan",
+                (true, true, false) => "Filter by source and type",
+                (true, false, false) => "Filter by source",
+                (false, true, false) => "Filter by type",
+                _ => "Pick a plan",
             };
 
             return FilterMenuPressedCount switch
@@ -6299,7 +7695,7 @@
 
     /// <summary>The Filter menu has something to hold: at least one of Source and
     /// Type has chips.</summary>
-    private bool FilterMenuOffered => State.SourceFilters.Count > 0 || State.TypeFilters.Count > 0;
+    private bool FilterMenuOffered => State.SourceFilters.Count > 0 || State.TypeFilters.Count > 0 || PlansGrouped;
 
     /// <summary>
     /// The menu opened or shut. The re-render the callback brings applies any wide
@@ -6374,7 +7770,14 @@
         if (_listReportedNarrow == narrow) return Task.CompletedTask;
 
         var drawn = ListNarrow;
+        var docked = QueueDocked;
         _listReportedNarrow = narrow;
+
+        if (docked != QueueDocked)
+        {
+            if (QueueDocked) _ = RefreshSessionAttentionAsync();
+        }
+
         return drawn == ListNarrow ? Task.CompletedTask : InvokeAsync(StateHasChanged);
     }
 
@@ -6472,6 +7875,8 @@
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;
         _planSessions.Dispose();
+        StopFollowingPlanImpediments();
+        StopPlanStages();
 
         if (_listWidthReference is not null)
         {

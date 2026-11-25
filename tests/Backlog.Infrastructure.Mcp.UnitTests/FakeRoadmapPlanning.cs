@@ -68,6 +68,11 @@ internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlannin
         DateOnly on,
         CancellationToken cancellationToken = default) => throw Written(nameof(CompleteItemAsync));
 
+    public Task<Result<IReadOnlyList<RoadmapItemDto>>> PutPlanOnMyDayAsync(
+        string tag,
+        DateOnly? on,
+        CancellationToken cancellationToken = default) => throw Written(nameof(PutPlanOnMyDayAsync));
+
     public Task<Result<RoadmapItemDto>> ReopenItemAsync(
         Guid itemId,
         CancellationToken cancellationToken = default) => throw Written(nameof(ReopenItemAsync));

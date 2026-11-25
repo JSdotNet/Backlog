@@ -9,7 +9,7 @@ related: [.devbook/domain/tasks/features.md]
 
 ```meta
 type: requirements
-related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 > A carried task is defined under [My Day](domain.md#my-day).
@@ -281,6 +281,101 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 - **Given** no desktop has ever set Clear My Day overnight and an open task was picked for yesterday
 - **When** the phone opens Today
 - **Then** the task is not in today's My Day
+
+### Requirement: A plan is in My Day by the task rule
+
+```meta
+type: requirement
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_on_a_plan_picked_yesterday_has_left_My_Day, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteRoadmapPlanReplicaTests.A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayPlanLineTests.A_plan_is_in_by_the_task_rule, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskViewProjectionMyDayTests.With_the_switch_off_a_plan_picked_yesterday_carries_over_until_it_is_finished]
+```
+
+The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day date by the rule a task's date is read, under the same Clear My Day overnight setting.
+
+#### Scenario: A plan picked today
+
+- **Given** the person put the plan `+zero-trust-auth` on My Day today
+- **When** the person opens My Day on the desktop
+- **Then** the plan is listed among today's plans
+
+#### Scenario: A plan picked yesterday with the switch on
+
+- **Given** Clear My Day overnight is on and the plan `+finance-setup` was put on My Day yesterday with entries still open
+- **When** the person opens My Day today
+- **Then** the plan is not in today's My Day
+
+#### Scenario: A plan picked yesterday with the switch off
+
+- **Given** Clear My Day overnight is off and the plan `+finance-setup` was put on My Day yesterday with entries still open
+- **When** the person opens My Day today
+- **Then** the plan is in today's My Day as a carried plan
+
+### Requirement: A plan tag with no Roadmap Item gets one on My Day
+
+```meta
+type: requirement
+related: [.devbook/domain/roadmap/domain.md#roadmap-item]
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PutPlanOnMyDayTests.A_plan_tag_no_item_carries_gets_its_item_on_that_day, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapCrossContextAdapterScopeTests.Putting_a_new_plan_tag_on_My_Day_creates_its_roadmap_item_and_reads_the_date_back]
+```
+
+The system SHALL create a Roadmap Item carrying the tag and today's My Day date when the person puts a plan tag that no Roadmap Item carries on My Day.
+
+#### Scenario: A tag only entries carry
+
+- **Given** entries carry the plan tag `+lets-bbq-setup` and no Roadmap Item carries it
+- **When** the person puts `+lets-bbq-setup` on My Day
+- **Then** the roadmap holds an item with the tag `lets-bbq-setup`, today's My Day date and a one-day window on today, unfiled, and the plan is in today's My Day
+
+### Requirement: A plan on My Day shows only what is left for the person
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.My_Day_lists_Plans_today_above_the_tasks_with_only_the_entries_the_person_holds, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.An_entry_awaiting_validation_on_an_open_pull_request_is_the_persons_and_one_in_a_session_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_today_words_its_run_state]
+```
+
+The desktop's My Day SHALL show a plan in it with its progress and run state and only those of its entries that are left for the person, held for the person, or awaiting validation.
+
+#### Scenario: A running plan on My Day
+
+- **Given** the plan `+zero-trust-auth` is on today's My Day and running, with 8 of 24 entries done, three in a plan session, one test entry left for the person and one entry held on an unreadable source
+- **When** the person opens My Day on the desktop
+- **Then** the plan shows "8 of 24" and "Running · unattended", and lists only the test entry and the held entry
+
+### Requirement: The phone shows a plan on Today as one line
+
+```meta
+type: requirement
+related: [.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayScreenTests.A_plan_on_today_is_one_line_above_the_tasks_without_its_entries, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayScreenTests.A_day_with_only_a_plan_shows_the_plan_and_not_the_empty_state, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayPlanLineTests.The_run_state_reads_off_the_open_entries, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskViewProjectionMyDayTests.The_roadmap_plan_is_kept_with_its_page_and_puts_its_plans_on_Today]
+```
+
+The phone's Today SHALL show each plan in today's My Day as one line above the task groups, with its name, its entries done of its total and its run state, without its entries.
+
+#### Scenario: A plan and tasks on Today
+
+- **Given** the plan `+zero-trust-auth` and three tasks are in today's My Day
+- **When** the phone opens Today after its next pull
+- **Then** Today shows the plan as one line and none of its entries, and the tasks in their groups
+
+#### Scenario: Only a plan on Today
+
+- **Given** the plan `+lets-bbq` is in today's My Day and no task is
+- **When** the phone opens Today after its next pull
+- **Then** Today shows the plan's line and not the empty state
+
+### Requirement: My Day offers no suggestions
+
+```meta
+type: requirement
+```
+
+My Day SHALL list only the tasks and plans the person picked for it, and SHALL suggest none.
+
+#### Scenario: Ready work not picked
+
+- **Given** several ready entries and plans, none picked for today
+- **When** the person opens My Day
+- **Then** My Day lists none of them and shows no suggestion group
 
 ## Linked tasks
 
@@ -863,6 +958,116 @@ The system SHALL keep the next occurrence of a repeating task when the occurrenc
 - **Given** a weekly task the person ticked off, which now has its next occurrence
 - **When** the person unticks it
 - **Then** the next occurrence is still in the backlog
+
+## Plans view
+
+```meta
+type: requirements
+related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+> Local ADR 0072 decides these requirements. The switch and the plan rail are built; the rest is not yet.
+
+### Requirement: The Tasks list opens on Plans and remembers the switch
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_list_opens_on_Plans_the_first_time_and_reopens_on_the_grouping_last_picked, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.The_switch_reads_Plans_and_picking_Flat_takes_the_rail_away_and_tells_the_host]
+```
+
+The Tasks list SHALL open on Plans in a window that never chose, and SHALL reopen each window on the Plans or Flat choice it last made.
+
+#### Scenario: The first open
+
+- **Given** a window that has never chosen Plans or Flat
+- **When** the person opens Tasks
+- **Then** the Plans view is shown
+
+#### Scenario: Flat is remembered
+
+- **Given** the person switched a window to Flat
+- **When** the app is restarted and the window opens Tasks again
+- **Then** the Flat view is shown
+
+### Requirement: The plan rail lists each plan with its progress and run state
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.The_rail_lists_My_Day_Now_each_plan_and_Unplanned_in_order_with_their_counts, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanRailTests.Each_plan_carries_its_done_and_total_a_progress_line_and_its_run_state_as_coloured_text]
+```
+
+The Plans view SHALL list on its rail My Day, Now across plans, each plan with a progress line, its done and total entry counts and its run state as text, and Unplanned with its count, in that order.
+
+#### Scenario: Plans in view
+
+- **Given** the plan `+zero-trust-auth` has 8 of 24 entries done and a running plan session, the plan `+gtd-para` is queued second, and 172 open entries carry no plan
+- **When** the person opens the Plans view
+- **Then** the rail lists My Day, Now across plans, `zero-trust-auth` with "8/24" and "Running", `gtd-para` with "Queued 2nd", and Unplanned with 172
+
+### Requirement: The selected plan reads as Now, Next and Later
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_selected_plan_groups_its_entries_into_Now_Next_and_Later, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_unlock_line_names_only_waiting_entries_one_landing_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_other_plans_fold_to_a_line_each_with_their_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.Unplanned_closes_the_column_and_Select_new_plan_picks_from_it]
+```
+
+The Plans view SHALL show the selected plan's entries in a session under Now, its ready entries under Next, and under Later one line for its waiting entries naming what unlocks next and one line for its done entries, followed by every other plan folded to one line and then the unplanned entries.
+
+#### Scenario: A plan mid-run
+
+- **Given** the plan `+zero-trust-auth` has three entries in a session, three ready, ten waiting of which #20 waits on #14 and #17, and eight done
+- **When** the person selects it on the rail
+- **Then** Now lists the three entries in a session with their stages, Next lists the three ready ones, Later reads "10 waiting — next to unlock: #20 when #14 and #17 land" and "8 done" on two lines, and the other plans follow folded to one line each before Unplanned
+
+### Requirement: The Flat view lists the unplanned work
+
+```meta
+type: requirement
+```
+
+The Flat view SHALL list the entries that carry no plan and the plan entries in today's My Day, and no other plan entry.
+
+#### Scenario: A plan entry on My Day
+
+- **Given** an unplanned task, a `+zero-trust-auth` entry in today's My Day and a `+zero-trust-auth` entry not in it
+- **When** the person switches to Flat
+- **Then** the list holds the unplanned task and the My Day plan entry, and not the other plan entry
+
+### Requirement: A plan's waves follow its dependencies
+
+```meta
+type: requirement
+related: [.devbook/domain/tasks/features.md#task-dependencies]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.A_chain_puts_each_entry_one_wave_after_the_one_it_waits_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.An_entry_depending_across_waves_sits_after_its_latest_dependency, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.Opening_the_heading_shows_the_plan_alone_in_waves, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.List_shows_the_plan_as_rows_and_Plans_goes_back]
+```
+
+A plan's own view SHALL place each of its entries one wave after the latest wave among the plan entries it waits on, and the entries waiting on none of them in the first wave, and SHALL name the plan branch the run lands on.
+
+#### Scenario: Three waves
+
+- **Given** the plan `+zero-trust-auth` where #9 waits on #1, #14 waits on #9, and #1 waits on nothing
+- **When** the person opens the plan's view
+- **Then** #1 is in wave 1, #9 in wave 2, #14 in wave 3, and the run line reads "Lands on plan/zero-trust-auth"
+
+#### Scenario: The list instead of waves
+
+- **Given** the plan's view shows its waves
+- **When** the person presses List on the Waves / List toggle
+- **Then** the plan's entries show as rows
+
+### Requirement: A row shows its status as text and ends in copy and queue
+
+```meta
+type: requirement
+```
+
+A row in the Tasks list SHALL show its status as coloured text rather than a pill, and SHALL end in a copy button shown while the row is hovered or focused and a queue button, keeping every other badge it carries.
+
+#### Scenario: Hovering a row
+
+- **Given** a Ready prompt entry with a plan badge and an effort badge, not hovered
+- **When** the person hovers its row
+- **Then** the row reads "Ready" as text with both badges, and shows the copy button beside its queue button
 
 ## Manual ordering
 

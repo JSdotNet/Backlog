@@ -98,6 +98,7 @@ between inherited ADRs 0005 and 0009.
 - **[0069 — The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource](0069-the-backlog-mcp-server-keeps-grants-and-serves-its-own-skill.md)** *(proposed, skill not yet built; keeps one difference from org ADR 0011 and moves to its skill rule)*
 - **[0070 — Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set](0070-model-calls-stay-on-the-foundry-adapter-and-gain-an-evaluation-set.md)** *(proposed, evaluation set not yet built; keeps one difference from org ADR 0012 and moves to its evaluation rule)*
 - **[0071 — Agent changes are restorable through a change journal beside the store](0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)** *(proposed, not yet built; adds to 0003, amends 0058 §4)*
+- **[0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md)** *(proposed, not yet built; changes 0038's queue popover into a docked column, extends 0032's My Day rule to plans)*
 
 ## Inherited decisions
 

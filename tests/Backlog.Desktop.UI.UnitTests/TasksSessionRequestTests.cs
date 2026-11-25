@@ -31,9 +31,12 @@ public sealed class TasksSessionRequestTests
 
     private static async Task<(TasksPaneHost Host, FakeEntrySessionRequests Queue, FakeTimeProvider Clock)> HostAsync(
         bool cloneBacklog = true,
-        bool cloneTools = false)
+        bool cloneTools = false,
+        IRoadmapTagSource? roadmapTags = null)
     {
-        var host = await TasksPaneHost.CreateAsync(Backlog, Tools);
+        var host = roadmapTags is null
+            ? await TasksPaneHost.CreateAsync(Backlog, Tools)
+            : await TasksPaneHost.CreateAsync(roadmapTags, [Backlog, Tools]);
         if (cloneBacklog) host.GitHub.Settings.SetCloneDirectory("backlog", BacklogClone);
         if (cloneTools) host.GitHub.Settings.SetCloneDirectory("tools", @"D:\Repos\Tools");
 
@@ -71,7 +74,7 @@ public sealed class TasksSessionRequestTests
             Assert.Equal((row.Id!.Value, Backlog, BacklogClone), asked);
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='session-request-chip']").TextContent, StringComparison.Ordinal);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+            Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
         Assert.Contains(host.Toasts.Visible, toast => toast.TestId == "session-request-queued");
     }
@@ -95,7 +98,7 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
-    public async Task A_saved_prompt_s_list_row_carries_the_icon_in_its_actions_and_queues_from_there()
+    public async Task A_saved_prompt_s_list_row_ends_in_the_queue_button_after_its_copy_and_queues_from_there()
     {
         var (host, queue, _) = await HostAsync();
         using var _host = host;
@@ -103,8 +106,11 @@ public sealed class TasksSessionRequestTests
 
         var pane = host.Render();
         var button = RowIcon(pane, row);
-        Assert.NotNull(button.Closest(".task-item__actions"));
-        Assert.Contains("task-item__action-button", button.ClassList);
+        Assert.NotNull(button.Closest(".task-item__trailing"));
+        Assert.Null(button.Closest(".task-item__actions"));
+        Assert.Contains("queue-button--idle", button.ClassList);
+        Assert.Contains("task-item__copy", button.Closest(".task-item__trailing")!.PreviousElementSibling!.ClassList);
+        Assert.Contains("task-item--quiet", RowOf(pane, row).ClassList);
         Assert.Equal($"Queue a session for this entry in {Backlog}", button.GetAttribute("aria-label"));
 
         button.Click();
@@ -112,7 +118,9 @@ public sealed class TasksSessionRequestTests
         pane.WaitForAssertion(() =>
         {
             Assert.Equal((row.Id!.Value, Backlog, BacklogClone), Assert.Single(queue.Asked));
-            Assert.Empty(RowOf(pane, row).QuerySelectorAll("[data-testid='row-queue-session']"));
+            var queued = RowIcon(pane, row);
+            Assert.Contains("queue-button--queued", queued.ClassList);
+            Assert.Equal("Take Add the Start session action off the queue", queued.GetAttribute("aria-label"));
             Assert.NotNull(RowOf(pane, row).QuerySelector("[data-testid='row-session-request']"));
         });
     }
@@ -146,7 +154,7 @@ public sealed class TasksSessionRequestTests
         {
             Assert.Single(queue.Asked);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+            Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
     }
 
@@ -272,6 +280,153 @@ public sealed class TasksSessionRequestTests
         Assert.Empty(queue.Asked);
     }
 
+    /// <summary>A plan is queued only as a whole (local ADR 0072 §4): a plan entry's own
+    /// icon is disabled, its name and reason say to queue the plan, and a press asks for
+    /// nothing.</summary>
+    [Fact]
+    public async Task A_plan_entry_s_own_queue_is_refused_and_says_to_queue_the_plan_as_a_whole()
+    {
+        var (host, queue, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        const string expected = "Queued with its plan — queue the plan as a whole";
+
+        foreach (var (button, reasonTestId) in new[] { (EntryIcon(pane), "entry-queue-session-reason"), (RowIcon(pane, row), "row-queue-session-reason") })
+        {
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Equal("Queue the +plan-first-tasks plan as a whole — its entries are not queued one by one", button.GetAttribute("aria-label"));
+            Assert.Equal(expected, button.GetAttribute("title"));
+            var reason = pane.Find($"[id='{button.GetAttribute("aria-describedby")}']");
+            Assert.Equal(reasonTestId, reason.GetAttribute("data-testid"));
+            Assert.Equal(expected, reason.TextContent);
+        }
+
+        EntryIcon(pane).Click();
+        RowIcon(pane, row).Click();
+        Assert.Empty(queue.Asked);
+    }
+
+/// <summary>While the plan has a request open, a plan entry's row says Queued with
+    /// plan and its still-refused icon is lit, naming the queued plan (local ADR 0072 §4;
+    /// the board "Row states — entry ↔ queue").</summary>
+    [Fact]
+    public async Task While_its_plan_is_queued_a_plan_entry_s_row_says_so_and_its_refused_icon_is_lit()
+    {
+        var (host, queue, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!ready` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.State.SelectAsync(null);
+        var plans = new TasksPlanSessionRequestTests.FakePlanTagSessionRequests();
+        plans.Open["plan-first-tasks"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch, QueuePosition: 0);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(plans);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var badge = RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']");
+            Assert.NotNull(badge);
+            Assert.Equal("Queued with plan", badge.TextContent.Trim());
+            Assert.Contains("entry-row__plan-state--queued-with-plan", badge.ClassList);
+
+            var button = RowIcon(pane, row);
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Contains("queue-button--plan-queued", button.ClassList);
+            Assert.Equal(TasksPane.PlanEntryQueuedReason("+plan-first-tasks"), button.GetAttribute("title"));
+        });
+
+        RowIcon(pane, row).Click();
+        Assert.Empty(queue.Asked);
+    }
+
+    /// <summary>With its plan not queued, a ready plan entry's row carries no plan state -
+    /// Ready would only repeat its status - and its icon stays dim.</summary>
+    [Fact]
+    public async Task With_its_plan_not_queued_a_ready_plan_entry_s_row_adds_no_state_and_its_icon_stays_dim()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!ready` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.State.SelectAsync(null);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(new TasksPlanSessionRequestTests.FakePlanTagSessionRequests());
+
+        var pane = host.Render();
+
+        Assert.Null(RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']"));
+        Assert.DoesNotContain("queue-button--plan-queued", RowIcon(pane, row).ClassList);
+    }
+
+    /// <summary>A plan entry a plan session runs says In plan session on its row.</summary>
+    [Fact]
+    public async Task A_plan_entry_in_a_plan_session_says_so_on_its_row()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!in-progress` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        row.SessionLinks = [new EntrySessionLink(Backlog, "plan-session")];
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+
+        Assert.Equal("In plan session", RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']")?.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_plan_entry_s_offer_is_refused_even_with_a_clone_folder()
+    {
+        var offer = SessionStartOffer.For(
+            EntryType.Prompt,
+            persisted: true,
+            [Repo("backlog", "JSdotNet", "Backlog", BacklogClone)],
+            planTag: "+plan-first-tasks");
+
+        Assert.NotNull(offer);
+        Assert.False(offer.IsEnabled);
+        Assert.Null(offer.Only);
+        Assert.False(offer.AsksWhichRepository);
+        Assert.Equal("+plan-first-tasks", offer.PlanTag);
+        Assert.Equal(PlanQueueOffer.QueueThePlanAsAWhole, offer.DisabledReason);
+    }
+
+    /// <summary>A plan tag no roadmap item carries has no plan queue, so its entry keeps
+    /// its own icon.</summary>
+    [Fact]
+    public async Task An_entry_whose_plan_tag_no_roadmap_item_carries_keeps_its_own_queue()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+another-plan"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Loose\n`prompt` `+unplanned-tag` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+
+        var pane = host.Render();
+
+        Assert.False(RowIcon(pane, row).HasAttribute("disabled"));
+        Assert.Equal($"Queue a session for this entry in {Backlog}", RowIcon(pane, row).GetAttribute("aria-label"));
+    }
+
+    private sealed class PlannedTags(params string[] tags) : IRoadmapTagSource
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(tags);
+    }
+
+    [Fact]
+    public void An_unplanned_prompt_keeps_its_own_queue()
+    {
+        var offer = SessionStartOffer.For(EntryType.Prompt, persisted: true, [Repo("backlog", "JSdotNet", "Backlog", BacklogClone)], planTag: null);
+
+        Assert.True(offer!.IsEnabled);
+        Assert.Null(offer.PlanTag);
+    }
+
     [Fact]
     public async Task Each_disabled_icon_names_its_own_reason_so_no_id_repeats()
     {
@@ -394,7 +549,12 @@ public sealed class TasksSessionRequestTests
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='row-session-request']").TextContent, StringComparison.Ordinal);
             Assert.Equal(cancellable, pane.FindAll("[data-testid='session-request-cancel']").Count == 1);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+
+            // The row's queue button stays, queued, and takes the request back only
+            // while the open entry's Cancel would.
+            var queued = RowIcon(pane, row);
+            Assert.Equal("queued", queued.GetAttribute("data-queue-state"));
+            Assert.Equal(!cancellable, queued.HasAttribute("disabled"));
         });
     }
 
@@ -420,6 +580,29 @@ public sealed class TasksSessionRequestTests
             Assert.Empty(pane.FindAll("[data-testid='row-session-request']"));
             Assert.False(EntryIcon(pane).HasAttribute("disabled"));
             Assert.False(RowIcon(pane, row).HasAttribute("disabled"));
+        });
+    }
+
+    [Fact]
+    public async Task Pressing_the_row_s_queued_button_takes_the_request_back()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var requestId = Guid.NewGuid();
+        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state")));
+        Assert.Equal("Take Add the Start session action off the queue", RowIcon(pane, row).GetAttribute("aria-label"));
+
+        RowIcon(pane, row).Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([requestId], queue.Cancelled);
+            Assert.Empty(queue.Asked);
+            Assert.Equal("idle", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
     }
 

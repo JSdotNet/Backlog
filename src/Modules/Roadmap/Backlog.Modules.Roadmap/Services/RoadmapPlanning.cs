@@ -12,6 +12,7 @@ using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.KeepUpWithWork;
 using Backlog.Modules.Roadmap.Features.PinItemEnd;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
+using Backlog.Modules.Roadmap.Features.PutPlanOnMyDay;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -44,6 +45,7 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<RemoveDependencyCommand, Result> removeDependency,
     ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems,
     ICommandHandler<KeepUpWithWorkCommand, IReadOnlyList<RoadmapItemScheduledDto>> keepUpWithWork,
+    ICommandHandler<PutPlanOnMyDayCommand, Result<IReadOnlyList<RoadmapItemDto>>> putPlanOnMyDay,
     RoadmapPlanChanges changes) : IRoadmapPlanning
 {
     // Forwarded rather than held, so a subscriber in one scope hears a write made
@@ -114,6 +116,12 @@ internal sealed class RoadmapPlanning(
         DateOnly on,
         CancellationToken cancellationToken = default) =>
         Announce(completeItem.Handle(new CompleteItemCommand(itemId, on), cancellationToken));
+
+    public Task<Result<IReadOnlyList<RoadmapItemDto>>> PutPlanOnMyDayAsync(
+        string tag,
+        DateOnly? on,
+        CancellationToken cancellationToken = default) =>
+        Announce(putPlanOnMyDay.Handle(new PutPlanOnMyDayCommand(tag, on), cancellationToken));
 
     public Task<Result<RoadmapItemDto>> ReopenItemAsync(
         Guid itemId,

@@ -60,7 +60,7 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource, ITaskLookupCandidates
+public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource, ITaskLookupCandidates
 {
     private const int DebounceMilliseconds = 750;
 
@@ -561,9 +561,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         var read = Interlocked.Increment(ref _roadmapTagReads);
         IReadOnlyList<string> tags;
+        IReadOnlyDictionary<string, DateOnly> plansOnMyDay;
         try
         {
             tags = await _roadmapTags.TagsInUseAsync(_untilDisposed);
+            plansOnMyDay = await _roadmapTags.PlansOnMyDayAsync(_untilDisposed);
         }
         catch (Exception)
         {
@@ -573,6 +575,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (_untilDisposed.IsCancellationRequested || read != Volatile.Read(ref _roadmapTagReads)) return;
 
         RoadmapTags = tags;
+        PlansOnMyDay = plansOnMyDay;
         Changed?.Invoke();
     }
 
@@ -845,6 +848,136 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// question. Off the preview, the reader the status filter uses.</summary>
     public bool IsReadyInPlan(EntryRow row) =>
         row.PreviewStatus is EntryStatus.Ready && !IsFinished(row) && HasPlan(row);
+
+    /// <summary>
+    /// True while the view is narrowed to the plan rail's <b>Now, across plans</b>: the
+    /// entries in a session in any plan (local ADR 0072 §2), read as
+    /// <see cref="IsInPlanSession"/>.
+    /// </summary>
+    public bool NowAcrossPlansOnly { get; private set; }
+
+    /// <summary>Whether a row is plan work in a session: open, filed under a plan and
+    /// In progress — the status a session moves an entry to when it picks it up.</summary>
+    public bool IsInPlanSession(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.InProgress && !IsFinished(row) && HasPlan(row);
+
+    /// <summary>Whether a row is filed under no plan, as the rail's Unplanned and the
+    /// "No plan" chip read it.</summary>
+    public static bool IsUnplanned(EntryRow row) => !HasPlan(row);
+
+    /// <summary>Whether the plan rail's <paramref name="item"/> is the one selected:
+    /// the scope or the plan it stands for is the one in force.</summary>
+    /// <param name="item">The rail item.</param>
+    /// <param name="planTag">The plan's tag, <c>+</c> and all, for
+    /// <see cref="PlanRailItem.Plan"/>; ignored otherwise.</param>
+    public bool IsRailItemSelected(PlanRailItem item, string? planTag = null) => item switch
+    {
+        PlanRailItem.MyDay => MyDayOn is not null,
+        PlanRailItem.NowAcrossPlans => NowAcrossPlansOnly,
+        PlanRailItem.Plan => IsTagSelected(planTag),
+        PlanRailItem.Unplanned => IsTagSelected(NoPlanTag),
+        _ => false,
+    };
+
+    /// <summary>
+    /// Selects one item of the plan rail (local ADR 0072 §2): the list then shows that
+    /// plan or that list — today's My Day, the plan work in a session, or the entries in
+    /// no plan. One item at a time, so selecting one lets go of the others; selecting the
+    /// one already selected lets go of it, and the list is everything again. People and
+    /// general tags stay pressed, as a plan chip's press leaves them.
+    /// </summary>
+    /// <param name="item">The rail item.</param>
+    /// <param name="planTag">The plan's tag, <c>+</c> and all, for
+    /// <see cref="PlanRailItem.Plan"/>.</param>
+    /// <param name="today">The reader's local date, for <see cref="PlanRailItem.MyDay"/>:
+    /// the pane holds the clock.</param>
+    public void SelectRailItem(PlanRailItem item, string? planTag, DateOnly today)
+    {
+        if (item is PlanRailItem.Plan && TagText.Kind(planTag) is not TagKind.Plan)
+        {
+            throw new ArgumentException($"'{planTag}' is not a plan tag.", nameof(planTag));
+        }
+
+        var wasSelected = IsRailItemSelected(item, planTag);
+
+        LetGoOfShownPlan();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        MyDayOn = null;
+        NowAcrossPlansOnly = false;
+
+        if (!wasSelected)
+        {
+            switch (item)
+            {
+                case PlanRailItem.MyDay: MyDayOn = today; break;
+                case PlanRailItem.NowAcrossPlans: NowAcrossPlansOnly = true; break;
+                case PlanRailItem.Plan: _selectedTags.Add(planTag!.ToLowerInvariant()); break;
+                case PlanRailItem.Unplanned: _selectedTags.Add(NoPlanTag); break;
+            }
+        }
+
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// The state <paramref name="row"/> shows because its plan is queued only as a
+    /// whole (local ADR 0072 §4), or null when the row is in no plan. The one answer
+    /// the row, the plan sections and My Day read: waiting is this state's own
+    /// <see cref="IsNotWaiting"/>, and <paramref name="run"/> is the plan's session
+    /// request and run — see <see cref="PlanEntryState.For"/>.
+    /// </summary>
+    public PlanEntryState? PlanEntryStateOf(EntryRow row, PlanRun? run = null)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return PlanEntryState.For(row, waiting: !IsNotWaiting(row), run);
+    }
+
+    /// <summary>
+    /// The plan <paramref name="row"/> is queued with, <c>+</c> and all, or null: its
+    /// plan tag when a roadmap item carries it (<see cref="RoadmapTags"/>). Such an
+    /// entry's own queue is refused, since the plan is queued only as a whole (local ADR
+    /// 0072 §4); a plan tag no roadmap item carries has no plan queue to send it to, so
+    /// its entry keeps its own.
+    /// </summary>
+    public string? QueuedOnlyWithPlan(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (PlanEntryState.PlanTagOf(row) is not { } tag) return null;
+
+        var bare = PlanQueueOffer.Bare(tag);
+
+        return RoadmapTags.Any(planned => string.Equals(PlanQueueOffer.Bare(planned), bare, StringComparison.OrdinalIgnoreCase))
+            ? tag
+            : null;
+    }
+
+    /// <summary>
+    /// Every entry of the plan <paramref name="plan"/> — with or without its <c>+</c>,
+    /// matched without regard to case — with its <see cref="PlanEntryStateOf"/>, in
+    /// the store's order: what a plan section groups into Now, Next and Later.
+    /// </summary>
+    public IReadOnlyList<(EntryRow Row, PlanEntryState State)> PlanEntryStatesOf(string plan, PlanRun? run = null)
+    {
+        var bare = PlanQueueOffer.Bare(plan);
+        if (bare.Length == 0) return [];
+
+        var states = new List<(EntryRow Row, PlanEntryState State)>();
+
+        foreach (var row in Rows)
+        {
+            if (PlanEntryState.PlanTagOf(row) is not { } tag
+                || !string.Equals(PlanQueueOffer.Bare(tag), bare, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (PlanEntryStateOf(row, run) is { } state) states.Add((row, state));
+        }
+
+        return states;
+    }
 
     /// <summary>Whether a row is open and waiting on nothing. Answered from
     /// <see cref="TaskChain"/> over every row the store holds rather than worked
@@ -1794,6 +1927,84 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>Turns the rail's Now, across plans on or off. See
+    /// <see cref="NowAcrossPlansOnly"/> for what it keeps.</summary>
+    public void SetNowAcrossPlansFilter(bool only)
+    {
+        if (NowAcrossPlansOnly == only) return;
+
+        NowAcrossPlansOnly = only;
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// The day the <b>Flat</b> view's scope is read against, or null while the list is
+    /// not Flat (local ADR 0072 §3; <c>.devbook/domain/tasks/features.md#plans-view</c>).
+    /// While set the list keeps the entries in no plan, plus a plan entry in that day's
+    /// My Day — see <see cref="InFlatScope"/>. Applied after the repository scope, so
+    /// <see cref="ScopedRows"/> stays the whole pool the plan rail counts.
+    /// </summary>
+    public DateOnly? FlatScopeOn { get; private set; }
+
+    /// <summary>Turns the Flat scope on for <paramref name="today"/>, or off with null.</summary>
+    public void SetFlatScope(DateOnly? today)
+    {
+        if (FlatScopeOn == today) return;
+
+        FlatScopeOn = today;
+        ApplyFilter();
+    }
+
+    /// <summary>Whether a row belongs in the Flat list: in no plan, or a plan entry the
+    /// person put in today's My Day.</summary>
+    public bool InFlatScope(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return IsUnplanned(row) || IsInMyDay(row, today);
+    }
+
+    /// <summary>Whether a row is a plan entry the Flat list shows only because it is in
+    /// today's My Day — the row that says "☀ My Day · &lt;plan&gt;" on its second line.</summary>
+    public bool IsPlanEntryOnMyDay(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return !IsUnplanned(row) && IsInMyDay(row, today);
+    }
+
+    /// <summary>The Flat bar's <b>In the queue</b> view: which rows wait for a session.
+    /// The pane holds the session queue, so it hands the question over rather than a
+    /// list of ids that the next poll would leave stale.</summary>
+    private Func<EntryRow, bool>? _isQueued;
+
+    /// <summary>True while the list is narrowed to the entries waiting for a session.</summary>
+    public bool QueuedOnly => _isQueued is not null;
+
+    /// <summary>Narrows the list to the rows <paramref name="isQueued"/> says wait for a
+    /// session, or lets go of that with null.</summary>
+    public void SetQueuedFilter(Func<EntryRow, bool>? isQueued)
+    {
+        if (_isQueued is null && isQueued is null) return;
+
+        _isQueued = isQueued;
+        ApplyFilter();
+    }
+
+    /// <summary>The entry a docked session queue item was selected for (local ADR 0072 §6),
+    /// or null: while set the list holds that entry alone.</summary>
+    public Guid? QueueFocusEntry { get; private set; }
+
+    /// <summary>Narrows the list to the entry <paramref name="entryId"/> a session queue
+    /// item names, or lets go of that with null.</summary>
+    public void SetQueueFocusEntry(Guid? entryId)
+    {
+        if (QueueFocusEntry == entryId) return;
+
+        QueueFocusEntry = entryId;
+        ApplyFilter();
+    }
+
     /// <summary>Turns the Waiting slice on or off. See
     /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
     public void SetWaitingForFilter(bool only)
@@ -1840,6 +2051,23 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     private static bool IsPlanFilter(string tag) =>
         tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
+
+    /// <summary>
+    /// Lets go of the plan rail's plan and Unplanned selection — a pressed plan, No
+    /// plan, a plan <see cref="ShowPlan"/> holds, and Now across plans — for a view that
+    /// draws no rail: the Flat view lists the unplanned work plus a plan entry on My Day
+    /// whatever the rail had selected (local ADR 0072 §3). People and general tags, and
+    /// My Day, stay.
+    /// </summary>
+    public void LetGoOfPlanSelection()
+    {
+        if (_shownPlan is null && !NowAcrossPlansOnly && !_selectedTags.Any(IsPlanFilter)) return;
+
+        LetGoOfShownPlan();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        NowAcrossPlansOnly = false;
+        ApplyFilter();
+    }
 
     /// <summary>
     /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
@@ -1902,8 +2130,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _selectedRepositoryAliases.Clear();
         MyDayOn = null;
         ReadyInPlanOnly = false;
+        NowAcrossPlansOnly = false;
         WaitingForOnly = false;
         NextActionsOnly = false;
+        QueueFocusEntry = null;
         SelectedArea = null;
         SelectedSource = null;
         SelectedType = null;
@@ -1974,6 +2204,24 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             widened = true;
         }
 
+        if (NowAcrossPlansOnly && !IsInPlanSession(row))
+        {
+            NowAcrossPlansOnly = false;
+            widened = true;
+        }
+
+        if (_isQueued is { } isQueued && !isQueued(row))
+        {
+            _isQueued = null;
+            widened = true;
+        }
+
+        if (QueueFocusEntry is { } focused && row.Id != focused)
+        {
+            QueueFocusEntry = null;
+            widened = true;
+        }
+
         if (WaitingForOnly && !IsWaitingForSomeone(row))
         {
             WaitingForOnly = false;
@@ -2006,7 +2254,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire)
-            && StatusWire(row.PreviewStatus) != SelectedStatusFilterWire)
+            && !MatchesStatusWire(row, SelectedStatusFilterWire))
         {
             SelectedStatusFilterWire = string.Empty;
             widened = true;
@@ -6271,6 +6519,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.
         RoadmapTags = await _roadmapTags.TagsInUseAsync();
+        PlansOnMyDay = await _roadmapTags.PlansOnMyDayAsync();
 
         var rows = new List<EntryRow>();
         var previous = Rows.Where(r => r.Id is not null).DistinctBy(r => r.Id).ToDictionary(r => r.Id!.Value);
@@ -6457,6 +6706,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
+        // Flat lists the unplanned work, plus a plan entry put in today's My Day; every
+        // other plan entry lives under Plans only (local ADR 0072 §3).
+        if (FlatScopeOn is { } flatDay)
+        {
+            rows = rows.Where(row => InFlatScope(row, flatDay));
+        }
+
         // My Day narrows what the repository scope and status have already left in
         // view rather than replacing either: it is a decision about today taken on
         // top of wherever the reader is looking, so all three compose. In My Day by
@@ -6472,10 +6728,28 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             rows = rows.Where(IsReadyInPlan);
         }
 
+        // And the rail's Now, across plans, on the same terms again.
+        if (NowAcrossPlansOnly)
+        {
+            rows = rows.Where(IsInPlanSession);
+        }
+
         // And the Waiting slice, on the same terms again.
         if (WaitingForOnly)
         {
             rows = rows.Where(IsWaitingForSomeone);
+        }
+
+        // And the Flat bar's In the queue, on the same terms again.
+        if (_isQueued is { } isQueued)
+        {
+            rows = rows.Where(isQueued);
+        }
+
+        // And the one entry a session queue item was selected for.
+        if (QueueFocusEntry is { } focusedEntry)
+        {
+            rows = rows.Where(row => row.Id == focusedEntry);
         }
 
         // And the Next actions slice, then the area it is narrowed to: its area
@@ -6522,7 +6796,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (!StatusFilterSuspended && !string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
-            rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
+            rows = rows.Where(x => MatchesStatusWire(x, SelectedStatusFilterWire));
         }
 
         // Tags narrow inside the scope the same way status does, and compose with
@@ -6731,7 +7005,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             .Select(row => new TaskRow(
                 row.TaskId,
                 string.Empty,
-                Done: row.IsPreviewCompleted,
+                Done: IsFinished(row),
                 DependsOn: ResolvedDependsOn(row, dependencies)))
             .ToList();
 
@@ -6788,6 +7062,40 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             plan,
             gathered.Count(row => !IsFinished(row)),
             gathered.Count(IsFinished));
+    }
+
+    /// <summary>
+    /// A plan chip counted over the whole plan: every entry the repository scope leaves in
+    /// view (<see cref="ScopedRows"/>), whatever slice — My Day, Now across plans, Waiting,
+    /// a type or a source — narrowed the bar. The Plans rail's <c>done/total</c> and
+    /// progress line read this, so a plan reads the same in every rail selection, as its
+    /// run state already does; the chip on the bar keeps counting what the slice left
+    /// (local ADR 0072 §2). The plan <see cref="ShowPlan"/> holds is counted by what it
+    /// gathers, as its chip is. Any other option comes back as it is.
+    /// </summary>
+    public TagFilterOption WholePlanChip(TagFilterOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+
+        if (TagText.Kind(option.Value) is not TagKind.Plan) return option;
+
+        if (_shownPlan is { } shown && string.Equals(shown, option.Value, StringComparison.OrdinalIgnoreCase))
+        {
+            return ShownPlanChip(shown, ScopedRows) with { Label = option.Label };
+        }
+
+        var open = 0;
+        var finished = 0;
+
+        foreach (var row in ScopedRows)
+        {
+            if (!row.PreviewTags.Contains(option.Value, StringComparer.OrdinalIgnoreCase)) continue;
+
+            if (IsFinished(row)) finished++;
+            else open++;
+        }
+
+        return option with { OpenCount = open, CompletedCount = finished };
     }
 
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
@@ -6927,12 +7235,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _selectedTags.RemoveWhere(tag => !remaining.Contains(tag));
     }
 
-    /// <summary>Finished means ticked off, and only that: a Done or Archived
-    /// entry the person has not ticked is still on their list, which is the whole
-    /// reason the tick is a separate fact. Off the preview rather than the stored
+    /// <summary>Finished means ticked off, or a Done or Archived status with no
+    /// completion date (<see cref="EntryRow.IsPreviewFinished"/>) — one answer with
+    /// <see cref="PlanEntryState.For"/>, so a plan's sections, its rail and its chain
+    /// do not count the same entry two ways. Off the preview rather than the stored
     /// text, the same reader the status filter uses, so a token just typed into
     /// the editor counts before it is saved.</summary>
-    private static bool IsFinished(EntryRow row) => row.IsPreviewCompleted;
+    private static bool IsFinished(EntryRow row) => row.IsPreviewFinished;
 
     private static bool HasPlan(EntryRow row) =>
         row.PreviewTags.Any(tag => TagText.Kind(tag) is TagKind.Plan);
@@ -6945,6 +7254,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         || (_selectedTags.Contains(NoPlanTag) && !HasPlan(row))
         || row.PreviewTags.Any(_selectedTags.Contains)
         || InShownPlan(row);
+
+    /// <summary>The Flat bar's <b>Open</b> status tab: every entry not yet ticked off or
+    /// archived. A wire of its own beside the statuses', since no one status is it.</summary>
+    public const string OpenStatusWire = "open";
+
+    private static bool MatchesStatusWire(EntryRow row, string wire) =>
+        wire == OpenStatusWire ? !IsFinished(row) : StatusWire(row.PreviewStatus) == wire;
 
     private static string StatusWire(EntryStatus status) => status switch
     {
@@ -7423,6 +7739,14 @@ public sealed class EntryRow
     /// <c>PreviewStatus is Done</c>: the tick and the lifecycle are two facts, and
     /// this is the one the list, the Completed section and the row menu read.</summary>
     public bool IsPreviewCompleted => PreviewCompletedOn is not null;
+
+    /// <summary>Whether the entry's work is over: ticked off, or its status Done or
+    /// Archived without a completion date (imported as <c>!done</c>, or moved there by
+    /// <c>transition</c>). What the counts, the plan rail's done/total and the
+    /// dependency chain read, so they agree with <c>PlanEntryState</c>; the checkbox
+    /// stays <see cref="IsPreviewCompleted"/>.</summary>
+    public bool IsPreviewFinished =>
+        IsPreviewCompleted || PreviewStatus is EntryStatus.Done or EntryStatus.Archived;
 
     /// <summary>The day a person marked the entry blocked by hand, or null while
     /// it is not marked. A preview like the tick: the <c>blocked:</c> token is in

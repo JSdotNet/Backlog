@@ -502,6 +502,8 @@
                    OnBodyChanged="OnBodyChanged"
                    Actions="@RowActions"
                    Badges="@RowBadges"
+                   Trailing="@RowTrailing"
+                   Quiet="@QuietRows"
                    QuickEdit="@QuickEdit"
                    Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
                    EditingChanged="editing => SetEditing(task.Id, editing)"
@@ -701,6 +703,18 @@
     /// <see cref="RowActions"/>.</summary>
     [Parameter]
     public RenderFragment<TaskRow>? RowBadges { get; set; }
+
+    /// <summary>The host's control after each row's copy button — see
+    /// <see cref="TaskItem.Trailing"/>. Straight through to every row, like
+    /// <see cref="RowActions"/>.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? RowTrailing { get; set; }
+
+    /// <summary>Every row in its quiet look — see <see cref="TaskItem.Quiet"/>. One
+    /// answer for the whole list: a list whose rows mixed the two looks would read as
+    /// two kinds of row.</summary>
+    [Parameter]
+    public bool QuietRows { get; set; }
 
     /// <summary>
     /// Raised when a tag on a row is pressed, carrying the bare tag. Handed

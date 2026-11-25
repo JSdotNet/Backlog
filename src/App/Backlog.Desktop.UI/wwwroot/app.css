@@ -1579,6 +1579,981 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
+/* The Plans view (local ADR 0072 §2): the plan rail on the left of the rows under the
+   bar. The list column becomes a two-by-two grid — the bar across the top, the rail
+   and the scroller under it — only while the rail stands beside the list; at 48rem
+   or narrower the pane draws the rail inside the Filter menu instead, so the column
+   keeps its one-column shape there. */
+.backlog-list--plans {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--spacing-md);
+}
+
+.backlog-list--plans > .filter-bar {
+    grid-column: 1 / -1;
+}
+
+.backlog-list--plans > .backlog-list__scroll {
+    grid-column: 2;
+}
+
+/* The session queue docked beside the rows (local ADR 0072 §6), in Plans and in Flat:
+   one more column on the list's grid, on the right, under the bar — and, in Plans,
+   after the rail. A quiet column with no box, as the board draws it. It takes its
+   width from the rows, which the decision accepts; at 48rem or narrower the pane
+   draws the queue in the bar's popover instead (TasksPane.QueueDocked), so the grid
+   below never has to fit three columns into a narrow one. */
+.backlog-list--queue {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--spacing-md);
+}
+
+.backlog-list--queue > .filter-bar {
+    grid-column: 1 / -1;
+}
+
+.backlog-list--queue > .backlog-list__scroll {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.backlog-list--plans.backlog-list--queue {
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(16rem, 20rem);
+}
+
+.backlog-list--plans.backlog-list--queue > .backlog-list__scroll {
+    grid-column: 2;
+}
+
+.session-queue-column {
+    grid-column: -2 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-lg);
+}
+
+.session-queue-column__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.session-queue-column__heading {
+    margin: 0;
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.session-queue-column__heading:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+.session-queue-column__dot {
+    flex: none;
+}
+
+.session-queue-column__manager {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.session-queue-column__pause {
+    flex: none;
+}
+
+.session-queue-column__focus {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.session-queue-column__focus-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-queue-column__group-heading {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-primary);
+}
+
+.session-queue-column__group-heading > :first-child {
+    flex: 1 1 auto;
+}
+
+.session-queue-column__group-heading--needs {
+    color: var(--color-primary);
+}
+
+.session-queue-column__hint {
+    color: var(--color-text-secondary);
+}
+
+.session-queue-column__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-queue-column__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.session-queue-column__text {
+    flex: 1 1 100%;
+    margin: 0;
+}
+
+.session-queue-column__meta {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.session-queue-column__meta-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* A request row: its place, then its name over one line of what it is; its controls
+   sit at the end of that line while the column has room, and wrap under the words
+   rather than squeezing them when it does not. */
+.session-queue-column__row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.session-queue-column__row > .session-queue__order,
+.session-queue-column__row > .session-queue__cancel {
+    margin-inline-start: auto;
+}
+
+.session-queue-column__place {
+    flex: none;
+    padding-block-start: var(--spacing-2xs);
+    width: 1rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.session-queue-column__body {
+    flex: 1 1 12rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+/* An item's name is the control that filters the list to it: quiet text, the way the
+   board draws it, pressed while the list is filtered to it. */
+.session-queue-column__name {
+    max-width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.session-queue-column__name:hover {
+    color: var(--color-text-primary);
+}
+
+.session-queue-column__name:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.session-queue-column__name--pressed {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.35em;
+}
+
+.session-queue-column__name--away {
+    color: var(--color-text-secondary);
+    font-style: italic;
+    padding-inline-start: var(--spacing-xs);
+}
+
+.session-queue-column__detail {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-inline-start: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Cancel on hover and on focus: a Running row is read far more often than it is
+   stopped, so the control waits until the pointer or the keyboard is on the row.
+   Still in the tab order, so a keyboard reader reaches it and it shows. */
+.session-queue-column__row .session-queue__cancel {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.session-queue-column__row:hover .session-queue__cancel,
+.session-queue-column__row:focus-within .session-queue__cancel {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.session-queue-column__landed-mark {
+    flex: none;
+    color: var(--color-success-text);
+}
+
+.session-queue-column__agents > .session-queue__agents {
+    margin-block-start: 0;
+}
+
+/* The Tasks list's Flat view (local ADR 0072 §3): quiet text tabs in place of the
+   chip rows, one line of text actions while rows are picked, and a footer line. */
+.flat-tab,
+.flat-action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.flat-tab:hover,
+.flat-action:hover {
+    color: var(--color-text-primary);
+}
+
+.flat-tab:focus-visible,
+.flat-action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.flat-tab--active {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.35em;
+}
+
+.flat-tab:disabled,
+.flat-action:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.flat-tab__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.flat-tab__caret {
+    transform: rotate(180deg);
+}
+
+/* A slice's glyph stands for its word, which stays the name in an sr-only span. */
+.flat-tab__icon {
+    flex: none;
+}
+
+.flat-menu__empty {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.flat-selection {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-size-sm);
+}
+
+.flat-selection__count {
+    color: var(--color-text-primary);
+}
+
+.flat-action--clear {
+    margin-left: auto;
+}
+
+.flat-selection__options {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.flat-footer {
+    margin: 0;
+    padding: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: center;
+}
+
+.plan-rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--spacing-lg);
+}
+
+.filter-menu__panel > .plan-rail {
+    max-height: 60vh;
+    padding-bottom: 0;
+}
+
+.plan-rail__heading {
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+/* One rail item: a toggle whose pressed state is the selected plan or list. */
+.plan-rail__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-rail__item:hover,
+.plan-rail__item--selected {
+    background: var(--color-background-alt);
+}
+
+.plan-rail__item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-rail__item--unplanned {
+    margin-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-background-raised);
+    border-radius: 0;
+    padding-top: var(--spacing-sm);
+    color: var(--color-text-secondary);
+}
+
+.plan-rail__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.plan-rail__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-rail__count,
+.plan-rail__progress {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
+}
+
+/* The run state, as coloured text beside the name — words first, so colour is
+   never the only carrier. */
+.plan-rail__state {
+    flex: none;
+    font-size: var(--font-size-xs);
+}
+
+.plan-rail__state--running { color: var(--color-primary); }
+.plan-rail__state--queued { color: var(--color-text-secondary); }
+.plan-rail__state--blocked { color: var(--color-error-text); }
+.plan-rail__state--quiet { color: var(--color-text-disabled); }
+
+/* The 2px progress line: done over total. */
+.plan-rail__bar {
+    flex: 1 1 auto;
+    height: 2px;
+    background: var(--color-background-raised);
+}
+
+.plan-rail__bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--color-success-text);
+}
+
+.plan-rail__bar--blocked .plan-rail__bar-fill {
+    background: var(--color-error-text);
+}
+
+/* The Plans view's main column with a plan selected (local ADR 0072 §3): the plan
+   expanded as Now, Next and Later, the other plans folded, then Unplanned. */
+.plan-sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+}
+
+.plan-sections__group,
+.plan-sections__folded {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.plan-sections__plan {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.plan-sections__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__title-line,
+.plan-sections__unplanned-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.plan-sections__name {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.plan-sections__progress {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-sections__branch {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__run {
+    font-size: var(--font-size-xs);
+}
+
+.plan-sections__run.plan-rail__state--running { color: var(--color-primary); }
+.plan-sections__run.plan-rail__state--queued { color: var(--color-band-2); }
+
+.plan-sections__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin-inline-start: auto;
+}
+
+/* The 3px bar: done, in a session, ready — the rest is the track. */
+.plan-sections__bar {
+    display: flex;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--color-background-raised);
+}
+
+.plan-sections__bar > span {
+    display: block;
+    height: 100%;
+}
+
+.plan-sections__bar-done { background: var(--color-success-text); }
+.plan-sections__bar-now { background: var(--color-primary); }
+.plan-sections__bar-next { background: var(--color-band-2); }
+
+.plan-sections__group-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__row-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__row,
+.plan-sections__folded-open {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+/* Later's lines: the row's shape in secondary ink, pressed to open the list. */
+.plan-sections__later-line {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-sections__later-line:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__row:hover,
+.plan-sections__later-line:not(:disabled):hover,
+.plan-sections__folded-open:hover {
+    background: var(--color-background-alt);
+}
+
+.plan-sections__row:focus-visible,
+.plan-sections__later-line:focus-visible,
+.plan-sections__folded-open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-sections__row-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-sections__row-meta,
+.plan-sections__row-state,
+.plan-sections__folded-done,
+.plan-sections__folded-note {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-sections__folded-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__folded-name {
+    flex: 0 1 14rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-sections__folded-bar {
+    flex: 0 0 6rem;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-background-raised);
+}
+
+.plan-sections__folded-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--color-success-text);
+}
+
+.plan-sections__folded-note--queued { color: var(--color-band-2); }
+.plan-sections__folded-note--running { color: var(--color-primary); }
+.plan-sections__folded-note--blocked { color: var(--color-error-text); }
+
+/* A plan's sun (local ADR 0072 §8): a 26px borderless icon button, lit while the
+   plan is in today's My Day. */
+.plan-myday-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    cursor: pointer;
+}
+
+.plan-myday-toggle:hover {
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+
+.plan-myday-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.plan-myday-toggle--on,
+.plan-myday-toggle--on:hover {
+    color: var(--color-primary);
+}
+
+/* Plans today: above the tasks while the list shows today's My Day. */
+.plans-today {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-sm) 0;
+}
+
+.plans-today__plan {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+}
+
+.plans-today__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plans-today__open {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plans-today__open:hover { background: var(--color-background-alt); }
+
+.plans-today__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plans-today__name {
+    flex: 0 1 14rem;
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plans-today__state {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* The rail's colours for the same states, so a plan reads alike in both places. */
+.plans-today__state--running { color: var(--color-primary); }
+.plans-today__state--queued { color: var(--color-text-secondary); }
+.plans-today__state--blocked { color: var(--color-error-text); }
+.plans-today__state--quiet { color: var(--color-text-disabled); }
+
+.plans-today__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.plans-today__tasks-heading,
+.flat-heading {
+    padding: var(--spacing-xs) var(--spacing-sm) 0;
+}
+
+.plan-sections__unplanned {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+/* The expanded plan's name opens that plan on its own. */
+.plan-sections__name-open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.plan-sections__name-open:hover { text-decoration: underline; }
+
+.plan-sections__name-open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+/* One plan alone (local ADR 0072 §7): heading, waves or list, and the run line. */
+.plan-focus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+}
+
+.plan-focus__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.plan-focus__bar {
+    flex: 0 0 140px;
+}
+
+.plan-focus__layout {
+    margin-inline-start: auto;
+}
+
+.plan-focus__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+/* Waves: one column per wave, the current one on a soft background. */
+.plan-waves {
+    display: grid;
+    grid-template-columns: repeat(var(--plan-waves-columns, 1), minmax(12rem, 1fr));
+    gap: var(--spacing-md);
+    overflow-x: auto;
+}
+
+.plan-waves__wave {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+}
+
+.plan-waves__wave--current {
+    background: var(--color-background-alt);
+}
+
+.plan-waves__heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-2xs);
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+}
+
+.plan-waves__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.plan-waves__label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-waves__label--current { color: var(--color-primary); }
+
+.plan-waves__card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-2xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-waves__card:hover { background: var(--color-background-raised); }
+
+.plan-waves__card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-waves__card--waiting { opacity: 0.7; }
+
+.plan-waves__text {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.plan-waves__card-title {
+    font-size: var(--font-size-sm);
+    line-height: 1.35;
+}
+
+.plan-waves__meta,
+.plan-waves__state {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-waves__state--done { color: var(--color-text-secondary); }
+.plan-waves__state--session { color: var(--color-primary); }
+.plan-waves__state--ready,
+.plan-waves__state--left { color: var(--color-band-2); }
+.plan-waves__state--held { color: var(--color-error-text); }
+
+/* The status mark: a 14px ring in the state's colour. */
+.plan-waves__mark {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-text-disabled);
+}
+
+.plan-waves__mark--done { border-color: var(--color-success-text); }
+.plan-waves__mark--session { border-color: var(--color-primary); border-right-color: transparent; }
+.plan-waves__mark--ready { border-color: var(--color-band-2); border-style: dotted; }
+.plan-waves__mark--left { border-color: var(--color-band-2); }
+.plan-waves__mark--held { border-color: var(--color-error-text); background: var(--color-error-text); }
+.plan-waves__mark--waiting { border-style: dashed; }
+
+/* The run line: where the plan lands, then its copy and queue. */
+.plan-focus__run {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.plan-focus__run-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+.plan-focus__branch {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.plan-focus__run-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin-inline-start: auto;
+}
+
 /* The completed group, pulled up under the add-entry row. The library spaces it
    from the open rows with a `--spacing-md` margin, which is right where the list
    stands alone; here the scroller's gap already separates them, and the two
@@ -2104,6 +3079,22 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
+/* A plan entry's state in its plan's queue (local ADR 0072 §4), in words, as quiet
+   as the Devbook count. A held entry takes the error ink and a landed one the
+   success ink; Queued with plan stays secondary until an amber ink is sanctioned
+   (the plan's review), while the lit queue icon beside it carries the amber. The
+   words carry the state either way. */
+.entry-row__plan-state {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.entry-row__plan-state--held-for-you { color: var(--color-error-text); }
+.entry-row__plan-state--landed { color: var(--color-success-text); }
+
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
@@ -2522,6 +3513,19 @@ h1, h2, h3 {
         min-height: 0;
         padding: 0;
         color: transparent;
+    }
+
+    /* The quiet row (TaskItem Quiet) draws its status as ink with no fill, so its
+       dot is filled with that ink instead: the same state colour, said shorter.
+       Scoped one class deeper than the quiet rule in components.css so the dot, not
+       the word, wins at this width. */
+    .task-item--quiet .entry-row__pickers .badge--status {
+        width: var(--spacing-md);
+        min-width: var(--spacing-md);
+        height: var(--spacing-md);
+        border: var(--border-width) solid currentColor;
+        border-radius: var(--border-radius-full);
+        background: currentColor;
     }
 }
 

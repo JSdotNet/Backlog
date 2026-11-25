@@ -54,12 +54,26 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
     {
         ArgumentNullException.ThrowIfNull(rows);
 
+        var waits = WaitsOnOpenWork(rows);
+
+        return [.. rows.Select(row => Task(row) with { WaitsOnOpenWork = waits(row) })];
+    }
+
+    /// <summary>
+    /// Whether a task's <c>after:</c> dependency, resolved against <paramref name="rows"/> —
+    /// every task the phone holds — still waits on open work: the one reading the stand-up
+    /// and the Today tab's plan lines share.
+    /// </summary>
+    internal static Func<TaskViewRow, bool> WaitsOnOpenWork(IReadOnlyList<TaskViewRow> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
         var index = new DependencyResolution.CandidateIndex(
             [.. rows.Select(row => new DependencyResolution.Candidate(row.Id, row.Task.ImportItemId, row.Task.ImportPlanId))]);
         var byId = new Dictionary<Guid, TaskViewRow>();
         foreach (var row in rows) byId.TryAdd(row.Id, row);
 
-        return [.. rows.Select(row => Task(row) with { WaitsOnOpenWork = WaitsOnOpenWork(row, index, byId) })];
+        return row => WaitsOnOpenWork(row, index, byId);
     }
 
     private static ProgressTaskDto Task(TaskViewRow row)

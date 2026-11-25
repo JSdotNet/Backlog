@@ -33,7 +33,8 @@ internal static class RoadmapMapper
         item.KnowledgeRefs.Refs,
         item.PlacedByImport,
         item.EndPinned,
-        item.CompletedOn);
+        item.CompletedOn,
+        item.MyDayOn);
 
     internal static RoadmapItemScheduledDto Scheduled(this RoadmapItem item, PlannedWindow? previous) => new(
         item.Id,
