@@ -21,11 +21,33 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
     /// straight from replication might, so a reader's own rule is what leaves them out.</summary>
     public bool AnswersTombstones { get; set; }
 
-    public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_saved.Find(saved => saved.Id == id && (AnswersTombstones || !saved.IsRemoved)) is { } found ? Copy(found) : null);
+    // Lookups record from the thread pool beside the test's own calls.
+    private readonly Lock _lock = new();
 
-    public Task<bool> IsRemovedAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_saved.Exists(saved => saved.Id == id && saved.IsRemoved));
+    private TaskCompletionSource? _pauseNextSave;
+
+    /// <summary>Holds the next save, whichever writer makes it, until the returned source is
+    /// set: that writer has loaded and changed the event and not yet written it.</summary>
+    public TaskCompletionSource PauseNextSave()
+    {
+        var pause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Volatile.Write(ref _pauseNextSave, pause);
+        return pause;
+    }
+
+    /// <summary>Raised with each event as it was written.</summary>
+    public event Action<KnowledgeEvent>? Written;
+
+    public Task<KnowledgeEvent?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+            return Task.FromResult(_saved.Find(saved => saved.Id == id && (AnswersTombstones || !saved.IsRemoved)) is { } found ? Copy(found) : null);
+    }
+
+    public Task<bool> IsRemovedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        lock (_lock) return Task.FromResult(_saved.Exists(saved => saved.Id == id && saved.IsRemoved));
+    }
 
     public Task<IReadOnlyList<KnowledgeEvent>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -35,13 +57,13 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
             throw new InvalidOperationException("The events store could not be read.");
         }
 
-        return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Where(saved => AnswersTombstones || !saved.IsRemoved).Select(Copy)]);
+        lock (_lock) return Task.FromResult<IReadOnlyList<KnowledgeEvent>>([.. _saved.Where(saved => AnswersTombstones || !saved.IsRemoved).Select(Copy)]);
     }
 
     /// <summary>When set, the next save throws, as a store that could not be written would.</summary>
     public bool FailNextSave { get; set; }
 
-    public Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(KnowledgeEvent knowledgeEvent, CancellationToken cancellationToken = default)
     {
         if (FailNextSave)
         {
@@ -49,11 +71,18 @@ internal sealed class InMemoryKnowledgeEvents : IKnowledgeEventRepository
             throw new InvalidOperationException("The events store could not be written.");
         }
 
-        Saves++;
-        var at = _saved.FindIndex(saved => saved.Id == knowledgeEvent.Id);
-        if (at >= 0) _saved[at] = Copy(knowledgeEvent);
-        else _saved.Add(Copy(knowledgeEvent));
-        return Task.CompletedTask;
+        var written = Copy(knowledgeEvent);
+        if (Interlocked.Exchange(ref _pauseNextSave, null) is { } pause) await pause.Task.ConfigureAwait(false);
+
+        lock (_lock)
+        {
+            Saves++;
+            var at = _saved.FindIndex(saved => saved.Id == knowledgeEvent.Id);
+            if (at >= 0) _saved[at] = written;
+            else _saved.Add(written);
+        }
+
+        Written?.Invoke(written);
     }
 
     private static KnowledgeEvent Copy(KnowledgeEvent e) => KnowledgeEvent.Restore(
@@ -174,6 +203,36 @@ internal sealed class FakeEventTaskTarget : IEventTaskTarget
     public event Action? Changed;
 
     public void RaiseChanged() => Changed?.Invoke();
+}
+
+/// <summary>The geocoder at the boundary (local ADR 0061 §5): the addresses it was sent, in
+/// order, and an answer per town. A town it holds no answer for gets no answer back, as with no
+/// map key or no connection.</summary>
+internal sealed class FakeAddressGeocoder : IAddressGeocoder
+{
+    private readonly Dictionary<string, GeocodeAnswer> _answers = new(StringComparer.Ordinal);
+
+    public List<Address> Sent { get; } = [];
+
+    /// <summary>When set, a lookup waits on it after it is sent, as a slow call would.</summary>
+    public TaskCompletionSource? Gate { get; set; }
+
+    /// <summary>When set, a lookup throws it, as an adapter that broke its contract would.</summary>
+    public Exception? Throws { get; set; }
+
+    public void Places(string town, double latitude, double longitude) =>
+        _answers[town] = GeocodeAnswer.Placed(Assert.IsType<Ok<MapPoint>>(MapPoint.Create(latitude, longitude).Value).Value);
+
+    public void FindsNothingIn(string town) => _answers[town] = GeocodeAnswer.NotFound;
+
+    public async Task<GeocodeAnswer> GeocodeAsync(Address address, CancellationToken cancellationToken = default)
+    {
+        Sent.Add(address);
+        if (Gate is { } gate) await gate.Task;
+        if (Throws is { } thrown) throw thrown;
+
+        return address.Town is { } town && _answers.TryGetValue(town, out var answer) ? answer : GeocodeAnswer.Failed;
+    }
 }
 
 /// <summary>The device's feature settings, holding each flag a test names on or off; asked

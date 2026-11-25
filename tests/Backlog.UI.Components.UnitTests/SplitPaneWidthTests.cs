@@ -70,6 +70,26 @@ public sealed class SplitPaneWidthTests
         Assert.Equal($"{FlexibleFloor} auto {YieldingFixed}", end);
     }
 
+    /// <summary>
+    /// A stacked split makes the same two promises along its height: the fixed pane
+    /// yields, and the flexible one keeps <c>--pane-min-height</c>. Both anchors, in
+    /// one column, as the side-by-side pair is asserted.
+    /// </summary>
+    [Fact]
+    public void A_stacked_split_makes_the_same_promises_in_rows()
+    {
+        const string RowFloor = "minmax(min(100%, var(--pane-min-height, 0px)), 1fr)";
+        var css = Css();
+
+        var start = Block(css, ".split-pane--vertical {");
+        var end = Block(css, ".split-pane--vertical.split-pane--end {");
+
+        Assert.Equal($"{YieldingFixed} auto {RowFloor}", Declaration(start, "grid-template-rows"));
+        Assert.Equal($"{RowFloor} auto {YieldingFixed}", Declaration(end, "grid-template-rows"));
+        Assert.Equal("minmax(0, 1fr)", Declaration(start, "grid-template-columns"));
+        Assert.Equal("minmax(0, 1fr)", Declaration(end, "grid-template-columns"));
+    }
+
     private static string Css() => File.ReadAllText(
         RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"))
         .Replace("\r\n", "\n");

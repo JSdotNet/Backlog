@@ -2,6 +2,7 @@ using global::Backlog.Modules.Events.Abstractions;
 using global::Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Events.UI;
 
@@ -27,6 +28,10 @@ public static class EventsSurfaceRegistration
     public static IServiceCollection AddEventsSurface(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // One map view per window, kept while the window is open: shown or hidden, its height
+        // and its view last the session and are never stored (features.md#events-map).
+        services.TryAddScoped<EventsMapView>();
 
         if (services.Any(descriptor => descriptor.ServiceType == typeof(ShellSurface)
                 && descriptor.ImplementationInstance is ShellSurface { Id: SurfaceId }))

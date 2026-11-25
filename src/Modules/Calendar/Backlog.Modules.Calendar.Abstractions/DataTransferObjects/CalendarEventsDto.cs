@@ -26,7 +26,8 @@ public sealed record CalendarEventsDto(
 /// <summary>One decided event across its days.</summary>
 /// <param name="State">Where the event stands, as its word: Considering, Going, Attended
 /// or Harvested.</param>
-/// <param name="Place">The venue, <c>Online</c>, or null when no place is known.</param>
+/// <param name="Place">The venue, else the address on one line, <c>Online</c>, or null when no
+/// place is known.</param>
 /// <param name="Start">First day, inclusive.</param>
 /// <param name="End">Last day, inclusive; the start for a one-day event.</param>
 /// <param name="Tentative">Whether the person is still weighing it up (Considering): drawn

@@ -1,16 +1,24 @@
 @using global::Backlog.SharedKernel.Results
+@using Microsoft.Extensions.DependencyInjection
 @using Microsoft.JSInterop
 @implements IDisposable
 @inject IEventsPane Pane
 @inject IJSRuntime Js
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
 
 @*
     The Events pane as a shell surface (local ADR 0043 §1, §6; .devbook/domain/events/features.md#events-pane):
     a takeover, in the main window in place of the main view or in a window of its own, offered
     only while the `events` area is on (local ADR 0050 §6). `event=<id>` opens it on that event.
 
-    The notification centre's shape: a header with Add event, the events grouped by state
-    beside the one picked, which opens in the editor. Adding needs a title alone, so a light
+    The notification centre's shape: a header with Hide map and Add event, then the left column
+    — the map over the events by date (EventMap over EventList, a vertical SplitPane the person
+    resizes) — beside the one picked, which opens in the editor. Picking a pin or a row selects
+    the event in both and opens it (features.md#events-map). Hiding the map gives the list the
+    whole column; shown or hidden, the map's height and its view last the session only
+    (EventsMapView, one per window). The editor is told the event's map number and whether its
+    pin is in the map's view, for the hint under its venue field. Adding needs a title alone, so a light
     entry such as a dotNET Friday is one line; its series is picked from the ones there are,
     or a new name starts one.
 
@@ -38,6 +46,14 @@
                    Title="Events"
                    Description="@Subtitle">
         <Actions>
+            @if (_loaded && _sections.Count > 0)
+            {
+                @* A plain button whose label is the act: a toggle's pressed state would read
+                   against a label that already changes with it. *@
+                <AppButton Variant="ButtonVariant.Ghost"
+                           TestId="events-map-toggle"
+                           OnClick="ToggleMap">@(_view.Shown ? "Hide map" : "Show map")</AppButton>
+            }
             @if (!_adding)
             {
                 <AppButton Variant="ButtonVariant.Primary"
@@ -95,7 +111,7 @@
                 <Skeleton Shape="SkeletonShape.Text" Width="70%" />
             </div>
         }
-        else if (_groups.Count == 0)
+        else if (_sections.Count == 0)
         {
             <EmptyState Title="No events yet"
                         Description="Add a conference, a meetup or a training you might go to. A title is enough to start."
@@ -119,8 +135,41 @@
                        TestId="events-pane-split"
                        SeparatorTestId="events-pane-split-handle">
                 <Start>
-                    <div class="events-pane__list">
-                        <EventList Groups="_groups" SelectedId="_selectedId" OnSelect="SelectAsync" />
+                    <div class="events-pane__column" data-testid="events-pane-column">
+                        @if (_view.Shown)
+                        {
+                            <SplitPane CssClass="events-pane__stack"
+                                       Orientation="SplitPaneOrientation.Vertical"
+                                       Anchor="SplitPaneAnchor.Start"
+                                       FixedWidthRem="_view.HeightRem"
+                                       FixedWidthRemChanged="MapHeightChanged"
+                                       MinRem="MapMinRem"
+                                       MaxRem="MapMaxRem"
+                                       AriaLabel="Map height"
+                                       TestId="events-pane-stack"
+                                       SeparatorTestId="events-pane-stack-handle">
+                                <Start>
+                                    <EventMap Sections="_sections"
+                                              SelectedId="_selectedId"
+                                              OnSelect="SelectAsync"
+                                              Tiles="_tiles"
+                                              InitialView="_view.View"
+                                              ViewChanged="MapViewChanged"
+                                              OnOpenSettings="OpenMapSettings" />
+                                </Start>
+                                <End>
+                                    <div class="events-pane__list">
+                                        <EventList Sections="_sections" SelectedId="_selectedId" Today="Today" OnSelect="SelectAsync" />
+                                    </div>
+                                </End>
+                            </SplitPane>
+                        }
+                        else
+                        {
+                            <div class="events-pane__list">
+                                <EventList Sections="_sections" SelectedId="_selectedId" Today="Today" OnSelect="SelectAsync" />
+                            </div>
+                        }
                     </div>
                 </Start>
                 <End>
@@ -129,6 +178,8 @@
                         {
                             <EventEditor @key="selected.Id"
                                          Event="selected"
+                                         MapNumber="SelectedMapNumber"
+                                         InView="SelectedInView"
                                          Writes="_writes"
                                          OnSaved="SavedAsync"
                                          OnOpenEvent="SelectAsync"
@@ -149,11 +200,20 @@
 </section>
 
 @code {
+    /// <summary>The map's height, in rem: low enough that the list keeps its rows, high
+    /// enough that the map is worth reading.</summary>
+    private const double MapMinRem = 8;
+    private const double MapMaxRem = 40;
+
     private readonly EventWriteQueue _writes = new();
+    private EventsMapView _view = new();
+    private TimeProvider _time = TimeProvider.System;
+    private EventMapTilesDto? _tiles;
+    private TileMapViewport? _viewport;
     private readonly string _addOpenId = "events-add-open-" + Guid.NewGuid().ToString("N");
     private readonly string _addTitleId = "events-add-title-" + Guid.NewGuid().ToString("N");
     private string? _focusAfterRender;
-    private IReadOnlyList<KnowledgeEventGroupDto> _groups = [];
+    private IReadOnlyList<KnowledgeEventSectionDto> _sections = [];
     private IReadOnlyList<EventSeriesDto> _series = [];
     private KnowledgeEventDto? _selected;
     private Guid? _selectedId;
@@ -191,7 +251,7 @@
             ? id
             : null;
 
-    private int Count => _groups.Sum(group => group.Events.Count);
+    private int Count => _sections.Sum(section => section.Events.Count);
 
     private string Subtitle => !_loaded
         ? "Loading…"
@@ -205,8 +265,26 @@
     private IReadOnlyList<SelectorOption> SeriesOptions =>
         [.. _series.Select(series => new SelectorOption(series.Name, series.Name, series.Organiser))];
 
+    /// <summary>Today on the desktop clock, which the rows' short dates read against.</summary>
+    private DateOnly Today => DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+
+    private KnowledgeEventSummaryDto? SelectedSummary =>
+        _selectedId is { } id ? _sections.SelectMany(section => section.Events).FirstOrDefault(summary => summary.Id == id) : null;
+
+    /// <summary>The open event's map number, as its row and pin carry it.</summary>
+    private int? SelectedMapNumber => SelectedSummary?.MapNumber;
+
+    /// <summary>Whether the open event's pin is in the map's view: null while that is not
+    /// known — the map hidden, not drawn yet, or the event not on it.</summary>
+    private bool? SelectedInView =>
+        _view.Shown && _viewport is { } viewport && SelectedSummary?.Place?.Point is { } point
+            ? TileMapProjection.IsInView(viewport, new MapCoordinate(point.Latitude, point.Longitude))
+            : null;
+
     protected override async Task OnInitializedAsync()
     {
+        _view = Services.GetService<EventsMapView>() ?? new EventsMapView();
+        _time = Services.GetService<TimeProvider>() ?? TimeProvider.System;
         Pane.Changed += OnChanged;
         _writes.Drained += OnDrained;
         await LoadAsync();
@@ -261,6 +339,7 @@
         _revision++;
         _selectedOwed = true;
         await ReloadListAsync();
+        await LoadTilesAsync();
         if (_writes.IsIdle) await ReloadSelectedAsync();
         StateHasChanged();
     });
@@ -269,7 +348,7 @@
     {
         try
         {
-            _groups = await Pane.ListAsync();
+            _sections = await Pane.ListAsync();
             _series = await Pane.ListSeriesAsync();
             _loadError = null;
         }
@@ -278,6 +357,7 @@
             _loadError = "The events could not be read: " + exception.Message;
         }
 
+        await LoadTilesAsync();
         _loaded = true;
         await ApplyFocusAsync();
     }
@@ -357,7 +437,7 @@
     {
         try
         {
-            _groups = await Pane.ListAsync();
+            _sections = await Pane.ListAsync();
             _series = await Pane.ListSeriesAsync();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -365,6 +445,45 @@
             _loadError = "The events could not be read: " + exception.Message;
         }
     }
+
+    /// <summary>Asks where the tiles come from again: on open, and on every change heard, so a
+    /// map key saved in Settings shows once the pane is back. A host with no tile source
+    /// answers none, and the map shows its missing-key note; a source that throws is the same.
+    /// The template carries the key, so it goes to the map and nowhere else.</summary>
+    private async Task LoadTilesAsync()
+    {
+        if (Services.GetService<IEventMapTiles>() is not { } source)
+        {
+            _tiles = null;
+            return;
+        }
+
+        try
+        {
+            _tiles = await source.GetAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _tiles = null;
+        }
+    }
+
+    private void ToggleMap() => _view.Shown = !_view.Shown;
+
+    private void MapHeightChanged(double height) => _view.HeightRem = height;
+
+    /// <summary>A pan or zoom settled: kept for the session, and read for the editor's hint.</summary>
+    private void MapViewChanged(TileMapViewport viewport)
+    {
+        _viewport = viewport;
+        _view.View = new TileMapView(viewport.Center, viewport.Zoom);
+    }
+
+    /// <summary>The missing-key note's action: the Settings page that holds the map key.</summary>
+    private void OpenMapSettings() => Navigation.NavigateTo(MapSettings);
+
+    /// <summary>Where the map key is entered: the shell's Events settings page.</summary>
+    internal const string MapSettings = "settings/events";
 
     private void OpenAdd()
     {

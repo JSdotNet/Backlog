@@ -120,6 +120,9 @@
          status the settings screen shows. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
+    <!-- The Events map's key (local ADR 0061 §4): the Settings page that keeps it takes
+         the adapter's store, as the AI page takes Azure Foundry's. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureMaps\Backlog.Infrastructure.AzureMaps.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <!-- The settings screen edits the workspace settings file itself: which
          folder the backlog lives in, which repository backs it, and which

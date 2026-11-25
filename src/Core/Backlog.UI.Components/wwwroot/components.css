@@ -328,6 +328,9 @@
        know that the other side is a backlog. An app with its own name for the
        same measurement points this at it — see app.css. */
     --pane-min-width: 22rem;
+    /* The same floor for a stacked split, read along its height: how little of
+       the pane below (or above) the resizer must leave. */
+    --pane-min-height: 10rem;
 }
 
 .sr-only {
@@ -8887,6 +8890,11 @@ body.is-resizing-pane {
     user-select: none;
 }
 
+/* A stacked split's drag moves a row edge. */
+body.is-resizing-pane.is-resizing-pane--rows {
+    cursor: row-resize;
+}
+
 /* --- Dialog -------------------------------------------------------------- */
 
 .app-update-backdrop,
@@ -12703,6 +12711,58 @@ select.field__input {
     min-width: 0;
     min-height: 0;
     overflow: auto;
+}
+
+/*
+  Stacked: the same three tracks as rows, with the same two promises — the fixed
+  pane yields, the flexible one keeps `--pane-min-height`. The split needs a height
+  of its own from its host for the rows to divide.
+
+  The orientation does move the placements, because it moves the axis the three
+  parts are counted along; the anchor still does not. The child combinator keeps a
+  side-by-side split nested in either pane its own columns.
+*/
+.split-pane--vertical {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, var(--split-pane-fixed, 36rem)) auto minmax(min(100%, var(--pane-min-height, 0px)), 1fr);
+}
+
+.split-pane--vertical.split-pane--end {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(min(100%, var(--pane-min-height, 0px)), 1fr) auto minmax(0, var(--split-pane-fixed, 36rem));
+}
+
+.split-pane--vertical > .split-pane__start {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.split-pane--vertical > .split-pane__end {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+/* The separator turns with the split: a full-width bar with a hit area taller than
+   the line it draws, and a grip that thickens downwards instead of sideways. */
+.split-pane--vertical > .split-pane__separator {
+    grid-column: 1;
+    grid-row: 2;
+    width: auto;
+    height: var(--spacing-md);
+    margin: calc(var(--spacing-xs) * -1) 0;
+    cursor: row-resize;
+}
+
+.split-pane--vertical > .split-pane__separator > .pane-resizer__grip {
+    width: 100%;
+    height: 4px;
+    transform: scaleY(0.5);
+}
+
+.split-pane--vertical > .split-pane__separator:hover > .pane-resizer__grip,
+.split-pane--vertical > .split-pane__separator:focus-visible > .pane-resizer__grip,
+body.is-resizing-pane .split-pane--vertical > .split-pane__separator > .pane-resizer__grip {
+    transform: scaleY(1);
 }
 
 
@@ -31798,4 +31858,227 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
 .cohesion__platform--picked .cohesion__platform-count {
     background: var(--color-text-inverse);
     color: var(--color-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   TileMap: online tiles under marks the library draws itself.
+
+   Leaflet's container (.tile-map__tiles) is its own stacking context, so its
+   panes' z-indices stay inside it and everything below sits above the tiles.
+   The tile colours are not ours, so nothing of ours touches a tile directly
+   (color-scheme.md#events-map-marks): a pin sits on a color-background plate
+   inside a 1px color-text-primary ring, and the controls, legend, attribution
+   and notes each sit on an opaque color-background-alt plate.
+   --------------------------------------------------------------------------- */
+.tile-map {
+    position: relative;
+    overflow: hidden;
+    min-height: 12rem;
+    height: 100%;
+    background: var(--color-background);
+    color: var(--color-text-primary);
+}
+
+.tile-map__tiles {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    isolation: isolate;
+}
+
+.tile-map .leaflet-container {
+    background: var(--color-background);
+    font: inherit;
+}
+
+.tile-map__marks {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* A pin and a pill share their plate, rings and tone; only the shape differs. */
+.tile-map__pin,
+.tile-map__pill {
+    position: absolute;
+    left: var(--tile-map-x, 0);
+    top: var(--tile-map-y, 0);
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    box-shadow: 0 0 0 var(--border-width) var(--color-text-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+/* The press reaches 44 x 44px (accessibility.md#target-sizes-and-text) while
+   the mark stays drawn at 1.75rem: a transparent layer half a rem past the
+   drawing on every side, inside the button, so it is the button's press. */
+.tile-map__pin::before,
+.tile-map__pill::before {
+    content: "";
+    position: absolute;
+    inset: -0.5rem;
+    border-radius: var(--border-radius-full);
+}
+
+/* Going: the gold fill, the plate showing as a 2px ring around it. */
+.tile-map__mark--filled {
+    border-color: var(--color-background);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* Spotted or considering: the plate inside a dashed gold edge. */
+.tile-map__mark--dashed {
+    border-style: dashed;
+    border-color: var(--color-primary);
+}
+
+/* Grey: the plate inside a solid strong-border ring, the number quiet. */
+.tile-map__mark--muted {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* Selected is width, not hue: the outer ring grows from 1px to 3px. */
+.tile-map__pin[aria-pressed="true"],
+.tile-map__pill[aria-pressed="true"] {
+    z-index: 1;
+    box-shadow: 0 0 0 calc(var(--border-width) + var(--border-width-2)) var(--color-text-primary);
+}
+
+/* The focus ring is box-shadow, 2px color-border-focus with 1px
+   color-background outside it, two-tone so it never vanishes against a yellow
+   tile (color-scheme.md#events-map-marks). Forced colours drop box-shadow, so a
+   transparent outline stays underneath: invisible here, painted in Windows High
+   Contrast (accessibility.md#focus-visibility). */
+.tile-map__pin:focus-visible,
+.tile-map__pill:focus-visible {
+    z-index: 2;
+    outline: var(--border-width-2) solid transparent;
+    outline-offset: var(--border-width-2);
+    box-shadow:
+        0 0 0 var(--border-width) var(--color-text-primary),
+        0 0 0 calc(var(--border-width) + var(--border-width-2)) var(--color-border-focus),
+        0 0 0 calc(var(--border-width-2) + var(--border-width-2)) var(--color-background);
+}
+
+.tile-map__pin[aria-pressed="true"]:focus-visible,
+.tile-map__pill[aria-pressed="true"]:focus-visible {
+    outline: var(--border-width-2) solid transparent;
+    outline-offset: var(--border-width-4);
+    box-shadow:
+        0 0 0 calc(var(--border-width) + var(--border-width-2)) var(--color-text-primary),
+        0 0 0 calc(var(--border-width) + var(--border-width-4)) var(--color-border-focus),
+        0 0 0 calc(var(--border-width-2) + var(--border-width-4)) var(--color-background);
+}
+
+.tile-map__pill-arrow {
+    font-size: var(--font-size-2xs);
+}
+
+/* Title and date while a pin is hovered or focused. The name already carries
+   both, so this is aria-hidden and for the eye alone. */
+.tile-map__tooltip {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-xs));
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tile-map__pin:hover .tile-map__tooltip,
+.tile-map__pin:focus-visible .tile-map__tooltip {
+    display: block;
+}
+
+/* The controls, legend and attribution each sit on an opaque plate. */
+.tile-map__controls {
+    position: absolute;
+    z-index: 2;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-2xs);
+}
+
+.tile-map__control {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The legend (left) and the attribution (right) share the foot. When they
+   would meet, the row wraps and the legend stands above the attribution, so
+   neither covers the other and the attribution stays visible (ADR 0061 §6). */
+.tile-map__foot {
+    position: absolute;
+    right: var(--spacing-sm);
+    bottom: var(--spacing-sm);
+    left: var(--spacing-sm);
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    pointer-events: none;
+}
+
+.tile-map__legend {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    max-width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    pointer-events: auto;
+}
+
+.tile-map__attribution {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    max-width: 100%;
+    margin: 0 0 0 auto;
+    pointer-events: auto;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+}
+
+/* A note stands in for the tiles: an opaque plate over the whole map. */
+.tile-map__note {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    padding: var(--spacing-md);
+    background: var(--color-background-alt);
 }

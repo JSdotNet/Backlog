@@ -155,6 +155,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
+| `src/Infrastructure/Backlog.Infrastructure.AzureMaps` | Events adapter — the Azure Maps geocoder an event's address is sent to on save, the Events map's tile source, and the sealed map key (local ADR 0061) |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
 | `src/Infrastructure/Backlog.Infrastructure.Capture` | Cross-cutting adapter — the YouTube channel and website feed monitors behind `ICaptureSourceAdapter`, fetched through the named `capture-feeds` HTTP client with its own resilience pipeline, delivering new entries straight into the Inbox over `IInboxIntake` |
 | `src/Infrastructure/Backlog.Infrastructure.Mcp` | Cross-cutting adapter — the read-only MCP tools the desktop app and its harness publish, with no transport under them. See [ADR 0012](.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md) |
@@ -204,6 +205,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
 | `tests/Backlog.Infrastructure.AzureFoundry.UnitTests` | Unit tests for the Azure Foundry adapter — the settings store, the chat, embeddings and cost clients, the Inbox plan drafter, the plan fixture of the local test service, and its registrations |
+| `tests/Backlog.Infrastructure.AzureMaps.UnitTests` | Unit tests for the Azure Maps adapter — the geocoder against a fake HTTP handler, the sealed key store, the tile source and the registration's pipeline |
 | `tests/Backlog.Infrastructure.Copilot.UnitTests` | Unit tests for the Copilot CLI launcher — what it starts, and that it releases the process handle |
 | `tests/Backlog.Infrastructure.Capture.UnitTests` | Unit tests for the capture adapters — the feed fetcher and reader, the YouTube, website and import-file adapters, and delivery into the Inbox |
 | `tests/Backlog.Infrastructure.Mcp.UnitTests` | Unit tests for the MCP tools — each tool group, chapter reading, and tool creation |

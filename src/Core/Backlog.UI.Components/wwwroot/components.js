@@ -769,6 +769,21 @@
     };
 
     /*
+        Whether the focus is inside the element a selector names: the question a
+        field group asks when it saves on leaving, such as an address typed in
+        parts. Nowhere — the body, after a click on a spot nothing can focus — is
+        not inside, so that click saves the group. backlogFocusOutside below folds
+        nowhere into staying, which suits a region a reader is still using and not
+        a group of fields. A window losing the focus keeps the element focused, so
+        it still reads as inside.
+    */
+    window.backlogFocusWithin = (selector) => {
+        const element = document.querySelector(selector);
+        const focused = document.activeElement;
+        return !!element && !!focused && element.contains(focused);
+    };
+
+    /*
         Whether the focus has landed outside every one of several named regions.
 
         Several rather than one, because "outside" is not always one element's
@@ -3151,16 +3166,37 @@
         return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     }
 
+    /**
+     * Whether the split stacks its panes, so the drag reads the pointer's Y and
+     * measures the layout's height. A layout that says nothing is side by side.
+     */
+    function backlogPaneVertical(layout) {
+        return layout.getAttribute('data-pane-orientation') === 'vertical';
+    }
+
+    // The floor a drag stops at. A stacked split names its own, because a 24rem
+    // height is most of a map; a side-by-side one keeps the floor it always had.
+    function backlogPaneMinRem(layout) {
+        const named = parseFloat(layout.getAttribute('data-pane-min') ?? '');
+        return Number.isFinite(named) ? named : BACKLOG_PANE_MIN_REM;
+    }
+
     // The pane may take everything its companion does not strictly need, so the
-    // real ceiling is the layout's width, not a fixed number of rem.
+    // real ceiling is the layout's width (its height, stacked), not a fixed number
+    // of rem.
     function backlogPaneMaxRem(layout) {
         const rem = backlogRootFontSize();
         const styles = getComputedStyle(layout);
-        const companionMinRem = parseFloat(styles.getPropertyValue('--pane-min-width')) || 22;
-        const gapRem = ((parseFloat(styles.columnGap) || 0) * 2) / rem;
-        const available = (layout.clientWidth / rem) - companionMinRem - gapRem - 1;
+        const vertical = backlogPaneVertical(layout);
+        const companionMinRem = vertical
+            ? parseFloat(styles.getPropertyValue('--pane-min-height')) || 10
+            : parseFloat(styles.getPropertyValue('--pane-min-width')) || 22;
+        const gapRem = ((parseFloat(vertical ? styles.rowGap : styles.columnGap) || 0) * 2) / rem;
+        const extent = vertical ? layout.clientHeight : layout.clientWidth;
+        const available = (extent / rem) - companionMinRem - gapRem - 1;
+        const floor = backlogPaneMinRem(layout);
 
-        return Math.min(BACKLOG_PANE_ABSOLUTE_MAX_REM, Math.max(BACKLOG_PANE_MIN_REM, Math.round(available * 2) / 2));
+        return Math.min(BACKLOG_PANE_ABSOLUTE_MAX_REM, Math.max(floor, Math.round(available * 2) / 2));
     }
 
     /**
@@ -3177,12 +3213,17 @@
         return layout.getAttribute('data-pane-anchor') === 'start' ? 'start' : 'end';
     }
 
-    function backlogPaneWidthAt(layout, clientX) {
+    // The fixed pane's size at the pointer: its width beside, its height stacked,
+    // measured from the edge the anchor names.
+    function backlogPaneSizeAt(layout, pointer) {
         const box = layout.getBoundingClientRect();
-        const distance = backlogPaneAnchor(layout) === 'start' ? clientX - box.left : box.right - clientX;
+        const start = backlogPaneAnchor(layout) === 'start';
+        const distance = backlogPaneVertical(layout)
+            ? (start ? pointer.clientY - box.top : box.bottom - pointer.clientY)
+            : (start ? pointer.clientX - box.left : box.right - pointer.clientX);
         const rem = distance / backlogRootFontSize();
 
-        return Math.min(backlogPaneMaxRem(layout), Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
+        return Math.min(backlogPaneMaxRem(layout), Math.max(backlogPaneMinRem(layout), Math.round(rem * 2) / 2));
     }
 
     // How wide each split's pane may get, measured per owner because two splits on
@@ -3192,10 +3233,42 @@
     // used to report a pane capacity here too, for the desktop shell's side panes;
     // those went when the Devbook took the whole screen.
     function backlogReportPaneBounds() {
-        for (const [key, owner] of backlogPaneOwners) {
-            const layout = backlogLayoutForKey(key);
-            if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
-        }
+        for (const key of backlogPaneOwners.keys()) backlogReportPaneBound(key);
+    }
+
+    // One split's ceiling. A stacked split with no height yet is not laid out — its
+    // host's column has not been sized — and its measurement would be its own
+    // minimum, which the component would then hold the pane to. It reports nothing
+    // until its observer sees a height.
+    function backlogReportPaneBound(key) {
+        const owner = backlogPaneOwners.get(key);
+        const layout = backlogLayoutForKey(key);
+        if (!owner || !layout) return;
+        if (backlogPaneVertical(layout) && layout.clientHeight === 0) return;
+
+        owner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
+    }
+
+    /**
+     * A stacked split's height comes from the column it sits in, and that column
+     * changes with no window resize: a map shown or hidden beside it, a host laid out
+     * after the first render. So each stacked split is watched on its own box. A
+     * side-by-side split's room follows the window, and stays measured on its resize.
+     * The observer also reports once on observe, after layout, which is the first
+     * height a split not laid out at initialize gets.
+     */
+    const backlogPaneObservers = new Map();
+
+    function backlogObserveStackedPane(key) {
+        backlogPaneObservers.get(key)?.disconnect();
+        backlogPaneObservers.delete(key);
+
+        const layout = backlogLayoutForKey(key);
+        if (!layout || !backlogPaneVertical(layout) || typeof ResizeObserver !== 'function') return;
+
+        const observer = new ResizeObserver(() => backlogReportPaneBound(key));
+        observer.observe(layout);
+        backlogPaneObservers.set(key, observer);
     }
 
     window.backlogPaneResizer = {
@@ -3205,12 +3278,34 @@
          */
         initialize(owner, key) {
             backlogPaneOwners.set(key, owner);
+            backlogObserveStackedPane(key);
             backlogReportPaneBounds();
         },
         dispose(key) {
+            backlogPaneObservers.get(key)?.disconnect();
+            backlogPaneObservers.delete(key);
             backlogPaneOwners.delete(key);
         }
     };
+
+    // The keys a separator handles have their default refused here, at the keydown,
+    // and no others. The component used to refuse every key's default, Tab and
+    // Shift+Tab with them, which held the focus on the separator; a refusal bound to
+    // .NET state is a key late. The sets are the keys SplitPane.OnKeyDownAsync acts
+    // on, per axis: the arrows along it, and the page and end keys in both.
+    const BACKLOG_PANE_KEYS = {
+        horizontal: new Set(['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End']),
+        vertical: new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'])
+    };
+
+    document.addEventListener('keydown', (event) => {
+        const handle = event.target instanceof Element ? event.target.closest('[data-pane-resizer]') : null;
+        const layout = handle?.closest(BACKLOG_PANE_LAYOUT_SELECTOR);
+        if (!layout) return;
+
+        const axis = backlogPaneVertical(layout) ? 'vertical' : 'horizontal';
+        if (BACKLOG_PANE_KEYS[axis].has(event.key)) event.preventDefault();
+    });
 
     // An open PopoverButton's outside click, heard on the window rather than by its
     // backdrop. The backdrop is `position: fixed; inset: 0`, which is the whole
@@ -3353,22 +3448,25 @@
 
         event.preventDefault();
         handle.focus();
+        // The rows modifier gives a stacked drag the row-resize cursor.
+        const rows = backlogPaneVertical(layout);
         document.body.classList.add('is-resizing-pane');
+        document.body.classList.toggle('is-resizing-pane--rows', rows);
 
-        let width = backlogPaneWidthAt(layout, event.clientX);
+        let size = backlogPaneSizeAt(layout, event);
 
         const onMove = (move) => {
-            width = backlogPaneWidthAt(layout, move.clientX);
-            layout.style.setProperty('--split-pane-fixed', `${width}rem`);
-            handle.setAttribute('aria-valuenow', String(width));
+            size = backlogPaneSizeAt(layout, move);
+            layout.style.setProperty('--split-pane-fixed', `${size}rem`);
+            handle.setAttribute('aria-valuenow', String(size));
         };
 
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
-            document.body.classList.remove('is-resizing-pane');
-            owner.invokeMethodAsync('SetSidePaneWidthAsync', width);
+            document.body.classList.remove('is-resizing-pane', 'is-resizing-pane--rows');
+            owner.invokeMethodAsync('SetSidePaneWidthAsync', size);
         };
 
         document.addEventListener('pointermove', onMove);
@@ -7071,6 +7169,244 @@
             const detach = backlogRoadmapTimelines.get(id);
             detach?.();
             backlogRoadmapTimelines.delete(id);
+        }
+    };
+
+    /*
+        TileMap's tiles. Leaflet ships with the library under lib/leaflet/ (its
+        README says which version and how to move it) and loads the first time a
+        map has a tile source, so a pane with no map pays nothing for it.
+
+        Leaflet draws the tiles and handles the pointer's pan and zoom; that is
+        all it is asked to do. Its zoom control, attribution control and keyboard
+        handler are off, and the pins, pills and controls are Blazor's, placed
+        from the view reported here. Zoom animation is off as well: the pins are
+        placed from the reported centre and zoom, and an animated zoom would leave
+        them where they were until it ended.
+
+        What .NET is told:
+        - ViewMoved(lat, lng, zoom, width, height, settled) on every frame of a
+          move, at most once per animation frame, and once more settled when it
+          ends or the map is resized;
+        - TilesReachable(false) when a view finished loading with no tile on
+          screen and at least one failed, or the browser says it went offline;
+          TilesReachable(true) when a tile loads again. Tiles that fail beside
+          drawn ones — a 429 on the strip a pan uncovered — stay blank and say
+          nothing (ADR 0061 §6). "On screen" is the tiles Leaflet loaded and has
+          not unloaded since, from its public tileload and tileunload events;
+        - MapUnavailable() when Leaflet itself could not be loaded.
+
+        A fit or a new source sent while leaflet.js is still loading has no map
+        to go to yet. Each is held on the start and applied once the map exists,
+        the newest of each winning, so marks that arrive during the first load
+        are still framed and the map does not open on a stale URL.
+
+        The tile URL may carry a key (ADR 0061 §4). It is handed to Leaflet and
+        nowhere else: never logged, never put on an attribute of ours.
+    */
+    const backlogTileMaps = new Map();
+    const backlogTileMapStarts = new Map();
+    let backlogLeafletPromise;
+
+    function backlogLoadLeaflet() {
+        if (window.L?.map) return Promise.resolve(window.L);
+        if (backlogLeafletPromise) return backlogLeafletPromise;
+
+        const base = new URL('lib/leaflet/', backlogComponentsScriptUrl);
+        const loading = (async () => {
+            if (!document.querySelector('link[data-backlog-leaflet]')) {
+                // Ahead of the library's own stylesheet, so the .tile-map rules
+                // that dress Leaflet's container win on equal specificity.
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = new URL('leaflet.css', base).href;
+                link.dataset.backlogLeaflet = '';
+                const library = document.querySelector('link[href*="Backlog.UI.Components/components.css"]');
+                if (library) library.before(link);
+                else document.head.prepend(link);
+            }
+
+            await backlogLoadScript(new URL('leaflet.js', base).href);
+            if (!window.L?.map) throw new Error('Leaflet unavailable.');
+            return window.L;
+        })();
+
+        // A failed load is forgotten, so the next map tries again.
+        backlogLeafletPromise = loading;
+        loading.catch(() => {
+            if (backlogLeafletPromise === loading) backlogLeafletPromise = undefined;
+        });
+        return loading;
+    }
+
+    function backlogTileMapFit(state, fit) {
+        const { map } = state;
+        const size = map.getSize();
+
+        // A map with no size yet — a pane still laid out, a hidden tab — cannot
+        // work out a zoom for its bounds, so it opens on the default view and
+        // frames the bounds once it has a size.
+        if (!size.x || !size.y || !fit?.bounds) {
+            state.pendingFit = fit?.bounds && (!size.x || !size.y) ? fit : null;
+            map.setView(fit?.center ?? [0, 0], fit?.zoom ?? 2, { animate: false });
+            return;
+        }
+
+        state.pendingFit = null;
+        const [south, west, north, east] = fit.bounds;
+        const padding = Number(fit.padding) || 0;
+        map.fitBounds([[south, west], [north, east]], {
+            padding: [padding, padding],
+            maxZoom: fit.maxZoom,
+            animate: false
+        });
+    }
+
+    window.backlogTileMap = {
+        async initialize(element, id, options, dotnet) {
+            window.backlogTileMap.dispose(id);
+
+            const start = { fit: null, tileUrl: null };
+            backlogTileMapStarts.set(id, start);
+
+            let L;
+            try {
+                L = await backlogLoadLeaflet();
+            } catch {
+                if (backlogTileMapStarts.get(id) === start) {
+                    backlogTileMapStarts.delete(id);
+                    dotnet.invokeMethodAsync('MapUnavailable').catch(() => { });
+                }
+                return;
+            }
+
+            // Disposed, or started again, while the library loaded.
+            if (backlogTileMapStarts.get(id) !== start || !element?.isConnected) return;
+            backlogTileMapStarts.delete(id);
+
+            const map = L.map(element, {
+                zoomControl: false,
+                attributionControl: false,
+                keyboard: false,
+                zoomAnimation: false,
+                minZoom: options.minZoom,
+                maxZoom: options.maxZoom,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxBoundsViscosity: 1
+            });
+
+            const state = { map, layer: null, dotnet, frame: 0, drawn: new Set(), failed: 0, reachable: true, pendingFit: null };
+
+            const send = settled => {
+                const centre = map.getCenter();
+                const size = map.getSize();
+                dotnet.invokeMethodAsync('ViewMoved', centre.lat, centre.lng, map.getZoom(), size.x, size.y, settled)
+                    .catch(() => { });
+            };
+            const report = reachable => {
+                if (state.reachable === reachable) return;
+                state.reachable = reachable;
+                dotnet.invokeMethodAsync('TilesReachable', reachable).catch(() => { });
+            };
+
+            map.on('move', () => {
+                if (state.frame) return;
+                state.frame = requestAnimationFrame(() => {
+                    state.frame = 0;
+                    send(false);
+                });
+            });
+            map.on('moveend resize', () => {
+                if (state.frame) cancelAnimationFrame(state.frame);
+                state.frame = 0;
+                send(true);
+            });
+
+            backlogTileMapFit(state, start.fit ?? options.fit);
+
+            const layer = L.tileLayer(start.tileUrl ?? options.tileUrl, { minZoom: options.minZoom, maxZoom: options.maxZoom });
+            layer.on('loading', () => {
+                state.failed = 0;
+            });
+            layer.on('tileload', event => {
+                state.drawn.add(event.tile);
+                report(true);
+            });
+            layer.on('tileunload', event => {
+                state.drawn.delete(event.tile);
+            });
+            layer.on('tileerror', () => {
+                state.failed++;
+            });
+            layer.on('load', () => {
+                if (state.drawn.size === 0 && state.failed > 0) report(false);
+            });
+            layer.addTo(map);
+            state.layer = layer;
+
+            state.onOffline = () => report(false);
+            state.onOnline = () => layer.redraw();
+            window.addEventListener('offline', state.onOffline);
+            window.addEventListener('online', state.onOnline);
+            if (navigator.onLine === false) report(false);
+
+            state.observer = new ResizeObserver(() => {
+                map.invalidateSize({ pan: false });
+                if (state.pendingFit) backlogTileMapFit(state, state.pendingFit);
+            });
+            state.observer.observe(element);
+
+            backlogTileMaps.set(id, state);
+            send(true);
+        },
+
+        // Reachability is left as it is: the new source's first tile to load
+        // reports it, so an offline note over the old source comes down then.
+        setTiles(id, url) {
+            const starting = backlogTileMapStarts.get(id);
+            if (starting) {
+                starting.tileUrl = url;
+                return;
+            }
+
+            backlogTileMaps.get(id)?.layer.setUrl(url);
+        },
+
+        zoomBy(id, delta) {
+            const state = backlogTileMaps.get(id);
+            state?.map.setZoom(state.map.getZoom() + Number(delta), { animate: false });
+        },
+
+        panTo(id, latitude, longitude) {
+            backlogTileMaps.get(id)?.map.panTo([latitude, longitude], { animate: false });
+        },
+
+        fit(id, fit) {
+            const starting = backlogTileMapStarts.get(id);
+            if (starting) {
+                starting.fit = fit;
+                return;
+            }
+
+            const state = backlogTileMaps.get(id);
+            if (state) backlogTileMapFit(state, fit);
+        },
+
+        retry(id) {
+            backlogTileMaps.get(id)?.layer.redraw();
+        },
+
+        dispose(id) {
+            backlogTileMapStarts.delete(id);
+            const state = backlogTileMaps.get(id);
+            if (!state) return;
+
+            backlogTileMaps.delete(id);
+            if (state.frame) cancelAnimationFrame(state.frame);
+            state.observer?.disconnect();
+            window.removeEventListener('offline', state.onOffline);
+            window.removeEventListener('online', state.onOnline);
+            state.map.remove();
         }
     };
 })();

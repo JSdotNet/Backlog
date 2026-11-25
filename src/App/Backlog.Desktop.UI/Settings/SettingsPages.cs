@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// The app-wide pages are drawn by the screen itself, because each takes the
 /// screen's shared context, but they are listed here as <see cref="SettingsSection"/>
 /// records so the menu, the addresses and the settings search see one list of pages
-/// rather than six built-in ones and the rest. Each declares the titles of the
+/// rather than the built-in ones and the rest. Each declares the titles of the
 /// cards it draws, which is what the search matches without rendering a page; a
 /// change to a page's cards changes its list here in the same change. A page
 /// whose cards depend on a feature declares them through
@@ -37,6 +37,11 @@ public static class SettingsPages
     /// most when nothing else is switched on.</summary>
     public const string McpServer = "mcp-server";
 
+    /// <summary>The Events map's Azure Maps key (local ADR 0061 §4). A product area's
+    /// page the shell draws, because the key's store is the adapter's; offered while
+    /// Events is on in a host that composes the store.</summary>
+    public const string Events = "events";
+
     /// <summary>The app-wide pages, in the order each group lists them. The
     /// <see cref="SettingsSection.Order"/> here is only the page's place among the
     /// built-in pages of its group; built-in pages always precede registered ones.</summary>
@@ -60,6 +65,9 @@ public static class SettingsPages
         new(Ai, "AI providers", 0, typeof(AiSettingsPage),
             Group: SettingsGroup.Ai,
             CardTitles: AiCardTitles(usageMetrics: true, aiAssistant: true)),
+        new(Events, "Events", 0, typeof(EventsSettingsPage),
+            Group: SettingsGroup.ProductAreas,
+            CardTitles: [EventsSettingsPage.AzureMapsCardTitle]),
     ];
 
     /// <summary>

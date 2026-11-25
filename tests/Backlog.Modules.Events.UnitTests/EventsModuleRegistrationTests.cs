@@ -46,6 +46,33 @@ public sealed class EventsModuleRegistrationTests
         Assert.Same(pinned, provider.GetRequiredService<TimeProvider>());
     }
 
+    /// <summary>A host with no map provider (local ADR 0061 §4): an address gets no answer back,
+    /// so it stays Not looked up yet, and the map has no tile source, so it shows the
+    /// missing-key note.</summary>
+    [Fact]
+    public async Task With_no_map_provider_an_address_gets_no_answer_and_the_map_no_tiles()
+    {
+        using var provider = new ServiceCollection().AddEventsModule().BuildServiceProvider();
+        var nieuwegein = Assert.IsType<Backlog.SharedKernel.Results.Ok<Address>>(Address.Create(null, null, "Nieuwegein", null).Value).Value;
+
+        var answer = await provider.GetRequiredService<IAddressGeocoder>().GeocodeAsync(nieuwegein, TestContext.Current.CancellationToken);
+
+        Assert.Same(GeocodeAnswer.Failed, answer);
+        Assert.Null(await provider.GetRequiredService<IEventMapTiles>().GetAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void A_geocoder_the_host_registered_first_is_kept()
+    {
+        var hosts = new FakeAddressGeocoder();
+        var services = new ServiceCollection();
+        services.AddSingleton<IAddressGeocoder>(hosts);
+
+        using var provider = services.AddEventsModule().BuildServiceProvider();
+
+        Assert.Same(hosts, provider.GetRequiredService<IAddressGeocoder>());
+    }
+
     /// <summary>The published contracts — the one the Inbox's To Event route reaches Events
     /// through, and the pane's — resolve once the host has registered the repositories and the
     /// pane's two outbound adapters.</summary>

@@ -25,6 +25,10 @@ public static class EventPresentation
         _ => "Skipped"
     };
 
+    /// <summary>A date section of the list as the pane heads it.</summary>
+    public static string SectionLabel(EventListSection section) =>
+        section == EventListSection.Past ? "Past" : "Upcoming";
+
     /// <summary>The one line the design gives each state, drawn beside the current step.</summary>
     public static string StateLine(KnowledgeEventState state) => state switch
     {
@@ -109,14 +113,121 @@ public static class EventPresentation
         return $"{Day(start)} – {endTime.ToString("HH:mm", Invariant)}";
     }
 
-    /// <summary>Where the event is, in words, or null when not known.</summary>
-    public static string? Where(PlaceDto? place) =>
-        place is null ? null : place.IsOnline ? "Online" : place.Venue;
+    /// <summary>A day as a list row reads it, short: <c>27 Nov</c> in the year it is now,
+    /// <c>18 May 2027</c> in any other, and <c>No date</c> while none is known.</summary>
+    public static string ShortDate(EventDateDto? start, DateOnly today) =>
+        start is null ? "No date"
+        : start.Date.Year == today.Year ? start.Date.ToString("d MMM", Invariant)
+        : start.Date.ToString("d MMM yyyy", Invariant);
 
-    /// <summary>The list row's second line: when, the series and where, as far as known.</summary>
-    public static string RowLine(KnowledgeEventSummaryDto summary) =>
-        string.Join(" · ", new[] { When(summary.Start, summary.End), summary.SeriesName, Where(summary.Place) }
-            .Where(part => !string.IsNullOrWhiteSpace(part)));
+    /// <summary>An address on one line, with only the parts it has: street, then postcode and
+    /// town together, then country.</summary>
+    public static string? AddressLine(AddressDto? address)
+    {
+        if (address is null) return null;
+
+        var town = string.Join(" ", new[] { address.Postcode, address.Town }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        var line = string.Join(", ", new[] { address.Street, town, address.Country }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return line.Length == 0 ? null : line;
+    }
+
+    /// <summary>Where the event is, in words: online, the venue's name, else its address; null
+    /// while no place is known.</summary>
+    public static string? Where(PlaceDto? place) =>
+        place is null ? null
+        : place.IsOnline ? "Online"
+        : !string.IsNullOrWhiteSpace(place.Venue) ? place.Venue
+        : AddressLine(place.Address);
+
+    /// <summary>
+    /// Why an event has no pin, in the four words <c>domain.md#not-on-the-map</c> keeps apart, or
+    /// null when it has a map point. "No venue yet" covers an in-person place with no address
+    /// too: the map has nothing to place it by.
+    /// </summary>
+    public static string? OffMapReason(PlaceDto? place) => place switch
+    {
+        { Point: not null } => null,
+        { IsOnline: true } => "Online",
+        { Address: not null, Lookup: AddressLookup.NotFound } => "Address not found",
+        { Address: not null } => "Address not looked up yet",
+        _ => "No venue yet"
+    };
+
+    /// <summary>The row's place line: where the event is, or why it is not on the map
+    /// (<c>Online · not on the map</c>). Null for an event on the map with nothing to name.</summary>
+    public static string? PlaceLine(PlaceDto? place) =>
+        OffMapReason(place) is { } reason ? $"{reason} · not on the map" : Where(place);
+
+    /// <summary>
+    /// The mark at the start of a row (<c>color-scheme.md#events-map-marks</c>): the map number in
+    /// its tone for an event on the map, the grey ring for one on the map but past or settled,
+    /// <c>◎</c> for an online event and <c>–</c> for any other off the map.
+    /// </summary>
+    public static EventMark Mark(KnowledgeEventSummaryDto summary, EventListSection section)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+
+        if (summary.Place is { IsOnline: true }) return new EventMark(EventMarkTone.Online, null);
+        if (summary.Place?.Point is null) return new EventMark(EventMarkTone.Off, null);
+
+        return new EventMark(Tone(summary.State, section), summary.MapNumber?.ToString(Invariant));
+    }
+
+    /// <summary>The tone of an event on the map: grey once past, Skipped, or Attended or
+    /// Harvested while still upcoming; filled for Going; a dashed edge for Spotted and
+    /// Considering.</summary>
+    public static EventMarkTone Tone(KnowledgeEventState state, EventListSection section) =>
+        section == EventListSection.Past ? EventMarkTone.Grey
+        : state switch
+        {
+            KnowledgeEventState.Going => EventMarkTone.Filled,
+            KnowledgeEventState.Spotted or KnowledgeEventState.Considering => EventMarkTone.Dashed,
+            _ => EventMarkTone.Grey
+        };
+
+    /// <summary>A pin's accessible name: its number, title, state, date and venue, as far as
+    /// known.</summary>
+    public static string PinName(KnowledgeEventSummaryDto summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+
+        return string.Join(", ", new[]
+        {
+            summary.MapNumber?.ToString(Invariant), summary.Title, StateLabel(summary.State),
+            When(summary.Start, summary.End), Where(summary.Place)
+        }.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    /// <summary>A pin's tooltip: <c>title · date</c>.</summary>
+    public static string PinTooltip(KnowledgeEventSummaryDto summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+
+        return $"{summary.Title} · {When(summary.Start, summary.End)}";
+    }
+
+    /// <summary>The venue hint while the event's address is being looked up: a save or Look up
+    /// now sent it and its answer is not in yet.</summary>
+    public const string LookingUpHint = "Looking up the address…";
+
+    /// <summary>
+    /// The line under the editor's venue field (<c>requirements.md</c>, "The venue field says where
+    /// the event is on the map"): its number while on the map, out of view while its pin is off
+    /// the map's view, that its address is being looked up, or why it is not on the map. Null for
+    /// an event on the map that carries no number — past or Skipped — since none of the hints is
+    /// about it.
+    /// </summary>
+    public static string? VenueHint(PlaceDto? place, int? mapNumber, bool? inView, bool lookingUp = false) => place switch
+    {
+        { IsOnline: false, Address: not null } when lookingUp => LookingUpHint,
+        { IsOnline: true } => "Online: not on the map.",
+        null or { Address: null } => "Add an address to put it on the map.",
+        { Point: null, Lookup: AddressLookup.NotFound } => "Address not found: check it.",
+        { Point: null } => "Not looked up yet: it will be looked up when you save again, or Look up now.",
+        _ when mapNumber is not { } number => null,
+        _ when inView == false => "Outside the map's view.",
+        _ => $"On the map as {mapNumber.Value.ToString(Invariant)}."
+    };
 
     /// <summary>A date as a date field holds it.</summary>
     public static string DateText(DateOnly? date) => date?.ToString("yyyy-MM-dd", Invariant) ?? string.Empty;

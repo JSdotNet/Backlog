@@ -1,0 +1,548 @@
+@using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A slippy map: online tiles under marks the library draws itself.
+
+    Leaflet (vendored under wwwroot/lib/leaflet, local ADR 0061 §2) draws the tiles
+    and handles the pointer's pan and zoom, and nothing else. Its zoom control,
+    attribution control and keyboard handler are off, and its container is
+    aria-hidden: it is a picture. Everything a person interacts with — the pins,
+    the edge pills, zoom in, zoom out, fit all — is a real button drawn here, at
+    the position TileMapProjection gives for the viewport Leaflet last reported.
+    That keeps every interactive mark in the accessibility tree and in the tab
+    order, as .devbook/design/component-libraries.md#diagram-and-graph-strategy
+    asks, and keeps where a pin stands testable without a browser.
+
+    Selection is the host's, the way GraphAtlas's is: a pin or a pill says it was
+    picked through SelectedIdChanged, and the host decides what that means.
+
+    Three notes stand in for the tiles. With no tile source there is no Leaflet at
+    all and nothing is requested: the host's missing-source note. With tiles that
+    cannot be reached, the offline note on an opaque plate, and no pins, since they
+    have nothing to stand on. With the library itself failing to load, a note that
+    the map could not be drawn. The source URL is never written into the markup:
+    a tile URL can carry a key (ADR 0061 §4), so it only crosses the interop.
+*@
+
+<section class="@ClassValue"
+         aria-label="@AriaLabel"
+         data-testid="@TestId"
+         data-map-state="@StateSlug">
+    @if (HasSource)
+    {
+        <div @ref="_tiles" class="tile-map__tiles" aria-hidden="true"></div>
+    }
+
+    @if (State == TileMapState.Ready && _viewport is { } viewport)
+    {
+        <div class="tile-map__marks">
+            @foreach (var mark in Marks)
+            {
+                @if (TileMapProjection.IsInView(viewport, mark.Point))
+                {
+                    var position = TileMapProjection.Project(viewport, mark.Point);
+                    <button @key="@($"pin:{mark.Id}")"
+                            type="button"
+                            id="@PinId(mark)"
+                            class="@MarkClass("tile-map__pin", mark)"
+                            style="@Position(position)"
+                            aria-pressed="@(IsSelected(mark) ? "true" : "false")"
+                            aria-label="@mark.AccessibleName"
+                            data-mark-id="@mark.Id"
+                            data-testid="@PartTestId("pin")"
+                            @onclick="() => PickAsync(mark)">
+                        <span class="tile-map__label" aria-hidden="true">@mark.Label</span>
+                        <span class="tile-map__tooltip" aria-hidden="true">@mark.Tooltip</span>
+                    </button>
+                }
+                else if (mark.Label is not null
+                         && TileMapProjection.EdgePlacement(viewport, mark.Point, PillInset) is { } placement)
+                {
+                    <button @key="@($"pill:{mark.Id}")"
+                            type="button"
+                            id="@PillId(mark)"
+                            class="@($"{MarkClass("tile-map__pill", mark)} tile-map__pill--{EdgeSlug(placement.Edge)}")"
+                            style="@Position(placement.Position)"
+                            aria-pressed="@(IsSelected(mark) ? "true" : "false")"
+                            aria-label="@mark.AccessibleName"
+                            title="@mark.Tooltip"
+                            data-mark-id="@mark.Id"
+                            data-testid="@PartTestId("pill")"
+                            @onclick="() => PickPillAsync(mark)">
+                        <span class="tile-map__pill-arrow" aria-hidden="true">@EdgeArrow(placement.Edge)</span>
+                        <span class="tile-map__label" aria-hidden="true">@mark.Label</span>
+                    </button>
+                }
+            }
+        </div>
+
+        <div class="tile-map__controls">
+            <IconButton AriaLabel="@ZoomInLabel"
+                        CssClass="tile-map__control"
+                        Disabled="@(viewport.Zoom >= MaxZoom)"
+                        TestId="@PartTestId("zoom-in")"
+                        OnClick="() => ZoomByAsync(1)">+</IconButton>
+            <IconButton AriaLabel="@ZoomOutLabel"
+                        CssClass="tile-map__control"
+                        Disabled="@(viewport.Zoom <= MinZoom)"
+                        TestId="@PartTestId("zoom-out")"
+                        OnClick="() => ZoomByAsync(-1)">&#x2212;</IconButton>
+            <IconButton AriaLabel="@FitLabel"
+                        CssClass="tile-map__control"
+                        Disabled="@(Marks.Count == 0)"
+                        TestId="@PartTestId("fit")"
+                        OnClick="FitAsync">&#x2922;</IconButton>
+        </div>
+
+    }
+
+    @* One foot for the legend and the attribution, so on a narrow map they wrap
+       instead of one covering the other (ADR 0061 §6 wants the attribution
+       always visible). *@
+    @if (ShowsLegend || ShowsAttribution)
+    {
+        <div class="tile-map__foot">
+            @if (ShowsLegend)
+            {
+                <div class="tile-map__legend" data-testid="@PartTestId("legend")">@Legend</div>
+            }
+            @if (ShowsAttribution)
+            {
+                <p class="tile-map__attribution" data-testid="@PartTestId("attribution")">@Attribution</p>
+            }
+        </div>
+    }
+
+    @switch (State)
+    {
+        case TileMapState.MissingSource:
+            <div class="tile-map__note">
+                <Callout Heading="@MissingSourceHeading"
+                         Role="status"
+                         TestId="@PartTestId("missing-source")"
+                         ActionLabel="@MissingSourceActionLabel"
+                         OnAction="OnMissingSourceAction">@MissingSourceText</Callout>
+            </div>
+            break;
+        case TileMapState.Offline:
+            <div class="tile-map__note">
+                <Callout Heading="@OfflineHeading"
+                         Role="status"
+                         TestId="@PartTestId("offline")"
+                         ActionLabel="@RetryLabel"
+                         OnAction="RetryAsync">@OfflineText</Callout>
+            </div>
+            break;
+        case TileMapState.Unavailable:
+            <div class="tile-map__note">
+                <Callout Heading="@UnavailableHeading"
+                         Role="status"
+                         TestId="@PartTestId("unavailable")" />
+            </div>
+            break;
+    }
+</section>
+
+@code {
+    /// <summary>How far inside the map's edge a pill's centre sits, in CSS pixels:
+    /// half a pill and a little air, so the whole pill is on the map.</summary>
+    internal const double PillInset = 24;
+
+    private readonly string _mapId = "tile-map-" + Guid.NewGuid().ToString("N");
+    private DotNetObjectReference<TileMap>? _self;
+    private ElementReference _tiles;
+    private TileMapViewport? _viewport;
+    private string? _initializedSource;
+    private bool _reachable = true;
+    private bool _unavailable;
+    private bool _fittedOnMarks;
+    private string? _focusPinOf;
+
+    /// <summary>
+    /// Leaflet's tile URL template — <c>{z}</c>, <c>{x}</c> and <c>{y}</c> are
+    /// filled in per tile. Null or blank is "no tile source": nothing loads, nothing
+    /// is requested, and the missing-source note shows. It may carry a key; it is
+    /// never written into the markup.
+    /// </summary>
+    [Parameter]
+    public string? TileUrlTemplate { get; set; }
+
+    /// <summary>The copyright line the tile provider requires, shown at the
+    /// bottom right whenever there is a tile source.</summary>
+    [Parameter]
+    public string? Attribution { get; set; }
+
+    /// <summary>The marks to draw, in the order the keyboard reaches them.</summary>
+    [Parameter]
+    public IReadOnlyList<TileMapMark> Marks { get; set; } = [];
+
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    /// <summary>Told the mark a pin or a pill was picked for.</summary>
+    [Parameter]
+    public EventCallback<string?> SelectedIdChanged { get; set; }
+
+    /// <summary>Told where the map is once a pan or a zoom has settled — not on
+    /// every frame of it — so a host can say whether a mark is in view with
+    /// <see cref="TileMapProjection.IsInView"/>.</summary>
+    [Parameter]
+    public EventCallback<TileMapViewport> ViewChanged { get; set; }
+
+    /// <summary>The legend, on its own plate at the bottom left. The words are the
+    /// host's: only the host knows what a filled pin means.</summary>
+    [Parameter]
+    public RenderFragment? Legend { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Map";
+
+    [Parameter]
+    public string ZoomInLabel { get; set; } = "Zoom in";
+
+    [Parameter]
+    public string ZoomOutLabel { get; set; } = "Zoom out";
+
+    [Parameter]
+    public string FitLabel { get; set; } = "Fit all";
+
+    [Parameter]
+    public string OfflineHeading { get; set; } = "The map needs a connection.";
+
+    [Parameter]
+    public string? OfflineText { get; set; } = "Its tiles cannot be reached right now.";
+
+    [Parameter]
+    public string RetryLabel { get; set; } = "Try again";
+
+    [Parameter]
+    public string MissingSourceHeading { get; set; } = "The map has no tile source.";
+
+    [Parameter]
+    public string? MissingSourceText { get; set; }
+
+    /// <summary>The one thing a reader can do about a missing source — open the
+    /// settings that hold its key, say. Drawn only with
+    /// <see cref="OnMissingSourceAction"/> wired.</summary>
+    [Parameter]
+    public string? MissingSourceActionLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnMissingSourceAction { get; set; }
+
+    [Parameter]
+    public string UnavailableHeading { get; set; } = "The map could not be drawn.";
+
+    [Parameter]
+    public int MinZoom { get; set; } = 2;
+
+    [Parameter]
+    public int MaxZoom { get; set; } = 18;
+
+    /// <summary>The closest a fit goes: one mark alone is framed at this zoom,
+    /// not at the street.</summary>
+    [Parameter]
+    public int FitMaxZoom { get; set; } = 13;
+
+    /// <summary>Where the map opens with no mark to frame.</summary>
+    [Parameter]
+    public MapCoordinate DefaultCenter { get; set; } = new(50.5, 6);
+
+    [Parameter]
+    public int DefaultZoom { get; set; } = 4;
+
+    /// <summary>Where the map opens instead of framing its marks — the view a
+    /// host kept from the last time the map was open, say. Read once, when the
+    /// map starts; after that the view is the reader's.</summary>
+    [Parameter]
+    public TileMapView? InitialView { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The map as last reported by Leaflet; null until it has been drawn.</summary>
+    public TileMapViewport? Viewport => _viewport;
+
+    private bool HasSource => !string.IsNullOrWhiteSpace(TileUrlTemplate);
+
+    private bool ShowsLegend => Legend is not null && State == TileMapState.Ready;
+
+    private bool ShowsAttribution =>
+        HasSource && !string.IsNullOrWhiteSpace(Attribution) && State != TileMapState.Unavailable;
+
+    /// <summary>The pin's element id, which focus is moved to after a pill pick.
+    /// The mark id is escaped so any host id makes a valid one.</summary>
+    private string PinId(TileMapMark mark) => $"{_mapId}-pin-{Uri.EscapeDataString(mark.Id)}";
+
+    private string PillId(TileMapMark mark) => $"{_mapId}-pill-{Uri.EscapeDataString(mark.Id)}";
+
+    private TileMapState State =>
+        !HasSource ? TileMapState.MissingSource
+        : _unavailable ? TileMapState.Unavailable
+        : !_reachable ? TileMapState.Offline
+        : _viewport is null ? TileMapState.Loading
+        : TileMapState.Ready;
+
+    private string StateSlug => State switch
+    {
+        TileMapState.MissingSource => "missing-source",
+        TileMapState.Unavailable => "unavailable",
+        TileMapState.Offline => "offline",
+        TileMapState.Loading => "loading",
+        _ => "ready"
+    };
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tile-map" : $"tile-map {CssClass}";
+
+    /// <summary>The marks a fit frames: the labelled ones — the marks a reader
+    /// follows by number — or every mark when none is labelled.</summary>
+    private IEnumerable<MapCoordinate> FramedPoints =>
+        (Marks.Any(mark => mark.Label is not null) ? Marks.Where(mark => mark.Label is not null) : Marks)
+            .Select(mark => mark.Point);
+
+    private bool IsSelected(TileMapMark mark) => string.Equals(mark.Id, SelectedId, StringComparison.Ordinal);
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+
+    private static string MarkClass(string block, TileMapMark mark) => mark.Tone switch
+    {
+        TileMapMarkTone.Dashed => $"{block} tile-map__mark--dashed",
+        TileMapMarkTone.Muted => $"{block} tile-map__mark--muted",
+        _ => $"{block} tile-map__mark--filled"
+    };
+
+    private static string Position(TileMapScreenPoint point) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"--tile-map-x: {point.X:0.##}px; --tile-map-y: {point.Y:0.##}px");
+
+    private static string EdgeSlug(TileMapEdge edge) => edge switch
+    {
+        TileMapEdge.Top => "top",
+        TileMapEdge.Right => "right",
+        TileMapEdge.Bottom => "bottom",
+        _ => "left"
+    };
+
+    private static string EdgeArrow(TileMapEdge edge) => edge switch
+    {
+        TileMapEdge.Top => "↑",
+        TileMapEdge.Right => "→",
+        TileMapEdge.Bottom => "↓",
+        _ => "←"
+    };
+
+    /// <summary>Reported by the map whenever its view moves, every frame of a
+    /// pan, and once more with <paramref name="settled"/> when the move ends. On
+    /// the renderer's dispatcher, because a call from JS is not.</summary>
+    [JSInvokable]
+    public Task ViewMoved(double latitude, double longitude, double zoom, double width, double height, bool settled) =>
+        InvokeAsync(async () =>
+        {
+            _viewport = new TileMapViewport(new MapCoordinate(latitude, longitude), zoom, width, height);
+            StateHasChanged();
+
+            if (settled) await ViewChanged.InvokeAsync(_viewport);
+        });
+
+    /// <summary>Reported when the tiles in view stop or start loading: none of a
+    /// view's tiles loaded and some failed, or the browser went offline — or a
+    /// tile loaded again. One failed tile among loaded ones stays blank and
+    /// raises nothing.</summary>
+    [JSInvokable]
+    public Task TilesReachable(bool reachable) => InvokeAsync(() =>
+    {
+        if (_reachable == reachable) return;
+
+        _reachable = reachable;
+        StateHasChanged();
+    });
+
+    /// <summary>Reported when the map library itself could not be loaded.</summary>
+    [JSInvokable]
+    public Task MapUnavailable() => InvokeAsync(() =>
+    {
+        _unavailable = true;
+        StateHasChanged();
+    });
+
+    private async Task PickAsync(TileMapMark mark)
+    {
+        if (IsSelected(mark)) return;
+
+        SelectedId = mark.Id;
+        await SelectedIdChanged.InvokeAsync(mark.Id);
+    }
+
+    /// <summary>A pill is picked to bring its mark into view: the map pans to it
+    /// at the zoom it is at, and the mark is selected.
+    /// <para>The pan turns the pill into a pin, a different button, and the pill
+    /// the keyboard was on leaves the page. Focus is moved to the pin once a render
+    /// has drawn it, so the reader stays on the mark they picked.</para></summary>
+    private async Task PickPillAsync(TileMapMark mark)
+    {
+        _focusPinOf = mark.Id;
+        await CallAsync("backlogTileMap.panTo", _mapId, mark.Point.Latitude, mark.Point.Longitude);
+        await PickAsync(mark);
+    }
+
+    private Task ZoomByAsync(int delta) => CallAsync("backlogTileMap.zoomBy", _mapId, delta);
+
+    private Task FitAsync() => CallAsync("backlogTileMap.fit", _mapId, FitOptions());
+
+    private Task RetryAsync() => CallAsync("backlogTileMap.retry", _mapId);
+
+    /// <summary>What a fit is told: the box of the framed marks, or none, in which
+    /// case the map opens on its default view.</summary>
+    private object FitOptions()
+    {
+        var bounds = TileMapProjection.Bounds(FramedPoints);
+
+        return new
+        {
+            bounds = bounds is { } box ? new[] { box.South, box.West, box.North, box.East } : null,
+            padding = PillInset * 2,
+            maxZoom = FitMaxZoom,
+            center = new[] { DefaultCenter.Latitude, DefaultCenter.Longitude },
+            zoom = DefaultZoom
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!HasSource)
+        {
+            if (_initializedSource is not null) await ReleaseAsync();
+            return;
+        }
+
+        if (_initializedSource is null)
+        {
+            await InitializeAsync();
+            return;
+        }
+
+        await FocusPickedPinAsync();
+
+        // Reachability is left as it is: the new source's first tile to load
+        // reports TilesReachable(true), and that render takes an offline note
+        // down. Resetting it here, with no render, left the note over working tiles.
+        if (!string.Equals(_initializedSource, TileUrlTemplate, StringComparison.Ordinal))
+        {
+            _initializedSource = TileUrlTemplate;
+            await CallAsync("backlogTileMap.setTiles", _mapId, TileUrlTemplate);
+        }
+
+        // A host that loads its marks after the map is drawn would otherwise open
+        // on the default view with every mark off it. Framed once, on the first
+        // marks; after that the view is the reader's.
+        if (!_fittedOnMarks && Marks.Count > 0)
+        {
+            _fittedOnMarks = true;
+            await FitAsync();
+        }
+    }
+
+    /// <summary>Moves focus to the pin of a mark picked through its pill, once the
+    /// view has it in and a render has drawn its pin. A mark that has gone is
+    /// forgotten.</summary>
+    private async Task FocusPickedPinAsync()
+    {
+        if (_focusPinOf is not { } markId) return;
+
+        var mark = Marks.FirstOrDefault(candidate => string.Equals(candidate.Id, markId, StringComparison.Ordinal));
+        if (mark is null)
+        {
+            _focusPinOf = null;
+            return;
+        }
+
+        if (State != TileMapState.Ready || _viewport is not { } viewport || !TileMapProjection.IsInView(viewport, mark.Point)) return;
+
+        _focusPinOf = null;
+        await CallAsync("backlogFocus", PinId(mark), false);
+    }
+
+    private async Task InitializeAsync()
+    {
+        _self ??= DotNetObjectReference.Create(this);
+        _initializedSource = TileUrlTemplate;
+        _fittedOnMarks = Marks.Count > 0 || InitialView is not null;
+
+        var options = new
+        {
+            tileUrl = TileUrlTemplate,
+            minZoom = MinZoom,
+            maxZoom = MaxZoom,
+            fit = InitialView is { } view
+                ? new
+                {
+                    bounds = (double[]?)null,
+                    padding = PillInset * 2,
+                    maxZoom = FitMaxZoom,
+                    center = new[] { view.Center.Latitude, view.Center.Longitude },
+                    zoom = view.Zoom
+                }
+                : FitOptions()
+        };
+
+        if (!await CallAsync("backlogTileMap.initialize", _tiles, _mapId, options, _self))
+        {
+            _initializedSource = null;
+        }
+    }
+
+    private async Task ReleaseAsync()
+    {
+        _initializedSource = null;
+        _viewport = null;
+        _reachable = true;
+        _fittedOnMarks = false;
+        await CallAsync("backlogTileMap.dispose", _mapId);
+    }
+
+    /// <summary>One interop call, swallowing what a torn-down or prerendering
+    /// host throws. False when the call did not reach the map.</summary>
+    private async Task<bool> CallAsync(string identifier, params object?[] arguments)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(identifier, arguments);
+            return true;
+        }
+        catch (JSException)
+        {
+            return false;
+        }
+        catch (JSDisconnectedException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: interop is not available yet.
+            return false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initializedSource is not null) await CallAsync("backlogTileMap.dispose", _mapId);
+
+        _self?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private enum TileMapState
+    {
+        MissingSource,
+        Loading,
+        Ready,
+        Offline,
+        Unavailable
+    }
+}

@@ -50,6 +50,34 @@ public enum DateSource
     EventPage
 }
 
+/// <summary>What geocoding answered for a place's address
+/// (<c>.devbook/domain/events/domain.md#address-lookup</c>). A new or changed address is
+/// <see cref="NotLookedUpYet"/> until the save that carries it gets the geocoder's answer.</summary>
+public enum AddressLookup
+{
+    /// <summary>The geocoder found the address; the place holds its map point.</summary>
+    Placed,
+
+    /// <summary>The geocoder looked it up and found no usable match. Only a changed address or the
+    /// person's retry looks it up again.</summary>
+    NotFound,
+
+    /// <summary>No answer came back: offline, no map key, or the call failed. The next save of the
+    /// event, or the person's retry, looks it up.</summary>
+    NotLookedUpYet
+}
+
+/// <summary>The date section of the Events pane's list an event is drawn in
+/// (<c>.devbook/domain/events/requirements.md#requirement-the-pane-lists-events-by-date-upcoming-then-past</c>).</summary>
+public enum EventListSection
+{
+    /// <summary>Not over yet, by the desktop clock, or undated.</summary>
+    Upcoming,
+
+    /// <summary>Its last day is before today.</summary>
+    Past
+}
+
 /// <summary>Why an event points at a task (<c>.devbook/domain/events/domain.md#task-purpose</c>).</summary>
 public enum TaskPurpose
 {

@@ -39,6 +39,12 @@ public static class EventsModuleRegistration
         services.TryAddSingleton<IKnowledgeEvents, KnowledgeEvents>();
         services.TryAddScoped<IEventsPane, EventsPane>();
 
+        // The map's provider ports (local ADR 0061 §4): until the host registers the Azure Maps
+        // adapter, a saved address is sent nowhere and the map has no tiles, as with no map key.
+        // TryAdd, so a host that registered its adapter first keeps it.
+        services.TryAddSingleton<IAddressGeocoder, NoAddressGeocoder>();
+        services.TryAddSingleton<IEventMapTiles, NoEventMapTiles>();
+
         // The Harvest Task Policy holds the task target, Scoped like the pane that calls it; the
         // worker is the Desktop clock, a singleton the desktop heads resolve at start, which
         // takes a scope per check.

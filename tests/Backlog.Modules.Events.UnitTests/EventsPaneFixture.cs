@@ -39,6 +39,10 @@ public abstract class EventsPaneFixture
 
     internal FakeEventBrainNotes Brain { get; } = new();
 
+    /// <summary>The geocoder both panes here send an address to; it answers nothing until a
+    /// test tells it what a town is.</summary>
+    internal FakeAddressGeocoder Geocoder { get; } = new();
+
     internal IEventsPane Pane { get; }
 
     protected static CancellationToken Token => TestContext.Current.CancellationToken;
@@ -56,6 +60,19 @@ public abstract class EventsPaneFixture
         return id;
     }
 
-    private EventsPane Over(FakeEventTaskTarget tasks, FakeEventBrainNotes brain) =>
-        new(Store, Series, tasks, brain, new HarvestTaskPolicy(Store, tasks), _clock, Announced);
+    /// <summary>Waits until every lookup the panes here started after a save has answered and
+    /// been kept: a place save answers once it is saved, and the geocoder call runs after it.</summary>
+    protected async Task LookUpsSettledAsync()
+    {
+        foreach (var pane in _panes.ToList()) await pane.LookUpsSettledAsync();
+    }
+
+    private readonly List<EventsPane> _panes = [];
+
+    private EventsPane Over(FakeEventTaskTarget tasks, FakeEventBrainNotes brain)
+    {
+        var pane = new EventsPane(Store, Series, tasks, brain, new HarvestTaskPolicy(Store, tasks), _clock, Geocoder, Announced);
+        _panes.Add(pane);
+        return pane;
+    }
 }

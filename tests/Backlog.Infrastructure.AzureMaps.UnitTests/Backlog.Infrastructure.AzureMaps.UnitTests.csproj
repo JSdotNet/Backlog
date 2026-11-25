@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureMaps\Backlog.Infrastructure.AzureMaps.csproj" />
+  </ItemGroup>
+
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingLogger.cs" Link="Shared\TestDoubles\RecordingLogger.cs" />
+  </ItemGroup>
+
+</Project>

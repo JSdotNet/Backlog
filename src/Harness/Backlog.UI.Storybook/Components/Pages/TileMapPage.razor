@@ -1,0 +1,147 @@
+@page "/diagrams/tile-map"
+
+<PageTitle>Tile map — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Tile map"
+           Summary="TileMap draws online map tiles through the vendored Leaflet and puts the library's own buttons over them: a pin per mark, a pill on the edge for a numbered mark out of view, zoom and fit controls, the host's legend and the provider's attribution — and a note in place of the tiles when there is no source or they cannot be reached."
+           Guidelines="@Rules">
+    @*
+        A tour, not the Events pane. The app's map draws knowledge events; a story
+        that drew the same would read as a screenshot of the app and hide the
+        moment the component starts assuming what it draws.
+
+        The tiles are a stand-in the storybook serves itself (wwwroot/map-tiles/
+        tile.svg, one grid tile for every z/x/y), so every story here draws, pans
+        and zooms with no network and no key.
+    *@
+
+    <Story Name="Marks over tiles"
+           Description="Each mark is a real button at its point: a filled pin, a dashed one, a grey one. Drag to pan, scroll to zoom, or use the buttons. Zoom in and a numbered mark that leaves the view stands as a pill on the nearest edge; pick the pill to bring it back. Fit all frames every numbered mark."
+           Code="@MarksCode">
+        <div class="sb-map">
+            <TileMap TileUrlTemplate="@StandInTiles"
+                     Attribution="Stand-in tiles, storybook only"
+                     Marks="@Tour"
+                     @bind-SelectedId="_selected"
+                     ViewChanged="view => _view = view"
+                     AriaLabel="Tour map"
+                     TestId="story-tile-map">
+                <Legend>Filled: playing · Dashed: pencilled in · Grey: played</Legend>
+            </TileMap>
+        </div>
+        <p class="sb-state" data-testid="story-tile-map-readout">@Readout</p>
+    </Story>
+
+    <Story Name="Opened on a kept view"
+           Description="A host that keeps the view for the session hands it back as InitialView, and the map opens there instead of framing its marks. Here it opens on the Low Countries, so the Oslo and Lisbon marks start as pills on the top and left edges."
+           Code="@KeptCode">
+        <div class="sb-map">
+            <TileMap TileUrlTemplate="@StandInTiles"
+                     Attribution="Stand-in tiles, storybook only"
+                     Marks="@Tour"
+                     InitialView="@(new TileMapView(new MapCoordinate(51.2, 4.4), 7))"
+                     AriaLabel="Tour map, opened on the Low Countries"
+                     TestId="story-tile-map-kept" />
+        </div>
+    </Story>
+
+    <Story Name="No tile source"
+           Description="With no tile URL the map loads nothing and requests nothing; the host's note says what is missing, with its one way to fix it."
+           Code="@MissingCode">
+        <div class="sb-map">
+            <TileMap TileUrlTemplate="@null"
+                     Marks="@Tour"
+                     MissingSourceHeading="The map needs a tile key."
+                     MissingSourceText="Add one in Settings to see the map."
+                     MissingSourceActionLabel="Open Settings"
+                     OnMissingSourceAction="() => _opened++"
+                     TestId="story-tile-map-missing" />
+        </div>
+        @if (_opened > 0)
+        {
+            <p class="sb-state">Open Settings pressed @_opened time(s).</p>
+        }
+    </Story>
+
+    <Story Name="Tiles out of reach"
+           Description="A source whose tiles all fail — offline, or a server that answers nothing — shows the offline note on an opaque plate in place of the tiles, and no pins, since they have nothing to stand on. Try again reloads the tiles; here they never come."
+           Code="@OfflineCode">
+        <div class="sb-map">
+            <TileMap TileUrlTemplate="@UnreachableTiles"
+                     Attribution="Stand-in tiles, storybook only"
+                     Marks="@Tour"
+                     TestId="story-tile-map-offline" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "Why the map is vendored Leaflet with online tiles, and why every mark is a button over them."),
+        new("color-scheme.md#events-map-marks", "What each tone, ring and plate is, measured against the tiles."),
+        new("interaction-guidelines.md#offline", "What the map shows when it cannot reach its tiles.")
+    ];
+
+    private const string StandInTiles = "map-tiles/tile.svg?z={z}&x={x}&y={y}";
+    private const string UnreachableTiles = "map-tiles/unreachable/{z}/{x}/{y}.png";
+
+    private static readonly IReadOnlyList<TileMapMark> Tour =
+    [
+        new("antwerp", new MapCoordinate(51.2194, 4.4025), "1, Antwerp, playing, 12 May", "Antwerp · 12 May", "1", TileMapMarkTone.Filled),
+        new("utrecht", new MapCoordinate(52.0907, 5.1214), "2, Utrecht, pencilled in, 20 May", "Utrecht · 20 May", "2", TileMapMarkTone.Dashed),
+        new("oslo", new MapCoordinate(59.9139, 10.7522), "3, Oslo, pencilled in, 9 June", "Oslo · 9 June", "3", TileMapMarkTone.Dashed),
+        new("lisbon", new MapCoordinate(38.7223, -9.1393), "Lisbon, played, 4 November last year", "Lisbon · 4 Nov", null, TileMapMarkTone.Muted)
+    ];
+
+    private string? _selected;
+    private TileMapViewport? _view;
+    private int _opened;
+
+    private string Readout =>
+        (_selected is null ? "Nothing picked." : $"Picked: {_selected}.")
+        + (_view is null
+            ? string.Empty
+            : FormattableString.Invariant($" View: {_view.Center.Latitude:0.00}, {_view.Center.Longitude:0.00} at zoom {_view.Zoom:0}."));
+
+    private const string MarksCode = """
+        <TileMap TileUrlTemplate="https://tiles.example/{z}/{x}/{y}.png"
+                 Attribution="© the tile provider"
+                 Marks="@marks"
+                 @bind-SelectedId="selected"
+                 ViewChanged="view => settledView = view">
+            <Legend>Filled: playing · Dashed: pencilled in · Grey: played</Legend>
+        </TileMap>
+
+        @code {
+            IReadOnlyList<TileMapMark> marks =
+            [
+                new("antwerp", new MapCoordinate(51.22, 4.40), "1, Antwerp, playing, 12 May",
+                    "Antwerp · 12 May", Label: "1", Tone: TileMapMarkTone.Filled),
+                new("lisbon", new MapCoordinate(38.72, -9.14), "Lisbon, played, 4 November last year",
+                    "Lisbon · 4 Nov", Label: null, Tone: TileMapMarkTone.Muted)
+            ];
+        }
+        """;
+
+    private const string KeptCode = """
+        <TileMap TileUrlTemplate="@tiles"
+                 Marks="@marks"
+                 InitialView="@(new TileMapView(new MapCoordinate(51.2, 4.4), 7))" />
+        """;
+
+    private const string MissingCode = """
+        <TileMap TileUrlTemplate="@null"
+                 Marks="@marks"
+                 MissingSourceHeading="The map needs a tile key."
+                 MissingSourceText="Add one in Settings to see the map."
+                 MissingSourceActionLabel="Open Settings"
+                 OnMissingSourceAction="OpenSettings" />
+        """;
+
+    private const string OfflineCode = """
+        <TileMap TileUrlTemplate="@tilesThatCannotBeReached"
+                 Attribution="© the tile provider"
+                 Marks="@marks" />
+        """;
+}

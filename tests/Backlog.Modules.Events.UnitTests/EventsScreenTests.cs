@@ -4,6 +4,7 @@ using Backlog.Modules.Events.Services;
 using Backlog.Modules.Events.UI;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 
 using Bunit;
@@ -16,7 +17,8 @@ namespace Backlog.Modules.Events.UnitTests;
 
 /// <summary>
 /// The Events pane's screens over the real pane service, its in-memory stores and the task and
-/// Brain targets at the boundary: the list grouped by state, adding by title alone, the state
+/// Brain targets at the boundary: the map over the list by date — numbers, marks, pins, pills,
+/// the shared selection, the venue hints, Hide map and the address fields — adding by title alone, the state
 /// choice and its skip dialog, Remove and its confirmation, the Harvest chips, the task chips and Add prep task, and the jumps
 /// out through the window's navigator.
 /// </summary>
@@ -24,6 +26,12 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 {
     private readonly BunitContext _context = new();
     private readonly RecordingNavigator _navigator = new();
+    private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 10, 9, 0, 0, TimeSpan.FromHours(1)));
+
+    /// <summary>Where the browser says the focus went once an address field lost it: out of
+    /// the address fields — to another control, or to nowhere after a click on a spot nothing
+    /// can focus, which backlogFocusWithin answers alike — unless a test moves it to the next part.</summary>
+    private bool _focusLeftAddress = true;
 
     /// <summary>The Inbox's flag, <c>InboxFeatures.Pane</c>, as a string: the Events tests
     /// reference no Inbox project, as the Events module references none.</summary>
@@ -34,13 +42,14 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
     public EventsScreenTests()
     {
-        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 10, 9, 0, 0, Cet));
-        clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("CET-screen", Cet, "CET", "CET"));
+        _clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("CET-screen", Cet, "CET", "CET"));
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        _context.JSInterop.Setup<bool>("backlogFocusWithin", _ => !_focusLeftAddress).SetResult(true);
+        _context.JSInterop.Setup<bool>("backlogFocusWithin", _ => _focusLeftAddress).SetResult(false);
         _context.Services.AddSingleton(Pane);
         _context.Services.AddSingleton<ISurfaceNavigator>(_navigator);
-        _context.Services.AddSingleton<TimeProvider>(clock);
+        _context.Services.AddSingleton<TimeProvider>(_clock);
 
         // The shell's catalog over the Inbox's surface as InboxSurfaceRegistration registers it:
         // offered only while the Inbox's flag is on.
@@ -93,26 +102,28 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     }
 
     [Fact]
-    public async Task The_list_groups_events_by_state_with_upcoming_first_and_draws_no_empty_group()
+    public async Task The_list_draws_events_by_date_upcoming_then_past_and_draws_no_empty_section()
     {
         var later = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
         var sooner = await Dated("dotNET Friday", new DateOnly(2026, 11, 27));
         var going = await Dated("NDC Oslo", new DateOnly(2027, 6, 7));
         Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(going, KnowledgeEventState.Going, Token)).Value);
+        await Dated("Techorama 2025", new DateOnly(2025, 5, 20));
 
         var pane = RenderPane();
 
-        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='events-group']").Count));
-        var groups = pane.FindAll("[data-testid='events-group']");
-        Assert.Equal(["Going", "Spotted"], groups.Select(group => group.GetAttribute("data-state")));
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='events-section']").Count));
+        var sections = pane.FindAll("[data-testid='events-section']");
+        Assert.Equal(["Upcoming", "Past"], sections.Select(section => section.GetAttribute("data-section")));
         Assert.Equal(
-            ["dotNET Friday", "Techorama Belgium"],
-            groups[1].QuerySelectorAll(".events-list__title").Select(title => title.TextContent));
-        Assert.Equal("2", groups[1].QuerySelector("[data-testid='events-group-tally']")!.TextContent);
-        Assert.Equal(
-            "27 Nov 2026",
-            pane.Find($"[data-testid='events-row-{sooner:N}'] [data-testid='events-row-line']").TextContent);
-        Assert.NotNull(pane.Find($"[data-testid='events-row-{later:N}']"));
+            ["dotNET Friday", "Techorama Belgium", "NDC Oslo"],
+            sections[0].QuerySelectorAll(".events-list__title").Select(title => title.TextContent));
+        Assert.Equal("3", sections[0].QuerySelector("[data-testid='events-section-tally']")!.TextContent);
+        Assert.Equal(["Techorama 2025"], sections[1].QuerySelectorAll(".events-list__title").Select(title => title.TextContent));
+        Assert.Equal("1", sections[1].QuerySelector("[data-testid='events-section-tally']")!.TextContent);
+        Assert.Equal("27 Nov", pane.Find($"[data-testid='events-row-{sooner:N}'] [data-testid='events-row-date']").TextContent);
+        Assert.Equal("18 May 2027", pane.Find($"[data-testid='events-row-{later:N}'] [data-testid='events-row-date']").TextContent);
+        Assert.Equal("20 May 2025", sections[1].QuerySelector("[data-testid='events-row-date']")!.TextContent);
     }
 
     // --- Adding --------------------------------------------------------------------------
@@ -128,7 +139,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-add-confirm']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal("dotNET Friday, 27 November", Text(pane, "events-editor-title")));
-        var listed = Assert.Single(await Pane.ListAsync(Token));
+        var listed = Assert.Single(Assert.Single(await Pane.ListAsync(Token)).Events);
         Assert.Equal(KnowledgeEventState.Spotted, listed.State);
         Assert.Equal("Spotted", State(pane));
         Assert.Empty(pane.FindAll("[data-testid='events-add']"));
@@ -227,7 +238,7 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
     // --- Details -------------------------------------------------------------------------
 
     [Fact]
-    public async Task The_place_is_an_address_with_a_map_and_no_learning_goal_is_asked()
+    public async Task The_place_is_a_venue_and_an_address_with_a_map_and_no_learning_goal_is_asked()
     {
         var id = await Add("Techorama Belgium");
         var pane = RenderOn(id);
@@ -235,7 +246,10 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
         Assert.Empty(pane.FindAll("[data-testid='events-field-learn']"));
         Assert.Empty(pane.FindAll("[data-testid='events-venue-map']"));
-        Assert.Equal("street-address", pane.Find("[data-testid='events-field-venue'] input").GetAttribute("autocomplete"));
+        Assert.Equal("street-address", pane.Find("[data-testid='events-field-street'] input").GetAttribute("autocomplete"));
+        Assert.Equal("postal-code", pane.Find("[data-testid='events-field-postcode'] input").GetAttribute("autocomplete"));
+        Assert.Equal("address-level2", pane.Find("[data-testid='events-field-town'] input").GetAttribute("autocomplete"));
+        Assert.Equal("country-name", pane.Find("[data-testid='events-field-country'] input").GetAttribute("autocomplete"));
 
         pane.Find("[data-testid='events-field-venue'] input").Input("Kinepolis, Antwerp");
 
@@ -409,8 +423,8 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
         pane.Find("[data-testid='events-field-start-date'] input").Change("2026-11-27");
 
         pane.WaitForAssertion(() => Assert.Equal(
-            "27 Nov 2026",
-            pane.Find($"[data-testid='events-row-{id:N}'] [data-testid='events-row-line']").TextContent));
+            "27 Nov",
+            pane.Find($"[data-testid='events-row-{id:N}'] [data-testid='events-row-date']").TextContent));
         var saved = Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.GetAsync(id, Token)).Value).Value;
         Assert.Equal(new DateOnly(2026, 11, 27), saved.Start!.Date);
         Assert.Equal(DateSource.Typed, saved.DateSource);
@@ -1063,6 +1077,557 @@ public sealed class EventsScreenTests : EventsPaneFixture, IDisposable
 
         pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
         Assert.Empty(Saved(id).Tasks);
+    }
+
+    // --- The map -------------------------------------------------------------------------
+
+    /// <summary>A tile source with a key, as the Azure Maps adapter answers once one is set.</summary>
+    private sealed class KeyedTiles : IEventMapTiles
+    {
+        public Task<EventMapTilesDto?> GetAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<EventMapTilesDto?>(new EventMapTilesDto("https://tiles.test/{z}/{x}/{y}.png?key=secret", "© Tiles and their data providers"));
+    }
+
+    private const string Pins = "[data-testid='events-map-pin']";
+
+    private void WithTiles() => _context.Services.AddSingleton<IEventMapTiles>(new KeyedTiles());
+
+    /// <summary>An event at a town the geocoder places, saved through the pane as the editor
+    /// saves it, dated <paramref name="start"/> when one is given.</summary>
+    private async Task<Guid> PlacedIn(string title, DateOnly? start, string town, double latitude, double longitude, string? venue = null)
+    {
+        var id = start is { } day ? await Dated(title, day) : await Add(title);
+        Geocoder.Places(town, latitude, longitude);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(venue, false, new AddressDto(null, null, town, null)), Token)).Value);
+        await LookUpsSettledAsync();
+        Assert.NotNull(Saved(id).Place?.Point);
+        return id;
+    }
+
+    /// <summary>The map reports a settled view, as Leaflet does once drawn: the pins go on.</summary>
+    private static async Task ShowView(IRenderedComponent<EventsSurface> pane, double latitude, double longitude, double zoom)
+    {
+        pane.WaitForAssertion(() => pane.FindComponent<TileMap>());
+        var map = pane.FindComponent<TileMap>();
+        await pane.InvokeAsync(() => map.Instance.ViewMoved(latitude, longitude, zoom, 800, 400, settled: true));
+    }
+
+    private static string? Hint(IRenderedComponent<EventsSurface> pane) =>
+        pane.FindAll("[data-testid='events-field-venue'] .field__help").SingleOrDefault()?.TextContent.Trim();
+
+    private static string RowPart(IRenderedComponent<EventsSurface> pane, Guid id, string part) =>
+        pane.Find($"[data-testid='events-row-{id:N}'] [data-testid='{part}']").TextContent.Trim();
+
+    /// <summary>An address part typed as a browser raises it, then left: its change, then the
+    /// focus leaving it, to the next part or out of the address fields.</summary>
+    private void TypeAddressPart(IRenderedComponent<EventsSurface> pane, string part, string text, bool leavesAddress)
+    {
+        var input = pane.Find($"[data-testid='events-field-{part}'] input");
+        input.Input(text);
+        pane.Find($"[data-testid='events-field-{part}'] input").Change(text);
+        _focusLeftAddress = leavesAddress;
+        pane.Find($"[data-testid='events-field-{part}'] input").FocusOut();
+    }
+
+    private static string? MarkTone(IRenderedComponent<EventsSurface> pane, Guid id) =>
+        pane.Find($"[data-testid='events-row-{id:N}'] [data-testid='events-row-mark']").GetAttribute("data-mark-tone");
+
+    [Fact]
+    public async Task A_row_reads_its_mark_short_date_title_place_line_and_state_badge_in_that_order()
+    {
+        var going = await PlacedIn("dotNET Friday", new DateOnly(2026, 11, 27), "Utrecht", 52.09, 5.12, venue: "Jaarbeurs");
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(going, KnowledgeEventState.Going, Token)).Value);
+        var spotted = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+
+        var pane = RenderPane();
+        pane.WaitForAssertion(() => pane.Find($"[data-testid='events-row-{going:N}']"));
+
+        var row = pane.Find($"[data-testid='events-row-{going:N}']");
+        Assert.Equal(
+            ["events-row-mark", "events-row-date", null, "events-row-badge"],
+            row.Children.Select(child => child.GetAttribute("data-testid")));
+        Assert.Equal(["dotNET Friday", "Jaarbeurs"], row.Children[2].Children.Select(child => child.TextContent));
+        Assert.Equal("1", RowPart(pane, going, "events-row-mark"));
+        Assert.Equal("filled", MarkTone(pane, going));
+        Assert.Equal("27 Nov", RowPart(pane, going, "events-row-date"));
+        Assert.Equal("Going", RowPart(pane, going, "events-row-badge"));
+        Assert.Contains("badge--status-inprogress", row.QuerySelector("[data-testid='events-row-badge']")!.ClassName, StringComparison.Ordinal);
+
+        Assert.Equal("2", RowPart(pane, spotted, "events-row-mark"));
+        Assert.Equal("dashed", MarkTone(pane, spotted));
+        Assert.Equal("Antwerpen", RowPart(pane, spotted, "events-row-place"));
+        Assert.Equal("Spotted", RowPart(pane, spotted, "events-row-badge"));
+    }
+
+    [Fact]
+    public async Task An_event_off_the_map_says_why_on_its_row_and_gets_no_number()
+    {
+        var online = await Dated("Build", new DateOnly(2026, 12, 1));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(online, new PlaceDto(null, true), Token)).Value);
+        await LookUpsSettledAsync();
+        var noVenue = await Dated("dotNET Friday", new DateOnly(2026, 12, 2));
+        var notFound = await Dated("Mystery meetup", new DateOnly(2026, 12, 3));
+        Geocoder.FindsNothingIn("Nergenshuizen");
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(notFound, new PlaceDto(null, false, new AddressDto("Nowherestraat 1", null, "Nergenshuizen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        var notLookedUp = await Dated("Techorama Belgium", new DateOnly(2026, 12, 4));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(notLookedUp, new PlaceDto(null, false, new AddressDto("Groenendaallaan 394", "2030", "Antwerpen", "Belgium")), Token)).Value);
+        await LookUpsSettledAsync();
+
+        var pane = RenderPane();
+        pane.WaitForAssertion(() => pane.Find($"[data-testid='events-row-{online:N}']"));
+
+        Assert.Equal("Online · not on the map", RowPart(pane, online, "events-row-place"));
+        Assert.Equal("No venue yet · not on the map", RowPart(pane, noVenue, "events-row-place"));
+        Assert.Equal("Address not found · not on the map", RowPart(pane, notFound, "events-row-place"));
+        Assert.Equal("Address not looked up yet · not on the map", RowPart(pane, notLookedUp, "events-row-place"));
+
+        var onlineMark = pane.Find($"[data-testid='events-row-{online:N}'] [data-testid='events-row-mark']");
+        Assert.Equal("◎", onlineMark.TextContent);
+        Assert.Equal("true", onlineMark.GetAttribute("aria-hidden"));
+        foreach (var off in new[] { noVenue, notFound, notLookedUp })
+        {
+            Assert.Equal("–", RowPart(pane, off, "events-row-mark"));
+            Assert.Equal("off", MarkTone(pane, off));
+        }
+    }
+
+    [Fact]
+    public async Task Upcoming_events_on_the_map_are_numbered_in_date_order_on_rows_and_pins_and_past_ones_are_grey()
+    {
+        WithTiles();
+        var friday = await PlacedIn("dotNET Friday", new DateOnly(2026, 11, 27), "Utrecht", 52.09, 5.12);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.MoveToAsync(friday, KnowledgeEventState.Going, Token)).Value);
+        var build = await Dated("Build", new DateOnly(2027, 1, 10));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(build, new PlaceDto(null, true), Token)).Value);
+        await LookUpsSettledAsync();
+        var skipped = await PlacedIn("NDC London", new DateOnly(2027, 1, 25), "London", 51.51, -0.13);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SkipAsync(skipped, "Too far", Token)).Value);
+        var techorama = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var past = await PlacedIn("Techorama 2025", new DateOnly(2025, 5, 20), "Antwerpen", 51.22, 4.40);
+
+        var pane = RenderPane();
+        await ShowView(pane, 51.5, 4.5, 6);
+
+        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll(Pins).Count));
+        Assert.Equal("1", RowPart(pane, friday, "events-row-mark"));
+        Assert.Equal("2", RowPart(pane, techorama, "events-row-mark"));
+        Assert.Equal("◎", RowPart(pane, build, "events-row-mark"));
+        Assert.Equal("grey", MarkTone(pane, past));
+        Assert.Equal("", RowPart(pane, past, "events-row-mark"));
+        Assert.Equal("grey", MarkTone(pane, skipped));
+        Assert.Equal("", RowPart(pane, skipped, "events-row-mark"));
+
+        var pins = pane.FindAll(Pins).ToDictionary(pin => pin.GetAttribute("data-mark-id")!);
+        Assert.Equal("1", pins[friday.ToString("N")].QuerySelector(".tile-map__label")!.TextContent);
+        Assert.Equal("2", pins[techorama.ToString("N")].QuerySelector(".tile-map__label")!.TextContent);
+        Assert.Contains("tile-map__mark--filled", pins[friday.ToString("N")].ClassName, StringComparison.Ordinal);
+        Assert.Contains("tile-map__mark--dashed", pins[techorama.ToString("N")].ClassName, StringComparison.Ordinal);
+        Assert.Contains("tile-map__mark--muted", pins[past.ToString("N")].ClassName, StringComparison.Ordinal);
+        Assert.Equal("", pins[past.ToString("N")].QuerySelector(".tile-map__label")!.TextContent);
+        Assert.False(pins.ContainsKey(skipped.ToString("N")));
+        Assert.Equal("2, Techorama Belgium, Spotted, 18 May 2027, Antwerpen", pins[techorama.ToString("N")].GetAttribute("aria-label"));
+        Assert.Equal("Techorama Belgium · 18 May 2027", pins[techorama.ToString("N")].QuerySelector(".tile-map__tooltip")!.TextContent);
+        Assert.DoesNotContain("secret", pane.Markup, StringComparison.Ordinal);
+        Assert.Contains("© Tiles and their data providers", pane.Find("[data-testid='events-map-attribution']").TextContent, StringComparison.Ordinal);
+        Assert.Equal(
+            ["Going", "Spotted or considering", "Past", "Numbers follow the dates"],
+            pane.FindAll("[data-testid='events-map-legend'] .events-map__key").Select(key => key.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task Picking_a_pin_selects_its_row_and_opens_it_and_picking_a_row_presses_its_pin()
+    {
+        WithTiles();
+        var friday = await PlacedIn("dotNET Friday", new DateOnly(2026, 11, 27), "Utrecht", 52.09, 5.12);
+        var techorama = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderPane();
+        await ShowView(pane, 51.5, 4.5, 6);
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll(Pins).Count));
+
+        pane.Find($"{Pins}[data-mark-id='{techorama:N}']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+        Assert.Equal("true", pane.Find($"[data-testid='events-row-{techorama:N}']").GetAttribute("aria-current"));
+        Assert.Equal("true", pane.Find($"{Pins}[data-mark-id='{techorama:N}']").GetAttribute("aria-pressed"));
+        Assert.Equal("On the map as 2.", Hint(pane));
+
+        pane.Find($"[data-testid='events-row-{friday:N}']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("dotNET Friday", Text(pane, "events-editor-title")));
+        Assert.Equal("true", pane.Find($"{Pins}[data-mark-id='{friday:N}']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", pane.Find($"{Pins}[data-mark-id='{techorama:N}']").GetAttribute("aria-pressed"));
+        Assert.Null(pane.Find($"[data-testid='events-row-{techorama:N}']").GetAttribute("aria-current"));
+        Assert.Equal("On the map as 1.", Hint(pane));
+    }
+
+    [Fact]
+    public async Task A_numbered_event_out_of_view_is_a_pill_on_the_edge_its_hint_says_so_and_the_pill_selects_it()
+    {
+        WithTiles();
+        var techorama = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var oslo = await PlacedIn("NDC Oslo", new DateOnly(2027, 6, 7), "Oslo", 59.91, 10.75);
+        var pane = RenderPane();
+        await ShowView(pane, 50.8, 4.4, 8);
+
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='events-map-pill']")));
+        var pill = pane.Find("[data-testid='events-map-pill']");
+        Assert.Equal(oslo.ToString("N"), pill.GetAttribute("data-mark-id"));
+        Assert.Contains("tile-map__pill--top", pill.ClassName, StringComparison.Ordinal);
+        Assert.Equal("2", pill.QuerySelector(".tile-map__label")!.TextContent);
+
+        pane.Find($"[data-testid='events-row-{oslo:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Outside the map's view.", Hint(pane)));
+
+        pane.Find($"[data-testid='events-row-{techorama:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("On the map as 1.", Hint(pane)));
+
+        pane.Find("[data-testid='events-map-pill']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("NDC Oslo", Text(pane, "events-editor-title")));
+        Assert.Equal("true", pane.Find($"[data-testid='events-row-{oslo:N}']").GetAttribute("aria-current"));
+        Assert.Contains(_context.JSInterop.Invocations, invocation => invocation.Identifier == "backlogTileMap.panTo");
+    }
+
+    [Fact]
+    public async Task Hide_map_gives_the_list_the_whole_column_and_show_map_brings_it_back_resizable()
+    {
+        WithTiles();
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderPane();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-map-toggle']"));
+
+        var toggle = pane.Find("[data-testid='events-map-toggle']");
+        Assert.Equal("Hide map", toggle.TextContent.Trim());
+        Assert.False(toggle.HasAttribute("aria-pressed"));
+        Assert.NotNull(pane.Find("[data-testid='events-map']"));
+        var separator = pane.Find("[data-testid='events-pane-stack-handle']");
+        Assert.Equal("separator", separator.GetAttribute("role"));
+        Assert.Equal("horizontal", separator.GetAttribute("aria-orientation"));
+        Assert.Equal("Map height", separator.GetAttribute("aria-label"));
+
+        toggle.Click();
+
+        toggle = pane.Find("[data-testid='events-map-toggle']");
+        Assert.Equal("Show map", toggle.TextContent.Trim());
+        Assert.False(toggle.HasAttribute("aria-pressed"));
+        Assert.Empty(pane.FindAll("[data-testid='events-map']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-pane-stack']"));
+        Assert.NotNull(pane.Find($"[data-testid='events-pane-column'] [data-testid='events-row-{id:N}']"));
+
+        pane.Find("[data-testid='events-map-toggle']").Click();
+
+        Assert.Equal("Hide map", pane.Find("[data-testid='events-map-toggle']").TextContent.Trim());
+        Assert.NotNull(pane.Find("[data-testid='events-map']"));
+    }
+
+    [Fact]
+    public async Task The_map_hidden_and_its_height_stay_for_the_session_when_the_pane_opens_again()
+    {
+        WithTiles();
+        _context.Services.AddScoped<EventsMapView>();
+        await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var first = RenderPane();
+        first.WaitForAssertion(() => first.Find("[data-testid='events-pane-stack-handle']"));
+
+        first.Find("[data-testid='events-pane-stack-handle']").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        var grown = first.Find("[data-testid='events-pane-stack-handle']").GetAttribute("aria-valuenow");
+        Assert.NotEqual(EventsMapView.DefaultHeightRem.ToString(System.Globalization.CultureInfo.InvariantCulture), grown);
+        first.Find("[data-testid='events-map-toggle']").Click();
+        first.Dispose();
+
+        var again = RenderPane();
+        again.WaitForAssertion(() => Assert.Equal("Show map", again.Find("[data-testid='events-map-toggle']").TextContent.Trim()));
+        again.Find("[data-testid='events-map-toggle']").Click();
+
+        Assert.Equal(grown, again.Find("[data-testid='events-pane-stack-handle']").GetAttribute("aria-valuenow"));
+    }
+
+    [Fact]
+    public async Task With_no_map_key_the_map_says_so_offers_settings_and_sends_nothing_and_the_list_still_opens_events()
+    {
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderPane();
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-map-missing-source']"));
+
+        Assert.Contains("The map needs an Azure Maps key.", pane.Find("[data-testid='events-map-missing-source']").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain(_context.JSInterop.Invocations, invocation => invocation.Identifier.StartsWith("backlogTileMap.", StringComparison.Ordinal));
+        Assert.Equal("1", RowPart(pane, id, "events-row-mark"));
+
+        pane.Find($"[data-testid='events-row-{id:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+        Assert.Equal("On the map as 1.", Hint(pane));
+
+        pane.Find("[data-testid='events-map-missing-source'] button").Click();
+        Assert.EndsWith("/settings/events", _context.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task With_tiles_out_of_reach_the_map_shows_the_offline_note_and_the_list_keeps_its_numbers_and_opens_events()
+    {
+        WithTiles();
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderPane();
+        await ShowView(pane, 51.5, 4.5, 6);
+        var map = pane.FindComponent<TileMap>();
+
+        await pane.InvokeAsync(() => map.Instance.TilesReachable(false));
+
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-map-offline']"));
+        Assert.Empty(pane.FindAll(Pins));
+        Assert.Equal("1", RowPart(pane, id, "events-row-mark"));
+        pane.Find($"[data-testid='events-row-{id:N}']").Click();
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium", Text(pane, "events-editor-title")));
+    }
+
+    // --- The address ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task An_address_typed_part_by_part_is_saved_and_looked_up_once_when_the_focus_leaves_its_fields()
+    {
+        Geocoder.Places("Antwerpen", 51.22, 4.40);
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-town'] input"));
+        Assert.Equal("Add an address to put it on the map.", Hint(pane));
+
+        TypeAddressPart(pane, "street", "Groenendaallaan 394", leavesAddress: false);
+        TypeAddressPart(pane, "postcode", "2030", leavesAddress: false);
+        TypeAddressPart(pane, "town", "Antwerpen", leavesAddress: false);
+        _clock.Advance(TimeSpan.FromSeconds(2));
+
+        Assert.Empty(Geocoder.Sent);
+        Assert.Null(Saved(id).Place);
+
+        TypeAddressPart(pane, "country", "Belgium", leavesAddress: true);
+        await LookUpsSettledAsync();
+
+        pane.WaitForAssertion(() => Assert.Equal("On the map as 1.", Hint(pane)));
+        var sent = Assert.Single(Geocoder.Sent);
+        Assert.Equal(("Groenendaallaan 394", "2030", "Antwerpen", "Belgium"), (sent.Street, sent.Postcode, sent.Town, sent.Country));
+        Assert.Equal(new AddressDto("Groenendaallaan 394", "2030", "Antwerpen", "Belgium"), Saved(id).Place!.Address);
+        Assert.Equal("1", RowPart(pane, id, "events-row-mark"));
+
+        _focusLeftAddress = true;
+        pane.Find("[data-testid='events-field-street'] input").FocusOut();
+
+        Assert.Single(Geocoder.Sent);
+    }
+
+    [Fact]
+    public async Task Enter_in_an_address_field_saves_the_address_as_the_fields_hold_it()
+    {
+        Geocoder.Places("Antwerpen", 51.22, 4.40);
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-town'] input"));
+
+        pane.Find("[data-testid='events-field-town'] input").Input("Antwerpen");
+        pane.Find("[data-testid='events-field-town'] input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        await LookUpsSettledAsync();
+
+        pane.WaitForAssertion(() => Assert.Equal(new AddressDto(null, null, "Antwerpen", null), Saved(id).Place!.Address));
+        Assert.Single(Geocoder.Sent);
+    }
+
+    /// <summary>The save answers before the geocoder does: the indicator says Saved, the next
+    /// field's save is not held behind the call, and the hint says the address is being looked
+    /// up until its answer is in.</summary>
+    [Fact]
+    public async Task An_address_save_lands_at_once_and_the_hint_says_it_is_being_looked_up_until_the_answer()
+    {
+        Geocoder.Places("Antwerpen", 51.22, 4.40);
+        Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-town'] input"));
+
+        TypeAddressPart(pane, "town", "Antwerpen", leavesAddress: true);
+
+        pane.WaitForAssertion(() => Assert.Equal(EventPresentation.LookingUpHint, Hint(pane)));
+        pane.WaitForAssertion(() => Assert.Equal("Saved", Text(pane, "events-editor-save")));
+        Assert.Empty(pane.FindAll("[data-testid='events-lookup-now']"));
+        Assert.Equal(new AddressDto(null, null, "Antwerpen", null), Saved(id).Place!.Address);
+
+        var title = pane.Find("[data-testid='events-field-title'] input");
+        title.Input("Techorama Belgium 2027");
+        pane.Find("[data-testid='events-field-title'] input").Change("Techorama Belgium 2027");
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium 2027", Saved(id).Title));
+        Assert.Equal(EventPresentation.LookingUpHint, Hint(pane));
+
+        Geocoder.Gate.SetResult();
+        await LookUpsSettledAsync();
+
+        pane.WaitForAssertion(() => Assert.Equal("On the map as 1.", Hint(pane)));
+    }
+
+    [Fact]
+    public async Task A_venue_edit_keeps_the_address_and_its_point_and_sends_nothing()
+    {
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var point = Saved(id).Place!.Point;
+        Geocoder.Sent.Clear();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-venue'] input"));
+
+        pane.Find("[data-testid='events-field-venue'] input").Input("Kinepolis");
+        _clock.Advance(EventEditor.TextDelay + TimeSpan.FromMilliseconds(10));
+
+        pane.WaitForAssertion(() => Assert.Equal("Kinepolis", Saved(id).Place!.Venue));
+        var place = Saved(id).Place!;
+        Assert.Equal(new AddressDto(null, null, "Antwerpen", null), place.Address);
+        Assert.Equal(AddressLookup.Placed, place.Lookup);
+        Assert.Equal(point, place.Point);
+        Assert.Empty(Geocoder.Sent);
+        pane.WaitForAssertion(() => Assert.Equal("Kinepolis", RowPart(pane, id, "events-row-place")));
+    }
+
+    /// <summary>The venue saves on the pause like any text, with the address the event holds;
+    /// that save is the next save of a place not looked up yet, so it sends the address again
+    /// (local ADR 0061 §5) — the whole stored address, never a part being typed.</summary>
+    [Fact]
+    public async Task A_venue_typed_while_the_address_is_not_looked_up_yet_saves_on_the_pause_and_sends_the_held_address()
+    {
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Antwerpen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        Assert.Equal(AddressLookup.NotLookedUpYet, Saved(id).Place!.Lookup);
+        Geocoder.Sent.Clear();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-venue'] input"));
+        Assert.Equal("Not looked up yet: it will be looked up when you save again, or Look up now.", Hint(pane));
+
+        pane.Find("[data-testid='events-field-venue'] input").Input("Kinepolis");
+        _clock.Advance(EventEditor.TextDelay + TimeSpan.FromMilliseconds(10));
+
+        pane.WaitForAssertion(() => Assert.Equal("Kinepolis", Saved(id).Place!.Venue));
+        await LookUpsSettledAsync();
+        Assert.Equal("Antwerpen", Assert.Single(Geocoder.Sent).Town);
+        Assert.Equal(new AddressDto(null, null, "Antwerpen", null), Saved(id).Place!.Address);
+    }
+
+    /// <summary>The address the editor sends back with a venue edit is the one the event holds
+    /// now: one changed in another window, read again under the open editor, is not undone.</summary>
+    [Fact]
+    public async Task A_venue_edit_after_the_address_changed_elsewhere_keeps_the_new_address()
+    {
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => Assert.Equal("Antwerpen", pane.Find("[data-testid='events-field-town'] input").GetAttribute("value")));
+
+        Geocoder.Places("Brussel", 50.85, 4.35);
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Elsewhere().SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Brussel", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        pane.WaitForAssertion(() => Assert.Equal("Brussel", pane.Find("[data-testid='events-field-town'] input").GetAttribute("value")));
+        Geocoder.Sent.Clear();
+
+        pane.Find("[data-testid='events-field-venue'] input").Input("Square");
+        _clock.Advance(EventEditor.TextDelay + TimeSpan.FromMilliseconds(10));
+
+        pane.WaitForAssertion(() => Assert.Equal("Square", Saved(id).Place!.Venue));
+        Assert.Equal(new AddressDto(null, null, "Brussel", null), Saved(id).Place!.Address);
+        Assert.Equal(AddressLookup.Placed, Saved(id).Place!.Lookup);
+        Assert.Empty(Geocoder.Sent);
+    }
+
+    [Fact]
+    public async Task Blanking_every_part_of_the_address_saves_no_address_and_keeps_the_venue()
+    {
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40, venue: "Kinepolis");
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-field-town'] input"));
+
+        TypeAddressPart(pane, "town", "", leavesAddress: true);
+
+        pane.WaitForAssertion(() => Assert.Null(Saved(id).Place!.Address));
+        var place = Saved(id).Place!;
+        Assert.Equal("Kinepolis", place.Venue);
+        Assert.Null(place.Lookup);
+        Assert.Null(place.Point);
+        pane.WaitForAssertion(() => Assert.Equal("Add an address to put it on the map.", Hint(pane)));
+        Assert.Equal("No venue yet · not on the map", RowPart(pane, id, "events-row-place"));
+    }
+
+    [Fact]
+    public async Task Look_up_now_places_an_address_not_looked_up_yet()
+    {
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Antwerpen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-lookup-now']"));
+        Geocoder.Places("Antwerpen", 51.22, 4.40);
+
+        pane.Find("[data-testid='events-lookup-now']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("On the map as 1.", Hint(pane)));
+        Assert.Empty(pane.FindAll("[data-testid='events-lookup-now']"));
+        Assert.Empty(pane.FindAll("[data-testid='events-lookup-note']"));
+        Assert.Equal("1", RowPart(pane, id, "events-row-mark"));
+        var venue = pane.Find("[data-testid='events-field-venue'] input").Id;
+        pane.WaitForAssertion(() => Assert.Contains(
+            _context.JSInterop.Invocations,
+            invocation => invocation.Identifier == "backlogFocus" && Equals(invocation.Arguments[0], venue)));
+    }
+
+    [Fact]
+    public async Task Look_up_now_holds_no_other_save_while_it_waits_for_its_answer()
+    {
+        var id = await Dated("Techorama Belgium", new DateOnly(2027, 5, 18));
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto(null, null, "Antwerpen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-lookup-now']"));
+        Geocoder.Places("Antwerpen", 51.22, 4.40);
+        Geocoder.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        pane.Find("[data-testid='events-lookup-now']").Click();
+        pane.WaitForAssertion(() => Assert.Equal(EventPresentation.LookingUpHint, Hint(pane)));
+        pane.Find("[data-testid='events-field-title'] input").Input("Techorama Belgium 2027");
+        pane.Find("[data-testid='events-field-title'] input").Change("Techorama Belgium 2027");
+
+        pane.WaitForAssertion(() => Assert.Equal("Techorama Belgium 2027", Saved(id).Title));
+        Assert.Equal(AddressLookup.NotLookedUpYet, Saved(id).Place!.Lookup);
+
+        Geocoder.Gate.SetResult();
+        await LookUpsSettledAsync();
+
+        pane.WaitForAssertion(() => Assert.Equal("On the map as 1.", Hint(pane)));
+    }
+
+    [Fact]
+    public async Task Look_up_now_that_gets_no_answer_says_nothing_was_looked_up_and_keeps_the_address_not_found()
+    {
+        var id = await Dated("Mystery meetup", new DateOnly(2027, 5, 18));
+        Geocoder.FindsNothingIn("Nergenshuizen");
+        Assert.IsType<Ok<KnowledgeEventDto>>((await Pane.SetPlaceAsync(id, new PlaceDto(null, false, new AddressDto("Nowherestraat 1", null, "Nergenshuizen", null)), Token)).Value);
+        await LookUpsSettledAsync();
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-lookup-now']"));
+        Assert.Equal("Address not found: check it.", Hint(pane));
+        Geocoder.Throws = new HttpRequestException("offline");
+
+        pane.Find("[data-testid='events-lookup-now']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(EventEditor.LookUpNoAnswer, Text(pane, "events-lookup-note")));
+        Assert.Equal("Address not found: check it.", Hint(pane));
+        Assert.Equal(AddressLookup.NotFound, Saved(id).Place!.Lookup);
+    }
+
+    [Fact]
+    public async Task An_online_event_offers_no_address_and_its_hint_says_it_is_not_on_the_map()
+    {
+        var id = await PlacedIn("Techorama Belgium", new DateOnly(2027, 5, 18), "Antwerpen", 51.22, 4.40);
+        var pane = RenderOn(id);
+        pane.WaitForAssertion(() => pane.Find("[data-testid='events-address']"));
+
+        pane.Find("[data-testid='events-field-online'] input").Change(true);
+
+        pane.WaitForAssertion(() => Assert.Equal("Online: not on the map.", Hint(pane)));
+        Assert.Empty(pane.FindAll("[data-testid='events-address']"));
+        Assert.Null(Saved(id).Place!.Address);
+        Assert.Equal("Online · not on the map", RowPart(pane, id, "events-row-place"));
     }
 
     /// <summary>Stands in for the Inbox's screen in the catalog; never rendered here.</summary>

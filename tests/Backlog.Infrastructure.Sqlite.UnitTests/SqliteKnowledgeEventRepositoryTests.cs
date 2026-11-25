@@ -155,6 +155,89 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
         Assert.Same(Place.Online, read.Place);
     }
 
+    private static Address Jaarbeurs() =>
+        Assert.IsType<Ok<Address>>(Address.Create("Jaarbeursplein 6", "3521 AL", "Utrecht", "Netherlands").Value).Value;
+
+    /// <summary>An in-person event at <paramref name="address"/>, set through the aggregate's
+    /// rules so its lookup starts as not looked up yet.</summary>
+    private static KnowledgeEvent At(string? venue, Address address)
+    {
+        var knowledgeEvent = TitleOnly("Techorama 2026");
+        knowledgeEvent.SetPlace(Assert.IsType<Ok<Place>>(Place.Create(venue, online: false, address, AddressLookup.NotLookedUpYet, point: null).Value).Value);
+        return knowledgeEvent;
+    }
+
+    [Fact]
+    public async Task A_placed_address_reads_back_with_its_venue_lookup_and_point()
+    {
+        var address = Jaarbeurs();
+        var stored = At("Jaarbeurs", address);
+        var point = Assert.IsType<Ok<MapPoint>>(MapPoint.Create(52.08842, 5.11553).Value).Value;
+        Assert.IsType<Ok>(stored.RecordLookup(address, AddressLookup.Placed, point).Value);
+
+        await _repository.SaveAsync(stored, Cancellation);
+        var read = await _repository.GetAsync(stored.Id, Cancellation);
+
+        Assert.Equal(stored.Place, read!.Place);
+        Assert.Equal("Jaarbeurs", read.Place!.Venue);
+        Assert.Equal(address, read.Place.Address);
+        Assert.Equal(AddressLookup.Placed, read.Place.Lookup);
+        Assert.Equal(52.08842, read.Place.Point!.Latitude);
+        Assert.Equal(5.11553, read.Place.Point.Longitude);
+    }
+
+    [Theory]
+    [InlineData(AddressLookup.NotLookedUpYet)]
+    [InlineData(AddressLookup.NotFound)]
+    public async Task An_address_with_no_venue_name_reads_back_with_its_lookup_and_no_point(AddressLookup lookup)
+    {
+        var address = Assert.IsType<Ok<Address>>(Address.Create(null, null, "Utrecht", null).Value).Value;
+        var stored = At(venue: null, address);
+        Assert.IsType<Ok>(stored.RecordLookup(address, lookup, point: null).Value);
+
+        await _repository.SaveAsync(stored, Cancellation);
+        var read = await _repository.GetAsync(stored.Id, Cancellation);
+
+        Assert.Null(read!.Place!.Venue);
+        Assert.False(read.Place.IsOnline);
+        Assert.Equal(address, read.Place.Address);
+        Assert.Equal(lookup, read.Place.Lookup);
+        Assert.Null(read.Place.Point);
+    }
+
+    /// <summary>A row written before the address was added holds a venue and nothing more, and
+    /// reads as the venue it was.</summary>
+    [Fact]
+    public async Task An_old_row_with_a_venue_alone_reads_as_that_venue()
+    {
+        await _repository.SaveAsync(TitleOnly("Schema seed"), Cancellation);
+        var id = Guid.NewGuid();
+        await InsertRawAsync(id.ToString("D"), $$$"""{"version":1,"id":"{{{id:D}}}","title":"Techorama 2025","state":"Going","place":{"venue":"Kinepolis Antwerp","online":false}}""");
+
+        var read = await _repository.GetAsync(id, Cancellation);
+
+        Assert.Equal(Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Antwerp").Value).Value, read!.Place);
+        Assert.Null(read.Place!.Address);
+        Assert.Null(read.Place.Lookup);
+        Assert.Null(read.Place.Point);
+    }
+
+    /// <summary>A row that holds an address and leaves its lookup out reads as an address not
+    /// looked up yet — what any new address is.</summary>
+    [Fact]
+    public async Task A_row_with_an_address_and_no_lookup_reads_as_not_looked_up_yet()
+    {
+        await _repository.SaveAsync(TitleOnly("Schema seed"), Cancellation);
+        var id = Guid.NewGuid();
+        await InsertRawAsync(id.ToString("D"), $$$$"""{"version":1,"id":"{{{{id:D}}}}","title":"Techorama 2025","state":"Going","place":{"online":false,"address":{"town":"Utrecht"}}}""");
+
+        var read = await _repository.GetAsync(id, Cancellation);
+
+        Assert.Equal("Utrecht", read!.Place!.Address!.Town);
+        Assert.Equal(AddressLookup.NotLookedUpYet, read.Place.Lookup);
+        Assert.Null(read.Place.Point);
+    }
+
     [Fact]
     public async Task Saving_again_keeps_one_row_its_first_saved_stamp_and_a_later_updated_at()
     {
@@ -251,8 +334,14 @@ public sealed class SqliteKnowledgeEventRepositoryTests : IDisposable
 
     /// <summary>Documents that parse as JSON but do not read as a knowledge event: a later
     /// shape, no title, a state outside the fixed set, a time with no offset, a blank note
-    /// reference, and a negative cost.</summary>
+    /// reference, a negative cost, an empty address, a point off the globe, a point on an address
+    /// not placed, and an online place with an address.</summary>
     [Theory]
+    [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Empty address","state":"Spotted","place":{"online":false,"address":{},"lookup":"NotLookedUpYet"}}""")]
+    [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Off the globe","state":"Spotted","place":{"online":false,"address":{"town":"Utrecht"},"lookup":"Placed","point":{"latitude":91,"longitude":5}}}""")]
+    [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Point not placed","state":"Spotted","place":{"online":false,"address":{"town":"Utrecht"},"lookup":"NotFound","point":{"latitude":52,"longitude":5}}}""")]
+    [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Online address","state":"Spotted","place":{"online":true,"address":{"town":"Utrecht"},"lookup":"NotLookedUpYet"}}""")]
+    [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Odd lookup","state":"Spotted","place":{"online":false,"address":{"town":"Utrecht"},"lookup":42}}""")]
     [InlineData("""{"version":9,"id":"11111111-1111-1111-1111-111111111111","title":"Later shape","state":"Spotted"}""")]
     [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"  ","state":"Spotted"}""")]
     [InlineData("""{"version":1,"id":"11111111-1111-1111-1111-111111111111","title":"Odd state","state":42}""")]

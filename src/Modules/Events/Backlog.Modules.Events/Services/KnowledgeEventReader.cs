@@ -34,5 +34,14 @@ internal sealed class KnowledgeEventReader(IKnowledgeEventRepository repository)
             knowledgeEvent.End?.Date,
             knowledgeEvent.Place?.Venue,
             knowledgeEvent.Place?.IsOnline ?? false,
-            [.. knowledgeEvent.KeyDates.Select(keyDate => new KeyDateDto(keyDate.Date, keyDate.Label))]);
+            [.. knowledgeEvent.KeyDates.Select(keyDate => new KeyDateDto(keyDate.Date, keyDate.Label))],
+            knowledgeEvent.Place?.Address is { } address ? OneLine(address) : null);
+
+    /// <summary>An address on one line: street, then postcode and town, then country, each part
+    /// that is there.</summary>
+    private static string OneLine(Address address) =>
+        string.Join(", ", new[] { address.Street, Joined(address.Postcode, address.Town), address.Country }.OfType<string>());
+
+    private static string? Joined(string? postcode, string? town) =>
+        postcode is null ? town : town is null ? postcode : $"{postcode} {town}";
 }

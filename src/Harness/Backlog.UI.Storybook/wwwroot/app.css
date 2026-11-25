@@ -1037,6 +1037,24 @@ html, body {
     height: 16rem;
 }
 
+/* The stacked split's frame is sized to its story's range. The measured ceiling
+   replaces MaxRem, and it is the frame less the bottom pane's 10rem floor less
+   1rem: 23rem gives exactly the 12rem the story states, so End lands where the
+   readout says. Its panes drop the sample surface's 8rem minimum, which a 4rem
+   top pane could not hold. */
+.sb-pane--stacked {
+    height: 23rem;
+}
+
+.sb-pane--stacked .sb-surface {
+    min-height: 0;
+}
+
+/* A tile map takes its parent's height; this frame gives the TileMap stories one. */
+.sb-map {
+    height: 22rem;
+}
+
 /* Deliberately undersized, so the scrollbar components.css styles has somewhere
    to appear on a page whose examples otherwise all fit. */
 .sb-scroll {

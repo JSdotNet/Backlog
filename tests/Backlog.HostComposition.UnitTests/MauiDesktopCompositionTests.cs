@@ -730,6 +730,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(appData, "pull-request-pins.json")),
             ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(appData, "claude.settings.json")),
             AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(appData, "azure-foundry.json")),
+            AzureMapsSettings = _ => new Backlog.Infrastructure.AzureMaps.AzureMapsSettingsStore(Path.Combine(appData, "azure-maps.json")),
             BrainSettings = _ => new BrainSettingsStore(Path.Combine(appData, BrainSettingsStore.FileName)),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),
             // MsixAppUpdateService is the head's and compiled for Windows only.

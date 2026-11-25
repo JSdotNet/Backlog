@@ -18,20 +18,10 @@ internal sealed class EventsPane(
     IEventBrainNotes brain,
     HarvestTaskPolicy harvest,
     TimeProvider clock,
+    IAddressGeocoder geocoder,
     KnowledgeEventSaved? saved = null,
     ILogger<EventsPane>? log = null) : IEventsPane
 {
-    /// <summary>The order the list draws its groups in: decided, upcoming work first.</summary>
-    private static readonly KnowledgeEventState[] GroupOrder =
-    [
-        KnowledgeEventState.Going,
-        KnowledgeEventState.Considering,
-        KnowledgeEventState.Spotted,
-        KnowledgeEventState.Attended,
-        KnowledgeEventState.Harvested,
-        KnowledgeEventState.Skipped
-    ];
-
     /// <summary>
     /// The write running on this flow: the self-write mark. Begun at the top of each write method,
     /// so it reaches <see cref="KnowledgeEventSaved"/>'s raise, and the policy the move into
@@ -57,6 +47,16 @@ internal sealed class EventsPane(
     /// <summary>The <see cref="Changed"/> handlers that hear saves made elsewhere; subscribed to
     /// the singleton notice only while there is one, so a disposed window's pane is not kept.</summary>
     private Action? _savedElsewhere;
+
+    /// <summary>The lookups running or queued per event, one at a time per event; guarded by
+    /// <see cref="_gate"/>. An event leaves it once its last lookup is over.</summary>
+    private readonly Dictionary<Guid, LookUpQueue> _lookUps = [];
+
+    /// <summary>One lock per event, around every load-change-save this pane makes of it — the
+    /// person's edits and a lookup's record alike — so a write that loaded before an answer was
+    /// kept never writes over it. Never held across a geocoder call. Guarded by <see cref="_gate"/>.
+    /// Writers in other windows and over MCP keep the store's last write wins.</summary>
+    private readonly Dictionary<Guid, SemaphoreSlim> _eventLocks = [];
 
     public string? BrainUnavailableReason => brain.UnavailableReason;
 
@@ -91,6 +91,12 @@ internal sealed class EventsPane(
     private void OnSaved()
     {
         if (Writing.Value is { IsOver: false } mark && ReferenceEquals(mark.Owner, _identity)) return;
+        NotifyHandlers();
+    }
+
+    /// <summary>Tells this pane's <see cref="Changed"/> handlers, each on its own.</summary>
+    private void NotifyHandlers()
+    {
         if (Volatile.Read(ref _savedElsewhere) is not { } handlers) return;
 
         foreach (var handler in handlers.GetInvocationList().Cast<Action>())
@@ -145,18 +151,30 @@ internal sealed class EventsPane(
         public void Dispose() => _over = true;
     }
 
-    public async Task<IReadOnlyList<KnowledgeEventGroupDto>> ListAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<KnowledgeEventSectionDto>> ListAsync(CancellationToken cancellationToken = default)
     {
         var all = await events.ListAsync(cancellationToken).ConfigureAwait(false);
         var names = (await series.ListAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(s => s.Id, s => s.Name);
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
-        return
+        var upcoming = all.Where(e => !IsPast(e, today))
+            .OrderBy(e => e.Start is null)
+            .ThenBy(e => e.Start?.Date)
+            .ThenBy(e => e.Start?.Time ?? TimeOnly.MinValue)
+            .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        var past = all.Where(e => IsPast(e, today))
+            .OrderByDescending(e => (e.End ?? e.Start)?.Date)
+            .ThenByDescending(e => e.Start?.Date)
+            .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase);
+
+        KnowledgeEventSectionDto[] sections =
         [
-            .. GroupOrder
-                .Select(state => new KnowledgeEventGroupDto(state, [.. Ordered(all.Where(e => e.State == state), today).Select(e => Summary(e, names))]))
-                .Where(group => group.Events.Count > 0)
+            new(EventListSection.Upcoming, [.. upcoming.Zip(MapNumbers(upcoming), (e, number) => Summary(e, names, number))]),
+            new(EventListSection.Past, [.. past.Select(e => Summary(e, names, mapNumber: null))])
         ];
+
+        return [.. sections.Where(section => section.Events.Count > 0)];
     }
 
     public async Task<Result<KnowledgeEventDto>> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -224,6 +242,13 @@ internal sealed class EventsPane(
         }
 
         saved?.Raise();
+
+        // The write is over once it is saved and announced: the geocoder call after it runs
+        // unmarked, as after SetPlaceAsync, so work this save started and that announces a
+        // change while the call is out is heard as made elsewhere. The answer's save marks itself.
+        mark.Dispose();
+        if (LookupDue(added) is not null) _ = QueueLookUp(added.Id, retry: false);
+
         return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
     }
 
@@ -243,6 +268,7 @@ internal sealed class EventsPane(
     public async Task<Result> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
     {
         using var mark = BeginWrite();
+        using var held = await LockAsync(id, cancellationToken).ConfigureAwait(false);
         if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
             return Result.Failure(EventsErrors.KnowledgeEventNotFound(id));
 
@@ -257,8 +283,91 @@ internal sealed class EventsPane(
     public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e => ApplyTypedDates(e, start, end), cancellationToken);
 
-    public Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default) =>
-        ChangeAsync(id, e => ApplyPlace(e, place), cancellationToken);
+    // Answered once saved: the address holds whatever the call does, and the person's save is
+    // not held for as long as the geocoder takes. The call runs after it (QueueLookUp).
+    public async Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default)
+    {
+        KnowledgeEvent found;
+        using (await LockAsync(id, cancellationToken).ConfigureAwait(false))
+        {
+            if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } loaded)
+                return EventsErrors.KnowledgeEventNotFound(id);
+
+            if (ApplyPlace(loaded, place) is Error error) return error;
+
+            await SaveOnlyAsync(loaded, cancellationToken).ConfigureAwait(false);
+            found = loaded;
+        }
+
+        if (LookupDue(found) is not null) _ = QueueLookUp(id, retry: false);
+
+        return await ReadAsync(found, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Waits for its answer, as the person asked for it, behind any lookup already running for
+    // the event: one a save started may place the address, and then nothing is sent again.
+    public async Task<Result<AddressLookUpDto>> LookUpAddressAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
+            return EventsErrors.KnowledgeEventNotFound(id);
+
+        if (found.Place is not { Address: not null } held) return EventsErrors.AddressMissing();
+        if (held.Lookup == AddressLookup.Placed && !IsLookingUp(id))
+            return new AddressLookUpDto(await ReadAsync(found, cancellationToken).ConfigureAwait(false), Answer: null);
+
+        var answer = await QueueLookUp(id, retry: true).WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        return await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is { } read
+            ? new AddressLookUpDto(await ReadAsync(read, cancellationToken).ConfigureAwait(false), answer?.Lookup)
+            : EventsErrors.KnowledgeEventNotFound(id);
+    }
+
+    // One call at a time, so a long list never bursts at the provider: each event in turn, through
+    // the same per-event queue a save uses, so an address a save is already looking up is not sent
+    // twice and each event the pass is on reads as being looked up. An event a running lookup
+    // placed meanwhile counts as it then reads.
+    public async Task<AddressLookupPassDto> LookUpPendingAsync(CancellationToken cancellationToken = default)
+    {
+        var pending = (await events.ListAsync(cancellationToken).ConfigureAwait(false))
+            .Where(e => LookupDue(e) is not null)
+            .Select(e => e.Id)
+            .ToList();
+
+        int placed = 0, notFound = 0, notLookedUpYet = 0;
+        foreach (var id in pending)
+        {
+            var answer = await QueueLookUp(id, retry: false).WaitAsync(cancellationToken).ConfigureAwait(false);
+            var lookup = answer?.Lookup
+                ?? (await events.GetAsync(id, cancellationToken).ConfigureAwait(false))?.Place?.Lookup
+                ?? AddressLookup.NotLookedUpYet;
+            switch (lookup)
+            {
+                case AddressLookup.Placed: placed++; break;
+                case AddressLookup.NotFound: notFound++; break;
+                default: notLookedUpYet++; break;
+            }
+        }
+
+        return new AddressLookupPassDto(placed, notFound, notLookedUpYet);
+    }
+
+    public bool IsLookingUp(Guid id)
+    {
+        lock (_gate) return _lookUps.ContainsKey(id);
+    }
+
+    /// <summary>Waits for every lookup this pane has running, the ones queued behind them too.</summary>
+    internal async Task LookUpsSettledAsync()
+    {
+        while (true)
+        {
+            Task[] running;
+            lock (_gate) running = [.. _lookUps.Values.Select(lookUp => lookUp.Tail)];
+            if (running.Length == 0) return;
+
+            await Task.WhenAll(running).ConfigureAwait(false);
+        }
+    }
 
     public Task<Result<KnowledgeEventDto>> SetLinkAsync(Guid id, string? link, CancellationToken cancellationToken = default) =>
         ChangeAsync(id, e =>
@@ -398,6 +507,7 @@ internal sealed class EventsPane(
 
     private async Task<Result<KnowledgeEventDto>> ChangeAsync(Guid id, Func<KnowledgeEvent, Result> change, CancellationToken cancellationToken, Func<KnowledgeEvent, Task>? afterSave = null)
     {
+        using var held = await LockAsync(id, cancellationToken).ConfigureAwait(false);
         if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } found)
             return EventsErrors.KnowledgeEventNotFound(id);
 
@@ -414,6 +524,187 @@ internal sealed class EventsPane(
         saved?.Raise();
         if (afterSave is not null) await afterSave(changed).ConfigureAwait(false);
         return await ReadAsync(changed, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Saves and announces, as this pane's own write.</summary>
+    private async Task SaveOnlyAsync(KnowledgeEvent changed, CancellationToken cancellationToken)
+    {
+        using var mark = BeginWrite();
+
+        await events.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
+        saved?.Raise();
+    }
+
+    /// <summary>The address a save of the event's place sends: one Not looked up yet — new,
+    /// changed, or still waiting on an answer. A Placed or not-found address that did not change
+    /// sends nothing (local ADR 0061 §5).</summary>
+    private static Address? LookupDue(KnowledgeEvent e) =>
+        e.Place is { Lookup: AddressLookup.NotLookedUpYet, Address: { } address } ? address : null;
+
+    /// <summary>
+    /// Queues a lookup of the event's address behind any already running for it, and answers
+    /// what the geocoder said, or null when nothing was sent. It reads the event when its turn
+    /// comes, so it sends the address the event holds then: one Not looked up yet, or with
+    /// <paramref name="retry"/> (Look up now) one not found too. A Placed address, one changed
+    /// to none, or a gone event sends nothing.
+    /// <para>
+    /// It runs on the thread pool with the flow's context left behind: no self-write mark and no
+    /// caller's token reach it, so the person's save is over and a cancelled request still has
+    /// its address looked up. The answer's own save marks itself; once the lookup is over the
+    /// pane tells its own <see cref="Changed"/> handlers, which hear no own save otherwise.
+    /// </para>
+    /// </summary>
+    private Task<GeocodeAnswer?> QueueLookUp(Guid id, bool retry)
+    {
+        lock (_gate)
+        {
+            if (!_lookUps.TryGetValue(id, out var queue)) _lookUps[id] = queue = new LookUpQueue();
+
+            // One queued behind the running lookup and not started yet reads the event when its
+            // turn comes, so it serves this ask too; a retry asked of it makes it a retry.
+            if (queue.Waiting is { } waiting)
+            {
+                waiting.Retry |= retry;
+                return waiting.Answer;
+            }
+
+            queue.Count++;
+            var prior = queue.Tail;
+            var entry = new QueuedLookUp { Retry = retry };
+            entry.Answer = RunUnflowed(() => LookUpAfterAsync(prior, id, entry));
+            queue.Waiting = entry;
+            queue.Tail = entry.Answer;
+            return entry.Answer;
+        }
+    }
+
+    private static Task<T> RunUnflowed<T>(Func<Task<T>> work)
+    {
+        if (ExecutionContext.IsFlowSuppressed()) return Task.Run(work);
+
+        using (ExecutionContext.SuppressFlow()) return Task.Run(work);
+    }
+
+    private async Task<GeocodeAnswer?> LookUpAfterAsync(Task prior, Guid id, QueuedLookUp entry)
+    {
+        try
+        {
+            await prior.ConfigureAwait(false);
+
+            bool retry;
+            lock (_gate)
+            {
+                if (_lookUps.TryGetValue(id, out var started) && ReferenceEquals(started.Waiting, entry)) started.Waiting = null;
+                retry = entry.Retry;
+            }
+
+            if (await events.GetAsync(id, CancellationToken.None).ConfigureAwait(false) is not { } current) return null;
+
+            var address = current.Place switch
+            {
+                { Lookup: AddressLookup.NotLookedUpYet, Address: { } due } => due,
+                { Lookup: AddressLookup.NotFound, Address: { } again } when retry => again,
+                _ => null
+            };
+            if (address is null) return null;
+
+            var answer = await GeocodeAsync(address, CancellationToken.None).ConfigureAwait(false);
+            await RecordAsync(id, address, answer, CancellationToken.None).ConfigureAwait(false);
+            return answer;
+        }
+#pragma warning disable CA1031 // Nobody awaits a save's lookup: a store that fails here is logged, the address stays Not looked up yet.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            _log.LogWarning("Looking up an event's address failed with {ExceptionType}.", exception.GetType().Name);
+            return GeocodeAnswer.Failed;
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (_lookUps.TryGetValue(id, out var queue) && --queue.Count == 0) _lookUps.Remove(id);
+            }
+
+            NotifyHandlers();
+        }
+    }
+
+    /// <summary>One event's lookups: the last one queued, the one waiting for its turn if any,
+    /// and how many are not over.</summary>
+    private sealed class LookUpQueue
+    {
+        public Task Tail { get; set; } = Task.CompletedTask;
+
+        public QueuedLookUp? Waiting { get; set; }
+
+        public int Count { get; set; }
+    }
+
+    /// <summary>A lookup queued for its turn: what it answers, and whether it retries an address
+    /// not found (Look up now). Guarded by <see cref="_gate"/> until it starts.</summary>
+    private sealed class QueuedLookUp
+    {
+        public Task<GeocodeAnswer?> Answer { get; set; } = Task.FromResult<GeocodeAnswer?>(null);
+
+        public bool Retry { get; set; }
+    }
+
+    /// <summary>Takes the event's lock for one load-change-save; disposing the answer lets it go.</summary>
+    private async Task<EventLock> LockAsync(Guid id, CancellationToken cancellationToken)
+    {
+        SemaphoreSlim held;
+        lock (_gate)
+        {
+            if (!_eventLocks.TryGetValue(id, out held!)) _eventLocks[id] = held = new SemaphoreSlim(1, 1);
+        }
+
+        await held.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new EventLock(held);
+    }
+
+    private readonly struct EventLock(SemaphoreSlim held) : IDisposable
+    {
+        public void Dispose() => held.Release();
+    }
+
+    /// <summary>Keeps <paramref name="answer"/> on the event, loaded again: the call waits on the
+    /// network, and a change saved elsewhere meanwhile is kept. The event decides whether the
+    /// answer still applies — not to an address changed meanwhile, nor one it would move back —
+    /// and a save is made only when it did. Null when the event is gone.</summary>
+    private async Task<KnowledgeEvent?> RecordAsync(Guid id, Address address, GeocodeAnswer answer, CancellationToken cancellationToken)
+    {
+        using var held = await LockAsync(id, cancellationToken).ConfigureAwait(false);
+        if (await events.GetAsync(id, cancellationToken).ConfigureAwait(false) is not { } current) return null;
+
+        var before = current.Place;
+        if (current.RecordLookup(address, answer.Lookup, answer.Point) is Error error)
+            throw new InvalidOperationException($"A geocode answer carries a point exactly when it placed the address ({error.Code}).");
+
+        if (current.Place != before) await SaveOnlyAsync(current, cancellationToken).ConfigureAwait(false);
+        return current;
+    }
+
+    /// <summary>The geocoder's answer, or no answer when it throws: a geocoder that breaks its
+    /// contract fails no save. Only the exception's type is logged, never its message, which
+    /// may carry the request and with it the address (local ADR 0061 §5, guideline 0010).</summary>
+    private async Task<GeocodeAnswer> GeocodeAsync(Address address, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await geocoder.GeocodeAsync(address, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // No answer back is Not looked up yet, whatever the adapter threw.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            _log.LogWarning("Geocoding an event's address failed with {ExceptionType}.", exception.GetType().Name);
+            return GeocodeAnswer.Failed;
+        }
     }
 
     /// <summary>The link to the Brain note at <paramref name="path"/>, titled as the Brain has
@@ -457,7 +748,7 @@ internal sealed class EventsPane(
             Day(e.Start),
             Day(e.End),
             e.DateSource,
-            e.Place is { } place ? new PlaceDto(place.Venue, place.IsOnline) : null,
+            PlaceDtoOf(e.Place),
             e.Link,
             e.State,
             e.SkipReason?.Text,
@@ -486,7 +777,7 @@ internal sealed class EventsPane(
             ? new EventTaskDto(task.TaskId, task.Purpose, held.Title, held.Status, InBacklog: true)
             : new EventTaskDto(task.TaskId, task.Purpose, null, null, InBacklog: false);
 
-    private static KnowledgeEventSummaryDto Summary(KnowledgeEvent e, IReadOnlyDictionary<Guid, string> seriesNames) =>
+    private static KnowledgeEventSummaryDto Summary(KnowledgeEvent e, IReadOnlyDictionary<Guid, string> seriesNames, int? mapNumber) =>
         new(
             e.Id,
             e.Title,
@@ -494,22 +785,37 @@ internal sealed class EventsPane(
             Day(e.Start),
             Day(e.End),
             e.Series is { } id && seriesNames.TryGetValue(id, out var name) ? name : null,
-            e.Place is { } place ? new PlaceDto(place.Venue, place.IsOnline) : null);
+            PlaceDtoOf(e.Place),
+            mapNumber);
 
-    /// <summary>Upcoming (not over yet: its last day, the end or else the start, is today or
-    /// later) soonest start first, then undated, then past, most recent first; the title breaks
-    /// a tie.</summary>
-    private static IEnumerable<KnowledgeEvent> Ordered(IEnumerable<KnowledgeEvent> group, DateOnly today) =>
-        group
-            .OrderBy(e => e.Start is null ? 1 : Upcoming(e, today) ? 0 : 2)
-            .ThenBy(e => e.Start is { } start && Upcoming(e, today) ? start.Date.DayNumber : 0)
-            .ThenBy(e => e.Start is { } start && Upcoming(e, today) ? start.Time ?? TimeOnly.MinValue : TimeOnly.MinValue)
-            .ThenByDescending(e => e.Start is { } start && !Upcoming(e, today) ? start.Date.DayNumber : 0)
-            .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase);
+    private static PlaceDto? PlaceDtoOf(Place? place) =>
+        place is null
+            ? null
+            : new PlaceDto(
+                place.Venue,
+                place.IsOnline,
+                place.Address is { } address ? new AddressDto(address.Street, address.Postcode, address.Town, address.Country) : null,
+                place.Lookup,
+                place.Point is { } point ? new MapPointDto(point.Latitude, point.Longitude) : null);
 
-    /// <summary>Whether a dated event is not over yet: one still running today is upcoming.</summary>
-    private static bool Upcoming(KnowledgeEvent e, DateOnly today) =>
-        (e.End ?? e.Start) is { } last && last.Date >= today;
+    /// <summary>Whether an event is over: its last day, the end or else the start, is before
+    /// today. One still running today is not; an undated one never is.</summary>
+    private static bool IsPast(KnowledgeEvent e, DateOnly today) =>
+        (e.End ?? e.Start) is { } last && last.Date < today;
+
+    /// <summary>The map number of each upcoming event, in list order: 1..n over those on the
+    /// map, null for the rest (<c>domain.md#map-number</c>).</summary>
+    private static IEnumerable<int?> MapNumbers(IEnumerable<KnowledgeEvent> upcoming)
+    {
+        var number = 0;
+        foreach (var e in upcoming)
+            yield return OnTheMap(e) ? ++number : null;
+    }
+
+    /// <summary>Whether an upcoming event takes a map number: it has a map point and is not
+    /// Skipped (scope Q5). One already Attended or Harvested keeps its number (scope Q7).</summary>
+    private static bool OnTheMap(KnowledgeEvent e) =>
+        e.Place?.Point is not null && e.State != KnowledgeEventState.Skipped;
 
     private static EventSeriesDto SeriesDto(EventSeries s) => new(s.Id, s.Name, s.Organiser, s.Link);
 
@@ -559,7 +865,9 @@ internal sealed class EventsPane(
         return e.SetDates(fromDate, toDate, fromDate is null ? null : DateSource.Typed);
     }
 
-    /// <summary>Sets the place, or clears it with null.</summary>
+    /// <summary>Sets the place, or clears it with null. The lookup and point the caller sent are
+    /// not read: an address goes in Not looked up yet, and the event keeps the lookup and point
+    /// of one it already held.</summary>
     private static Result ApplyPlace(KnowledgeEvent e, PlaceDto? place)
     {
         if (place is null)
@@ -568,7 +876,15 @@ internal sealed class EventsPane(
             return Result.Success();
         }
 
-        var made = Place.Create(place.Venue, place.IsOnline);
+        Address? address = null;
+        if (place.Address is { } parts)
+        {
+            var addressed = Address.Create(parts.Street, parts.Postcode, parts.Town, parts.Country);
+            if (addressed is not Ok<Address>(var madeAddress)) return (Error)addressed.Value!;
+            address = madeAddress;
+        }
+
+        var made = Place.Create(place.Venue, place.IsOnline, address, address is null ? null : AddressLookup.NotLookedUpYet, point: null);
         if (made is not Ok<Place>(var placed)) return (Error)made.Value!;
 
         e.SetPlace(placed);

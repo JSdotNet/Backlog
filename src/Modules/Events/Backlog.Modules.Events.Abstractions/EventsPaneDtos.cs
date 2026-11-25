@@ -1,7 +1,46 @@
 namespace Backlog.Modules.Events.Abstractions;
 
-/// <summary>Where the event happens: a venue, or online (<c>domain.md#place</c>).</summary>
-public sealed record PlaceDto(string? Venue, bool IsOnline);
+/// <summary>
+/// Where the event happens: online, or in person with a venue name, an address, or both
+/// (<c>domain.md#place</c>). Read back, an address carries its <paramref name="Lookup"/>, and its
+/// <paramref name="Point"/> when that lookup placed it.
+/// <para>
+/// Sent to <see cref="IEventsPane.SetPlaceAsync"/> or in a <see cref="NewKnowledgeEventDto"/>,
+/// <paramref name="Lookup"/> and <paramref name="Point"/> are not read: the event decides them.
+/// An address that differs from the one held is Not looked up yet and is sent to the geocoder;
+/// an unchanged one keeps its lookup and point. Send null for no address, never one whose parts
+/// are all blank (<c>address.empty</c>).
+/// </para>
+/// </summary>
+public sealed record PlaceDto(
+    string? Venue,
+    bool IsOnline,
+    AddressDto? Address = null,
+    AddressLookup? Lookup = null,
+    MapPointDto? Point = null);
+
+/// <summary>An in-person event's address in four optional parts, each trimmed and a blank one
+/// read as none (<c>domain.md#address</c>).</summary>
+public sealed record AddressDto(string? Street, string? Postcode, string? Town, string? Country);
+
+/// <summary>The spot on the map an address was placed at, in degrees (<c>domain.md#map-point</c>).</summary>
+public sealed record MapPointDto(double Latitude, double Longitude);
+
+/// <summary>
+/// What Look up now (<see cref="IEventsPane.LookUpAddressAsync"/>) did: the event as it reads
+/// afterwards, and the geocoder's <paramref name="Answer"/>. Placed or NotFound is what it
+/// answered; NotLookedUpYet means no answer came back (offline, no map key, the call failed), so
+/// nothing was decided about the address, whatever lookup the event still holds; null means
+/// nothing was sent, because the address was already placed. The event's own lookup never moves
+/// back on a missing answer (local ADR 0061 §5), so only <paramref name="Answer"/> tells "could not
+/// look it up" from "looked up, still not found".
+/// </summary>
+public sealed record AddressLookUpDto(KnowledgeEventDto Event, AddressLookup? Answer);
+
+/// <summary>What <see cref="IEventsPane.LookUpPendingAsync"/> got back for the addresses it
+/// sent: how many were placed, how many were not found, and how many got no answer and stay Not
+/// looked up yet.</summary>
+public sealed record AddressLookupPassDto(int Placed, int NotFound, int NotLookedUpYet);
 
 /// <summary>A date that matters before the event, with its label (<c>domain.md#key-date</c>).</summary>
 public sealed record KeyDateDto(DateOnly Date, string Label);
@@ -49,6 +88,9 @@ public sealed record EventNoteLinkDto(NoteLinkKind Kind, string Reference, strin
 public sealed record EventTaskDto(string TaskId, TaskPurpose Purpose, string? Title, string? Status, bool InBacklog);
 
 /// <summary>One event as the pane's list draws it.</summary>
+/// <param name="MapNumber">Its map number (<c>domain.md#map-number</c>): 1, 2, 3 in list order
+/// for an upcoming event with a map point that is not Skipped; null for every other event.
+/// Derived each time the list is read, so it changes as events are added or pass.</param>
 public sealed record KnowledgeEventSummaryDto(
     Guid Id,
     string Title,
@@ -56,10 +98,11 @@ public sealed record KnowledgeEventSummaryDto(
     EventDateDto? Start,
     EventDateDto? End,
     string? SeriesName,
-    PlaceDto? Place);
+    PlaceDto? Place,
+    int? MapNumber = null);
 
-/// <summary>The events in one state, in the order the list draws them.</summary>
-public sealed record KnowledgeEventGroupDto(KnowledgeEventState State, IReadOnlyList<KnowledgeEventSummaryDto> Events);
+/// <summary>The events of one date section, in the order the list draws them.</summary>
+public sealed record KnowledgeEventSectionDto(EventListSection Section, IReadOnlyList<KnowledgeEventSummaryDto> Events);
 
 /// <summary>
 /// One event as the pane's editor reads it, with its series, its note and task links resolved,

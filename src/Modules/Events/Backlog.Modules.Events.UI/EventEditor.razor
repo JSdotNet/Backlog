@@ -1,8 +1,10 @@
+@using Microsoft.JSInterop
 @using global::Backlog.SharedKernel.Results
 @using Microsoft.Extensions.DependencyInjection
 @implements IAsyncDisposable
 @inject IEventsPane Pane
 @inject IServiceProvider Services
+@inject IJSRuntime Js
 
 @*
     One event, open beside the list (.devbook/domain/events/features.md#events-pane): where it
@@ -118,26 +120,88 @@
                 <p class="events-editor__byline" data-testid="events-date-source">Source: @EventPresentation.DateSourceLabel(dateSource)</p>
             }
 
-            @* The place is a street address, so the browser can fill it and a map can find it. *@
+            @* The place: online, or a venue name and an address in parts, so the browser can fill
+               it and the geocoder can place it (domain.md#address). The line under the venue
+               says how the event sits on the map. The venue saves on the pause in typing like any
+               text, with the address the event holds. The four address parts are one field: the
+               address is saved, and so looked up, once, when the focus leaves them or on Enter —
+               never per part, never on a pause (ADR 0061 §5). The save lands at once; the lookup
+               runs after it, and the hint says so meanwhile. *@
             <div class="events-editor__row">
                 <Checkbox Label="Online"
                           Checked="_online"
                           CheckedChanged="OnlineChangedAsync"
                           TestId="events-field-online" />
-                <TextField Label="Address"
-                           Placeholder="Street and number, city"
+                <TextField Label="Venue"
+                           Placeholder="Kinepolis"
                            Value="@_venue"
                            ValueChanged="VenueInput"
                            Disabled="_online"
+                           Id="@VenueId"
+                           HelpText="@EventPresentation.VenueHint(Event.Place, MapNumber, InView, Pane.IsLookingUp(Event.Id))"
                            ErrorMessage="@Error("place")"
                            TestId="events-field-venue"
-                           autocomplete="street-address"
                            @onchange="@((ChangeEventArgs e) => CommitTextAsync(VenueInput, e))" />
-                @if (!_online && MapLink(_venue) is { } map)
+                @if (!_online && MapLink(MapQuery) is { } map)
                 {
                     <a class="events-editor__link events-editor__map" href="@map" target="_blank" rel="noopener noreferrer" data-testid="events-venue-map">Open in maps</a>
                 }
             </div>
+            @if (!_online)
+            {
+                <div id="@AddressId"
+                     class="events-editor__row events-editor__row--fields events-editor__row--address"
+                     data-testid="events-address"
+                     @onfocusout="AddressFocusOutAsync">
+                    <TextField Label="Street"
+                               Placeholder="Groenendaallaan 394"
+                               Value="@_street"
+                               ValueChanged="@(value => _street = value)"
+                               TestId="events-field-street"
+                               autocomplete="street-address"
+                               @onchange="@((ChangeEventArgs e) => _street = e.Value?.ToString() ?? string.Empty)"
+                               @onkeydown="AddressKeyAsync" />
+                    <TextField Label="Postcode"
+                               Placeholder="2030"
+                               Value="@_postcode"
+                               ValueChanged="@(value => _postcode = value)"
+                               TestId="events-field-postcode"
+                               autocomplete="postal-code"
+                               @onchange="@((ChangeEventArgs e) => _postcode = e.Value?.ToString() ?? string.Empty)"
+                               @onkeydown="AddressKeyAsync" />
+                    <TextField Label="Town"
+                               Placeholder="Antwerpen"
+                               Value="@_town"
+                               ValueChanged="@(value => _town = value)"
+                               TestId="events-field-town"
+                               autocomplete="address-level2"
+                               @onchange="@((ChangeEventArgs e) => _town = e.Value?.ToString() ?? string.Empty)"
+                               @onkeydown="AddressKeyAsync" />
+                    <TextField Label="Country"
+                               Placeholder="Belgium"
+                               Value="@_country"
+                               ValueChanged="@(value => _country = value)"
+                               TestId="events-field-country"
+                               autocomplete="country-name"
+                               @onchange="@((ChangeEventArgs e) => _country = e.Value?.ToString() ?? string.Empty)"
+                               @onkeydown="AddressKeyAsync" />
+                </div>
+                @if (LookUpOffered)
+                {
+                    <div class="events-editor__moves">
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   Busy="_lookingUp"
+                                   BusyLabel="Looking up"
+                                   TestId="events-lookup-now"
+                                   OnClick="LookUpNowAsync">Look up now</AppButton>
+                    </div>
+                }
+                @if (_lookUpNote is { } lookUpNote)
+                {
+                    <Alert Message="@lookUpNote" Role="status" TestId="events-lookup-note" />
+                }
+            }
 
             <TextField Label="Link"
                        Type="url"
@@ -376,6 +440,28 @@
     private string _endTime = string.Empty;
     private bool _online;
     private string _venue = string.Empty;
+    private string _street = string.Empty;
+    private string _postcode = string.Empty;
+    private string _town = string.Empty;
+    private string _country = string.Empty;
+
+    /// <summary>The address as this editor last sent it, or as the event held it when opened:
+    /// what every other place write sends back, so a venue edit never drops it.</summary>
+    private AddressDto? _committedAddress;
+
+    /// <summary>The address the event held when the editor last read it, so one changed
+    /// underneath — in another window — is read into the fields.</summary>
+    private AddressDto? _eventAddress;
+
+    /// <summary>Focus goes to the venue field after this render: Look up now, which held it,
+    /// is gone.</summary>
+    private bool _focusVenue;
+
+    private bool _lookingUp;
+
+    /// <summary>What the last Look up now came back with, when that is not on the event itself:
+    /// no answer, or why it was refused.</summary>
+    private string? _lookUpNote;
     private string _link = string.Empty;
     private List<KeyDateDraft> _keyDates = [];
     private string _amount = string.Empty;
@@ -426,7 +512,33 @@
     [Parameter]
     public int Revision { get; set; }
 
+    /// <summary>The event's map number, as its row and pin carry it, or null when it has none.</summary>
+    [Parameter]
+    public int? MapNumber { get; set; }
+
+    /// <summary>Whether the event's pin is in the map's view; null while that is not known.</summary>
+    [Parameter]
+    public bool? InView { get; set; }
+
+    /// <summary>What a Look up now that got no answer says: nothing was looked up, so the event
+    /// reads as it did (an address not found stays not found).</summary>
+    public const string LookUpNoAnswer = "Nothing was looked up: the map service could not be reached. Try again later.";
+
+    /// <summary>Look up now, offered for an address not looked up yet or not found — and not
+    /// while a lookup of it runs, whose answer the hint is waiting for.</summary>
+    private bool LookUpOffered =>
+        Event.Place is { IsOnline: false, Address: not null, Lookup: AddressLookup.NotLookedUpYet or AddressLookup.NotFound }
+        && (_lookingUp || !Pane.IsLookingUp(Event.Id));
+
+    /// <summary>What Open in maps searches for: the venue and the address as typed.</summary>
+    private string MapQuery => string.Join(", ", new[] { _venue.Trim(), EventPresentation.AddressLine(DraftAddress()) }
+        .Where(part => !string.IsNullOrWhiteSpace(part)));
+
     private string TitleId => _id + "-title";
+
+    private string VenueId => _id + "-venue";
+
+    private string AddressId => _id + "-address";
 
     private SaveState SaveStatus =>
         _errors.Count > 0 ? SaveState.Failed
@@ -458,7 +570,11 @@
         // Read again holding its harvest task: there is no Remove left to confirm.
         if (!Event.RemoveOffered) _removing = false;
 
-        if (_loadedId == Event.Id) return;
+        if (_loadedId == Event.Id)
+        {
+            ReadHeldAddress();
+            return;
+        }
 
         // What was typed for the event being left is written for that event before the
         // fields are read from the new one. The pane keys the editor by event, so this is
@@ -486,6 +602,13 @@
         _endTime = EventPresentation.TimeText(e.End?.Time);
         _online = e.Place?.IsOnline ?? false;
         _venue = e.Place?.Venue ?? string.Empty;
+        _street = e.Place?.Address?.Street ?? string.Empty;
+        _postcode = e.Place?.Address?.Postcode ?? string.Empty;
+        _town = e.Place?.Address?.Town ?? string.Empty;
+        _country = e.Place?.Address?.Country ?? string.Empty;
+        _committedAddress = DraftAddress();
+        _eventAddress = e.Place?.Address;
+        _lookUpNote = null;
         _link = e.Link ?? string.Empty;
         _keyDates = [.. e.KeyDates.Select(keyDate => new KeyDateDraft(EventPresentation.DateText(keyDate.Date), keyDate.Label))];
         _amount = EventPresentation.AmountText(e.Cost?.Amount);
@@ -597,6 +720,13 @@
     /// to go, so a refusal is raised as a toast rather than dropped with them.</summary>
     private async Task FlushOnLeaveAsync()
     {
+        // Leaving the editor leaves the address fields too: an address typed there saves now.
+        if (DraftAddress() is var typed && typed != _committedAddress)
+        {
+            _committedAddress = typed;
+            _pending["place"] = PlaceWrite();
+        }
+
         if (_pending.Count == 0) return;
 
         _leaving = true;
@@ -740,33 +870,161 @@
         return WriteAsync("dates", () => Pane.SetDatesAsync(id, start, end));
     }
 
+    /// <summary>Online on or off saves the place at once. Going online drops the address; back
+    /// in person, the address fields still hold what was typed, and that is the address saved.</summary>
     private Task OnlineChangedAsync(bool online)
     {
         _online = online;
         _pending.Remove("place");
-        var id = Event.Id;
-        var place = Place();
-        return WriteAsync("place", () => Pane.SetPlaceAsync(id, place));
+        _committedAddress = online ? null : DraftAddress();
+        return WriteAsync("place", PlaceWrite());
     }
 
+    /// <summary>The venue's name typed: it saves on the pause in typing like any text, with the
+    /// address the event holds, so the address and its point stay. A held address not looked up
+    /// yet is sent again by that save — the whole stored address, the next save ADR 0061 §5
+    /// names — never a part still being typed.</summary>
     private void VenueInput(string value)
     {
         _venue = value;
-        var id = Event.Id;
-        var place = Place();
-        Queue("place", () => Pane.SetPlaceAsync(id, place));
+        Queue("place", PlaceWrite());
     }
 
-    /// <summary>A map search for the address, or null while there is none.</summary>
-    private static string? MapLink(string address) =>
-        string.IsNullOrWhiteSpace(address)
-            ? null
-            : "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address.Trim());
+    /// <summary>The focus left an address part: the address is saved unless the focus is now on
+    /// another of the four parts. Nowhere — the body, after a click on a spot nothing can focus —
+    /// is leaving too. The browser is asked afterwards, because a focusout does not say where the
+    /// focus went (<c>backlogFocusWithin</c>).</summary>
+    private async Task AddressFocusOutAsync(FocusEventArgs _)
+    {
+        if (DraftAddress() == _committedAddress) return;
 
-    private PlaceDto? Place() =>
+        bool left;
+        try
+        {
+            left = !await Js.InvokeAsync<bool>("backlogFocusWithin", "#" + AddressId);
+        }
+        catch (JSException)
+        {
+            left = true;
+        }
+
+        if (left) await CommitAddressAsync();
+    }
+
+    private Task AddressKeyAsync(KeyboardEventArgs args) => args.Key == "Enter" ? CommitAddressAsync() : Task.CompletedTask;
+
+    /// <summary>The address as the four parts hold it is saved, and so looked up, when it differs
+    /// from the one last sent; four blank parts are no address. The save lands at once and the
+    /// lookup runs after it in the pane, so the indicator stops at the save.</summary>
+    private async Task CommitAddressAsync()
+    {
+        var address = DraftAddress();
+        if (address == _committedAddress) return;
+
+        _committedAddress = address;
+        _pending.Remove("place");
+        _lookUpNote = null;
+        if (_debounce is not null) await _debounce.SaveNowAsync();
+        await WriteAsync("place", PlaceWrite());
+    }
+
+    /// <summary>The event's address changed underneath — another window, the sync — while the
+    /// person is not typing one: the fields read it, and it is the address a venue edit sends
+    /// back from now on. An address being typed is the person's and is kept.</summary>
+    private void ReadHeldAddress()
+    {
+        var held = Event.Place?.Address;
+        if (held == _eventAddress) return;
+
+        _eventAddress = held;
+        if (DraftAddress() != _committedAddress) return;
+
+        _street = held?.Street ?? string.Empty;
+        _postcode = held?.Postcode ?? string.Empty;
+        _town = held?.Town ?? string.Empty;
+        _country = held?.Country ?? string.Empty;
+        _committedAddress = DraftAddress();
+    }
+
+    /// <summary>
+    /// Look up now: the event's address, not looked up yet or not found, is sent once more, and
+    /// the editor waits for its answer — outside the pane's write queue, so no other save waits
+    /// behind it, and outside the save indicator, since nothing the person typed is unsaved. When
+    /// no answer came back the event is as it was, so the editor says nothing was looked up
+    /// rather than leave the old hint to read as a second "not found". The button goes once the
+    /// address is placed, so the focus moves to the venue field, whose hint gives the number.
+    /// </summary>
+    private async Task LookUpNowAsync()
+    {
+        if (_lookingUp) return;
+
+        _lookingUp = true;
+        _lookUpNote = null;
+        try
+        {
+            var looked = await Pane.LookUpAddressAsync(Event.Id);
+            if (looked is not Ok<AddressLookUpDto>(var answer))
+            {
+                _lookUpNote = ((global::Backlog.SharedKernel.Results.Error)looked.Value!).Message;
+                return;
+            }
+
+            if (answer.Answer == AddressLookup.NotLookedUpYet) _lookUpNote = LookUpNoAnswer;
+            await OnSaved.InvokeAsync(answer.Event);
+            if (answer.Event.Place is { Lookup: AddressLookup.Placed }) _focusVenue = true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _lookUpNote = "Could not look up: " + exception.Message;
+        }
+        finally
+        {
+            _lookingUp = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusVenue) return;
+
+        _focusVenue = false;
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", VenueId, false);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>A map search for the place, or null while there is none.</summary>
+    private static string? MapLink(string query) =>
+        string.IsNullOrWhiteSpace(query)
+            ? null
+            : "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(query.Trim());
+
+    /// <summary>The address the four fields hold, or null when every one is blank.</summary>
+    private AddressDto? DraftAddress()
+    {
+        var address = new AddressDto(Part(_street), Part(_postcode), Part(_town), Part(_country));
+        return address is { Street: null, Postcode: null, Town: null, Country: null } ? null : address;
+    }
+
+    private static string? Part(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    /// <summary>The place write, read when it runs rather than when it was queued: online, none
+    /// when there is neither a venue nor an address, else in person with the venue as typed and
+    /// the address last committed — the event's own, read again when it changed underneath.</summary>
+    private Func<Task<Result<KnowledgeEventDto>>> PlaceWrite()
+    {
+        var id = Event.Id;
+        return () => Pane.SetPlaceAsync(id, CurrentPlace());
+    }
+
+    private PlaceDto? CurrentPlace() =>
         _online ? new PlaceDto(null, true)
-        : string.IsNullOrWhiteSpace(_venue) ? null
-        : new PlaceDto(_venue, false);
+        : Part(_venue) is null && _committedAddress is null ? null
+        : new PlaceDto(Part(_venue), false, _committedAddress);
 
     private void LinkInput(string value)
     {

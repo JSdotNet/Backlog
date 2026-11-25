@@ -256,6 +256,12 @@ internal static class StorybookIndex
             new("diagrams/domain-model", "Domain model", "DomainModelView and DomainModelDiagram: a context's classDiagram drawn as consistency-boundary bands, with mermaid when the fence cannot be arranged."),
             new("diagrams/domain-model-fields", "Domain model fields", "DomainModelFieldsView and DomainServiceInvocations: Model's Fields tab — the root's fields in the model file's purpose groups beside what it owns, and how each domain service runs."),
             new("diagrams/domain-events", "Domain events", "DomainEventContracts: Model's Events tab — an All events index with the picked event's contract beneath, and what the context listens to."),
+
+            // Under Diagrams: a map is a picture of where things are, and
+            // component-libraries.md#diagram-and-graph-strategy rules it with the
+            // other drawings. It draws the IconButton Buttons introduced and the
+            // Callout Feedback did, both above.
+            new("diagrams/tile-map", "Tile map", "TileMap: online map tiles through the vendored Leaflet, with the library's own pins, edge pills, zoom and fit controls, legend and attribution over them — and the notes for no source and tiles out of reach."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
             new("lobes-atlas", "Lobes atlas", "The atlas renderer's lobes drawing: each scope a brain, each mark in one region of it — All, the Brain, a devbook and a ghost scope."),

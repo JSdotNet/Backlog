@@ -54,6 +54,22 @@ public sealed class SplitPaneColumnTests
         Assert.DoesNotContain("grid-column", Block(css, ".split-pane--end {"), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A stacked split tells its parts their rows the same way, so a hidden handle
+    /// there is a missing handle too and not a bottom pane slid into its track.
+    /// </summary>
+    [Theory]
+    [InlineData(".split-pane--vertical > .split-pane__start {", "1")]
+    [InlineData(".split-pane--vertical > .split-pane__separator {", "2")]
+    [InlineData(".split-pane--vertical > .split-pane__end {", "3")]
+    public void Each_part_of_a_stacked_split_is_placed_in_its_row(string selector, string row)
+    {
+        var block = Block(Css(), selector);
+
+        Assert.Equal(row, Declaration(block, "grid-row"));
+        Assert.Equal("1", Declaration(block, "grid-column"));
+    }
+
     private static string Css() => File.ReadAllText(
         RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"))
         .Replace("\r\n", "\n");

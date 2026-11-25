@@ -12,6 +12,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -146,6 +147,7 @@ public static class MauiProgram
             PullRequestPins = _ => new PullRequestPinsStore(),
             ClaudeSettings = _ => new ClaudeSettingsStore(),
             AzureFoundrySettings = _ => new AzureFoundrySettingsStore(),
+            AzureMapsSettings = _ => new AzureMapsSettingsStore(),
             // The desktop head's tools adapter runs the CLIs, and reads this head's
             // MCP endpoint - registered below - to describe the Backlog server's row.
             // Its backlog row installs the question hooks naming this build's own script,

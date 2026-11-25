@@ -51,6 +51,15 @@ public static partial class EventsErrors
     public static Error PlaceInvalid() =>
         Error.Validation("place.invalid", "A place is a venue or online, never both and never neither.");
 
+    public static Error PlaceLookupMismatch() =>
+        Error.Validation("place.lookup_mismatch", "A place has an address lookup exactly when it has an address, and a map point exactly when that address is placed.");
+
+    public static Error AddressEmpty() =>
+        Error.Validation("address.empty", "An address needs a street, a postcode, a town or a country.");
+
+    public static Error MapPointOutOfRange() =>
+        Error.Validation("map_point.out_of_range", "A map point's latitude is from -90 to 90 degrees and its longitude from -180 to 180.");
+
     public static Error KeyDateLabelMissing() =>
         Error.Validation("key_date.label_missing", "A key date needs a label.");
 

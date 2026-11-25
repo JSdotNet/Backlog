@@ -170,6 +170,17 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
         "a key date with no label",
         "a negative cost",
         "a task link with no task",
+        "an online copy with an address",
+        "an address with no part",
+        "a lookup outside the set",
+        "a lookup with no address",
+        "a point off the globe",
+        "a point on an address not placed",
+        "a placed address with no point",
+        "a point with no lookup",
+        "a point with no longitude",
+        "a point with no latitude",
+        "a point with no degrees",
     ];
 
     [Theory]
@@ -195,11 +206,107 @@ public sealed class KnowledgeEventReplicationTests : IDisposable
             "a key date with no label" => good with { KeyDates = [new EventKeyDateReplicaDto(new DateOnly(2026, 6, 30), "")] },
             "a negative cost" => good with { Cost = new EventCostReplicaDto(-1m, "EUR") },
             "a task link with no task" => good with { Tasks = [new EventTaskLinkReplicaDto("", TaskPurpose.Prep)] },
+            "an online copy with an address" => good with { Online = true, Address = Utrecht, Lookup = AddressLookup.NotLookedUpYet },
+            "an address with no part" => good with { Address = new EventAddressReplicaDto(" ", null, null, null), Lookup = AddressLookup.NotLookedUpYet },
+            "a lookup outside the set" => good with { Address = Utrecht, Lookup = (AddressLookup)9 },
+            "a lookup with no address" => good with { Venue = "Kinepolis", Lookup = AddressLookup.NotFound },
+            "a point off the globe" => good with { Address = Utrecht, Lookup = AddressLookup.Placed, Point = new EventMapPointReplicaDto(52.09, 181) },
+            "a point on an address not placed" => good with { Address = Utrecht, Lookup = AddressLookup.NotFound, Point = new EventMapPointReplicaDto(52.09, 5.12) },
+            "a placed address with no point" => good with { Address = Utrecht, Lookup = AddressLookup.Placed },
+            "a point with no lookup" => good with { Address = Utrecht, Point = new EventMapPointReplicaDto(52.09, 5.12) },
+            "a point with no longitude" => good with { Address = Utrecht, Lookup = AddressLookup.Placed, Point = new EventMapPointReplicaDto(52.09, null) },
+            "a point with no latitude" => good with { Address = Utrecht, Lookup = AddressLookup.Placed, Point = new EventMapPointReplicaDto(null, 5.12) },
+            "a point with no degrees" => good with { Address = Utrecht, Lookup = AddressLookup.Placed, Point = new EventMapPointReplicaDto(null, null) },
             _ => throw new ArgumentOutOfRangeException(nameof(fault), fault, null),
         };
 
         Assert.Equal(KnowledgeEventReplicaOutcome.Unreadable, await _replication.ApplyEventAsync(copy, Cancellation));
         Assert.Empty(await _replication.ListEventsChangedSinceAsync(DateTimeOffset.MinValue, Cancellation));
+    }
+
+    private static readonly EventAddressReplicaDto Utrecht = new("Jaarbeursplein 6", "3521 AL", "Utrecht", "Netherlands");
+
+    /// <summary>An in-person event at the Jaarbeurs whose address the geocoder placed.</summary>
+    private static KnowledgeEvent PlacedAtJaarbeurs()
+    {
+        var knowledgeEvent = Assert.IsType<Ok<KnowledgeEvent>>(KnowledgeEvent.Create(Guid.NewGuid(), "Techorama 2026").Value).Value;
+        var address = Assert.IsType<Ok<Address>>(Address.Create("Jaarbeursplein 6", "3521 AL", "Utrecht", "Netherlands").Value).Value;
+        knowledgeEvent.SetPlace(Assert.IsType<Ok<Place>>(Place.Create("Jaarbeurs", online: false, address, AddressLookup.NotLookedUpYet, point: null).Value).Value);
+        Assert.IsType<Ok>(knowledgeEvent.RecordLookup(
+            address, AddressLookup.Placed, Assert.IsType<Ok<MapPoint>>(MapPoint.Create(52.08842, 5.11553).Value).Value).Value);
+
+        return knowledgeEvent;
+    }
+
+    [Fact]
+    public async Task A_placed_address_travels_with_its_lookup_and_point()
+    {
+        _events.Seed(PlacedAtJaarbeurs(), Noon);
+
+        var copy = Assert.Single(await _replication.ListEventsChangedSinceAsync(DateTimeOffset.MinValue, Cancellation));
+
+        Assert.Equal("Jaarbeurs", copy.Venue);
+        Assert.False(copy.Online);
+        Assert.Equal(Utrecht, copy.Address);
+        Assert.Equal(AddressLookup.Placed, copy.Lookup);
+        Assert.Equal(new EventMapPointReplicaDto(52.08842, 5.11553), copy.Point);
+    }
+
+    [Fact]
+    public async Task A_copy_with_a_placed_address_is_taken_with_its_lookup_and_point()
+    {
+        var sent = PlacedAtJaarbeurs();
+        var copy = Copy(sent.Id, "Techorama 2026", Noon) with
+        {
+            Venue = "Jaarbeurs",
+            Address = Utrecht,
+            Lookup = AddressLookup.Placed,
+            Point = new EventMapPointReplicaDto(52.08842, 5.11553),
+        };
+
+        Assert.Equal(KnowledgeEventReplicaOutcome.Taken, await _replication.ApplyEventAsync(copy, Cancellation));
+
+        Assert.Equal(sent.Place, _events.Find(copy.Id)!.Event.Place);
+    }
+
+    [Theory]
+    [InlineData(AddressLookup.NotFound)]
+    [InlineData(AddressLookup.NotLookedUpYet)]
+    public async Task A_copy_with_an_address_and_no_venue_name_is_taken_without_a_point(AddressLookup lookup)
+    {
+        var copy = Copy(Guid.NewGuid(), "A meetup", Noon) with { Address = Utrecht, Lookup = lookup };
+
+        Assert.Equal(KnowledgeEventReplicaOutcome.Taken, await _replication.ApplyEventAsync(copy, Cancellation));
+
+        var place = _events.Find(copy.Id)!.Event.Place!;
+        Assert.Null(place.Venue);
+        Assert.Equal("Utrecht", place.Address!.Town);
+        Assert.Equal(lookup, place.Lookup);
+        Assert.Null(place.Point);
+    }
+
+    /// <summary>A copy that holds an address and leaves its lookup out reads as an address not
+    /// looked up yet — what any new address is.</summary>
+    [Fact]
+    public async Task A_copy_with_an_address_and_no_lookup_reads_as_not_looked_up_yet()
+    {
+        var copy = Copy(Guid.NewGuid(), "A meetup", Noon) with { Address = Utrecht };
+
+        Assert.Equal(KnowledgeEventReplicaOutcome.Taken, await _replication.ApplyEventAsync(copy, Cancellation));
+
+        Assert.Equal(AddressLookup.NotLookedUpYet, _events.Find(copy.Id)!.Event.Place!.Lookup);
+    }
+
+    /// <summary>A copy from an older desktop build, which knows none of the address fields,
+    /// holds the venue alone, and reads as that venue.</summary>
+    [Fact]
+    public async Task A_copy_without_the_address_fields_reads_as_its_venue()
+    {
+        var copy = Copy(Guid.NewGuid(), "Techorama 2026", Noon) with { Venue = "Kinepolis Utrecht" };
+
+        Assert.Equal(KnowledgeEventReplicaOutcome.Taken, await _replication.ApplyEventAsync(copy, Cancellation));
+
+        Assert.Equal(Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Utrecht").Value).Value, _events.Find(copy.Id)!.Event.Place);
     }
 
     /// <summary>A document from a build whose lists the serializer left out reads as an event

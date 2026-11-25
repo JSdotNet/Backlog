@@ -1,0 +1,355 @@
+using System.Diagnostics;
+
+namespace Backlog.UI.Components.UnitTests;
+
+/// <summary>
+/// <c>window.backlogTileMap</c>, run rather than read.
+/// <para>
+/// bUnit has no JS engine, so what <c>TileMap</c> leaves to the script runs here in
+/// Node, cut out of <c>components.js</c> as it ships, against a stand-in Leaflet:
+/// what Leaflet is asked to draw, when the tiles count as unreachable, and how a map
+/// with no size yet is framed.
+/// </para>
+/// </summary>
+public sealed class TileMapScriptTests
+{
+    /// <summary>Leaflet draws tiles and pans; its own controls, attribution and
+    /// keyboard handler are off, because the library draws those itself.</summary>
+    [Fact]
+    public void Leaflet_draws_the_tiles_and_none_of_its_own_controls()
+    {
+        var result = Run("""
+            await start();
+            const o = maps[0].options;
+            console.log(`zoomControl=${o.zoomControl} attribution=${o.attributionControl} keyboard=${o.keyboard} zoomAnimation=${o.zoomAnimation} url=${layers[0].url}`);
+            """);
+
+        Assert.Equal("zoomControl=false attribution=false keyboard=false zoomAnimation=false url=https://tiles.test/{z}/{x}/{y}.png", result);
+    }
+
+    [Fact]
+    public void A_view_where_every_tile_failed_is_unreachable_until_a_tile_loads()
+    {
+        var result = Run("""
+            await start();
+            const layer = layers[0];
+            layer.fire('loading'); layer.fire('tileerror'); layer.fire('tileerror'); layer.fire('load');
+            layer.fire('loading'); layer.fire('tileerror'); layer.fire('load');
+            layer.fire('tileload');
+            console.log(calls.filter(c => c[0] === 'TilesReachable').map(c => c[1]).join(','));
+            """);
+
+        Assert.Equal("false,true", result);
+    }
+
+    /// <summary>A 429 on one tile leaves that tile blank (ADR 0061 §6); it does not
+    /// take the whole map away.</summary>
+    [Fact]
+    public void One_failed_tile_among_loaded_ones_says_nothing()
+    {
+        var result = Run("""
+            await start();
+            const layer = layers[0];
+            layer.fire('loading'); layer.fire('tileload'); layer.fire('tileerror'); layer.fire('tileload'); layer.fire('load');
+            console.log(`reports=${calls.filter(c => c[0] === 'TilesReachable').length}`);
+            """);
+
+        Assert.Equal("reports=0", result);
+    }
+
+    [Fact]
+    public void The_browser_going_offline_is_unreachable_and_coming_back_reloads_the_tiles()
+    {
+        var result = Run("""
+            await start();
+            windowListeners.offline();
+            windowListeners.online();
+            console.log(`${calls.filter(c => c[0] === 'TilesReachable').map(c => c[1]).join(',')} redraws=${layers[0].redraws}`);
+            """);
+
+        Assert.Equal("false redraws=1", result);
+    }
+
+    [Fact]
+    public void A_map_with_a_size_frames_the_bounds_it_was_given()
+    {
+        var result = Run("""
+            await start({ x: 600, y: 400 });
+            const fit = maps[0].fits[0];
+            console.log(`${JSON.stringify(fit.bounds)} padding=${fit.options.padding} maxZoom=${fit.options.maxZoom} views=${maps[0].views.length}`);
+            """);
+
+        Assert.Equal("[[51,3],[60,11]] padding=48,48 maxZoom=13 views=0", result);
+    }
+
+    /// <summary>A map laid out after it started — a pane still opening — cannot
+    /// work out a zoom for its bounds, so it opens on the default view and frames
+    /// the bounds once it has a size.</summary>
+    [Fact]
+    public void A_map_with_no_size_yet_frames_its_bounds_once_it_has_one()
+    {
+        var result = Run("""
+            await start({ x: 0, y: 0 });
+            const map = maps[0];
+            const before = `views=${JSON.stringify(map.views)} fits=${map.fits.length}`;
+            map.size = { x: 600, y: 400 };
+            observers[0].fire();
+            observers[0].fire();
+            console.log(`${before} after=${map.fits.length}`);
+            """);
+
+        Assert.Equal("views=[[[50,6],4]] fits=0 after=1", result);
+    }
+
+    [Fact]
+    public void The_view_is_reported_settled_when_a_move_ends()
+    {
+        var result = Run("""
+            await start({ x: 600, y: 400 });
+            calls.length = 0;
+            maps[0].fire('move');
+            maps[0].fire('moveend');
+            console.log(calls.map(c => `${c[0]}:${c.slice(1).join('/')}`).join(' '));
+            """);
+
+        Assert.Equal("ViewMoved:50/6/7/600/400/true", result);
+    }
+
+    [Fact]
+    public void Dispose_removes_the_map_and_its_listeners()
+    {
+        var result = Run("""
+            await start();
+            window.backlogTileMap.dispose('m');
+            console.log(`removed=${maps[0].removed} disconnected=${observers[0].disconnected} offline=${'offline' in windowListeners} online=${'online' in windowListeners}`);
+            """);
+
+        Assert.Equal("removed=true disconnected=true offline=false online=false", result);
+    }
+
+    [Fact]
+    public void A_map_disposed_while_the_library_loads_is_never_started()
+    {
+        var result = Run("""
+            const starting = window.backlogTileMap.initialize(element, 'm', options(), dotnet);
+            window.backlogTileMap.dispose('m');
+            await starting;
+            console.log(`maps=${maps.length}`);
+            """);
+
+        Assert.Equal("maps=0", result);
+    }
+
+    [Fact]
+    public void A_library_that_will_not_load_says_so()
+    {
+        var result = Run("""
+            delete window.L;
+            loadFails = true;
+            await window.backlogTileMap.initialize(element, 'm', options(), dotnet);
+            console.log(calls.map(c => c[0]).join(','));
+            """);
+
+        Assert.Equal("MapUnavailable", result);
+    }
+
+    /// <summary>A pan that uncovers a strip of tiles which all answer 429, while the
+    /// rest of the view stays drawn, leaves that strip blank (ADR 0061 §6). It is
+    /// not the offline plate: only "no tile in view loads" is.</summary>
+    [Fact]
+    public void Tiles_failing_beside_drawn_ones_are_not_offline()
+    {
+        var result = Run("""
+            await start();
+            const layer = layers[0];
+            const a = {}, b = {};
+            layer.fire('loading'); layer.fire('tileload', { tile: a }); layer.fire('tileload', { tile: b }); layer.fire('load');
+            layer.fire('loading'); layer.fire('tileerror', { tile: {} }); layer.fire('tileerror', { tile: {} }); layer.fire('tileerror', { tile: {} }); layer.fire('load');
+            console.log(`reports=${calls.filter(c => c[0] === 'TilesReachable').length}`);
+            """);
+
+        Assert.Equal("reports=0", result);
+    }
+
+    /// <summary>Once every drawn tile has gone — a zoom, a new source — a view where
+    /// all the new tiles fail is unreachable after all.</summary>
+    [Fact]
+    public void A_view_whose_drawn_tiles_were_all_unloaded_and_whose_new_ones_fail_is_unreachable()
+    {
+        var result = Run("""
+            await start();
+            const layer = layers[0];
+            const a = {};
+            layer.fire('loading'); layer.fire('tileload', { tile: a }); layer.fire('load');
+            layer.fire('tileunload', { tile: a });
+            layer.fire('loading'); layer.fire('tileerror', { tile: {} }); layer.fire('load');
+            console.log(calls.filter(c => c[0] === 'TilesReachable').map(c => c[1]).join(','));
+            """);
+
+        Assert.Equal("false", result);
+    }
+
+    /// <summary>A new source while the map is offline: the first new tile that
+    /// loads says so, so the note comes down. setTiles used to mark the map
+    /// reachable silently, which made that report a no-op.</summary>
+    [Fact]
+    public void A_new_source_reports_reachable_when_its_first_tile_loads()
+    {
+        var result = Run("""
+            await start();
+            const layer = layers[0];
+            layer.fire('loading'); layer.fire('tileerror', { tile: {} }); layer.fire('load');
+            window.backlogTileMap.setTiles('m', 'https://tiles.test/new/{z}/{x}/{y}.png');
+            layer.fire('loading'); layer.fire('tileload', { tile: {} }); layer.fire('load');
+            console.log(`${calls.filter(c => c[0] === 'TilesReachable').map(c => c[1]).join(',')} url=${layer.url}`);
+            """);
+
+        Assert.Equal("false,true url=https://tiles.test/new/{z}/{x}/{y}.png", result);
+    }
+
+    /// <summary>The first map of a session waits for leaflet.js. A fit and a new
+    /// source sent meanwhile are held and applied once the map exists — the map
+    /// opens on the new source, framed on the late marks.</summary>
+    [Fact]
+    public void A_fit_and_a_source_sent_while_the_library_loads_are_applied_once_it_has()
+    {
+        var result = Run("""
+            delete window.L;
+            let release;
+            loadGate = new Promise(resolve => release = resolve);
+            const starting = window.backlogTileMap.initialize(element, 'm', { ...options(), fit: { bounds: null, center: [50, 6], zoom: 4 } }, dotnet);
+            window.backlogTileMap.fit('m', { bounds: [40, -10, 60, 11], padding: 48, maxZoom: 13, center: [50, 6], zoom: 4 });
+            window.backlogTileMap.setTiles('m', 'https://tiles.test/late/{z}/{x}/{y}.png');
+            release();
+            await starting;
+            console.log(`url=${layers[0].url} fits=${JSON.stringify(maps[0].fits.map(f => f.bounds))}`);
+            """);
+
+        Assert.Equal("url=https://tiles.test/late/{z}/{x}/{y}.png fits=[[[40,-10],[60,11]]]", result);
+    }
+
+    private static string Run(string body)
+    {
+        var harness = $$"""
+            const calls = [];
+            const maps = [];
+            const layers = [];
+            const observers = [];
+            const windowListeners = {};
+            let loadFails = false;
+            let loadGate = null;
+
+            const dotnet = { invokeMethodAsync(method, ...args) { calls.push([method, ...args]); return Promise.resolve(); } };
+            const element = { isConnected: true };
+
+            class Events {
+                constructor() { this.handlers = {}; }
+                on(names, fn) { for (const name of names.split(' ')) (this.handlers[name] ??= []).push(fn); return this; }
+                fire(name, event) { for (const fn of this.handlers[name] ?? []) fn(event ?? {}); }
+            }
+
+            class FakeMap extends Events {
+                constructor(el, options) { super(); this.options = options; this.size = { x: 600, y: 400 }; this.center = { lat: 50, lng: 6 }; this.zoom = 7; this.views = []; this.fits = []; this.removed = false; maps.push(this); }
+                getSize() { return this.size; }
+                getCenter() { return this.center; }
+                getZoom() { return this.zoom; }
+                setView(center, zoom) { this.views.push([center, zoom]); }
+                fitBounds(bounds, options) { this.fits.push({ bounds, options }); }
+                setZoom(zoom) { this.zoom = zoom; }
+                panTo() { }
+                invalidateSize() { }
+                remove() { this.removed = true; }
+            }
+
+            class FakeLayer extends Events {
+                constructor(url) { super(); this.url = url; this.redraws = 0; layers.push(this); }
+                addTo() { return this; }
+                setUrl(url) { this.url = url; }
+                redraw() { this.redraws++; }
+            }
+
+            class ResizeObserver {
+                constructor(callback) { this.callback = callback; this.disconnected = false; observers.push(this); }
+                observe() { }
+                disconnect() { this.disconnected = true; }
+                fire() { if (!this.disconnected) this.callback([]); }
+            }
+
+            const leaflet = { map: (el, o) => new FakeMap(el, o), tileLayer: (url) => new FakeLayer(url) };
+            const window = {
+                L: leaflet,
+                addEventListener(type, fn) { windowListeners[type] = fn; },
+                removeEventListener(type, fn) { if (windowListeners[type] === fn) delete windowListeners[type]; }
+            };
+            const navigator = { onLine: true };
+            const document = { querySelector: () => ({ before() { } }), createElement: () => ({ dataset: {} }), head: { prepend() { } } };
+            const requestAnimationFrame = () => 1;
+            const cancelAnimationFrame = () => { };
+            const backlogComponentsScriptUrl = 'https://app.test/_content/Backlog.UI.Components/components.js';
+            async function backlogLoadScript() {
+                if (loadGate) await loadGate;
+                if (loadFails) throw new Error('404');
+                window.L = leaflet;
+            }
+
+            function options() {
+                return {
+                    tileUrl: 'https://tiles.test/{z}/{x}/{y}.png',
+                    minZoom: 2,
+                    maxZoom: 18,
+                    fit: { bounds: [51, 3, 60, 11], padding: 48, maxZoom: 13, center: [50, 6], zoom: 4 }
+                };
+            }
+
+            async function start(size) {
+                const original = leaflet.map;
+                if (size) leaflet.map = (el, o) => { const map = original(el, o); map.size = size; return map; };
+                await window.backlogTileMap.initialize(element, 'm', options(), dotnet);
+                leaflet.map = original;
+            }
+
+            {{TileMapRegion()}}
+
+            (async () => {
+            {{body}}
+            })().catch(error => { console.error(error); process.exit(1); });
+            """;
+
+        var start = new ProcessStartInfo("node")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false
+        };
+
+        Process process;
+        try
+        {
+            process = Process.Start(start) ?? throw new InvalidOperationException("node did not start");
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            Assert.Fail($"This test runs components.js and needs Node on the PATH: {exception.Message}");
+            return string.Empty;
+        }
+
+        using (process)
+        {
+            process.StandardInput.Write(harness);
+            process.StandardInput.Close();
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+
+            Assert.True(process.WaitForExit(TimeSpan.FromSeconds(30)), "node did not finish in thirty seconds.");
+            Assert.True(process.ExitCode == 0, $"node failed ({process.ExitCode}):\n{error.Result}");
+
+            return output.Result.Trim();
+        }
+    }
+
+    /// <summary>The tile map from its registry to the end of its object, cut out of
+    /// the script as it ships, so the code under test is the code the app loads.</summary>
+    private static string TileMapRegion() =>
+        ComponentsScript.Region("    const backlogTileMaps = new Map();", "})();\n\n(() => {\n    /*\n        The C4 zoom navigation");
+}

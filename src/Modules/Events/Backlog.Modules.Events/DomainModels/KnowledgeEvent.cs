@@ -139,8 +139,55 @@ public sealed class KnowledgeEvent
     /// <summary>Names the Event Series this is an edition of, or clears it.</summary>
     public void SetSeries(Guid? series) => Series = series;
 
-    /// <summary>Sets where the event happens, or clears it.</summary>
-    public void SetPlace(Place? place) => Place = place;
+    /// <summary>
+    /// Sets where the event happens, or clears it. A place whose address differs from the one the
+    /// event held is Not looked up yet with no point, whatever lookup it came with; one whose
+    /// address is unchanged keeps the event's lookup and point
+    /// (<c>.devbook/domain/events/domain.invariants.md#invariant-a-changed-address-is-not-looked-up-yet</c>).
+    /// </summary>
+    public void SetPlace(Place? place)
+    {
+        if (place?.Address is not { } address)
+        {
+            Place = place;
+            return;
+        }
+
+        Place = Place is { Address: { } held, Lookup: { } lookup } current && held == address
+            ? place.WithLookup(lookup, current.Point)
+            : place.WithLookup(AddressLookup.NotLookedUpYet, point: null);
+    }
+
+    /// <summary>
+    /// Records what geocoding answered for <paramref name="address"/>: Placed with its
+    /// <paramref name="point"/>, Address not found, or Not looked up yet when no answer came back
+    /// (local ADR 0061 §5). An answer for an address the event no longer holds — changed, cleared,
+    /// or gone online while the lookup ran — is ignored, so a point never lands on another
+    /// address; that is a success that changes nothing. So is an answer that would move the
+    /// lookup back: ADR 0061 §5 lets Placed leave only by the address changing, and Address not
+    /// found only by a match, so a late answer that did not place a Placed address, or one that
+    /// got nothing back for an address not found, keeps what the event holds. Refused for a
+    /// point on an answer that is not Placed or a Placed answer without one
+    /// (<c>place.lookup_mismatch</c>).
+    /// </summary>
+    public Result RecordLookup(Address address, AddressLookup lookup, MapPoint? point)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (!Enum.IsDefined(lookup))
+            throw new ArgumentOutOfRangeException(nameof(lookup), lookup, "An address is placed, not found, or not looked up yet.");
+
+        if ((lookup == AddressLookup.Placed) != (point is not null)) return Result.Failure(EventsErrors.PlaceLookupMismatch());
+
+        if (Place is { Address: { } held, Lookup: { } current } place && held == address && !MovesBack(current, lookup))
+            Place = place.WithLookup(lookup, point);
+
+        return Result.Success();
+    }
+
+    /// <summary>Whether <paramref name="answer"/> would take the lookup back a step: a Placed
+    /// address answered as anything but Placed, or one not found answered with nothing.</summary>
+    private static bool MovesBack(AddressLookup held, AddressLookup answer) =>
+        (held, answer) is (AddressLookup.Placed, not AddressLookup.Placed) or (AddressLookup.NotFound, AddressLookup.NotLookedUpYet);
 
     /// <summary>Sets the edition's page, trimmed; a blank one clears it.</summary>
     public void SetLink(string? link) => Link = Blank(link);

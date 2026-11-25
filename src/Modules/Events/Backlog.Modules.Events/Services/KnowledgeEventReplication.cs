@@ -116,7 +116,12 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
         [.. e.Tasks.Select(task => new EventTaskLinkReplicaDto(task.TaskId, task.Purpose))],
         e.Verdict?.Text,
         updatedAt,
-        e.IsRemoved);
+        e.IsRemoved,
+        e.Place?.Address is { } address
+            ? new EventAddressReplicaDto(address.Street, address.Postcode, address.Town, address.Country)
+            : null,
+        e.Place?.Lookup,
+        e.Place?.Point is { } point ? new EventMapPointReplicaDto(point.Latitude, point.Longitude) : null);
 
     private static EventDateReplicaDto? DateCopy(EventDate? date) =>
         date is null ? null : new EventDateReplicaDto(date.Date, date.Time, date.UtcOffset);
@@ -132,12 +137,7 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
 
         if (!TryDate(copy.Start, out var start) || !TryDate(copy.End, out var end)) return null;
 
-        Place? place = null;
-        if (copy.Venue is not null || copy.Online)
-        {
-            if (Place.Create(copy.Venue, copy.Online) is not Ok<Place>(var placed)) return null;
-            place = placed;
-        }
+        if (!TryPlace(copy, out var place)) return null;
 
         Cost? cost = null;
         if (copy.Cost is { } costCopy)
@@ -186,6 +186,38 @@ internal sealed class KnowledgeEventReplication : IKnowledgeEventReplication
             tasks,
             copy.Verdict,
             removed: copy.Removed);
+    }
+
+    /// <summary>The place a copy holds, null when it holds none. An address whose lookup the
+    /// copy leaves out reads as not looked up yet; a copy with neither (from an older desktop
+    /// build) reads as its venue alone. A point that leaves out a degree does not read.</summary>
+    private static bool TryPlace(KnowledgeEventReplicaDto copy, out Place? place)
+    {
+        place = null;
+        if (copy.Venue is null && !copy.Online && copy.Address is null && copy.Lookup is null && copy.Point is null) return true;
+        if (copy.Lookup is { } answer && !Enum.IsDefined(answer)) return false;
+
+        Address? address = null;
+        if (copy.Address is { } parts)
+        {
+            if (Address.Create(parts.Street, parts.Postcode, parts.Town, parts.Country) is not Ok<Address>(var made)) return false;
+            address = made;
+        }
+
+        MapPoint? point = null;
+        if (copy.Point is { } spot)
+        {
+            if (spot.Latitude is not { } latitude || spot.Longitude is not { } longitude
+                || MapPoint.Create(latitude, longitude) is not Ok<MapPoint>(var made))
+                return false;
+            point = made;
+        }
+
+        var lookup = address is null ? copy.Lookup : copy.Lookup ?? AddressLookup.NotLookedUpYet;
+        if (Place.Create(copy.Venue, copy.Online, address, lookup, point) is not Ok<Place>(var placed)) return false;
+
+        place = placed;
+        return true;
     }
 
     private static bool TryDate(EventDateReplicaDto? copy, out EventDate? date)

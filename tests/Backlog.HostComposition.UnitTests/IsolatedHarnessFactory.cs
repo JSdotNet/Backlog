@@ -118,6 +118,7 @@ internal static class HarnessIsolation
         ("BACKLOG_DESKTOP_MCP_AUDIT_PATH", "mcp-audit.db", false),
         ("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH", "sync-service.json", false),
         ("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH", "azure-foundry.settings.json", false),
+        ("BACKLOG_AZURE_MAPS_SETTINGS_PATH", "azure-maps.settings.json", false),
         ("BACKLOG_FEATURE_SETTINGS_PATH", "feature.settings.json", false),
         ("BACKLOG_WORKING_HOURS_SETTINGS_PATH", "working-hours.settings.json", false),
         ("BACKLOG_INBOX_ROUTING_RULES_PATH", "inbox-routing-rules.settings.json", false),

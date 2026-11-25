@@ -1,6 +1,7 @@
 extern alias DesktopHarness;
 
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
@@ -61,6 +62,7 @@ public class HarnessIsolationTests
             services.GetRequiredService<PullRequestPinsStore>().SettingsPath,
             services.GetRequiredService<ClaudeSettingsStore>().SettingsPath,
             services.GetRequiredService<AzureFoundrySettingsStore>().SettingsPath,
+            services.GetRequiredService<AzureMapsSettingsStore>().SettingsPath,
             services.GetRequiredService<SyncServiceSettingsStore>().SettingsPath,
             // Registered by its port alone, and a database file rather than settings.
             Assert.IsType<SqliteMcpAuditLog>(services.GetRequiredService<IMcpAuditLog>()).DatabasePath

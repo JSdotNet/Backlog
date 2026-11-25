@@ -14,7 +14,7 @@ namespace Backlog.Infrastructure.FileSystem.Calendar;
 /// <para>
 /// It holds no event rule: which events are decided is the contract's answer. It only puts
 /// them in the Calendar's words — Considering tentative and the rest filled, the place as the
-/// venue or <c>Online</c>, an event with no end as its start day — and drops the bar of an
+/// venue, else the address on one line, or <c>Online</c>, an event with no end as its start day — and drops the bar of an
 /// event with no start while keeping its key dates, which still have a day.
 /// </para>
 /// <para>
@@ -66,5 +66,5 @@ public sealed class EventsCalendarEvents : ICalendarEvents
     private bool EventsOn => _features?.IsEnabled(EventsFeatures.Events) ?? false;
 
     private static string? PlaceOf(DecidedEventDto knowledgeEvent) =>
-        knowledgeEvent.Venue ?? (knowledgeEvent.Online ? Online : null);
+        knowledgeEvent.Venue ?? knowledgeEvent.Address ?? (knowledgeEvent.Online ? Online : null);
 }

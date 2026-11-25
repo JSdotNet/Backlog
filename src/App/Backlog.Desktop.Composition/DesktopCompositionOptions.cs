@@ -1,5 +1,6 @@
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -162,6 +163,11 @@ public sealed class DesktopCompositionOptions
 
     /// <summary>The Azure Foundry connection and cost scope.</summary>
     public required Func<IServiceProvider, AzureFoundrySettingsStore> AzureFoundrySettings { get; init; }
+
+    /// <summary>The Azure Maps key the Events map's tiles and address lookups use (local ADR
+    /// 0061 §4): the per-user <c>azure-maps.json</c> in the installed app; one under the content
+    /// root in the harness, so a key typed there is not the installed app's.</summary>
+    public required Func<IServiceProvider, AzureMapsSettingsStore> AzureMapsSettings { get; init; }
 
     /// <summary>Dev PC Management's tools adapter: the full one that runs the CLIs
     /// in the installed app, the catalog-only one in the harness.</summary>
