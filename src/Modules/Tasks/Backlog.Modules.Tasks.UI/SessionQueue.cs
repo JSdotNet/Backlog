@@ -34,6 +34,18 @@ public sealed record SessionQueueRow(
     public string Key => EntryId is { } id ? $"entry-{id:n}" : $"plan-{PlanTag}";
 }
 
+/// <summary>An entry's linked pull request as the docked queue lists it: a draft waiting for
+/// the person's validation under <b>Needs you</b>, or a merge under <b>Landed today</b>.</summary>
+/// <param name="EntryId">The entry whose work it is.</param>
+/// <param name="Name">The entry's title.</param>
+/// <param name="PullRequest">The pull request, which Validate opens.</param>
+public sealed record SessionQueuePullRequest(Guid EntryId, string Name, EntryPullRequestLink PullRequest)
+{
+    /// <summary>The item's stable key, for <c>@key</c> and Dismiss: the entry and the pull
+    /// request, since two entries may record one pull request.</summary>
+    public string Key => $"pr-{EntryId:n}-{PullRequest.Repository}#{PullRequest.Number}".ToLowerInvariant();
+}
+
 /// <summary>The three ways a Requested row moves in the session queue.</summary>
 public enum SessionQueueStep
 {
@@ -187,6 +199,70 @@ public static class SessionQueue
 
         return $"{(int)elapsed.TotalDays} d ago";
     }
+
+    /// <summary>The docked column's header line (local ADR 0062 §6): whether the Manager is
+    /// online, silent or not heard yet, and while it is online how many of its slots are
+    /// working — "Manager online · 2 of 3 slots".</summary>
+    public static string ManagerLabel(DispatcherContactReading contact, SessionQueueSlots? slots)
+    {
+        ArgumentNullException.ThrowIfNull(contact);
+
+        return ManagerTone(contact) switch
+        {
+            "silent" => "Manager silent",
+            "unheard" => "Manager not heard yet",
+            _ => slots is { } known ? $"Manager online · {known.Working} of {known.Limit} slots" : "Manager online"
+        };
+    }
+
+    /// <summary>The header dot's tone: <c>online</c>, <c>silent</c> or <c>unheard</c>.</summary>
+    public static string ManagerTone(DispatcherContactReading contact)
+    {
+        ArgumentNullException.ThrowIfNull(contact);
+
+        return contact.IsSilent ? "silent" : contact.LastHeardAt is null ? "unheard" : "online";
+    }
+
+    /// <summary>The drafts awaiting the person's Personal Validation, for <b>Needs you</b>:
+    /// each open entry's linked pull request that reads Draft, minus the ones the person
+    /// dismissed in this pane, in the order the rows are listed.</summary>
+    /// <param name="rows">The loaded rows.</param>
+    /// <param name="dismissed">The drafts dismissed, by <see cref="SessionQueuePullRequest.Key"/>.</param>
+    public static IReadOnlyList<SessionQueuePullRequest> Drafts(IEnumerable<EntryRow> rows, IReadOnlySet<string> dismissed)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(dismissed);
+
+        return
+        [
+            .. rows
+                .Where(row => row.Id is not null && !row.IsPreviewCompleted)
+                .SelectMany(row => row.PullRequestStates
+                    .Where(state => state.Value == LinkedPullRequestState.Draft)
+                    .Select(state => new SessionQueuePullRequest(row.Id!.Value, NameOf(row), state.Key)))
+                .Where(draft => !dismissed.Contains(draft.Key))
+        ];
+    }
+
+    /// <summary><b>Landed today</b>: the entries finished <paramref name="today"/> whose
+    /// linked pull request merged, newest-listed first as the rows are.</summary>
+    public static IReadOnlyList<SessionQueuePullRequest> Landed(IEnumerable<EntryRow> rows, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        return
+        [
+            .. rows
+                .Where(row => row.Id is not null && row.CompletedOn == today)
+                .SelectMany(row => row.PullRequestStates
+                    .Where(state => state.Value == LinkedPullRequestState.Merged)
+                    .Take(1)
+                    .Select(state => new SessionQueuePullRequest(row.Id!.Value, NameOf(row), state.Key)))
+        ];
+    }
+
+    private static string NameOf(EntryRow row) =>
+        string.IsNullOrWhiteSpace(row.PreviewTitle) ? Untitled : row.PreviewTitle;
 
     /// <summary>The dispatcher warning's first sentence: never heard since the app
     /// started, or when it last was.</summary>

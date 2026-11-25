@@ -1983,6 +1983,20 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>The entry a docked session queue item was selected for (local ADR 0062 §6),
+    /// or null: while set the list holds that entry alone.</summary>
+    public Guid? QueueFocusEntry { get; private set; }
+
+    /// <summary>Narrows the list to the entry <paramref name="entryId"/> a session queue
+    /// item names, or lets go of that with null.</summary>
+    public void SetQueueFocusEntry(Guid? entryId)
+    {
+        if (QueueFocusEntry == entryId) return;
+
+        QueueFocusEntry = entryId;
+        ApplyFilter();
+    }
+
     /// <summary>Turns the Waiting slice on or off. See
     /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
     public void SetWaitingForFilter(bool only)
@@ -2094,6 +2108,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         NowAcrossPlansOnly = false;
         WaitingForOnly = false;
         NextActionsOnly = false;
+        QueueFocusEntry = null;
         SelectedArea = null;
         SelectedSource = null;
         SelectedType = null;
@@ -2173,6 +2188,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (_isQueued is { } isQueued && !isQueued(row))
         {
             _isQueued = null;
+            widened = true;
+        }
+
+        if (QueueFocusEntry is { } focused && row.Id != focused)
+        {
+            QueueFocusEntry = null;
             widened = true;
         }
 
@@ -6605,6 +6626,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (_isQueued is { } isQueued)
         {
             rows = rows.Where(isQueued);
+        }
+
+        // And the one entry a session queue item was selected for.
+        if (QueueFocusEntry is { } focusedEntry)
+        {
+            rows = rows.Where(row => row.Id == focusedEntry);
         }
 
         // And the Next actions slice, then the area it is narrowed to: its area
