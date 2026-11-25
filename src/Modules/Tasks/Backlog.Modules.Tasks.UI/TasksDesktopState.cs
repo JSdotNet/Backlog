@@ -1929,6 +1929,60 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ApplyFilter();
     }
 
+    /// <summary>
+    /// The day the <b>Flat</b> view's scope is read against, or null while the list is
+    /// not Flat (local ADR 0062 §3; <c>.devbook/domain/tasks/features.md#plans-view</c>).
+    /// While set the list keeps the entries in no plan, plus a plan entry in that day's
+    /// My Day — see <see cref="InFlatScope"/>. Applied after the repository scope, so
+    /// <see cref="ScopedRows"/> stays the whole pool the plan rail counts.
+    /// </summary>
+    public DateOnly? FlatScopeOn { get; private set; }
+
+    /// <summary>Turns the Flat scope on for <paramref name="today"/>, or off with null.</summary>
+    public void SetFlatScope(DateOnly? today)
+    {
+        if (FlatScopeOn == today) return;
+
+        FlatScopeOn = today;
+        ApplyFilter();
+    }
+
+    /// <summary>Whether a row belongs in the Flat list: in no plan, or a plan entry the
+    /// person put in today's My Day.</summary>
+    public bool InFlatScope(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return IsUnplanned(row) || IsInMyDay(row, today);
+    }
+
+    /// <summary>Whether a row is a plan entry the Flat list shows only because it is in
+    /// today's My Day — the row that says "☀ My Day · &lt;plan&gt;" on its second line.</summary>
+    public bool IsPlanEntryOnMyDay(EntryRow row, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return !IsUnplanned(row) && IsInMyDay(row, today);
+    }
+
+    /// <summary>The Flat bar's <b>In the queue</b> view: which rows wait for a session.
+    /// The pane holds the session queue, so it hands the question over rather than a
+    /// list of ids that the next poll would leave stale.</summary>
+    private Func<EntryRow, bool>? _isQueued;
+
+    /// <summary>True while the list is narrowed to the entries waiting for a session.</summary>
+    public bool QueuedOnly => _isQueued is not null;
+
+    /// <summary>Narrows the list to the rows <paramref name="isQueued"/> says wait for a
+    /// session, or lets go of that with null.</summary>
+    public void SetQueuedFilter(Func<EntryRow, bool>? isQueued)
+    {
+        if (_isQueued is null && isQueued is null) return;
+
+        _isQueued = isQueued;
+        ApplyFilter();
+    }
+
     /// <summary>Turns the Waiting slice on or off. See
     /// <see cref="WaitingForOnly"/> for what it keeps and how it is ordered.</summary>
     public void SetWaitingForFilter(bool only)
@@ -2116,6 +2170,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             widened = true;
         }
 
+        if (_isQueued is { } isQueued && !isQueued(row))
+        {
+            _isQueued = null;
+            widened = true;
+        }
+
         if (WaitingForOnly && !IsWaitingForSomeone(row))
         {
             WaitingForOnly = false;
@@ -2148,7 +2208,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire)
-            && StatusWire(row.PreviewStatus) != SelectedStatusFilterWire)
+            && !MatchesStatusWire(row, SelectedStatusFilterWire))
         {
             SelectedStatusFilterWire = string.Empty;
             widened = true;
@@ -6507,6 +6567,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
+        // Flat lists the unplanned work, plus a plan entry put in today's My Day; every
+        // other plan entry lives under Plans only (local ADR 0062 §3).
+        if (FlatScopeOn is { } flatDay)
+        {
+            rows = rows.Where(row => InFlatScope(row, flatDay));
+        }
+
         // My Day narrows what the repository scope and status have already left in
         // view rather than replacing either: it is a decision about today taken on
         // top of wherever the reader is looking, so all three compose. In My Day by
@@ -6532,6 +6599,12 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (WaitingForOnly)
         {
             rows = rows.Where(IsWaitingForSomeone);
+        }
+
+        // And the Flat bar's In the queue, on the same terms again.
+        if (_isQueued is { } isQueued)
+        {
+            rows = rows.Where(isQueued);
         }
 
         // And the Next actions slice, then the area it is narrowed to: its area
@@ -6578,7 +6651,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (!StatusFilterSuspended && !string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
-            rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
+            rows = rows.Where(x => MatchesStatusWire(x, SelectedStatusFilterWire));
         }
 
         // Tags narrow inside the scope the same way status does, and compose with
@@ -7001,6 +7074,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         || (_selectedTags.Contains(NoPlanTag) && !HasPlan(row))
         || row.PreviewTags.Any(_selectedTags.Contains)
         || InShownPlan(row);
+
+    /// <summary>The Flat bar's <b>Open</b> status tab: every entry not yet ticked off or
+    /// archived. A wire of its own beside the statuses', since no one status is it.</summary>
+    public const string OpenStatusWire = "open";
+
+    private static bool MatchesStatusWire(EntryRow row, string wire) =>
+        wire == OpenStatusWire ? !IsFinished(row) : StatusWire(row.PreviewStatus) == wire;
 
     private static string StatusWire(EntryStatus status) => status switch
     {

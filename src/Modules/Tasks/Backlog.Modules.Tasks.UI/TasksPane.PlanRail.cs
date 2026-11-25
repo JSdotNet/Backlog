@@ -17,11 +17,13 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </summary>
 public partial class TasksPane
 {
-    /// <summary>How the list groups, as the host remembers it. Flat for a pane drawn
-    /// with no host choice; the shell's own default — the first time — is Plans
-    /// (<see cref="ITasksViewPreferences.ListGrouping"/>).</summary>
+    /// <summary>How the list groups, as the host remembers it; the shell's own default —
+    /// the first time — is Plans (<see cref="ITasksViewPreferences.ListGrouping"/>).
+    /// Null for a pane drawn with no host choice: one list of every entry under the
+    /// chip bar, neither the Plans rail nor Flat's unplanned-only list. The switch
+    /// reads it as Flat, which it was before Flat listed only the unplanned.</summary>
     [Parameter]
-    public TaskListGrouping ListGrouping { get; set; } = TaskListGrouping.Flat;
+    public TaskListGrouping? ListGrouping { get; set; }
 
     /// <summary>Raised with the grouping the reader picked, for the host to remember.</summary>
     [Parameter]
@@ -43,6 +45,7 @@ public partial class TasksPane
         // the choice down and handed it back.
         ListGrouping = grouping;
         if (!PlansGrouped) State.SetNowAcrossPlansFilter(false);
+        SyncFlatScope();
         await ListGroupingChanged.InvokeAsync(grouping);
     }
 

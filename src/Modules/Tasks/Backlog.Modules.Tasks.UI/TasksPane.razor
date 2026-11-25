@@ -138,11 +138,11 @@
                             {
                                 <AppButton BaseClass="chip chip--filter"
                                            Variant="ButtonVariant.None"
-                                           CssClass="@(ListGrouping == grouping ? "chip--active" : null)"
+                                           CssClass="@((ListGrouping ?? TaskListGrouping.Flat) == grouping ? "chip--active" : null)"
                                            TestId="list-grouping-option"
                                            data-grouping="@grouping.ToString()"
                                            role="radio"
-                                           aria-checked="@(ListGrouping == grouping ? "true" : "false")"
+                                           aria-checked="@((ListGrouping ?? TaskListGrouping.Flat) == grouping ? "true" : "false")"
                                            title="@(grouping == TaskListGrouping.Plans ? "Group the list by plan, with the plans on a rail" : "Show one flat list")"
                                            OnClick="() => OnListGroupingPickedAsync(grouping)">
                                     @grouping
@@ -151,6 +151,14 @@
                         </div>
                     }
 
+                    @* Flat's own bar (local ADR 0062 §3): quiet text tabs in place of the
+                       chip rows — see RenderFlatBar. *@
+                    @if (FlatListed)
+                    {
+                        @RenderFlatBar()
+                    }
+                    else
+                    {
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -340,6 +348,7 @@
                             <ArrowUpDownIcon />
                         </IconButton>
                     </div>
+                    }
 
                     @* The total the chips never gave, last on the bar — or beside
                        New entry in a narrow list column (RenderOpenWorkSummary). *@
@@ -393,7 +402,7 @@
                        aria-pressed, and no "All" chip, because with nothing pressed
                        the list is already everything. That chip was the duplicate of
                        the statuses' own All. *@
-                    @if (StripTags.Count > 0)
+                    @if (!FlatListed && StripTags.Count > 0)
                     {
                         @* The strip's own row: last in the markup and, with
                            `order: 1`, below every other group, so it is a full
@@ -580,7 +589,16 @@
                        the four things `.devbook/design/interaction-guidelines.md#focus-and-selection`
                        asks for by name, and they are the same four for every list in
                        the product. *@
-                    @if (State.SelectionMode || State.SelectionCount > 0)
+                    @if (FlatListed)
+                    {
+                        @* Flat's selection: one line of text actions, up while rows
+                           are picked (local ADR 0062 §3). *@
+                        @if (State.SelectionCount > 0)
+                        {
+                            @RenderFlatSelection()
+                        }
+                    }
+                    else if (State.SelectionMode || State.SelectionCount > 0)
                     {
                         <SelectionBar Count="@State.SelectionCount"
                                       Total="@State.FilteredRows.Count"
@@ -703,6 +721,11 @@
                            in, and the control that writes the first entry is the one
                            thing on this half that still has to be reachable. *@
                         @RenderAddEntry()
+
+                        @if (FlatListed)
+                        {
+                            @RenderFlatFooter()
+                        }
                     }
                     else
                     {
@@ -728,7 +751,7 @@
                                       Tasks="@EntryTasks()"
                                       Universe="@DependencyUniverse()"
                                       SelectedId="@SelectedTaskId"
-                                      SelectionEnabled="@State.SelectionMode"
+                                      SelectionEnabled="@(State.SelectionMode || FlatListed)"
                                       SelectedIds="@State.SelectedIds"
                                       SelectedIdsChanged="OnSelectionChanged"
                                       OnDismiss="OnRowDismiss"
@@ -807,6 +830,11 @@
                                 @RenderAddEntry()
                             </AfterOpenRows>
                         </TaskListView>
+
+                        @if (FlatListed)
+                        {
+                            @RenderFlatFooter()
+                        }
                     }
                 </div>
             </div>
@@ -2532,6 +2560,9 @@
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence),
+            // A plan's entry in the Flat list is there only because it is in
+            // today's My Day, and says which plan it belongs to (local ADR 0062 §3).
+            MyDayPlan = FlatMyDayPlan(row),
             // Only while the row was put in My Day today: a slot belongs to the
             // stamp's day, so a slot in yesterday's plan is no slot today, even on
             // a task Clear My Day overnight being off has carried into today's list
@@ -6306,6 +6337,272 @@
             }
         </div>;
     }
+
+    /// <summary>
+    /// Flat's bar (local ADR 0062 §3), left to right: the quick views, each with its
+    /// count; the Type, Source and #tag menus; the status tabs; and the sort. Text tabs
+    /// rather than chips — a radiogroup each where one of a set is in force, the menus
+    /// disclosures of the chips the other views draw on the bar.
+    /// </summary>
+    private RenderFragment RenderFlatBar() =>
+        @<text>
+        <div class="filter-group flat-bar__views" role="radiogroup" aria-label="Quick view" data-testid="flat-quick-views">
+            @foreach (var view in Enum.GetValues<FlatQuickView>())
+            {
+                var count = FlatQuickViewCount(view);
+                var active = FlatQuickViewInForce == view;
+                <AppButton BaseClass="flat-tab"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(active ? "flat-tab--active" : null)"
+                           TestId="flat-quick-view"
+                           data-view="@view.ToString()"
+                           role="radio"
+                           aria-checked="@(active ? "true" : "false")"
+                           OnClick="() => OnFlatQuickViewPicked(view)">
+                    @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    @if (count is { } n)
+                    {
+                        <span class="flat-tab__count">@n</span>
+                    }
+                </AppButton>
+            }
+        </div>
+
+        <div class="filter-group flat-bar__menus" data-testid="flat-menus">
+            <PopoverButton Id="flat-type-menu"
+                           TestId="flat-type-menu"
+                           AriaLabel="Type"
+                           Title="Filter by type"
+                           TriggerBaseClass="@(State.SelectedType is null ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>Type<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @(RenderTypeGroup() ?? RenderFlatMenuEmpty("One type in view"))
+                </ChildContent>
+            </PopoverButton>
+            <PopoverButton Id="flat-source-menu"
+                           TestId="flat-source-menu"
+                           AriaLabel="Source"
+                           Title="Filter by source"
+                           TriggerBaseClass="@(State.SelectedSource is null ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>Source<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @(RenderSourceGroup() ?? RenderFlatMenuEmpty("No linked sources in view"))
+                </ChildContent>
+            </PopoverButton>
+            <PopoverButton Id="flat-tag-menu"
+                           TestId="flat-tag-menu"
+                           AriaLabel="#tag"
+                           Title="Filter by tag"
+                           TriggerBaseClass="@(State.SelectedTags.Count == 0 ? "flat-tab flat-tab--menu" : "flat-tab flat-tab--menu flat-tab--active")"
+                           PanelCssClass="filter-menu__panel">
+                <Trigger>#tag<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @if (FlatTags.Count == 0)
+                    {
+                        @RenderFlatMenuEmpty("No tags in view")
+                    }
+                    else
+                    {
+                        <div class="filter-group filter-group--tags filter-group--tags--expanded" role="group" aria-label="Filter by tag">
+                            @foreach (var tag in FlatTags)
+                            {
+                                <ToggleButton @key="tag.Value"
+                                              BaseClass="chip chip--filter"
+                                              CssClass="@TagFilterClass(tag)"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@State.IsTagSelected(tag.Value)"
+                                              TestId="tag-filter-option"
+                                              Title="@TagFilterTitle(tag)"
+                                              PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                    @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </PopoverButton>
+        </div>
+
+        <div class="filter-group flat-bar__status" role="radiogroup" aria-label="Filter by status" data-testid="flat-status-tabs">
+            @foreach (var (label, wire) in FlatStatusTabs)
+            {
+                var active = State.SelectedStatusFilterWire == wire;
+                <AppButton BaseClass="flat-tab"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(active ? "flat-tab--active" : null)"
+                           TestId="flat-status-tab"
+                           data-status="@wire"
+                           role="radio"
+                           aria-checked="@(active ? "true" : "false")"
+                           OnClick="() => OnFilterChanged(wire)">
+                    @label
+                </AppButton>
+            }
+        </div>
+
+        <div class="filter-group flat-bar__sort">
+            <AppButton BaseClass="flat-tab flat-tab--menu"
+                       Variant="ButtonVariant.None"
+                       TestId="sort-by-status"
+                       Disabled="@(!State.CanSortVisibleByStatus)"
+                       title="@(State.CanSortVisibleByStatus
+                                ? "Sort by status: move the tasks in view into status order. Tasks the filters hide keep their place."
+                                : "The tasks in view are already in status order.")"
+                       OnClick="State.SortVisibleByStatusAsync">
+                Sort: status
+            </AppButton>
+        </div>
+        </text>;
+
+    private static RenderFragment RenderFlatMenuEmpty(string text) =>
+        @<p class="flat-menu__empty" data-testid="flat-menu-empty">@text</p>;
+
+    private PopoverButton? _flatMakePlanMenu;
+    private PopoverButton? _flatAddToPlanMenu;
+    private PopoverButton? _flatStatusMenu;
+
+    /// <summary>
+    /// Flat's selection, one line of text actions while rows are picked: Make a plan,
+    /// Add to plan, Queue each, Status and Clear, after the count. Escape clears it,
+    /// as the bulk bar's does.
+    /// </summary>
+    private RenderFragment RenderFlatSelection()
+    {
+        var plans = FlatPlanTags();
+        var queueable = FlatQueueableSelection().Count;
+
+        return @<div class="flat-selection" role="toolbar" aria-label="Apply to the selected tasks" data-testid="flat-selection" @onkeydown="OnFlatSelectionKeyDown">
+            <span class="flat-selection__count" role="status" data-testid="flat-selection-count">@State.SelectionCount selected</span>
+
+            <PopoverButton @ref="_flatMakePlanMenu"
+                           Id="flat-make-plan"
+                           TestId="flat-make-plan"
+                           AriaLabel="Make a plan"
+                           Title="File the selected tasks under a new plan"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Make a plan</Trigger>
+                <ChildContent>
+                    <TextField Label="Plan name"
+                               Value="@_flatNewPlanName"
+                               ValueChanged="value => _flatNewPlanName = value"
+                               Placeholder="zero-trust-auth"
+                               Compact="true"
+                               TestId="flat-make-plan-name" />
+                    <AppButton Variant="ButtonVariant.Primary"
+                               TestId="flat-make-plan-submit"
+                               Disabled="@(PlanTagFor(_flatNewPlanName) is null)"
+                               Busy="@IsBulkRunning(BulkAct.AddTags)"
+                               OnClick="OnFlatMakePlanPressedAsync">
+                        Make plan
+                    </AppButton>
+                </ChildContent>
+            </PopoverButton>
+
+            <PopoverButton @ref="_flatAddToPlanMenu"
+                           Id="flat-add-to-plan"
+                           TestId="flat-add-to-plan"
+                           AriaLabel="Add to plan"
+                           Title="File the selected tasks under a plan"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Add to plan<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    @if (plans.Count == 0)
+                    {
+                        @RenderFlatMenuEmpty("No plans yet — make one")
+                    }
+                    else
+                    {
+                        <div class="flat-selection__options" role="group" aria-label="Plans">
+                            @foreach (var plan in plans)
+                            {
+                                <AppButton BaseClass="flat-action"
+                                           Variant="ButtonVariant.None"
+                                           TestId="flat-add-to-plan-option"
+                                           data-plan="@plan"
+                                           OnClick="() => OnFlatAddToPlanPressedAsync(plan)">
+                                    @plan
+                                </AppButton>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </PopoverButton>
+
+            <AppButton BaseClass="flat-action"
+                       Variant="ButtonVariant.None"
+                       TestId="flat-queue-each"
+                       Disabled="@(queueable == 0)"
+                       title="@(queueable == 0
+                                ? "None of the selected tasks can be queued on its own: a session is for an unplanned prompt in one repository, not already waiting."
+                                : $"Ask for a session for each of {queueable} selected {TaskWord(queueable)}")"
+                       OnClick="OnFlatQueueEachAsync">
+                Queue each
+            </AppButton>
+
+            <PopoverButton @ref="_flatStatusMenu"
+                           Id="flat-selection-status"
+                           TestId="flat-selection-status"
+                           AriaLabel="Status"
+                           Title="Set the status of the selected tasks"
+                           TriggerBaseClass="flat-action"
+                           PanelCssClass="filter-menu__panel flat-selection__panel">
+                <Trigger>Status<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                <ChildContent>
+                    <div class="flat-selection__options" role="group" aria-label="Statuses">
+                        @foreach (var (label, status) in FlatSelectionStatuses)
+                        {
+                            <AppButton BaseClass="flat-action"
+                                       Variant="ButtonVariant.None"
+                                       TestId="flat-selection-status-option"
+                                       data-status="@status.ToString()"
+                                       OnClick="() => OnFlatSelectionStatusPressedAsync(status)">
+                                @label
+                            </AppButton>
+                        }
+                    </div>
+                </ChildContent>
+            </PopoverButton>
+
+            <AppButton BaseClass="flat-action flat-action--clear"
+                       Variant="ButtonVariant.None"
+                       TestId="flat-selection-clear"
+                       OnClick="OnClearSelection">
+                Clear
+            </AppButton>
+        </div>;
+    }
+
+    private async Task OnFlatMakePlanPressedAsync()
+    {
+        await OnFlatMakePlanAsync();
+        if (_flatMakePlanMenu is not null) await _flatMakePlanMenu.CloseAsync();
+    }
+
+    private async Task OnFlatAddToPlanPressedAsync(string plan)
+    {
+        await OnFlatAddToPlanAsync(plan);
+        if (_flatAddToPlanMenu is not null) await _flatAddToPlanMenu.CloseAsync();
+    }
+
+    private async Task OnFlatSelectionStatusPressedAsync(EntryStatus status)
+    {
+        await OnFlatSelectionStatusAsync(status);
+        if (_flatStatusMenu is not null) await _flatStatusMenu.CloseAsync();
+    }
+
+    private void OnFlatSelectionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape") OnClearSelection();
+    }
+
+    /// <summary>Flat's footer: the unplanned entries the bar leaves out, and where the
+    /// plan entries went.</summary>
+    private RenderFragment RenderFlatFooter() =>
+        @<p class="flat-footer" data-testid="flat-footer">@FlatFooterText</p>;
 
     /// <summary>The Plans / Flat switch's two choices, in the order drawn.</summary>
     private static readonly TaskListGrouping[] ListGroupings = [TaskListGrouping.Plans, TaskListGrouping.Flat];
