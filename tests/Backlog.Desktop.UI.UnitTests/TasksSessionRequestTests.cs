@@ -309,6 +309,71 @@ public sealed class TasksSessionRequestTests
         Assert.Empty(queue.Asked);
     }
 
+/// <summary>While the plan has a request open, a plan entry's row says Queued with
+    /// plan and its still-refused icon is lit, naming the queued plan (local ADR 0062 §4;
+    /// the board "Row states — entry ↔ queue").</summary>
+    [Fact]
+    public async Task While_its_plan_is_queued_a_plan_entry_s_row_says_so_and_its_refused_icon_is_lit()
+    {
+        var (host, queue, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!ready` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.State.SelectAsync(null);
+        var plans = new TasksPlanSessionRequestTests.FakePlanTagSessionRequests();
+        plans.Open["plan-first-tasks"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch, QueuePosition: 0);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(plans);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var badge = RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']");
+            Assert.NotNull(badge);
+            Assert.Equal("Queued with plan", badge.TextContent.Trim());
+            Assert.Contains("entry-row__plan-state--queued-with-plan", badge.ClassList);
+
+            var button = RowIcon(pane, row);
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Contains("queue-button--plan-queued", button.ClassList);
+            Assert.Equal(TasksPane.PlanEntryQueuedReason("+plan-first-tasks"), button.GetAttribute("title"));
+        });
+
+        RowIcon(pane, row).Click();
+        Assert.Empty(queue.Asked);
+    }
+
+    /// <summary>With its plan not queued, a ready plan entry's row carries no plan state -
+    /// Ready would only repeat its status - and its icon stays dim.</summary>
+    [Fact]
+    public async Task With_its_plan_not_queued_a_ready_plan_entry_s_row_adds_no_state_and_its_icon_stays_dim()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!ready` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.State.SelectAsync(null);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(new TasksPlanSessionRequestTests.FakePlanTagSessionRequests());
+
+        var pane = host.Render();
+
+        Assert.Null(RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']"));
+        Assert.DoesNotContain("queue-button--plan-queued", RowIcon(pane, row).ClassList);
+    }
+
+    /// <summary>A plan entry a plan session runs says In plan session on its row.</summary>
+    [Fact]
+    public async Task A_plan_entry_in_a_plan_session_says_so_on_its_row()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!in-progress` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        row.SessionLinks = [new EntrySessionLink(Backlog, "plan-session")];
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+
+        Assert.Equal("In plan session", RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']")?.TextContent.Trim());
+    }
+
     [Fact]
     public void A_plan_entry_s_offer_is_refused_even_with_a_clone_folder()
     {
