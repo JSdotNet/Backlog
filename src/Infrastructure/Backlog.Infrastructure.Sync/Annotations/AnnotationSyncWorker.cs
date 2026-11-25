@@ -191,17 +191,24 @@ public sealed class AnnotationSyncWorker : IDisposable
             var result = await RefusedTokenRerun.RunAsync(
                 _services, () => session.SyncAsync(_lifetime.Token), _log, "annotation").ConfigureAwait(false);
 
-            switch (result)
+            // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+            LastError = result switch
             {
-                case Ok<AnnotationSyncSummary>(var summary):
-                    LastSummary = summary;
-                    LastError = null;
-                    break;
-                case Error error:
-                    LastError = error.Message;
-                    _log.LogInformation(
-                        "An annotation sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
-                    break;
+                Ok<AnnotationSyncSummary>(var summary) => Completed(summary),
+                Error error => Failed(error),
+            };
+
+            string? Completed(AnnotationSyncSummary summary)
+            {
+                LastSummary = summary;
+                return null;
+            }
+
+            string Failed(Error error)
+            {
+                _log.LogInformation(
+                    "An annotation sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                return error.Message;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

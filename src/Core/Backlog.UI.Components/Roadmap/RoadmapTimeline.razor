@@ -1,6 +1,7 @@
 @using System.Globalization
 @implements IAsyncDisposable
 @inject IJSRuntime Js
+@inject IServiceProvider Services
 
 @*
     A plan drawn against time: quarters across the top, a two-level column of
@@ -1187,8 +1188,19 @@
     /// chart.
     /// </summary>
     private RoadmapWindow Span => _span ??= Window ?? (Graduated
-        ? RoadmapWindow.Graduated(PlanDates, Today ?? DateOnly.FromDateTime(DateTime.Now), WeekStart)
-        : RoadmapWindow.Covering(PlanDates, Today ?? DateOnly.FromDateTime(DateTime.Now)));
+        ? RoadmapWindow.Graduated(PlanDates, Today ?? ClockToday, WeekStart)
+        : RoadmapWindow.Covering(PlanDates, Today ?? ClockToday));
+
+    /// <summary>The local date when the caller passed no <see cref="Today"/>: read off the
+    /// host's <see cref="TimeProvider"/> (app-defaults ADR 0005), the system clock where
+    /// the host registers none.</summary>
+    private DateOnly ClockToday => DateOnly.FromDateTime(Clock.GetLocalNow().DateTime);
+
+    private TimeProvider? _clock;
+
+    /// <summary>The host's clock, resolved once.</summary>
+    private TimeProvider Clock =>
+        _clock ??= Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
 
     private IEnumerable<DateOnly> PlanDates =>
         BarList.SelectMany(bar => new[] { bar.Start, bar.End })

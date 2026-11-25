@@ -442,26 +442,35 @@ public sealed class NotificationSyncSession
                         : Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyUnpairedDevice());
                 }
 
-                switch (outcome)
+                // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+                var taken = outcome switch
                 {
-                    case Ok<NotificationAnswer>:
-                        accepted++;
-                        MarkDirty(reply.NotificationId);
-                        break;
-                    case Error refusal:
-                        rejected++;
+                    Ok<NotificationAnswer> => Accept(),
+                    Error refusal => Refuse(refusal),
+                };
 
-                        // Logged by id and code only: an open answer is the person's own text.
-                        _log.LogInformation(
-                            "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.",
-                            reply.Id,
-                            reply.NotificationId,
-                            refusal.Code);
+                if (taken) accepted++;
+                else rejected++;
 
-                        // A reply to a notification this instance does not hold has nowhere to
-                        // say so; it is only deleted.
-                        if (snapshot is not null) Reject(record, refusal);
-                        break;
+                bool Accept()
+                {
+                    MarkDirty(reply.NotificationId);
+                    return true;
+                }
+
+                bool Refuse(Error refusal)
+                {
+                    // Logged by id and code only: an open answer is the person's own text.
+                    _log.LogInformation(
+                        "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.",
+                        reply.Id,
+                        reply.NotificationId,
+                        refusal.Code);
+
+                    // A reply to a notification this instance does not hold has nowhere to
+                    // say so; it is only deleted.
+                    if (snapshot is not null) Reject(record, refusal);
+                    return false;
                 }
             }
 

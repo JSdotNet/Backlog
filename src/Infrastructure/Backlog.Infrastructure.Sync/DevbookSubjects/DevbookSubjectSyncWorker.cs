@@ -194,17 +194,24 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
             var result = await RefusedTokenRerun.RunAsync(
                 _services, () => session.SyncAsync(_lifetime.Token), _log, "devbook subject").ConfigureAwait(false);
 
-            switch (result)
+            // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+            LastError = result switch
             {
-                case Ok<DevbookSubjectSyncSummary>(var summary):
-                    LastSummary = summary;
-                    LastError = null;
-                    break;
-                case Error error:
-                    LastError = error.Message;
-                    _log.LogInformation(
-                        "A devbook subject sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
-                    break;
+                Ok<DevbookSubjectSyncSummary>(var summary) => Completed(summary),
+                Error error => Failed(error),
+            };
+
+            string? Completed(DevbookSubjectSyncSummary summary)
+            {
+                LastSummary = summary;
+                return null;
+            }
+
+            string Failed(Error error)
+            {
+                _log.LogInformation(
+                    "A devbook subject sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                return error.Message;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
