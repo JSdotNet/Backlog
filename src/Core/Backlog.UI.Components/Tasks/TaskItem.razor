@@ -395,6 +395,19 @@
                     StatusTestId="@Suffix("copy-status")" />
     }
 
+    @if (Trailing is not null)
+    {
+        @* The host's one control after the copy — the quiet row's queue button. Its
+           own slot rather than the end of Actions, because the quiet row ends on the
+           pair copy-then-queue and Actions sits ahead of the copy. Clicks stop here
+           for the reason they stop at Actions. *@
+        <span class="task-item__trailing"
+              @onmousedown:stopPropagation="true"
+              @onclick:stopPropagation="true">
+            @Trailing(Task)
+        </span>
+    }
+
     @if (CanDelete)
     {
         @* Last on the row, after everything that acts on the task and after the
@@ -863,6 +876,25 @@
     /// </summary>
     [Parameter]
     public RenderFragment<TaskRow>? Badges { get; set; }
+
+    /// <summary>
+    /// The host's control after the copy button and ahead of the bin, handed the task
+    /// it is about — the Tasks pane's queue button. Unset, nothing is rendered.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Trailing { get; set; }
+
+    /// <summary>
+    /// The quiet look a host opts into (local ADR 0062): the status a host draws in
+    /// <see cref="Actions"/> reads as coloured text rather than a pill, and the row
+    /// ends in two 26px borderless icon buttons — the copy, shown once the row is
+    /// hovered or holds the focus, and the host's <see cref="Trailing"/> control.
+    /// Only the stylesheet reads it, through <c>task-item--quiet</c>; every badge,
+    /// the link handle and the host's stripe are drawn as they always are. Off by
+    /// default, so every other list keeps the row it has.
+    /// </summary>
+    [Parameter]
+    public bool Quiet { get; set; }
 
     /// <summary>What the disclosure calls the body. "Body" by default, because
     /// this library does not know what a host writes there — a prompt, a brief,
@@ -1969,6 +2001,7 @@
     private string ClassValue => string.Join(' ', new[]
     {
         "task-item",
+        Quiet ? "task-item--quiet" : null,
         Task.Done ? "task-item--done" : null,
         // The row wraps for the region under it, which outlasts the body while an
         // edit is emptying it.

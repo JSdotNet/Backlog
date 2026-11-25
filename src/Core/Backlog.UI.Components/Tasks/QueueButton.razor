@@ -1,0 +1,100 @@
+@*
+    The quiet row's queue control: a 26px borderless square holding the list-end
+    glyph, in one of three looks (QueueButtonState).
+
+    Idle is muted and a press queues the row. Queued is amber on a dark amber fill
+    and a press takes the row off the queue again; the label names that act, so the
+    colour is never the only carrier. No aria-pressed: the label already changes with
+    the state, and a toggle whose name changed too would be announced twice. PlanEntry is refused, natively disabled, with the reason
+    on the tooltip and in an sr-only span the button points at: a plan is queued only
+    as a whole (local ADR 0062 §4), and a control that vanished would read as one the
+    product cannot do.
+
+    Busy keeps the button in the tab order, marked aria-disabled and aria-busy rather
+    than natively disabled, so the focus stays where it was while a press is on its
+    way; the host refuses the second press. Disabled is for a queued row the host can
+    no longer take back — a dispatcher already picked the request up.
+
+    IconButton underneath, wearing this control's own class, so the name and the
+    tooltip are IconButton's rules rather than a second copy of them.
+*@
+<IconButton BaseClass="@ClassValue"
+            TestId="@TestId"
+            Disabled="@NativelyDisabled"
+            aria-busy="@(Busy ? "true" : null)"
+            aria-disabled="@(Busy ? "true" : null)"
+            aria-describedby="@(Reason is null ? null : ReasonIdValue)"
+            data-queue-state="@StateSlug"
+            AriaLabel="@Label"
+            Title="@(Reason ?? Label)"
+            OnClick="OnClick">
+    <ListEndIcon />
+</IconButton>
+
+@if (Reason is { } reason)
+{
+    <span id="@ReasonIdValue" class="sr-only" data-testid="@(TestId is null ? null : $"{TestId}-reason")">@reason</span>
+}
+
+@code {
+    /// <summary>Which look the button wears, and so what a press does.</summary>
+    [Parameter]
+    public QueueButtonState State { get; set; }
+
+    /// <summary>The button's accessible name: the act, naming the row — "Queue a
+    /// session for Wire up the store", "Take Wire up the store off the queue".</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Why the button is refused. A <see cref="QueueButtonState.PlanEntry"/>
+    /// button always is, and falls back to <see cref="PlanEntryReason"/>; any other
+    /// state is refused only when this is set.</summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
+    /// <summary>A press is on its way: aria-disabled and aria-busy, still focusable.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    /// <summary>Appended to the button's own class.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Gives the reason span an id that does not repeat when several rows
+    /// draw one. Unset, one is made for this instance.</summary>
+    [Parameter]
+    public string? ReasonId { get; set; }
+
+    /// <summary>What a plan entry's button says when the host gives no reason.</summary>
+    public const string PlanEntryReason = "Queued with its plan — queue the plan as a whole";
+
+    private readonly string _reasonId = $"queue-reason-{Guid.NewGuid():N}";
+
+    private string ReasonIdValue => ReasonId ?? _reasonId;
+
+    private string? Reason => State == QueueButtonState.PlanEntry
+        ? DisabledReason ?? PlanEntryReason
+        : DisabledReason;
+
+    private bool NativelyDisabled => Reason is not null;
+
+    private string StateSlug => State switch
+    {
+        QueueButtonState.Queued => "queued",
+        QueueButtonState.PlanEntry => "plan-entry",
+        _ => "idle"
+    };
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "queue-button",
+        $"queue-button--{StateSlug}",
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+}

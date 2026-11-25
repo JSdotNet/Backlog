@@ -739,6 +739,7 @@
                                       AllowCopy="true"
                                       RowCopyValue="@EntryCopyText"
                                       RowCssClass="@RepositoryMark"
+                                      QuietRows="true"
                                       AriaLabel="Tasks"
                                       TestId="entry-list">
                             <RowActions Context="task">
@@ -757,12 +758,16 @@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
                                     @RenderRowPickers(entry, task.Title)
-
-                                    @* Last in the slot, so it sits right before the
-                                       row's copy — where the open entry puts it too. *@
-                                    @QueueSessionFor(entry, QueueSessionPlace.Row)
                                 }
                             </RowActions>
+                            <RowTrailing Context="task">
+                                @* The quiet row's last square, after the copy: the
+                                   queue button and its three looks (local ADR 0062). *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @RenderRowQueue(entry, task.Title)
+                                }
+                            </RowTrailing>
                             <RowBadges Context="task">
                                 @* What work on the entry produced — its latest pull
                                    request and session. A fact to follow rather than a
@@ -1330,15 +1335,6 @@
 
     private void HandleSessionRequestsChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>Where a queue icon is drawn: on the entry's list row, or on the
-    /// heading of the open entry. Both can be on screen at once for the same entry,
-    /// so each names its own reason element.</summary>
-    private enum QueueSessionPlace
-    {
-        Row,
-        Entry
-    }
-
     /// <summary>The queue icon's name: which repository the session is queued for,
     /// or that the press asks.</summary>
     private static string QueueSessionLabel(SessionStartOffer offer) =>
@@ -1351,24 +1347,24 @@
                 : "Queue a session for this entry";
 
     /// <summary>
-    /// The queue icon for <paramref name="row"/> at <paramref name="place"/>, or null
-    /// when queueing offers nothing there — see <see cref="SessionQueueOfferFor"/>;
-    /// while a request is open the waiting chip stands in its place.
+    /// The open entry's queue icon for <paramref name="row"/>, or null when queueing
+    /// offers nothing there — see <see cref="SessionQueueOfferFor"/>; while a request
+    /// is open the waiting chip stands in its place. The list row draws its own, in
+    /// the quiet look — see <see cref="RenderRowQueue"/>.
     /// <para>
     /// Disabled rather than absent when there is no clone folder or no repository,
     /// with the reason to the pointer through the tooltip and to assistive technology
     /// through an sr-only span the button's <c>aria-describedby</c> names. That span's
-    /// id carries the entry and the place: every prompt row can draw one, and the
-    /// open entry draws its own beside its row's, so a fixed id would repeat.
+    /// id carries the entry and the place: the row draws its own beside this one, so a
+    /// fixed id would repeat.
     /// </para>
     /// </summary>
-    private RenderFragment? QueueSessionFor(EntryRow row, QueueSessionPlace place)
+    private RenderFragment? QueueSessionFor(EntryRow row)
     {
         if (row.Id is not { } id || SessionQueueOfferFor(row) is not { } offer) return null;
 
-        var (testId, buttonClass) = place == QueueSessionPlace.Row
-            ? ("row-queue-session", "task-item__action-button")
-            : ("entry-queue-session", "task-panel__action-button");
+        const string testId = "entry-queue-session";
+        const string buttonClass = "task-panel__action-button";
         var reasonId = $"{testId}-reason-{id:N}";
         var label = QueueSessionLabel(offer);
 
@@ -1396,6 +1392,56 @@
                 <span id="@reasonId" class="sr-only" data-testid="@($"{testId}-reason")">@reason</span>
             }
         </text>;
+    }
+
+    /// <summary>
+    /// The quiet row's queue button for <paramref name="row"/>, in the look its queue
+    /// state calls for, or null when queueing offers nothing on it (local ADR 0062).
+    /// <para>
+    /// Idle when nothing is queued: a press queues a session, as the open entry's icon
+    /// does. Queued once a request is open: amber, and a press takes the request back —
+    /// refused, with the request's state as the reason, once a dispatcher has picked it
+    /// up, on the open entry's terms for its Cancel. A plan entry's is refused and dim,
+    /// labelled to queue the plan as a whole (local ADR 0062 §4).
+    /// </para>
+    /// </summary>
+    private RenderFragment? RenderRowQueue(EntryRow row, string title)
+    {
+        if (row.Id is not { } id || !_sessionRequests.IsOffered) return null;
+
+        QueueButtonState state;
+        string label;
+        string? reason;
+        Func<Task> press;
+
+        if (_sessionRequests.OpenFor(id) is { } waiting)
+        {
+            state = QueueButtonState.Queued;
+            label = $"Take {title} off the queue";
+            reason = waiting.State is EntrySessionRequestState.Requested ? null : SessionRequestTitle(waiting);
+            press = () => OnCancelSessionRequestAsync(row);
+        }
+        else if (SessionQueueOfferFor(row) is { } offer)
+        {
+            state = offer.PlanTag is null ? QueueButtonState.Idle : QueueButtonState.PlanEntry;
+            label = QueueSessionLabel(offer);
+            reason = offer.DisabledReason;
+            press = () => OnQueueSessionAsync(row);
+        }
+        else
+        {
+            return null;
+        }
+
+        // One QueueButton for every state, so a cancel that turns it back to idle
+        // re-renders the same button and the focus stays on it.
+        return @<QueueButton State="@state"
+                             Label="@label"
+                             DisabledReason="@reason"
+                             Busy="@_sessionRequests.IsBusy(id)"
+                             ReasonId="@($"row-queue-session-reason-{id:N}")"
+                             TestId="row-queue-session"
+                             OnClick="press" />;
     }
 
     // --- The plan filter's queue icon (local ADR 0038 §2) ----------------------
@@ -4015,7 +4061,7 @@
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
                        Goal="@GoalFor(row)"
-                       HeaderActions="@QueueSessionFor(row, QueueSessionPlace.Entry)"
+                       HeaderActions="@QueueSessionFor(row)"
                        TestId="entry-panel">
                 <StatusContent>
                     @* On the heading line, where the list row also shows it. The
