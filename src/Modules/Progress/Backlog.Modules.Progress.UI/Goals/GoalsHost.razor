@@ -1,5 +1,6 @@
 @using global::Backlog.Modules.Progress.Abstractions.DataTransferObjects
 @using global::Backlog.Modules.Progress.Abstractions.Services
+@using global::Backlog.SharedKernel.Changes
 @using global::Backlog.SharedKernel.Results
 @using global::Backlog.UI.Components.Feedback
 @using global::Backlog.UI.Components.Goals
@@ -259,16 +260,27 @@ else
     /// module answered with, drawn before that reading.</summary>
     private readonly record struct Written(bool Read, GoalDto? Goal = null);
 
-    private Task WriteAsync(Func<Task<bool>> write) => WriteAsync(async () => new Written(await write()));
+    private Task WriteAsync(string label, Func<Task<bool>> write) => WriteAsync(label, async () => new Written(await write()));
 
     /// <summary>Runs a write made here and the read after it, with the module's Changed
-    /// for that write set aside.</summary>
-    private async Task WriteAsync(Func<Task<Written>> write)
+    /// for that write set aside.
+    /// <para>
+    /// The write is the person's gesture (local ADR 0061 §3): it opens one person change
+    /// set, labelled <paramref name="label"/>, unless one is current, so every write it
+    /// makes — a quick add's task and its attach alike — is taken back together. The
+    /// read after it writes nothing and runs outside it.
+    /// </para>
+    /// </summary>
+    private async Task WriteAsync(string label, Func<Task<Written>> write)
     {
         _ownWrites++;
         try
         {
-            var written = await write();
+            Written written;
+            using (ChangeContext.BeginIfNone(ChangeActor.Person, label))
+            {
+                written = await write();
+            }
             if (!written.Read) return;
 
             // The write's own finally has run, so the board is no longer busy: the goal the
@@ -372,7 +384,7 @@ else
         }
 
         var settings = _settings;
-        await WriteAsync(() =>
+        await WriteAsync("setting the iteration", () =>
         {
             settings.SetLength(GoalsMapper.Length(iteration), Today);
             return Task.FromResult(true);
@@ -386,7 +398,7 @@ else
         if (_settings is not { } settings) return;
 
         _askingStart = false;
-        await WriteAsync(() =>
+        await WriteAsync("setting the two-week start", () =>
         {
             settings.SetTwoWeekStart(start);
             settings.SetLength(IterationLength.TwoWeeks, Today);
@@ -398,7 +410,7 @@ else
     {
         if (_goals is not { } goals) return;
 
-        await WriteAsync(async () =>
+        await WriteAsync("creating a goal", async () =>
         {
             _writing = true;
             try
@@ -428,7 +440,7 @@ else
 
         var item = GoalSubjects.ToItem(request.Subject);
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("attaching to a goal", async () =>
         {
             _writing = true;
             try
@@ -472,7 +484,7 @@ else
         if (_goals is not { } goals || CreateTask is not { } create || _writing || !Guid.TryParse(request.GoalId, out var goalId)) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("adding a task to a goal", async () =>
         {
             _writing = true;
             try
@@ -549,7 +561,7 @@ else
         if (_goals is not { } goals || _picking is not { } picking || _writing) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("attaching to a goal", async () =>
         {
             _writing = true;
             try
@@ -586,7 +598,7 @@ else
         if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("editing a goal", async () =>
         {
             _writing = true;
             try
@@ -608,7 +620,7 @@ else
 
         _writeError = null;
         _editError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("deleting a goal", async () =>
         {
             _writing = true;
             try
@@ -631,7 +643,7 @@ else
 
         var item = GoalSubjects.ToItem(request.Subject);
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("detaching from a goal", async () =>
         {
             _writing = true;
             try
@@ -656,7 +668,7 @@ else
         if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("moving a goal", async () =>
         {
             _writing = true;
             try
@@ -677,7 +689,7 @@ else
         if (_impediments is not { } impediments || !Guid.TryParse(request.ImpedimentId, out var id)) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("moving an impediment", async () =>
         {
             _writing = true;
             try
@@ -700,7 +712,7 @@ else
         if (_impediments is not { } impediments || !Guid.TryParse(request.ImpedimentId, out var id)) return;
 
         _writeError = null;
-        await WriteAsync(async () =>
+        await WriteAsync("editing an impediment's note", async () =>
         {
             _writing = true;
             try
@@ -729,7 +741,7 @@ else
         // Not while a write is under way: raising is not idempotent.
         if (_impediments is not { } impediments || _writing) return;
 
-        await WriteAsync(async () =>
+        await WriteAsync("raising an impediment", async () =>
         {
             _writing = true;
             try
@@ -756,14 +768,15 @@ else
     }
 
     private Task LinkAsync(ImpedimentLinkRequest request) =>
-        LinkWriteAsync(request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.HoldBackAsync(id, item));
+        LinkWriteAsync("linking to an impediment", request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.HoldBackAsync(id, item));
 
     private Task UnlinkAsync(ImpedimentUnlinkRequest request) =>
-        LinkWriteAsync(request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.ReleaseAsync(id, item));
+        LinkWriteAsync("unlinking from an impediment", request.ImpedimentId, request.Subject, (impediments, id, item) => impediments.ReleaseAsync(id, item));
 
     /// <summary>A link or an unlink: read again once it lands, the refusal kept for the row
     /// otherwise.</summary>
     private async Task LinkWriteAsync(
+        string label,
         string impedimentId,
         GoalSubject subject,
         Func<IImpediments, Guid, HeldBackItemDto, Task<Result<ImpedimentDto>>> write)
@@ -774,7 +787,7 @@ else
 
         var item = GoalSubjects.ToHeldBack(subject);
         _linkError = null;
-        await WriteAsync(async () =>
+        await WriteAsync(label, async () =>
         {
             _writing = true;
             try

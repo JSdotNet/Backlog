@@ -7,6 +7,7 @@ using Backlog.UI.Components.Progress;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -391,6 +392,25 @@ public sealed class GoalsHostTests : IDisposable
     }
 
     [Fact]
+    public void An_impediments_state_change_is_one_person_change_set()
+    {
+        var host = Render();
+        var picker = $"[data-testid='goals-board-stand-up-impediment-{BankId}-state'] select";
+        host.WaitForAssertion(() => host.Find(picker));
+
+        host.Find(picker).Change(nameof(StandUpImpedimentState.BeingHandled));
+
+        host.WaitForAssertion(() =>
+        {
+            var saved = Assert.Single(_impediments.WrittenUnder);
+            Assert.NotNull(saved);
+            Assert.Equal(ChangeActor.Person, saved.Actor);
+            Assert.Equal("moving an impediment", saved.Label);
+        });
+        Assert.Null(ChangeContext.Current);
+    }
+
+    [Fact]
     public void A_refused_move_shows_why_and_the_picker_goes_back_to_the_stored_state()
     {
         _impediments.Failure = Error.Validation("progress.impediment_move_not_allowed", "Escalated cannot move to New.");
@@ -709,6 +729,39 @@ public sealed class GoalsHostTests : IDisposable
     }
 
     [Fact]
+    public void A_goal_edit_is_one_person_change_set()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find(PaidField("title")));
+
+        host.Find(PaidField("title")).Change("Customers paid sooner");
+
+        host.WaitForAssertion(() =>
+        {
+            var saved = Assert.Single(_goals.WrittenUnder);
+            Assert.NotNull(saved);
+            Assert.Equal(ChangeActor.Person, saved.Actor);
+            Assert.Equal("editing a goal", saved.Label);
+        });
+        Assert.Null(ChangeContext.Current);
+    }
+
+    [Fact]
+    public void An_edit_inside_a_wider_change_set_joins_it()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find(PaidField("title")));
+        var agent = ChangeSet.Start(ChangeActor.Agent, "an agent's run");
+
+        using (ChangeContext.Enter(agent))
+        {
+            host.Find(PaidField("title")).Change("Customers paid sooner");
+        }
+
+        host.WaitForAssertion(() => Assert.Same(agent, Assert.Single(_goals.WrittenUnder)));
+    }
+
+    [Fact]
     public void A_refused_edit_shows_the_modules_words_in_the_goal_and_reads_nothing()
     {
         _goals.EditFailure = ProgressErrors.GoalWithoutTitle();
@@ -875,6 +928,30 @@ public sealed class GoalsHostTests : IDisposable
             Assert.Contains("Bank export", host.Find($"[data-testid='goals-board-goal-{PaidId}-tasks']").TextContent);
             Assert.Equal(string.Empty, host.Find(PaidSearch).GetAttribute("value") ?? string.Empty);
             Assert.Empty(host.FindAll(PaidQuickAdd));
+        });
+    }
+
+    [Fact]
+    public void A_new_task_and_its_attach_are_one_person_change_set()
+    {
+        var createdUnder = new List<ChangeSet?>();
+        var host = Render(createTask: title =>
+        {
+            createdUnder.Add(ChangeContext.Current);
+            return CreateBankExport(title, []);
+        });
+        host.WaitForAssertion(() => host.Find(PaidSearch));
+
+        host.Find(PaidSearch).Input("Bank export");
+        host.WaitForAssertion(() => host.Find(PaidQuickAdd));
+        host.Find(PaidQuickAdd).Click();
+
+        host.WaitForAssertion(() =>
+        {
+            var created = Assert.Single(createdUnder);
+            Assert.NotNull(created);
+            Assert.Equal(ChangeActor.Person, created.Actor);
+            Assert.Same(created, Assert.Single(_goals.WrittenUnder));
         });
     }
 
@@ -1276,6 +1353,7 @@ public sealed class GoalsHostTests : IDisposable
         public async Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Attached.Add((goalId, item, moveFromOtherGoal));
+            WrittenUnder.Add(ChangeContext.Current);
             if (AnswersLater) await Task.Yield();
             if (AttachFailure is { } refused) return Result.Failure<GoalDto>(refused);
 
@@ -1292,6 +1370,9 @@ public sealed class GoalsHostTests : IDisposable
 
         public List<(Guid, SetGoalRequest)> Edited { get; } = [];
 
+        /// <summary>The change set current at each edit and attach (local ADR 0061 §3).</summary>
+        public List<ChangeSet?> WrittenUnder { get; } = [];
+
         public Error? EditFailure { get; set; }
 
         public List<Guid> Deleted { get; } = [];
@@ -1303,6 +1384,7 @@ public sealed class GoalsHostTests : IDisposable
         public Task<Result<GoalDto>> EditAsync(Guid goalId, SetGoalRequest request, CancellationToken cancellationToken = default)
         {
             Edited.Add((goalId, request));
+            WrittenUnder.Add(ChangeContext.Current);
             return Task.FromResult(EditFailure is { } error
                 ? Result.Failure<GoalDto>(error)
                 : Result.Success(new GoalDto(goalId, request.Title, request.Outcome, request.DueDate, [])));
@@ -1348,6 +1430,9 @@ public sealed class GoalsHostTests : IDisposable
 
         public List<(Guid, ImpedimentState, string?)> Moves { get; } = [];
 
+        /// <summary>The change set current at each move (local ADR 0061 §3).</summary>
+        public List<ChangeSet?> WrittenUnder { get; } = [];
+
         public Error? Failure { get; set; }
 
         /// <summary>A save that completes only when the test says so.</summary>
@@ -1361,6 +1446,7 @@ public sealed class GoalsHostTests : IDisposable
         public async Task<Result<ImpedimentDto>> MoveAsync(Guid impedimentId, ImpedimentState state, string? with = null, CancellationToken cancellationToken = default)
         {
             Moves.Add((impedimentId, state, with));
+            WrittenUnder.Add(ChangeContext.Current);
             if (Gate is { } gate) await gate;
             if (Failure is { } error) return Result.Failure<ImpedimentDto>(error);
 
