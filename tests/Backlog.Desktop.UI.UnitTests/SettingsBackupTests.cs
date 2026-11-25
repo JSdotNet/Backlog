@@ -6,6 +6,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.SharedKernel.Changes;
 
 using Bunit;
 
@@ -315,6 +316,97 @@ public sealed class SettingsBackupTests
         Assert.Equal(BackupCadence.Daily, settings.Store.BackupSchedule.Cadence);
     }
 
+    /// <summary>The Change history card: how long the journal is kept, 90 days
+    /// until somebody picks 30 or 365 (local ADR 0061 §6).</summary>
+    [Fact]
+    public void The_change_history_card_offers_30_90_and_365_days_with_90_chosen()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        var card = settings.Component.Find("[data-testid='storage-change-history-settings']");
+        Assert.Equal("Change history", card.QuerySelector(".settings-card__title")?.TextContent);
+        Assert.Contains("Keep change history for", card.TextContent, StringComparison.Ordinal);
+
+        var select = settings.Component.Find("[data-testid='storage-change-history-days'] select");
+        Assert.Equal(["30", "90", "365"], select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
+        Assert.Equal("90", select.GetAttribute("value") ?? select.QuerySelector("option[selected]")?.GetAttribute("value"));
+
+        select.Change("365");
+
+        Assert.Equal(365, settings.Store.ChangeHistoryDays);
+        Assert.Contains("Change history", SettingsPages.BuiltIn.Single(page => page.Id == SettingsPages.Storage).CardTitles!);
+    }
+
+    /// <summary>Clearing asks first, in the page, saying it cannot be undone; only
+    /// the confirmation deletes, and cancelling keeps everything.</summary>
+    [Fact]
+    public async Task Clear_change_history_asks_first_and_then_deletes_every_revision_and_change_set()
+    {
+        using var settings = RenderSettings();
+        var repository = new SqliteTaskRepository(settings.Store.RootDirectory);
+        using (ChangeContext.Begin(ChangeActor.Agent, "agent run"))
+        {
+            await repository.SaveAsync(new TaskItem("Journalled", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        }
+
+        OpenStorageTab(settings.Component);
+
+        settings.Component.Find("[data-testid='storage-change-history-clear']").Click();
+        var dialog = settings.Component.Find("[data-testid='storage-change-history-clear-dialog']");
+        Assert.Contains("cannot be undone", dialog.TextContent, StringComparison.Ordinal);
+
+        settings.Component.Find("[data-testid='storage-change-history-clear-cancel']").Click();
+        Assert.Equal(1L, await CountAsync(settings.Store.DatabasePath, "change_sets"));
+
+        settings.Component.Find("[data-testid='storage-change-history-clear']").Click();
+        settings.Component.Find("[data-testid='storage-change-history-clear-confirm']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Contains("cleared", settings.Component.Find("[data-testid='storage-change-history-status']").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(10));
+        Assert.Equal(0L, await CountAsync(settings.Store.DatabasePath, "change_sets"));
+        Assert.Equal(0L, await CountAsync(settings.Store.DatabasePath, "revisions"));
+        Assert.Equal(1L, await CountAsync(settings.Store.DatabasePath, "tasks"));
+    }
+
+    /// <summary>The Backup card warns once <c>backlog.db</c> is past 50 MB and names
+    /// the change history as what can be cleared; at exactly 50 MB it says nothing.</summary>
+    [Theory]
+    [InlineData(50L * 1024 * 1024, false)]
+    [InlineData((50L * 1024 * 1024) + 1, true)]
+    public void The_backup_card_warns_when_the_database_is_larger_than_50_MB(long bytes, bool warns)
+    {
+        using var settings = RenderSettings();
+        using (var file = File.Create(settings.Store.DatabasePath))
+        {
+            file.SetLength(bytes);
+        }
+
+        OpenStorageTab(settings.Component);
+
+        var warnings = settings.Component.FindAll("[data-testid='storage-backup-size-warning']");
+        if (!warns)
+        {
+            Assert.Empty(warnings);
+            return;
+        }
+
+        var warning = Assert.Single(warnings);
+        Assert.Contains("change history", warning.TextContent, StringComparison.Ordinal);
+        Assert.Contains("cleared", warning.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(settings.Component.Find("[data-testid='storage-backup-settings']").QuerySelector("[data-testid='storage-backup-size-warning']"));
+    }
+
+    private static async Task<long> CountAsync(string databasePath, string table)
+    {
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT count(*) FROM {table};";
+        return (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+    }
+
     /// <summary>A field bound the way this screen binds its text fields — the
     /// draft on input, the commit on change — needs both events.</summary>
     private static void Commit(AngleSharp.Dom.IElement field, string value)
@@ -349,6 +441,8 @@ public sealed class SettingsBackupTests
         var gitHub = new RecordingGitHub();
 
         var context = new BunitContext();
+        // The change history's confirmation is a modal, which moves focus through JS.
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(
@@ -377,6 +471,7 @@ public sealed class SettingsBackupTests
         context.Services.AddSingleton(worker);
         context.Services.AddSingleton<TimeProvider>(time);
         context.Services.AddSingleton(new AgentCheckpoints(() => store.RootDirectory, time));
+        context.Services.AddSingleton(_ => new ChangeHistoryWorker(store, time));
 
         return new SettingsRenderContext(temp, store, gitHub, worker, context, context.Render<Settings>());
     }

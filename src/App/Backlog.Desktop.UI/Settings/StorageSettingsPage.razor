@@ -23,6 +23,8 @@
 @using Backlog.UI.Components.Data
 @* The Brain card, drawn by the library and fed here. *@
 @using Backlog.UI.Components.Brain
+@* ConfirmDialog asks before the change history is cleared. *@
+@using Backlog.UI.Components.Overlays
 @* For the optional logger a missing backup worker is noted in, rather than
    failing the page over it. *@
 @using Microsoft.Extensions.Logging
@@ -260,6 +262,15 @@
                         TestId="storage-backup-copies" />
         </MetricGrid>
 
+        @* A backup commits the whole file (local ADR 0010), so a database past
+           ChangeHistoryRetention.LargeDatabaseBytes is said here, beside the
+           figures, with the one thing in it the person can let go of: the change
+           history (local ADR 0061 §6). Renders nothing below the threshold. *@
+        <Alert Message="@LargeDatabaseWarning"
+               BaseClass="setting__warning"
+               Id="storage-backup-size-warning"
+               TestId="storage-backup-size-warning" />
+
         <p class="setting__status @(BackupStatusIsFailure ? "setting__status--error" : null)"
            id="storage-backup-status"
            data-testid="storage-backup-status"
@@ -426,6 +437,64 @@
     }
 </SettingsCard>
 
+@* The change journal (local ADR 0061 §6): how long it keeps what each change
+   set replaced, and a way to drop all of it. Always drawn, so the settings
+   search never names a card that is not there; a host that composes no worker
+   offers the period alone. Clearing asks first, in the page, because nothing
+   else keeps a revision once it is gone. *@
+<SettingsCard Title="Change history"
+              Id="storage-change-history-title"
+              TestId="storage-change-history-settings">
+    <p class="setting__body">
+        Backlog keeps the version of each task, plan, goal and impediment an edit replaced, so a change - an agent's
+        included - can be taken back later. History older than the period below is deleted
+        once a day.
+    </p>
+
+    <SelectField Form="true"
+                 Label="Keep change history for"
+                 Id="storage-change-history-days"
+                 TestId="storage-change-history-days"
+                 LabelCssClass="setting__label"
+                 SelectCssClass="setting__input"
+                 CurrentValue="@Store.ChangeHistoryDays.ToString(CultureInfo.InvariantCulture)"
+                 Options="@ChangeHistoryOptions"
+                 OnChanged="ApplyChangeHistoryDays" />
+
+    <p class="setting__status" id="storage-change-history-status" data-testid="storage-change-history-status" role="status">
+        @if (_changeHistoryError is not null)
+        {
+            <span class="setting__status--error">@_changeHistoryError</span>
+        }
+        else if (_changeHistoryCleared)
+        {
+            <span class="setting__status--ok">The change history was cleared.</span>
+        }
+    </p>
+
+    @if (_history is not null)
+    {
+        <div class="setting__actions">
+            <AppButton Variant="ButtonVariant.None"
+                       data-testid="storage-change-history-clear"
+                       OnClick="() => _confirmingClear = true">
+                Clear change history
+            </AppButton>
+        </div>
+
+        <ConfirmDialog Open="@_confirmingClear"
+                       Title="Clear the change history?"
+                       Message="Every earlier version Backlog kept, and the record of who changed what, is deleted. This cannot be undone."
+                       ConfirmText="Clear history"
+                       Destructive="true"
+                       OnConfirm="ClearChangeHistoryAsync"
+                       OnCancel="() => _confirmingClear = false"
+                       TestId="storage-change-history-clear-dialog"
+                       ConfirmTestId="storage-change-history-clear-confirm"
+                       CancelTestId="storage-change-history-clear-cancel" />
+    }
+</SettingsCard>
+
 @* The person's Brain (local ADR 0026): one folder outside every
    repository, picked here once. Below the two columns rather than in
    either, because it is neither the backlog's folder nor its backup -
@@ -472,6 +541,9 @@
         // here has to reach the page, because otherwise the line below the
         // button never moves.
         if (_backup is not null) _backup.Changed += OnBackupChanged;
+
+        _history = Services.GetService<ChangeHistoryWorker>();
+        if (_history is not null) _history.Changed += OnHistoryChanged;
 
         _checkpoints = Services.GetService<AgentCheckpoints>();
         if (_checkpoints is not null)
@@ -870,6 +942,70 @@
         if (_brainSettings is not null) _brainSettings.Changed -= OnBrainSettingsChanged;
         if (_backup is not null) _backup.Changed -= OnBackupChanged;
         if (_checkpoints is not null) _checkpoints.Changed -= OnCheckpointsChanged;
+        if (_history is not null) _history.Changed -= OnHistoryChanged;
+    }
+
+    // ---- Change history -----------------------------------------------------
+
+    /// <summary>The journal's worker, or null in a host that composes none.</summary>
+    private ChangeHistoryWorker? _history;
+
+    private string? _changeHistoryError;
+    private bool _changeHistoryCleared;
+    private bool _confirmingClear;
+
+    private static readonly IReadOnlyList<SelectorOption> ChangeHistoryOptions =
+        [.. ChangeHistoryRetention.Offered.Select(days => new SelectorOption(
+            days.ToString(CultureInfo.InvariantCulture),
+            $"{days.ToString(CultureInfo.CurrentCulture)} days"))];
+
+    private void ApplyChangeHistoryDays(string? value)
+    {
+        if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var days)) return;
+
+        _changeHistoryCleared = false;
+        _changeHistoryError = Store.SetChangeHistoryDays(days);
+    }
+
+    /// <summary>What the dialog's Clear history runs; the dialog stays open, busy,
+    /// until it has finished.</summary>
+    private async Task ClearChangeHistoryAsync()
+    {
+        if (_history is null) return;
+
+        _changeHistoryError = await _history.ClearAsync();
+        _changeHistoryCleared = _changeHistoryError is null;
+        _confirmingClear = false;
+    }
+
+    /// <summary>A prune or a clear changed the database's size, on a thread that
+    /// is not the renderer's.</summary>
+    private void OnHistoryChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The Backup card's warning while <c>backlog.db</c> is past
+    /// <see cref="ChangeHistoryRetention.LargeDatabaseBytes"/>, else null - which
+    /// renders nothing.</summary>
+    private string? LargeDatabaseWarning =>
+        DatabaseSize() is { } bytes && ChangeHistoryRetention.IsLarge(bytes)
+            ? $"The database is {Size(bytes)}, more than {Size(ChangeHistoryRetention.LargeDatabaseBytes)}, so every backup uploads a large file. The change history is part of it and can be cleared under Change history below."
+            : null;
+
+    /// <summary>The database and its write-ahead log, read off the disk on each
+    /// render, so a clear - which vacuums the file - shows at once.</summary>
+    private long? DatabaseSize()
+    {
+        try
+        {
+            var file = new FileInfo(Store.DatabasePath);
+            if (!file.Exists) return null;
+
+            var log = new FileInfo(Store.DatabasePath + "-wal");
+            return file.Length + (log.Exists ? log.Length : 0);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     // ---- Checkpoints --------------------------------------------------------
