@@ -6,7 +6,7 @@ everything it says applies here. Claude-specific notes follow.
 # Backlog — Claude Code instructions
 
 Backlog is a local-first, AI-first work management product: desktop, mobile, and IDE
-channels plus a thin cloud sync service. Solution: `Backlog.sln`. Product code under
+channels plus a thin cloud sync service. Solution: `Backlog.slnx`. Product code under
 `src/` (including development-time hosts under `src/Harness/`), tests under `tests/`.
 
 ## Delivery gate
@@ -146,8 +146,8 @@ host binds `localhost:0`. Never hard-code a port or reuse one from a previous se
 read the actual URLs from the Aspire dashboard or AppHost startup output.
 
 ```powershell
-dotnet build Backlog.sln
-dotnet test Backlog.sln
+dotnet build Backlog.slnx
+dotnet test Backlog.slnx
 ```
 
 `.claude/skills/run-backlog/SKILL.md` names the resources whose healthy state is `NotStarted`.

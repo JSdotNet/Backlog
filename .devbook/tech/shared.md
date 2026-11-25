@@ -110,8 +110,8 @@ The main implementation language of the system.
 - **Used for** — the desktop, mobile, Visual Studio extension, cloud service,
   harness hosts, and the whole test suite.
 - **Why** — one language across four of the five channels keeps domain logic and
-  contracts shareable. The solution sets `LangVersion=latest` and enables
-  `Nullable` and `ImplicitUsings` everywhere.
+  contracts shareable. The language version is the SDK's default, and the
+  solution enables `Nullable` and `ImplicitUsings` everywhere.
 
 ## Node.js
 
@@ -455,7 +455,7 @@ Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
 ```meta
 rating: adopted
 type: package
-version: "8.6.6"
+version: "8.7.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/tech/shared.md#microsoftextensionshttpresilience", ".devbook/arc42/08-crosscutting-concepts.md#task-sync"]
 ```
@@ -469,7 +469,8 @@ The resilience pipeline library under the HTTP resilience handlers.
   `ExecutionRejectedException`. In SpecManager, the sign-in reads an
   `ExecutionRejectedException` as the server being out of reach.
 - **Why** — those exception types are Polly's, not the handler package's. The
-  central pin matches what `Microsoft.Extensions.Http.Resilience` resolves.
+  central pin applies to every project through transitive pinning, so it is at
+  least what `Aspire.Hosting.AppHost` asks for.
 
 ## Microsoft.Extensions.ServiceDiscovery
 

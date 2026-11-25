@@ -529,7 +529,7 @@ public class ModuleBoundaryTests
             Assert.Contains(adapter, Repository.ReferencedProjectNames(project), StringComparer.OrdinalIgnoreCase);
         }
 
-        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var solution = Repository.SolutionProjects();
         var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
 
         foreach (var name in new[] { adapter, adapterTests })
@@ -580,7 +580,7 @@ public class ModuleBoundaryTests
             $"{module} is referenced from inside src/Modules; another context reads Events through its .Abstractions: "
             + string.Join(", ", referencingTheModule));
 
-        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var solution = Repository.SolutionProjects();
         var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
 
         foreach (var name in new[] { module, abstractions, ui, tests })
@@ -640,7 +640,7 @@ public class ModuleBoundaryTests
             "A project under src/Modules references the Calendar; no source context knows the Calendar draws it: "
             + string.Join(", ", referencingTheTrio));
 
-        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var solution = Repository.SolutionProjects();
         var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
 
         foreach (var name in new[] { module, abstractions, ui, tests })

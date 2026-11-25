@@ -371,7 +371,7 @@ public sealed class C4DevbookLinksTests : IDisposable
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Backlog.sln"))) return directory.FullName;
+            if (File.Exists(Path.Combine(directory.FullName, "Backlog.slnx"))) return directory.FullName;
         }
 
         throw new InvalidOperationException("The repository root was not found above the test output.");
