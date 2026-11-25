@@ -124,22 +124,25 @@ rating: adopted
 type: package
 version: "11.0.0"
 depends-on: [".devbook/tech/desktop.md#windows", ".devbook/tech/shared.md#net-runtime"]
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/sync/features.md#pairing-a-device", ".devbook/domain/sync/domain.md#registration-credential", ".devbook/domain/sync/domain.md#device-key"]
 ```
 
 The .NET wrapper over the Windows Data Protection API (DPAPI).
 
 - **Used for** — every credential the app stores, under `CurrentUser` scope:
   - `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync` seals the
-    device's registration credential. On the desktop head it lives at
-    `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps its
-    own copy, so the two harnesses register as distinct devices.
+    device's registration. It holds a registration credential only for a device
+    without a [Device key](../domain/sync/domain.md#device-key), and the desktop
+    head's key lives in CNG instead (local ADR 0058 §2). On the desktop head the
+    file is `%LOCALAPPDATA%\Backlog\device-credential.json`. Each web harness keeps
+    its own copy, so the two harnesses register as distinct devices.
+  - `DpapiDeviceKeyStore` seals the desktop web harness's software device key.
   - `DpapiSpecManagerTokenStore` in `Backlog.Infrastructure.SpecManager` seals the
     spec-manager sign-in tokens.
   - `SecretEnvelope` seals the token and key values in `github.json`,
     `claude.json` and `azure-foundry.json`. The GitHub adapter holds it, and the
     Claude and Azure Foundry adapters compile it in.
-  - All three seal through one `UserDpapi` call pair. The GitHub adapter holds
+  - All of them seal through one `UserDpapi` call pair. The GitHub adapter holds
     it, and the Claude, Azure Foundry, Sync and spec-manager adapters compile it
     in, since they share no project it could live in.
 - **Why** — it is the OS credential store local ADR 0005's Identity section names

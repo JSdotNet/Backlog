@@ -9,10 +9,14 @@ c4-touches: [backlog.taskStore, backlog.mobile, backlog.ide, backlog.desktop.ses
 
 ## Status
 
-Accepted, and three parts of the cloud side are built — tasks, session records,
+Accepted, and three parts of this record are built — tasks, session records,
 then the device registry. The notes below say how far each goes, and what they deliberately do not
-cover. The rest is still unbuilt, and what follows records the direction, the
-scope it covers, and the questions it leaves open. The two things that had to be
+cover. Later records extend the replica this record set up, each on its own terms:
+captures (local ADR 0009), annotations (0011), attachments (0014), notifications
+(0039), devbook subject state (0044) and knowledge events (0050). Device and owner
+identity follow local ADR 0058. What this record names and is still unbuilt is
+listed under *Not built* below; the rest records the direction, the scope it
+covers, and the questions it leaves open. The two things that had to be
 true before it could be accepted are true.
 
 **The prerequisite it named is discharged.** `updated_at` and `deleted_at` are
@@ -57,11 +61,12 @@ is still on screen.
 > caller before the replica is touched, and the port accepts only a cursor type
 > that carries a verified owner, so an unchecked one cannot reach the adapter.
 >
-> **Built is not in service.** Nothing has been provisioned in Azure; the
-> resource group, the OIDC federated credential and the budget alert **Deployment**
-> assumes are deliberate manual prerequisites and are still outstanding
-> (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop half is
-> a `Dev`-status feature flag that is off by default. The
+> **In service since 2026-09-14.** A local run of `build/Deploy-Azure.ps1`
+> provisioned `infra/sync/` into resource group `JS-AI` that day, and the service
+> now deploys through Deploy Sync
+> (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop
+> half sits behind the one `sync` feature flag, `Beta` since 2026-09-16 and off by
+> default (`src/App/Backlog.Desktop.UI/Settings/AppFeatures.cs`). The
 > Cosmos path is proven against the emulator by QA rather than by the unit suite,
 > which runs on an in-memory replica.
 >
@@ -73,10 +78,9 @@ is still on screen.
 > single-writer rule is in the shape of the store rather than in a check: the
 > document key carries the machine, the agent kind and the session id, and the
 > machine is stamped from the caller's token rather than accepted from the body,
-> so a device can address nothing outside its own. **Built is not in service** here
-> either — same unprovisioned Azure, and its own `Dev` flag, off by default and
-> separate from `task-sync` (as of 2026-09-14 the two, and `device-pairing`, are
-> one `sync` flag). The twelve-month container TTL is unverifiable
+> so a device can address nothing outside its own. The desktop half was once
+> behind its own flag, separate from `task-sync` (as of 2026-09-14 the two, and
+> `device-pairing`, are one `sync` flag). The twelve-month container TTL is unverifiable
 > locally for the reason the 180-day one is.
 >
 > **Implemented, 2026-09-14 — the device registry, which is the deferred half
@@ -889,7 +893,7 @@ Three further things make it the wrong change to make first:
   watching a file no other machine ever writes. The poll is gone now, so this
   leg of the argument is gone with it.
 - **It needs a device identity, and the product should have exactly one.** The
-  pairing registration credential above is it. `Environment.MachineName` exists
+  device id that pairing assigns is it. `Environment.MachineName` exists
   today and is the obvious shortcut, but a machine can be renamed and two machines
   can share a name, so a file named from it is neither stable nor unique — and
   adopting it would leave two device identities free to disagree. Naming the file

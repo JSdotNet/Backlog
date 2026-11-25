@@ -136,7 +136,7 @@ The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, whic
 ## Task Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/domain.md#ownerid", ".devbook/domain/tasks/domain.md#task"]
 ```
 
 Local ADR 0005 settles the direction for the Task aggregate. All of it is built, including the identity model (pairing, tokens and the query-scoping check) and the Cosmos replica with its change feed and reconciliation.
@@ -192,13 +192,17 @@ sequenceDiagram
 - **Progress belongs to one identity.** The push watermark says what one owner's
   replica has accepted from one device, and the pull cursor is signed for one
   owner. Both are recorded with the owner and device ids they were written under.
-  A device whose credential names a different pair starts both from nothing; that
+  A device whose stored registration names a different pair starts both from nothing; that
   is a device that forgot its registration and registered or paired again.
   Carrying progress across that line once left a second machine seeing a fraction of the first one's tasks and none of its sessions.
-- **Pairing, not accounts.** A first device generates an `ownerId`, and a second
-  is paired with a short code entered once, out of band. Each holds its own
-  registration credential in the OS credential store and exchanges it for a
-  short-lived JWT. `ownerId` is the Cosmos partition key of the replica
+- **Pairing, and one owner sign-in.** The first device enrols through the owner's
+  GitHub sign-in, under the pinned `Owner:OwnerId` or an id derived from the GitHub
+  user id ([OwnerId](../domain/sync/domain.md#ownerid)). A second device is paired
+  with a short code entered once, out of band. Each signs a short-lived
+  [Device assertion](../domain/sync/domain.md#device-assertion) with its own
+  non-exportable key and exchanges it for a short-lived JWT. A host with no key
+  store holds a registration credential instead; today that is the mobile web
+  harness. `ownerId` is the Cosmos partition key of the replica
   containers. The registry that holds the devices and codes is persisted in
   Cosmos as well, so a pairing survives a restart of the service.
 - **The partition key authorizes nothing.** The service confines a device ([Storage and Sync](#storage-and-sync)), because Cosmos cannot authorize a device-session principal it has never heard of.
@@ -591,8 +595,11 @@ says how each principal is proven today.
 - **No account is required** for personal use in standalone mode. The desktop app
   has no sign-in: the Windows session is the person's identity there.
 - **GitHub integration uses OAuth 2.0** for issue sync and webhook registration.
-- **The cloud connection uses device-based auth.** It uses JWT device sessions and no
-  user login. `Backlog.Modules.Sync.Api` implements it:
+- **The cloud connection authenticates the device, and the owner only at enrolment.**
+  The owner signs in with GitHub, matched by numeric user id, to enrol the first
+  device and to recover (local ADR 0058 §1). Every sync call after that carries a
+  30-minute device JWT. The device gets it by signing a `private_key_jwt` assertion
+  with its non-exportable key (§2). `Backlog.Modules.Sync.Api` implements it:
   - every sync request is bearer-only;
   - the service validates the JWT's issuer, audience and lifetime, plus its signature and algorithm;
   - a fallback-deny policy covers any endpoint not explicitly opened;
