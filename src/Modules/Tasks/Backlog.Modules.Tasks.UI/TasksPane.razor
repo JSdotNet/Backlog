@@ -6273,7 +6273,7 @@
                           PressedChanged="_ => OnRailItemPressed(PlanRailItem.MyDay)">
                 <span class="plan-rail__line">
                     <span class="plan-rail__name">My Day</span>
-                    <span class="plan-rail__count" data-testid="plan-rail-count">@MyDayCount</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@MyDayCount</Badge>
                 </span>
             </ToggleButton>
             <ToggleButton BaseClass="plan-rail__item"
@@ -6284,7 +6284,7 @@
                           PressedChanged="_ => OnRailItemPressed(PlanRailItem.NowAcrossPlans)">
                 <span class="plan-rail__line">
                     <span class="plan-rail__name">Now, across plans</span>
-                    <span class="plan-rail__count" data-testid="plan-rail-count">@NowAcrossPlansCount</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@NowAcrossPlansCount</Badge>
                 </span>
             </ToggleButton>
             @foreach (var plan in plans)
@@ -6303,7 +6303,7 @@
                         <span class="plan-rail__name" data-testid="plan-rail-name">@plan.Name</span>
                         @if (plan.StateText.Length > 0)
                         {
-                            <span class="plan-rail__state @RailStateClass(plan.State)" data-testid="plan-rail-state">@plan.StateText</span>
+                            <Badge BaseClass="plan-rail__state" Kind="" Slug="@RailStateSlug(plan.State)" TestId="plan-rail-state">@plan.StateText</Badge>
                         }
                     </span>
                     <span class="plan-rail__line">
@@ -6322,7 +6322,7 @@
                           PressedChanged="_ => OnRailItemPressed(PlanRailItem.Unplanned)">
                 <span class="plan-rail__line">
                     <span class="plan-rail__name">Unplanned</span>
-                    <span class="plan-rail__count" data-testid="plan-rail-count">@UnplannedCount</span>
+                    <Badge BaseClass="plan-rail__count" Kind="" TestId="plan-rail-count">@UnplannedCount</Badge>
                 </span>
             </ToggleButton>
         </nav>;

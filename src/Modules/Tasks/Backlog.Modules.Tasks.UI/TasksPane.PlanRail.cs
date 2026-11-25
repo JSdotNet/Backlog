@@ -67,13 +67,14 @@ public partial class TasksPane
     private void OnRailItemPressed(PlanRailItem item, string? planTag = null) =>
         State.SelectRailItem(item, planTag, Today);
 
-    /// <summary>The coloured text's modifier, by run state.</summary>
-    private static string RailStateClass(PlanRunState state) => state switch
+    /// <summary>The coloured text's slug, by run state: the badge wears it as
+    /// <c>plan-rail__state--&lt;slug&gt;</c>.</summary>
+    private static string RailStateSlug(PlanRunState state) => state switch
     {
-        PlanRunState.Running => "plan-rail__state--running",
-        PlanRunState.Queued => "plan-rail__state--queued",
-        PlanRunState.Blocked => "plan-rail__state--blocked",
-        _ => "plan-rail__state--quiet",
+        PlanRunState.Running => "running",
+        PlanRunState.Queued => "queued",
+        PlanRunState.Blocked => "blocked",
+        _ => "quiet",
     };
 
     /// <summary>A plan row's accessible name: its name, progress and state.</summary>
