@@ -3075,9 +3075,10 @@ h1, h2, h3 {
 }
 
 /* A plan entry's state in its plan's queue (local ADR 0062 §4), in words, as quiet
-   as the Devbook count. Queued with plan takes the queued icon's amber ink, a held
-   entry the error ink and a landed one the success ink; the words carry the state
-   either way. */
+   as the Devbook count. A held entry takes the error ink and a landed one the
+   success ink; Queued with plan stays secondary until an amber ink is sanctioned
+   (the plan's review), while the lit queue icon beside it carries the amber. The
+   words carry the state either way. */
 .entry-row__plan-state {
     display: inline-flex;
     align-items: center;
@@ -3086,7 +3087,6 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-.entry-row__plan-state--queued-with-plan { color: var(--color-primary); }
 .entry-row__plan-state--held-for-you { color: var(--color-error-text); }
 .entry-row__plan-state--landed { color: var(--color-success-text); }
 
