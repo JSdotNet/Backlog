@@ -118,6 +118,16 @@ public sealed class PlanEntryStateTests
         Assert.Equal(PlanEntryQueueState.LeftForYou, StateOf(Row($"{type} !ready"), waiting: true, run: PlanRun.From(Request)));
     }
 
+    [Theory]
+    [InlineData("task")]
+    [InlineData("test")]
+    public void A_task_or_test_left_for_you_says_whether_it_waits_on_another_entry(string type)
+    {
+        Assert.False(PlanEntryState.For(Row($"{type} !ready"), waiting: false)!.WaitsOnOpen);
+        Assert.True(PlanEntryState.For(Row($"{type} !ready"), waiting: true)!.WaitsOnOpen);
+        Assert.Equal("Left for you", PlanEntryState.For(Row($"{type} !ready"), waiting: true)!.Label);
+    }
+
     [Fact]
     public void An_entry_whose_pull_request_merged_into_the_plan_branch_has_landed()
     {
@@ -212,7 +222,12 @@ public sealed class PlanEntryStateTests
         await host.WriteEntryAsync($"# Second\n`prompt` `!ready` `+{Plan}` `after:{first.Id}`\n\nThen this.\n");
 
         var plan = Assert.Single(
-            PlanRail.Plans(host.State.TagFilters, host.State.ScopedRows, new Dictionary<string, EntrySessionRequest>(), []),
+            PlanRail.Plans(
+                host.State.TagFilters,
+                host.State.ScopedRows,
+                new Dictionary<string, EntrySessionRequest>(),
+                [],
+                row => host.State.PlanEntryStateOf(row) is { } state && PlanSections.SectionOf(row, state) is PlanSection.Next),
             plan => plan.Name == Plan);
 
         Assert.Equal((1, 2), (plan.Done, plan.Total));

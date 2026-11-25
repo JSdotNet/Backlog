@@ -155,6 +155,24 @@ public sealed class PlanSectionsTests
     }
 
     [Fact]
+    public async Task The_rail_counts_ready_the_way_Next_does_leaving_out_the_entries_still_waiting()
+    {
+        using var host = await HostAsync();
+        var pane = RenderPlans(host);
+
+        pane.WaitForAssertion(() =>
+        {
+            string? State(string name) =>
+                pane.Find($"[data-testid='plan-rail-plan'][data-plan='{name}']").QuerySelector("[data-testid='plan-rail-state']")?.TextContent;
+
+            // +zta has four entries marked ready, but #20 and #21 wait on open work:
+            // Next reads #17 and #18 alone. +gamma's Third waits on First.
+            Assert.Equal("2 ready", State("zta"));
+            Assert.Equal("2 ready", State("gamma"));
+        });
+    }
+
+    [Fact]
     public async Task The_other_plans_fold_to_a_line_each_with_their_note()
     {
         using var host = await HostAsync();
@@ -239,6 +257,37 @@ public sealed class PlanSectionsTests
             Assert.True(host.State.SelectionMode);
             Assert.NotNull(pane.Find("[data-testid='entry-list']"));
         });
+    }
+
+    [Fact]
+    public async Task A_test_waiting_on_an_open_entry_reads_under_Later_not_Next()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Backlog);
+        var revoke = await host.WriteEntryAsync("# 4 - Revoke a device +zta\n`prompt` `!ready` `effort:3`\n");
+        await host.WriteEntryAsync($"# 5 - Sign in on a revoked device +zta\n`test` `!ready` `after:{revoke.Id}`\n");
+        await host.WriteEntryAsync("# 6 - Check the audit log +zta\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(new TasksPlanSessionRequestTests.FakePlanTagSessionRequests());
+        host.Context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow));
+        var pane = SelectZta(RenderPlans(host));
+
+        Assert.Equal(["4 - Revoke a device +zta", "6 - Check the audit log +zta"], Titles(pane, "plan-section-next"));
+        Assert.Equal("1 waiting — next to unlock: #5 when #4 lands", Text(pane.Find("[data-testid='plan-later-waiting']")));
+
+        pane.Find("[data-testid='plan-later-waiting']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(["5 - Sign in on a revoked device +zta"], Titles(pane, "plan-section-later")));
+        Assert.Equal(["Left for you"], pane.FindAll("[data-testid='plan-section-later'] [data-testid='plan-section-row-state']").Select(Text));
+    }
+
+    [Theory]
+    [InlineData(false, PlanSection.Next)]
+    [InlineData(true, PlanSection.Waiting)]
+    public void A_ready_test_left_for_you_reads_under_Next_only_while_it_waits_on_nothing(bool waits, PlanSection expected)
+    {
+        var row = new EntryRow { Id = Guid.NewGuid(), RawText = "# Check it\n`test` `!ready` `+p`\n" };
+
+        Assert.Equal(expected, PlanSections.SectionOf(row, new PlanEntryState(PlanEntryQueueState.LeftForYou, WaitsOnOpen: waits)));
     }
 
     // --- The unlock line, pure -------------------------------------------------

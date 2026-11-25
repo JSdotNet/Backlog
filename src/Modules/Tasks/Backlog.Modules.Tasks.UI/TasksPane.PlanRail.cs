@@ -90,10 +90,17 @@ public partial class TasksPane
     /// <summary>The rail's plans, with their counts and run states — a Blocked one with
     /// the impediment that holds it or one of its open entries back.</summary>
     private IReadOnlyList<PlanRailPlan> RailPlans() =>
-        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows(), PlanImpedimentOf);
+        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows(), ReadsAsNext, PlanImpedimentOf);
 
     private string? PlanImpedimentOf(string plan, IReadOnlyList<EntryRow> open) =>
         PlanImpediments?.TitleOf(plan, [.. open.Where(row => row.Id is not null).Select(row => row.Id!.Value)]);
+
+    /// <summary>Whether an entry reads under Next in its plan's sections — the one
+    /// reading the rail's <c>N ready</c>, the expanded plan and its folded note share.</summary>
+    private bool ReadsAsNext(EntryRow row) =>
+        PlanEntryState.PlanTagOf(row) is { } tag
+        && State.PlanEntryStateOf(row, PlanRunOf(tag)) is { } state
+        && PlanSections.SectionOf(row, state) is PlanSection.Next;
 
     /// <summary>How many open entries are plan work in a session, off the rows the
     /// repository scope leaves in view — the pool the bar's scope chips count.</summary>

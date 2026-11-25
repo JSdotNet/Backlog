@@ -101,8 +101,9 @@ public static partial class PlanSections
     public const int UnlockNamed = 3;
 
     /// <summary>The group a plan entry state reads under. A ready <c>test</c> or
-    /// <c>task</c> and a held entry are Next — their state says why the run leaves them;
-    /// one not ready is waiting like any other.</summary>
+    /// <c>task</c> that waits on no open entry, and a held entry, are Next — their state
+    /// says why the run leaves them; one not ready, or waiting on another open entry,
+    /// is waiting like any other and keeps its Left for you label.</summary>
     public static PlanSection SectionOf(EntryRow row, PlanEntryState state)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -113,7 +114,7 @@ public static partial class PlanSections
             PlanEntryQueueState.Done or PlanEntryQueueState.Landed => PlanSection.Done,
             PlanEntryQueueState.InPlanSession => PlanSection.Now,
             PlanEntryQueueState.Ready or PlanEntryQueueState.QueuedWithPlan or PlanEntryQueueState.HeldForYou => PlanSection.Next,
-            PlanEntryQueueState.LeftForYou when row.PreviewStatus is EntryStatus.Ready => PlanSection.Next,
+            PlanEntryQueueState.LeftForYou when row.PreviewStatus is EntryStatus.Ready && !state.WaitsOnOpen => PlanSection.Next,
             _ => PlanSection.Waiting,
         };
     }
