@@ -47,7 +47,7 @@ public sealed class BrainTests
         await desktop.PressScopeChipAsync(desktop.BrainChip);
         await desktop.ShowDevbookAsync();
         await Expect(desktop.Page.GetByTestId("devbook-brain-first-use")).ToBeVisibleAsync();
-        await Expect(desktop.Page.GetByTestId("devbook-brain-set-up")).ToHaveAttributeAsync("href", "settings?page=storage#brain-folder");
+        await Expect(desktop.Page.GetByTestId("devbook-brain-set-up")).ToHaveAttributeAsync("href", "settings/storage#brain-folder");
         await scenario.Evidence.ScreenshotAsync(desktop.Page, "first-use-pane-asks-for-a-folder");
 
         await scenario.UseFolderAsync();

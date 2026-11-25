@@ -389,9 +389,11 @@ actual dashboard and resource URLs from the `aspire start` output, or with
 
 ## End-to-end tests
 
-`tests/Backlog.EndToEndTests` drives the harnesses of this worktree's running AppHost with
-Playwright. It takes resources away and back through the Aspire CLI and reads the dashboard's
-telemetry for evidence. Its tests skip unless `BACKLOG_E2E=1`. With the AppHost healthy:
+`tests/Backlog.EndToEndTests` drives the AppHost's harnesses with Playwright. Its setup starts
+an isolated AppHost with `aspire start`, reads each harness's URL from `aspire describe`, fails
+the run on any Error log of any resource, and stops the AppHost again. It takes resources away
+and back through the Aspire CLI and reads the dashboard's telemetry for evidence. Its tests
+skip unless `BACKLOG_E2E=1`. With Docker running and this worktree's AppHost stopped:
 
 ```powershell
 $env:BACKLOG_E2E = '1'

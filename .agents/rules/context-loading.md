@@ -65,9 +65,10 @@ call a run complete without the person's explicit approval.
 - **Checked-in end-to-end tests** — `tests/Backlog.EndToEndTests` is the repeatable form of
   scenarios QA has already walked, such as `ConferenceDayTests`.
   - Run it in Validation when the change touches a flow it covers:
-    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`, against this
-    worktree's running AppHost. Its screenshots and `sync` logs under `.qa-workspace/e2e/`
-    are evidence.
+    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`. It starts
+    and stops its own isolated AppHost, so stop this worktree's first (or set
+    `BACKLOG_E2E_ATTACH=1` to use it). Its screenshots and error logs under
+    `.qa-workspace/e2e/` are evidence.
   - It stops and starts `sync` and resets the phone harness's pairing, so never run it while
     another scenario drives the same AppHost.
   - Its `README.md` covers the browser install and what a run changes.
