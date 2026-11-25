@@ -45,9 +45,10 @@ public sealed class ConferenceDayTests
             await appHost.WaitHealthyAsync(resource, TimeSpan.FromMinutes(10), cancellationToken);
         }
 
-        var errorsBefore = AspireAppHost.LogIds(await appHost.LogsJsonAsync(Sync, "Error", cancellationToken)).ToHashSet();
+        var errorsAfter = await appHost.LastLogIdAsync(cancellationToken);
         var log = new StringBuilder();
         var syncStopped = false;
+        long? offlineFrom = null;
         DesktopHarness? tidyDesktop = null;
         var timed = new List<string>();
 
@@ -324,6 +325,7 @@ public sealed class ConferenceDayTests
             //    out its timeout. From here on the phone moves by its tabs.
             await phone.ReloadAsync("", "Today");
             syncStopped = true;
+            offlineFrom = await appHost.LastLogIdAsync(cancellationToken);
             await appHost.StopAsync(Sync, cancellationToken);
             log.AppendLine($"{DateTimeOffset.UtcNow:O} sync stopped");
 
@@ -391,7 +393,7 @@ public sealed class ConferenceDayTests
                         .ToList();
                     return flushed.Count >= 3;
                 },
-                TimeSpan.FromSeconds(30),
+                Flush,
                 "the phone's flush to reach the dashboard's telemetry");
             log.AppendLine("Sent by the phone to the Inbox after sync came back:");
             foreach (var span in flushed) log.AppendLine($"  {span}");
@@ -437,6 +439,17 @@ public sealed class ConferenceDayTests
                 log.AppendLine($"Could not start sync again: {exception.Message}");
             }
 
+            // The window closes at the end of the test, not when the phone reads
+            // Synced: a call sent while sync was down can still time out after it.
+            try
+            {
+                ExpectOfflineErrors(offlineFrom, await appHost.LastLogIdAsync(cancellationToken));
+            }
+            catch (Exception exception)
+            {
+                log.AppendLine($"Could not declare the offline errors: {exception.Message}");
+            }
+
             // Tidy, pass or fail: an agenda block left in the shared My Day would
             // be the next run's rival for the Now card, and the one that started
             // earlier wins it.
@@ -463,9 +476,34 @@ public sealed class ConferenceDayTests
             await evidence.WriteAsync("sync-structured-logs.json", await appHost.LogsJsonAsync(Sync, "Information", cancellationToken));
         }
 
-        var errors = await appHost.LogsJsonAsync(Sync, "Error", cancellationToken);
-        await evidence.WriteAsync("sync-errors.json", errors);
-        Assert.DoesNotContain(AspireAppHost.LogIds(errors), id => !errorsBefore.Contains(id));
+        // Every resource the day touches, not sync alone: the phone and the desktop
+        // log their own failures. The phone's calls that timed out while sync was
+        // down are the step's point, so they are declared and left out. Resources
+        // only other tests drive are the suite's check (E2EAppHost), so a test
+        // running beside this one cannot fail it.
+        var errors = await appHost.LogsJsonAsync(null, "Error", cancellationToken);
+        await evidence.WriteAsync("errors.json", errors);
+        string[] touched = ["cosmos", "storage", Sync, DesktopHarness.Resource, PhoneHarness.Resource];
+        Assert.DoesNotContain(E2EAppHost.Unexpected(errors, errorsAfter), error => touched.Contains(error.Resource));
+    }
+
+    /// <summary>
+    /// Declares the Error logs the phone writes while <c>sync</c> is stopped: Polly
+    /// logs each attempt and total-request timeout of the standard resilience
+    /// handler at Error, and the phone keeps calling while it is offline — that is
+    /// what makes it read Offline. Only the phone's Polly timeouts, only in the
+    /// window between the stop and the phone reading Synced again.
+    /// </summary>
+    private static void ExpectOfflineErrors(long? afterId, long untilId)
+    {
+        if (afterId is not { } from) return;
+
+        E2EAppHost.Expect(
+            PhoneHarness.Resource,
+            from,
+            untilId,
+            log => log.Source == "Polly" && log.Message.Contains("EventName: 'OnTimeout'", StringComparison.Ordinal),
+            "ConferenceDay step 7 stops sync while the phone still calls it");
     }
 
     /// <summary>The earliest quarter hour whose two-hour block still holds

@@ -24,7 +24,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// notification, its replies and which reply became the answer stay Notifications'.
 /// </para>
 /// </summary>
-public sealed class QuestionRelay : IQuestionRelay
+public sealed partial class QuestionRelay : IQuestionRelay
 {
     private readonly IWaitingQuestionStore _store;
     private readonly IPresence? _presence;
@@ -282,7 +282,7 @@ public sealed class QuestionRelay : IQuestionRelay
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning(exception, "Publishing waiting question {Question} failed; the others are still tried.", question.Id);
+                PublishingQuestionFailed(_logger, exception, question.Id);
             }
         }
 
@@ -332,13 +332,13 @@ public sealed class QuestionRelay : IQuestionRelay
 
         if (outcome.Question is null)
         {
-            _logger.LogDebug("An answer names waiting question {Question}, which this desktop does not hold.", id);
+            AnswerNamesUnheldQuestion(_logger, id);
             return true;
         }
 
         if (!outcome.Succeeded)
         {
-            _logger.LogDebug("The answer to waiting question {Question} changed nothing: {Reason}", id, outcome.Refusal);
+            AnswerChangedNothing(_logger, id, outcome.Refusal);
             return true;
         }
 
@@ -346,11 +346,8 @@ public sealed class QuestionRelay : IQuestionRelay
         {
             Release(id);
 
-            _logger.LogDebug(
-                outcome.Question.Delivery is null
-                    ? "Waiting question {Question} is answered; its hook takes the answer."
-                    : "Waiting question {Question} is answered; its answer waits as a delivery.",
-                id);
+            if (outcome.Question.Delivery is null) AnsweredForHook(_logger, id);
+            else AnsweredAsDelivery(_logger, id);
         }
 
         return true;
@@ -455,8 +452,8 @@ public sealed class QuestionRelay : IQuestionRelay
         var standing = await devices.StandingOfAsync(answer.FromDeviceId, cancellationToken).ConfigureAwait(false);
         if (standing == DeviceStanding.Paired) return true;
 
-        _logger.LogWarning(
-            "The answer to waiting question {Question} came from {Standing} {Device}; it is dropped and never reaches the session.",
+        AnswerFromUnpairedDeviceDropped(
+            _logger,
             question.Id,
             DroppedAnswerAudit.DeviceLabel(standing),
             answer.FromDeviceId);
@@ -467,7 +464,7 @@ public sealed class QuestionRelay : IQuestionRelay
             standing,
             answer.FromDeviceId,
             question.Id,
-            exception => _logger.LogWarning(exception, "The dropped answer to waiting question {Question} was not written to the audit log.", question.Id),
+            exception => DroppedAnswerNotAudited(_logger, exception, question.Id),
             cancellationToken).ConfigureAwait(false);
 
         return false;
@@ -560,7 +557,7 @@ public sealed class QuestionRelay : IQuestionRelay
                 if (published is not Ok<Guid>(var notificationId))
                 {
                     var refused = (Error)published.Value!;
-                    _logger.LogDebug("Waiting question {Question} was not published: {Error}", id, refused.Message);
+                    QuestionNotPublished(_logger, id, refused.Message);
                     await CloseAllAsync(notifications, ids, "Not published", cancellationToken).ConfigureAwait(false);
 
                     // Held in the session and tried again once per notify delay, never on
@@ -614,7 +611,7 @@ public sealed class QuestionRelay : IQuestionRelay
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogDebug(exception, "Session {Session} could not be looked up for its question's title.", sessionId);
+            SessionLookupFailed(_logger, exception, sessionId);
             return null;
         }
     }
@@ -630,8 +627,7 @@ public sealed class QuestionRelay : IQuestionRelay
             // One already answered in Backlog is settled, and stays as it was answered.
             if (closed is Error error)
             {
-                _logger.LogDebug("Notification {Notification} of waiting question {Question} was not closed: {Error}",
-                    question.NotificationIds[i], question.Id, error.Message);
+                QuestionNotificationNotClosed(_logger, question.NotificationIds[i], question.Id, error.Message);
             }
         }
     }
@@ -641,7 +637,7 @@ public sealed class QuestionRelay : IQuestionRelay
         foreach (var notificationId in ids)
         {
             var closed = await notifications.CloseAsync(notificationId, reason, cancellationToken).ConfigureAwait(false);
-            if (closed is Error error) _logger.LogDebug("Notification {Notification} was not closed: {Error}", notificationId, error.Message);
+            if (closed is Error error) NotificationNotClosed(_logger, notificationId, error.Message);
         }
     }
 
@@ -742,4 +738,37 @@ public sealed class QuestionRelay : IQuestionRelay
         public const int Summary = 180;
         public const int Body = 32 * 1024;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing waiting question {Question} failed; the others are still tried.")]
+    private static partial void PublishingQuestionFailed(ILogger logger, Exception exception, Guid question);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "An answer names waiting question {Question}, which this desktop does not hold.")]
+    private static partial void AnswerNamesUnheldQuestion(ILogger logger, Guid question);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The answer to waiting question {Question} changed nothing: {Reason}")]
+    private static partial void AnswerChangedNothing(ILogger logger, Guid question, string? reason);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Waiting question {Question} is answered; its hook takes the answer.")]
+    private static partial void AnsweredForHook(ILogger logger, Guid question);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Waiting question {Question} is answered; its answer waits as a delivery.")]
+    private static partial void AnsweredAsDelivery(ILogger logger, Guid question);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The answer to waiting question {Question} came from {Standing} {Device}; it is dropped and never reaches the session.")]
+    private static partial void AnswerFromUnpairedDeviceDropped(ILogger logger, Guid question, string standing, Guid device);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The dropped answer to waiting question {Question} was not written to the audit log.")]
+    private static partial void DroppedAnswerNotAudited(ILogger logger, Exception exception, Guid question);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Waiting question {Question} was not published: {Error}")]
+    private static partial void QuestionNotPublished(ILogger logger, Guid question, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Session {Session} could not be looked up for its question's title.")]
+    private static partial void SessionLookupFailed(ILogger logger, Exception exception, string session);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {Notification} of waiting question {Question} was not closed: {Error}")]
+    private static partial void QuestionNotificationNotClosed(ILogger logger, Guid notification, Guid question, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {Notification} was not closed: {Error}")]
+    private static partial void NotificationNotClosed(ILogger logger, Guid notification, string error);
 }

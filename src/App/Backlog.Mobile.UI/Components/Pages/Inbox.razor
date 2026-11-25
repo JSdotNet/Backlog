@@ -596,9 +596,13 @@ else if (_notesNotice is not null)
     }
 
     [JSInvokable]
-    public Task OnPulled() => InvokeAsync(RefreshAsync);
+    public Task OnPulled() => InvokeAsync(RefreshAndRenderAsync);
 
-    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+    private void OnResumed() => _ = InvokeAsync(RefreshAndRenderAsync);
+
+    /// <summary>A refresh nothing on the page asked for — a pull, a resume, a delivery —
+    /// drawn the way the refresh button's is.</summary>
+    private Task RefreshAndRenderAsync() => HandlerRendering.RunAsync(RefreshAsync, StateHasChanged);
 
     private void OnOutboxChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -613,7 +617,7 @@ else if (_notesNotice is not null)
         if (IsCapture(entry)) _delivered[entry.Id] = (ItemOf(entry), ++_deliveries);
         if (IsChange(entry)) _settled.Add((entry, ++_deliveries));
         StateHasChanged();
-        return RefreshAsync();
+        return RefreshAndRenderAsync();
     });
 
     /// <summary>The desktop had already dealt with a capture this phone changed.
@@ -662,8 +666,6 @@ else if (_notesNotice is not null)
         {
             _refreshing = false;
         }
-
-        StateHasChanged();
     }
 
     private async Task PullAsync()

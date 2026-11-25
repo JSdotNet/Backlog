@@ -166,12 +166,15 @@ internal static class SyncResults
         // as an attachment, under the relay's own codes.
         SyncErrorCodes.TranscriptionTooLarge => StatusCodes.Status413PayloadTooLarge,
         SyncErrorCodes.TranscriptionTypeNotAllowed => StatusCodes.Status415UnsupportedMediaType,
+        // Every other code by its type, with no catch-all arm (org ADR 0004: one exhaustive
+        // switch): a new ErrorType fails the build here (CS8509) instead of being filed
+        // under 500 unseen. A failure nobody classified is the service's, not the caller's.
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
-            _ => StatusCodes.Status500InternalServerError,
+            ErrorType.Failure or ErrorType.Unexpected => StatusCodes.Status500InternalServerError,
         },
     };
 

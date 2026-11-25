@@ -26,7 +26,7 @@ public sealed record ApkUpdateCheck(AppUpdateCheckResult Result, ApkRelease? Rel
 /// its own failed checks.
 /// </para>
 /// </remarks>
-public sealed class GitHubApkUpdateCheck(
+public sealed partial class GitHubApkUpdateCheck(
     HttpClient http,
     ApkUpdateChannel channel,
     TimeProvider time,
@@ -58,14 +58,14 @@ public sealed class GitHubApkUpdateCheck(
             using var response = await http.SendAsync(request, linked.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Update check failed: GitHub answered {StatusCode} for {Uri}.", (int)response.StatusCode, channel.ReleasesUri);
+                LogUnsuccessfulAnswer(logger, (int)response.StatusCode, channel.ReleasesUri);
                 return Failed("GitHub did not answer the update check. Try again later.");
             }
 
             var json = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
             if (!ApkReleaseFeed.TryRead(json, out var newest))
             {
-                logger.LogWarning("Update check failed: the answer from {Uri} was not a release list.", channel.ReleasesUri);
+                LogNotAReleaseList(logger, channel.ReleasesUri);
                 return Failed("The release list could not be read. Try again later.");
             }
 
@@ -75,15 +75,27 @@ public sealed class GitHubApkUpdateCheck(
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning("Update check failed: GitHub did not answer within {Timeout}.", Timeout);
+            LogTimedOut(logger, Timeout);
             return Failed(OfflineMessage);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Update check failed.");
+            LogCheckFailed(logger, ex);
             return Failed(cancellationToken.IsCancellationRequested ? "The update check was cancelled." : OfflineMessage);
         }
     }
 
     private static ApkUpdateCheck Failed(string message) => new(AppUpdateCheckResult.Failed(message), null);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update check failed: GitHub answered {StatusCode} for {Uri}.")]
+    private static partial void LogUnsuccessfulAnswer(ILogger logger, int statusCode, Uri uri);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update check failed: the answer from {Uri} was not a release list.")]
+    private static partial void LogNotAReleaseList(ILogger logger, Uri uri);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update check failed: GitHub did not answer within {Timeout}.")]
+    private static partial void LogTimedOut(ILogger logger, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Update check failed.")]
+    private static partial void LogCheckFailed(ILogger logger, Exception exception);
 }

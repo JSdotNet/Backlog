@@ -95,16 +95,30 @@ var azureFoundryTest = builder.AddDotnetProject("azure-foundry-test", "..\\..\\H
 // should not meet a 502 for it.
 var sync = builder.AddDotnetProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
     .WithReference(cosmosDatabase)
-    .WithReference(attachments)
-    .WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
-    .WithEnvironment("Modules__Sync__Transcription__Credential", "None")
-    .WaitFor(azureFoundryTest);
+    .WithReference(attachments);
+
+// The stand-in is a harness, so a published service is never pointed at it: published, the
+// endpoint stays unset and the route answers 503 until the deployment names a Foundry account.
+if (!builder.ExecutionContext.IsPublishMode)
+{
+    sync.WithEnvironment("Modules__Sync__Transcription__Endpoint", azureFoundryTest.GetEndpoint("http"))
+        .WithEnvironment("Modules__Sync__Transcription__Credential", "None")
+        .WaitFor(azureFoundryTest);
+}
 
 // The connector's authorization server says who it is and which resource its tokens are for
 // (local ADR 0058 §8). Ports are dynamic, so both come from the service's own endpoint rather
 // than the Development default of http://localhost, which nothing would answer on.
-sync.WithEnvironment("Modules__Sync__Connector__Issuer", sync.GetEndpoint("http"))
-    .WithEnvironment("Modules__Sync__Connector__Resource", ReferenceExpression.Create($"{sync.GetEndpoint("http")}/mcp"));
+// Published, the public origin is a parameter instead (SyncDeployment).
+if (!builder.ExecutionContext.IsPublishMode)
+{
+    sync.WithEnvironment("Modules__Sync__Connector__Issuer", sync.GetEndpoint("http"))
+        .WithEnvironment("Modules__Sync__Connector__Resource", ReferenceExpression.Create($"{sync.GetEndpoint("http")}/mcp"));
+}
+
+// The deployed service's settings, secrets, telemetry component and exception alert, as
+// AppHost parameters and resources (org ADR 0002). Publish mode only; SyncDeployment says why.
+builder.AddPublishedSyncSettings(sync);
 
 // --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts

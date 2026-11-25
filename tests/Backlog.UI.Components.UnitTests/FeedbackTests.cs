@@ -246,4 +246,23 @@ public sealed class ToastTests
 
         Assert.Empty(toast.FindAll(".toast__dismiss"));
     }
+
+    /// <summary>
+    /// The timer is no event handler, so nothing renders around it but the toast itself:
+    /// the toast still has to leave the screen, and to report it once.
+    /// </summary>
+    [Fact]
+    public void A_toast_whose_time_is_up_goes_and_reports_it_once()
+    {
+        using var context = new BunitContext();
+        var dismissed = 0;
+
+        var toast = context.Render<Toast>(parameters => parameters
+            .Add(t => t.DurationMilliseconds, 20)
+            .Add(t => t.Message, "Pushed to GitHub")
+            .Add(t => t.OnDismissed, () => dismissed++));
+
+        toast.WaitForAssertion(() => Assert.Equal(string.Empty, toast.Markup.Trim()), TimeSpan.FromSeconds(5));
+        Assert.Equal(1, dismissed);
+    }
 }

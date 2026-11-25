@@ -128,7 +128,7 @@ public sealed class AgendaTimeTests
     {
         const string raw = "# Standup\n`task` `*medium` `!draft` `myday:2026-10-07` `at:10:45` `for:45m`\n";
 
-        var entry = TaskEntryFields.CreateFrom(EntryTextParser.Parse(raw), order: 0);
+        var entry = TaskEntryFields.CreateFrom(EntryTextParser.Parse(raw), order: 0, TimeProvider.System);
 
         Assert.Equal(raw, EntryTextParser.ToRawText(entry.ToDto()));
     }

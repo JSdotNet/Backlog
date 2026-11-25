@@ -75,7 +75,7 @@ public enum LinkedTaskWriteBackOutcome
 /// for, once for a burst of completions rather than once for each.
 /// </para>
 /// </summary>
-public sealed class CompleteLinkedTaskCommandHandler(
+public sealed partial class CompleteLinkedTaskCommandHandler(
     IEnumerable<ITaskConnector> connectors,
     ITaskRepository tasks,
     IConnectedTargets targets,
@@ -117,7 +117,7 @@ public sealed class CompleteLinkedTaskCommandHandler(
             // that could not be reached is a refusal all the same: the person needs to
             // see that their item is still open there. A cancellation nobody here asked
             // for is a timeout, and the source may have acted on the request regardless.
-            _log.LogWarning(ex, "Completing {Connector} item {Item} at the source threw.", source.ConnectorId, source.DisplayKey);
+            LogCompletionThrew(_log, ex, source.ConnectorId, source.DisplayKey);
             refusal = ex is OperationCanceledException ? TimedOut
                 : string.IsNullOrWhiteSpace(ex.Message) ? "The source could not be reached."
                 : ex.Message;
@@ -129,7 +129,7 @@ public sealed class CompleteLinkedTaskCommandHandler(
 
         if (refusal is not null)
         {
-            _log.LogInformation("{Connector} refused to complete {Item}: {Refusal}", source.ConnectorId, source.DisplayKey, refusal);
+            LogCompletionRefused(_log, source.ConnectorId, source.DisplayKey, refusal);
             return LinkedTaskWriteBackOutcome.Refused;
         }
 
@@ -178,4 +178,10 @@ public sealed class CompleteLinkedTaskCommandHandler(
         current.SetSourceRef(recorded);
         await tasks.SaveAsync(current, cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Completing {Connector} item {Item} at the source threw.")]
+    private static partial void LogCompletionThrew(ILogger logger, Exception exception, string connector, string item);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Connector} refused to complete {Item}: {Refusal}")]
+    private static partial void LogCompletionRefused(ILogger logger, string connector, string item, string refusal);
 }

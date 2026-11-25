@@ -37,7 +37,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// takes the request as one more pass rather than starting a second beside it.
 /// </para>
 /// </summary>
-public sealed class DevbookImportWorker : IDisposable
+public sealed partial class DevbookImportWorker : IDisposable
 {
     /// <summary>How long after start the first run waits, so the import does not
     /// compete with drawing the window and the sync loops' first cycles.</summary>
@@ -238,11 +238,11 @@ public sealed class DevbookImportWorker : IDisposable
 
         foreach (var skip in skipped)
         {
-            _log.LogInformation("The devbook import of {Repository} passed over {Path}: {Reason}", repository.FullName, skip.Path, skip.Reason);
+            LogPathPassedOver(_log, repository.FullName, skip.Path, skip.Reason);
         }
 
-        _log.LogInformation(
-            "The devbook import of {Repository} wrote {States} state(s) and {Remarks} remark(s){Outcome}.",
+        LogImportWritten(
+            _log,
             repository.FullName,
             subjectsWritten,
             remarksWritten,
@@ -281,7 +281,7 @@ public sealed class DevbookImportWorker : IDisposable
     private DevbookImportReport Waits(GitHubRepositoryRef repository, string? message)
     {
         var reason = message ?? $"The default branch of {repository.FullName} could not be read.";
-        _log.LogInformation("The devbook import of {Repository} waits for its default branch: {Reason}", repository.FullName, reason);
+        LogWaitsForDefaultBranch(_log, repository.FullName, reason);
 
         return DevbookImportReport.Failed(repository.Alias, reason);
     }
@@ -348,7 +348,7 @@ public sealed class DevbookImportWorker : IDisposable
             {
                 // A run that failed outside what it reports must not end the
                 // process; the next start, or the next change, runs it again.
-                _log.LogError(ex, "The devbook import failed unexpectedly.");
+                LogImportFailedUnexpectedly(_log, ex);
             }
 
             lock (_gate)
@@ -361,6 +361,18 @@ public sealed class DevbookImportWorker : IDisposable
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The devbook import of {Repository} passed over {Path}: {Reason}")]
+    private static partial void LogPathPassedOver(ILogger logger, string repository, string path, string reason);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The devbook import of {Repository} wrote {States} state(s) and {Remarks} remark(s){Outcome}.")]
+    private static partial void LogImportWritten(ILogger logger, string repository, int states, int remarks, string outcome);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The devbook import of {Repository} waits for its default branch: {Reason}")]
+    private static partial void LogWaitsForDefaultBranch(ILogger logger, string repository, string reason);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The devbook import failed unexpectedly.")]
+    private static partial void LogImportFailedUnexpectedly(ILogger logger, Exception exception);
 }
 
 /// <summary>

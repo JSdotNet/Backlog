@@ -21,7 +21,7 @@ namespace Backlog.Infrastructure.Cosmos.ConnectorCredentials;
 /// precondition instead of writing the revoked hash back.
 /// </para>
 /// </summary>
-internal sealed class CosmosConnectorClientStore : IConnectorClientStore
+internal sealed partial class CosmosConnectorClientStore :IConnectorClientStore
 {
     /// <summary>How many times a write re-reads after losing its precondition. The race it
     /// loses is almost always a stamp of the same moment, so one more read settles it; a
@@ -182,7 +182,7 @@ internal sealed class CosmosConnectorClientStore : IConnectorClientStore
     // No client id, generation or hash: the code says what kind of fault it was, and that
     // is all a reader of the log needs to know the grant went ahead without the stamp.
     private void LogStampSkipped(string reason) =>
-        _log.LogWarning("The connector client's last use was not recorded ({Reason}); the grant went ahead.", reason);
+        StampSkipped(_log, reason);
 
     private async Task<ConnectorClientDocument?> Read(string clientId, CancellationToken cancellationToken)
     {
@@ -207,4 +207,7 @@ internal sealed class CosmosConnectorClientStore : IConnectorClientStore
             throw ConnectorCredentialFaults.From(failure);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The connector client's last use was not recorded ({Reason}); the grant went ahead.")]
+    private static partial void StampSkipped(ILogger logger, string reason);
 }

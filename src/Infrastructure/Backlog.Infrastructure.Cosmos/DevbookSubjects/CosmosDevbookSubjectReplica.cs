@@ -24,7 +24,7 @@ namespace Backlog.Infrastructure.Cosmos.DevbookSubjects;
 /// replaces a later state. Nothing here reads a state's fields.
 /// </para>
 /// </summary>
-internal sealed class CosmosDevbookSubjectReplica : IDevbookSubjectReplica
+internal sealed partial class CosmosDevbookSubjectReplica :IDevbookSubjectReplica
 {
     private const string UnavailableMessage = "The devbook subject replica is not available yet. Try again shortly.";
 
@@ -143,9 +143,7 @@ internal sealed class CosmosDevbookSubjectReplica : IDevbookSubjectReplica
             }
             catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
             {
-                _log.LogDebug(
-                    "Devbook subject {SubjectId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
-                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+                SubjectChangedUnderPush(_log, change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -220,9 +218,7 @@ internal sealed class CosmosDevbookSubjectReplica : IDevbookSubjectReplica
             // being handed out.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "A devbook subject change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Page([], owner, continuation: null, drained: true);
             }
@@ -279,4 +275,10 @@ internal sealed class CosmosDevbookSubjectReplica : IDevbookSubjectReplica
 
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<DevbookSubjectDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Devbook subject {SubjectId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).")]
+    private static partial void SubjectChangedUnderPush(ILogger logger, Guid subjectId, Guid deviceId, int attempt, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A devbook subject change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }

@@ -19,8 +19,9 @@ internal static class TaskEntryFields
     /// <summary>The local calendar date a status change is made on, which the
     /// aggregate stamps as <see cref="TaskItem.StartedOn"/> on the first move into
     /// progress. Read here, once for the module's saves, so the aggregate itself
-    /// reads no clock.</summary>
-    public static DateOnly LocalToday => DateOnly.FromDateTime(DateTime.Now);
+    /// reads no clock. The handler's <see cref="TimeProvider"/> says what today is
+    /// (app-defaults ADR 0005).</summary>
+    public static DateOnly LocalToday(TimeProvider clock) => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
     /// <summary>Constructs a new entry from a parsed segment, at the given manual
     /// rank. Mirrors what a fresh <c>SaveTaskFromText</c> create used to do
@@ -37,7 +38,7 @@ internal static class TaskEntryFields
     /// <paramref name="id"/> is the caller's, for a task filed under an id it derived; null
     /// draws a random one, as every hand-typed entry has.
     /// </para></summary>
-    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null, Guid? id = null)
+    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, TimeProvider clock, string? sourceInboxId = null, Guid? id = null)
     {
         var entry = new TaskItem(
             id ?? Guid.NewGuid(),
@@ -49,14 +50,14 @@ internal static class TaskEntryFields
             repoIds: null,
             tags: parsed.Tags,
             sourceInboxId,
-            createdAt: DateTimeOffset.UtcNow);
+            createdAt: clock.GetUtcNow());
 
         // New entries are born at Draft. A status typed into the meta line is
         // applied as the direct value rather than stepped through the lifecycle,
         // so writing `!done` on a fresh entry means what it says.
         // The started stamp goes on first so the status below can fill it in.
         ApplyStarted(entry, parsed);
-        if (parsed.Status is { } initialStatus) entry.SetStatus(initialStatus, LocalToday);
+        if (parsed.Status is { } initialStatus) entry.SetStatus(initialStatus, LocalToday(clock));
 
         entry.SetOrder(Math.Max(order, 0));
         entry.SetArea(parsed.Area);

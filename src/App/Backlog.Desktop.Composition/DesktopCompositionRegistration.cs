@@ -97,7 +97,7 @@ namespace Backlog.Desktop.Composition;
 /// composition that only one head's test ever starts.
 /// </para>
 /// </summary>
-public static class DesktopCompositionRegistration
+public static partial class DesktopCompositionRegistration
 {
     public static IServiceCollection AddDesktopComposition(this IServiceCollection services, DesktopCompositionOptions options)
     {
@@ -874,11 +874,14 @@ public static class DesktopCompositionRegistration
     {
         try
         {
-            logger?.LogError(failure, "Starting the repository alias follower failed.");
+            if (logger is not null) LogAliasFollowerStartFailed(logger, failure);
         }
         catch (Exception)
         {
             // Nothing is left to report it to.
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Starting the repository alias follower failed.")]
+    private static partial void LogAliasFollowerStartFailed(ILogger logger, Exception exception);
 }

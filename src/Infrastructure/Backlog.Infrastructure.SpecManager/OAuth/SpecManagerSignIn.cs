@@ -34,7 +34,7 @@ namespace Backlog.Infrastructure.SpecManager.OAuth;
 /// No token is logged, and none is put in an exception message.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerSignIn : IDisposable
+internal sealed partial class SpecManagerSignIn : IDisposable
 {
     /// <summary>The name an account is shown with until the installation says
     /// whose it is.</summary>
@@ -256,12 +256,12 @@ internal sealed class SpecManagerSignIn : IDisposable
         }
         catch (Exception ex) when (IsUnreachable(ex, cancellationToken))
         {
-            _log.LogWarning(ex, "spec-manager at {BaseUrl} could not be reached to start a sign-in.", _options.Root);
+            UnreachableAtSignInStart(_log, ex, _options.Root);
             return $"spec-manager could not be reached at {_options.Root}. Check the connection and try again.";
         }
         catch (Exception ex) when (IsNotKept(ex))
         {
-            _log.LogError(ex, "The spec-manager client registration could not be kept.");
+            RegistrationNotKept(_log, ex);
             return "The sign-in could not be kept on this machine.";
         }
 
@@ -298,7 +298,7 @@ internal sealed class SpecManagerSignIn : IDisposable
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or PlatformNotSupportedException)
         {
-            _log.LogWarning(ex, "The browser could not be opened for a spec-manager sign-in.");
+            BrowserNotOpened(_log, ex);
             return "The browser could not be opened to sign in to spec-manager.";
         }
 
@@ -318,7 +318,7 @@ internal sealed class SpecManagerSignIn : IDisposable
         }
         catch (Exception ex) when (IsUnreachable(ex, cancellationToken))
         {
-            _log.LogWarning(ex, "spec-manager at {BaseUrl} could not be reached to finish a sign-in.", _options.Root);
+            UnreachableAtSignInFinish(_log, ex, _options.Root);
             return $"spec-manager could not be reached at {_options.Root} to finish the sign-in. Try again.";
         }
 
@@ -326,7 +326,7 @@ internal sealed class SpecManagerSignIn : IDisposable
         {
             if (answer?.Error == "invalid_client")
             {
-                _log.LogInformation("spec-manager at {BaseUrl} no longer knows this app's client; its registration is dropped.", _options.Root);
+                ClientUnknownRegistrationDropped(_log, _options.Root);
                 TryDrop();
                 return "spec-manager no longer knows this app's registration. Sign in again to register it afresh.";
             }
@@ -351,7 +351,7 @@ internal sealed class SpecManagerSignIn : IDisposable
         }
         catch (Exception ex) when (IsNotKept(ex))
         {
-            _log.LogError(ex, "A spec-manager sign-in could not be kept.");
+            SignInNotKept(_log, ex);
             return "Signed in, but the sign-in could not be kept on this machine.";
         }
 
@@ -395,7 +395,7 @@ internal sealed class SpecManagerSignIn : IDisposable
                 // The old token is dead whether or not this one is written, so it is
                 // used from memory; the next sign-in after a restart is the cost.
                 _unkept = next;
-                _log.LogWarning(ex, "The refreshed spec-manager sign-in could not be kept on this machine; it is used until the app closes.");
+                RefreshedSignInNotKept(_log, ex);
             }
 
             return next.AccessToken;
@@ -403,8 +403,8 @@ internal sealed class SpecManagerSignIn : IDisposable
 
         if (answer?.Error is "invalid_grant" or "invalid_client")
         {
-            _log.LogInformation(
-                "spec-manager at {BaseUrl} no longer honours this sign-in ({Error}); signed out.",
+            SignInNoLongerHonoured(
+                _log,
                 _options.Root,
                 answer.Error);
             Forget(current, dropRegistration: answer.Error == "invalid_client");
@@ -458,7 +458,7 @@ internal sealed class SpecManagerSignIn : IDisposable
         }
         catch (Exception ex) when (IsNotKept(ex))
         {
-            _log.LogWarning(ex, "The spec-manager client registration could not be dropped.");
+            RegistrationNotDropped(_log, ex);
         }
     }
 
@@ -558,4 +558,31 @@ internal sealed class SpecManagerSignIn : IDisposable
     /// <summary>Whether <paramref name="ex"/> is a token store failing to write.</summary>
     internal static bool IsNotKept(Exception ex) =>
         ex is IOException or UnauthorizedAccessException or CryptographicException;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager at {BaseUrl} could not be reached to start a sign-in.")]
+    private static partial void UnreachableAtSignInStart(ILogger logger, Exception exception, string baseUrl);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The spec-manager client registration could not be kept.")]
+    private static partial void RegistrationNotKept(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The browser could not be opened for a spec-manager sign-in.")]
+    private static partial void BrowserNotOpened(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager at {BaseUrl} could not be reached to finish a sign-in.")]
+    private static partial void UnreachableAtSignInFinish(ILogger logger, Exception exception, string baseUrl);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager at {BaseUrl} no longer knows this app's client; its registration is dropped.")]
+    private static partial void ClientUnknownRegistrationDropped(ILogger logger, string baseUrl);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A spec-manager sign-in could not be kept.")]
+    private static partial void SignInNotKept(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The refreshed spec-manager sign-in could not be kept on this machine; it is used until the app closes.")]
+    private static partial void RefreshedSignInNotKept(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager at {BaseUrl} no longer honours this sign-in ({Error}); signed out.")]
+    private static partial void SignInNoLongerHonoured(ILogger logger, string baseUrl, string? error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The spec-manager client registration could not be dropped.")]
+    private static partial void RegistrationNotDropped(ILogger logger, Exception exception);
 }

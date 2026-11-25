@@ -45,7 +45,7 @@ namespace Backlog.Infrastructure.Sync;
 /// it gets the same answer and hides the same panel.
 /// </para>
 /// </summary>
-public sealed class TaskSyncWorker : IDisposable
+public sealed partial class TaskSyncWorker : IDisposable
 {
     /// <summary>
     /// How long after the loop starts the first cycle runs.
@@ -434,9 +434,7 @@ public sealed class TaskSyncWorker : IDisposable
         }
         catch (TimeoutException)
         {
-            _log.LogInformation(
-                "The first task sync cycle had not finished after {Timeout}; the roadmap reads what this device holds.",
-                timeout);
+            LogFirstCycleTimedOut(_log, timeout);
         }
     }
 
@@ -557,7 +555,7 @@ public sealed class TaskSyncWorker : IDisposable
             // RunGuardedAsync already swallows everything a cycle can raise, so
             // reaching here means the guard itself failed. Swallowed all the
             // same, and for the reason above: the next tick tries again.
-            _log.LogError(ex, "A task sync tick failed outside the cycle it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -571,7 +569,7 @@ public sealed class TaskSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A task sync cycle failed unexpectedly.");
+            LogCycleFailedUnexpectedly(_log, ex);
         }
     }
 
@@ -629,17 +627,23 @@ public sealed class TaskSyncWorker : IDisposable
             var result = await RefusedTokenRerun.RunAsync(
                 _services, () => session.SyncAsync(_lifetime.Token), _log, "task").ConfigureAwait(false);
 
-            switch (result)
+            // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+            LastError = result switch
             {
-                case Ok<TaskSyncSummary>(var summary):
-                    LastSummary = summary;
-                    LastError = null;
-                    break;
-                case Error error:
-                    LastError = error.Message;
-                    _log.LogInformation(
-                        "A task sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
-                    break;
+                Ok<TaskSyncSummary>(var summary) => Completed(summary),
+                Error error => Failed(error),
+            };
+
+            string? Completed(TaskSyncSummary summary)
+            {
+                LastSummary = summary;
+                return null;
+            }
+
+            string Failed(Error error)
+            {
+                LogCycleIncomplete(_log, error.Code, error.Message);
+                return error.Message;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -649,7 +653,7 @@ public sealed class TaskSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A task sync cycle threw.");
+            LogCycleThrew(_log, ex);
             LastError = UnexpectedFailure;
         }
         finally
@@ -763,8 +767,26 @@ public sealed class TaskSyncWorker : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.LogInformation(ex, "Task sync is not composed in this host, so the loop has nothing to do.");
+            LogNotComposed(_log, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The first task sync cycle had not finished after {Timeout}; the roadmap reads what this device holds.")]
+    private static partial void LogFirstCycleTimedOut(ILogger logger, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A task sync tick failed outside the cycle it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A task sync cycle failed unexpectedly.")]
+    private static partial void LogCycleFailedUnexpectedly(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A task sync cycle did not complete: {Code} {Message}")]
+    private static partial void LogCycleIncomplete(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A task sync cycle threw.")]
+    private static partial void LogCycleThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Task sync is not composed in this host, so the loop has nothing to do.")]
+    private static partial void LogNotComposed(ILogger logger, Exception exception);
 }

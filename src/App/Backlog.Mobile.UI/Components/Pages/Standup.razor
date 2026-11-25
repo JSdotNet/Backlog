@@ -275,7 +275,7 @@ else
         Outbox.Changed += OnChanged;
         Lifecycle.Resumed += OnResumed;
 
-        _ = InvokeAsync(RefreshAsync);
+        _ = InvokeAsync(RefreshAndRenderAsync);
     }
 
     public void Dispose()
@@ -289,7 +289,14 @@ else
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+    private void OnResumed() => _ = InvokeAsync(RefreshAndRenderAsync);
+
+    /// <summary>A refresh nothing on the page asked for — opening it, a resume — drawn the
+    /// way the refresh button's is, and not at all once the page has gone.</summary>
+    private Task RefreshAndRenderAsync() => HandlerRendering.RunAsync(RefreshAsync, () =>
+    {
+        if (!_disposed) StateHasChanged();
+    });
 
     /// <summary>
     /// Pulls Progress and the tasks the stand-up counts. A failure keeps the stand-up as
@@ -319,8 +326,6 @@ else
             _refreshing = false;
             _looked = true;
         }
-
-        if (!_disposed) StateHasChanged();
     }
 
     private Dictionary<Guid, ProgressTaskDto> Work()

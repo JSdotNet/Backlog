@@ -33,7 +33,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// an audit file that is locked or full is not a reason to stop every session's tools.
 /// </para>
 /// </summary>
-public static class McpCallAudit
+public static partial class McpCallAudit
 {
     /// <summary>The longest target id a record keeps; anything longer is cut, so an
     /// argument a client filled with prose cannot grow the log without bound.</summary>
@@ -150,9 +150,11 @@ public static class McpCallAudit
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            services?.GetService<ILoggerFactory>()?
-                .CreateLogger(typeof(McpCallAudit))
-                .LogError(ex, "The MCP call to {Tool} could not be written to the audit log.", record.Tool);
+            if (services?.GetService<ILoggerFactory>()?.CreateLogger(typeof(McpCallAudit)) is { } logger)
+                LogAuditWriteFailed(logger, ex, record.Tool);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP call to {Tool} could not be written to the audit log.")]
+    private static partial void LogAuditWriteFailed(ILogger logger, Exception exception, string tool);
 }

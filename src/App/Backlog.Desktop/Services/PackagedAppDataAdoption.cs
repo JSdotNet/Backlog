@@ -20,7 +20,7 @@ namespace Backlog.Desktop.Services;
 /// detects it.
 /// </para>
 /// </summary>
-internal static class PackagedAppDataAdoption
+internal static partial class PackagedAppDataAdoption
 {
     /// <summary>Runs before the service provider exists, so the result is
     /// handed back for the host to log once it has a logger.</summary>
@@ -57,11 +57,17 @@ internal static class PackagedAppDataAdoption
         switch (adoption?.Outcome)
         {
             case AppDataAdoptionOutcome.Adopted:
-                logger.LogInformation("Adopted the app's state from the packaged install's redirected AppData folder.");
+                LogAdopted(logger);
                 break;
             case AppDataAdoptionOutcome.Failed:
-                logger.LogWarning("Couldn't adopt the app's state from the packaged install's redirected AppData folder: {Error}. It will be tried again next start.", adoption.Error);
+                LogAdoptionFailed(logger, adoption.Error);
                 break;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Adopted the app's state from the packaged install's redirected AppData folder.")]
+    private static partial void LogAdopted(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't adopt the app's state from the packaged install's redirected AppData folder: {Error}. It will be tried again next start.")]
+    private static partial void LogAdoptionFailed(ILogger logger, string? error);
 }

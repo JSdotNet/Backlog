@@ -32,9 +32,12 @@ public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order
 public sealed class SaveTaskFromTextCommandHandler(
     ITaskRepository entries,
     IRepositoryDirectory repositories,
-    ILinkedTaskWriteBack? writeBack = null)
+    ILinkedTaskWriteBack? writeBack = null,
+    TimeProvider? clock = null)
     : ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>An entry needs a title before it can exist. Somebody halfway
     /// through typing one has not failed at anything, so this is an ordinary
     /// outcome the editor holds on to rather than an error it reports.</summary>
@@ -119,7 +122,7 @@ public sealed class SaveTaskFromTextCommandHandler(
     {
         if (string.IsNullOrWhiteSpace(parsed.Title)) return NeedsTitle;
 
-        var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
+        var entry = TaskEntryFields.CreateFrom(parsed, order, _clock, sourceInboxId);
 
         await entries.SaveAsync(entry, cancellationToken);
 
@@ -156,7 +159,7 @@ public sealed class SaveTaskFromTextCommandHandler(
 
         TaskEntryFields.ApplyToExisting(entry, parsed);
 
-        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday);
+        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday(_clock));
 
         // Reopening a task takes back the refusal it carried: the person is no longer
         // asking the source to finish anything, and a task finished again is asked

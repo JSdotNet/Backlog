@@ -37,7 +37,7 @@ namespace Backlog.Mobile.Services;
 /// part that reached the disk.
 /// </para>
 /// </remarks>
-public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logger) : IMeetingRecorder
+public sealed partial class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logger) : IMeetingRecorder
 {
     private const string ContentType = "audio/aac";
     private const string Extension = ".aac";
@@ -177,7 +177,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning("A meeting recording did not start: {Error}", ex.GetType().Name);
+            LogRecordingDidNotStart(logger, ex.GetType().Name);
         }
         finally
         {
@@ -253,7 +253,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
         catch (Exception ex)
         {
-            logger.LogWarning("A meeting recording did not stop cleanly: {Error}", ex.GetType().Name);
+            LogRecordingDidNotStopCleanly(logger, ex.GetType().Name);
         }
         finally
         {
@@ -315,7 +315,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
         catch (Exception ex) when (ex is Java.Lang.Exception or TimeoutException)
         {
-            logger.LogWarning("The recording service did not start: {Error}", ex.GetType().Name);
+            LogRecordingServiceDidNotStart(logger, ex.GetType().Name);
             promoted = false;
         }
 
@@ -332,14 +332,14 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
         catch (Exception ex)
         {
-            logger.LogWarning("The microphone did not start: {Error}", ex.GetType().Name);
+            LogMicrophoneDidNotStart(logger, ex.GetType().Name);
             try
             {
                 await capture.AbandonAsync(DrainTimeout);
             }
             catch (Exception abandon) when (abandon is not OperationCanceledException)
             {
-                logger.LogWarning("The failed start was not cleaned up: {Error}", abandon.GetType().Name);
+                LogFailedStartNotCleanedUp(logger, abandon.GetType().Name);
             }
             finally
             {
@@ -391,7 +391,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         catch (Java.Lang.Exception ex)
         {
             // No call detection is still a recording; a call then reaches it as a fault, if at all.
-            logger.LogWarning("Calls are not followed for this recording: {Error}", ex.GetType().Name);
+            LogCallsNotFollowed(logger, ex.GetType().Name);
         }
     }
 
@@ -454,7 +454,8 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             _inCall = inCall;
         }
 
-        logger.LogInformation(inCall ? "A phone call took the microphone from a recording." : "The phone call ended.");
+        if (inCall) LogCallTookMicrophone(logger);
+        else LogCallEnded(logger);
         return true;
     }
 
@@ -469,7 +470,8 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             _silenced = silenced;
         }
 
-        logger.LogInformation(silenced ? "Another app silenced a recording." : "A recording hears the microphone again.");
+        if (silenced) LogRecordingSilenced(logger);
+        else LogRecordingHearsAgain(logger);
         Changed?.Invoke();
     }
 
@@ -541,7 +543,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             _level = 0;
         }
 
-        logger.LogWarning("A meeting recording stopped: {Fault}", fault);
+        LogRecordingStopped(logger, fault);
 
         // Stops capturing now; the session's Stop collects the parts. Raised from the pool, not
         // inline: a fault comes from the pipe reader, and a Stop run on that thread would wait
@@ -567,7 +569,7 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
         }
         catch (Java.Lang.Exception ex)
         {
-            logger.LogWarning("The recording service did not stop: {Error}", ex.GetType().Name);
+            LogRecordingServiceDidNotStop(logger, ex.GetType().Name);
         }
     }
 
@@ -883,4 +885,40 @@ public sealed class AndroidMeetingRecorder(ILogger<AndroidMeetingRecorder> logge
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A meeting recording did not start: {Error}")]
+    private static partial void LogRecordingDidNotStart(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A meeting recording did not stop cleanly: {Error}")]
+    private static partial void LogRecordingDidNotStopCleanly(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The recording service did not start: {Error}")]
+    private static partial void LogRecordingServiceDidNotStart(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The microphone did not start: {Error}")]
+    private static partial void LogMicrophoneDidNotStart(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The failed start was not cleaned up: {Error}")]
+    private static partial void LogFailedStartNotCleanedUp(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Calls are not followed for this recording: {Error}")]
+    private static partial void LogCallsNotFollowed(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A phone call took the microphone from a recording.")]
+    private static partial void LogCallTookMicrophone(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The phone call ended.")]
+    private static partial void LogCallEnded(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Another app silenced a recording.")]
+    private static partial void LogRecordingSilenced(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A recording hears the microphone again.")]
+    private static partial void LogRecordingHearsAgain(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A meeting recording stopped: {Fault}")]
+    private static partial void LogRecordingStopped(ILogger logger, string fault);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The recording service did not stop: {Error}")]
+    private static partial void LogRecordingServiceDidNotStop(ILogger logger, string error);
 }

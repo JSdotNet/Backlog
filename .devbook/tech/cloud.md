@@ -87,6 +87,23 @@ Generates the OpenAPI document for the sync API.
 - **Why** — the first-party generator for minimal APIs, with no Swashbuckle
   dependency.
 
+## Scalar.AspNetCore
+
+```meta
+rating: adopted
+type: package
+version: "3.2.1"
+depends-on: [".devbook/tech/cloud.md#microsoftaspnetcoreopenapi"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#results-and-errors"]
+```
+
+Renders the sync API's OpenAPI document as an interactive API reference.
+
+- **Used for** — `MapScalarApiReference()` at `/scalar` in `Backlog.Modules.Sync.Api`, in
+  Development only, beside `MapOpenApi()`.
+- **Why** — the API reference org ADR 0004 names; it reads the
+  first-party document and adds no generator of its own.
+
 ## Azure.Identity
 
 ```meta

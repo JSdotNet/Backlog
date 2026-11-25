@@ -459,7 +459,6 @@ It belongs on `IntegrationLink`, the only component in the family that emits an 
     private async Task Reread()
     {
         _reading = _reading with { InFlight = true, FailureReason = null };
-        StateHasChanged();
 
         await Task.Delay(700);
 

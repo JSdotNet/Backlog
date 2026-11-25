@@ -47,7 +47,7 @@ public interface INotificationNudgeTarget
 /// feature, and a paired device — and closes its socket the moment one closes.
 /// </para>
 /// </summary>
-public sealed class NotificationNudgeListener : IDisposable
+public sealed partial class NotificationNudgeListener : IDisposable
 {
     /// <summary>The first wait after a failed attempt or a dropped socket.</summary>
     internal static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(5);
@@ -218,7 +218,7 @@ public sealed class NotificationNudgeListener : IDisposable
             catch (Exception ex)
             {
                 // Nothing here may end the loop: the next attempt is the recovery.
-                _log.LogError(ex, "The notification nudge listener failed unexpectedly.");
+                LogListenerFailed(_log, ex);
                 wait = retry;
                 retry = Next(retry);
             }
@@ -244,16 +244,13 @@ public sealed class NotificationNudgeListener : IDisposable
         if (negotiated is not Ok<Uri?>(var hub))
         {
             var error = (Error)negotiated.Value!;
-            _log.LogInformation(
-                "The notification nudge could not be negotiated, so replies wait for the two-minute poll: {Code} {Message}",
-                error.Code,
-                error.Message);
+            LogNegotiationFailed(_log, error.Code, error.Message);
             return Attempt.Failed;
         }
 
         if (hub is not { } url)
         {
-            _log.LogInformation("The sync service runs without a nudge hub, so replies arrive on the two-minute poll.");
+            LogNoNudgeHub(_log);
             return Attempt.Unavailable;
         }
 
@@ -265,7 +262,7 @@ public sealed class NotificationNudgeListener : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _log.LogInformation(ex, "The notification nudge socket did not open, so replies wait for the two-minute poll.");
+            LogSocketDidNotOpen(_log, ex);
             return Attempt.Failed;
         }
 
@@ -284,7 +281,7 @@ public sealed class NotificationNudgeListener : IDisposable
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                _log.LogInformation(ex, "The notification nudge socket dropped; reconnecting, and polling meanwhile.");
+                LogSocketDropped(_log, ex);
             }
             finally
             {
@@ -343,4 +340,19 @@ public sealed class NotificationNudgeListener : IDisposable
         Unavailable,
         Listened,
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The notification nudge listener failed unexpectedly.")]
+    private static partial void LogListenerFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The notification nudge could not be negotiated, so replies wait for the two-minute poll: {Code} {Message}")]
+    private static partial void LogNegotiationFailed(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The sync service runs without a nudge hub, so replies arrive on the two-minute poll.")]
+    private static partial void LogNoNudgeHub(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The notification nudge socket did not open, so replies wait for the two-minute poll.")]
+    private static partial void LogSocketDidNotOpen(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The notification nudge socket dropped; reconnecting, and polling meanwhile.")]
+    private static partial void LogSocketDropped(ILogger logger, Exception exception);
 }

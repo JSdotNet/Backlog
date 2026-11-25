@@ -83,7 +83,7 @@ else
         // Logged here because nothing else will: the renderer's own path prints
         // it to the WebView console and stops, and this boundary is what keeps
         // it from getting there.
-        Logger.LogError(exception, "Unhandled error in the page at {Location}", _location);
+        LogUnhandledPageError(Logger, exception, _location);
 
         return Task.CompletedTask;
     }

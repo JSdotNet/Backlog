@@ -67,7 +67,7 @@ namespace Backlog.Desktop.Mcp;
 /// exchanged for (<see cref="WindowLinkTokens"/>).
 /// </para>
 /// </summary>
-public sealed class McpServerWorker : IDisposable
+public sealed partial class McpServerWorker : IDisposable
 {
     /// <summary>Where the endpoint is served from, under the listener's address.
     /// Shared with the web harness through
@@ -463,7 +463,7 @@ public sealed class McpServerWorker : IDisposable
                 // A host that would not stop is not a reason to refuse to start
                 // the next one; the bind below will say so if the port is still
                 // held.
-                _log.LogError(ex, "The MCP server's previous listener could not be stopped cleanly.");
+                LogPreviousListenerStopFailed(_log, ex);
             }
 
             // The port is free and the screen says "not listening" already - but
@@ -517,7 +517,7 @@ public sealed class McpServerWorker : IDisposable
             // failure to report.
             if (current)
             {
-                _log.LogError(ex, "The MCP server's listener for 127.0.0.1:{Port} could not be built.", slot.Port);
+                LogListenerBuildFailed(_log, ex, slot.Port);
                 Changed?.Invoke();
             }
 
@@ -540,7 +540,7 @@ public sealed class McpServerWorker : IDisposable
         catch (Exception ex)
         {
             // Never bound, so it holds no port; nothing to tell anyone but the log.
-            _log.LogError(ex, "A superseded MCP listener could not be disposed.");
+            LogSupersededListenerDisposeFailed(_log, ex);
         }
 
         return null;
@@ -661,7 +661,7 @@ public sealed class McpServerWorker : IDisposable
 
             context.Response.StatusCode = reply.StatusCode;
             if (reply.ContentType is not null) context.Response.ContentType = reply.ContentType;
-            if (reply.Failure is not null) _log.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+            if (reply.Failure is not null) LogTelemetryStoreFailed(_log, reply.Failure);
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
@@ -697,8 +697,8 @@ public sealed class McpServerWorker : IDisposable
             }
 
             context.Response.StatusCode = reply.StatusCode;
-            if (reply.Failure is not null && reply.StatusCode == 503) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
-            else if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
+            if (reply.Failure is not null && reply.StatusCode == 503) LogSessionRequestQueueReadFailed(_log, reply.Failure);
+            else if (reply.Failure is not null) LogSessionRequestWaitServedPastFailure(_log, reply.Failure);
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length == 0) return;
 
@@ -720,7 +720,7 @@ public sealed class McpServerWorker : IDisposable
                 context.RequestAborted).ConfigureAwait(false);
 
             context.Response.StatusCode = reply.StatusCode;
-            if (reply.Failure is not null) _log.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+            if (reply.Failure is not null) LogScheduledRunReportFailed(_log, reply.Failure);
             if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (reply.Body.Length == 0) return;
 
@@ -768,7 +768,7 @@ public sealed class McpServerWorker : IDisposable
                 Address = BacklogMcpServerRegistration.EndpointUri(port);
             }
 
-            _log.LogInformation("The MCP server is listening on http://127.0.0.1:{Port}{Path}.", port, EndpointPath);
+            LogListening(_log, port, EndpointPath);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -792,7 +792,7 @@ public sealed class McpServerWorker : IDisposable
 
             Release(listener);
 
-            _log.LogError(ex, "The MCP server could not bind 127.0.0.1:{Port}. It will not try another port.", port);
+            LogBindFailed(_log, ex, port);
         }
 
         Changed?.Invoke();
@@ -826,7 +826,7 @@ public sealed class McpServerWorker : IDisposable
             // caller could supply and retry with, and answering "authenticate"
             // would invite it to try.
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            _log.LogWarning("An MCP request was refused: its Origin is not loopback.");
+            LogRefusedNonLoopbackOrigin(_log);
             return;
         }
 
@@ -840,7 +840,7 @@ public sealed class McpServerWorker : IDisposable
             if (!SurfaceWindowPages.IsLoopbackHost(context.Request.Host))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                _log.LogWarning("A pop-out page request was refused: its Host is not loopback.");
+                LogPopOutRefusedNonLoopbackHost(_log);
                 return;
             }
 
@@ -848,7 +848,7 @@ public sealed class McpServerWorker : IDisposable
             {
                 if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
                 {
-                    _log.LogWarning("A pop-out page request was refused: no valid link token or cookie.");
+                    LogPopOutRefusedNoLinkToken(_log);
                 }
 
                 return;
@@ -868,7 +868,7 @@ public sealed class McpServerWorker : IDisposable
                 .ToString(System.Globalization.CultureInfo.InvariantCulture);
             // Debug, not Warning: the trip was the warning, and a minute of every
             // session's retries would bury it.
-            _log.LogDebug("An MCP request was refused with 429: failed bearer attempts locked the listener out.");
+            LogRefusedLockedOut(_log);
             return;
         }
 
@@ -919,7 +919,7 @@ public sealed class McpServerWorker : IDisposable
             {
                 // The refusal and nothing else: the token is a credential, and a refused one
                 // names no grant this listener has checked.
-                _log.LogWarning("An MCP request was refused: its grant token was refused ({Refusal}).", refusal);
+                LogRefusedGrantToken(_log, refusal);
 
                 // A token this listener never signed is a guess and counts towards the
                 // lockout. An expired, revoked or superseded one was signed here, so its
@@ -938,11 +938,11 @@ public sealed class McpServerWorker : IDisposable
             {
                 // A bearer that is no grant token: most likely a registration still carrying the
                 // retired shared token. The log says what fixes it.
-                _log.LogWarning("An MCP request was refused: it carries a static bearer token, and since the shared token was retired only grant tokens are accepted. Register it with headersHelper --grant <id> from Settings, MCP server.");
+                LogRefusedStaticBearer(_log);
             }
             else
             {
-                _log.LogWarning("An MCP request was refused: no valid bearer token.");
+                LogRefusedNoBearer(_log);
             }
 
             // Counted towards the lockout only while a static token is accepted at all: with the
@@ -976,10 +976,7 @@ public sealed class McpServerWorker : IDisposable
             // and a new one for the same grant would be refused the same way.
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
-            _log.LogWarning(
-                "An MCP request from {Caller} was refused: its scopes do not reach {Path}.",
-                McpScopePolicies.CallerOf(principal),
-                context.Request.Path.Value);
+            LogRefusedInsufficientScope(_log, McpScopePolicies.CallerOf(principal), context.Request.Path.Value);
             return;
         }
 
@@ -992,11 +989,7 @@ public sealed class McpServerWorker : IDisposable
     /// audit log refuses goes to the log instead: the lockout holds either way.</summary>
     private async Task RecordLockoutAsync(McpAuditRecord record)
     {
-        _log.LogWarning(
-            "{Failures} failed bearer attempts within {Window}s: every bearer request is refused for {Lockout}s.",
-            McpBearerLimiter.MaxFailures,
-            McpBearerLimiter.Window.TotalSeconds,
-            McpBearerLimiter.Lockout.TotalSeconds);
+        LogLockoutStarted(_log, McpBearerLimiter.MaxFailures, McpBearerLimiter.Window.TotalSeconds, McpBearerLimiter.Lockout.TotalSeconds);
 
         try
         {
@@ -1009,7 +1002,7 @@ public sealed class McpServerWorker : IDisposable
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogError(ex, "The bearer lockout could not be written to the audit log.");
+            LogLockoutAuditWriteFailed(_log, ex);
         }
     }
 
@@ -1110,7 +1103,7 @@ public sealed class McpServerWorker : IDisposable
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(ex, "The MCP listener cannot use the desktop app's {Port} as an instance; it is forwarded per request.", port.Name);
+            LogSingletonPortUnavailable(_log, ex, port.Name);
             return null;
         }
     }
@@ -1185,9 +1178,7 @@ public sealed class McpServerWorker : IDisposable
 
         if (missing.Count > 0)
         {
-            _log.LogError(
-                "The desktop container composes no {Missing}, so the MCP tools that need them will fail when called.",
-                string.Join(", ", missing.Select(port => port.Name)));
+            LogPortsNotComposed(_log, string.Join(", ", missing.Select(port => port.Name)));
         }
 
         return forwarded;
@@ -1202,4 +1193,67 @@ public sealed class McpServerWorker : IDisposable
 
         public WebApplication? App { get; set; }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP server's previous listener could not be stopped cleanly.")]
+    private static partial void LogPreviousListenerStopFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP server's listener for 127.0.0.1:{Port} could not be built.")]
+    private static partial void LogListenerBuildFailed(ILogger logger, Exception exception, int port);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A superseded MCP listener could not be disposed.")]
+    private static partial void LogSupersededListenerDisposeFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Claude Code's telemetry could not be stored; the exporter was asked to retry.")]
+    private static partial void LogTelemetryStoreFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The session request queue could not be read; the dispatcher was asked to retry.")]
+    private static partial void LogSessionRequestQueueReadFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.")]
+    private static partial void LogSessionRequestWaitServedPastFailure(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A scheduled run's report could not be recorded; the hook was asked to retry.")]
+    private static partial void LogScheduledRunReportFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The MCP server is listening on http://127.0.0.1:{Port}{Path}.")]
+    private static partial void LogListening(ILogger logger, int port, string path);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP server could not bind 127.0.0.1:{Port}. It will not try another port.")]
+    private static partial void LogBindFailed(ILogger logger, Exception exception, int port);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An MCP request was refused: its Origin is not loopback.")]
+    private static partial void LogRefusedNonLoopbackOrigin(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A pop-out page request was refused: its Host is not loopback.")]
+    private static partial void LogPopOutRefusedNonLoopbackHost(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A pop-out page request was refused: no valid link token or cookie.")]
+    private static partial void LogPopOutRefusedNoLinkToken(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "An MCP request was refused with 429: failed bearer attempts locked the listener out.")]
+    private static partial void LogRefusedLockedOut(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An MCP request was refused: its grant token was refused ({Refusal}).")]
+    private static partial void LogRefusedGrantToken(ILogger logger, McpGrantRefusal refusal);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An MCP request was refused: it carries a static bearer token, and since the shared token was retired only grant tokens are accepted. Register it with headersHelper --grant <id> from Settings, MCP server.")]
+    private static partial void LogRefusedStaticBearer(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An MCP request was refused: no valid bearer token.")]
+    private static partial void LogRefusedNoBearer(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An MCP request from {Caller} was refused: its scopes do not reach {Path}.")]
+    private static partial void LogRefusedInsufficientScope(ILogger logger, string? caller, string? path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Failures} failed bearer attempts within {Window}s: every bearer request is refused for {Lockout}s.")]
+    private static partial void LogLockoutStarted(ILogger logger, int failures, double window, double lockout);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The bearer lockout could not be written to the audit log.")]
+    private static partial void LogLockoutAuditWriteFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP listener cannot use the desktop app's {Port} as an instance; it is forwarded per request.")]
+    private static partial void LogSingletonPortUnavailable(ILogger logger, Exception exception, string port);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The desktop container composes no {Missing}, so the MCP tools that need them will fail when called.")]
+    private static partial void LogPortsNotComposed(ILogger logger, string missing);
 }

@@ -43,7 +43,7 @@ public interface IApkInstaller
 /// <see cref="StartUpdateAsync"/> does, and only the update window calls it.
 /// </para>
 /// </remarks>
-public sealed class ApkAppUpdateService(
+public sealed partial class ApkAppUpdateService(
     ApkUpdateChannel channel,
     IApkInstaller installer,
     GitHubApkUpdateCheck check,
@@ -79,8 +79,11 @@ public sealed class ApkAppUpdateService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Installing update {Version} failed.", found.Release.Version.Display);
+            LogInstallFailed(logger, ex, found.Release.Version.Display);
             return AppUpdateInstallResult.Failed("The update could not be installed. Try again later.");
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Installing update {Version} failed.")]
+    private static partial void LogInstallFailed(ILogger logger, Exception exception, string version);
 }

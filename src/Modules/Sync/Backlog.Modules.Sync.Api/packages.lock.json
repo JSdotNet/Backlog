@@ -56,6 +56,12 @@
           "ModelContextProtocol": "[2.4.0]"
         }
       },
+      "Scalar.AspNetCore": {
+        "type": "Direct",
+        "requested": "[3.2.1, )",
+        "resolved": "3.2.1",
+        "contentHash": "wGrsLOwWvTffOeOLkvNFQFuRVClo4EOADsEby490Hze/5eIxrSkAzqmZ8slJDMRiRrKRoyBzijzTlHS0KSDzyA=="
+      },
       "Apache.Arrow": {
         "type": "Transitive",
         "resolved": "22.1.0",
