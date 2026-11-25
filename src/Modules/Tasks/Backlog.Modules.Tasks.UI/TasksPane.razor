@@ -1307,7 +1307,9 @@
     /// <summary>The queue icon's name: which repository the session is queued for,
     /// or that the press asks.</summary>
     private static string QueueSessionLabel(SessionStartOffer offer) =>
-        offer.Only is { } only
+        offer.PlanTag is { } plan
+            ? $"Queue the {plan} plan as a whole — its entries are not queued one by one"
+            : offer.Only is { } only
             ? $"Queue a session for this entry in {only.Repository}"
             : offer.AsksWhichRepository
                 ? "Queue a session for this entry — choose the repository"
@@ -1508,10 +1510,13 @@
     {
         if (!_sessionRequests.IsOffered || _sessionRequests.OpenFor(row.Id) is not null) return null;
 
+        // A plan entry's own queue is refused: the plan is queued only as a whole
+        // (local ADR 0062 §4), so the icon is drawn disabled with the reason.
         return SessionStartOffer.For(
             row.PreviewType,
             row.IsPersisted && row.Id is not null,
-            row.PreviewRepoIds.Select(GitHub.ResolveRepository));
+            row.PreviewRepoIds.Select(GitHub.ResolveRepository),
+            State.QueuedOnlyWithPlan(row));
     }
 
     /// <summary>The press: straight into the one repository there is, or the chooser

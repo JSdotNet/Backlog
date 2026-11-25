@@ -36,7 +36,9 @@ public sealed record SessionStartTarget(string Repository, string? CloneFolder)
 /// <param name="Targets">Every repository the entry names that resolves, in the order
 /// it names them, each with its clone folder.</param>
 /// <param name="DisabledReason">Why the action cannot be taken, or null when it can.</param>
-public sealed record SessionStartOffer(IReadOnlyList<SessionStartTarget> Targets, string? DisabledReason)
+/// <param name="PlanTag">The plan the entry belongs to, <c>+</c> and all, when the
+/// action is refused because a plan is queued only as a whole (local ADR 0062 §4).</param>
+public sealed record SessionStartOffer(IReadOnlyList<SessionStartTarget> Targets, string? DisabledReason, string? PlanTag = null)
 {
     /// <summary>The reason given when the entry names no repository.</summary>
     public const string NoRepository = "This prompt names no repository, so there is no clone folder to start a session in.";
@@ -57,11 +59,20 @@ public sealed record SessionStartOffer(IReadOnlyList<SessionStartTarget> Targets
     /// <param name="persisted">Whether the entry has been saved and has an id.</param>
     /// <param name="repositories">The configured repositories the entry names. An
     /// archived one is left out: nobody works in it any more.</param>
-    public static SessionStartOffer? For(EntryType type, bool persisted, IEnumerable<GitHubRepositoryRef?> repositories)
+    /// <param name="planTag">The plan the entry belongs to — a plan tag a roadmap item
+    /// carries — or null. A plan entry's own
+    /// queue is refused: the plan is queued only as a whole, so the action is offered
+    /// disabled with the sentence that says so (local ADR 0062 §4).</param>
+    public static SessionStartOffer? For(EntryType type, bool persisted, IEnumerable<GitHubRepositoryRef?> repositories, string? planTag = null)
     {
         ArgumentNullException.ThrowIfNull(repositories);
 
         if (type != EntryType.Prompt || !persisted) return null;
+
+        if (PlanQueueOffer.Bare(planTag) is { Length: > 0 } plan)
+        {
+            return new SessionStartOffer([], PlanQueueOffer.QueueThePlanAsAWhole, "+" + plan);
+        }
 
         IReadOnlyList<SessionStartTarget> targets =
         [

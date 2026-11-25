@@ -29,6 +29,14 @@ public sealed record PlanQueueOffer(string Tag, string? Repository, string? Clon
     /// <summary>Whether the action can be taken.</summary>
     public bool IsEnabled => DisabledReason is null;
 
+    /// <summary>Why a plan entry's own queue is refused: a plan is queued only as a
+    /// whole (local ADR 0062 §4) — the tooltip
+    /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c> words.</summary>
+    public const string QueueThePlanAsAWhole = "Queued with its plan — queue the plan as a whole";
+
+    /// <summary>The tag without its sigil or surrounding space; empty for none.</summary>
+    internal static string Bare(string? tag) => (tag ?? string.Empty).Trim().TrimStart('+', '#').Trim();
+
     /// <summary>The offer for the plan tagged <paramref name="tag"/> filed under
     /// <paramref name="repositories"/>, or null when the tag names no plan.</summary>
     /// <param name="tag">The plan tag, with or without its sigil.</param>
@@ -38,7 +46,7 @@ public sealed record PlanQueueOffer(string Tag, string? Repository, string? Clon
     {
         ArgumentNullException.ThrowIfNull(repositories);
 
-        var bare = (tag ?? string.Empty).Trim().TrimStart('+', '#').Trim();
+        var bare = Bare(tag);
         if (bare.Length == 0) return null;
 
         var named = repositories
