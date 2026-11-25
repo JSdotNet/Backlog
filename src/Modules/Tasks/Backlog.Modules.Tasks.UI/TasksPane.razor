@@ -157,6 +157,11 @@
                     {
                         @RenderFlatBar()
                     }
+                    else if (PlansGrouped)
+                    {
+                        @* Plans wears Flat's quiet bar too — see RenderPlansBar. *@
+                        @RenderPlansBar()
+                    }
                     else
                     {
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
@@ -417,7 +422,7 @@
                        aria-pressed, and no "All" chip, because with nothing pressed
                        the list is already everything. That chip was the duplicate of
                        the statuses' own All. *@
-                    @if (!FlatListed && StripTags.Count > 0)
+                    @if (!FlatListed && !PlansGrouped && StripTags.Count > 0)
                     {
                         @* The strip's own row: last in the markup and, with
                            `order: 1`, below every other group, so it is a full
@@ -6742,8 +6747,16 @@
                            data-view="@view.ToString()"
                            role="radio"
                            aria-checked="@(active ? "true" : "false")"
+                           title="@FlatQuickViewLabel(view)"
                            OnClick="() => OnFlatQuickViewPicked(view)">
-                    @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    @if (FlatQuickViewIcon(view) is { } icon)
+                    {
+                        @icon<span class="sr-only">@($"{FlatQuickViewLabel(view)} ")</span>
+                    }
+                    else
+                    {
+                        @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    }
                     @if (count is { } n)
                     {
                         <Badge BaseClass="flat-tab__count" Kind="">@n</Badge>
@@ -6752,7 +6765,112 @@
             }
         </div>
 
-        <div class="filter-group flat-bar__menus" data-testid="flat-menus">
+        @RenderQuietMenus()
+        @RenderQuietStatusTabs(FlatStatusTabs)
+        @RenderQuietSort()
+        </text>;
+
+    /// <summary>
+    /// The Plans view's bar, in Flat's quiet text (local ADR 0062 §3): Select and the
+    /// slices as text toggles with their counts — each narrows what the rest left in
+    /// view, so aria-pressed rather than one of a set — the areas while Next actions is
+    /// on, then Flat's own Type, Source and #tag menus, status tabs and sort. On a narrow
+    /// column the rail folds into a Plan menu beside them.
+    /// </summary>
+    private RenderFragment RenderPlansBar() =>
+        @<text>
+        <div class="filter-group plans-bar__slices" role="group" aria-label="Scope" data-testid="plans-slices" @onkeydown="OnSelectionChipKeyDown">
+            <ToggleButton BaseClass="flat-tab"
+                          PressedCssClass="flat-tab--active"
+                          Pressed="@State.SelectionMode"
+                          TestId="bulk-select-toggle"
+                          Title="@(State.SelectionMode ? "Stop picking tasks" : "Pick tasks to act on in bulk")"
+                          PressedChanged="OnSelectionModeChanged">
+                Select
+            </ToggleButton>
+            @RenderQuietToggle("myday-filter-option", SunGlyph, "My Day", MyDayCount, MyDayOnly,
+                MyDayOnly ? "Show everything again" : "Show only what is in today's My Day", OnMyDayFilterChanged)
+            @RenderQuietToggle("readyinplan-filter-option", PlayGlyph, "Ready in a plan", ReadyInPlanCount, State.ReadyInPlanOnly,
+                State.ReadyInPlanOnly ? "Show everything again" : "Show only what is ready in a plan", State.SetReadyInPlanFilter)
+            @RenderQuietToggle("waitingfor-filter-option", HourglassGlyph, "Waiting", WaitingForCount, State.WaitingForOnly,
+                State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first", State.SetWaitingForFilter)
+            @RenderQuietToggle("nextactions-filter-option", ListTodoGlyph, "Next actions", NextActionsCount, State.NextActionsOnly,
+                State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context", State.SetNextActionsFilter)
+        </div>
+
+        @if (State.AreaFilters.Count > 0)
+        {
+            <div class="filter-group filter-group--area" role="group" aria-label="Filter by area">
+                @foreach (var area in State.AreaFilters)
+                {
+                    <ToggleButton BaseClass="flat-tab"
+                                  PressedCssClass="flat-tab--active"
+                                  Pressed="@(State.SelectedArea == area.Value)"
+                                  TestId="area-filter-option"
+                                  data-area="@(area.Value == TasksDesktopState.NoArea ? string.Empty : area.Value)"
+                                  Title="@(State.SelectedArea == area.Value ? "Show every area again" : $"Show only the next actions in {area.Label}")"
+                                  PressedChanged="pressed => State.SetAreaFilter(pressed ? area.Value : null)">
+                        @($"{area.Label} ")<Badge BaseClass="flat-tab__count" Kind="">@area.Count</Badge>
+                    </ToggleButton>
+                }
+            </div>
+        }
+
+        @RenderQuietMenus()
+
+        @if (ListNarrow)
+        {
+            <div class="filter-group filter-group--menu">
+                <PopoverButton TestId="filter-menu"
+                               Id="filter-menu"
+                               AriaLabel="Plan"
+                               Title="@FilterMenuTitle"
+                               TriggerBaseClass="@(FilterMenuPressedCount > 0 ? "flat-tab flat-tab--menu flat-tab--active" : "flat-tab flat-tab--menu")"
+                               PanelCssClass="filter-menu__panel"
+                               OpenChanged="OnFilterMenuOpenChanged">
+                    <Trigger>Plan<ChevronUpIcon CssClass="flat-tab__caret" Size="10" /></Trigger>
+                    <ChildContent>@RenderPlanRail()</ChildContent>
+                </PopoverButton>
+            </div>
+        }
+
+        @RenderQuietStatusTabs(State.StatusFilters.Select(filter => (filter.Label, filter.Wire)))
+        @RenderQuietSort()
+        </text>;
+
+    /// <summary>One slice of the Plans bar: its glyph and count, borderless, pressed
+    /// while it narrows the list. The word stays the name, in an sr-only span, and the
+    /// tooltip says what pressing it does.</summary>
+    private RenderFragment RenderQuietToggle(string testId, RenderFragment icon, string label, int count, bool pressed, string title, Action<bool> changed) =>
+        @<ToggleButton BaseClass="flat-tab"
+                       PressedCssClass="flat-tab--active"
+                       Pressed="@pressed"
+                       TestId="@testId"
+                       Title="@title"
+                       PressedChanged="changed">
+            @icon<span class="sr-only">@($"{label} ")</span><Badge BaseClass="flat-tab__count" Kind="">@count</Badge>
+        </ToggleButton>;
+
+    /// <summary>A Flat quick view's glyph; Everything has none and keeps its word.</summary>
+    private static RenderFragment? FlatQuickViewIcon(FlatQuickView view) => view switch
+    {
+        FlatQuickView.MyDay => SunGlyph,
+        FlatQuickView.InTheQueue => ListEndGlyph,
+        FlatQuickView.Waiting => HourglassGlyph,
+        _ => null,
+    };
+
+    // The slices' glyphs, one each, shared by the Plans and Flat bars.
+    private static readonly RenderFragment SunGlyph = @<SunIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment PlayGlyph = @<PlayIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment HourglassGlyph = @<HourglassIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListTodoGlyph = @<ListTodoIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListEndGlyph = @<ListEndIcon Size="14" CssClass="flat-tab__icon" />;
+
+    /// <summary>The Type, Source and #tag menus Flat and Plans share: disclosures of the
+    /// chips the chip bar draws inline.</summary>
+    private RenderFragment RenderQuietMenus() =>
+        @<div class="filter-group flat-bar__menus" data-testid="flat-menus">
             <PopoverButton Id="flat-type-menu"
                            TestId="flat-type-menu"
                            AriaLabel="Type"
@@ -6807,10 +6925,13 @@
                     }
                 </ChildContent>
             </PopoverButton>
-        </div>
+        </div>;
 
-        <div class="filter-group flat-bar__status" role="radiogroup" aria-label="Filter by status" data-testid="flat-status-tabs">
-            @foreach (var (label, wire) in FlatStatusTabs)
+    /// <summary>The status tabs Flat and Plans share: one of a set, so a radiogroup —
+    /// each view with its own statuses (Flat opens on Open, Plans on All).</summary>
+    private RenderFragment RenderQuietStatusTabs(IEnumerable<(string Label, string Wire)> tabs) =>
+        @<div class="filter-group flat-bar__status" role="radiogroup" aria-label="Filter by status" data-testid="flat-status-tabs">
+            @foreach (var (label, wire) in tabs)
             {
                 var active = State.SelectedStatusFilterWire == wire;
                 <AppButton BaseClass="flat-tab"
@@ -6824,9 +6945,11 @@
                     @label
                 </AppButton>
             }
-        </div>
+        </div>;
 
-        <div class="filter-group flat-bar__sort">
+    /// <summary>The sort Flat and Plans share, as text.</summary>
+    private RenderFragment RenderQuietSort() =>
+        @<div class="filter-group flat-bar__sort">
             <AppButton BaseClass="flat-tab flat-tab--menu"
                        Variant="ButtonVariant.None"
                        TestId="sort-by-status"
@@ -6837,8 +6960,7 @@
                        OnClick="State.SortVisibleByStatusAsync">
                 Sort: status
             </AppButton>
-        </div>
-        </text>;
+        </div>;
 
     private static RenderFragment RenderFlatMenuEmpty(string text) =>
         @<Alert BaseClass="flat-menu__empty" Role="status" Message="@text" TestId="flat-menu-empty" />;
@@ -7485,9 +7607,9 @@
     /// rail item other than My Day is selected in the menu, which the Filter trigger
     /// wears as its count while it is not 0. My Day has its own chip on the bar.</summary>
     private int FilterMenuPressedCount =>
-        (State.SelectedSource is null ? 0 : 1)
-        + (State.SelectedType is null ? 0 : 1)
-        + (PlansGrouped && (State.NowAcrossPlansOnly || State.SelectedPlan is not null || State.IsTagSelected(TasksDesktopState.NoPlanTag)) ? 1 : 0);
+        (PlansGrouped || State.SelectedSource is null ? 0 : 1)
+        + (PlansGrouped || State.SelectedType is null ? 0 : 1)
+        + (PlansGrouped &&(State.NowAcrossPlansOnly || State.SelectedPlan is not null || State.IsTagSelected(TasksDesktopState.NoPlanTag)) ? 1 : 0);
 
     /// <summary>The Filter trigger in the chips' shape, reading pressed while a
     /// source or type is, so a narrowed list says so with the menu shut.</summary>
@@ -7501,14 +7623,13 @@
     {
         get
         {
+            // In Plans the menu holds the rail alone: Type and Source are on the bar.
             var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0, PlansGrouped) switch
             {
+                (_, _, true) => "Pick a plan",
                 (true, true, false) => "Filter by source and type",
                 (true, false, false) => "Filter by source",
                 (false, true, false) => "Filter by type",
-                (true, true, true) => "Filter by source and type, or pick a plan",
-                (true, false, true) => "Filter by source, or pick a plan",
-                (false, true, true) => "Filter by type, or pick a plan",
                 _ => "Pick a plan",
             };
 

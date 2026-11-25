@@ -1447,6 +1447,9 @@ public sealed class HomeWorkspaceSurfaceTests
             configureServices: AddCalendarTasks);
         var component = Render(harness);
 
+        // The list opens on Plans, whose bar keeps Type in a menu.
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='flat-type-menu-button']")));
+        component.Find("[data-testid='flat-type-menu-button']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='type-filter-option'][data-type='prompt']")));
         component.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
         component.WaitForAssertion(() => Assert.DoesNotContain("A task", component.Find("[data-testid='entry-list']").TextContent, StringComparison.Ordinal));
