@@ -299,6 +299,9 @@ _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.No
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();
 
+// And the change journal's daily prune, for the same reason.
+_ = app.Services.GetRequiredService<ChangeHistoryWorker>();
+
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();

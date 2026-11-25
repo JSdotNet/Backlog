@@ -386,6 +386,9 @@ public static class MauiProgram
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
 
+        // And the change journal's daily prune, for the same reason.
+        _ = app.Services.GetRequiredService<ChangeHistoryWorker>();
+
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();

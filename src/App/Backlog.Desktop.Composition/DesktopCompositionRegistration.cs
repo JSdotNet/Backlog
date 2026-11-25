@@ -324,6 +324,9 @@ public static class DesktopCompositionRegistration
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
+        // The change journal's daily prune and its clear action (local ADR 0061 §6),
+        // over the same workspace settings and clock.
+        services.AddSingleton<ChangeHistoryWorker>();
         // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
         // a folder beside backlog.db, following the root as the stores it copies do.
         services.AddSingleton(sp => new AgentCheckpoints(
