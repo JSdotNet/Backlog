@@ -87,6 +87,15 @@ between inherited ADRs 0005 and 0009.
 - **[0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(accepted, built; amended by 0059; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
 - **[0059 — Tokenless MCP calls get the scopes the person opens to them](0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md)** *(accepted, built; amends 0058 §3, §4 and §6)*
 - **[0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md)** *(proposed, not yet built)*
+- **[0061 — Repository automation stays PowerShell and Node, not C# file-based apps](0061-repository-automation-stays-powershell-and-node.md)** *(proposed; keeps a difference from org ADR 0001)*
+- **[0062 — The sync tier deploys from hand-written Bicep through `azd`, not `aspire publish` and `aspire deploy`](0062-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md)** *(proposed; keeps a difference from org ADR 0002)*
+- **[0063 — Data access stays in infrastructure adapters, on raw SQLite and the Cosmos SDK, with no EF Core and no event outbox](0063-data-access-stays-in-infrastructure-adapters-without-ef-core-or-an-outbox.md)** *(proposed; keeps differences from org ADRs 0003 and 0006)*
+- **[0064 — The sync clients share the service's contract assembly instead of a client generated from OpenAPI](0064-sync-clients-share-the-contract-assembly-instead-of-a-generated-client.md)** *(proposed; keeps a difference from org ADR 0004)*
+- **[0065 — Sync identity stays GitHub sign-in and device keys, and every anonymous sync route gets a rate limit](0065-sync-identity-stays-github-and-device-keys-and-every-anonymous-route-is-rate-limited.md)** *(proposed, rate limits not yet built; keeps one difference from org ADR 0008 and moves to its rate-limit rule)*
+- **[0066 — Each module ships its own UI project, and the apps under `src/App/` compose them](0066-each-module-ships-its-own-ui-project-and-the-apps-compose-them.md)** *(proposed; keeps a difference from org ADR 0009)*
+- **[0067 — Tests keep hand-written doubles, in-memory replicas and C# Playwright](0067-tests-keep-hand-written-doubles-in-memory-replicas-and-csharp-playwright.md)** *(proposed; keeps differences from org ADR 0010)*
+- **[0068 — The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource](0068-the-backlog-mcp-server-keeps-grants-and-serves-its-own-skill.md)** *(proposed, skill not yet built; keeps one difference from org ADR 0011 and moves to its skill rule)*
+- **[0069 — Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set](0069-model-calls-stay-on-the-foundry-adapter-and-gain-an-evaluation-set.md)** *(proposed, evaluation set not yet built; keeps one difference from org ADR 0012 and moves to its evaluation rule)*
 
 ## Inherited decisions
 
