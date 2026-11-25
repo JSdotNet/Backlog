@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Goals;
 
 using Bunit;
 
@@ -293,6 +294,93 @@ public sealed class PlanRailTests
 
         Assert.Equal("+alpha", host.State.SelectedPlan);
         Assert.Equal("Pick a plan — 1 filter on", pane.Find("[data-testid='filter-menu-button']").GetAttribute("title"));
+    }
+
+    [Fact]
+    public async Task A_blocked_plan_names_the_open_impediment_holding_it_back_in_its_tooltip()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+        var asked = new List<(string Plan, IReadOnlyCollection<Guid> Entries)>();
+        var source = new PlanImpedimentSource((plan, entries) =>
+        {
+            asked.Add((plan, entries));
+            return plan == "delta" ? "Roofer not booked" : null;
+        });
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source));
+
+        pane.WaitForAssertion(() =>
+        {
+            var delta = pane.Find("[data-testid='plan-rail-plan'][data-plan='delta']");
+            var state = delta.QuerySelector("[data-testid='plan-rail-state']")!;
+            Assert.Equal("Blocked", Text(state));
+            Assert.Equal("Blocked · Roofer not booked", state.GetAttribute("title"));
+            Assert.Equal("delta, 0 of 1 done, Blocked · Roofer not booked", delta.GetAttribute("aria-label"));
+        });
+
+        // Asked only for the Blocked plan, with its open entry's id and the bare tag.
+        var (plan, entries) = Assert.Single(asked.DistinctBy(call => call.Plan));
+        Assert.Equal("delta", plan);
+        var roof = host.State.Rows.Single(row => row.PreviewTitle.StartsWith("Fix the roof", StringComparison.Ordinal));
+        Assert.Equal([roof.Id!.Value], entries);
+    }
+
+    [Fact]
+    public async Task A_blocked_plan_with_no_impediment_linked_reads_plain_Blocked()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+        var source = new PlanImpedimentSource((_, _) => null);
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source));
+
+        pane.WaitForAssertion(() =>
+        {
+            var delta = pane.Find("[data-testid='plan-rail-plan'][data-plan='delta']");
+            Assert.Equal("Blocked", delta.QuerySelector("[data-testid='plan-rail-state']")!.GetAttribute("title"));
+            Assert.Equal("delta, 0 of 1 done, Blocked", delta.GetAttribute("aria-label"));
+            // A state that is not Blocked carries no tooltip.
+            Assert.Null(pane.Find("[data-testid='plan-rail-plan'][data-plan='alpha'] [data-testid='plan-rail-state']").GetAttribute("title"));
+        });
+    }
+
+    [Fact]
+    public async Task The_rail_names_an_impediment_once_the_source_says_it_changed()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+        string? title = null;
+        Action? changed = null;
+        var source = new PlanImpedimentSource(
+            (_, _) => title,
+            watch: callback =>
+            {
+                changed = callback;
+                return new Released(() => changed = null);
+            });
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source));
+        string? Tooltip() => pane.Find("[data-testid='plan-rail-plan'][data-plan='delta'] [data-testid='plan-rail-state']").GetAttribute("title");
+
+        pane.WaitForAssertion(() => Assert.Equal("Blocked", Tooltip()));
+
+        title = "Roofer not booked";
+        Assert.NotNull(changed);
+        changed!();
+
+        pane.WaitForAssertion(() => Assert.Equal("Blocked · Roofer not booked", Tooltip()));
+    }
+
+    private sealed class Released(Action release) : IDisposable
+    {
+        public void Dispose() => release();
     }
 
     [Theory]

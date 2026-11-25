@@ -585,6 +585,9 @@ public static class DesktopCompositionRegistration
             sp.GetService<INotificationReplication>));
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
+        // The impediment a Blocked plan waits on, named on the Tasks pane's rail and
+        // folded plan lines, cascaded the same way.
+        services.AddPlanImpediments();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.
