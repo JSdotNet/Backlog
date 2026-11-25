@@ -13,6 +13,7 @@ using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.PinItemEnd;
 using Backlog.Modules.Roadmap.Features.CompleteItem;
+using Backlog.Modules.Roadmap.Features.PutPlanOnMyDay;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
 using Backlog.Modules.Roadmap.Features.UpdateItem;
 using Backlog.Modules.Roadmap.Services;
@@ -46,6 +47,7 @@ public static class RoadmapModuleRegistration
         services.AddScoped<ICommandHandler<PinItemEndCommand, Result<RoadmapItemDto>>, PinItemEndCommandHandler>();
         services.AddScoped<ICommandHandler<UnpinItemEndCommand, Result<RoadmapItemDto>>, UnpinItemEndCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteItemCommand, Result<RoadmapItemDto>>, CompleteItemCommandHandler>();
+        services.AddScoped<ICommandHandler<PutPlanOnMyDayCommand, Result<IReadOnlyList<RoadmapItemDto>>>, PutPlanOnMyDayCommandHandler>();
         services.AddScoped<ICommandHandler<ReopenItemCommand, Result<RoadmapItemDto>>, ReopenItemCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateItemCommand, Result<RoadmapItemDto>>, UpdateItemCommandHandler>();
         services.AddScoped<ICommandHandler<PrioritiseItemCommand, Result<RoadmapItemDto>>, PrioritiseItemCommandHandler>();

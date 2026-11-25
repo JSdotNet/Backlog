@@ -287,6 +287,7 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 ```meta
 type: requirement
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_on_a_plan_picked_yesterday_has_left_My_Day, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteRoadmapPlanReplicaTests.A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none]
 ```
 
 The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day date by the rule a task's date is read, under the same Clear My Day overnight setting.
@@ -314,6 +315,7 @@ The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day
 ```meta
 type: requirement
 related: [.devbook/domain/roadmap/domain.md#roadmap-item]
+tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PutPlanOnMyDayTests.A_plan_tag_no_item_carries_gets_its_item_on_that_day, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapCrossContextAdapterScopeTests.Putting_a_new_plan_tag_on_My_Day_creates_its_roadmap_item_and_reads_the_date_back]
 ```
 
 The system SHALL create a Roadmap Item carrying the tag and today's My Day date when the person puts a plan tag that no Roadmap Item carries on My Day.
@@ -322,12 +324,13 @@ The system SHALL create a Roadmap Item carrying the tag and today's My Day date 
 
 - **Given** entries carry the plan tag `+lets-bbq-setup` and no Roadmap Item carries it
 - **When** the person puts `+lets-bbq-setup` on My Day
-- **Then** the roadmap holds an item with the tag `lets-bbq-setup`, today's My Day date and no window, and the plan is in today's My Day
+- **Then** the roadmap holds an item with the tag `lets-bbq-setup`, today's My Day date and a one-day window on today, unfiled, and the plan is in today's My Day
 
 ### Requirement: A plan on My Day shows only what is left for the person
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.My_Day_lists_Plans_today_above_the_tasks_with_only_the_entries_the_person_holds, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.An_entry_awaiting_validation_on_an_open_pull_request_is_the_persons_and_one_in_a_session_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_today_words_its_run_state]
 ```
 
 The desktop's My Day SHALL show a plan in it with its progress and run state and only those of its entries that are left for the person, held for the person, or awaiting validation.

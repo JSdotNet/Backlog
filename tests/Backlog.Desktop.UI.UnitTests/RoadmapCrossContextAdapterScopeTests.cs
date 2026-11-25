@@ -240,4 +240,33 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 
         Assert.Equal(7m, paces.InUse);
     }
+
+    /// <summary>
+    /// A plan on My Day through the real join (local ADR 0062 §8): Tasks' port puts a plan
+    /// tag no Roadmap Item carries on My Day, Roadmap Planning creates its item with the
+    /// date, and the port reads the date back by the bare tag — then takes it off again.
+    /// </summary>
+    [Fact]
+    public async Task Putting_a_new_plan_tag_on_My_Day_creates_its_roadmap_item_and_reads_the_date_back()
+    {
+        using var provider = BuildHostLikeProvider();
+        using var scope = provider.CreateScope();
+        var tags = scope.ServiceProvider.GetRequiredService<IRoadmapTagSource>();
+        var planning = scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>();
+        var cancellation = TestContext.Current.CancellationToken;
+        var day = new DateOnly(2026, 11, 25);
+
+        Assert.True(await tags.SetPlanMyDayAsync("+lets-bbq-setup", day, cancellation));
+
+        var item = Assert.Single((await planning.GetPlanAsync(cancellation)).Items);
+        Assert.Equal("lets-bbq-setup", item.Tag);
+        Assert.Equal(day, item.MyDayOn);
+        Assert.Equal(["+lets-bbq-setup"], await tags.TagsInUseAsync(cancellation));
+        Assert.Equal(day, (await tags.PlansOnMyDayAsync(cancellation))["LETS-BBQ-SETUP"]);
+
+        Assert.True(await tags.SetPlanMyDayAsync("lets-bbq-setup", null, cancellation));
+
+        Assert.Empty(await tags.PlansOnMyDayAsync(cancellation));
+        Assert.Null(Assert.Single((await planning.GetPlanAsync(cancellation)).Items).MyDayOn);
+    }
 }

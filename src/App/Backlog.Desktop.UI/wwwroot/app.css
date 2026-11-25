@@ -2247,6 +2247,112 @@ h1, h2, h3 {
 .plan-sections__folded-note--running { color: var(--color-primary); }
 .plan-sections__folded-note--blocked { color: var(--color-error-text); }
 
+/* A plan's sun (local ADR 0062 §8): a 26px borderless icon button, lit while the
+   plan is in today's My Day. */
+.plan-myday-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    cursor: pointer;
+}
+
+.plan-myday-toggle:hover {
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+
+.plan-myday-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.plan-myday-toggle--on,
+.plan-myday-toggle--on:hover {
+    color: var(--color-primary);
+}
+
+/* Plans today: above the tasks while the list shows today's My Day. */
+.plans-today {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-sm) 0;
+}
+
+.plans-today__plan {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+}
+
+.plans-today__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plans-today__open {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plans-today__open:hover { background: var(--color-background-alt); }
+
+.plans-today__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plans-today__name {
+    flex: 0 1 14rem;
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plans-today__state {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* The rail's colours for the same states, so a plan reads alike in both places. */
+.plans-today__state--running { color: var(--color-primary); }
+.plans-today__state--queued { color: var(--color-text-secondary); }
+.plans-today__state--blocked { color: var(--color-error-text); }
+.plans-today__state--quiet { color: var(--color-text-disabled); }
+
+.plans-today__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.plans-today__tasks-heading {
+    padding: var(--spacing-xs) var(--spacing-sm) 0;
+}
+
 .plan-sections__unplanned {
     display: flex;
     flex-direction: column;

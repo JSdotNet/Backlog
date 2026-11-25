@@ -131,6 +131,38 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         Assert.Null(Assert.Single((await b.LoadAsync(Cancellation)).Items).CompletedOn);
     }
 
+    /// <summary>A plan's My Day date travels inside the plan document on the task feed
+    /// (local ADR 0062 §8, ADR 0018): the copy one device sent carries it to the device that
+    /// took it, taking it off travels the same way, and a copy written before the field
+    /// existed reads as on no My Day.</summary>
+    [Fact]
+    public async Task A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none()
+    {
+        var a = new SqliteRoadmapPlanRepository(Device("a"));
+        var b = new SqliteRoadmapPlanRepository(Device("b"));
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("Zero trust auth", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9)), tag: PlanningTag.Of("zero-trust-auth"));
+        Assert.IsType<Ok<IReadOnlyList<RoadmapItem>>>(plan.PutPlanOnMyDay(PlanningTag.Of("zero-trust-auth"), new DateOnly(2026, 10, 6)).Value);
+        await a.SaveAsync(plan, Cancellation);
+
+        var sent = (await a.ReadAsync(Cancellation))!;
+        Assert.Contains("\"myDayOn\":\"2026-10-06\"", sent.Content, StringComparison.Ordinal);
+        Assert.True(await b.TryWriteAsync(sent, Cancellation));
+
+        Assert.Equal(new DateOnly(2026, 10, 6), Assert.Single((await b.LoadAsync(Cancellation)).Items).MyDayOn);
+
+        plan.PutPlanOnMyDay(PlanningTag.Of("zero-trust-auth"), null);
+        await a.SaveAsync(plan, Cancellation);
+        var later = (await a.ReadAsync(Cancellation))! with { UpdatedAt = Morning.AddDays(30) };
+        Assert.DoesNotContain("myDayOn", later.Content, StringComparison.Ordinal);
+        Assert.True(await b.TryWriteAsync(later, Cancellation));
+        Assert.Null(Assert.Single((await b.LoadAsync(Cancellation)).Items).MyDayOn);
+
+        var older = """{"version":1,"items":[{"id":"7f3c0a52-0d0b-4a07-9d55-2f4a6b1c1111","title":"Old","start":"2026-10-01","end":"2026-10-09"}],"milestones":[],"bands":{}}""";
+        Assert.True(await b.TryWriteAsync(new RoadmapReplicaCopyDto(older, Morning), Cancellation));
+        Assert.Null(Assert.Single((await b.LoadAsync(Cancellation)).Items).MyDayOn);
+    }
+
     /// <summary>Verbatim, never re-serialised: a newer build's field survives on disk
     /// even though this build does not know it (ADR 0018, Decision §3).</summary>
     [Fact]

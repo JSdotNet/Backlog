@@ -630,6 +630,14 @@
                                       @onkeydown="OnSelectionBarKeyDown" />
                     }
 
+                    @* Today's My Day holds plans as well as tasks: the plans first, each
+                       with only what it holds for the person (local ADR 0062 §8). *@
+                    @if (PlansTodayShown)
+                    {
+                        @RenderPlansToday()
+                        <h3 class="plan-sections__group-title plans-today__tasks-heading" data-testid="tasks-today-heading">Tasks today</h3>
+                    }
+
                     @if (State.IsLoading && State.Rows.Count == 0)
                     {
                         @* The backlog is still being read. Placeholder rows in the
@@ -4231,8 +4239,10 @@
     /// repository scope leaves in view — the same pool the Ready in a plan chip counts,
     /// so neither number changes meaning when a tag or a status is picked. Open, as on a
     /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
-    /// no longer something to do. Derived here because this is where the clock is.</summary>
-    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row));
+    /// no longer something to do. Derived here because this is where the clock is.
+    /// The plans in today's My Day count beside the tasks (local ADR 0062 §8): the list
+    /// the scope opens shows both.</summary>
+    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row)) + PlansInMyDayCount;
 
     /// <summary>How many of those same rows are ready in a plan. The state decides,
     /// and the count asks it — see
@@ -7021,6 +7031,7 @@
                                         Roadmap
                                     </AppButton>
                                 }
+                                @RenderPlanSun(view.Tag, "plan-expanded-myday")
                                 <CopyButton Text="@view.Tag"
                                             Label="@($"Copy {view.Tag}")"
                                             CssClass="filter-bar__plan-copy"
@@ -7200,6 +7211,7 @@
                     <span class="plan-sections__bar-next" style="width: @(nextPercent)%"></span>
                 </span>
                 <span class="plan-sections__progress" data-testid="plan-focus-counts">@PlanFocusCounts(view)</span>
+                @RenderPlanSun(view.Tag, "plan-focus-myday")
                 <div class="filter-group plan-focus__layout" role="radiogroup" aria-label="Layout" data-testid="plan-focus-layout">
                     @foreach (var option in PlanFocusLayouts)
                     {
@@ -7278,6 +7290,74 @@
                     @RenderPlanSession(view.Tag, "plan-focus-queue-reason")
                 </span>
             </div>
+        </section>;
+    }
+
+    /// <summary>A plan's sun (local ADR 0062 §8): pressed while the plan is in today's My
+    /// Day; pressing it puts the plan on today's My Day or takes it off. A plan tag no
+    /// Roadmap Item carries gets its item on the first press.</summary>
+    private RenderFragment RenderPlanSun(string plan, string testId) =>
+        @<ToggleButton BaseClass="plan-myday-toggle"
+                       PressedCssClass="plan-myday-toggle--on"
+                       Pressed="@State.IsPlanInMyDay(plan, Today)"
+                       Busy="@IsPlanSunBusy(plan)"
+                       TestId="@testId"
+                       data-plan="@PlanQueueOffer.Bare(plan)"
+                       AriaLabel="@($"{plan} in My Day")"
+                       Title="@PlanSunTitle(plan)"
+                       PressedChanged="_ => OnPlanSunPressedAsync(plan)">
+            <SunIcon Size="14" />
+        </ToggleButton>;
+
+    /// <summary>
+    /// <b>Plans today</b>, above the tasks while the list shows today's My Day (local ADR
+    /// 0062 §8; the design board "My Day — plans and tasks for today"): each plan with its
+    /// progress, its run state, its queue toggle and its sun, and under it only its entries
+    /// left for you, held for you, or awaiting validation. No suggestions: My Day is the
+    /// person's choice for today.
+    /// </summary>
+    private RenderFragment RenderPlansToday()
+    {
+        var plans = PlansToday();
+
+        return @<section class="plans-today" aria-label="Plans today" data-testid="plans-today">
+            <h3 class="plan-sections__group-title">Plans today</h3>
+            @foreach (var today in plans)
+            {
+                <div @key="today.Plan.Tag" class="plans-today__plan" data-testid="plans-today-plan" data-plan="@today.Plan.Name">
+                    <div class="plans-today__line">
+                        <AppButton BaseClass="plans-today__open"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plans-today-open"
+                                   aria-label="@($"Show the {today.Plan.Tag} plan, {today.Plan.Done} of {today.Plan.Total} done, {today.StateText}")"
+                                   OnClick="() => OnRailItemPressed(PlanRailItem.Plan, today.Plan.Tag)">
+                            <span class="plans-today__name" data-testid="plans-today-name">@today.Plan.Name</span>
+                            <span class="plan-sections__folded-bar" aria-hidden="true">
+                                <span class="plan-sections__folded-fill" style="width: @(today.Plan.ProgressPercent)%"></span>
+                            </span>
+                            <span class="plan-sections__folded-done" data-testid="plans-today-progress">@today.Plan.Done of @today.Plan.Total</span>
+                        </AppButton>
+                        <Badge BaseClass="plans-today__state" Kind="" Slug="@RailStateSlug(today.Plan.State)" TestId="plans-today-state">@today.StateText</Badge>
+                        <span class="plans-today__actions">
+                            @RenderPlanSession(today.Plan.Tag, $"plans-today-queue-reason-{today.Plan.Name}")
+                            @RenderPlanSun(today.Plan.Tag, "plans-today-myday")
+                        </span>
+                    </div>
+                    @foreach (var (row, state) in today.ForYou)
+                    {
+                        <AppButton @key="row.Key"
+                                   BaseClass="plan-sections__row"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plans-today-entry"
+                                   data-task-id="@row.TaskId"
+                                   data-state="@state.State.ToString()"
+                                   OnClick="() => OnEntrySelectedAsync(row.TaskId)">
+                            <span class="plan-sections__row-title">@row.PreviewTitle</span>
+                            <span class="plan-sections__row-meta" data-testid="plans-today-entry-reason">@PlanToday.ReasonFor(row, state)</span>
+                        </AppButton>
+                    }
+                </div>
+            }
         </section>;
     }
 
