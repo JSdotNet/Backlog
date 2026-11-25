@@ -796,7 +796,6 @@
         await OnBarAction.InvokeAsync(id);
 
         _refocusId = id;
-        StateHasChanged();
     }
 
     /// <summary>
@@ -1794,7 +1793,6 @@
         }
 
         Invalidate();
-        StateHasChanged();
 
         try
         {

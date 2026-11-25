@@ -90,7 +90,7 @@ public static class MetricFormat
         // the opposite of what the data says.
         if (percent == 0m && fraction != 0m)
         {
-            var smallest = (decimal)Math.Pow(10, -places);
+            var smallest = new decimal(1, 0, 0, false, (byte)places);
             var floorText = smallest.ToString(format, CultureInfo.InvariantCulture);
 
             return fraction > 0m ? $"<{floorText}%" : $">-{floorText}%";
