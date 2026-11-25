@@ -69,6 +69,11 @@ public static class SqliteRegistration
         services.AddSingleton<IChangeJournal>(sp =>
             new RootedSqliteChangeJournal(() => rootDirectory(sp)));
 
+        // Restoring a change set (local ADR 0061 §4): a later save the person makes,
+        // tasks through the same store the app writes, so the pane and the sync hear it.
+        services.AddSingleton<IChangeRestore>(sp =>
+            new RootedSqliteChangeRestore(() => rootDirectory(sp), sp.GetRequiredService<ITaskRepository>()));
+
         services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));
         services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());

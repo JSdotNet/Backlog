@@ -111,7 +111,16 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     /// is — so the next push carries the deletion, and an older copy of the goal is refused
     /// on its stamp. An id with no row writes nothing.
     /// </summary>
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        TombstoneAsync(id, held: null, cancellationToken);
+
+    /// <summary>
+    /// Tombstones the goal as <see cref="DeleteAsync"/> does, but only while its row
+    /// still holds the stamp <paramref name="held"/>, or whatever it holds when that is
+    /// null — how a restore takes back a goal a change set created without deleting an
+    /// edit made since (local ADR 0061 §4). True when a row was written.
+    /// </summary>
+    internal async Task<bool> TombstoneAsync(Guid id, string? held, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
@@ -120,7 +129,7 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         {
             read.CommandText = "SELECT document FROM progress_goals WHERE id = $id;";
             read.Parameters.AddWithValue("$id", Key(id));
-            if (await read.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not string stored) return;
+            if (await read.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not string stored) return false;
 
             title = ParseDocument(stored)?.Title ?? string.Empty;
         }
@@ -133,13 +142,16 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.Transaction = journal.Transaction;
-        command.CommandText = "UPDATE progress_goals SET document = $document, updated_at = $updated_at WHERE id = $id;";
+        command.CommandText = "UPDATE progress_goals SET document = $document, updated_at = $updated_at WHERE id = $id AND ($held IS NULL OR updated_at = $held);";
         command.Parameters.AddWithValue("$id", Key(id));
         command.Parameters.AddWithValue("$document", tombstone);
         command.Parameters.AddWithValue("$updated_at", Stamp(stamp));
+        command.Parameters.AddWithValue("$held", (object?)held ?? DBNull.Value);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 0) return false;
+
         await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     // --- The replicated documents -------------------------------------------

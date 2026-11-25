@@ -2,7 +2,7 @@ namespace Backlog.SharedKernel.Changes;
 
 /// <summary>
 /// Reads the change journal (local ADR 0061 §2): the change sets, newest first, and
-/// what each one changed. Read-only; taking a change set back is a later step.
+/// what each one changed. Read-only; <see cref="IChangeRestore"/> takes one back.
 /// </summary>
 public interface IChangeJournal
 {

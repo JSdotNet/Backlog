@@ -1,0 +1,135 @@
+@using Backlog.SharedKernel.Changes
+
+@*
+    The confirmation a restore asks for (local ADR 0061 §4), in the page beside the
+    change set it takes back rather than in a dialog over it: the documents the person
+    weighs are the ones listed right under it.
+
+    It names how many documents the restore writes back and how many of them changed
+    since the change set left them. Each such conflict gets its own choice, a radio
+    pair of toggles: "Keep current", the default, or "Restore anyway". The count of
+    documents restored follows the choices, so the number on the panel is the number
+    the Restore button writes.
+
+    Presentational. The host plans the restore and does it; this hands back which
+    conflicts the person chose to restore anyway.
+*@
+
+<section class="change-restore" aria-label="@($"Restore {Plan.Label ?? "this change set"}")" data-testid="@TestId">
+    <p class="change-restore__summary" role="status" data-testid="change-restore-summary">
+        <strong>@DocumentWord(RestoreCount)</strong> will be restored.
+        <strong>@ConflictWord(Plan.ConflictCount)</strong>.
+    </p>
+
+    @if (Conflicts.Count > 0)
+    {
+        <p class="change-restore__hint">Changed since this change set. Keep what is there now, or restore it anyway over the later edit.</p>
+        <ul class="change-restore__conflicts" data-testid="change-restore-conflicts">
+            @foreach (var step in Conflicts)
+            {
+                var key = step.Key;
+                var anyway = _anyway.Contains(key);
+                <li @key="key" class="change-restore__conflict" data-testid="change-restore-conflict" data-document="@key.Id">
+                    <span class="change-restore__document">
+                        <Badge Kind="kind" Slug="@key.Kind">@key.Kind</Badge>
+                        <span data-testid="change-restore-conflict-title">@step.Title</span>
+                    </span>
+                    <ButtonGroup Radio="true" AriaLabel="@($"For {step.Title}")" TestId="change-restore-choice">
+                        <ToggleButton Pressed="@(!anyway)"
+                                      PressedChanged="_ => Choose(key, false)"
+                                      Disabled="@Busy"
+                                      TestId="change-restore-keep">
+                            Keep current
+                        </ToggleButton>
+                        <ToggleButton Pressed="@anyway"
+                                      PressedChanged="_ => Choose(key, true)"
+                                      Disabled="@Busy"
+                                      TestId="change-restore-anyway">
+                            Restore anyway
+                        </ToggleButton>
+                    </ButtonGroup>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (UnsupportedCount > 0)
+    {
+        <p class="change-restore__hint" data-testid="change-restore-unsupported">
+            @(UnsupportedCount == 1 ? "1 document cannot be written back and stays as it is." : $"{UnsupportedCount} documents cannot be written back and stay as they are.")
+        </p>
+    }
+
+    <div class="change-restore__actions">
+        <AppButton Variant="ButtonVariant.Primary"
+                   Busy="@Busy"
+                   BusyLabel="Restoring"
+                   Disabled="@(RestoreCount == 0)"
+                   OnClick="ConfirmAsync"
+                   TestId="change-restore-confirm">
+            Restore
+        </AppButton>
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Disabled="@Busy"
+                   OnClick="() => OnCancel.InvokeAsync()"
+                   TestId="change-restore-cancel">
+            Cancel
+        </AppButton>
+    </div>
+</section>
+
+@code {
+    /// <summary>What the restore would do, as the host planned it.</summary>
+    [Parameter, EditorRequired]
+    public RestorePlan Plan { get; set; } = null!;
+
+    /// <summary>True while the restore runs: the choices and Cancel wait, and Restore
+    /// says it is working.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Raised by Restore with the conflicts the person chose to restore anyway.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlySet<DocumentKey>> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "change-restore";
+
+    private readonly HashSet<DocumentKey> _anyway = [];
+    private RestorePlan? _seen;
+
+    private List<RestoreStep> Conflicts => [.. Plan.Restorable.Where(step => step.Conflict)];
+
+    private int RestoreCount => Plan.Restorable.Count(step => !step.Conflict || _anyway.Contains(step.Key));
+
+    private int UnsupportedCount => Plan.Steps.Count(step => step.Action is RestoreAction.Unsupported);
+
+    protected override void OnParametersSet()
+    {
+        // A new plan is a new question: every conflict starts on Keep current again.
+        if (ReferenceEquals(Plan, _seen)) return;
+
+        _seen = Plan;
+        _anyway.Clear();
+    }
+
+    private void Choose(DocumentKey key, bool anyway)
+    {
+        if (anyway) _anyway.Add(key);
+        else _anyway.Remove(key);
+    }
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync(new HashSet<DocumentKey>(_anyway));
+
+    private static string DocumentWord(int count) => count == 1 ? "1 document" : $"{count} documents";
+
+    private static string ConflictWord(int count) => count switch
+    {
+        0 => "No conflicts",
+        1 => "1 conflicts with a later change",
+        _ => $"{count} conflict with a later change",
+    };
+}

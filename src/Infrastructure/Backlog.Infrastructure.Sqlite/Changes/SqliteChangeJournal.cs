@@ -33,7 +33,8 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             SELECT c.id, c.actor_kind, c.caller, c.session_id, c.correlation_id, c.label, c.started_at,
-                   (SELECT COUNT(*) FROM revisions r WHERE r.change_set_id = c.id)
+                   (SELECT COUNT(*) FROM revisions r WHERE r.change_set_id = c.id),
+                   c.undone_by
             FROM change_sets c
             {(string.IsNullOrWhiteSpace(sessionId) ? string.Empty : "WHERE c.session_id = $session_id COLLATE NOCASE")}
             ORDER BY c.started_at DESC, c.rowid DESC
@@ -59,6 +60,7 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
                 Caller = Text(reader, 2),
                 SessionId = Text(reader, 3),
                 CorrelationId = Text(reader, 4),
+                UndoneBy = Guid.TryParse(Text(reader, 8), out var undoneBy) ? undoneBy : null,
             };
             entries.Add(new ChangeSetEntry(changeSet, reader.GetInt32(7)));
         }

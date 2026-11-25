@@ -132,6 +132,67 @@ public sealed class ChangesSurfaceTests
     }
 
     [Fact]
+    public void Without_a_restore_an_opened_row_offers_none()
+    {
+        using var context = Context(new RecordingJournal());
+
+        var view = context.Render<ChangesSurface>();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-set-toggle']")));
+        view.Find("[data-testid='change-set-toggle']").Click();
+        view.WaitForAssertion(() => Assert.NotEmpty(view.FindAll("[data-testid='changed-document']")));
+
+        Assert.Empty(view.FindAll("[data-testid='change-set-restore']"));
+    }
+
+    [Fact]
+    public void Restore_plans_in_the_row_runs_with_the_choices_and_shows_the_row_restored()
+    {
+        var journal = new RecordingJournal();
+        var restore = new RecordingRestore(journal);
+        using var context = Context(journal);
+        context.Services.AddSingleton<IChangeRestore>(restore);
+
+        var view = context.Render<ChangesSurface>();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-set-toggle']")));
+        view.Find("[data-testid='change-set-toggle']").Click();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-set-restore']")));
+
+        view.Find("[data-testid='change-set-restore']").Click();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-restore-conflict']")));
+        view.Find("[data-testid='change-restore-anyway']").Click();
+        view.Find("[data-testid='change-restore-confirm']").Click();
+
+        view.WaitForAssertion(() =>
+        {
+            Assert.Equal([new DocumentKey("task", "t-2")], restore.Overrides);
+            Assert.Contains("Restore of transition: 2 documents restored", view.Find("[data-testid='changes-restored']").TextContent, StringComparison.Ordinal);
+            Assert.Single(view.FindAll("[data-testid='change-set-restored']"));
+            Assert.Empty(view.FindAll("[data-testid='change-restore']"));
+        });
+    }
+
+    [Fact]
+    public void Cancel_closes_the_panel_and_restores_nothing()
+    {
+        var journal = new RecordingJournal();
+        var restore = new RecordingRestore(journal);
+        using var context = Context(journal);
+        context.Services.AddSingleton<IChangeRestore>(restore);
+
+        var view = context.Render<ChangesSurface>();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-set-toggle']")));
+        view.Find("[data-testid='change-set-toggle']").Click();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-set-restore']")));
+        view.Find("[data-testid='change-set-restore']").Click();
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='change-restore']")));
+
+        view.Find("[data-testid='change-restore-cancel']").Click();
+
+        view.WaitForAssertion(() => Assert.Empty(view.FindAll("[data-testid='change-restore']")));
+        Assert.Null(restore.Overrides);
+    }
+
+    [Fact]
     public void The_registration_makes_it_a_view_that_accepts_a_session()
     {
         var services = new ServiceCollection();
@@ -162,12 +223,14 @@ public sealed class ChangesSurfaceTests
 
         public bool Fails { get; init; }
 
+        public Guid? UndoneBy { get; set; }
+
         public Task<IReadOnlyList<ChangeSetEntry>> ListAsync(string? sessionId = null, int limit = 200, CancellationToken cancellationToken = default)
         {
             Sessions.Add(sessionId);
             return Fails
                 ? Task.FromException<IReadOnlyList<ChangeSetEntry>>(new InvalidOperationException("locked"))
-                : Task.FromResult<IReadOnlyList<ChangeSetEntry>>([new ChangeSetEntry(AgentRun, 1)]);
+                : Task.FromResult<IReadOnlyList<ChangeSetEntry>>([new ChangeSetEntry(AgentRun with { UndoneBy = UndoneBy }, 1)]);
         }
 
         public Task<IReadOnlyList<ChangedDocument>> ReadAsync(Guid changeSetId, CancellationToken cancellationToken = default)
@@ -175,6 +238,31 @@ public sealed class ChangesSurfaceTests
             Reads.Add(changeSetId);
             return Task.FromResult<IReadOnlyList<ChangedDocument>>(
                 [new ChangedDocument("task", "t-1", "Plan the trip", "# Plan the trip\n`task` `*medium` `!ready`\n", "# Plan the trip\n`task` `*medium` `!done`\n")]);
+        }
+    }
+
+    /// <summary>A restore that plans one clean document and one conflict, and marks the
+    /// journal's change set restored when it runs.</summary>
+    private sealed class RecordingRestore(RecordingJournal journal) : IChangeRestore
+    {
+        public IReadOnlySet<DocumentKey>? Overrides { get; private set; }
+
+        public Task<RestorePlan?> PlanAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<RestorePlan?>(new RestorePlan(
+                changeSetId,
+                AgentRun.Label,
+                journal.UndoneBy,
+                [
+                    new(new DocumentKey("task", "t-1"), "Plan the trip", RestoreAction.Revert, Conflict: false),
+                    new(new DocumentKey("task", "t-2"), "Pack", RestoreAction.Revert, Conflict: true),
+                ]));
+
+        public Task<RestoreOutcome> RestoreAsync(Guid changeSetId, IReadOnlySet<DocumentKey> restoreAnyway, CancellationToken cancellationToken = default)
+        {
+            Overrides = restoreAnyway;
+            var restore = Guid.NewGuid();
+            journal.UndoneBy = restore;
+            return Task.FromResult(new RestoreOutcome(restore, RestorePlan.RestoreLabelFor(AgentRun.Label), 1 + restoreAnyway.Count, 1 - restoreAnyway.Count));
         }
     }
 }

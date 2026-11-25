@@ -773,6 +773,40 @@ public sealed class TaskItem
         DeletedAt = null;
     }
 
+    /// <summary>Makes this task — an earlier version of itself, rebuilt from the change
+    /// journal — the latest version, over the one the store holds now (local ADR 0061
+    /// §4).
+    /// <para>
+    /// It takes the held version's stamps, as the version it is saved against, then
+    /// moves past them the way any edit does, so the restore beats the copy it replaces
+    /// on every device. The earlier version's deletion state comes back with it: a held
+    /// tombstone of a task that was live comes back through <see cref="Restore"/>, and a
+    /// live task that was a tombstone is deleted again through <see cref="MarkDeleted"/>.
+    /// </para></summary>
+    /// <param name="heldUpdatedAt">The stamp the store holds now.</param>
+    /// <param name="heldDeletedAt">The deletion the store holds now, or null.</param>
+    public void Supersede(DateTimeOffset heldUpdatedAt, DateTimeOffset? heldDeletedAt)
+    {
+        var wasDeleted = DeletedAt is not null;
+
+        UpdatedAt = heldUpdatedAt;
+        DeletedAt = heldDeletedAt;
+        LoadedUpdatedAt = heldUpdatedAt;
+
+        if (!wasDeleted && DeletedAt is not null)
+        {
+            Restore();
+        }
+        else if (wasDeleted && DeletedAt is null)
+        {
+            MarkDeleted();
+        }
+        else
+        {
+            Touch();
+        }
+    }
+
     // --- Sub-items ----------------------------------------------------------
 
     public SubItem AddSubItem(string title, string? notes = null)
