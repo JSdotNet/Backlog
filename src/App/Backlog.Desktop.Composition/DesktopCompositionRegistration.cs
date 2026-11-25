@@ -6,6 +6,7 @@ using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
@@ -233,6 +234,10 @@ public static class DesktopCompositionRegistration
         // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
         // feature is on. Its pane is the Events takeover AddEventsSurface registers below,
         // behind the same feature; it has no settings section or Ask AI source yet.
+        // Its two map ports over Azure Maps (local ADR 0061 §4), before the module whose own
+        // registrations are TryAdd: the geocoder an address is sent to once on save, and the
+        // tile source the map draws from, both silent until the person enters a key in Settings.
+        services.AddAzureMaps(options.AzureMapsSettings);
         services.AddEventsModule();
 
         // Calendar (local ADR 0055, local ADR 0056): it owns no data, and its services are

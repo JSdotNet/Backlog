@@ -91,6 +91,7 @@ flowchart LR
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
 | MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
+| Azure Maps key (local ADR 0061 §4) | `AzureMapsSettingsStore` | DPAPI, per value | not composed |
 
 **2026-11-25: a device key replaces the sync device credential.** Local ADR 0058 §2
 gives each device a P-256 key it cannot export, `CngDeviceKeyStore` on Windows (TPM
@@ -99,7 +100,7 @@ secret, so it has no row above: the platform keeps it, and no envelope applies. 
 credential row stays for a device with no key store and for one paired before keys,
 which drops its credential at its next token fetch.
 
-The three settings stores are desktop-only. Only the Windows head and the desktop
+The four settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,
 so none needs an Android secure store.
 

@@ -107,6 +107,47 @@ public sealed class KnowledgeEventReaderTests
         Assert.False(meetup.Online);
     }
 
+    [Fact]
+    public async Task An_event_held_at_an_address_with_no_venue_name_reads_its_address_on_one_line()
+    {
+        var reader = ReaderOver(Event("dotNET Friday", KnowledgeEventState.Going, place: AtAddress(venue: null, Nieuwegein)));
+
+        var friday = Assert.Single(await reader.ListDecidedAsync(TestContext.Current.CancellationToken));
+
+        Assert.Null(friday.Venue);
+        Assert.Equal("Wijkerstraatweg 1, 3431 AB Nieuwegein, Netherlands", friday.Address);
+    }
+
+    [Fact]
+    public async Task An_address_reads_on_one_line_with_only_the_parts_it_has()
+    {
+        var townOnly = Assert.IsType<Ok<Address>>(Address.Create(null, null, "Antwerpen", null).Value).Value;
+        var postcodeOnly = Assert.IsType<Ok<Address>>(Address.Create("Groenendaallaan 394", "2030", null, "Belgium").Value).Value;
+        var reader = ReaderOver(
+            Event("Techorama", KnowledgeEventState.Going, place: AtAddress("Kinepolis", townOnly)),
+            Event("Techorama Netherlands", KnowledgeEventState.Considering, place: AtAddress(null, postcodeOnly)));
+
+        var read = await reader.ListDecidedAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [("Kinepolis", "Antwerpen"), (null, "Groenendaallaan 394, 2030, Belgium")],
+            read.Select(knowledgeEvent => (knowledgeEvent.Venue, knowledgeEvent.Address)));
+    }
+
+    [Fact]
+    public async Task An_event_with_a_venue_name_alone_reads_with_no_address()
+    {
+        var reader = ReaderOver(Event("Techorama", KnowledgeEventState.Going, place: Assert.IsType<Ok<Place>>(Place.AtVenue("Antwerp").Value).Value));
+
+        Assert.Null(Assert.Single(await reader.ListDecidedAsync(TestContext.Current.CancellationToken)).Address);
+    }
+
+    private static readonly Address Nieuwegein =
+        Assert.IsType<Ok<Address>>(Address.Create("Wijkerstraatweg 1", "3431 AB", "Nieuwegein", "Netherlands").Value).Value;
+
+    private static Place AtAddress(string? venue, Address address) =>
+        Assert.IsType<Ok<Place>>(Place.Create(venue, online: false, address, AddressLookup.NotLookedUpYet, point: null).Value).Value;
+
     private static KnowledgeEventReader ReaderOver(params KnowledgeEvent[] events) => new(new InMemoryEvents(events));
 
     private static KnowledgeEvent Event(

@@ -61,6 +61,30 @@ classDiagram
         <<value object>>
         +string? Venue
         +bool IsOnline
+        +Address? Address
+        +AddressLookup? Lookup
+        +MapPoint? Point
+    }
+
+    class AddressLookup {
+        <<enumeration>>
+        Placed
+        NotFound
+        NotLookedUpYet
+    }
+
+    class Address {
+        <<value object>>
+        +string? Street
+        +string? Postcode
+        +string? Town
+        +string? Country
+    }
+
+    class MapPoint {
+        <<value object>>
+        +double Latitude
+        +double Longitude
     }
 
     class KeyDate {
@@ -114,6 +138,9 @@ classDiagram
     KnowledgeEvent ..> EventSeries : series by id
     KnowledgeEvent "1" *-- "0..2" EventDate
     KnowledgeEvent "1" *-- "0..1" Place
+    Place "1" *-- "0..1" Address
+    Place --> AddressLookup
+    Place "1" *-- "0..1" MapPoint
     KnowledgeEvent "1" *-- "many" KeyDate
     KnowledgeEvent "1" *-- "0..1" Cost
     KnowledgeEvent "1" *-- "many" NoteLink
@@ -133,6 +160,9 @@ classDiagram
 - A Note Link names a Brain note by its path from the Brain's root, or an Inbox
   note by its id. An Event Task Link names a task by its id. The links run one way:
   Tasks, the Brain and the Inbox hold nothing of the event.
+- A Place holds an Address Lookup exactly when it holds an Address, and a Map
+  Point exactly when that lookup is Placed. A changed address is Not looked up
+  yet until geocoding answers, and an online place holds none of the three.
 - The Skip Reason, Verdict, Ticket State and Date Source are left out of the
   diagram as types. They are plain text or small enums on the event, described
   in [`domain.md`](domain.md#knowledge-event).

@@ -88,6 +88,10 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             codingAgents = softwareSystem "Coding Agents" "Claude Code and Copilot sessions on this PC." "External"
         }
 
+        group "Maps" {
+            azureMaps = softwareSystem "Azure Maps" "Map tiles and address lookup for the Events map, on the EU endpoint." "External"
+        }
+
         group "Operations" {
             appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
             pushProvider = softwareSystem "Push Provider" "Azure Notification Hubs, relaying to FCM, for Android alerts." "External"
@@ -156,6 +160,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         backlog.desktop.repositoryManagement -> github "Reads pull requests, checks and reviews; sends merge commands" "HTTPS / gh CLI"
         backlog.desktop.inbox -> azureFoundry "Drafts plans and advises triage" "HTTPS, optional"
         backlog.desktop.shell -> azureFoundry "Answers Ask AI questions" "HTTPS, optional"
+        backlog.desktop.events -> azureMaps "Looks up addresses and loads map tiles" "HTTPS"
         backlog.desktop.dashboard -> appInsights "Reads telemetry signals" "HTTPS"
         backlog.desktop.dashboard -> claude "Reads usage and cost" "HTTPS, optional"
         backlog.desktop.sessions -> codingAgents "Reads session transcripts" "file system"

@@ -6,7 +6,8 @@
     `backlogPaneResizer` on the JS side because a per-frame interop call is a
     per-frame render; C# only hears the settled width. The separator is also a
     focusable `role="separator"` with Left/Right (and Home/End) resizing, because
-    every drag in this product owes the keyboard an equivalent.
+    every drag in this product owes the keyboard an equivalent. A vertical split
+    stacks the panes instead, and the same separator resizes a height with Up/Down.
 *@
 
 @* data-pane-anchor tells the shared resizer which edge the measured pane is
@@ -20,10 +21,23 @@
    the whole document, so a split sharing a page with the app's own resizable
    layout had to sit the pointer drag out and keep only its keyboard resize. The
    registry is keyed now, so both drag. *@
+@* data-pane-orientation tells the resizer which pointer axis to read and which
+   box dimension to measure, for the same reason the anchor is an attribute: the
+   grid's direction (the split-pane--vertical class) and the drag's are one
+   decision. data-pane-min goes out on a vertical split only. The resizer's
+   horizontal drag floor has always been its own 24rem, and a height floor that
+   size would be most of a map, so the stacked split hands over its own while the
+   side-by-side one keeps the floor it has. *@
+@* The separator's keydown carries no preventDefault: an unconditional one refused
+   Tab and Shift+Tab as well and made the separator a keyboard trap, and one bound
+   to state is a key late. components.js refuses the default of exactly the keys
+   OnKeyDownAsync handles, at the keydown. *@
 <div class="@ClassValue"
      data-testid="@TestId"
      data-pane-split="true"
      data-pane-anchor="@AnchorAttribute"
+     data-pane-orientation="@OrientationAttribute"
+     data-pane-min="@(IsVertical ? Rem(MinRem) : null)"
      data-pane-owner="@(UseJsResizer ? _ownerId : null)"
      style="--split-pane-fixed: @Rem(DrawnWidthRem)rem"
      @attributes="AdditionalAttributes">
@@ -33,14 +47,13 @@
          data-pane-resizer="true"
          data-testid="@SeparatorTestId"
          role="separator"
-         aria-orientation="vertical"
-         aria-label="@AriaLabel"
+         aria-orientation="@SeparatorOrientation"
+         aria-label="@AriaLabelValue"
          aria-valuemin="@Rem(MinRem)"
          aria-valuemax="@Rem(EffectiveMaxRem)"
          aria-valuenow="@Rem(DrawnWidthRem)"
          tabindex="0"
-         @onkeydown="OnKeyDownAsync"
-         @onkeydown:preventDefault="true">
+         @onkeydown="OnKeyDownAsync">
         <span class="pane-resizer__grip" aria-hidden="true"></span>
     </div>
 
@@ -71,7 +84,22 @@
     public SplitPaneAnchor Anchor { get; set; } = SplitPaneAnchor.Start;
 
     /// <summary>
-    /// How wide the fixed pane is, in rem — the one <see cref="Anchor"/> names.
+    /// Side by side (the default) or stacked. In a stacked split Start is the top
+    /// pane, End the bottom one, and every width on this component —
+    /// <see cref="FixedWidthRem"/>, <see cref="MinRem"/>, <see cref="MaxRem"/> —
+    /// is the fixed pane's height instead.
+    /// <para>
+    /// The parameters keep their names rather than growing height twins: a split
+    /// has one size along its axis, and a second set would be the same number with
+    /// a second chance to disagree about which pane it described.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public SplitPaneOrientation Orientation { get; set; } = SplitPaneOrientation.Horizontal;
+
+    /// <summary>
+    /// How wide the fixed pane is, in rem — the one <see cref="Anchor"/> names; how
+    /// tall it is in a <see cref="SplitPaneOrientation.Vertical"/> split.
     /// <para>
     /// One value rather than one per anchor. There is exactly one width in a
     /// two-pane split, because the other pane is whatever is left of the row; a
@@ -100,8 +128,10 @@
     [Parameter]
     public double MaxRem { get; set; } = 200;
 
+    /// <summary>The separator's accessible name. Left unset it names what the
+    /// separator resizes: "Pane width", or "Pane height" in a stacked split.</summary>
     [Parameter]
-    public string AriaLabel { get; set; } = "Pane width";
+    public string? AriaLabel { get; set; }
 
     /// <summary>Set false for a split whose width nothing may drag — the
     /// separator keeps its keyboard resize either way. It no longer has anything
@@ -169,12 +199,24 @@
     /// than two facts that can drift.</summary>
     private string AnchorAttribute => Anchor is SplitPaneAnchor.End ? "end" : "start";
 
+    private bool IsVertical => Orientation is SplitPaneOrientation.Vertical;
+
+    private string OrientationAttribute => IsVertical ? "vertical" : "horizontal";
+
+    /// <summary>The separator runs across the split's axis: a side-by-side split has
+    /// a vertical separator, a stacked one a horizontal separator.</summary>
+    private string SeparatorOrientation => IsVertical ? "horizontal" : "vertical";
+
+    private string AriaLabelValue => AriaLabel ?? (IsVertical ? "Pane height" : "Pane width");
+
     private string ClassValue => string.Join(' ', new[]
     {
         "split-pane",
         // The grid template lives in CSS and the fixed column has to be first or
         // last, which is a thing a stylesheet can only know from a class.
         Anchor is SplitPaneAnchor.End ? "split-pane--end" : null,
+        // And whether the tracks are columns or rows, for the same reason.
+        IsVertical ? "split-pane--vertical" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
@@ -217,13 +259,24 @@
     /// the pointer side, and the keyboard owes every drag an equivalent — including
     /// the direction it goes in.
     /// </para>
+    /// <para>
+    /// Up and Down read the same way in a stacked split: Up lifts the separator,
+    /// shortening a pane fixed to the top and growing one fixed to the bottom.
+    /// </para>
     /// </summary>
     private double Step => Anchor is SplitPaneAnchor.End ? -StepRem : StepRem;
 
+    /// <summary>The arrow pair that runs along the split's axis: Left/Right beside,
+    /// Up/Down stacked. The other pair does nothing, as the window splitter pattern
+    /// has it — an arrow across the axis has no travel to describe.</summary>
+    private string ArrowBack => IsVertical ? "ArrowUp" : "ArrowLeft";
+
+    private string ArrowForward => IsVertical ? "ArrowDown" : "ArrowRight";
+
     private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key switch
     {
-        "ArrowLeft" => CommitAsync(FixedWidthRem - Step),
-        "ArrowRight" => CommitAsync(FixedWidthRem + Step),
+        var key when key == ArrowBack => CommitAsync(FixedWidthRem - Step),
+        var key when key == ArrowForward => CommitAsync(FixedWidthRem + Step),
         "PageUp" => CommitAsync(FixedWidthRem - (Step * 3)),
         "PageDown" => CommitAsync(FixedWidthRem + (Step * 3)),
         // Home and End are about the value's ends rather than about the screen's, so
