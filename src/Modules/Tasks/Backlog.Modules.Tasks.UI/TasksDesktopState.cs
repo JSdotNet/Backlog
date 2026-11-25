@@ -59,7 +59,7 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource, ITaskLookupCandidates
+public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStatusSource, ITaskLookupCandidates
 {
     private const int DebounceMilliseconds = 750;
 
@@ -556,9 +556,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         var read = Interlocked.Increment(ref _roadmapTagReads);
         IReadOnlyList<string> tags;
+        IReadOnlyDictionary<string, DateOnly> plansOnMyDay;
         try
         {
             tags = await _roadmapTags.TagsInUseAsync(_untilDisposed);
+            plansOnMyDay = await _roadmapTags.PlansOnMyDayAsync(_untilDisposed);
         }
         catch (Exception)
         {
@@ -568,6 +570,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (_untilDisposed.IsCancellationRequested || read != Volatile.Read(ref _roadmapTagReads)) return;
 
         RoadmapTags = tags;
+        PlansOnMyDay = plansOnMyDay;
         Changed?.Invoke();
     }
 
@@ -6402,6 +6405,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.
         RoadmapTags = await _roadmapTags.TagsInUseAsync();
+        PlansOnMyDay = await _roadmapTags.PlansOnMyDayAsync();
 
         var rows = new List<EntryRow>();
         var previous = Rows.Where(r => r.Id is not null).DistinctBy(r => r.Id).ToDictionary(r => r.Id!.Value);

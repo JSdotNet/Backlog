@@ -173,6 +173,17 @@ internal sealed record RoadmapItemDocument
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public DateOnly? CompletedOn { get; init; }
 
+    /// <summary>The day a person put this item's plan on My Day, written as a plain
+    /// <c>yyyy-MM-dd</c> (local ADR 0062 §8); omitted while it is on none, so an ordinary
+    /// item costs no key. Spelled out for the reason <see cref="CompletedOn"/>'s name is: it
+    /// is persisted and synced on the task feed with the whole document (ADR 0018), and a
+    /// renamed property would silently take every plan off My Day. Additive, absent means
+    /// on none, so no version bump, per ADR 0006 — and an older build keeps the key it does
+    /// not read, because a replica copy is stored verbatim.</summary>
+    [JsonPropertyName("myDayOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public DateOnly? MyDayOn { get; init; }
+
     internal static RoadmapItemDocument From(RoadmapItem item) => new()
     {
         Id = item.Id.ToString(),
@@ -189,7 +200,8 @@ internal sealed record RoadmapItemDocument
         Notes = item.Notes,
         PlacedByImport = item.PlacedByImport is { } placement ? RoadmapWire.ToWire(placement) : null,
         EndPinned = item.EndPinned,
-        CompletedOn = item.CompletedOn
+        CompletedOn = item.CompletedOn,
+        MyDayOn = item.MyDayOn
     };
 
     /// <summary>The item, or null when the block does not describe one. A block
@@ -221,7 +233,8 @@ internal sealed record RoadmapItemDocument
             KnowledgeReferences.Of(Knowledge),
             RoadmapWire.ParsePlacement(PlacedByImport),
             EndPinned,
-            CompletedOn);
+            CompletedOn,
+            MyDayOn);
     }
 }
 

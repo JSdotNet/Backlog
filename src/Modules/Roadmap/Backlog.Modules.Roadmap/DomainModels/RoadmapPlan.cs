@@ -211,6 +211,39 @@ public sealed class RoadmapPlan
         return Result.Success(item);
     }
 
+    /// <summary>
+    /// Puts the plan <paramref name="tag"/> names on the My Day of <paramref name="on"/>, or
+    /// takes it off with null (local ADR 0062 §8). A plan is a tag, so every item carrying
+    /// it takes the date: a shared tag is one plan read as a group.
+    /// <para>
+    /// A tag no item carries yet is a plan the entries name but the roadmap has not drawn,
+    /// so putting it on My Day creates its item — titled by the tag, placed on that one day
+    /// and unfiled, for the person to place properly on the Roadmap. Taking such a tag off
+    /// My Day creates nothing.
+    /// </para>
+    /// </summary>
+    /// <returns>The items now carrying the date, empty when a tag no item carries was
+    /// taken off.</returns>
+    public Result<IReadOnlyList<RoadmapItem>> PutPlanOnMyDay(PlanningTag tag, DateOnly? on)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        var tagged = ItemsTagged(tag);
+        if (tagged.Count == 0)
+        {
+            if (on is not { } day) return Result.Success<IReadOnlyList<RoadmapItem>>([]);
+
+            var added = AddItem(tag.Value, PlannedWindow.Of(day, day), tag: tag);
+            if (added is not Ok<RoadmapItem>(var created)) return (Error)added.Value!;
+
+            tagged = [created];
+        }
+
+        foreach (var item in tagged) item.PutOnMyDay(on);
+
+        return Result.Success(tagged);
+    }
+
     /// <summary>Opens a completed item again. An open item stays open.</summary>
     public Result<RoadmapItem> ReopenItem(Guid itemId)
     {

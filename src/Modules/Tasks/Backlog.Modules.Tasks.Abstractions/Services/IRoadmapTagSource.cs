@@ -34,4 +34,24 @@ public interface IRoadmapTagSource
     /// <c>+slug</c>, in the order they first appear. Empty when there is no plan
     /// or nothing is tagged.</summary>
     Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The plans put on My Day and the day each was picked for, keyed by the bare plan
+    /// tag without regard to case (local ADR 0062 §8). The date lives on the plan's
+    /// Roadmap Items in Roadmap Planning; this side reads it by the task rule and never
+    /// stores it. A plan whose items disagree answers the latest day. Empty for a host
+    /// with no plan — which is what this default answers, so a source that knows no My
+    /// Day still composes.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, DateOnly>> PlansOnMyDayAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<string, DateOnly>>(new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Puts the plan <paramref name="planTag"/> on the My Day of <paramref name="on"/>, or
+    /// takes it off with null. A plan tag no Roadmap Item carries gets its item. Answers
+    /// whether the plan stored it; this default stores nothing and answers false.
+    /// </summary>
+    /// <param name="planTag">The plan tag, its <c>+</c> optional.</param>
+    Task<bool> SetPlanMyDayAsync(string planTag, DateOnly? on, CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
 }

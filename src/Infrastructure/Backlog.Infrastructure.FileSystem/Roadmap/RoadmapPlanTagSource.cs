@@ -1,5 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -52,5 +54,30 @@ public sealed class RoadmapPlanTagSource : IRoadmapTagSource
         }
 
         return tags;
+    }
+
+    public async Task<IReadOnlyDictionary<string, DateOnly>> PlansOnMyDayAsync(CancellationToken cancellationToken = default)
+    {
+        var plan = await _planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
+
+        var stamps = new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in plan.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Tag) || item.MyDayOn is not { } day) continue;
+
+            // A shared tag is one plan; its items take the date together, so they agree
+            // unless a device wrote one of them alone. The latest word is the one read.
+            if (!stamps.TryGetValue(item.Tag, out var seen) || day > seen) stamps[item.Tag] = day;
+        }
+
+        return stamps;
+    }
+
+    public async Task<bool> SetPlanMyDayAsync(string planTag, DateOnly? on, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(planTag);
+
+        var put = await _planning.PutPlanOnMyDayAsync(planTag, on, cancellationToken).ConfigureAwait(false);
+        return put is Ok<IReadOnlyList<RoadmapItemDto>>;
     }
 }

@@ -131,7 +131,7 @@ It rides the plan document on the task feed (ADR 0018) with the rest of the item
 whether the plan is in today's My Day is read from it by the task rule, under the
 person's Clear My Day overnight setting (ADR 0032). It is not a window: it never moves
 the bar. Putting a plan tag that no item carries on My Day creates the item, with the
-tag, the date and no window.
+tag as its title, the date, and a one-day window on that day for the person to place.
 
 It has no status and no percentage, because execution belongs to Tasks. An item
 that gathers tasks shows their progress. An item that gathers none can be

@@ -58,6 +58,9 @@ public sealed record RoadmapPlanDto(
 /// <param name="CompletedOn">The day a person said the work was done, or null while it is
 /// open. Read only while the item gathers no task — gathered tasks outrank it; see
 /// <see cref="RoadmapItemCompletion"/>.</param>
+/// <param name="MyDayOn">The day a person put this item's plan on My Day, or null (local ADR
+/// 0062 §8). A stamp: whether the plan is in a given day's My Day is read by the task
+/// rule.</param>
 public sealed record RoadmapItemDto(
     Guid Id,
     string Title,
@@ -73,7 +76,8 @@ public sealed record RoadmapItemDto(
     IReadOnlyList<string>? KnowledgeRefs = null,
     ImportPlacement? PlacedByImport = null,
     bool EndPinned = false,
-    DateOnly? CompletedOn = null)
+    DateOnly? CompletedOn = null,
+    DateOnly? MyDayOn = null)
 {
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;

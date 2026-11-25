@@ -110,6 +110,18 @@ public interface IRoadmapPlanning
         DateOnly on,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Puts the plan <paramref name="tag"/> names on the My Day of <paramref name="on"/>,
+    /// or takes it off with null (local ADR 0062 §8): every item carrying the tag takes the
+    /// date. A tag no item carries gets its item, titled by the tag and placed on that day;
+    /// taking such a tag off creates nothing. Answers the items now carrying the date.
+    /// </summary>
+    /// <param name="tag">The plan tag, its <c>+</c> optional.</param>
+    Task<Result<IReadOnlyList<RoadmapItemDto>>> PutPlanOnMyDayAsync(
+        string tag,
+        DateOnly? on,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Opens an item completed by hand again. Fails for an unknown item.</summary>
     Task<Result<RoadmapItemDto>> ReopenItemAsync(
         Guid itemId,
