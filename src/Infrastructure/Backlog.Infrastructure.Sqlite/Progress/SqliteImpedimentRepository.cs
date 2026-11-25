@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Progress;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.DomainModels;
@@ -152,7 +153,9 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
         command.CommandText =
             """
             INSERT INTO progress_impediments (id, document, created_at, updated_at)
@@ -168,6 +171,7 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
         command.Parameters.AddWithValue("$created_at", Stamp(createdAt));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Now, but never at or before the stamp the row already holds, for the
@@ -228,7 +232,13 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
     private static string Stamp(DateTimeOffset stamp) => stamp.ToString("O", CultureInfo.InvariantCulture);
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+        SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
+
+    /// <summary>The triggers that write an <c>impediment</c> revision for every write of
+    /// an impediment row (local ADR 0061 §2).</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:progress_impediments",
+        ddl: SqliteJournal.Triggers("progress_impediments", "impediment", ["id", "document", "created_at", "updated_at"]));
 
     /// <summary>
     /// The table's migration: idempotent DDL run on any open the file is not yet stamped

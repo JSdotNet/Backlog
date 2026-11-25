@@ -234,5 +234,6 @@ Both join ADR 0058 §4's scope table.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | §2's triggers extended to `roadmap_plan`, `progress_goals` and `progress_impediments`, as document kinds `roadmap-plan`, `goal` and `impediment`; a plan import runs as one change set labelled "Import of +tag", holding the tasks it writes and the roadmap plan it lays out. | One import, one goal deletion, taken back as a whole. |
 | 2026-11-24 | §2's `revisions` and `journal_context` built for `tasks`: insert and update triggers; a write that finds `journal_context` empty gets an unknown-writer change set per document it touches; noting a use is kept out. | The journal's first journalled table. |
 | 2026-11-24 | Proposed: a change journal of shared change sets and trigger-written revisions in `backlog.db`; restore as a later save by the person; `list_change_sets` and `propose_restore` for agents; 90-day local retention inside the backup; a checkpoint and a stale-save refusal. | An agent's write could not be taken back, and the design guidelines require that it can. |
