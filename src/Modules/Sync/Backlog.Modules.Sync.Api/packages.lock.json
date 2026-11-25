@@ -380,7 +380,7 @@
           "Microsoft.Extensions.ServiceDiscovery": "[11.0.1, )",
           "Microsoft.Maui.Core": "[11.0.10, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.21.0, )",
-          "OpenTelemetry.Extensions.Hosting": "[1.19.1, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.21.0, )",
           "OpenTelemetry.Instrumentation.Http": "[1.19.0, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.19.0, )"
         }
@@ -401,7 +401,8 @@
         "dependencies": {
           "Aspire.Azure.Storage.Blobs": "[17.0.0, )",
           "Azure.Storage.Blobs": "[12.30.2, )",
-          "Backlog.Modules.Sync": "[1.0.0, )"
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.21.0, )"
         }
       },
       "backlog.infrastructure.cosmos": {
@@ -409,7 +410,8 @@
         "dependencies": {
           "Aspire.Microsoft.Azure.Cosmos": "[17.0.0, )",
           "Backlog.Modules.Sync": "[1.0.0, )",
-          "Microsoft.Azure.Cosmos": "[3.63.2, )"
+          "Microsoft.Azure.Cosmos": "[3.63.2, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.21.0, )"
         }
       },
       "backlog.infrastructure.notificationhubs": {
@@ -423,7 +425,8 @@
         "type": "Project",
         "dependencies": {
           "Aspire.Azure.Messaging.WebPubSub": "[17.0.0, )",
-          "Backlog.Modules.Sync": "[1.0.0, )"
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.21.0, )"
         }
       },
       "backlog.modules.dashboard.abstractions": {
@@ -589,11 +592,11 @@
       },
       "OpenTelemetry.Extensions.Hosting": {
         "type": "CentralTransitive",
-        "requested": "[1.19.1, )",
-        "resolved": "1.19.1",
-        "contentHash": "3qqZfVmW8mKA2/fRwI83o8z+yZd33KbEqRlXrlX0+3e/U7i+z0MQiCr0L3Axxa0jGdiylIrpWX4DIT9nAbJ00A==",
+        "requested": "[1.21.0, )",
+        "resolved": "1.21.0",
+        "contentHash": "+cOZFDBLktHT8V/aUb2SXQVFNP5JrcX/F24TgHcbD2kd4SFcKlBMChYeU/K+Tg3nuL+4HAS7dcR7Y2+tcSnFbQ==",
         "dependencies": {
-          "OpenTelemetry": "1.19.1"
+          "OpenTelemetry": "1.21.0"
         }
       },
       "OpenTelemetry.Instrumentation.Http": {
