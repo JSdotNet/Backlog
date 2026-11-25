@@ -1707,6 +1707,213 @@ h1, h2, h3 {
     background: var(--color-error-text);
 }
 
+/* The Plans view's main column with a plan selected (local ADR 0062 §3): the plan
+   expanded as Now, Next and Later, the other plans folded, then Unplanned. */
+.plan-sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+}
+
+.plan-sections__group,
+.plan-sections__folded {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.plan-sections__plan {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.plan-sections__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__title-line,
+.plan-sections__unplanned-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.plan-sections__name {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.plan-sections__progress {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-sections__branch {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__run {
+    font-size: var(--font-size-xs);
+}
+
+.plan-sections__run.plan-rail__state--running { color: var(--color-primary); }
+.plan-sections__run.plan-rail__state--queued { color: var(--color-band-2); }
+
+.plan-sections__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin-inline-start: auto;
+}
+
+/* The 3px bar: done, in a session, ready — the rest is the track. */
+.plan-sections__bar {
+    display: flex;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--color-background-raised);
+}
+
+.plan-sections__bar > span {
+    display: block;
+    height: 100%;
+}
+
+.plan-sections__bar-done { background: var(--color-success-text); }
+.plan-sections__bar-now { background: var(--color-primary); }
+.plan-sections__bar-next { background: var(--color-band-2); }
+
+.plan-sections__group-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__row-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__row,
+.plan-sections__folded-open {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+/* Later's lines: the row's shape in secondary ink, pressed to open the list. */
+.plan-sections__later-line {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-sections__later-line:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
+}
+
+.plan-sections__row:hover,
+.plan-sections__later-line:not(:disabled):hover,
+.plan-sections__folded-open:hover {
+    background: var(--color-background-alt);
+}
+
+.plan-sections__row:focus-visible,
+.plan-sections__later-line:focus-visible,
+.plan-sections__folded-open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-sections__row-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-sections__row-meta,
+.plan-sections__row-state,
+.plan-sections__folded-done,
+.plan-sections__folded-note {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-sections__folded-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.plan-sections__folded-name {
+    flex: 0 1 14rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-sections__folded-bar {
+    flex: 0 0 6rem;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-background-raised);
+}
+
+.plan-sections__folded-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--color-success-text);
+}
+
+.plan-sections__folded-note--queued { color: var(--color-band-2); }
+.plan-sections__folded-note--running { color: var(--color-primary); }
+.plan-sections__folded-note--blocked { color: var(--color-error-text); }
+
+.plan-sections__unplanned {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
 /* The completed group, pulled up under the add-entry row. The library spaces it
    from the open rows with a `--spacing-md` margin, which is right where the list
    stands alone; here the scroller's gap already separates them, and the two

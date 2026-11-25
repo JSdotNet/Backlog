@@ -888,7 +888,15 @@ The main column shows the plan selected on the rail, expanded in three groups:
 - **Later**: one line for the entries still waiting, naming what unlocks next, such
   as "#20 when #14 and #17 land", and one line for the done ones.
 
-The other plans follow, folded to one line each, then the unplanned entries.
+Its heading carries the plan's name, a bar split into done, in a session and ready,
+"8 of 24 · 71 pts left", the plan branch, its run state, a Roadmap link, its copy and
+its queue toggle. Each Later line opens its list. With nothing selected on the rail
+the list stays one list.
+
+The other plans follow, folded to one line each — name, progress line, done of total,
+a note naming its queue place or its ready and waiting counts, and its queue toggle —
+then the unplanned entries, whose **Select → new plan** narrows the list to Unplanned
+with selection on.
 
 **Flat** lists the entries in no plan, plus a plan entry the person put on
 [My Day](#my-day). Every other plan entry lives under Plans only.
