@@ -707,8 +707,16 @@
                     {
                         @* The Plans view with a plan selected on the rail: that plan
                            expanded as Now, Next and Later, the other plans folded to a
-                           line each, then Unplanned (local ADR 0062 §3). *@
-                        @RenderPlanSections()
+                           line each, then Unplanned (local ADR 0062 §3) — or, opened
+                           from its heading, that plan alone (§7). *@
+                        @if (PlanFocusShown)
+                        {
+                            @RenderPlanFocus()
+                        }
+                        else
+                        {
+                            @RenderPlanSections()
+                        }
                     }
                     else if (State.FilteredRows.Count == 0)
                     {
@@ -6988,7 +6996,13 @@
                 <section class="plan-sections__plan" aria-label="@($"The {view.Name} plan")" data-testid="plan-expanded" data-plan="@view.Name">
                     <header class="plan-sections__heading">
                         <div class="plan-sections__title-line">
-                            <h2 class="plan-sections__name" data-testid="plan-expanded-name">@view.Name</h2>
+                            <h2 class="plan-sections__name" data-testid="plan-expanded-name">
+                                <AppButton BaseClass="plan-sections__name-open"
+                                           Variant="ButtonVariant.None"
+                                           TestId="plan-expanded-open"
+                                           title="@($"Open the {view.Name} plan on its own, in waves")"
+                                           OnClick="() => OpenPlanFocus(view.Tag)">@view.Name</AppButton>
+                            </h2>
                             <span class="plan-sections__progress" data-testid="plan-expanded-progress">@view.ProgressText</span>
                             <span class="plan-sections__branch" data-testid="plan-expanded-branch">@view.Branch</span>
                             @if (view.RunStateText.Length > 0)
@@ -7025,61 +7039,7 @@
                         </span>
                     </header>
 
-                    @if (view.Now.Count > 0)
-                    {
-                        <div class="plan-sections__group" data-testid="plan-section-now">
-                            <h3 class="plan-sections__group-title">Now · in a session</h3>
-                            @foreach (var entry in view.Now)
-                            {
-                                @RenderPlanSectionRow(entry, PlanSection.Now)
-                            }
-                        </div>
-                    }
-
-                    @if (view.Next.Count > 0)
-                    {
-                        <div class="plan-sections__group" data-testid="plan-section-next">
-                            <h3 class="plan-sections__group-title">@(view.RunState == PlanRunState.Queued || view.RunState == PlanRunState.Running ? "Next · ready, queued with the plan" : "Next · ready")</h3>
-                            @foreach (var entry in view.Next)
-                            {
-                                @RenderPlanSectionRow(entry, PlanSection.Next)
-                            }
-                        </div>
-                    }
-
-                    <div class="plan-sections__group" data-testid="plan-section-later">
-                        <h3 class="plan-sections__group-title">Later</h3>
-                        <AppButton BaseClass="plan-sections__later-line"
-                                   Variant="ButtonVariant.None"
-                                   TestId="plan-later-waiting"
-                                   aria-expanded="@(_planLaterOpen == PlanSection.Waiting ? "true" : "false")"
-                                   Disabled="@(view.Waiting.Count == 0)"
-                                   OnClick="() => TogglePlanLater(PlanSection.Waiting)">
-                            @view.UnlockLine
-                        </AppButton>
-                        @if (_planLaterOpen == PlanSection.Waiting)
-                        {
-                            @foreach (var entry in view.Waiting)
-                            {
-                                @RenderPlanSectionRow(entry, PlanSection.Waiting)
-                            }
-                        }
-                        <AppButton BaseClass="plan-sections__later-line"
-                                   Variant="ButtonVariant.None"
-                                   TestId="plan-later-done"
-                                   aria-expanded="@(_planLaterOpen == PlanSection.Done ? "true" : "false")"
-                                   Disabled="@(view.Done.Count == 0)"
-                                   OnClick="() => TogglePlanLater(PlanSection.Done)">
-                            @view.DoneLine
-                        </AppButton>
-                        @if (_planLaterOpen == PlanSection.Done)
-                        {
-                            @foreach (var entry in view.Done)
-                            {
-                                @RenderPlanSectionRow(entry, PlanSection.Done)
-                            }
-                        }
-                    </div>
+                    @RenderPlanGroups(view)
                 </section>
             }
 
@@ -7142,6 +7102,183 @@
                 }
             </section>
         </div>;
+    }
+
+    /// <summary>A plan's Now, Next and Later groups: under the expanded plan's heading,
+    /// and as the List side of one plan's own view.</summary>
+    private RenderFragment RenderPlanGroups(PlanSectionsView view) =>
+        @<text>
+                    @if (view.Now.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-now">
+                            <h3 class="plan-sections__group-title">Now · in a session</h3>
+                            @foreach (var entry in view.Now)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Now)
+                            }
+                        </div>
+                    }
+
+                    @if (view.Next.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-next">
+                            <h3 class="plan-sections__group-title">@(view.RunState == PlanRunState.Queued || view.RunState == PlanRunState.Running ? "Next · ready, queued with the plan" : "Next · ready")</h3>
+                            @foreach (var entry in view.Next)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Next)
+                            }
+                        </div>
+                    }
+
+                    <div class="plan-sections__group" data-testid="plan-section-later">
+                        <h3 class="plan-sections__group-title">Later</h3>
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-waiting"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Waiting ? "true" : "false")"
+                                   Disabled="@(view.Waiting.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Waiting)">
+                            @view.UnlockLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Waiting)
+                        {
+                            @foreach (var entry in view.Waiting)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Waiting)
+                            }
+                        }
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-done"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Done ? "true" : "false")"
+                                   Disabled="@(view.Done.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Done)">
+                            @view.DoneLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Done)
+                        {
+                            @foreach (var entry in view.Done)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Done)
+                            }
+                        }
+                    </div>
+        </text>;
+
+    /// <summary>
+    /// One plan alone, opened from the expanded plan's heading (local ADR 0062 §7): a
+    /// way back to Plans, the plan's name, bar and counts and a Waves / List toggle;
+    /// then its waves — columns by dependency depth, the current one on a soft
+    /// background — or its Now, Next and Later; and a run line naming the plan branch
+    /// it lands on, with the plan's copy and queue.
+    /// </summary>
+    private RenderFragment RenderPlanFocus()
+    {
+        var view = SelectedPlanSections(RailPlans());
+        if (view is null) return RenderPlanSections();
+
+        var (donePercent, nowPercent, nextPercent) = view.BarPercents;
+        IReadOnlyList<PlanWave> waves = _planFocusLayout == PlanFocusLayout.Waves
+            ? PlanWaves.Build(view.Entries, State.ResolvedDependsOn, view.Branch)
+            : [];
+
+        return @<section class="plan-focus" aria-label="@($"The {view.Name} plan")" data-testid="plan-focus" data-plan="@view.Name">
+            <header class="plan-focus__heading">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="plan-focus__back"
+                           TestId="plan-focus-back"
+                           aria-label="Back to all plans"
+                           OnClick="ClosePlanFocus">
+                    ← Plans
+                </AppButton>
+                <h2 class="plan-sections__name" data-testid="plan-focus-name">@view.Name</h2>
+                <span class="plan-sections__bar plan-focus__bar" aria-hidden="true" data-testid="plan-focus-bar"
+                      title="@($"{view.Done.Count} done · {view.Now.Count} in a session · {view.Next.Count} ready · {view.Waiting.Count} waiting")">
+                    <span class="plan-sections__bar-done" style="width: @(donePercent)%"></span>
+                    <span class="plan-sections__bar-now" style="width: @(nowPercent)%"></span>
+                    <span class="plan-sections__bar-next" style="width: @(nextPercent)%"></span>
+                </span>
+                <span class="plan-sections__progress" data-testid="plan-focus-counts">@PlanFocusCounts(view)</span>
+                <div class="filter-group plan-focus__layout" role="radiogroup" aria-label="Layout" data-testid="plan-focus-layout">
+                    @foreach (var option in PlanFocusLayouts)
+                    {
+                        <AppButton BaseClass="chip chip--filter"
+                                   Variant="ButtonVariant.None"
+                                   CssClass="@(_planFocusLayout == option ? "chip--active" : null)"
+                                   TestId="plan-focus-layout-option"
+                                   data-layout="@option.ToString()"
+                                   role="radio"
+                                   aria-checked="@(_planFocusLayout == option ? "true" : "false")"
+                                   title="@(option == PlanFocusLayout.Waves ? "Lay the entries out in waves by dependency" : "List the entries as Now, Next and Later")"
+                                   OnClick="() => SetPlanFocusLayout(option)">
+                            @option
+                        </AppButton>
+                    }
+                </div>
+            </header>
+
+            @if (_planFocusLayout == PlanFocusLayout.Waves)
+            {
+                <div class="plan-waves" data-testid="plan-waves" style="--plan-waves-columns: @(Math.Max(1, waves.Count))">
+                    @foreach (var wave in waves)
+                    {
+                        <section @key="wave.Number"
+                                 class="@(wave.Current ? "plan-waves__wave plan-waves__wave--current" : "plan-waves__wave")"
+                                 aria-label="@($"Wave {wave.Number}, {wave.Label}")"
+                                 data-testid="plan-wave"
+                                 data-wave="@wave.Number"
+                                 data-current="@(wave.Current ? "true" : "false")">
+                            <div class="plan-waves__heading">
+                                <h3 class="plan-waves__title">Wave @wave.Number</h3>
+                                <span class="@(wave.Current ? "plan-waves__label plan-waves__label--current" : "plan-waves__label")" data-testid="plan-wave-label">@wave.Label</span>
+                            </div>
+                            @foreach (var card in wave.Entries)
+                            {
+                                <AppButton @key="card.Entry.Row.Key"
+                                           BaseClass="@(card.Waiting ? "plan-waves__card plan-waves__card--waiting" : "plan-waves__card")"
+                                           Variant="ButtonVariant.None"
+                                           TestId="plan-wave-card"
+                                           data-task-id="@card.Entry.Row.TaskId"
+                                           OnClick="() => OnEntrySelectedAsync(card.Entry.Row.TaskId)">
+                                    <span class="plan-waves__mark plan-waves__mark--@card.StateSlug" aria-hidden="true"></span>
+                                    <span class="plan-waves__text">
+                                        <span class="plan-waves__card-title" data-testid="plan-wave-card-title">@card.Title</span>
+                                        <span class="plan-waves__meta" data-testid="plan-wave-card-meta">@card.MetaLine</span>
+                                        @if (card.StateText.Length > 0)
+                                        {
+                                            <Badge BaseClass="plan-waves__state" Kind="" Slug="@card.StateSlug" TestId="plan-wave-card-state">@card.StateText</Badge>
+                                        }
+                                    </span>
+                                </AppButton>
+                            }
+                        </section>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="plan-focus__list" data-testid="plan-focus-list">
+                    @RenderPlanGroups(view)
+                </div>
+            }
+
+            <div class="plan-focus__run" data-testid="plan-focus-run">
+                <span class="plan-focus__run-title">Run</span>
+                <span data-testid="plan-focus-run-line">Lands on <code class="plan-focus__branch">@view.Branch</code> · Unattended, asks nothing</span>
+                <span class="plan-focus__run-actions">
+                    <CopyButton Text="@view.Tag"
+                                Label="@($"Copy {view.Tag}")"
+                                CssClass="filter-bar__plan-copy"
+                                ButtonBaseClass="filter-bar__plan-copy-button"
+                                StatusCssClass="sr-only"
+                                TestId="plan-focus-copy"
+                                ButtonTestId="plan-focus-copy-button"
+                                StatusTestId="plan-focus-copy-status" />
+                    @RenderPlanSession(view.Tag, "plan-focus-queue-reason")
+                </span>
+            </div>
+        </section>;
     }
 
     /// <summary>One entry's line under its group: its number and title, then what the

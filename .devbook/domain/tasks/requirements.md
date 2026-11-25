@@ -1027,6 +1027,7 @@ The Flat view SHALL list the entries that carry no plan and the plan entries in 
 ```meta
 type: requirement
 related: [.devbook/domain/tasks/features.md#task-dependencies]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.A_chain_puts_each_entry_one_wave_after_the_one_it_waits_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.An_entry_depending_across_waves_sits_after_its_latest_dependency, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.Opening_the_heading_shows_the_plan_alone_in_waves, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanWavesTests.List_shows_the_plan_as_rows_and_Plans_goes_back]
 ```
 
 A plan's own view SHALL place each of its entries one wave after the latest wave among the plan entries it waits on, and the entries waiting on none of them in the first wave, and SHALL name the plan branch the run lands on.
