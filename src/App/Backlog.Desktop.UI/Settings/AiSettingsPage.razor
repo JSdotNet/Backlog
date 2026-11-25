@@ -640,7 +640,6 @@
 
         _azureFoundryTesting = true;
         _azureFoundryCheck = null;
-        StateHasChanged();
 
         try
         {
@@ -657,8 +656,6 @@
         {
             _azureFoundryTesting = false;
         }
-
-        StateHasChanged();
     }
 
     private void ApplyAzureFoundryConnection()
@@ -908,7 +905,6 @@
 
         _gitHubUsageTesting = true;
         _gitHubUsageCheck = null;
-        StateHasChanged();
 
         var lines = new List<GitHubUsageCheckLine>();
         try
@@ -933,7 +929,6 @@
         }
 
         _gitHubUsageCheck = lines;
-        StateHasChanged();
     }
 
     private void ApplyGitHubUsageSettings()

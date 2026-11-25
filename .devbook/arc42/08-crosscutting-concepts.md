@@ -692,6 +692,33 @@ takes one.
 - **Nothing secret is committed.** The service's `appsettings.json` holds only defaults and
   explanations. A Development signing key lives in user-secrets.
 
+## Testing
+
+```meta
+related: [".devbook/tech/testing.md#playwright", ".devbook/tech/tooling.md#aspire-cli", ".devbook/ai/03-test.md#browser-end-to-end-suite"]
+```
+
+Every test lives under `tests/`, following org ADR 0010 (`JSdotNet/app-defaults`,
+`defaults/arc42/adr/0010-testing.md`). Unit, architecture and integration tests run without
+Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that runs through it.
+
+| Step | The suite's global setup (`E2EAppHost`, an xUnit assembly fixture) |
+| --- | --- |
+| Before the first test | `aspire start --isolated`, detached, then `aspire wait` until `cosmos`, `storage`, `sync` and the three frontends are healthy, then until `sync` answers from Cosmos rather than 503 |
+| Each test | reads a frontend's URL from `aspire describe`; no port is written down |
+| After the last test | fails on any `aspire otel logs --severity Error` entry of any resource that no test declared, then `aspire stop` |
+
+- **Isolated:** Aspire picks the ports and keeps the user secrets apart, so two worktrees
+  can run the suite at once.
+- **Declared errors:** a test that causes an error on purpose declares it by resource,
+  log-id window and message. ConferenceDay stops `sync` while the phone still calls it,
+  so the phone's resilience timeouts in that window are expected. The setup declares the
+  harnesses' retries on the 503 `sync` answers before Cosmos is ready.
+- **Gated:** nothing starts without `BACKLOG_E2E=1`. With `BACKLOG_E2E_ATTACH=1` the suite
+  uses this worktree's running AppHost, counts only new errors, and leaves it running.
+- **Not yet:** the browser logs that `.WithBrowserLogs()` sends are not checked. The suite
+  is C# `Microsoft.Playwright` under xUnit, not `@playwright/test`.
+
 ## Observability
 
 ```meta
@@ -742,10 +769,22 @@ return await handler.Handle(command, ct) switch
 - **Asserting:** a test reads the case with `Assert.IsType<Ok<T>>(result.Value).Value`
   or `Assert.IsType<Error>(result.Value)`.
 
+- **Several statements per arm:** a switch expression over a local function per arm,
+  never a `switch` statement with `case Ok<T>:` labels. **Why:** a statement compiles
+  without the CS8509 check, so a new case would pass it unnoticed.
+  `ResultSwitchStatementTests` fails on such a label anywhere in `src/`.
+
+  ```csharp
+  LastError = result switch
+  {
+      Ok<TaskSyncSummary>(var summary) => Completed(summary),
+      Error error => Failed(error),
+  };
+  ```
+
 Every project reads results this way; the class-based members `IsSuccess`, `Error`,
-`Unwrap()` and `TryGetValue` are gone. A `switch` statement over the cases compiles
-without the CS8509 check, so the few call sites that branch into several statements,
-the sync workers among them, are where a new case would pass unnoticed.
+`Unwrap()` and `TryGetValue` are gone, and so are the `switch` statements the sync workers
+and the MCP connector settings page used to branch with.
 
 ## Shared Data Types
 

@@ -409,13 +409,27 @@
         if (firstRender)
         {
             _self = DotNetObjectReference.Create(this);
-            await Js.InvokeVoidAsync("backlogPaneShortcuts.register", PaneId, _self);
+            try
+            {
+                await Js.InvokeVoidAsync("backlogPaneShortcuts.register", PaneId, _self);
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went before the first render landed; there is no page to take the keys.
+            }
         }
 
         if (_focusAfterRender is { } id)
         {
             _focusAfterRender = null;
-            await Js.InvokeVoidAsync("backlogFocus", id, false);
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", id, false);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException)
+            {
+                // A control that did not take the focus is still on screen and usable.
+            }
         }
     }
 

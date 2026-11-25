@@ -101,7 +101,15 @@ public sealed class SettingsTests
         await Expect(page.GetByTestId("settings-search-input")).ToBeVisibleAsync();
         await Expect(page.GetByTestId("settings-menu-workspace")).ToBeVisibleAsync();
         await Expect(desktop.SettingsMenuLink("storage").Locator(".settings-menu-group__chevron")).ToBeVisibleAsync();
-        var rowHeight = await desktop.SettingsMenuLink("storage").EvaluateAsync<double>("link => link.getBoundingClientRect().height");
+        // Measured once the layout has settled: read straight after the viewport
+        // shrank, the row can still be 0 px tall while the grouped list is drawn.
+        double rowHeight = 0;
+        for (var attempt = 0; attempt < 20 && rowHeight < 52; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(250, TestContext.Current.CancellationToken);
+            rowHeight = await desktop.SettingsMenuLink("storage").EvaluateAsync<double>("link => link.getBoundingClientRect().height");
+        }
+
         Assert.True(rowHeight >= 52, $"A row of the grouped list is {rowHeight} px tall, under 52.");
         await evidence.ScreenshotAsync(page, "phone-grouped-list");
 

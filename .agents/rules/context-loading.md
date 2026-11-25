@@ -55,15 +55,20 @@ call a run complete without the person's explicit approval.
   Aspire AppHost and says what healthy looks like and which harness answers which question;
   under `.agents/skills/`, `capture.md` places evidence; `diagnose.md` finds a cause from
   logs and traces; `estimate.md` sizes work. A flow's `phase-verify` calls `run` rather than guessing a command.
+- **Resource state for QA** — the `qa:qa` agent and its monitor read this worktree's AppHost
+  through the Aspire CLI (`aspire describe`, `aspire logs`, `aspire otel`, each with
+  `--apphost`), the way `run` and `diagnose.md` do; `.mcp.json` configures no Aspire MCP
+  server, and a QA brief names the commands rather than an MCP tool.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.
 - **Checked-in end-to-end tests** — `tests/Backlog.EndToEndTests` is the repeatable form of
   scenarios QA has already walked, such as `ConferenceDayTests`.
   - Run it in Validation when the change touches a flow it covers:
-    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`, against this
-    worktree's running AppHost. Its screenshots and `sync` logs under `.qa-workspace/e2e/`
-    are evidence.
+    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`. It starts
+    and stops its own isolated AppHost, so stop this worktree's first (or set
+    `BACKLOG_E2E_ATTACH=1` to use it). Its screenshots and error logs under
+    `.qa-workspace/e2e/` are evidence.
   - It stops and starts `sync` and resets the phone harness's pairing, so never run it while
     another scenario drives the same AppHost.
   - Its `README.md` covers the browser install and what a run changes.

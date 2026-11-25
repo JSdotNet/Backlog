@@ -224,8 +224,8 @@ Deployment considerations:
   files one GitHub issue per problem from. It fires once per problem and resolves itself after
   an hour without one. The action group `ag-sync-exceptions` emails the `sync-alert-email`
   parameter. Aspire has no integration for a log alert, so `SyncDeployment.cs` adds
-  `Alerts/sync-exception-alert.bicep` through `AddBicepTemplate`. It deploys once the
-  deployment moves onto `aspire publish` (below); `infra/sync/main.bicep` declares no alert.
+  `Alerts/sync-exception-alert.bicep` through `AddBicepTemplate`. `infra/sync/main.bicep`
+  declares no alert yet, so none is deployed (below).
 - **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs
   resources in `infra/sync/main.bicep` exist in Azure, and the sync container app
   carries their settings. Pushes wait on the hub's FCM credential.
@@ -233,7 +233,7 @@ Deployment considerations:
 ### Provisioning and Delivery
 
 ```meta
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/08-crosscutting-concepts.md#configuration"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/08-crosscutting-concepts.md#configuration", ".devbook/arc42/adr/0062-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md"]
 ```
 
 Local ADR 0005 introduced the delivery artifacts `infra/sync/main.bicep`, `azure.yaml` and `.github/workflows/deploy-sync.yml`.
@@ -292,9 +292,11 @@ AppHost the one model from local run to deployment. In publish mode it declares:
 
 `aspire publish` generates Bicep from that model, but nothing deploys it yet. The running
 service is still provisioned from `infra/sync/` and deployed by `azd`, which set the same
-settings under the Bicep parameters each AppHost parameter names in its comment. Moving the
-deployment to `aspire publish` and `aspire deploy` is a separate decision, and until then
-`AppHostDeploymentModelTests` keeps the two lists level.
+settings under the Bicep parameters each AppHost parameter names in its comment. Local ADR
+0062 (proposed) keeps it that way: the Bicep stays the deployment, and the AppHost stays the
+model of settings, secrets and alert rules. `AppHostDeploymentModelTests` keeps the two
+lists of settings level. The exception alert reaches Azure only once `infra/sync/main.bicep`
+declares it too.
 
 The published model is not yet deployable. It has no compute environment, no Key Vault, Web
 PubSub or Notification Hubs resource, and none of the Bicep's `Sync__Cosmos__*` container

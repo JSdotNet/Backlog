@@ -104,7 +104,7 @@
             return;
         }
 
-        await InvokeAsync(DismissAsync);
+        await InvokeAsync(() => HandlerRendering.RunAsync(DismissAsync, StateHasChanged));
     }
 
     private async Task DismissAsync()
@@ -112,7 +112,6 @@
         if (!_visible) return;
 
         _visible = false;
-        StateHasChanged();
         await OnDismissed.InvokeAsync();
     }
 

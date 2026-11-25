@@ -311,7 +311,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     private bool Build(string repositoryRoot, string target, DevbookCorpusProfile profile, CancellationToken cancellationToken)
     {
         var started = _time.GetTimestamp();
-        if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, profile, cancellationToken)) return false;
+        if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, profile, cancellationToken, _time)) return false;
 
         _logger.LogInformation(
             "Built the devbook database for {RepositoryRoot} at {DatabasePath} in {ElapsedMilliseconds} ms.",

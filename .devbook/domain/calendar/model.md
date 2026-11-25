@@ -140,6 +140,9 @@ classDiagram
   `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` over Roadmap Planning; and
   `EventsCalendarEvents` over Events' read contract, or `NoCalendarEvents` in a host
   without Events. The source contexts' own types appear here by reference only.
+- `RoadmapCalendarCapacity` answers a day's capacity in hours, rounded half away from
+  zero to the hundredth from the day's duration: a day of seven hours and eighteen
+  seconds is 7.005 hours and holds 7.01.
 - The Tasks layer is built like the other two (local ADR 0056 §2). It reads the tasks
   with a due date in the window, narrowed by the window's repository scope, which the
   Calendar reads from the window and not from Tasks. No Tasks filter, open task or
