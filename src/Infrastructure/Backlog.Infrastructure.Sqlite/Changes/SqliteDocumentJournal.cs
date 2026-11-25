@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
 /// <see cref="IDocumentRevisionJournal"/> over <c>backlog.db</c> in a folder somebody can
-/// move: the revisions a JSON file store records before it writes (local ADR 0061 §2), in
+/// move: the revisions a JSON file store records before it writes (local ADR 0070 §2), in
 /// the same <c>revisions</c> and <c>change_sets</c> tables the triggers fill, by the same
 /// rules — one revision per document per change set, keeping the document as it was before
 /// the change set first touched it, and an unknown writer's change set for a write no entry

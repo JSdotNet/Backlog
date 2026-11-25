@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// Keeps the change journal bounded (local ADR 0061 §6): drops the revisions and
+/// Keeps the change journal bounded (local ADR 0070 §6): drops the revisions and
 /// change sets older than the retention period, or all of them when the person
 /// clears the history.
 /// <para>

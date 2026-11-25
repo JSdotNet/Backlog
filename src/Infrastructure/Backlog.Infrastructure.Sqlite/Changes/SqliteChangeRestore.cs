@@ -11,7 +11,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// Restores a change set (local ADR 0061 §4) over the database in one folder: walks
+/// Restores a change set (local ADR 0070 §4) over the database in one folder: walks
 /// its revisions newest first and writes each document back as a new, later save.
 /// <para>
 /// <b>A conflict is decided per document.</b> A document whose stamp no longer matches

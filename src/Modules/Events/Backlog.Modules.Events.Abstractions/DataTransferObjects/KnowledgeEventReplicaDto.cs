@@ -17,7 +17,8 @@ namespace Backlog.Modules.Events.Abstractions.DataTransferObjects;
 /// <param name="Start">The first day, with a time and offset when known, or null.</param>
 /// <param name="End">The last day, or null: an event with a start and no end lasts its start day.</param>
 /// <param name="DateSource">Where the dates came from; set exactly when there is a start.</param>
-/// <param name="Venue">The venue, or null — for an online event, or one with no place.</param>
+/// <param name="Venue">The venue name, or null — for an online event, one with no place, or
+/// one held at an address alone.</param>
 /// <param name="Online">Whether the event happens online.</param>
 /// <param name="Link">The edition's page, or null.</param>
 /// <param name="KeyDates">The dates that matter before the event, in the person's order.</param>
@@ -34,6 +35,12 @@ namespace Backlog.Modules.Events.Abstractions.DataTransferObjects;
 /// <param name="Removed">Whether the person removed the event: the copy is its tombstone, and
 /// every device leaves it out. Absent in a document from an older build, which reads as not
 /// removed.</param>
+/// <param name="Address">Where an in-person event is held, or null (local ADR 0061). Absent in
+/// a document from an older desktop build, which reads as the venue alone. The phone ignores
+/// it.</param>
+/// <param name="Lookup">What geocoding answered for <paramref name="Address"/>; with an address
+/// and none, it reads as not looked up yet.</param>
+/// <param name="Point">The spot on the map, exactly when <paramref name="Lookup"/> is Placed.</param>
 public sealed record KnowledgeEventReplicaDto(
     Guid Id,
     string Title,
@@ -54,11 +61,22 @@ public sealed record KnowledgeEventReplicaDto(
     IReadOnlyList<EventTaskLinkReplicaDto> Tasks,
     string? Verdict,
     DateTimeOffset UpdatedAt,
-    bool Removed = false);
+    bool Removed = false,
+    EventAddressReplicaDto? Address = null,
+    AddressLookup? Lookup = null,
+    EventMapPointReplicaDto? Point = null);
 
 /// <summary>An event's start or end: a calendar date, plus a time of day and its UTC offset
 /// when they are known.</summary>
 public sealed record EventDateReplicaDto(DateOnly Date, TimeOnly? Time, TimeSpan? UtcOffset);
+
+/// <summary>Where an in-person event is held, in up to four parts, each null when it has none.</summary>
+public sealed record EventAddressReplicaDto(string? Street, string? Postcode, string? Town, string? Country);
+
+/// <summary>A spot on the map, in degrees. Each is nullable so a document that leaves one out
+/// reads with it absent rather than as zero, and the copy is refused rather than pinned on the
+/// equator or Null Island.</summary>
+public sealed record EventMapPointReplicaDto(double? Latitude, double? Longitude);
 
 /// <summary>A date that matters before the event, with its label.</summary>
 public sealed record EventKeyDateReplicaDto(DateOnly Date, string Label);

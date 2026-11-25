@@ -47,6 +47,8 @@
          its own grid (local ADR 0056). -->
     <ProjectReference Include="..\..\Modules\Calendar\Backlog.Modules.Calendar.UI\Backlog.Modules.Calendar.UI.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
+    <!-- The Events map's geocoder and tile source (local ADR 0061 §4): AddAzureMaps registers them. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureMaps\Backlog.Infrastructure.AzureMaps.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />

@@ -16,7 +16,7 @@ public sealed record AgentCheckpoint(DateTimeOffset TakenAt, long SizeBytes, str
 /// The safety net taken before an agent's first write: a folder
 /// <c>checkpoints/&lt;UTC timestamp&gt;/</c> beside <c>backlog.db</c> holding a consistent copy
 /// of the database, of the devbook subject-state and annotation stores, and of the settings
-/// files the change journal does not cover (local ADR 0061 §7 and §8), so a run that went wrong
+/// files the change journal does not cover (local ADR 0070 §7 and §8), so a run that went wrong
 /// can be put back by hand.
 /// <para>
 /// <b>The settings files.</b> The repository registry sits under the root and is copied at the

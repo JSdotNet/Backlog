@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// The change journal's read side (local ADR 0061 §2) over one database: the
+/// The change journal's read side (local ADR 0070 §2) over one database: the
 /// <c>change_sets</c> newest first, and per change set the documents its
 /// <c>revisions</c> name, each read as the text it was before and the text it is now.
 /// <para>

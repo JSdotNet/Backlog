@@ -139,4 +139,5 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md) (accepted, built)
 - [ADR 0059 — Tokenless MCP calls get the scopes the person opens to them](adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md) (accepted, built)
 - [ADR 0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md) (proposed)
-- [ADR 0061 — Agent changes are restorable through a change journal beside the store](adr/0061-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md) (proposed; amends ADR 0058 §4)
+- [ADR 0061 — The Events map uses online tiles and geocodes an address on save](adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md) (accepted)
+- [ADR 0070 — Agent changes are restorable through a change journal beside the store](adr/0070-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md) (proposed; amends ADR 0058 §4)

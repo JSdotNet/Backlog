@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// Restoring a change set (local ADR 0061 §4): its revisions walked newest first, each
+/// Restoring a change set (local ADR 0070 §4): its revisions walked newest first, each
 /// document written back as a later save, a document changed since kept unless the
 /// person restores it anyway, and the restore recorded as a change set of its own that
 /// the restored one points at.

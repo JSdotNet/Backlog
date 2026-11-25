@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Changes;
 
 /// <summary>
-/// Reads the change journal (local ADR 0061 §2): the change sets, newest first, and
+/// Reads the change journal (local ADR 0070 §2): the change sets, newest first, and
 /// what each one changed. Read-only; <see cref="IChangeRestore"/> takes one back.
 /// </summary>
 public interface IChangeJournal
@@ -17,7 +17,7 @@ public interface IChangeJournal
 
     /// <summary>The newest change sets that match every filter <paramref name="query"/>
     /// sets, newest first, each with the number of documents it changed: what
-    /// <c>list_change_sets</c> answers an agent (local ADR 0061 §5).</summary>
+    /// <c>list_change_sets</c> answers an agent (local ADR 0070 §5).</summary>
     Task<IReadOnlyList<ChangeSetEntry>> QueryAsync(
         ChangeSetQuery query,
         CancellationToken cancellationToken = default);

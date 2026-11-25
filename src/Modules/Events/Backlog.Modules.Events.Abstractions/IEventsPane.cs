@@ -13,11 +13,12 @@ namespace Backlog.Modules.Events.Abstractions;
 /// </summary>
 public interface IEventsPane
 {
-    /// <summary>Every event, grouped by state: Going, Considering, Spotted, Attended, Harvested,
-    /// Skipped. Within a group, events not over yet (ending, or else starting, today or later,
-    /// so one still running today counts) come first, soonest start first, then undated ones,
-    /// then past ones, most recent first. An empty group is left out.</summary>
-    Task<IReadOnlyList<KnowledgeEventGroupDto>> ListAsync(CancellationToken cancellationToken = default);
+    /// <summary>Every event, by date and whatever its state, in two sections: Upcoming, the
+    /// events not over yet (ending, or else starting, today or later on the desktop clock, so one
+    /// still running today counts), soonest start first, then the undated ones; then Past, the
+    /// rest, most recent first: the latest last day first, then the latest start. An empty section is left out. Each upcoming event with a map point
+    /// that is not Skipped carries its map number, 1..n in that order.</summary>
+    Task<IReadOnlyList<KnowledgeEventSectionDto>> ListAsync(CancellationToken cancellationToken = default);
 
     /// <summary>One event as the editor reads it; <c>knowledge_event.not_found</c> when none has
     /// that id.</summary>
@@ -36,6 +37,10 @@ public interface IEventsPane
     /// The series is named by its name. One series with that name, trimmed and without regard to
     /// case, is joined; none starts one with that name, saved only once the event is known to
     /// be valid; two or more are refused (<c>event_series.ambiguous</c>).
+    /// </para>
+    /// <para>
+    /// An address is looked up after the save, as <see cref="SetPlaceAsync"/> does: the answer is
+    /// the event as saved, Not looked up yet.
     /// </para>
     /// </summary>
     Task<Result<KnowledgeEventDto>> AddAsync(NewKnowledgeEventDto request, CancellationToken cancellationToken = default);
@@ -60,7 +65,42 @@ public interface IEventsPane
     /// null start and end.</summary>
     Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sets where the event happens, or clears it with null, and answers the event as saved —
+    /// before any geocoder call. A place whose address is new or changed, or still Not looked up
+    /// yet, is then sent to the geocoder once, after the save and outside the caller's call: one
+    /// lookup at a time per event, its answer kept on the event as it reads by then — Placed with
+    /// its point, Address not found, or, with no answer back (offline, no map key, the call
+    /// failed), Not looked up yet. <see cref="IsLookingUp"/> is true meanwhile, and the pane
+    /// raises <see cref="Changed"/> once the lookup is over, whatever it answered. An unchanged
+    /// address that is Placed or not found, an online place, and a venue name alone send nothing
+    /// (local ADR 0061 §5). The caller's cancellation token covers the save only.
+    /// </summary>
     Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Look up now: sends the event's address to the geocoder again when it is Not looked up yet
+    /// or Address not found, and keeps the answer, after any lookup already running for the
+    /// event; this one waits for its answer, as the person asked for it. A Placed address — one a
+    /// lookup that was running placed — sends nothing. No answer back
+    /// leaves the lookup as it was, and the result's <see cref="AddressLookUpDto.Answer"/> says so
+    /// (NotLookedUpYet), apart from a lookup that found nothing (NotFound). Refused for an event
+    /// that is online or has no address (<c>address.missing</c>), and for an unknown one
+    /// (<c>knowledge_event.not_found</c>).
+    /// </summary>
+    Task<Result<AddressLookUpDto>> LookUpAddressAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The pass the person's first save of the map key starts
+    /// (<c>.devbook/domain/events/domain.md#address-lookup</c>): sends each address Not looked up
+    /// yet to the geocoder once, one at a time, and keeps each answer. Placed and not-found
+    /// addresses are skipped. Nothing else calls it: there is no background retry.
+    /// </summary>
+    Task<AddressLookupPassDto> LookUpPendingAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Whether this pane is looking up the event's address now: a save or Look up now
+    /// sent it and its answer is not kept yet.</summary>
+    bool IsLookingUp(Guid id);
 
     Task<Result<KnowledgeEventDto>> SetLinkAsync(Guid id, string? link, CancellationToken cancellationToken = default);
 

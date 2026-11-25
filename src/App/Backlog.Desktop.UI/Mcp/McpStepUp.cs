@@ -24,7 +24,9 @@ namespace Backlog.Desktop.UI.Mcp;
 /// </para>
 /// <para>
 /// <b>The web harness asks for nothing</b> (§9): it keeps no grant, broker or step-up, so its
-/// own caller passes. A grant's caller, or the debug escape hatch's, is asked on every call.
+/// own caller passes. A grant's caller, or the debug escape hatch's, is asked on every call,
+/// never answered from a confirmation the desktop remembers
+/// (<see cref="IUserConsent.VerifyEveryTimeAsync"/>): the person did not start the call.
 /// </para>
 /// </summary>
 public static class McpStepUp
@@ -62,7 +64,7 @@ public static class McpStepUp
                 var consent = request.Services?.GetService<IUserConsent>();
                 var outcome = consent is null
                     ? UserConsentOutcome.NotAvailable
-                    : await consent.VerifyAsync(PromptFor(name, request.User), cancellationToken).ConfigureAwait(false);
+                    : await consent.VerifyEveryTimeAsync(PromptFor(name, request.User), cancellationToken).ConfigureAwait(false);
 
                 if (outcome != UserConsentOutcome.Verified)
                 {

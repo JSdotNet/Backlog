@@ -11,7 +11,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// What an agent may do with the change journal (local ADR 0061 §5): read the change sets
+/// What an agent may do with the change journal (local ADR 0070 §5): read the change sets
 /// back, and propose that the person restore one. <c>list_change_sets</c> reads; and
 /// <c>propose_restore</c> asks the person a question and nothing more.
 /// <para>
@@ -153,7 +153,7 @@ public sealed class ChangeTools(INotifications notifications, IChangeJournal? jo
 }
 
 /// <summary>
-/// The restore proposal's spelling (local ADR 0061 §5), in one place for the tool that asks
+/// The restore proposal's spelling (local ADR 0070 §5), in one place for the tool that asks
 /// and the host's handler that answers: the two answers, the source key that carries the
 /// change set's id, and the question's words.
 /// </summary>

@@ -506,6 +506,7 @@ public sealed class SettingsSectionRenderingTests
                 (SettingsGroup.Ai, "AI providers"),
                 (SettingsGroup.Ai, "Claude Code"),
                 (SettingsGroup.Ai, "Model prices"),
+                (SettingsGroup.ProductAreas, "Events"),
                 (SettingsGroup.ProductAreas, "Dashboard"),
                 (SettingsGroup.ProductAreas, "Working week"),
                 (SettingsGroup.ProductAreas, "Inbox"),

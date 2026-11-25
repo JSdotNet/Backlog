@@ -33,7 +33,8 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>Asks the person to confirm <paramref name="prompt"/>, and answers success when
-    /// they did, or a failure whose message says, after <paramref name="refused"/>, why not.</summary>
+    /// they did, or a failure whose message says, after <paramref name="refused"/>, why not. For
+    /// the person's own acts at the desk, so a confirmation the host remembers may answer it.</summary>
     /// <param name="prompt">What the Windows Hello prompt says.</param>
     /// <param name="refused">What did not happen, for the failure's message — "No pairing code
     /// was made".</param>
@@ -55,10 +56,13 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
 
     /// <summary>
     /// <see cref="ConfirmAsync"/>, with the prompt withdrawn once <paramref name="window"/> has
-    /// passed unanswered: a failure filed under <see cref="ExpiredCode"/>. For a prompt raised
-    /// by something other than the person at this desktop — a Refuse answered on the phone —
-    /// which nobody may be here to answer, and which every answer queued behind it waits on.
-    /// A confirmation that lands as the window closes still counts.
+    /// passed unanswered: a failure filed under <see cref="ExpiredCode"/>. For a prompt the
+    /// person at this desktop may not have just asked for — a Refuse replayed at the next
+    /// start — which nobody may be here to answer, and which every answer queued behind it
+    /// waits on.
+    /// A confirmation that lands as the window closes still counts. Always shown
+    /// (<see cref="IUserConsent.VerifyEveryTimeAsync"/>): a confirmation the person gave a moment
+    /// ago for their own act does not answer one they did not start.
     /// </summary>
     /// <param name="prompt">What the Windows Hello prompt says.</param>
     /// <param name="refused">What did not happen, for the failure's message.</param>
@@ -81,7 +85,7 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
         UserConsentOutcome outcome;
         try
         {
-            outcome = await _consent.VerifyAsync(prompt, linked.Token).ConfigureAwait(false);
+            outcome = await _consent.VerifyEveryTimeAsync(prompt, linked.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (expiry.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {

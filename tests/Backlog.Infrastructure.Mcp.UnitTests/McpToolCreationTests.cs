@@ -309,7 +309,7 @@ public class McpToolCreationTests
                 var subject = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("subject");
 
                 Assert.Equal(["kind", "name", "path", "pullRequest"], Properties(subject));
-                // Every argument but the optional session id (local ADR 0061 §3).
+                // Every argument but the optional session id (local ADR 0070 §3).
                 Assert.Equal(schemas[name].Where(argument => argument != "sessionId"), Required(tool));
             });
 

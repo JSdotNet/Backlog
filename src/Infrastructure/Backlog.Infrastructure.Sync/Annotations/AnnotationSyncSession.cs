@@ -208,7 +208,7 @@ public sealed class AnnotationSyncSession
             }
 
             pulled += feed.Annotations.Count;
-            // One applied page is one sync change set (local ADR 0061 §2).
+            // One applied page is one sync change set (local ADR 0070 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying an annotation sync page"))
             {
                 applied += _merge.Apply(feed.Annotations).Applied;

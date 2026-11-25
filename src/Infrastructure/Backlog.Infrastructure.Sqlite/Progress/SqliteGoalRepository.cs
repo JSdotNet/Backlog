@@ -118,7 +118,7 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     /// Tombstones the goal as <see cref="DeleteAsync"/> does, but only while its row
     /// still holds the stamp <paramref name="held"/>, or whatever it holds when that is
     /// null — how a restore takes back a goal a change set created without deleting an
-    /// edit made since (local ADR 0061 §4). True when a row was written.
+    /// edit made since (local ADR 0070 §4). True when a row was written.
     /// </summary>
     internal async Task<bool> TombstoneAsync(Guid id, string? held, CancellationToken cancellationToken = default)
     {
@@ -137,7 +137,7 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         var stamp = await NextStampAsync(connection, id, cancellationToken).ConfigureAwait(false);
         var tombstone = JsonSerializer.Serialize(GoalDocument.Tombstone(id, title, stamp), GoalDocument.JsonOptions);
 
-        // Under the current change set (local ADR 0061 §2), so the revision the
+        // Under the current change set (local ADR 0070 §2), so the revision the
         // trigger writes keeps the goal as it was before the tombstone.
         await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -308,7 +308,7 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
         SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
 
     /// <summary>The triggers that write a <c>goal</c> revision for every write of a goal
-    /// row, a tombstone included (local ADR 0061 §2).</summary>
+    /// row, a tombstone included (local ADR 0070 §2).</summary>
     internal static readonly SqliteSchemaDefinition JournalSchema = new(
         owner: "journal:progress_goals",
         ddl: SqliteJournal.Triggers("progress_goals", "goal", ["id", "document", "created_at", "updated_at"]));

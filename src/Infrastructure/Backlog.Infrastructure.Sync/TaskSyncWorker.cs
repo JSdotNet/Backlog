@@ -489,7 +489,7 @@ public sealed class TaskSyncWorker : IDisposable
             {
                 // Created on the writer's call, inside its save, so without the
                 // detachment the timer would hold the writer's execution context — its
-                // change set (local ADR 0061 §2), the Tasks pane's self-write mark — and
+                // change set (local ADR 0070 §2), the Tasks pane's self-write mark — and
                 // every cycle after would run in it for the app's life.
                 using (ChangeContext.Detach())
                 {

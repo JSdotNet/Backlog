@@ -12,6 +12,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -38,7 +39,12 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+#if DEBUG
+        // A release build exposes no CDP port: a script driving the window through it could
+        // otherwise answer an in-window Windows Hello check from the five minutes one
+        // confirmation holds (local ADR 0058 §6).
         ConfigureWebView2RemoteDebugging();
+#endif
 
         // Before any store exists over the AppData folder: a packaged install
         // that was writing into its redirected LocalCache until the manifest
@@ -112,7 +118,7 @@ public static class MauiProgram
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
             // The MCP audit log, per installation and never in the workspace root.
             McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
-            // The MCP grants, copied into every agent checkpoint (local ADR 0061 §7): an
+            // The MCP grants, copied into every agent checkpoint (local ADR 0070 §7): an
             // agent holding agents:grant writes them. This head's alone (ADR 0058 §9).
             CheckpointedHeadFiles = new[] { Path.Combine(appData, FileMcpGrantStore.FileName) },
             // The URL on the Settings page, per machine and never in the workspace.
@@ -149,6 +155,7 @@ public static class MauiProgram
             PullRequestPins = _ => new PullRequestPinsStore(),
             ClaudeSettings = _ => new ClaudeSettingsStore(),
             AzureFoundrySettings = _ => new AzureFoundrySettingsStore(),
+            AzureMapsSettings = _ => new AzureMapsSettingsStore(),
             // The desktop head's tools adapter runs the CLIs, and reads this head's
             // MCP endpoint - registered below - to describe the Backlog server's row.
             // Its backlog row installs the question hooks naming this build's own script,
@@ -213,7 +220,11 @@ public static class MauiProgram
             sp.GetRequiredService<IMcpAccessRequestStore>()));
         // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
         // opens the request window over these windows and raises its notification (ADR 0039).
-        builder.Services.TryAddSingleton<IUserConsent>(sp => new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()));
+        // One confirmation holds five minutes for the person's own acts at the desk; an agent's
+        // tasks:admin call and a Refuse from the phone ask every time (VerifyEveryTimeAsync).
+        builder.Services.TryAddSingleton<IUserConsent>(sp => new RememberedUserConsent(
+            new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()),
+            TimeProvider.System));
         // Minting a pairing code, revoking a device and refusing one ask for the same Hello (§6). Only this
         // head composes it: the harness and the phone keep no step-up, so their pairing client
         // asks nothing.
@@ -533,6 +544,7 @@ public static class MauiProgram
         return app;
     }
 
+#if DEBUG
     private static void ConfigureWebView2RemoteDebugging()
     {
         if (!OperatingSystem.IsWindows())
@@ -557,4 +569,5 @@ public static class MauiProgram
                 EnvironmentVariableTarget.Process);
         }
     }
+#endif
 }

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Changes;
 
 /// <summary>
 /// Puts the Changes view in the shell as a view-group <see cref="ShellSurface"/> (local
-/// ADR 0043 §1): the change journal read back (local ADR 0061), always offered. The
+/// ADR 0043 §1): the change journal read back (local ADR 0070), always offered. The
 /// journal is shared infrastructure, the way Sync is, and no module owns it, so the
 /// view is drawn and registered here, in the shell's own project. It accepts
 /// <see cref="ChangesSurfaceQuery.SessionKey"/>, the agent session to narrow to.

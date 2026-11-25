@@ -11,7 +11,7 @@ namespace Backlog.HostComposition.UnitTests;
 /// <summary>
 /// The settings files an agent checkpoint copies are asked of the stores the head composed,
 /// so a head that keeps them somewhere else - the web harness under its content root - is
-/// copied where they are, and one it does not compose names nothing (local ADR 0061 §8). The
+/// copied where they are, and one it does not compose names nothing (local ADR 0070 §8). The
 /// MCP grants are the desktop head's to name (local ADR 0058 §9), handed in beside them.
 /// </summary>
 public sealed class CheckpointedSettingsFilesTests : IDisposable

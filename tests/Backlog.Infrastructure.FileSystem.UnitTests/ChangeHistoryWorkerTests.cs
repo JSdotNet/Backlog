@@ -9,7 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The change journal's retention (local ADR 0061 §6): 90 days unless the person picks
+/// The change journal's retention (local ADR 0070 §6): 90 days unless the person picks
 /// 30 or 365, a daily prune by that period driven by the clock, and a clear that
 /// takes everything.
 /// </summary>

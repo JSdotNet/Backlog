@@ -247,7 +247,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 
         try
         {
-            // One run is one system change set (local ADR 0061 §2), whoever's flow
+            // One run is one system change set (local ADR 0070 §2), whoever's flow
             // happened to start it.
             using var change = ChangeContext.Begin(ChangeActor.System, "syncing linked tasks");
 

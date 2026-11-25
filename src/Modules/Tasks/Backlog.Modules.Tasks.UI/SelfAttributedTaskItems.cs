@@ -28,7 +28,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </para>
 /// <para>
 /// Each write is also the person's change set of the change journal (local ADR
-/// 0061 §2), on the same asynchronous flow, unless the gesture that made it opened
+/// 0070 §2), on the same asynchronous flow, unless the gesture that made it opened
 /// one already — a group of undo steps, a typing session — which it then joins.
 /// <see cref="RecordUsageAsync"/> opens none: noting that an entry was used changes
 /// nothing a person would take back, and <see cref="ReconcileRepositoryIdsAsync"/>

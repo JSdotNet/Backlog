@@ -4,7 +4,7 @@ namespace Backlog.SharedKernel.Changes;
 
 /// <summary>
 /// The journal port a store with no table in <c>backlog.db</c> writes its revisions
-/// through (local ADR 0061 §2) — the devbook subject states and the remarks, which are
+/// through (local ADR 0070 §2) — the devbook subject states and the remarks, which are
 /// JSON files a trigger cannot reach.
 /// <para>
 /// The store calls <see cref="Record"/> with the document as it stands, before it writes
@@ -58,7 +58,7 @@ public static class JournalStamp
 
 /// <summary>
 /// A store outside <c>backlog.db</c> whose documents the journal keeps, and which writes
-/// them back when a person restores a change set (local ADR 0061 §4) — through its own
+/// them back when a person restores a change set (local ADR 0070 §4) — through its own
 /// write path, so its file, its lock and its change notice stay its own.
 /// </summary>
 public interface IJournalledDocumentStore

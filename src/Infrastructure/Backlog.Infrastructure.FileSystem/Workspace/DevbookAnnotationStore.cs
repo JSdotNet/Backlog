@@ -48,7 +48,7 @@ namespace Backlog.Infrastructure.FileSystem;
 // Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
 public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositoryAliasKeyedStore, IJournalledDocumentStore
 {
-    /// <summary>What <c>revisions.document_kind</c> calls a remark (local ADR 0061 §2).</summary>
+    /// <summary>What <c>revisions.document_kind</c> calls a remark (local ADR 0070 §2).</summary>
     public const string DocumentKind = "remark";
 
     /// <summary>The folder under the storage root the files go in.</summary>
@@ -90,7 +90,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     /// conventional folders rather than failing: a harness or a test with no
     /// repository registry still files its remarks under a stable name.</param>
     /// <param name="journal">Where each remark's prior document is recorded before its
-    /// file is written (local ADR 0061 §2). None composed, nothing is journalled.</param>
+    /// file is written (local ADR 0070 §2). None composed, nothing is journalled.</param>
     public DevbookAnnotationStore(
         Func<string> rootDirectory,
         TimeProvider? time = null,
@@ -291,7 +291,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
         var touched = new HashSet<RepositoryFile>();
         var written = 0;
 
-        // One change set for the whole import (local ADR 0061 §2), rather than an
+        // One change set for the whole import (local ADR 0070 §2), rather than an
         // unknown writer's per document, unless the caller already named one.
         using var change = ChangeContext.BeginIfNone(ChangeActor.System, "Devbook import");
 
@@ -523,7 +523,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     private DevbookAnnotation Put(DevbookAnnotation annotation, out bool saved)
     {
         // The prior document goes into the journal before the file is written, and comes
-        // back out when the write fails (local ADR 0061 §2).
+        // back out when the write fails (local ADR 0070 §2).
         var revision = Record(annotation.Id, FindLoaded(annotation.Id), annotation);
 
         var (file, stored) = Place(annotation);
@@ -563,7 +563,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     private JournalRevision? Record(Guid id, DevbookAnnotation? before, DevbookAnnotation? after) =>
         _journal?.Record(DocumentKind, id.ToString("D"), before is null ? null : Image(before), after?.UpdatedAt);
 
-    // --- Restoring (local ADR 0061 §4) ----------------------------------------
+    // --- Restoring (local ADR 0070 §4) ----------------------------------------
 
     IReadOnlyCollection<string> IJournalledDocumentStore.DocumentKinds { get; } = [DocumentKind];
 

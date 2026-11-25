@@ -4,7 +4,7 @@ using Backlog.UI.Components.Changes;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// Restoring a change set in the Changes list (local ADR 0061 §4): Restore on an opened
+/// Restoring a change set in the Changes list (local ADR 0070 §4): Restore on an opened
 /// row that still stands, the in-page confirmation with its counts and a choice per
 /// conflict, and a restored row that says so and offers nothing more.
 /// </summary>

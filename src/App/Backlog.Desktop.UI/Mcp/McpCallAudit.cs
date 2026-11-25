@@ -47,7 +47,7 @@ public static class McpCallAudit
     private static readonly AsyncLocal<string?> s_correlation = new();
 
     /// <summary>The correlation id of the call this flow runs inside, as its audit record
-    /// carries it — what an MCP write's change set keeps (local ADR 0061 §3). Null outside a
+    /// carries it — what an MCP write's change set keeps (local ADR 0070 §3). Null outside a
     /// call.</summary>
     internal static string? CurrentCorrelationId => s_correlation.Value;
 

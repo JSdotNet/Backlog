@@ -105,6 +105,7 @@ flowchart LR
         GitHubPlatform["GitHub Platform"]:::adopted
         Anthropic["Anthropic Claude Platform"]:::candidate
         Foundry["Azure AI Foundry"]:::adopted
+        AzureMaps["Azure Maps"]:::candidate
         Cosmos["Azure Cosmos DB"]:::trial
         KeyVault["Azure Key Vault"]:::trial
         AzureMonitor["Azure Monitor"]:::trial
@@ -150,6 +151,7 @@ flowchart LR
             WinAppSDK["Windows App SDK"]:::adopted
             WinUI["WinUI 3"]:::adopted
             WebView2["WebView2"]:::adopted
+            Leaflet["Leaflet"]:::candidate
             LocalStore["Local Task Store"]:::adopted
             Workers["Background Workers"]:::candidate
             ProtectedData["System.Security.Cryptography.ProtectedData"]:::adopted
@@ -274,6 +276,7 @@ flowchart LR
     WinUI --> WinAppSDK
     WinUI --> CSharp
     WebView2 --> WinAppSDK
+    Leaflet --> WebView2
     LocalStore --> Sqlite
     LocalStore --> DataSqlite
     LocalStore --> JSON
@@ -402,7 +405,7 @@ project. They fall into five groups:
 - the two base runtimes: `.NET Runtime`, `Node.js`;
 - the two operating systems and the JDK: `Windows`, `Android`, `Java JDK`;
 - the external services: `GitHub Platform`, `Anthropic Claude Platform`,
-  `Azure AI Foundry`, `Azure Cosmos DB`, `Azure Key Vault`, `Azure Monitor`,
+  `Azure AI Foundry`, `Azure Maps`, `Azure Cosmos DB`, `Azure Key Vault`, `Azure Monitor`,
   `Firebase Cloud Messaging`;
 - the four host-level tools: `Git`, `PowerShell`, `Azure CLI`, `Claude Code`.
 

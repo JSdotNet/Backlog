@@ -179,9 +179,86 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_place_that_is_both_a_venue_and_online_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_place_that_is_neither_a_venue_nor_online_is_refused, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventValueTests.A_blank_venue_is_refused]
 ```
 
-A place is either a venue that is not empty or online, never both and never neither (`place.invalid`).
+A place is either in person, with a venue name or an address or both, or online, never both and never neither (`place.invalid`).
+A blank venue name counts as none.
 
 Enforced at: constructor (Place)
+
+### Invariant: An online place has no address and no point
+
+```meta
+type: invariant
+```
+
+An online place carries no address, no address lookup and no map point (`place.invalid`).
+
+Enforced at: constructor (Place)
+
+### Invariant: A point exists exactly when the address is placed
+
+```meta
+type: invariant
+```
+
+A place carries an address lookup exactly when it carries an address, and a map point exactly when that lookup is Placed (`place.lookup_mismatch`).
+A point is dropped with its address, so a venue name alone is never on the map, and Address not found and Not looked up yet never carry one.
+
+Enforced at: constructor (Place)
+
+### Invariant: A changed address is not looked up yet
+
+```meta
+type: invariant
+```
+
+When the event's place takes an address that differs from the one it held, its address lookup is Not looked up yet and it carries no map point, whatever lookup the new place came with; an unchanged address keeps its lookup and point.
+So a point found for an old address never lands on a new one. When the save geocodes the changed address is the requirement [An address is geocoded once, when it is saved](requirements.md#requirement-an-address-is-geocoded-once-when-it-is-saved).
+
+Enforced at: `SetPlace()`
+
+### Invariant: A lookup answer lands only on the address it was asked for
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_stale_answer_for_an_address_since_changed_is_ignored, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.An_answer_for_an_event_with_no_address_is_ignored]
+```
+
+A geocoder answer for an address the event no longer holds, because it changed, was cleared or went online while the call ran, changes nothing.
+So a point found for one address never lands on another.
+
+Enforced at: `RecordLookup()`
+
+### Invariant: A lookup answer never moves the lookup back
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_late_answer_that_did_not_place_leaves_a_placed_address_on_the_map, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_retry_that_got_no_answer_leaves_an_address_not_found, unit:dotnet:Backlog.Modules.Events.UnitTests.KnowledgeEventFieldTests.A_retry_that_finds_an_address_not_found_places_it]
+```
+
+An answer that did not place leaves a Placed address on the map, and an answer that got nothing back leaves an address Address not found.
+Placed leaves only when the address changes, and Address not found only on a match, per [the online map decision](../../arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md).
+
+Enforced at: `RecordLookup()`
+
+### Invariant: An address has a part
+
+```meta
+type: invariant
+```
+
+An address has at least one of street, postcode, town and country that is not blank, each kept trimmed (`address.empty`).
+
+Enforced at: constructor (Address)
+
+### Invariant: A map point lies on the globe
+
+```meta
+type: invariant
+```
+
+A map point's latitude is from -90 to 90 degrees and its longitude from -180 to 180 degrees, both included (`map_point.out_of_range`).
+
+Enforced at: constructor (Map Point)
 
 ### Invariant: A key date has a label
 

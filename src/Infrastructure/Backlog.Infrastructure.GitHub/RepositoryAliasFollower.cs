@@ -193,7 +193,7 @@ public sealed class RepositoryAliasFollower : IDisposable
 
         // Started off the registry save's flow, so the pass carries none of its
         // ambient state. The edit's re-key is the person's: one change set for every
-        // document the relabel moves (local ADR 0061 §2). What follows is the system's.
+        // document the relabel moves (local ADR 0070 §2). What follows is the system's.
         using (ChangeContext.Detach())
         {
             Track(Task.Run(() => PassAsync(

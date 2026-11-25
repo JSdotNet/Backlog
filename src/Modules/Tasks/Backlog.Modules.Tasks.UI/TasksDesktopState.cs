@@ -2356,7 +2356,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (row.IsReadOnly) return;
 
         // The delete and the renumbering after it are one gesture, so one change set
-        // (local ADR 0061 §2), as they are one Ctrl+Z.
+        // (local ADR 0070 §2), as they are one Ctrl+Z.
         using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"deleting “{row.PreviewTitle}”");
 
         if (await DeleteOneAsync(row) is Error) return;
@@ -5908,7 +5908,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             : null;
         var created = row.Id is null;
 
-        // The change set this save writes under (local ADR 0061 §2): the open typing
+        // The change set this save writes under (local ADR 0070 §2): the open typing
         // session's when this save continues one, else the gesture's around it, else
         // one of its own. Opened here rather than in the use cases, so it is still
         // current when the history records the step and keeps it for the next save.

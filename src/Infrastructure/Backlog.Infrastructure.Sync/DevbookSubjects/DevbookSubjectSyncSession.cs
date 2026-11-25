@@ -212,7 +212,7 @@ public sealed class DevbookSubjectSyncSession
             }
 
             pulled += feed.Subjects.Count;
-            // One applied page is one sync change set (local ADR 0061 §2).
+            // One applied page is one sync change set (local ADR 0070 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying a Devbook subject sync page"))
             {
                 applied += _merge.Apply(feed.Subjects).Applied;

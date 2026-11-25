@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Azure Maps adapter behind the Events module's two map ports (local ADR 0061 §4):
+    the geocoder an in-person event's address is sent to once, on save, and the tile
+    source the Events map draws from. A project of its own so only it references the
+    provider (guideline ADR 0005). It names the Events implementation, as the Sqlite
+    repository does, because the geocoder port and its Address and MapPoint live there.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.AzureMaps</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <!-- DPAPI, for the linked SecretEnvelope below (local ADR 0030). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
+    <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events.Abstractions\Backlog.Modules.Events.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Infrastructure.AzureMaps.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one envelope every settings file seals its secret in (local ADR 0030),
+         compiled in from the GitHub adapter as the Azure Foundry adapter does. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\SecretEnvelope.cs" Link="SecretEnvelope.cs" />
+    <Compile Include="..\Backlog.Infrastructure.GitHub\UserDpapi.cs" Link="UserDpapi.cs" />
+  </ItemGroup>
+
+</Project>

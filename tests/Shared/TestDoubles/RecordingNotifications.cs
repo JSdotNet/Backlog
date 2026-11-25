@@ -50,7 +50,7 @@ internal sealed class RecordingNotifications : INotifications
         }
     }
 
-    /// <summary>The change set current at each publish (local ADR 0061 §2), in order: what
+    /// <summary>The change set current at each publish (local ADR 0070 §2), in order: what
     /// the entry point that published named, or null when it named none.</summary>
     public IReadOnlyList<ChangeSet?> PublishedUnder
     {

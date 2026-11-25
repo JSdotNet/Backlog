@@ -104,6 +104,178 @@ public sealed class KnowledgeEventValueTests
         Assert.Equal(Place.Online, Assert.IsType<Ok<Place>>(Place.Create(venue: null, online: true).Value).Value);
     }
 
+    // --- An address has a part ---------------------------------------------------------
+
+    [Theory]
+    [InlineData(null, null, null, null)]
+    [InlineData("", " ", "\t", "  ")]
+    public void An_address_with_no_part_is_refused(string? street, string? postcode, string? town, string? country)
+    {
+        Assert.Equal("address.empty", Assert.IsType<Error>(Address.Create(street, postcode, town, country).Value).Code);
+    }
+
+    [Fact]
+    public void An_address_keeps_its_parts_trimmed_and_a_blank_part_as_none()
+    {
+        var kinepolis = Assert.IsType<Ok<Address>>(Address.Create(" Groenendaallaan 394 ", "2030 ", " Antwerpen", " ").Value).Value;
+
+        Assert.Equal("Groenendaallaan 394", kinepolis.Street);
+        Assert.Equal("2030", kinepolis.Postcode);
+        Assert.Equal("Antwerpen", kinepolis.Town);
+        Assert.Null(kinepolis.Country);
+    }
+
+    [Fact]
+    public void A_town_alone_is_an_address()
+    {
+        var utrecht = Assert.IsType<Ok<Address>>(Address.Create(null, null, "Utrecht", null).Value).Value;
+
+        Assert.Equal("Utrecht", utrecht.Town);
+        Assert.Null(utrecht.Street);
+    }
+
+    [Fact]
+    public void Two_addresses_are_equal_part_by_part()
+    {
+        Assert.Equal(AddressIn("Utrecht"), AddressIn(" Utrecht "));
+        Assert.NotEqual(AddressIn("Utrecht"), AddressIn("Nieuwegein"));
+    }
+
+    // --- A map point lies on the globe --------------------------------------------------
+
+    [Theory]
+    [InlineData(-90, -180)]
+    [InlineData(90, 180)]
+    [InlineData(52.0302, 5.0880)]
+    public void A_point_on_the_globe_is_a_map_point(double latitude, double longitude)
+    {
+        var point = Assert.IsType<Ok<MapPoint>>(MapPoint.Create(latitude, longitude).Value).Value;
+
+        Assert.Equal(latitude, point.Latitude);
+        Assert.Equal(longitude, point.Longitude);
+    }
+
+    [Theory]
+    [InlineData(90.0001, 0)]
+    [InlineData(-90.0001, 0)]
+    [InlineData(0, 180.0001)]
+    [InlineData(0, -180.0001)]
+    [InlineData(double.NaN, 0)]
+    [InlineData(0, double.NaN)]
+    public void A_point_off_the_globe_is_refused(double latitude, double longitude)
+    {
+        Assert.Equal("map_point.out_of_range", Assert.IsType<Error>(MapPoint.Create(latitude, longitude).Value).Code);
+    }
+
+    [Fact]
+    public void Two_map_points_with_the_same_degrees_are_equal()
+    {
+        Assert.Equal(PointAt(52.0302, 5.0880), PointAt(52.0302, 5.0880));
+        Assert.NotEqual(PointAt(52.0302, 5.0880), PointAt(51.2194, 4.4025));
+    }
+
+    // --- A place: in person with a venue name, an address or both; online with neither ---
+
+    [Fact]
+    public void An_address_alone_is_an_in_person_place()
+    {
+        var place = Assert.IsType<Ok<Place>>(Place.Create(venue: null, online: false, AddressIn("Utrecht"), AddressLookup.NotLookedUpYet, point: null).Value).Value;
+
+        Assert.Null(place.Venue);
+        Assert.False(place.IsOnline);
+        Assert.Equal(AddressIn("Utrecht"), place.Address);
+        Assert.Equal(AddressLookup.NotLookedUpYet, place.Lookup);
+        Assert.Null(place.Point);
+    }
+
+    [Fact]
+    public void A_placed_address_carries_its_point()
+    {
+        var place = Assert.IsType<Ok<Place>>(Place.Create(" 4Dotnet ", online: false, AddressIn("Nieuwegein"), AddressLookup.Placed, PointAt(52.0302, 5.0880)).Value).Value;
+
+        Assert.Equal("4Dotnet", place.Venue);
+        Assert.Equal(AddressLookup.Placed, place.Lookup);
+        Assert.Equal(PointAt(52.0302, 5.0880), place.Point);
+    }
+
+    [Fact]
+    public void A_venue_name_alone_has_no_address_no_lookup_and_no_point()
+    {
+        var place = Assert.IsType<Ok<Place>>(Place.AtVenue("Kinepolis Antwerp").Value).Value;
+
+        Assert.Null(place.Address);
+        Assert.Null(place.Lookup);
+        Assert.Null(place.Point);
+    }
+
+    [Fact]
+    public void A_place_with_neither_a_venue_name_nor_an_address_is_refused()
+    {
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create(" ", online: false, address: null, lookup: null, point: null).Value).Code);
+    }
+
+    [Fact]
+    public void An_online_place_with_an_address_is_refused()
+    {
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create(venue: null, online: true, AddressIn("Utrecht"), AddressLookup.NotLookedUpYet, point: null).Value).Code);
+    }
+
+    [Fact]
+    public void An_online_place_with_a_lookup_or_a_point_is_refused()
+    {
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create(venue: null, online: true, address: null, AddressLookup.NotFound, point: null).Value).Code);
+        Assert.Equal("place.invalid", Assert.IsType<Error>(Place.Create(venue: null, online: true, address: null, lookup: null, PointAt(52.0302, 5.0880)).Value).Code);
+    }
+
+    [Fact]
+    public void An_address_without_its_lookup_is_refused()
+    {
+        Assert.Equal("place.lookup_mismatch", Assert.IsType<Error>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), lookup: null, point: null).Value).Code);
+    }
+
+    [Fact]
+    public void A_lookup_without_an_address_is_refused()
+    {
+        Assert.Equal("place.lookup_mismatch", Assert.IsType<Error>(Place.Create("4Dotnet", online: false, address: null, AddressLookup.NotLookedUpYet, point: null).Value).Code);
+    }
+
+    [Fact]
+    public void A_placed_address_without_a_point_is_refused()
+    {
+        Assert.Equal("place.lookup_mismatch", Assert.IsType<Error>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), AddressLookup.Placed, point: null).Value).Code);
+    }
+
+    [Theory]
+    [InlineData(AddressLookup.NotFound)]
+    [InlineData(AddressLookup.NotLookedUpYet)]
+    public void A_point_on_an_address_that_is_not_placed_is_refused(AddressLookup lookup)
+    {
+        Assert.Equal("place.lookup_mismatch", Assert.IsType<Error>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), lookup, PointAt(52.0302, 5.0880)).Value).Code);
+    }
+
+    [Fact]
+    public void A_point_without_an_address_is_refused()
+    {
+        Assert.Equal("place.lookup_mismatch", Assert.IsType<Error>(Place.Create("4Dotnet", online: false, address: null, lookup: null, PointAt(52.0302, 5.0880)).Value).Code);
+    }
+
+    [Fact]
+    public void Two_places_are_equal_by_venue_address_lookup_and_point()
+    {
+        Assert.Equal(
+            Assert.IsType<Ok<Place>>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), AddressLookup.Placed, PointAt(52.0302, 5.0880)).Value).Value,
+            Assert.IsType<Ok<Place>>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), AddressLookup.Placed, PointAt(52.0302, 5.0880)).Value).Value);
+        Assert.NotEqual(
+            Assert.IsType<Ok<Place>>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), AddressLookup.NotFound, point: null).Value).Value,
+            Assert.IsType<Ok<Place>>(Place.Create("4Dotnet", online: false, AddressIn("Nieuwegein"), AddressLookup.NotLookedUpYet, point: null).Value).Value);
+    }
+
+    private static Address AddressIn(string town) =>
+        Assert.IsType<Ok<Address>>(Address.Create(street: null, postcode: null, town, country: null).Value).Value;
+
+    private static MapPoint PointAt(double latitude, double longitude) =>
+        Assert.IsType<Ok<MapPoint>>(MapPoint.Create(latitude, longitude).Value).Value;
+
     // --- A key date has a label ---------------------------------------------------------
 
     [Theory]

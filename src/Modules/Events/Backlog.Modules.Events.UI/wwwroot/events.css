@@ -1,8 +1,9 @@
 /* The Events pane (Backlog.Modules.Events.UI), served at
    _content/Backlog.Modules.Events.UI/events.css. Every control is the library's and
    styled there; this file lays out the takeover around them: the header and the add
-   row across the top, the grouped list on the left, the editor on the right, and the
-   rows and chip strips inside them. Tokens only, no colour of its own. */
+   row across the top, the map over the list by date on the left, the editor on the right,
+   and the rows, marks and chip strips inside them. Tokens only, no colour of its own: the
+   marks wear the calendar event tones (.devbook/design/color-scheme.md#events-map-marks). */
 
 .events-pane {
     display: flex;
@@ -80,6 +81,52 @@
     min-height: 0;
 }
 
+/* The left column: the map over the list in a vertical split, or the list alone with the
+   map hidden. The split needs a definite height to divide, so the column holds one. */
+.events-pane__column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.events-pane__stack {
+    flex: 1;
+    min-height: 0;
+}
+
+.events-map {
+    height: 100%;
+    min-height: 0;
+}
+
+/* The legend's keys: each tone's swatch beside its words, the words carrying the meaning. */
+.events-map__key {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin-right: var(--spacing-sm);
+}
+
+.events-map__swatch {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-full);
+}
+
+.events-map__swatch--filled {
+    background: var(--color-primary);
+}
+
+.events-map__swatch--dashed {
+    border: var(--border-width) dashed var(--color-primary);
+}
+
+.events-map__swatch--grey {
+    border: var(--border-width-2) solid var(--color-border-strong);
+}
+
 .events-pane__list,
 .events-pane__detail {
     height: 100%;
@@ -99,7 +146,7 @@
     background: var(--color-background-alt);
 }
 
-/* The list: one section per state, each a heading with its tally over its rows. */
+/* The list: Upcoming and Past, each a heading with its tally over its rows. */
 .events-list {
     display: flex;
     flex-direction: column;
@@ -129,11 +176,12 @@
     list-style: none;
 }
 
+/* A row: the mark, the short date, the title over its place line, the state badge. */
 .events-list__row {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--spacing-2xs);
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-sm);
     border: var(--border-width) solid transparent;
@@ -161,6 +209,56 @@
     border-color: var(--color-border-focus);
     background: var(--color-background-raised);
     box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.events-list__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.events-list__mark--filled {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.events-list__mark--dashed {
+    border: var(--border-width) dashed var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.events-list__mark--grey {
+    border: var(--border-width-2) solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* The grey ring measures 2.59:1 on a selected row, under the 3:1 a mark owes, so it turns
+   the secondary grey there (color-scheme.md#events-map-marks). */
+.events-list__row--selected .events-list__mark--grey {
+    border-color: var(--color-secondary);
+}
+
+.events-list__mark--online,
+.events-list__mark--off {
+    color: var(--color-text-secondary);
+}
+
+.events-list__date {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.events-list__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
 }
 
 .events-list__title {
@@ -259,6 +357,11 @@
 .events-editor__row > .field {
     flex: 1 1 10rem;
     min-width: 0;
+}
+
+/* Street, postcode, town and country: one address, its parts side by side where they fit. */
+.events-editor__row--address > .field {
+    flex: 1 1 8rem;
 }
 
 /* Start, start time, end and end time: narrow enough that all four share one line. */
