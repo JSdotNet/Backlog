@@ -997,6 +997,7 @@ The Plans view SHALL list on its rail My Day, Now across plans, each plan with a
 
 ```meta
 type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_selected_plan_groups_its_entries_into_Now_Next_and_Later, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_unlock_line_names_only_waiting_entries_one_landing_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.The_other_plans_fold_to_a_line_each_with_their_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanSectionsTests.Unplanned_closes_the_column_and_Select_new_plan_picks_from_it]
 ```
 
 The Plans view SHALL show the selected plan's entries in a session under Now, its ready entries under Next, and under Later one line for its waiting entries naming what unlocks next and one line for its done entries, followed by every other plan folded to one line and then the unplanned entries.

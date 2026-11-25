@@ -670,6 +670,13 @@
                             </Badges>
                         </TaskBoard>
                     }
+                    else if (PlanSectionsShown)
+                    {
+                        @* The Plans view with a plan selected on the rail: that plan
+                           expanded as Now, Next and Later, the other plans folded to a
+                           line each, then Unplanned (local ADR 0062 §3). *@
+                        @RenderPlanSections()
+                    }
                     else if (State.FilteredRows.Count == 0)
                     {
                         @* "You have written nothing" and "your filters match nothing" are
@@ -1487,7 +1494,7 @@
     /// an sr-only span, and kept in the tab order while a press is on its way, marked
     /// aria-disabled and aria-busy rather than natively disabled.
     /// </summary>
-    private RenderFragment? RenderPlanSession(string plan)
+    private RenderFragment? RenderPlanSession(string plan, string reasonId = PlanQueueReasonId)
     {
         if (_planSessions.OpenFor(plan) is { } waiting)
         {
@@ -1531,14 +1538,14 @@
                         aria-disabled="@(busy ? "true" : null)"
                         AriaLabel="@label"
                         Title="@(offer.DisabledReason ?? label)"
-                        aria-describedby="@(offer.DisabledReason is null ? null : PlanQueueReasonId)"
+                        aria-describedby="@(offer.DisabledReason is null ? null : reasonId)"
                         OnClick="() => OnQueuePlanSessionAsync(plan)">
                 <ListEndIcon />
             </IconButton>
 
             @if (offer.DisabledReason is { } reason)
             {
-                <span id="@PlanQueueReasonId" class="sr-only" data-testid="tag-filter-queue-plan-reason">@reason</span>
+                <span id="@reasonId" class="sr-only" data-testid="tag-filter-queue-plan-reason">@reason</span>
             }
         </span>;
     }
@@ -6378,6 +6385,221 @@
             </ToggleButton>
         </nav>;
     }
+
+    /// <summary>
+    /// The Plans view's main column while a plan is selected on the rail (local ADR 0062
+    /// §3): that plan's heading and its Now, Next and Later; every other plan folded to
+    /// one line; and Unplanned last, with its first rows and Select → new plan.
+    /// </summary>
+    private RenderFragment RenderPlanSections()
+    {
+        var plans = RailPlans();
+        var view = SelectedPlanSections(plans);
+        var folded = PlanSections.Folded(plans, view?.Tag, PlanSectionCounts);
+        var unplanned = UnplannedRows();
+
+        return @<div class="plan-sections" data-testid="plan-sections">
+            @if (view is not null)
+            {
+                var (donePercent, nowPercent, nextPercent) = view.BarPercents;
+
+                <section class="plan-sections__plan" aria-label="@($"The {view.Name} plan")" data-testid="plan-expanded" data-plan="@view.Name">
+                    <header class="plan-sections__heading">
+                        <div class="plan-sections__title-line">
+                            <h2 class="plan-sections__name" data-testid="plan-expanded-name">@view.Name</h2>
+                            <span class="plan-sections__progress" data-testid="plan-expanded-progress">@view.ProgressText</span>
+                            <span class="plan-sections__branch" data-testid="plan-expanded-branch">@view.Branch</span>
+                            @if (view.RunStateText.Length > 0)
+                            {
+                                <Badge BaseClass="plan-sections__run" Kind="" Slug="@RailStateSlug(view.RunState)" TestId="plan-expanded-run">@view.RunStateText</Badge>
+                            }
+                            <span class="plan-sections__actions">
+                                @if (OnOpenRoadmap.HasDelegate)
+                                {
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               CssClass="plan-sections__roadmap"
+                                               TestId="plan-expanded-roadmap"
+                                               aria-label="@($"Open the {view.Name} plan on the Roadmap")"
+                                               OnClick="() => OnOpenRoadmap.InvokeAsync(view.Name)">
+                                        Roadmap
+                                    </AppButton>
+                                }
+                                <CopyButton Text="@view.Tag"
+                                            Label="@($"Copy {view.Tag}")"
+                                            CssClass="filter-bar__plan-copy"
+                                            ButtonBaseClass="filter-bar__plan-copy-button"
+                                            StatusCssClass="sr-only"
+                                            TestId="plan-expanded-copy"
+                                            ButtonTestId="plan-expanded-copy-button"
+                                            StatusTestId="plan-expanded-copy-status" />
+                                @RenderPlanSession(view.Tag, "plan-expanded-queue-reason")
+                            </span>
+                        </div>
+                        <span class="plan-sections__bar" aria-hidden="true" data-testid="plan-expanded-bar">
+                            <span class="plan-sections__bar-done" style="width: @(donePercent)%"></span>
+                            <span class="plan-sections__bar-now" style="width: @(nowPercent)%"></span>
+                            <span class="plan-sections__bar-next" style="width: @(nextPercent)%"></span>
+                        </span>
+                    </header>
+
+                    @if (view.Now.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-now">
+                            <h3 class="plan-sections__group-title">Now · in a session</h3>
+                            @foreach (var entry in view.Now)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Now)
+                            }
+                        </div>
+                    }
+
+                    @if (view.Next.Count > 0)
+                    {
+                        <div class="plan-sections__group" data-testid="plan-section-next">
+                            <h3 class="plan-sections__group-title">@(view.RunState == PlanRunState.Queued || view.RunState == PlanRunState.Running ? "Next · ready, queued with the plan" : "Next · ready")</h3>
+                            @foreach (var entry in view.Next)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Next)
+                            }
+                        </div>
+                    }
+
+                    <div class="plan-sections__group" data-testid="plan-section-later">
+                        <h3 class="plan-sections__group-title">Later</h3>
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-waiting"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Waiting ? "true" : "false")"
+                                   Disabled="@(view.Waiting.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Waiting)">
+                            @view.UnlockLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Waiting)
+                        {
+                            @foreach (var entry in view.Waiting)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Waiting)
+                            }
+                        }
+                        <AppButton BaseClass="plan-sections__later-line"
+                                   Variant="ButtonVariant.None"
+                                   TestId="plan-later-done"
+                                   aria-expanded="@(_planLaterOpen == PlanSection.Done ? "true" : "false")"
+                                   Disabled="@(view.Done.Count == 0)"
+                                   OnClick="() => TogglePlanLater(PlanSection.Done)">
+                            @view.DoneLine
+                        </AppButton>
+                        @if (_planLaterOpen == PlanSection.Done)
+                        {
+                            @foreach (var entry in view.Done)
+                            {
+                                @RenderPlanSectionRow(entry, PlanSection.Done)
+                            }
+                        }
+                    </div>
+                </section>
+            }
+
+            @if (folded.Count > 0)
+            {
+                <div class="plan-sections__folded" role="list" aria-label="Other plans" data-testid="plan-folded-list">
+                    @foreach (var other in folded)
+                    {
+                        <div @key="other.Plan.Tag" class="plan-sections__folded-row" role="listitem" data-testid="plan-folded" data-plan="@other.Plan.Name">
+                            <AppButton BaseClass="plan-sections__folded-open"
+                                       Variant="ButtonVariant.None"
+                                       TestId="plan-folded-open"
+                                       aria-label="@($"Show the {other.Plan.Tag} plan, {other.Plan.Done} of {other.Plan.Total} done, {other.Note}")"
+                                       OnClick="() => OnRailItemPressed(PlanRailItem.Plan, other.Plan.Tag)">
+                                <span class="plan-sections__folded-name">@other.Plan.Name</span>
+                                <span class="plan-sections__folded-bar" aria-hidden="true">
+                                    <span class="plan-sections__folded-fill" style="width: @(other.Plan.ProgressPercent)%"></span>
+                                </span>
+                                <span class="plan-sections__folded-done" data-testid="plan-folded-count">@other.Plan.Done of @other.Plan.Total</span>
+                                <span class="plan-sections__folded-note plan-sections__folded-note--@RailStateSlug(other.Plan.State)" data-testid="plan-folded-note">@other.Note</span>
+                            </AppButton>
+                            @RenderPlanSession(other.Plan.Tag, $"plan-folded-queue-reason-{other.Plan.Name}")
+                        </div>
+                    }
+                </div>
+            }
+
+            <section class="plan-sections__unplanned" aria-label="Unplanned" data-testid="plan-unplanned">
+                <header class="plan-sections__unplanned-heading">
+                    <h3 class="plan-sections__group-title">Unplanned</h3>
+                    <span class="plan-sections__progress" data-testid="plan-unplanned-count">@unplanned.Count open</span>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="plan-unplanned-select"
+                               title="Pick unplanned entries to file under a new plan"
+                               OnClick="OnSelectForNewPlan">
+                        Select → new plan
+                    </AppButton>
+                </header>
+                @foreach (var row in unplanned.Take(UnplannedShown))
+                {
+                    <AppButton @key="row.Key"
+                               BaseClass="plan-sections__row"
+                               Variant="ButtonVariant.None"
+                               TestId="plan-unplanned-row"
+                               data-task-id="@row.TaskId"
+                               OnClick="() => OnEntrySelectedAsync(row.TaskId)">
+                        <span class="plan-sections__row-title">@row.PreviewTitle</span>
+                        <span class="plan-sections__row-meta">@row.PreviewStatus</span>
+                    </AppButton>
+                }
+                @if (unplanned.Count > UnplannedShown)
+                {
+                    <AppButton BaseClass="plan-sections__later-line"
+                               Variant="ButtonVariant.None"
+                               TestId="plan-unplanned-more"
+                               OnClick="() => OnRailItemPressed(PlanRailItem.Unplanned)">
+                        @(unplanned.Count - UnplannedShown) more
+                    </AppButton>
+                }
+            </section>
+        </div>;
+    }
+
+    /// <summary>One entry's line under its group: its number and title, then what the
+    /// group says of it — the session and its stage under Now, the type, points and
+    /// queue state under Next, the state under Later's lists. Pressed, it opens the entry.</summary>
+    private RenderFragment RenderPlanSectionRow(PlanSectionEntry entry, PlanSection section) =>
+        @<div @key="entry.Row.Key" class="plan-sections__row-wrap" data-testid="plan-section-row" data-section="@section.ToString()">
+            <AppButton BaseClass="plan-sections__row"
+                       Variant="ButtonVariant.None"
+                       TestId="plan-section-row-open"
+                       data-task-id="@entry.Row.TaskId"
+                       OnClick="() => OnEntrySelectedAsync(entry.Row.TaskId)">
+                <span class="plan-sections__row-title">@entry.Row.PreviewTitle</span>
+                @if (section == PlanSection.Next)
+                {
+                    <span class="plan-sections__row-meta" data-testid="plan-section-row-meta">@PlanRowTypeAndPoints(entry.Row)</span>
+                }
+                @if (section == PlanSection.Now && entry.State.Stage is { } stage)
+                {
+                    <span class="plan-sections__row-meta" data-testid="plan-section-row-stage">@stage</span>
+                }
+                @if (section != PlanSection.Now)
+                {
+                    <Badge BaseClass="plan-sections__row-state" Kind="" TestId="plan-section-row-state">@entry.State.Label</Badge>
+                }
+            </AppButton>
+            @if (section == PlanSection.Now && entry.Row.SessionLinks.Count > 0 && OnOpenSession.HasDelegate)
+            {
+                var link = entry.Row.SessionLinks[^1];
+
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="plan-sections__session"
+                           TestId="plan-section-row-session"
+                           aria-label="Open the session working on this entry"
+                           OnClick="() => OnOpenSession.InvokeAsync(link.SessionId)">
+                    Session ↗
+                </AppButton>
+            }
+        </div>;
 
     /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — plus one while a
     /// rail item other than My Day is selected in the menu, which the Filter trigger

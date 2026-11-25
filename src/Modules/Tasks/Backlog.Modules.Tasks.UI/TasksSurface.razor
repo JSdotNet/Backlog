@@ -21,6 +21,7 @@
     the shell drawing again — is not a new request.
 *@
 <TasksPane OnOpenSession="OpenSession"
+           OnOpenRoadmap="OpenRoadmap"
            OnOpenDevbookReference="OpenDevbookReference"
            BrainNotesFor="@_wiring?.BrainNotesFor"
            DevbookImagesFor="@_wiring?.DevbookImagesFor"
@@ -42,6 +43,8 @@
     private const string ScopeKey = "scope";
     private const string ChapterKey = "chapter";
     private const string BrainScopeValue = "brain";
+    private const string RoadmapSurfaceId = "roadmap";
+    private const string RoadmapPlanKey = "plan";
 
     /// <summary>The test id of the toast an entry the backlog does not hold raises.</summary>
     public const string EntryMissingTestId = "tasks-entry-missing";
@@ -196,6 +199,10 @@
             // the editor still shows the entry.
         }
     }
+
+    /// <summary>The plan heading's Roadmap link: the Roadmap with that plan's bar selected.</summary>
+    private void OpenRoadmap(string plan) =>
+        Navigator.Show(RoadmapSurfaceId, new Dictionary<string, string> { [RoadmapPlanKey] = plan });
 
     private void SetBoardGrouping(TaskBoardGrouping grouping)
     {

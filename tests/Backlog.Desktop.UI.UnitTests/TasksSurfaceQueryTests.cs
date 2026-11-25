@@ -33,7 +33,8 @@ public sealed class TasksSurfaceQueryTests
             Assert.Equal("+release-q4", host.State.SelectedPlan);
             // The tag with or without its +, as PlanTagMatch.Carries reads it.
             Assert.Equal(new[] { release, bare }.Select(row => row.Id).Order(), host.State.FilteredRows.Select(row => row.Id).Order());
-            Assert.NotEmpty(surface.FindAll("[data-testid='entry-list']"));
+            // The list opens on Plans, so the plan reads expanded as its sections.
+            Assert.Equal("release-q4", surface.Find("[data-testid='plan-expanded']").GetAttribute("data-plan"));
         });
     }
 
