@@ -461,6 +461,12 @@ vault can read it, and only the service's identity holds one by default.
 
 ### Rotating the signing key
 
+Rotate once a quarter. The `Sync signing-key rotation reminder` workflow
+(`.github/workflows/sync-key-rotation-reminder.yml`) opens a `sync-key-rotation` issue on
+the first of January, April, July and October, or comments on the one still open; close it
+once the new version is stored. It only reminds: it holds no Azure credential, so CI never
+gets write access to the vault. Run it from the Actions tab to plan an extra rotation.
+
 A rotation is a new **version** of the same secret, never a second secret. The newest
 enabled version is the current key; the newest enabled version before it is the
 previous key, accepted until the new version's creation time plus one token lifetime
