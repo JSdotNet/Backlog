@@ -223,8 +223,8 @@ public class McpToolCreationTests
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_change_sets")));
         Assert.Equal(["changeSetId", "sessionId"], schemas["propose_restore"]);
         Assert.Equal(["changeSetId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "propose_restore")));
-        Assert.Equal(["id", "status", "sessionId"], schemas["transition"]);
-        Assert.Equal(["id", "blocked", "sessionId"], schemas["set_blocked"]);
+        Assert.Equal(["id", "status", "sessionId", "expectedUpdatedAt"], schemas["transition"]);
+        Assert.Equal(["id", "blocked", "sessionId", "expectedUpdatedAt"], schemas["set_blocked"]);
         Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note", "sessionId"], schemas["raise_impediment"]);
         Assert.Equal(["id", "state", "with", "sessionId"], schemas["set_impediment_state"]);
         Assert.Equal(["id", "planTag", "taskId", "repository", "number", "sessionId"], schemas["link_to_impediment"]);
@@ -258,11 +258,11 @@ public class McpToolCreationTests
         // so ask requires neither at the schema level; the tool refuses a call with neither.
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "get_answer")));
-        Assert.Equal(["id", "text", "sessionId"], schemas["comment"]);
-        Assert.Equal(["id", "repository", "externalId", "sessionId"], schemas["link_change"]);
-        Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
+        Assert.Equal(["id", "text", "sessionId", "expectedUpdatedAt"], schemas["comment"]);
+        Assert.Equal(["id", "repository", "externalId", "sessionId", "expectedUpdatedAt"], schemas["link_change"]);
+        Assert.Equal(["id", "repository", "sessionId", "expectedUpdatedAt"], schemas["link_session"]);
         Assert.Equal(["rawText", "repository", "sessionId"], schemas["create_item"]);
-        Assert.Equal(["id", "repository", "references", "sessionId"], schemas["set_devbook_references"]);
+        Assert.Equal(["id", "repository", "references", "sessionId", "expectedUpdatedAt"], schemas["set_devbook_references"]);
         Assert.Equal(
             ["title", "series", "start", "end", "online", "venue", "link", "whatToLearn", "ticket", "costAmount", "costCurrency", "sessionId"],
             schemas["add_knowledge_event"]);

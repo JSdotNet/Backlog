@@ -173,8 +173,9 @@ public sealed class ImportPlanCommandHandler(
 
         // One change set for the whole import (local ADR 0061 §2): the tasks it
         // writes and the roadmap plan it lays out are taken back together. Opened
-        // here, after the last refusal, so a refused import records nothing.
-        using var change = ChangeContext.Enter(ImportChangeSet(parsedAll));
+        // here, after the last refusal, so a refused import records nothing. An import
+        // an Inbox decision makes joins that decision's change set instead.
+        using var change = JoinsCurrent(command) ? default : ChangeContext.Enter(ImportChangeSet(parsedAll));
 
         // Tasks first, then the roadmap, so placement reads the effort this import
         // just gathered rather than the previous version's.
@@ -553,6 +554,18 @@ public sealed class ImportPlanCommandHandler(
     /// <summary>The rule the Import dialog's preview counts by, so the two cannot
     /// disagree.</summary>
     private static IReadOnlyList<string> PlanTags(IEnumerable<string> tags) => ImportPlanPreview.PlanTags(tags);
+
+    /// <summary>
+    /// Whether the import writes under the change set already current rather than one of
+    /// its own: an import routed from the Inbox (<see cref="ImportPlanCommand.SourceInboxId"/>
+    /// or <see cref="ImportPlanCommand.SourceInboxIds"/>) is the home a triage decision
+    /// makes, and that decision's change set — the item and the plan it became — is taken
+    /// back as one (local ADR 0061 §2). An Inbox import with no change set current still
+    /// opens its own.
+    /// </summary>
+    internal static bool JoinsCurrent(ImportPlanCommand command) =>
+        ChangeContext.Current is not null
+        && (command.SourceInboxId is not null || command.SourceInboxIds is { Count: > 0 });
 
     /// <summary>
     /// The change set an import writes under, labelled "Import of +tag" by the plan

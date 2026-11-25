@@ -85,12 +85,19 @@ flowchart LR
 
 | Credential | Store | Windows | Android |
 |---|---|---|---|
-| Sync device credential | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
+| Sync device credential, for a device not yet on a key | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
 | Spec-manager OAuth tokens | `DpapiSpecManagerTokenStore` | DPAPI, whole file | not composed |
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
 | MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
+
+**2026-11-25: a device key replaces the sync device credential.** Local ADR 0058 §2
+gives each device a P-256 key it cannot export, `CngDeviceKeyStore` on Windows (TPM
+first) and `AndroidKeystoreDeviceKeyStore` on the phone. A key is not a stored
+secret, so it has no row above: the platform keeps it, and no envelope applies. The
+credential row stays for a device with no key store and for one paired before keys,
+which drops its credential at its next token fetch.
 
 The three settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,

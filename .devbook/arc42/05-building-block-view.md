@@ -401,8 +401,9 @@ An area may also open the panel itself. Each dashboard part's frame draws an Ask
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and both web harnesses. The harnesses register it separately, so they pair as two distinct devices. Its parts:
 
-- `IDeviceCredentialStore` holds the registration credential: `DpapiDeviceCredentialStore` on Windows, `SecureValueDeviceCredentialStore` on Android over MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) so a force-stop does not un-pair the phone, and an in-memory store for tests.
-- `SyncTokenProvider` exchanges the credential for a device token and caches it, refreshing within two minutes of expiry and never retrying a 401.
+- `IDeviceKeyStore` holds the device key, a P-256 key whose private half cannot be exported (local ADR 0058 §2): `CngDeviceKeyStore` on Windows, in the TPM's Platform Crypto Provider and in the Software Key Storage Provider where there is no usable TPM; `AndroidKeystoreDeviceKeyStore` on the phone, StrongBox first; `DpapiDeviceKeyStore`, a software key under DPAPI, for the development harnesses; and an in-memory store for tests. Each reports whether its key is in hardware or software.
+- `IDeviceCredentialStore` holds what the device is: its owner, device id and name, and, only for a device not yet on a key, its registration credential. `DpapiDeviceCredentialStore` serves Windows, `SecureValueDeviceCredentialStore` Android over MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) so a force-stop does not un-pair the phone, and an in-memory store tests.
+- `SyncTokenProvider` gets a device token and caches it, refreshing within two minutes of expiry and never retrying a 401. A key-bound device signs a fresh `DeviceAssertion` (`private_key_jwt`) for every fetch. A device still on a credential with a key store moves onto the key at its next fetch, sending the credential, the public key and an assertion that key signed, then deletes the credential. A host with no key store sends the credential.
 - `SyncAuthenticationHandler` attaches the token to outbound requests.
 - `DevicePairingClient` drives the pairing calls and awaits the store's `SaveAsync`, so the Android store never blocks the pairing screen.
 

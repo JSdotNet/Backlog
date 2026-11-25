@@ -24,7 +24,15 @@ namespace Backlog.Modules.Tasks.Features.SaveTaskFromText;
 /// null for an entry typed by hand. Read on create only: the aggregate holds it
 /// as constructor-only provenance, so an update carries it for nothing and the
 /// stored value stands.</param>
-public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order, string? SourceInboxId = null);
+/// <param name="ExpectedUpdatedAt">The version the caller read the entry at, or
+/// null to save on whatever the store holds. Read on update only: another version
+/// refuses the save (<see cref="DomainModels.TaskItem.RequireLoadedAt"/>).</param>
+public sealed record SaveTaskFromTextCommand(
+    Guid? Id,
+    string RawText,
+    int Order,
+    string? SourceInboxId = null,
+    DateTimeOffset? ExpectedUpdatedAt = null);
 
 /// <param name="writeBack">Where a save that finishes a linked task asks for its item
 /// to be finished at the source too, or null in a composition that registers no
@@ -82,7 +90,7 @@ public sealed class SaveTaskFromTextCommandHandler(
         parsed = ResolveRepos(parsed);
 
         return command.Id is { } id
-            ? await UpdateAsync(id, parsed, cancellationToken)
+            ? await UpdateAsync(id, parsed, command.ExpectedUpdatedAt, cancellationToken)
             : await CreateAsync(parsed, command.Order, command.SourceInboxId, cancellationToken);
     }
 
@@ -134,10 +142,13 @@ public sealed class SaveTaskFromTextCommandHandler(
     private async Task<Result<SavedTaskDto>> UpdateAsync(
         Guid id,
         EntryTextParser.ParsedEntry parsed,
+        DateTimeOffset? expectedUpdatedAt,
         CancellationToken cancellationToken)
     {
         var entry = await entries.GetAsync(id, cancellationToken);
         if (entry is null) return NotFound;
+
+        entry.RequireLoadedAt(expectedUpdatedAt);
 
         // Read before anything is applied, because "this save completed the
         // entry" is a statement about the step from unticked to ticked. The tick,

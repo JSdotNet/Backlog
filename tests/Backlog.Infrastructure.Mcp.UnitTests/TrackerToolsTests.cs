@@ -746,7 +746,7 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.LinkSessionAsync(id, "jsdotnet/backlog", " e711d47d-3e09 ", TestContext.Current.CancellationToken);
+        var answer = await tools.LinkSessionAsync(id, "jsdotnet/backlog", " e711d47d-3e09 ", cancellationToken: TestContext.Current.CancellationToken);
 
         var link = Assert.Single(entries.Links);
 
@@ -766,8 +766,8 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken);
-        var second = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "ABC", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "abc", cancellationToken: TestContext.Current.CancellationToken);
+        var second = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "ABC", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(entries.Links);
         Assert.True(second.AlreadyLinked);
@@ -781,8 +781,8 @@ public class TrackerToolsTests
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "first", TestContext.Current.CancellationToken);
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "second", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "first", cancellationToken: TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "second", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["first", "second"], entries.Links.Select(link => link.ExternalId));
     }
@@ -799,7 +799,7 @@ public class TrackerToolsTests
             projections: [new EntryProjectionDto("JSdotNet/Backlog", "582", EntryProjectionDto.PullRequestTargetType)]));
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
-        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken);
+        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "582", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(answer.AlreadyLinked);
         Assert.Single(entries.Links);
@@ -813,7 +813,7 @@ public class TrackerToolsTests
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.LinkSessionAsync(id, "JSdotNet/Backlog", "  ", TestContext.Current.CancellationToken));
+            tools.LinkSessionAsync(id, "JSdotNet/Backlog", "  ", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("session.required", failure.Message, StringComparison.Ordinal);
         Assert.Empty(entries.Links);
@@ -831,7 +831,7 @@ public class TrackerToolsTests
         var features = new FakeAppFeatureSettings(SessionFeatures.SessionRequests);
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), sessionRequests: queue, features: features);
 
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", " session-a ", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", " session-a ", cancellationToken: TestContext.Current.CancellationToken);
 
         var link = Assert.Single(queue.Links);
         Assert.Equal(id, link.EntryId);
@@ -862,7 +862,7 @@ public class TrackerToolsTests
             features: features,
             sessions: new FakeAgentSessionSource(catalog));
 
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["session-a", "local_desktop-a"], queue.Links.Select(link => link.SessionId));
         Assert.All(queue.Links, link => Assert.Contains("+session-dispatch", link.PlanTags));
@@ -878,7 +878,7 @@ public class TrackerToolsTests
         features.Enabled.Clear();
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), sessionRequests: queue, features: features);
 
-        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Empty(queue.Links);
         Assert.Single(entries.Links);
@@ -891,7 +891,7 @@ public class TrackerToolsTests
         var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.LinkSessionAsync(Guid.NewGuid(), "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken));
+            tools.LinkSessionAsync(Guid.NewGuid(), "JSdotNet/Backlog", "abc", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
         Assert.Empty(entries.Links);
@@ -1092,6 +1092,180 @@ public class TrackerToolsTests
         Assert.Contains("Read the entry again", failure.Message, StringComparison.Ordinal);
         Assert.Contains("retry", failure.Message, StringComparison.Ordinal);
     }
+
+    // --- expectedUpdatedAt ----------------------------------------------------
+
+    public static TheoryData<string> PinnableTools =>
+    [
+        TrackerTools.Transition, TrackerTools.SetBlocked, TrackerTools.Comment,
+        TrackerTools.LinkChange, TrackerTools.LinkSession, TrackerTools.SetDevbookReferences,
+    ];
+
+    /// <summary>read_item answers the version it read, so a session can hand it back.</summary>
+    [Fact]
+    public async Task Read_item_answers_the_version_it_read()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id)) { Versioned = true };
+        var held = entries.SaveElsewhere(id);
+
+        var read = await PinnedTools(entries).ReadItemAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(held, read.UpdatedAt);
+    }
+
+    /// <summary>The gap plan entry 13 found: two calls made one after the other on the
+    /// same read_item result. Once the first has landed, the second names a version the
+    /// entry no longer holds, and is refused with <c>tasks.stale_write</c> - writing
+    /// nothing - rather than overwriting the first.</summary>
+    [Theory]
+    [MemberData(nameof(PinnableTools))]
+    public async Task A_write_built_on_an_outdated_read_is_refused_and_writes_nothing(string tool)
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id, status: EntryStatus.Ready)) { Versioned = true };
+        var tools = PinnedTools(entries);
+        var token = TestContext.Current.CancellationToken;
+
+        var read = await tools.ReadItemAsync(id, token);
+        entries.SaveElsewhere(id);
+
+        var failure = await Assert.ThrowsAsync<McpException>(() => Call(tools, tool, id, read.UpdatedAt, token));
+
+        Assert.Contains(TaskEntryErrorCodes.StaleWrite, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Read the entry again", failure.Message, StringComparison.Ordinal);
+        Assert.Empty(entries.Saves);
+        Assert.Empty(entries.Links);
+        Assert.Empty(entries.DevbookReferenceWrites);
+        Assert.Empty(entries.Usages);
+    }
+
+    /// <summary>The version read_item answered is still the entry's, so the write lands
+    /// - and is pinned to that version, not to one the tool read again.</summary>
+    [Theory]
+    [MemberData(nameof(PinnableTools))]
+    public async Task A_write_on_the_current_version_lands_pinned_to_it(string tool)
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id, status: EntryStatus.Ready)) { Versioned = true };
+        var tools = PinnedTools(entries);
+        var token = TestContext.Current.CancellationToken;
+
+        var read = await tools.ReadItemAsync(id, token);
+
+        await Call(tools, tool, id, read.UpdatedAt, token);
+
+        Assert.Equal([read.UpdatedAt!.Value], entries.Pins);
+        Assert.Single(entries.Saves.Cast<object>().Concat(entries.Links).Concat(entries.DevbookReferenceWrites));
+    }
+
+    /// <summary>A call that would change nothing - the status it already has, the block
+    /// it already carries, a session it already names - still answers about the version
+    /// the caller read, so an outdated read is refused rather than told "already there".</summary>
+    [Theory]
+    [InlineData(TrackerTools.Transition)]
+    [InlineData(TrackerTools.SetBlocked)]
+    [InlineData(TrackerTools.LinkSession)]
+    public async Task A_no_op_on_an_outdated_read_is_refused(string tool)
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry(
+            "Shared",
+            id: id,
+            status: EntryStatus.InProgress,
+            blockedSince: new DateOnly(2026, 11, 20),
+            projections: [new EntryProjectionDto("JSdotNet/Backlog", "session-1", EntryProjectionDto.SessionTargetType)]))
+        {
+            Versioned = true
+        };
+        var tools = PinnedTools(entries);
+        var token = TestContext.Current.CancellationToken;
+
+        var read = await tools.ReadItemAsync(id, token);
+        entries.SaveElsewhere(id);
+
+        var failure = await Assert.ThrowsAsync<McpException>(() => Call(tools, tool, id, read.UpdatedAt, token));
+
+        Assert.Contains(TaskEntryErrorCodes.StaleWrite, failure.Message, StringComparison.Ordinal);
+        Assert.Empty(entries.Saves);
+        Assert.Empty(entries.Links);
+    }
+
+    /// <summary>The second of two calls on one read, as plan entry 13's scenario 7 made
+    /// them: the first comment lands, the second is refused.</summary>
+    [Fact]
+    public async Task Of_two_comments_on_one_read_the_second_is_refused()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id)) { Versioned = true };
+        var tools = PinnedTools(entries);
+        var token = TestContext.Current.CancellationToken;
+
+        var read = await tools.ReadItemAsync(id, token);
+
+        await tools.CommentAsync(id, "First.", expectedUpdatedAt: read.UpdatedAt, cancellationToken: token);
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            tools.CommentAsync(id, "Second.", expectedUpdatedAt: read.UpdatedAt, cancellationToken: token));
+
+        Assert.Contains(TaskEntryErrorCodes.StaleWrite, failure.Message, StringComparison.Ordinal);
+        Assert.Single(entries.Saves);
+        Assert.Contains("First.", entries.Saves[0].RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>Without <c>expectedUpdatedAt</c> a tool that rebuilds the text pins its
+    /// save to the version it read itself, before the entry - so a save landing between
+    /// the tool's read and its write is refused rather than rebuilt over.</summary>
+    [Theory]
+    [InlineData(TrackerTools.Transition)]
+    [InlineData(TrackerTools.SetBlocked)]
+    [InlineData(TrackerTools.Comment)]
+    public async Task A_save_landing_inside_the_call_refuses_the_rebuilt_text(string tool)
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id, status: EntryStatus.Ready)) { Versioned = true };
+        entries.AfterGet = saved =>
+        {
+            entries.AfterGet = null;
+            entries.SaveElsewhere(saved);
+        };
+        var tools = PinnedTools(entries);
+
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            Call(tools, tool, id, expectedUpdatedAt: null, TestContext.Current.CancellationToken));
+
+        Assert.Contains(TaskEntryErrorCodes.StaleWrite, failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A port that keeps no versions is written as before: no version, no pin.</summary>
+    [Fact]
+    public async Task Without_versions_a_write_is_unpinned_as_before()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Shared", id: id, status: EntryStatus.Ready));
+        var tools = PinnedTools(entries);
+        var token = TestContext.Current.CancellationToken;
+
+        var read = await tools.ReadItemAsync(id, token);
+        await tools.TransitionAsync(id, "in-progress", cancellationToken: token);
+
+        Assert.Null(read.UpdatedAt);
+        Assert.Empty(entries.Pins);
+        Assert.Single(entries.Saves);
+    }
+
+    private static Task Call(TrackerTools tools, string tool, Guid id, DateTimeOffset? expectedUpdatedAt, CancellationToken token) =>
+        tool switch
+        {
+            TrackerTools.Transition => tools.TransitionAsync(id, "in-progress", expectedUpdatedAt: expectedUpdatedAt, cancellationToken: token),
+            TrackerTools.SetBlocked => tools.SetBlockedAsync(id, blocked: true, expectedUpdatedAt: expectedUpdatedAt, cancellationToken: token),
+            TrackerTools.Comment => tools.CommentAsync(id, "A note.", expectedUpdatedAt: expectedUpdatedAt, cancellationToken: token),
+            TrackerTools.LinkChange => tools.LinkChangeAsync(id, "JSdotNet/Backlog", "12", expectedUpdatedAt: expectedUpdatedAt, cancellationToken: token),
+            TrackerTools.LinkSession => tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-1", expectedUpdatedAt, token),
+            _ => tools.SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [".devbook/domain/tasks/domain.md"], expectedUpdatedAt: expectedUpdatedAt, cancellationToken: token),
+        };
+
+    private static TrackerTools PinnedTools(FakeTaskItems entries) =>
+        new(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
     private static TrackerTools Tools(params TaskItemDto[] entries) =>
         new(new FakeTaskItems(entries), new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver(), Clock());

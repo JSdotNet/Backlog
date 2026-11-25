@@ -1,5 +1,6 @@
 @using global::Backlog.Modules.Progress.Abstractions.DataTransferObjects
 @using global::Backlog.Modules.Progress.Abstractions.Services
+@using global::Backlog.SharedKernel.Changes
 @using global::Backlog.SharedKernel.Results
 @using global::Backlog.UI.Components.Goals
 @implements IDisposable
@@ -154,7 +155,14 @@
         _writing = true;
         try
         {
-            var written = await write(port);
+            // The person's gesture (local ADR 0061 §3): a New goal… and its attach are one
+            // change set, joining any the host already opened.
+            Result<GoalDto> written;
+            using (ChangeContext.BeginIfNone(ChangeActor.Person, "attaching to a goal"))
+            {
+                written = await write(port);
+            }
+
             if (written is not Ok<GoalDto>(var goal))
             {
                 _error = ((Error)written.Value!).Message;

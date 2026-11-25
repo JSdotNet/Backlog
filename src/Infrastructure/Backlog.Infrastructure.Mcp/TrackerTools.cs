@@ -100,6 +100,16 @@ public sealed class TrackerTools(
     /// </summary>
     internal const string CommentUsageAction = "mcp-comment";
 
+    /// <summary>
+    /// What every write's <c>expectedUpdatedAt</c> says to a model. One wording for
+    /// all of them, so the contract reads the same wherever a session meets it.
+    /// </summary>
+    internal const string ExpectedUpdatedAtDescription =
+        "Optional. The updatedAt read_item answered, when your change is built on that read. If the entry was "
+        + "saved since, nothing is written and the call is refused with tasks.stale_write: read the entry again "
+        + "and redo the change on what you read. Omitted, the change applies to the entry as it stands when the "
+        + "call reads it, and is still refused the same way if the entry is saved during the call.";
+
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     [McpServerTool(Name = FindItem, Title = "Find one backlog entry", ReadOnly = true, Idempotent = true, OpenWorld = false)]
@@ -177,13 +187,18 @@ public sealed class TrackerTools(
     [McpServerTool(Name = ReadItem, Title = "Read a backlog entry", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "One backlog entry as its markdown, metadata line and sub-items included - byte for byte what the app "
-        + "would save - plus the Devbook pages and chapters it points at, which are not part of the markdown. "
-        + "Read-only.")]
+        + "would save - plus the Devbook pages and chapters it points at, which are not part of the markdown - and "
+        + "updatedAt, the version read: hand it back to a write tool as expectedUpdatedAt so the write is refused "
+        + "if the entry changed since. Read-only.")]
     public async Task<EntryTextPayload> ReadItemAsync(
         [Description("The entry's id, as a GUID. find_item is how you get one.")]
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        // The version before the entry, so a save landing between the two reads
+        // leaves the answer pinned to the older version: a write built on it is
+        // refused rather than allowed to overwrite the save it never saw.
+        var version = await entries.GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false);
         var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
 
         // ToRawText and not the Body alone. The body omits the title and the
@@ -198,7 +213,8 @@ public sealed class TrackerTools(
             entry.DevbookReferences)
         {
             WaitingFor = entry.WaitingFor?.Who,
-            FollowUpOn = entry.WaitingFor?.FollowUpOn
+            FollowUpOn = entry.WaitingFor?.FollowUpOn,
+            UpdatedAt = version
         };
     }
 
@@ -233,9 +249,11 @@ public sealed class TrackerTools(
         string status,
         [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
         string? sessionId = null,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
-        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+        var (entry, version) = await ReadPinnedAsync(id, expectedUpdatedAt, cancellationToken).ConfigureAwait(false);
         var target = ParseStatus(status);
 
         if (!EntryStatusFlow.IsAllowed(entry.Status, target))
@@ -262,9 +280,7 @@ public sealed class TrackerTools(
         // the record of which ones actually were.
         var rewritten = EntryTextParser.WithStatus(EntryTextParser.ToRawText(entry), target);
 
-        var saved = await entries
-            .SaveFromTextAsync(entry.Id, rewritten, entry.Order, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var saved = await SavePinnedAsync(entry, rewritten, version, cancellationToken).ConfigureAwait(false);
 
         var result = saved.ValueOrThrow();
 
@@ -308,9 +324,11 @@ public sealed class TrackerTools(
         bool blocked,
         [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
         string? sessionId = null,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
-        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+        var (entry, version) = await ReadPinnedAsync(id, expectedUpdatedAt, cancellationToken).ConfigureAwait(false);
 
         // Already where the call asked. Saving anyway would restamp the entry and
         // push an edit nobody made to every other device - and on the marking side
@@ -323,9 +341,7 @@ public sealed class TrackerTools(
         var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
         var rewritten = EntryTextParser.WithBlocked(EntryTextParser.ToRawText(entry), blocked ? today : null);
 
-        var saved = await entries
-            .SaveFromTextAsync(entry.Id, rewritten, entry.Order, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var saved = await SavePinnedAsync(entry, rewritten, version, cancellationToken).ConfigureAwait(false);
 
         var result = saved.ValueOrThrow().Entry;
 
@@ -368,12 +384,19 @@ public sealed class TrackerTools(
         string text,
         [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
         string? sessionId = null,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
+        // Pinned to the version read before the comment rule reads the entry, so a
+        // save landing in between refuses the comment rather than being rebuilt over.
+        var version = expectedUpdatedAt
+            ?? await entries.GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false);
+
         // Written through the one comment rule Tasks publishes, which the
         // Inbox's "merge into a task" writes through as well.
         var commented = await entries
-            .CommentAsync(id, text, DateOnly.FromDateTime(_clock.GetLocalNow().DateTime), CommentUsageAction, cancellationToken)
+            .CommentAsync(id, text, DateOnly.FromDateTime(_clock.GetLocalNow().DateTime), CommentUsageAction, version, cancellationToken)
             .ConfigureAwait(false);
 
         var result = commented.ValueOrThrow();
@@ -417,6 +440,8 @@ public sealed class TrackerTools(
         string externalId,
         [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
         string? sessionId = null,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
@@ -433,8 +458,9 @@ public sealed class TrackerTools(
         // own: LinkToIssueAsync already refuses a missing id with
         // `entry.not_found`, and a pre-read here would be a second opinion about
         // the same fact that could disagree with it under a concurrent delete.
-        var linked = await entries
-            .LinkToIssueAsync(id, scope.Id, number, EntryProjectionDto.PullRequestTargetType, cancellationToken)
+        var linked = await (expectedUpdatedAt is { } version
+                ? entries.LinkToIssueAsync(id, scope.Id, number, EntryProjectionDto.PullRequestTargetType, version, cancellationToken)
+                : entries.LinkToIssueAsync(id, scope.Id, number, EntryProjectionDto.PullRequestTargetType, cancellationToken))
             .ConfigureAwait(false);
 
         var entry = linked.ValueOrThrow();
@@ -465,6 +491,8 @@ public sealed class TrackerTools(
         string repository,
         [Description("The host's id for this session - for Claude Code, the session id its transcript is named after.")]
         string sessionId,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
@@ -477,7 +505,7 @@ public sealed class TrackerTools(
                 "A session id is required."));
         }
 
-        var existing = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+        var (existing, version) = await ReadPinnedAsync(id, expectedUpdatedAt, cancellationToken).ConfigureAwait(false);
 
         if (existing.Projections.Any(p =>
                 string.Equals(p.TargetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
@@ -488,8 +516,9 @@ public sealed class TrackerTools(
             return new SessionLinkPayload(existing.Id, scope.Id, session, AlreadyLinked: true);
         }
 
-        var linked = await entries
-            .LinkToIssueAsync(id, scope.Id, session, EntryProjectionDto.SessionTargetType, cancellationToken)
+        var linked = await (version is { } pinned
+                ? entries.LinkToIssueAsync(id, scope.Id, session, EntryProjectionDto.SessionTargetType, pinned, cancellationToken)
+                : entries.LinkToIssueAsync(id, scope.Id, session, EntryProjectionDto.SessionTargetType, cancellationToken))
             .ConfigureAwait(false);
 
         var entry = linked.ValueOrThrow();
@@ -639,13 +668,16 @@ public sealed class TrackerTools(
         string[] references,
         [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
         string? sessionId = null,
+        [Description(ExpectedUpdatedAtDescription)]
+        DateTimeOffset? expectedUpdatedAt = null,
         CancellationToken cancellationToken = default)
     {
         // Before the write, so an owner/name nobody registered changes nothing.
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 
-        var saved = await entries
-            .SetDevbookReferencesAsync(id, references ?? [], cancellationToken)
+        var saved = await (expectedUpdatedAt is { } version
+                ? entries.SetDevbookReferencesAsync(id, references ?? [], version, cancellationToken)
+                : entries.SetDevbookReferencesAsync(id, references ?? [], cancellationToken))
             .ConfigureAwait(false);
 
         // What the entry kept, not what was sent: the module drops repeats and
@@ -706,6 +738,50 @@ public sealed class TrackerTools(
                 "item.not_found",
                 $"No backlog entry has the id '{id}'."));
     }
+
+    /// <summary>
+    /// The entry a write is about to rebuild, and the version that write is pinned to.
+    /// <para>
+    /// <b>The caller's version when it gave one.</b> A change built on an earlier
+    /// <c>read_item</c> is refused here, before anything is decided, once the entry has
+    /// moved on: the answer a no-op would otherwise give ("already there") would be an
+    /// answer about a version the caller never read. The save is pinned to it as well, so
+    /// a write landing after this check is refused there; a no-op, which writes nothing,
+    /// is decided on the entry read just after the check.
+    /// </para>
+    /// <para>
+    /// <b>Otherwise the version read here, before the entry.</b> The tool rebuilds the
+    /// text from its own read, and the save's handler reads again: pinning the save to
+    /// this read is what stops a write landing between the two from being overwritten.
+    /// Null only on a port that keeps no versions, where the save is unpinned.
+    /// </para>
+    /// </summary>
+    private async Task<(TaskItemDto Entry, DateTimeOffset? Version)> ReadPinnedAsync(
+        Guid id,
+        DateTimeOffset? expectedUpdatedAt,
+        CancellationToken cancellationToken)
+    {
+        var current = await entries.GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false);
+        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (expectedUpdatedAt is { } expected && current != expected)
+        {
+            throw RepositoryScope.Failure(StaleTaskWrites.StaleWrite);
+        }
+
+        return (entry, expectedUpdatedAt ?? current);
+    }
+
+    /// <summary>Saves the text a tool rebuilt from <paramref name="entry"/>, pinned to
+    /// <paramref name="version"/> when there is one (<see cref="ReadPinnedAsync"/>).</summary>
+    private Task<Result<SavedTaskDto>> SavePinnedAsync(
+        TaskItemDto entry,
+        string rawText,
+        DateTimeOffset? version,
+        CancellationToken cancellationToken) =>
+        version is { } pinned
+            ? entries.SaveFromTextAsync(entry.Id, rawText, entry.Order, pinned, cancellationToken)
+            : entries.SaveFromTextAsync(entry.Id, rawText, entry.Order, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Exactly one selector, as a predicate over the backlog.

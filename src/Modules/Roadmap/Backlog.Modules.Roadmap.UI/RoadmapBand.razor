@@ -37,6 +37,7 @@
 *@
 @implements IDisposable
 @using global::Backlog.SharedKernel
+@using global::Backlog.SharedKernel.Changes
 @using global::Backlog.SharedKernel.Results
 @using Microsoft.Extensions.Logging
 @inject IRoadmapPlanning Planning
@@ -501,6 +502,9 @@
     {
         try
         {
+            // The projection's own pass, not a person's gesture (local ADR 0061 §3): it is
+            // run outside every gesture's change set, so it names the system.
+            using var change = ChangeContext.BeginIfNone(ChangeActor.System, "keeping the roadmap up with the work");
             await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -768,7 +772,7 @@
                 Tag: imported.Tag,
                 RepositoryAliases: imported.RepositoryAliases);
 
-            var result = await Planning.ImportPlanItemsAsync([entry], [imported.Effort]);
+            var result = await AsPersonAsync($"planning +{imported.Tag}", () => Planning.ImportPlanItemsAsync([entry], [imported.Effort]));
 
             if (result is Error error)
             {
@@ -977,8 +981,8 @@
     {
         _error = null;
 
-        var saved = submission.ItemId is null
-            ? await Planning.AddItemAsync(
+        var saved = await AsPersonAsync(submission.ItemId is null ? "adding a roadmap item" : "editing a roadmap item", () => submission.ItemId is null
+            ? Planning.AddItemAsync(
                 submission.Title,
                 submission.Start,
                 submission.End,
@@ -989,7 +993,7 @@
                 submission.Notes,
                 submission.Tag,
                 submission.KnowledgeRefs)
-            : await Planning.UpdateItemAsync(
+            : Planning.UpdateItemAsync(
                 submission.ItemId.Value,
                 submission.Title,
                 submission.Start,
@@ -1000,7 +1004,7 @@
                 submission.TaskId,
                 submission.Notes,
                 submission.Tag,
-                submission.KnowledgeRefs);
+                submission.KnowledgeRefs));
 
         if (saved is Error error)
         {
@@ -1018,7 +1022,7 @@
     {
         _error = null;
 
-        var removed = await Planning.RemoveItemAsync(itemId);
+        var removed = await AsPersonAsync("deleting a roadmap item", () => Planning.RemoveItemAsync(itemId));
 
         if (removed is Error error)
         {
@@ -1037,22 +1041,22 @@
     {
         _error = null;
 
-        var saved = submission.MilestoneId is null
-            ? await Planning.AddMilestoneAsync(
+        var saved = await AsPersonAsync(submission.MilestoneId is null ? "adding a roadmap date" : "editing a roadmap date", () => submission.MilestoneId is null
+            ? Planning.AddMilestoneAsync(
                 submission.Title,
                 submission.On,
                 submission.Kind,
                 submission.RepositoryAliases,
                 null,
                 submission.IsPlanWide)
-            : await Planning.UpdateMilestoneAsync(
+            : Planning.UpdateMilestoneAsync(
                 submission.MilestoneId.Value,
                 submission.Title,
                 submission.On,
                 submission.Kind,
                 submission.RepositoryAliases,
                 null,
-                submission.IsPlanWide);
+                submission.IsPlanWide));
 
         if (saved is Error error)
         {
@@ -1069,7 +1073,7 @@
     {
         _error = null;
 
-        var removed = await Planning.RemoveMilestoneAsync(milestoneId);
+        var removed = await AsPersonAsync("deleting a roadmap date", () => Planning.RemoveMilestoneAsync(milestoneId));
 
         if (removed is Error error)
         {
@@ -1093,9 +1097,9 @@
     /// </summary>
     private async Task ChangeDependencyAsync(RoadmapDependencyChange change)
     {
-        var result = change.Added
-            ? await Planning.AddDependencyAsync(change.NodeId, change.DependsOnId)
-            : await Planning.RemoveDependencyAsync(change.NodeId, change.DependsOnId);
+        var result = await AsPersonAsync(change.Added ? "adding a roadmap dependency" : "removing a roadmap dependency", () => change.Added
+            ? Planning.AddDependencyAsync(change.NodeId, change.DependsOnId)
+            : Planning.RemoveDependencyAsync(change.NodeId, change.DependsOnId));
 
         await Load();
 
@@ -1146,9 +1150,9 @@
         // does not end last moves the item's end as far as its own end was dragged, and
         // the pin then draws the part that ends latest to it.
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
-        var rescheduled = bar is { Locked: true, EndResizable: true }
-            ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change))
-            : await RescheduleAsync(change, itemId.Value);
+        var rescheduled = await AsPersonAsync("moving a roadmap item", () => bar is { Locked: true, EndResizable: true }
+            ? Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change))
+            : RescheduleAsync(change, itemId.Value));
 
         // Reload either way. On success the plan is the truth; on failure the
         // redraw is what puts the bar back where it was, so a refused change never
@@ -1198,7 +1202,7 @@
     {
         _error = null;
 
-        var result = await Planning.UnpinItemEndAsync(itemId);
+        var result = await AsPersonAsync("handing a roadmap end back to the forecast", () => Planning.UnpinItemEndAsync(itemId));
 
         if (result is Error error)
         {
@@ -1284,7 +1288,7 @@
             }
 
             _error = null;
-            var completed = await Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today));
+            var completed = await AsPersonAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
             if (completed is Error error)
             {
                 _error = error.Message;
@@ -1305,16 +1309,16 @@
     /// <summary>Completes the item in the editor today, and closes it. A refusal keeps it
     /// open and says why.</summary>
     private Task CompleteAsync(Guid itemId) =>
-        FromEditorAsync(Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
+        FromEditorAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
 
     /// <summary>Reopens the item in the editor, and closes it.</summary>
-    private Task ReopenAsync(Guid itemId) => FromEditorAsync(Planning.ReopenItemAsync(itemId));
+    private Task ReopenAsync(Guid itemId) => FromEditorAsync("reopening a roadmap item", () => Planning.ReopenItemAsync(itemId));
 
-    private async Task FromEditorAsync(Task<global::Backlog.SharedKernel.Results.Result<RoadmapItemDto>> write)
+    private async Task FromEditorAsync(string label, Func<Task<Result<RoadmapItemDto>>> write)
     {
         _error = null;
 
-        var result = await write;
+        var result = await AsPersonAsync(label, write);
         if (result is Error error)
         {
             _editor?.Refuse(error.Message);
@@ -1366,11 +1370,23 @@
 
         if (_error is null)
         {
-            var added = await Planning.AddDependencyAsync(waiting.Value, dependsOn.Value);
+            var added = await AsPersonAsync("adding a roadmap dependency", () => Planning.AddDependencyAsync(waiting.Value, dependsOn.Value));
             if (added is Error error) _error = error.Message;
         }
 
         await Load();
+    }
+
+    /// <summary>
+    /// Runs one write of the person's gesture under a person change set labelled
+    /// <paramref name="label"/>, unless one is current (local ADR 0061 §3). The scope
+    /// holds the write alone: the reload and any keep-up after it run outside it, so the
+    /// keep-up projection's own pass is never filed under the person's gesture.
+    /// </summary>
+    private static async Task<T> AsPersonAsync<T>(string label, Func<Task<T>> write)
+    {
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, label);
+        return await write();
     }
 
     /// <summary>The lane out of a row id, as the view built it. A stacked row of a

@@ -17,14 +17,14 @@ sequenceDiagram
     participant First as First device
     participant Second as Second device
     participant Sync as Sync service
-    First->>Sync: Sign in with GitHub, then register under the owner
-    Sync-->>First: Registration credential, shown once
+    First->>Sync: Sign in with GitHub, then register with its public key
+    Sync-->>First: Its device id, under the owner
     First->>Sync: Ask for a pairing code
     Sync-->>First: Pairing code
     Note over First,Second: The person enters the code on the second device
-    Second->>Sync: Redeem the code
-    Sync-->>Second: Its own registration credential, same owner
-    Second->>Sync: Exchange credential for a device token
+    Second->>Sync: Redeem the code with its own public key
+    Sync-->>Second: Its device id, same owner
+    Second->>Sync: Assertion signed with its device key
     Sync-->>Second: Short-lived device token
 ```
 
@@ -34,11 +34,19 @@ later devices pair by code. The Devices settings page shows the code and takes i
 the second machine. It lists every paired device, says who paired each, and offers
 Revoke on the rows this desktop paired.
 
-The [Owner](domain.md#owner), [Pairing Code](domain.md#pairing-code),
-[Registration credential](domain.md#registration-credential) and
-[Device token](domain.md#device-token) give each step's rules. A registration
-credential is never stored anywhere in the clear. Neither device ever holds the
-other's credential.
+Each device makes a [Device key](domain.md#device-key) it cannot export and
+hands the service only its public half, so neither device holds a secret the other,
+or a copy of its folder, could use. A device with no key store, and one paired
+before keys, holds a [Registration credential](domain.md#registration-credential)
+instead, which is never stored anywhere in the clear. One that later has a key
+moves onto it at its next token fetch
+([A credential device moves onto its key once](requirements.md#requirement-a-credential-device-moves-onto-its-key-once)).
+The [Owner](domain.md#owner), [Enrolment Ticket](domain.md#enrolment-ticket),
+[Pairing Code](domain.md#pairing-code), [Device assertion](domain.md#device-assertion)
+and [Device token](domain.md#device-token) give each step's rules.
+
+Recovery is the owner's GitHub sign-in again: it registers the device afresh under
+the same owner and revokes the owner's other devices.
 
 A paired device reaches exactly one owner's data. The sync service enforces that by reading the owner out of the presented
 token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
@@ -105,3 +113,42 @@ sent it. There is no second sync path for any of it.
 A capture made while the service is newer than the phone's app is neither lost nor
 refused. It waits in the outbox until the app is updated or the service rolled
 back ([A phone holds its outbox for a newer sync service](requirements.md#requirement-a-phone-holds-its-outbox-for-a-newer-sync-service)).
+
+## Capturing from claude.ai
+
+```meta
+type: feature
+related: [.devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#8-a-remote-agent-reaches-backlog-through-oauth-21-on-the-sync-service, .devbook/domain/sync/requirements.md#capturing-from-claudeai, .devbook/domain/sync/domain.md#connector-client, .devbook/domain/sync/domain.md#connector-authorization, .devbook/domain/sync/domain.md#connector-refresh-token, .devbook/domain/sync/domain.md#connector-token]
+depends-on: [.devbook/domain/sync/features.md#carrying-captures-to-the-inbox]
+```
+
+```mermaid
+sequenceDiagram
+    participant Claude as claude.ai connector
+    participant Auth as Sync service, authorization server
+    participant GitHub
+    participant Mcp as Sync service, /mcp
+    Claude->>Auth: Authorize, with an S256 challenge
+    Auth->>GitHub: The owner signs in
+    GitHub-->>Auth: The owner's account
+    Auth-->>Claude: After consent, a one-time code
+    Claude->>Auth: Code, verifier and client secret
+    Auth-->>Claude: Connector token for /mcp, and a refresh token
+    Claude->>Mcp: capture_to_inbox, with the connector token
+    Mcp-->>Claude: Filed on the owner's replica
+```
+
+The Claude mobile app reaches the owner's Inbox through a claude.ai custom
+connector. The sync service is both its OAuth 2.1 authorization server and the
+`/mcp` resource server it calls, so the desktop listener stays on loopback and
+nothing reaches the desktop but the replica.
+
+The owner sets it up from the desktop's MCP server page: the Remote connector card
+makes the [Connector Client](domain.md#connector-client)'s secret and shows it once,
+with the client id and redirect to enter in claude.ai. Revoking it there cuts
+claude.ai off at once. The connector starts with one scope, `inbox:capture`, and its
+one tool files a capture the way the phone does
+([Carrying captures to the Inbox](#carrying-captures-to-the-inbox)).
+
+The authorization server's errors take OAuth's shape rather than Problem Details,
+because a connector client reads them (local ADR 0058 §8).
