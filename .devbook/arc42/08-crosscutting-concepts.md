@@ -641,6 +641,57 @@ For the cloud service specifically, three inherited decisions apply:
 - authorization: `0013-authorization-zero-trust.md`;
 - the error contract: `0017-http-error-contract-and-problem-details.md`.
 
+## Configuration
+
+```meta
+related: [".devbook/arc42/adr/guidelines/0018-configuration-and-options-binding.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+```
+
+Org ADR 0002 sets the rules: settings bind to validated options, Aspire parameters are the
+source of settings and secrets, and a managed identity replaces a secret wherever the target
+takes one.
+
+- **Every options class is validated at start.** A class bound from configuration with
+  `Bind` or `BindConfiguration` also chains `Validate` or `ValidateDataAnnotations`, and
+  `ValidateOnStart()`. A bad setting stops the service as it starts, never on the first
+  request that reads it. `OptionsValidationTests` scans `src/` and fails on a binding without
+  both. It also refuses `Configure<T>(IConfiguration)`, which binds with no way to validate.
+- **A few settings are still read raw.** The Notification Hubs, Web PubSub and Cosmos
+  registrations read their keys from `IConfiguration` to decide whether to register at all.
+  No options class carries them, so the scan cannot see them.
+- **Some rules hold outside Development only.** A deployed sync service refuses to start
+  without the owner's GitHub user id, both halves of the GitHub OAuth App, the Key Vault URI,
+  and the connector's issuer and resource. A Development run defaults or mints each one.
+- **The deployed sync service's settings are AppHost parameters.** `SyncDeployment.cs` in the
+  AppHost declares them, in publish mode only:
+
+  | Parameter | Sets | Kind |
+  | --- | --- | --- |
+  | `sync-owner-github-user-id` | `Owner__GitHubUserId` | required |
+  | `sync-github-oauth-client-id` | `GitHub__ClientId` | required |
+  | `sync-key-vault-uri` | `Modules__Sync__Tokens__KeyVaultUri` | required |
+  | `sync-public-origin` | `Modules__Sync__Connector__Issuer`, and `…Resource` with `/mcp` | required |
+  | `sync-owner-id` | `Owner__OwnerId` | optional, empty derives the owner |
+  | `sync-notification-hubs-hub` | `Sync__NotificationHubs__Hub` | optional, `backlog` |
+  | `sync-notification-hubs-send-connection-string` | `Sync__NotificationHubs__SendConnectionString` | required secret |
+  | `sync-notification-hubs-manage-connection-string` | `Sync__NotificationHubs__ManageConnectionString` | required secret |
+  | `sync-alert-email` | the exception alert's action group | required |
+
+  A required parameter has no default, so a publish fails without it. Each environment sets the
+  values under `Parameters:<name>` in the AppHost's configuration, and the secrets with
+  `aspire secret set --environment`. `AppHostDeploymentModelTests` keeps the list level with the
+  settings `infra/sync/main.bicep` gives the container.
+- **Run mode declares none of them.** A run-mode parameter with no value holds its resource
+  until someone answers the dashboard, which would stop every unattended `aspire start`. The
+  Development run keeps its defaults, and `Program.cs` points the connector's issuer at the
+  service's own endpoint.
+- **Key Vault secrets are not parameters.** The token signing key and the GitHub OAuth client
+  secret stay in Key Vault, read with the service's managed identity (local ADR 0058). The
+  Notification Hubs connection strings are the only secret parameters, because that service
+  takes no managed identity.
+- **Nothing secret is committed.** The service's `appsettings.json` holds only defaults and
+  explanations. A Development signing key lives in user-secrets.
+
 ## Observability
 
 ```meta
