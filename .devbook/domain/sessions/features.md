@@ -1611,14 +1611,23 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 
   | State | When |
   | --- | --- |
-  | Queued with plan | The plan is queued and the entry is ready. |
-  | In plan session | A plan session runs the entry. |
-  | Held for you | A Read-first source the entry names cannot be read, so the run holds it. |
-  | Left for you | A `test` or `task` entry, which the run never does. |
+  | Done | The entry is Done or Archived. |
   | Landed | Its pull request merged into the plan branch. |
+  | Left for you | A `test` or `task` entry, which the run never does. |
+  | Held for you | The entry is blocked: `execute-plan` blocks an entry whose Read-first source it cannot read, so the run holds it. |
+  | In plan session | A plan session runs the entry: the run reports a stage for it, or it is In progress with a linked session. |
+  | Waiting | The entry is not Ready, or it waits on another open entry. |
+  | Queued with plan | The plan is queued and the entry is ready. |
+  | Ready | The plan is not queued and the entry is ready. |
 
-  The state is derived from the plan's request, its run and the entry's pull request;
-  nothing new is stored on the entry.
+  The first row that holds wins, top to bottom. A finished entry is past every other
+  state, a merge into the plan branch is past the session, a `test` or `task` is the
+  person's however the run stands, and a held entry stays held while the run goes on
+  beside it. Held for you reads only the entry's blocked status, so an entry blocked
+  for any other reason reads the same.
+
+  The state is derived from the entry, the plan's request, its run and the entry's
+  pull request; nothing new is stored on the entry.
 - The icon's name and tooltip add the repository when there is only one, as
   in "Queue a session for this entry in owner/repo", and say "choose the repository" when the prompt names several.
 - A prompt that names several repositories asks which one first. A repository with no
@@ -1660,8 +1669,18 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   - **Pause queue**, and **Long-running agents**, as below.
 
   Selecting a queue item filters the list to it: an entry request to that entry, a plan
-  request to that plan. At 48rem wide or narrower the column folds back into the
-  button below.
+  request to that plan. The item reads as pressed while its filter holds.
+  - An unplanned entry's item filters the list to that one entry without opening it,
+    since the open entry would take the width the column needs. A **Showing** line
+    at the head of the column names the entry, and its **Show all** lets go.
+  - A plan entry's item shows its plan in Plans, with the plan selected and the entry
+    open, because Flat lists no plan entries. A plan request in Flat switches to Plans
+    and selects that plan.
+  - Showing a plan from elsewhere, such as the roadmap, lets go of the queue's entry.
+
+  At 48rem wide or narrower the column folds back into the button below. A folded
+  queue keeps the entry it filtered the list to, behind a "Showing *entry* · Show all"
+  chip on the filter bar; pressing it shows the whole list again.
 - **The folded session queue** is a button at the right end of the Tasks filter bar. It shows
   while the flag is on and counts every open request, entry and plan alike. It reads
   "Session queue, N waiting", or "Session queue, empty" with a muted 0, and adds
