@@ -36,7 +36,7 @@ public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, 
 /// reason the session exchange is: the two fail separately and are switched
 /// separately, and a shared loop would give them one error to report.
 /// </summary>
-public sealed class AnnotationSyncSession
+public sealed partial class AnnotationSyncSession
 {
     /// <summary>How many changes go in one push — the task batch size, and well
     /// below the service's cap for the same reasons.</summary>
@@ -131,12 +131,7 @@ public sealed class AnnotationSyncSession
                 if (AnnotationRecordLimits.WhyRefused(change) is { } reason)
                 {
                     // Never the body: it is the person's own text.
-                    _log.LogWarning(
-                        "Leaving annotation {AnnotationId} on {ChapterPath} out of the push, because the sync "
-                        + "service would refuse it and every remark sent beside it. {Reason}",
-                        annotation.Id,
-                        annotation.ChapterPath,
-                        reason);
+                    LogAnnotationLeftOutOfPush(_log, annotation.Id, annotation.ChapterPath, reason);
 
                     skipped++;
                     continue;
@@ -208,7 +203,7 @@ public sealed class AnnotationSyncSession
             }
 
             pulled += feed.Annotations.Count;
-            // One applied page is one sync change set (local ADR 0070 §2).
+            // One applied page is one sync change set (local ADR 0071 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying an annotation sync page"))
             {
                 applied += _merge.Apply(feed.Annotations).Applied;
@@ -243,4 +238,10 @@ public sealed class AnnotationSyncSession
             Skipped = pushSummary.Skipped,
         });
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Leaving annotation {AnnotationId} on {ChapterPath} out of the push, because the sync "
+            + "service would refuse it and every remark sent beside it. {Reason}")]
+    private static partial void LogAnnotationLeftOutOfPush(ILogger logger, Guid annotationId, string chapterPath, string reason);
 }

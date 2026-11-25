@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The change journal's read side (local ADR 0070 §2): the change sets newest first
+/// The change journal's read side (local ADR 0071 §2): the change sets newest first
 /// with their document counts, and each document's text before the change set beside
 /// its text now.
 /// </summary>
@@ -89,7 +89,7 @@ public sealed class SqliteChangeJournalTests : IDisposable
         Assert.Equal(mine.Id, entry.ChangeSet.Id);
     }
 
-    /// <summary>What <c>list_change_sets</c> narrows by (local ADR 0070 §5): the caller,
+    /// <summary>What <c>list_change_sets</c> narrows by (local ADR 0071 §5): the caller,
     /// without regard to case, and a window whose start is inclusive and end exclusive.</summary>
     [Fact]
     public async Task A_query_narrows_by_caller_and_time_window()

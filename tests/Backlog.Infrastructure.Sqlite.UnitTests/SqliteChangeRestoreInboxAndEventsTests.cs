@@ -16,7 +16,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The inbox items and the knowledge events in the change journal (local ADR 0070 §2):
+/// The inbox items and the knowledge events in the change journal (local ADR 0071 §2):
 /// their triggers write the revisions, a triage decision is one change set over the item
 /// and the task it makes, and a restore takes each back through its own repository.
 /// </summary>

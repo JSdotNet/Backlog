@@ -218,7 +218,7 @@ public sealed class McpScopeGateTests
         Assert.Equal(McpAudit.UnauthenticatedCaller, call.Caller);
     }
 
-    /// <summary>The change journal's two agent tools over the real endpoint (local ADR 0070 §5):
+    /// <summary>The change journal's two agent tools over the real endpoint (local ADR 0071 §5):
     /// a grant holding <c>tasks:read</c> alone reads the change sets, and is refused
     /// <c>propose_restore</c>, which needs <c>tasks:write</c> — the refusal comes before any
     /// question is asked.</summary>

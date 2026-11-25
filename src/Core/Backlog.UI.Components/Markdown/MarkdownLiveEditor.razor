@@ -556,19 +556,19 @@
         if (_caret is { } caret)
         {
             _caret = null;
-            await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", SourceId, caret, _id));
+            await TryInvokeAsync("backlogMarkdownLive.focus", SourceId, caret, _id);
         }
         else if (_focusBlock is { } block)
         {
             _focusBlock = null;
-            await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", block, null, _id));
+            await TryInvokeAsync("backlogMarkdownLive.focus", block, null, _id);
         }
         else if (_focusTask is { } task)
         {
             _focusTask = null;
             if (TaskCheckbox(task) is { } checkbox)
             {
-                await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.focus", checkbox.Block, null, _id, checkbox.Position));
+                await TryInvokeAsync("backlogMarkdownLive.focus", checkbox.Block, null, _id, checkbox.Position);
             }
         }
     }
@@ -629,11 +629,11 @@
     /// <summary>One interop call, with the failures every caller here survives:
     /// a script that is not there, a circuit that has gone, a prerender with no
     /// browser yet. Each leaves the editor working by click alone.</summary>
-    private static async Task<bool> TryAsync(Func<ValueTask> call)
+    private async Task<bool> TryInvokeAsync(string identifier, params object?[] args)
     {
         try
         {
-            await call();
+            await Js.InvokeVoidAsync(identifier, args);
             return true;
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
@@ -644,7 +644,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_watching) await TryAsync(() => Js.InvokeVoidAsync("backlogMarkdownLive.unwatch", _id));
+        if (_watching) await TryInvokeAsync("backlogMarkdownLive.unwatch", _id);
 
         _self?.Dispose();
     }

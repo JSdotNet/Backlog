@@ -35,7 +35,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop;
 
-public static class MauiProgram
+public static partial class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
@@ -118,7 +118,7 @@ public static class MauiProgram
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
             // The MCP audit log, per installation and never in the workspace root.
             McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
-            // The MCP grants, copied into every agent checkpoint (local ADR 0070 §7): an
+            // The MCP grants, copied into every agent checkpoint (local ADR 0071 §7): an
             // agent holding agents:grant writes them. This head's alone (ADR 0058 §9).
             CheckpointedHeadFiles = new[] { Path.Combine(appData, FileMcpGrantStore.FileName) },
             // The URL on the Settings page, per machine and never in the workspace.
@@ -483,7 +483,7 @@ public static class MauiProgram
             {
                 // Whatever it was - a locked file, a missing resource - the app runs without
                 // an up-to-date hook rather than not at all; the served route still answers.
-                hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
+                if (hookLog is not null) LogHookScriptWriteFailed(hookLog, ex);
             }
 
             // And the headers helper beside it, then the shared token's retirement (local ADR
@@ -502,22 +502,19 @@ public static class MauiProgram
 
                 foreach (var problem in retirement.Problems)
                 {
-                    hookLog?.LogWarning("The shared MCP token's retirement is not finished: {Problem}", problem);
+                    if (hookLog is not null) LogTokenRetirementUnfinished(hookLog, problem);
                 }
 
                 if (retirement.RegistrationsRewritten > 0 || retirement.TelemetryRewritten)
                 {
-                    hookLog?.LogInformation(
-                        "The shared MCP token was retired: {Registrations} Claude Code registration(s) and {Telemetry} telemetry block now run the headers helper for a grant.",
-                        retirement.RegistrationsRewritten,
-                        retirement.TelemetryRewritten ? 1 : 0);
+                    if (hookLog is not null) LogTokenRetired(hookLog, retirement.RegistrationsRewritten, retirement.TelemetryRewritten ? 1 : 0);
                 }
             }
             catch (Exception ex)
             {
                 // The grants could not be made or recorded: the app runs, and every registration
                 // that still sends the retired token is refused until the next start manages it.
-                hookLog?.LogError(ex, "The shared MCP token could not be retired; the next start tries again.");
+                if (hookLog is not null) LogTokenRetirementFailed(hookLog, ex);
             }
         });
 
@@ -570,4 +567,16 @@ public static class MauiProgram
         }
     }
 #endif
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The question hook script could not be written to the app data folder.")]
+    private static partial void LogHookScriptWriteFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The shared MCP token's retirement is not finished: {Problem}")]
+    private static partial void LogTokenRetirementUnfinished(ILogger logger, string problem);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The shared MCP token was retired: {Registrations} Claude Code registration(s) and {Telemetry} telemetry block now run the headers helper for a grant.")]
+    private static partial void LogTokenRetired(ILogger logger, int registrations, int telemetry);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The shared MCP token could not be retired; the next start tries again.")]
+    private static partial void LogTokenRetirementFailed(ILogger logger, Exception exception);
 }

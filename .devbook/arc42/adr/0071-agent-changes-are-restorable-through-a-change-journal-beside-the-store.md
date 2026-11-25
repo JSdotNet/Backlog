@@ -1,4 +1,4 @@
-# ADR 0070: Agent changes are restorable through a change journal beside the store
+# ADR 0071: Agent changes are restorable through a change journal beside the store
 
 ```meta
 date: 2026-11-25
@@ -245,6 +245,7 @@ Both join ADR 0058 §4's scope table.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | Renumbered from 0070 to 0071, with every citation in the chapters and the code. | `main` took 0070 for the decision that model calls stay on the Foundry adapter first. |
 | 2026-11-25 | §7's checkpoint extended to the settings files of §8 and to `mcp-grants.json`. It copies `config/repos.json` at its path under the root, and copies `github.json`, `planning-velocity.json`, `my-day-preferences.json`, `iteration-settings.json` and `mcp-grants.json` from the app-data folders into its `app-data` folder, each asked of the store that keeps it and the grants of the desktop head, which alone composes them (ADR 0058 §9). A file not there yet is skipped, and one that cannot be read is logged and left out. Notes and the roadmap plan are rows in `backlog.db`, which the checkpoint already holds. Every secret in these files is a DPAPI envelope under the Windows user (ADRs 0030 and 0058 §3), so a copy beside `backlog.db` opens to no one the live file does not. The Storage page's Checkpoints card names the settings and where each goes back. | An agent's change to a setting or a grant can now be put back by hand, as §7 and §8 promise. |
 | 2026-11-25 | §6's third bullet reversed: the journal no longer travels inside the backup. The backup worker empties `revisions` and `change_sets` in its temporary copy and vacuums it before reading the bytes; the live database keeps its journal. A restore from a backup brings back no change history. The Backup card's size warning reads the size of the last backup copy, not `backlog.db`, which still holds the journal. | The measured journal takes the backup past GitHub's 100 MiB file limit, and a shorter retention does not bring it under. |
 | 2026-11-25 | Renumbered from 0061 to 0070, with every citation in the chapters and the code. | `main` took 0061 for the Events map decision first, and open plan branches claim 0062 to 0069. |

@@ -52,8 +52,9 @@ public static class SpecManagerRegistration
         var options = services.AddOptions<SpecManagerOptions>();
         if (configuration is not null) options.Bind(configuration);
         if (configure is not null) options.Configure(configure);
-        options.Validate(value => value.IsValid(), "SpecManager:BaseUrl must be an absolute http or https URL.");
-        if (configuration is not null) options.ValidateOnStart();
+        options
+            .Validate(value => value.IsValid(), "SpecManager:BaseUrl must be an absolute http or https URL.")
+            .ValidateOnStart();
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(tokenStore ?? (_ => SpecManagerTokenStoreFactory.Create()));

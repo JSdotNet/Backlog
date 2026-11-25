@@ -151,7 +151,7 @@ public sealed class TaskUndoHistoryTests
         Assert.Equal(Two, history.Resolve(Two));
     }
 
-    // The change journal (local ADR 0070 §2): one gesture, one change set.
+    // The change journal (local ADR 0071 §2): one gesture, one change set.
 
     [Fact]
     public void A_group_is_one_person_change_set_for_as_long_as_it_lasts()

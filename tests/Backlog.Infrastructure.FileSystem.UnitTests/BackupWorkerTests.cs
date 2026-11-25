@@ -298,7 +298,7 @@ public sealed class BackupWorkerTests : IDisposable
         Assert.Equal(6, new FileBackupStateStore(_state.StorePath).Current.DailyCopies);
     }
 
-    /// <summary>The backup copy leaves the change journal out (local ADR 0070 §6): the
+    /// <summary>The backup copy leaves the change journal out (local ADR 0071 §6): the
     /// committed file holds the tasks and no revision or change set, and is smaller
     /// than the live database, which keeps every revision it had.</summary>
     [Fact]

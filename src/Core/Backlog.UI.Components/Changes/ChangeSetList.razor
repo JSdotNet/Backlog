@@ -2,7 +2,7 @@
 @using Backlog.SharedKernel.Changes
 
 @*
-    The change journal read back (local ADR 0070 §2): the change sets newest first,
+    The change journal read back (local ADR 0071 §2): the change sets newest first,
     who made each, and — opened in place — every document it changed, its text
     before the change set beside its text now.
 
@@ -10,7 +10,7 @@
     once a row is opened, that row's documents; this draws them and says which row
     was opened and which filter was pressed.
 
-    Taking a change set back (local ADR 0070 §4) is offered only when the host can do
+    Taking a change set back (local ADR 0071 §4) is offered only when the host can do
     it — `OnRestore` bound: an opened row that still stands shows "Restore", and the
     host answers with the plan, drawn in that row as ChangeSetRestorePanel. A change
     set already restored says so on its row and offers nothing more.

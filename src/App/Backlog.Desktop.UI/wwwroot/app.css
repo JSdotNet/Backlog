@@ -13021,7 +13021,7 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-sm);
 }
 
-/* The Changes view (local ADR 0070): the change journal read back, one column that
+/* The Changes view (local ADR 0071): the change journal read back, one column that
    scrolls on its own, its title row beside Refresh. */
 .changes-view {
     display: flex;

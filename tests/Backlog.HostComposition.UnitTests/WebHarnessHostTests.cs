@@ -461,7 +461,7 @@ public class WebHarnessHostTests
     /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools — twice, the second taking an agent's
-    /// restore proposal (local ADR 0070 §5) — the Settings page's test question
+    /// restore proposal (local ADR 0071 §5) — the Settings page's test question
     /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
     /// (the spec-manager adapter), and the device that
     /// redeemed a pairing code (Sync).

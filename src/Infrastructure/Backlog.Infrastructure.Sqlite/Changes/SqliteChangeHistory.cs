@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// Keeps the change journal bounded (local ADR 0070 §6): drops the revisions and
+/// Keeps the change journal bounded (local ADR 0071 §6): drops the revisions and
 /// change sets older than the retention period, or all of them when the person
 /// clears the history.
 /// <para>
@@ -79,7 +79,7 @@ public static class SqliteChangeHistory
     /// <summary>
     /// Empties the journal in a <em>copy</em> of the database and vacuums it, so the
     /// file shrinks by what the journal held — what the backup worker does to its
-    /// temporary copy before reading the bytes (local ADR 0070 §6).
+    /// temporary copy before reading the bytes (local ADR 0071 §6).
     /// <para>
     /// Unlike <see cref="ClearAsync"/> it runs no schema setup and pools no
     /// connection: a copy of a database that never had a journal is left as it is,

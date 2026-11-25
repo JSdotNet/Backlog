@@ -16,7 +16,7 @@ public sealed record AgentCheckpoint(DateTimeOffset TakenAt, long SizeBytes, str
 /// The safety net taken before an agent's first write: a folder
 /// <c>checkpoints/&lt;UTC timestamp&gt;/</c> beside <c>backlog.db</c> holding a consistent copy
 /// of the database, of the devbook subject-state and annotation stores, and of the settings
-/// files the change journal does not cover (local ADR 0070 §7 and §8), so a run that went wrong
+/// files the change journal does not cover (local ADR 0071 §7 and §8), so a run that went wrong
 /// can be put back by hand.
 /// <para>
 /// <b>The settings files.</b> The repository registry sits under the root and is copied at the
@@ -50,7 +50,7 @@ public sealed record AgentCheckpoint(DateTimeOffset TakenAt, long SizeBytes, str
 /// <see cref="WorkspaceSettingsStore.OwnedRootFolders"/>.
 /// </para>
 /// </summary>
-public sealed class AgentCheckpoints
+public sealed partial class AgentCheckpoints
 {
     /// <summary>The folder beside <c>backlog.db</c> the checkpoints go in.</summary>
     public const string FolderName = "checkpoints";
@@ -138,7 +138,7 @@ public sealed class AgentCheckpoints
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "The settings files to checkpoint could not be named; the write goes on without a checkpoint.");
+            SettingsFilesNotNamed(_log, ex);
             return false;
         }
 
@@ -190,7 +190,7 @@ public sealed class AgentCheckpoints
             }
             catch (Exception ex)
             {
-                _log.LogWarning(ex, "The checkpoint before an agent's write could not be taken in {Folder}; the write goes on without one.", staging);
+                CheckpointNotTaken(_log, ex, staging);
                 TryDelete(staging);
                 return false;
             }
@@ -204,7 +204,7 @@ public sealed class AgentCheckpoints
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "A listener to the checkpoints failed; the checkpoint was taken.");
+            CheckpointListenerFailed(_log, ex);
         }
 
         return true;
@@ -265,7 +265,7 @@ public sealed class AgentCheckpoints
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log.LogWarning(ex, "The old checkpoints could not be listed for pruning.");
+            OldCheckpointsNotListed(_log, ex);
             return;
         }
 
@@ -277,7 +277,7 @@ public sealed class AgentCheckpoints
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log.LogWarning(ex, "An old checkpoint could not be deleted from {Folder}.", old.FolderPath);
+                OldCheckpointNotDeleted(_log, ex, old.FolderPath);
             }
         }
     }
@@ -342,7 +342,7 @@ public sealed class AgentCheckpoints
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log.LogWarning(ex, "{File} could not be read into the checkpoint and is left out of it.", source);
+            FileLeftOutOfCheckpoint(_log, ex, source);
             TryDeleteFile(destination);
             return false;
         }
@@ -383,4 +383,22 @@ public sealed class AgentCheckpoints
             // Best effort: the failure being reported is the one that matters.
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The settings files to checkpoint could not be named; the write goes on without a checkpoint.")]
+    private static partial void SettingsFilesNotNamed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The checkpoint before an agent's write could not be taken in {Folder}; the write goes on without one.")]
+    private static partial void CheckpointNotTaken(ILogger logger, Exception exception, string? folder);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A listener to the checkpoints failed; the checkpoint was taken.")]
+    private static partial void CheckpointListenerFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The old checkpoints could not be listed for pruning.")]
+    private static partial void OldCheckpointsNotListed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An old checkpoint could not be deleted from {Folder}.")]
+    private static partial void OldCheckpointNotDeleted(ILogger logger, Exception exception, string folder);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{File} could not be read into the checkpoint and is left out of it.")]
+    private static partial void FileLeftOutOfCheckpoint(ILogger logger, Exception exception, string file);
 }

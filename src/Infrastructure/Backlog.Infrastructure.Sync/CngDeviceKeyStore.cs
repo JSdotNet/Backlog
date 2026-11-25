@@ -25,7 +25,7 @@ namespace Backlog.Infrastructure.Sync;
 /// </para>
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
+public sealed partial class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
 {
     /// <summary>The name the installed app's key is kept under.</summary>
     public const string DefaultKeyName = "Backlog.Sync.DeviceKey";
@@ -143,10 +143,7 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
 
         if (_software.Exists(_keyName))
         {
-            _log.LogWarning(
-                probeFailure,
-                "This device's key {KeyName} is kept in software, not a TPM; it was made there because no TPM was available.",
-                _keyName);
+            LogKeyKeptInSoftware(_log, probeFailure, _keyName);
             return (_software.Open(_keyName), DeviceKeyProtection.Software);
         }
 
@@ -168,12 +165,12 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
             {
                 // The provider is there but the TPM behind it is missing or switched
                 // off: the software provider is the fallback, and Settings says so.
-                _log.LogWarning(ex, "The TPM could not make this device's key {KeyName}, so it is made in software.", _keyName);
+                LogTpmCouldNotMakeKey(_log, ex, _keyName);
                 return (CreateOrOpen(_software), DeviceKeyProtection.Software);
             }
         }
 
-        _log.LogWarning("This machine has no usable TPM, so this device's key {KeyName} is made in software.", _keyName);
+        LogNoUsableTpm(_log, _keyName);
         return (CreateOrOpen(_software), DeviceKeyProtection.Software);
     }
 
@@ -190,4 +187,13 @@ public sealed class CngDeviceKeyStore : IDeviceKeyStore, IDisposable
             return provider.Open(_keyName);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This device's key {KeyName} is kept in software, not a TPM; it was made there because no TPM was available.")]
+    private static partial void LogKeyKeptInSoftware(ILogger logger, Exception? exception, string keyName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The TPM could not make this device's key {KeyName}, so it is made in software.")]
+    private static partial void LogTpmCouldNotMakeKey(ILogger logger, Exception exception, string keyName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This machine has no usable TPM, so this device's key {KeyName} is made in software.")]
+    private static partial void LogNoUsableTpm(ILogger logger, string keyName);
 }

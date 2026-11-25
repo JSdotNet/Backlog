@@ -6,7 +6,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// <c>list_change_sets</c> and <c>propose_restore</c> (local ADR 0070 §5): the first reads the
+/// <c>list_change_sets</c> and <c>propose_restore</c> (local ADR 0071 §5): the first reads the
 /// journal through its filters, the second asks the person and nothing more — no tool can
 /// restore, because no tool class is handed the restore port.
 /// </summary>
@@ -218,7 +218,7 @@ public sealed class ChangeToolsTests
     public void A_key_that_is_no_proposals_names_no_change_set(string? key) =>
         Assert.Null(RestoreProposals.ChangeSetOf(key));
 
-    /// <summary>No tool restores directly (local ADR 0070 §5): no served tool class is handed
+    /// <summary>No tool restores directly (local ADR 0071 §5): no served tool class is handed
     /// the restore port, so none can reach it.</summary>
     [Fact]
     public void No_tool_class_takes_the_restore_port()

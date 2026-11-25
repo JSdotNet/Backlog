@@ -24,7 +24,7 @@ public sealed class RecordTaskUsageCommandHandler(ITaskRepository entries)
         entry.RecordUsage(command.Action);
 
         // Noting a use changes nothing a person would take back, so the change
-        // journal skips it (local ADR 0070 §2).
+        // journal skips it (local ADR 0071 §2).
         using (ChangeContext.Unjournalled())
         {
             await entries.SaveAsync(entry, cancellationToken);

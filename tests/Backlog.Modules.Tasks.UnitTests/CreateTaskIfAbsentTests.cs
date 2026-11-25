@@ -3,6 +3,8 @@ using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Modules.Tasks.UnitTests;
 
 /// <summary>
@@ -84,6 +86,23 @@ public sealed class CreateTaskIfAbsentTests
 
         Assert.Equal(TaskEntryErrorCodes.PlanBelongsToImport, Assert.IsType<Error>(result.Value).Code);
         Assert.Empty(store.Entries);
+    }
+
+    /// <summary>The creation stamp and the started date come from the handler's clock
+    /// (app-defaults ADR 0005), not from a direct clock read.</summary>
+    [Fact]
+    public async Task The_created_task_is_stamped_with_the_handlers_clock()
+    {
+        var store = new InMemoryTaskRepository();
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 3, 14, 9, 26, 0, TimeSpan.Zero));
+
+        var result = await new CreateTaskIfAbsentCommandHandler(store, new FakeRepositoryDirectory(), clock)
+            .Handle(new CreateTaskIfAbsentCommand(Id, "# Harvest Techorama Belgium\n`task` `!in-progress`\n", 0), TestContext.Current.CancellationToken);
+
+        Assert.True(Assert.IsType<Ok<bool>>(result.Value).Value);
+        var created = store.Entries[Id];
+        Assert.Equal(clock.GetUtcNow(), created.CreatedAt);
+        Assert.Equal(new DateOnly(2026, 3, 14), created.StartedOn);
     }
 
     private static TaskItem Held(string title) =>

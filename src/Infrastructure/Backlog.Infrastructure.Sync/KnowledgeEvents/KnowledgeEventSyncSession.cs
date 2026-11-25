@@ -47,7 +47,7 @@ public sealed record KnowledgeEventSyncSummary(int Pushed, int Pulled, int Appli
 /// order, and pushed together, so a series goes out beside the edition that names it.
 /// </para>
 /// </summary>
-public sealed class KnowledgeEventSyncSession
+public sealed partial class KnowledgeEventSyncSession
 {
     /// <summary>How many changes go in one push — the service's own cap
     /// (<c>SyncRequestLimits.MaximumPushKnowledgeEvents</c>), because an event document is far
@@ -126,7 +126,7 @@ public sealed class KnowledgeEventSyncSession
         // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
         if (answer.Accepted == 0)
         {
-            _log.LogInformation("The events switch was not taken: the replica holds a later one from another desktop.");
+            LogSwitchNotTaken(_log);
         }
 
         _state.Update(state => state.Area == area ? state with { Area = area with { Sent = true } } : state);
@@ -169,11 +169,7 @@ public sealed class KnowledgeEventSyncSession
             {
                 if (KnowledgeEventRecordLimits.WhyRefused(change) is { } reason)
                 {
-                    _log.LogWarning(
-                        "Leaving {Kind} {Id} out of the push, because the sync service would refuse it and every change sent beside it. {Reason}",
-                        change.Kind,
-                        change.Id,
-                        reason);
+                    LogChangeLeftOutOfPush(_log, change.Kind, change.Id, reason);
 
                     skipped++;
                     continue;
@@ -238,7 +234,7 @@ public sealed class KnowledgeEventSyncSession
             }
 
             pulled += feed.Events.Count;
-            // One applied page is one sync change set (local ADR 0070 §2).
+            // One applied page is one sync change set (local ADR 0071 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying a knowledge event sync page"))
             {
                 applied += (await _merge.ApplyAsync(feed.Events, cancellationToken).ConfigureAwait(false)).Applied;
@@ -269,7 +265,7 @@ public sealed class KnowledgeEventSyncSession
             var error = (Error)sent.Value!;
             if (string.Equals(error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
             {
-                _log.LogInformation("The sync service refused the events switch ({Code}); it goes again next exchange.", error.Code);
+                LogSwitchRefused(_log, error.Code);
                 return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
             }
 
@@ -291,8 +287,7 @@ public sealed class KnowledgeEventSyncSession
         var area = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
         if (area is Error areaError)
         {
-            _log.LogInformation(
-                "The events switch was not sent and goes again next exchange: {Code} {Message}", areaError.Code, areaError.Message);
+            LogSwitchNotSent(_log, areaError.Code, areaError.Message);
         }
 
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
@@ -320,8 +315,23 @@ public sealed class KnowledgeEventSyncSession
             return Result.Failure<KnowledgeEventSyncSummary>(error);
         }
 
-        _log.LogDebug("The sync service has no knowledge event route yet ({Code}); nothing was exchanged.", error.Code);
+        LogRouteNotYetServed(_log, error.Code);
 
         return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The events switch was not taken: the replica holds a later one from another desktop.")]
+    private static partial void LogSwitchNotTaken(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Leaving {Kind} {Id} out of the push, because the sync service would refuse it and every change sent beside it. {Reason}")]
+    private static partial void LogChangeLeftOutOfPush(ILogger logger, string kind, Guid id, string reason);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The sync service refused the events switch ({Code}); it goes again next exchange.")]
+    private static partial void LogSwitchRefused(ILogger logger, string code);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The events switch was not sent and goes again next exchange: {Code} {Message}")]
+    private static partial void LogSwitchNotSent(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The sync service has no knowledge event route yet ({Code}); nothing was exchanged.")]
+    private static partial void LogRouteNotYetServed(ILogger logger, string code);
 }

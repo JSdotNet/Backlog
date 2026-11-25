@@ -320,7 +320,7 @@ public sealed class SettingsBackupTests
     }
 
     /// <summary>The Change history card: how long the journal is kept, 90 days
-    /// until somebody picks 30 or 365 (local ADR 0070 §6).</summary>
+    /// until somebody picks 30 or 365 (local ADR 0071 §6).</summary>
     [Fact]
     public void The_change_history_card_offers_30_90_and_365_days_with_90_chosen()
     {
@@ -375,7 +375,7 @@ public sealed class SettingsBackupTests
 
     /// <summary>The Backup card warns once the copy the last backup uploaded is past
     /// 50 MB; at exactly 50 MB it says nothing. It reads the copy, which leaves the
-    /// change journal out (local ADR 0070 §6), so it no longer offers clearing the
+    /// change journal out (local ADR 0071 §6), so it no longer offers clearing the
     /// history as the way to shrink it.</summary>
     [Theory]
     [InlineData(50L * 1024 * 1024, false)]

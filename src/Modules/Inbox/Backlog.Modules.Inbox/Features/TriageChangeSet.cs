@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Modules.Inbox.Features;
 
 /// <summary>
-/// The change set a triage decision writes under (local ADR 0070 §2): the item it
+/// The change set a triage decision writes under (local ADR 0071 §2): the item it
 /// clarifies and the task, plan or knowledge event that becomes its home (local
 /// ADR 0054 §1) are one change set, so restoring it reopens the item and takes back what
 /// it made.

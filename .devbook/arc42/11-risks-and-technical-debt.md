@@ -32,7 +32,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 | R8 | The device holds external credentials, listed below the table. | Local ADR 0030 seals every one with the OS. |
 | R9 | **File-syncing the local SQLite store corrupts it.** | Local ADR 0005 replaces file sync with the sync service. Keep the workspace root on a local disk. |
 | R10 | **A replica of personal task content moves into Azure**, which changes the threat model. | Partition-scoped device tokens, managed identity with a Cosmos data-plane role, and Key Vault. |
-| R11 | **Two agents editing one entry** on one device: the later save silently overwrites the earlier. | A task save refuses a write based on an older `updated_at` (local ADR 0070 §7). |
+| R11 | **Two agents editing one entry** on one device: the later save silently overwrites the earlier. | A task save refuses a write based on an older `updated_at` (local ADR 0071 §7). |
 
 - **R5:** Local ADR 0005 accepts this because it resolves whole documents, not fields. Server-assigned ordering removes clock skew as a cause (`.devbook/arc42/08-crosscutting-concepts.md#task-sync`), but the loss remains.
 - **R7:** The desktop client is intended to be Windows-only and close to the .NET stack.
@@ -48,7 +48,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 - **R10:** Content that was purely local becomes cloud-resident. No account keys are
   issued. See local ADR 0005.
 - **R11:** A save today is an upsert with no `updated_at` check. The change journal records
-  which session lost, so its change set can be restored ([ADR 0070](adr/0070-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)).
+  which session lost, so its change set can be restored ([ADR 0071](adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)).
 
 ## Technical Debt
 

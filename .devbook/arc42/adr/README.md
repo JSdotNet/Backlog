@@ -88,7 +88,16 @@ between inherited ADRs 0005 and 0009.
 - **[0059 — Tokenless MCP calls get the scopes the person opens to them](0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md)** *(accepted, built; amends 0058 §3, §4 and §6)*
 - **[0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md)** *(proposed, not yet built)*
 - **[0061 — The Events map uses online tiles and geocodes an address on save](0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)** *(accepted, not yet built; Azure Maps on the EU endpoint, beside 0023 and 0045)*
-- **[0070 — Agent changes are restorable through a change journal beside the store](0070-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)** *(proposed, not yet built; adds to 0003, amends 0058 §4)*
+- **[0062 — Repository automation stays PowerShell and Node, not C# file-based apps](0062-repository-automation-stays-powershell-and-node.md)** *(proposed; keeps a difference from org ADR 0001)*
+- **[0063 — The sync tier deploys from hand-written Bicep through `azd`, not `aspire publish` and `aspire deploy`](0063-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md)** *(proposed; keeps a difference from org ADR 0002)*
+- **[0064 — Data access stays in infrastructure adapters, on raw SQLite and the Cosmos SDK, with no EF Core and no event outbox](0064-data-access-stays-in-infrastructure-adapters-without-ef-core-or-an-outbox.md)** *(proposed; keeps differences from org ADRs 0003 and 0006)*
+- **[0065 — The sync clients share the service's contract assembly instead of a client generated from OpenAPI](0065-sync-clients-share-the-contract-assembly-instead-of-a-generated-client.md)** *(proposed; keeps a difference from org ADR 0004)*
+- **[0066 — Sync identity stays GitHub sign-in and device keys, and every anonymous sync route gets a rate limit](0066-sync-identity-stays-github-and-device-keys-and-every-anonymous-route-is-rate-limited.md)** *(proposed, rate limits not yet built; keeps one difference from org ADR 0008 and moves to its rate-limit rule)*
+- **[0067 — Each module ships its own UI project, and the apps under `src/App/` compose them](0067-each-module-ships-its-own-ui-project-and-the-apps-compose-them.md)** *(proposed; keeps a difference from org ADR 0009)*
+- **[0068 — Tests keep hand-written doubles, in-memory replicas and C# Playwright](0068-tests-keep-hand-written-doubles-in-memory-replicas-and-csharp-playwright.md)** *(proposed; keeps differences from org ADR 0010)*
+- **[0069 — The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource](0069-the-backlog-mcp-server-keeps-grants-and-serves-its-own-skill.md)** *(proposed, skill not yet built; keeps one difference from org ADR 0011 and moves to its skill rule)*
+- **[0070 — Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set](0070-model-calls-stay-on-the-foundry-adapter-and-gain-an-evaluation-set.md)** *(proposed, evaluation set not yet built; keeps one difference from org ADR 0012 and moves to its evaluation rule)*
+- **[0071 — Agent changes are restorable through a change journal beside the store](0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)** *(proposed, not yet built; adds to 0003, amends 0058 §4)*
 
 ## Inherited decisions
 

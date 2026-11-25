@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// Keeps the change journal in <c>backlog.db</c> bounded (local ADR 0070 §6): once a
+/// Keeps the change journal in <c>backlog.db</c> bounded (local ADR 0071 §6): once a
 /// day it deletes the revisions and change sets older than
 /// <see cref="WorkspaceSettingsStore.ChangeHistoryDays"/>, and on the person's word
 /// it deletes all of them.
@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// the database; a shorter period chosen in Settings prunes after the same delay.
 /// </para>
 /// </summary>
-public sealed class ChangeHistoryWorker : IDisposable
+public sealed partial class ChangeHistoryWorker : IDisposable
 {
     /// <summary>How long after start, or after the period changes, the next prune runs.</summary>
     internal static readonly TimeSpan StartDelay = TimeSpan.FromSeconds(30);
@@ -72,9 +72,7 @@ public sealed class ChangeHistoryWorker : IDisposable
                 .PruneAsync(_settings.DatabasePath, cutoff, cancellationToken).ConfigureAwait(false);
             if (purge != ChangeHistoryPurge.None)
             {
-                _log.LogInformation(
-                    "Pruned the change history older than {Days} days: {Revisions} revisions, {ChangeSets} change sets.",
-                    _settings.ChangeHistoryDays, purge.Revisions, purge.ChangeSets);
+                HistoryPruned(_log, _settings.ChangeHistoryDays, purge.Revisions, purge.ChangeSets);
                 Changed?.Invoke();
             }
 
@@ -95,15 +93,13 @@ public sealed class ChangeHistoryWorker : IDisposable
         {
             var purge = await SqliteChangeHistory
                 .ClearAsync(_settings.DatabasePath, cancellationToken).ConfigureAwait(false);
-            _log.LogInformation(
-                "Cleared the change history: {Revisions} revisions, {ChangeSets} change sets.",
-                purge.Revisions, purge.ChangeSets);
+            HistoryCleared(_log, purge.Revisions, purge.ChangeSets);
             Changed?.Invoke();
             return null;
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
         {
-            _log.LogWarning(ex, "Clearing the change history failed.");
+            ClearFailed(_log, ex);
             return ClearFailure;
         }
         finally
@@ -155,7 +151,19 @@ public sealed class ChangeHistoryWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Pruning the change history failed; the next tick tries again.");
+            PruneFailed(_log, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Pruned the change history older than {Days} days: {Revisions} revisions, {ChangeSets} change sets.")]
+    private static partial void HistoryPruned(ILogger logger, int days, int revisions, int changeSets);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Cleared the change history: {Revisions} revisions, {ChangeSets} change sets.")]
+    private static partial void HistoryCleared(ILogger logger, int revisions, int changeSets);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Clearing the change history failed.")]
+    private static partial void ClearFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Pruning the change history failed; the next tick tries again.")]
+    private static partial void PruneFailed(ILogger logger, Exception exception);
 }

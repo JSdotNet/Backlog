@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.SharedKernel.UnitTests.Changes;
 
 /// <summary>
-/// The ambient change set of local ADR 0070 §2: what each entry point's scope makes
+/// The ambient change set of local ADR 0071 §2: what each entry point's scope makes
 /// current, what it puts back, and what work started under it inherits.
 /// </summary>
 public sealed class ChangeContextTests

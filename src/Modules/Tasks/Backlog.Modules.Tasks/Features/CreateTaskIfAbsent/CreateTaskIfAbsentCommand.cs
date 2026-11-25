@@ -22,9 +22,11 @@ public sealed record CreateTaskIfAbsentCommand(Guid Id, string RawText, int Orde
 /// <summary>Answers <see langword="true"/> when this call created the task, and
 /// <see langword="false"/> when a task with the id was already held, live or deleted, and nothing
 /// was written. The text is refused on the terms an ordinary create refuses it.</summary>
-public sealed class CreateTaskIfAbsentCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
+public sealed class CreateTaskIfAbsentCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories, TimeProvider? clock = null)
     : ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>>
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>The refusal of an ordinary create with no title, by the same code.</summary>
     public static readonly Error NeedsTitle = Error.Validation(
         "entry.needs_title",
@@ -53,7 +55,7 @@ public sealed class CreateTaskIfAbsentCommandHandler(ITaskRepository entries, IR
         if ((parsed.RepoIds?.Count ?? 0) > 0)
             parsed = parsed with { RepoIds = new RepositoryIdResolver(repositories).Resolve(parsed.RepoIds) };
 
-        var entry = TaskEntryFields.CreateFrom(parsed, command.Order, id: command.Id);
+        var entry = TaskEntryFields.CreateFrom(parsed, command.Order, _clock, id: command.Id);
         await entries.SaveAsync(entry, cancellationToken).ConfigureAwait(false);
 
         return true;

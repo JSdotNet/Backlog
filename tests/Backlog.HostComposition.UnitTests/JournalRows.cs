@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>One row of the change journal's <c>revisions</c>, with the label and actor
-/// of the change set it belongs to (local ADR 0070 §2).</summary>
+/// of the change set it belongs to (local ADR 0071 §2).</summary>
 internal sealed record JournalRow(
     long Sequence,
     string ChangeSetId,

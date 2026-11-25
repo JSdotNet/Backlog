@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Changes;
 
 /// <summary>
-/// The change set the current asynchronous flow writes under (local ADR 0070 §2).
+/// The change set the current asynchronous flow writes under (local ADR 0071 §2).
 /// <para>
 /// Ambient, on an <see cref="AsyncLocal{T}"/>, because the writes it names reach the
 /// store through ports that carry no actor: each entry point opens a scope, and the

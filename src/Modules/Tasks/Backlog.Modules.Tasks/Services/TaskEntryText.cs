@@ -7,7 +7,7 @@ namespace Backlog.Modules.Tasks.Services;
 /// A task as the text it is — what <see cref="EntryTextParser.ToRawText"/> composes,
 /// metadata line and sub-items included. For a reader outside the module that holds
 /// the aggregate and not its published shape: the change journal, which shows a
-/// task's text before a change set beside its text now (local ADR 0070).
+/// task's text before a change set beside its text now (local ADR 0071).
 /// </summary>
 public static class TaskEntryText
 {

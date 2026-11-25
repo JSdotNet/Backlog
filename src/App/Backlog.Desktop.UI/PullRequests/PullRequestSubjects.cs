@@ -29,7 +29,7 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// </para>
 /// </summary>
 /// <param name="pullRequests">The contract, resolved per call; null reads nothing.</param>
-public sealed class PullRequestSubjects(
+public sealed partial class PullRequestSubjects(
     Func<IPullRequests?> pullRequests,
     Func<INotifications?> notifications,
     ILogger<PullRequestSubjects>? logger = null) : ISessionPullRequestStates
@@ -61,13 +61,13 @@ public sealed class PullRequestSubjects(
                 : SessionNotificationSubjects.PullRequestClosedReason;
 
             var closed = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
-            if (closed is Error error) _logger.LogDebug("Notifications about pull request {Id} were not closed: {Error}", id, error.Message);
+            if (closed is Error error) LogNotificationsNotClosed(_logger, id, error.Message);
         }
         catch (Exception exception)
         {
             // Let the next reading try again rather than remember an end it never reported.
             _ended.TryRemove(id, out _);
-            _logger.LogWarning(exception, "Closing the notifications about pull request {Id} failed.", id);
+            LogClosingNotificationsFailed(_logger, exception, id);
         }
     }
 
@@ -89,4 +89,10 @@ public sealed class PullRequestSubjects(
             _ => null
         };
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notifications about pull request {Id} were not closed: {Error}")]
+    private static partial void LogNotificationsNotClosed(ILogger logger, string id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the notifications about pull request {Id} failed.")]
+    private static partial void LogClosingNotificationsFailed(ILogger logger, Exception exception, string id);
 }

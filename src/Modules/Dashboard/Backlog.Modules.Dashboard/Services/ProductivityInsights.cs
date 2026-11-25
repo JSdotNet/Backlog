@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.Services;
 
@@ -338,7 +339,7 @@ public sealed class ProductivityInsights(
                 scoped.Buckets,
                 pullRequests,
                 pr => pr.MergedAt,
-                bucket => MedianTurnaround(bucket) is { } median ? (decimal)median.TotalHours : null),
+                bucket => MedianTurnaround(bucket) is { } median ? ExactDuration.Hours(median) : null),
             CommitsPerPullRequestPerWeek = WeekBuckets.ReduceWhereKnown(
                 scoped.Buckets,
                 pullRequests,

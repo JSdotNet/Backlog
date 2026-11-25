@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
 /// <see cref="IDocumentRevisionJournal"/> over <c>backlog.db</c> in a folder somebody can
-/// move: the revisions a JSON file store records before it writes (local ADR 0070 §2), in
+/// move: the revisions a JSON file store records before it writes (local ADR 0071 §2), in
 /// the same <c>revisions</c> and <c>change_sets</c> tables the triggers fill, by the same
 /// rules — one revision per document per change set, keeping the document as it was before
 /// the change set first touched it, and an unknown writer's change set for a write no entry
@@ -16,14 +16,16 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 /// the state still lands, which costs its history rather than the person's write.
 /// </para>
 /// </summary>
-public sealed class SqliteDocumentJournal(Func<string> currentRootDirectory) : IDocumentRevisionJournal
+public sealed class SqliteDocumentJournal(Func<string> currentRootDirectory, TimeProvider? timeProvider = null) : IDocumentRevisionJournal
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
 
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     /// <summary>A journal over one fixed folder, for a test or a harness.</summary>
-    public SqliteDocumentJournal(string rootDirectory)
-        : this(() => rootDirectory)
+    public SqliteDocumentJournal(string rootDirectory, TimeProvider? timeProvider = null)
+        : this(() => rootDirectory, timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
     }
@@ -91,7 +93,7 @@ public sealed class SqliteDocumentJournal(Func<string> currentRootDirectory) : I
             insert.Transaction = transaction;
             insert.CommandText = "INSERT INTO change_sets (id, actor_kind, started_at) VALUES ($id, 'unknown', $now);";
             insert.Parameters.AddWithValue("$id", changeSetId.ToString());
-            insert.Parameters.AddWithValue("$now", JournalStamp.Format(DateTimeOffset.UtcNow));
+            insert.Parameters.AddWithValue("$now", JournalStamp.Format(_time.GetUtcNow()));
             await insert.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
@@ -130,7 +132,7 @@ public sealed class SqliteDocumentJournal(Func<string> currentRootDirectory) : I
                 write.Parameters.AddWithValue("$kind", kind);
                 write.Parameters.AddWithValue("$id", id);
                 write.Parameters.AddWithValue("$before", (object?)before ?? DBNull.Value);
-                write.Parameters.AddWithValue("$now", JournalStamp.Format(DateTimeOffset.UtcNow));
+                write.Parameters.AddWithValue("$now", JournalStamp.Format(_time.GetUtcNow()));
 
                 var sequence = Convert.ToInt64(await write.ExecuteScalarAsync().ConfigureAwait(false), CultureInfo.InvariantCulture);
                 revision = revision with { Sequence = sequence };

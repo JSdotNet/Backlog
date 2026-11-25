@@ -178,7 +178,7 @@ related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/
 
 The span of time on one date that the person meant to work: that date's start and end in the [working week](context.md#working-week), with the [day overrides](../roadmap/domain.md#day-override) applied. A blocked date has no office hours. An unblocked date has the start and end its weekday stores. A day whose end is not after its start has none either.
 
-The dashboard's [Hours worked](features.md#hours-worked) part splits the person's [actual hours](../roadmap/domain.md#actual-hours) by it into time **inside office hours** and time **outside office hours**. The split is to the minute, not by the hour grids' rule of outlining a whole hour that office hours only touch.
+The dashboard's [Hours worked](features.md#hours-worked) part splits the person's [actual hours](../roadmap/domain.md#actual-hours) by it into time **inside office hours** and time **outside office hours**. The split is to the minute, not by the hour grids' rule of outlining a whole hour that office hours only touch. Each chart figure is that time in hours, rounded half to even to the hundredth from the duration itself: 26 minutes 42 seconds is 0.445 hours and reads 0.44.
 
 The term exists because the split needs one date's span, overrides applied. *Working hours* is an alias of Roadmap Planning's [Working Week](../roadmap/domain.md#working-week), the weekly pattern and its overrides together, not the hours of one date.
 

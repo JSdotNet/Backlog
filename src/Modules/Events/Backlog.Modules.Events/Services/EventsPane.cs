@@ -12,7 +12,7 @@ namespace Backlog.Modules.Events.Services;
 /// <see cref="IEventsPane"/> over the two repositories, the task target and the Brain notes.
 /// Each change is one load, one aggregate call and one save; the aggregate holds every rule.
 /// </summary>
-internal sealed class EventsPane(
+internal sealed partial class EventsPane(
     IKnowledgeEventRepository events,
     IEventSeriesRepository series,
     IEventTaskTarget tasks,
@@ -110,7 +110,7 @@ internal sealed class EventsPane(
             catch (Exception exception)
 #pragma warning restore CA1031
             {
-                _log.LogWarning(exception, "An Events pane handler failed on an event saved elsewhere.");
+                LogHandlerFailed(_log, exception);
             }
         }
     }
@@ -127,7 +127,7 @@ internal sealed class EventsPane(
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(exception, "Announcing an event series saved before a failed event save failed.");
+            LogSeriesAnnouncementFailed(_log, exception);
         }
     }
 
@@ -135,7 +135,7 @@ internal sealed class EventsPane(
     /// Called only from async methods, whose end also restores the flow's mark.</summary>
     private WriteMark BeginWrite()
     {
-        // The pane's write is the person's change set (local ADR 0070 §2), unless an MCP
+        // The pane's write is the person's change set (local ADR 0071 §2), unless an MCP
         // call already named an agent's. Set here, in a synchronous method, so the caller's
         // flow carries it until the mark is disposed.
         var mark = new WriteMark(_identity, ChangeContext.BeginIfNone(ChangeActor.Person, "Events pane edit"));
@@ -636,7 +636,7 @@ internal sealed class EventsPane(
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _log.LogWarning("Looking up an event's address failed with {ExceptionType}.", exception.GetType().Name);
+            LogAddressLookUpFailed(_log, exception.GetType().Name);
             return GeocodeAnswer.Failed;
         }
         finally
@@ -722,7 +722,7 @@ internal sealed class EventsPane(
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _log.LogWarning("Geocoding an event's address failed with {ExceptionType}.", exception.GetType().Name);
+            LogGeocodingFailed(_log, exception.GetType().Name);
             return GeocodeAnswer.Failed;
         }
     }
@@ -954,4 +954,17 @@ internal sealed class EventsPane(
     /// <summary>A Brain note's path as an event stores it (<see cref="NoteLink.BrainPath"/>).
     /// Null for a blank one.</summary>
     private static string? NotePath(string? path) => NoteLink.BrainPath(path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An Events pane handler failed on an event saved elsewhere.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Announcing an event series saved before a failed event save failed.")]
+    private static partial void LogSeriesAnnouncementFailed(ILogger logger, Exception exception);
+
+    // The exception itself is left out: its message can carry the address, which no log may (local ADR 0061 §5).
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Looking up an event's address failed with {ExceptionType}.")]
+    private static partial void LogAddressLookUpFailed(ILogger logger, string exceptionType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Geocoding an event's address failed with {ExceptionType}.")]
+    private static partial void LogGeocodingFailed(ILogger logger, string exceptionType);
 }

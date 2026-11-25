@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The devbook subject states and the remarks in the change journal (local ADR 0070 §2):
+/// The devbook subject states and the remarks in the change journal (local ADR 0071 §2):
 /// JSON files no trigger reaches, so each store records the prior document through the
 /// journal port in <c>backlog.db</c> before it writes the file, withdraws it when the file
 /// write fails, and writes the document back through its own write path when a person

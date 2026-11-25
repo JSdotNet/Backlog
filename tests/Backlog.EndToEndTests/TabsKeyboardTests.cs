@@ -14,7 +14,7 @@ namespace Backlog.EndToEndTests;
 /// </summary>
 public sealed class TabsKeyboardTests
 {
-    private const string Resource = "ui-storybook";
+    internal const string Resource = "ui-storybook";
 
     /// <summary>
     /// Two ArrowLefts pressed back to back from History land on Read. The second

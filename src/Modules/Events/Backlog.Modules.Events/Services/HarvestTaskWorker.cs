@@ -25,7 +25,7 @@ namespace Backlog.Modules.Events.Services;
 /// The flag is read at each check, so switching the area on takes effect the next day.
 /// </para>
 /// </summary>
-public sealed class HarvestTaskWorker : IDisposable
+public sealed partial class HarvestTaskWorker : IDisposable
 {
     /// <summary>How long after the app starts the first check runs. Not zero: the first
     /// seconds of a launch belong to drawing the window.</summary>
@@ -115,7 +115,7 @@ public sealed class HarvestTaskWorker : IDisposable
                     .FileDueAsync(today, _stopping)
                     .ConfigureAwait(false);
 
-                if (filed > 0) _log.LogInformation("Filed {Count} harvest task(s) for events that ended before {Today}.", filed, today);
+                if (filed > 0) LogFiled(_log, filed, today);
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
@@ -124,7 +124,7 @@ public sealed class HarvestTaskWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "The harvest task check threw; it runs again when the local day turns.");
+            LogCheckThrew(_log, ex);
         }
         finally
         {
@@ -142,4 +142,10 @@ public sealed class HarvestTaskWorker : IDisposable
 
         return (wait > TimeSpan.Zero ? wait : TimeSpan.Zero) + TimerMargin;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Filed {Count} harvest task(s) for events that ended before {Today}.")]
+    private static partial void LogFiled(ILogger logger, int count, DateOnly today);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The harvest task check threw; it runs again when the local day turns.")]
+    private static partial void LogCheckThrew(ILogger logger, Exception exception);
 }

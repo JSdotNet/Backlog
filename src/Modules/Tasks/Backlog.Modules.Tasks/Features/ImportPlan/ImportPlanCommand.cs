@@ -73,9 +73,12 @@ public sealed record ImportPlanCommand(
 public sealed class ImportPlanCommandHandler(
     ITaskRepository entries,
     IRepositoryDirectory repositories,
-    IRoadmapPlanIntake? roadmap = null)
+    IRoadmapPlanIntake? roadmap = null,
+    TimeProvider? clock = null)
     : ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>The refusal a host with no roadmap reports for a document that asked
     /// for one.</summary>
     public const string RoadmapUnavailable = "The roadmap is not available here, so nothing was laid out on it.";
@@ -171,7 +174,7 @@ public sealed class ImportPlanCommandHandler(
 
         parsedEntries = resolvedEntries;
 
-        // One change set for the whole import (local ADR 0070 §2): the tasks it
+        // One change set for the whole import (local ADR 0071 §2): the tasks it
         // writes and the roadmap plan it lays out are taken back together. Opened
         // here, after the last refusal, so a refused import records nothing. An import
         // an Inbox decision makes joins that decision's change set instead.
@@ -368,7 +371,7 @@ public sealed class ImportPlanCommandHandler(
                     BlockedSince = outcome.Parsed.BlockedSince ?? entry.BlockedSince,
                     WaitingFor = outcome.Parsed.WaitingFor ?? entry.WaitingFor
                 });
-                if (outcome.Parsed.Status is { } status) entry.SetStatus(status, TaskEntryFields.LocalToday);
+                if (outcome.Parsed.Status is { } status) entry.SetStatus(status, TaskEntryFields.LocalToday(_clock));
 
                 // The plan says what the step is about when it writes a `devbook:`
                 // token, and then the list is the plan's — set whole, like every
@@ -560,7 +563,7 @@ public sealed class ImportPlanCommandHandler(
     /// its own: an import routed from the Inbox (<see cref="ImportPlanCommand.SourceInboxId"/>
     /// or <see cref="ImportPlanCommand.SourceInboxIds"/>) is the home a triage decision
     /// makes, and that decision's change set — the item and the plan it became — is taken
-    /// back as one (local ADR 0070 §2). An Inbox import with no change set current still
+    /// back as one (local ADR 0071 §2). An Inbox import with no change set current still
     /// opens its own.
     /// </summary>
     internal static bool JoinsCurrent(ImportPlanCommand command) =>
@@ -569,7 +572,7 @@ public sealed class ImportPlanCommandHandler(
 
     /// <summary>
     /// The change set an import writes under, labelled "Import of +tag" by the plan
-    /// tags its entries carry (local ADR 0070 §2). A new one even when a change set is
+    /// tags its entries carry (local ADR 0071 §2). A new one even when a change set is
     /// current, so the import is restorable on its own, but by the same actor: an
     /// agent's import keeps its caller, session and correlation id, and an import from
     /// an entry point that named nobody is filed under an unknown writer.
@@ -732,12 +735,12 @@ public sealed class ImportPlanCommandHandler(
     /// can say; the drafter is asked for <c>!draft</c> too, so the two agree,
     /// but the prompt is a request and this is the guarantee.
     /// </para></summary>
-    private static TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId)
+    private TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId)
     {
-        var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
+        var entry = TaskEntryFields.CreateFrom(parsed, order, _clock, sourceInboxId);
 
-        if (sourceInboxId is not null) entry.SetStatus(EntryStatus.Draft, TaskEntryFields.LocalToday);
-        else if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready, TaskEntryFields.LocalToday);
+        if (sourceInboxId is not null) entry.SetStatus(EntryStatus.Draft, TaskEntryFields.LocalToday(_clock));
+        else if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready, TaskEntryFields.LocalToday(_clock));
 
         return entry;
     }

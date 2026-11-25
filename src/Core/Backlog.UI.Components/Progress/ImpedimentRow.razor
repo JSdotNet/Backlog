@@ -288,8 +288,9 @@
 
         // Render the pick first, so the render after the move differs from it wherever the
         // host kept the stored state, and the stored value is written back onto the select.
+        // The yield is what paints it: Blazor renders a handler's component as soon as the
+        // handler first waits.
         _picked = state;
-        StateHasChanged();
         await Task.Yield();
 
         try

@@ -35,7 +35,7 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// reached keeps it the same way, until the next start.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerAnswers : INotificationAnswerHandler
+internal sealed partial class SpecManagerAnswers :INotificationAnswerHandler
 {
     /// <summary>The words spec-manager's refusal uses when a product does not allow answers
     /// from a connected app — read so that refusal is told apart from the product keeping
@@ -93,7 +93,7 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
 
         if (SpecManagerQuestionMapper.ParseSourceKey(answer.Source.Key) is not { } named)
         {
-            _log.LogDebug("An answer with source key {Key} names no spec-manager question; nothing to send.", answer.Source.Key);
+            AnswerNamesNoQuestion(_log, answer.Source.Key);
             return;
         }
 
@@ -109,7 +109,7 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
         {
             await _client.AnswerQuestionAsync(product, questionId, RequestOf(answer), cancellationToken).ConfigureAwait(false);
             _signIn.SetAnswersWaiting(false);
-            _log.LogInformation("Sent the answer to spec-manager question {QuestionId} of {Product}.", questionId, product);
+            AnswerSent(_log, questionId, product);
         }
         catch (SpecManagerSignInRequiredException)
         {
@@ -127,8 +127,8 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
         {
             // Refused is an answer about the question: done with, whatever else waits.
             _signIn.SetAnswersWaiting(false);
-            _log.LogInformation(
-                "spec-manager refused the answer to question {QuestionId} of {Product} with {Status}.",
+            AnswerRefused(
+                _log,
                 questionId,
                 product,
                 (int)refused.Status);
@@ -265,7 +265,7 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log.LogDebug(ex, "The question of notification {NotificationId} could not be read back for its alert.", notificationId);
+            QuestionNotReadBack(_log, ex, notificationId);
         }
 
         return "the question";
@@ -289,12 +289,12 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
                     var published = await notifications.PublishAsync(alert, CancellationToken.None).ConfigureAwait(false);
                     if (published is Error error)
                     {
-                        _log.LogWarning("The alert about a refused spec-manager answer was not published: {Code}", error.Code);
+                        RefusalAlertRefused(_log, error.Code);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _log.LogWarning(ex, "The alert about a refused spec-manager answer was not published.");
+                    RefusalAlertFailed(_log, ex);
                 }
             });
         }
@@ -302,4 +302,22 @@ internal sealed class SpecManagerAnswers : INotificationAnswerHandler
 
     private static bool Mentions(string? reason, string marker) =>
         reason is not null && reason.Contains(marker, StringComparison.OrdinalIgnoreCase);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "An answer with source key {Key} names no spec-manager question; nothing to send.")]
+    private static partial void AnswerNamesNoQuestion(ILogger logger, string key);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sent the answer to spec-manager question {QuestionId} of {Product}.")]
+    private static partial void AnswerSent(ILogger logger, string questionId, string product);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager refused the answer to question {QuestionId} of {Product} with {Status}.")]
+    private static partial void AnswerRefused(ILogger logger, string questionId, string product, int status);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The question of notification {NotificationId} could not be read back for its alert.")]
+    private static partial void QuestionNotReadBack(ILogger logger, Exception exception, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The alert about a refused spec-manager answer was not published: {Code}")]
+    private static partial void RefusalAlertRefused(ILogger logger, string code);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The alert about a refused spec-manager answer was not published.")]
+    private static partial void RefusalAlertFailed(ILogger logger, Exception exception);
 }

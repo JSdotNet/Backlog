@@ -24,7 +24,7 @@ internal sealed class CaptureRunner(
     public async Task<CaptureRunResultDto> RunAsync(CancellationToken cancellationToken = default)
     {
         // The adapters write the Inbox as the system: one run is one change set
-        // (local ADR 0070 §2), whatever started it.
+        // (local ADR 0071 §2), whatever started it.
         using var change = ChangeContext.Begin(ChangeActor.System, "running capture");
         return await HandleAsync(new RunCaptureCommand(), cancellationToken);
     }

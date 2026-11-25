@@ -502,14 +502,14 @@
     {
         try
         {
-            // The projection's own pass, not a person's gesture (local ADR 0070 §3): it is
+            // The projection's own pass, not a person's gesture (local ADR 0071 §3): it is
             // run outside every gesture's change set, so it names the system.
             using var change = ChangeContext.BeginIfNone(ChangeActor.System, "keeping the roadmap up with the work");
             await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Log.LogWarning(exception, "The roadmap could not store the windows its effort-placed work now makes; it draws them from what is stored.");
+            LogEffortWindowsNotStored(Log, exception);
         }
     }
 
@@ -554,7 +554,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Log.LogWarning(exception, "The roadmap could not read the actual hours from {From} through {Through}; its begun heads show no hours.", from, through);
+            LogActualHoursNotRead(Log, exception, from, through);
             return null;
         }
     }
@@ -1379,7 +1379,7 @@
 
     /// <summary>
     /// Runs one write of the person's gesture under a person change set labelled
-    /// <paramref name="label"/>, unless one is current (local ADR 0070 §3). The scope
+    /// <paramref name="label"/>, unless one is current (local ADR 0071 §3). The scope
     /// holds the write alone: the reload and any keep-up after it run outside it, so the
     /// keep-up projection's own pass is never filed under the person's gesture.
     /// </summary>

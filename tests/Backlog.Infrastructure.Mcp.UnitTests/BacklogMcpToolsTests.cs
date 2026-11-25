@@ -41,7 +41,7 @@ public class BacklogMcpToolsTests
                 "set_devbook_references",
                 "list_devbook_references",
 
-                // The change journal's two agent tools (local ADR 0070 §5), beside the
+                // The change journal's two agent tools (local ADR 0071 §5), beside the
                 // tracker's: read the change sets, propose a restore the person confirms.
                 "list_change_sets",
                 "propose_restore",

@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.AzureMaps;
 /// (guideline 0010).
 /// </para>
 /// </summary>
-public sealed class AzureMapsGeocoder(
+public sealed partial class AzureMapsGeocoder(
     HttpClient http,
     AzureMapsSettingsStore settings,
     ILogger<AzureMapsGeocoder> logger,
@@ -146,13 +146,14 @@ public sealed class AzureMapsGeocoder(
             {
                 if (!IsUsable(feature)) continue;
 
-                switch (PointOf(feature))
+                // A switch expression, so CS8509 checks every Result case (org ADR 0005).
+                var placed = PointOf(feature) switch
                 {
-                    case Ok<MapPoint>(var point):
-                        return GeocodeAnswer.Placed(point);
-                    case Error:
-                        continue;
-                }
+                    Ok<MapPoint>(var point) => GeocodeAnswer.Placed(point),
+                    Error => null,
+                };
+
+                if (placed is not null) return placed;
             }
 
             return GeocodeAnswer.NotFound;
@@ -218,14 +219,11 @@ public sealed class AzureMapsGeocoder(
     {
         var level = outcome is Outcome.Placed or Outcome.NotFound or Outcome.NoKey ? LogLevel.Information : LogLevel.Warning;
 
-        logger.Log(
-            level,
-            "Azure Maps geocoding: {Outcome}, status {StatusCode}, {ElapsedMilliseconds} ms, failure {Failure}",
-            outcome,
-            status is null ? null : (int)status,
-            (long)elapsed.TotalMilliseconds,
-            failure);
+        LogGeocoding(logger, level, outcome, status is null ? null : (int)status, (long)elapsed.TotalMilliseconds, failure);
     }
+
+    [LoggerMessage(Message = "Azure Maps geocoding: {Outcome}, status {StatusCode}, {ElapsedMilliseconds} ms, failure {Failure}")]
+    private static partial void LogGeocoding(ILogger logger, LogLevel level, Outcome outcome, int? statusCode, long elapsedMilliseconds, string? failure);
 
     private enum Outcome
     {

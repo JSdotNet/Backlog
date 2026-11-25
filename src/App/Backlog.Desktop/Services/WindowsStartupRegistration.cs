@@ -14,7 +14,7 @@ namespace Backlog.Desktop.Services;
 /// package identity — a Debug or Aspire build — has no task to read, and answers
 /// <see cref="StartupRegistrationState.Unavailable"/>.
 /// </summary>
-internal sealed class WindowsStartupRegistration(ILogger<WindowsStartupRegistration> logger) : IStartupRegistration
+internal sealed partial class WindowsStartupRegistration(ILogger<WindowsStartupRegistration> logger) : IStartupRegistration
 {
     /// <summary>The <c>TaskId</c> the manifest declares.</summary>
     public const string TaskId = "BacklogStartup";
@@ -32,7 +32,7 @@ internal sealed class WindowsStartupRegistration(ILogger<WindowsStartupRegistrat
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Reading the startup task failed.");
+            LogReadFailed(logger, exception);
             return StartupRegistrationState.Unavailable;
         }
     }
@@ -51,7 +51,7 @@ internal sealed class WindowsStartupRegistration(ILogger<WindowsStartupRegistrat
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Changing the startup task failed.");
+            LogChangeFailed(logger, exception);
             return await GetStateAsync();
         }
     }
@@ -75,4 +75,10 @@ internal sealed class WindowsStartupRegistration(ILogger<WindowsStartupRegistrat
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetCurrentPackageFullName(ref uint packageFullNameLength, char[]? packageFullName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the startup task failed.")]
+    private static partial void LogReadFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Changing the startup task failed.")]
+    private static partial void LogChangeFailed(ILogger logger, Exception exception);
 }

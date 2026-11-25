@@ -100,7 +100,7 @@ namespace Backlog.Desktop.Composition;
 /// composition that only one head's test ever starts.
 /// </para>
 /// </summary>
-public static class DesktopCompositionRegistration
+public static partial class DesktopCompositionRegistration
 {
     public static IServiceCollection AddDesktopComposition(this IServiceCollection services, DesktopCompositionOptions options)
     {
@@ -218,7 +218,7 @@ public static class DesktopCompositionRegistration
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
-        // An agent's restore proposal (local ADR 0070 §5): Restore shows the Changes view on
+        // An agent's restore proposal (local ADR 0071 §5): Restore shows the Changes view on
         // the change set's confirmation panel, which still asks; Keep does nothing.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, RestoreProposalAnswers>(sp => new RestoreProposalAnswers(
             sp.GetRequiredService<MainWindowSurfaces>(),
@@ -337,12 +337,12 @@ public static class DesktopCompositionRegistration
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
-        // The change journal's daily prune and its clear action (local ADR 0070 §6),
+        // The change journal's daily prune and its clear action (local ADR 0071 §6),
         // over the same workspace settings and clock.
         services.AddSingleton<ChangeHistoryWorker>();
         // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
         // a folder beside backlog.db, following the root as the stores it copies do, and
-        // holding the per-user settings files the change journal leaves out (local ADR 0070 §8).
+        // holding the per-user settings files the change journal leaves out (local ADR 0071 §8).
         services.AddSingleton(sp => new AgentCheckpoints(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
             sp.GetService<TimeProvider>(),
@@ -448,7 +448,7 @@ public static class DesktopCompositionRegistration
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
-        // The change journal read back (local ADR 0070): a view the shell's own
+        // The change journal read back (local ADR 0071): a view the shell's own
         // project draws, since no module owns the journal.
         global::Backlog.Desktop.UI.Changes.ChangesSurfaceRegistration.AddChangesSurface(services);
         services.AddDevbookSurface();
@@ -803,7 +803,7 @@ public static class DesktopCompositionRegistration
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 folders: sp.GetRequiredService<IDevbookFolderSource>(),
                 journal: sp.GetService<IDocumentRevisionJournal>()));
-        // Journalled beside backlog.db (local ADR 0070 §2), so a restore writes a remark
+        // Journalled beside backlog.db (local ADR 0071 §2), so a restore writes a remark
         // back through this store.
         services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookAnnotationStore>());
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
@@ -925,11 +925,14 @@ public static class DesktopCompositionRegistration
     {
         try
         {
-            logger?.LogError(failure, "Starting the repository alias follower failed.");
+            if (logger is not null) LogAliasFollowerStartFailed(logger, failure);
         }
         catch (Exception)
         {
             // Nothing is left to report it to.
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Starting the repository alias follower failed.")]
+    private static partial void LogAliasFollowerStartFailed(ILogger logger, Exception exception);
 }

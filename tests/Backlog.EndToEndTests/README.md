@@ -1,18 +1,27 @@
 # Backlog.EndToEndTests
 
-Browser end-to-end tests that drive the Aspire-hosted harnesses with Playwright. They run
-against the AppHost **this worktree already has running**, and reach it through the Aspire
-CLI — no test project may reference the AppHost (`AspireAppModelTests`):
+Browser end-to-end tests that drive the Aspire-hosted harnesses with Playwright. The suite
+**starts its own AppHost** (org ADR 0010 Testing, `JSdotNet/app-defaults`
+`defaults/arc42/adr/0010-testing.md`) and reaches it through the Aspire CLI — no test
+project may reference the AppHost (`AspireAppModelTests`). `E2EAppHost`, an xUnit assembly
+fixture, is the global setup:
 
-| Needs | From the CLI |
+| When | From the CLI |
 | --- | --- |
-| resource URLs | `aspire describe <resource> --format Json` |
+| before the first test | `aspire start --isolated` (detached), then `aspire wait <resource> --status healthy` for `cosmos`, `storage`, `sync` and the three frontends |
+| sync is ready | a pairing code nobody issued, posted to `sync` until it answers 404 from Cosmos rather than 503 — the emulator reports healthy before its containers answer |
+| resource URLs | `aspire describe <resource> --format Json`; no port is hard-coded |
 | take `sync` away and back | `aspire resource sync stop` / `start`, then `aspire wait` |
 | the order the phone sent things in | `aspire otel spans mobile-web-harness` |
-| no errors in `sync` | `aspire otel logs sync --severity Error` |
+| after the last test | `aspire otel logs --severity Error` for **every** resource fails the run on any error no test declared, then `aspire stop` |
 
-Every test **skips unless `BACKLOG_E2E=1`**, so the solution-wide `dotnet test` and CI
-build this project and run nothing.
+A test that causes errors on purpose declares them with `E2EAppHost.Expect` — the resource,
+the window of log ids and a message test. ConferenceDay declares the phone's timed-out calls
+while `sync` is stopped; the setup declares the harnesses' Polly retries on a 503 from `sync`
+logged before it was ready.
+
+Every test **skips unless `BACKLOG_E2E=1`**, and the setup then starts nothing, so the
+solution-wide `dotnet test` and CI build this project and run nothing.
 
 ## Tests
 
@@ -82,11 +91,13 @@ Layout page (`ui-storybook`, `/layout`). It needs only `ui-storybook` and writes
 
 ## Running
 
-Start this worktree's AppHost and wait for it to be healthy. The Cosmos emulator takes about
-two minutes on a cold start, and the test waits up to ten minutes for it:
+Docker must be running: the setup starts the Cosmos and storage emulators with the rest of
+the AppHost, and waits up to ten minutes for them. This worktree's AppHost must **not**
+already be running — the setup refuses rather than start a second instance one `--apphost`
+would answer for. Stop it first, or set `BACKLOG_E2E_ATTACH=1` to run against it:
 
 ```powershell
-aspire start --isolated --non-interactive --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj
+aspire stop --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj
 ```
 
 Playwright needs a browser. Install the one it ships with once per machine (the build writes
@@ -107,12 +118,13 @@ dotnet test --project tests\Backlog.EndToEndTests
 | Variable | Effect |
 | --- | --- |
 | `BACKLOG_E2E=1` | Runs the tests; without it they skip. |
+| `BACKLOG_E2E_ATTACH=1` | Uses this worktree's running AppHost instead of starting one, counts only errors logged during the run, and leaves it running. |
 | `BACKLOG_E2E_BROWSER_CHANNEL` | An installed browser instead of Playwright's Chromium. |
 | `BACKLOG_E2E_HEADED=1` | Shows the browser. |
 | `BACKLOG_E2E_EVIDENCE` | Where evidence goes; default `.qa-workspace/e2e/`. |
 
-A run takes about two minutes once the AppHost is healthy; `BrainTests` alone about
-one and a half, and needs only `desktop-web-harness`:
+A run takes a few minutes to start the AppHost and about two once it is healthy; `BrainTests`
+alone about one and a half:
 
 ```powershell
 dotnet test --project tests\Backlog.EndToEndTests -- --filter-class Backlog.EndToEndTests.BrainTests
@@ -132,8 +144,12 @@ It holds:
 - `run.log` — the agenda blocks set and the phone's clock, when `sync` went down and
   came back, the calls the phone sent after the restart, and every desktop sync result;
 - `sync-structured-logs.json` — `sync`'s structured logs at Information and above;
-- `sync-errors.json` — its Error logs. The test fails on any error that appeared during
-  the run.
+- `errors.json` — every resource's Error logs. The test fails on any error that appeared
+  during the run and that it did not declare.
+
+The setup writes `.qa-workspace/e2e/run/<yyyyMMdd-HHmmss>/` after the last test:
+`errors.json`, every resource's Error logs, and `errors.log`, the ones no test declared and
+the declared ones with the reason beside each.
 
 ## What a run changes
 

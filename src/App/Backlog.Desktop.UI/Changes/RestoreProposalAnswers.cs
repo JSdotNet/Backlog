@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Desktop.UI.Changes;
 
 /// <summary>
-/// Answers an agent's restore proposal (local ADR 0070 §5): the <c>propose_restore</c>
+/// Answers an agent's restore proposal (local ADR 0071 §5): the <c>propose_restore</c>
 /// question, which the <c>mcp</c> source asks with a key naming the change set
 /// (<see cref="RestoreProposals"/>).
 /// <list type="bullet">
@@ -38,7 +38,7 @@ namespace Backlog.Desktop.UI.Changes;
 /// app's own notification centre is looking at the main window already.
 /// </para>
 /// <param name="surfaces">The main window's shell, which shows the view.</param>
-public sealed class RestoreProposalAnswers(
+public sealed partial class RestoreProposalAnswers(
     MainWindowSurfaces surfaces,
     ILogger<RestoreProposalAnswers>? logger = null) : INotificationAnswerHandler
 {
@@ -62,10 +62,10 @@ public sealed class RestoreProposalAnswers(
 
         if (!shown)
         {
-            _logger.LogInformation(
-                "Restore proposal {NotificationId} was answered Restore, but no main window showed the Changes view for change set {ChangeSetId}.",
-                answer.NotificationId,
-                changeSetId);
+            ChangesViewNotShown(_logger, answer.NotificationId, changeSetId);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Restore proposal {NotificationId} was answered Restore, but no main window showed the Changes view for change set {ChangeSetId}.")]
+    private static partial void ChangesViewNotShown(ILogger logger, Guid notificationId, Guid changeSetId);
 }

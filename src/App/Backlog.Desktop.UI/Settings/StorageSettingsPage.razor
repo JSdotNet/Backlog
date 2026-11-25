@@ -264,7 +264,7 @@
 
         @* A backup commits the whole file (local ADR 0010), so a last backup copy
            past ChangeHistoryRetention.LargeDatabaseBytes is said here, beside the
-           figures. The copy leaves the change history out (local ADR 0070 §6), so
+           figures. The copy leaves the change history out (local ADR 0071 §6), so
            it is the copy's size that counts, not backlog.db's. Renders nothing
            below the threshold or before the first backup. *@
         <Alert Message="@LargeDatabaseWarning"
@@ -440,7 +440,7 @@
     }
 </SettingsCard>
 
-@* The change journal (local ADR 0070 §6): how long it keeps what each change
+@* The change journal (local ADR 0071 §6): how long it keeps what each change
    set replaced, and a way to drop all of it. Always drawn, so the settings
    search never names a card that is not there; a host that composes no worker
    offers the period alone. Clearing asks first, in the page, because nothing
@@ -881,7 +881,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            _log?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
+            if (_log is not null) LogBackupNotComposed(_log, ex);
             return null;
         }
     }
@@ -988,7 +988,7 @@
     /// <summary>The Backup card's warning while the copy the last backup uploaded
     /// is past <see cref="ChangeHistoryRetention.LargeDatabaseBytes"/>, else null -
     /// which renders nothing. The copy, not <c>backlog.db</c>: the backup leaves the
-    /// change journal out (local ADR 0070 §6), so the file on disk is larger than
+    /// change journal out (local ADR 0071 §6), so the file on disk is larger than
     /// what a backup sends, and clearing the history does not shrink a backup.</summary>
     private string? LargeDatabaseWarning =>
         _backup?.Last.LastCopyBytes is { } bytes && ChangeHistoryRetention.IsLarge(bytes)

@@ -15,7 +15,7 @@ public static class ChangesSurfaceQuery
     public const string SessionKey = "session";
 
     /// <summary>The change set whose restore confirmation the view opens on: an agent's
-    /// restore proposal answered Restore (local ADR 0070 §5). The panel still asks the
+    /// restore proposal answered Restore (local ADR 0071 §5). The panel still asks the
     /// person to confirm; nothing is restored by opening it.</summary>
     public const string RestoreKey = "restore";
 

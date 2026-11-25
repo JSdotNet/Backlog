@@ -235,7 +235,7 @@ public sealed class SqliteImpedimentRepository : IImpedimentRepository, IImpedim
         SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
 
     /// <summary>The triggers that write an <c>impediment</c> revision for every write of
-    /// an impediment row (local ADR 0070 §2).</summary>
+    /// an impediment row (local ADR 0071 §2).</summary>
     internal static readonly SqliteSchemaDefinition JournalSchema = new(
         owner: "journal:progress_impediments",
         ddl: SqliteJournal.Triggers("progress_impediments", "impediment", ["id", "document", "created_at", "updated_at"]));

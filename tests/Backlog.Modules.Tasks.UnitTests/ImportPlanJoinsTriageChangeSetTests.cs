@@ -6,7 +6,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Tasks.UnitTests;
 
 /// <summary>
-/// "Create plan" from the Inbox is one change set (local ADR 0070 §2): the import an
+/// "Create plan" from the Inbox is one change set (local ADR 0071 §2): the import an
 /// Inbox decision makes writes under that decision's change set, so restoring it takes
 /// back the item and the plan it became together. Any other import opens its own.
 /// </summary>

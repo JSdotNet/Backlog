@@ -155,7 +155,7 @@
         _writing = true;
         try
         {
-            // The person's gesture (local ADR 0070 §3): a New goal… and its attach are one
+            // The person's gesture (local ADR 0071 §3): a New goal… and its attach are one
             // change set, joining any the host already opened.
             Result<GoalDto> written;
             using (ChangeContext.BeginIfNone(ChangeActor.Person, "attaching to a goal"))

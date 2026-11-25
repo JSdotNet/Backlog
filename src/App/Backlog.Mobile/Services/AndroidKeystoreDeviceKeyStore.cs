@@ -43,7 +43,7 @@ namespace Backlog.Mobile.Services;
 /// the credential beside it, so a fresh install registers again.
 /// </para>
 /// </remarks>
-public sealed class AndroidKeystoreDeviceKeyStore : IDeviceKeyStore
+public sealed partial class AndroidKeystoreDeviceKeyStore : IDeviceKeyStore
 {
     /// <summary>The alias the key is kept under.</summary>
     public const string DefaultAlias = "backlog.sync.device-key";
@@ -115,7 +115,7 @@ public sealed class AndroidKeystoreDeviceKeyStore : IDeviceKeyStore
             _protection = ProtectionOf(privateKey);
             if (_protection == DeviceKeyProtection.Software)
             {
-                _log.LogWarning("This device's key {Alias} is kept in software: this phone's Keystore has no secure hardware.", _alias);
+                LogKeyInSoftware(_log, _alias);
             }
 
             _key = new DerSignedDeviceKey(publicKey, data => Sign(privateKey, data));
@@ -142,7 +142,7 @@ public sealed class AndroidKeystoreDeviceKeyStore : IDeviceKeyStore
                 // No StrongBox on this phone, or one that would not make the key - some
                 // answer ProviderException rather than StrongBoxUnavailableException: the
                 // trusted execution environment instead.
-                _log.LogInformation(ex, "StrongBox could not make this device's key {Alias}, so it is made in the trusted execution environment.", _alias);
+                LogStrongBoxUnavailable(_log, ex, _alias);
             }
         }
 
@@ -196,4 +196,10 @@ public sealed class AndroidKeystoreDeviceKeyStore : IDeviceKeyStore
             throw new CryptographicException("This device's key would not sign in Android Keystore.", ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This device's key {Alias} is kept in software: this phone's Keystore has no secure hardware.")]
+    private static partial void LogKeyInSoftware(ILogger logger, string alias);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "StrongBox could not make this device's key {Alias}, so it is made in the trusted execution environment.")]
+    private static partial void LogStrongBoxUnavailable(ILogger logger, Exception exception, string alias);
 }

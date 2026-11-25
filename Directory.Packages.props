@@ -28,6 +28,9 @@
 
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="17.0.0" />
+    <!-- AddAzureApplicationInsights: the sync tier's component in the published model, and
+         the exception alert that watches it (org ADR 0002). Publish mode only. -->
+    <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="17.0.0" />
@@ -227,6 +230,11 @@
       The version is the one Microsoft.Extensions.Http.Resilience above resolves.
     -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
+    <!--
+      The sync service's API reference (org ADR 0004): it renders the OpenAPI
+      document in Development, the only environment that maps the document.
+    -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="3.2.1" />
     <!--
       The phone's talk note shrinks a slide photo to 1600 px JPEG before it
       enters the outbox. MIT, with the Android and Windows natives in the box, so

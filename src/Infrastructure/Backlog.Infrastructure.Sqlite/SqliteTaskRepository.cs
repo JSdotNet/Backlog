@@ -74,7 +74,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
         // A write under a change set records it in the same transaction (local ADR
-        // 0070 §2); one under none stays the single statement it always was. A save
+        // 0071 §2); one under none stays the single statement it always was. A save
         // refused as stale throws before the commit, so its change set rolls back
         // with it.
         await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
@@ -448,7 +448,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         try
         {
             // The change journal's tables, then the triggers that journal this one
-            // (local ADR 0070 §2) — after Schema, because the triggers name its
+            // (local ADR 0071 §2) — after Schema, because the triggers name its
             // columns.
             await SqliteJournal.EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
             await SqliteSchema.EnsureSetUpAsync(connection, JournalSchema, cancellationToken).ConfigureAwait(false);

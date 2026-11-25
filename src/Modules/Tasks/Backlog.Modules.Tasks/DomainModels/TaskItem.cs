@@ -776,7 +776,7 @@ public sealed class TaskItem
     }
 
     /// <summary>Makes this task — an earlier version of itself, rebuilt from the change
-    /// journal — the latest version, over the one the store holds now (local ADR 0070
+    /// journal — the latest version, over the one the store holds now (local ADR 0071
     /// §4).
     /// <para>
     /// It takes the held version's stamps, as the version it is saved against, then

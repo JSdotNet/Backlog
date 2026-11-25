@@ -12,7 +12,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// How MCP writes are grouped into change sets (local ADR 0070 §3): by session, or by caller
+/// How MCP writes are grouped into change sets (local ADR 0071 §3): by session, or by caller
 /// when a call names none, each within thirty minutes of the previous write, named by the
 /// first call's tool and target and carrying its caller and correlation id. That the filter
 /// runs inside the audit filter and hands the write its change set is

@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// only its own figure unavailable, so the reading never throws but for cancellation.
 /// </para>
 /// </summary>
-internal sealed class CapacityReader(
+internal sealed partial class CapacityReader(
     IAgentSessionSource sessions,
     ISessionRequestStore? requests,
     IClaudeApiRequestStore? apiRequests,
@@ -54,7 +54,7 @@ internal sealed class CapacityReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The session requests could not be read; working sessions read unavailable.");
+            SessionRequestsUnreadable(_logger, exception);
             return null;
         }
     }
@@ -68,7 +68,7 @@ internal sealed class CapacityReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The sessions could not be read; working sessions read unavailable.");
+            SessionsUnreadable(_logger, exception);
             return null;
         }
     }
@@ -90,7 +90,7 @@ internal sealed class CapacityReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The request telemetry could not be read; plan usage reads unavailable.");
+            RequestTelemetryUnreadable(_logger, exception);
             return (null, null);
         }
 
@@ -108,7 +108,7 @@ internal sealed class CapacityReader(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning(exception, "The session records could not be read; no limit refusal sizes plan usage.");
+                SessionRecordsUnreadable(_logger, exception);
             }
         }
 
@@ -125,8 +125,23 @@ internal sealed class CapacityReader(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The machine load could not be read; CPU and memory read unavailable.");
+            MachineLoadUnreadable(_logger, exception);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The session requests could not be read; working sessions read unavailable.")]
+    private static partial void SessionRequestsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The sessions could not be read; working sessions read unavailable.")]
+    private static partial void SessionsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The request telemetry could not be read; plan usage reads unavailable.")]
+    private static partial void RequestTelemetryUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The session records could not be read; no limit refusal sizes plan usage.")]
+    private static partial void SessionRecordsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The machine load could not be read; CPU and memory read unavailable.")]
+    private static partial void MachineLoadUnreadable(ILogger logger, Exception exception);
 }

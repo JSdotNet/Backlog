@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// A journalled table's triggers are set up by whichever connection first opens an
 /// unstamped file, outside any transaction, so several connections opening a fresh
 /// <c>backlog.db</c> at once all run the same <c>DROP</c> and <c>CREATE TRIGGER</c>
-/// batch (local ADR 0070 §2). None of them may fail because another created the
+/// batch (local ADR 0071 §2). None of them may fail because another created the
 /// trigger first.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]

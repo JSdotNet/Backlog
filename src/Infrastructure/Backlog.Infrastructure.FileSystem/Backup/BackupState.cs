@@ -46,7 +46,7 @@ public sealed record BackupState(
     /// <summary>
     /// The size in bytes of the copy the last run uploaded, or null while no run
     /// has made one. What the Backup card's size warning reads: the copy leaves the
-    /// change journal out (local ADR 0070 §6), so <c>backlog.db</c> on disk is not
+    /// change journal out (local ADR 0071 §6), so <c>backlog.db</c> on disk is not
     /// the file a backup sends. A state file written before the figure existed
     /// reads as null, and the card warns after the next backup.
     /// </summary>

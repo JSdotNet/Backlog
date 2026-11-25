@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The change journal's <c>change_sets</c> (local ADR 0070 §2): a journalled write
+/// The change journal's <c>change_sets</c> (local ADR 0071 §2): a journalled write
 /// records the change set it ran under, once, and a write under none records nothing.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]

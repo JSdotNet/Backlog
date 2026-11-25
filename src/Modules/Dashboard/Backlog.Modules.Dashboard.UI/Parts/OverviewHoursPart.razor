@@ -38,8 +38,8 @@
 
     private IReadOnlyList<MetricPart> Parts =>
     [
-        new("Inside office hours", Math.Round((decimal)Value!.Inside.TotalHours, 2)),
-        new("Outside office hours", Math.Round((decimal)Value!.Outside.TotalHours, 2))
+        new("Inside office hours", Math.Round(ExactDuration.Hours(Value!.Inside), 2)),
+        new("Outside office hours", Math.Round(ExactDuration.Hours(Value!.Outside), 2))
     ];
 
     protected override bool FollowsRepository => false;

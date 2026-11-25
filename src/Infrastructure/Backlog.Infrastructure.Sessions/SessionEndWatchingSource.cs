@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// reads it.
 /// </para>
 /// </summary>
-internal sealed class SessionEndWatchingSource(
+internal sealed partial class SessionEndWatchingSource(
     IAgentSessionSource inner,
     Func<INotifications?> notifications,
     ILogger? logger = null,
@@ -90,7 +90,7 @@ internal sealed class SessionEndWatchingSource(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning(exception, "Closing the waiting questions of session {Session} failed.", id);
+                ClosingWaitingQuestionsFailed(_logger, exception, id);
             }
         }
 
@@ -101,4 +101,7 @@ internal sealed class SessionEndWatchingSource(
             _logger,
             cancellationToken).ConfigureAwait(false);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the waiting questions of session {Session} failed.")]
+    private static partial void ClosingWaitingQuestionsFailed(ILogger logger, Exception exception, string session);
 }

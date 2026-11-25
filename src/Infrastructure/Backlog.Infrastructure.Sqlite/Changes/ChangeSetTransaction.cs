@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// The transaction a write of a journalled table runs in (local ADR 0070 §2). While
+/// The transaction a write of a journalled table runs in (local ADR 0071 §2). While
 /// a change set is current it records the change set and names it in
 /// <c>journal_context</c>, so the table's triggers file their revisions under it;
 /// inside <see cref="ChangeContext.Unjournalled"/> it marks the write as kept out of

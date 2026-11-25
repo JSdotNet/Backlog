@@ -84,7 +84,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     /// Saves <paramref name="item"/> as <see cref="SaveAsync"/> does, but only while its
     /// row still holds the stamp <paramref name="held"/> — or, with
     /// <paramref name="held"/> null, while there is no row — so a restore never writes
-    /// over an edit made since (local ADR 0070 §4). True when it wrote.
+    /// over an edit made since (local ADR 0071 §4). True when it wrote.
     /// </summary>
     internal Task<bool> SaveIfHeldAsync(InboxItem item, string? held, CancellationToken cancellationToken = default) =>
         SaveCoreAsync(item, held, conditional: true, cancellationToken);
@@ -97,7 +97,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
         // One transaction for the row and its files, so a reader never sees an
         // item with half its attachments — the rows are replaced whole below. The
-        // transaction names the current change set (local ADR 0070 §2), so the
+        // transaction names the current change set (local ADR 0071 §2), so the
         // revision the trigger writes is filed under it.
         await using var journal = await ChangeSetTransaction
             .BeginAsync(connection, requireTransaction: true, cancellationToken)
@@ -649,7 +649,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
 
     /// <summary>The triggers that write an <c>inbox-item</c> revision for every insert
-    /// into and update of <c>inbox_items</c> (local ADR 0070 §2), the before-image keyed
+    /// into and update of <c>inbox_items</c> (local ADR 0071 §2), the before-image keyed
     /// by every column <see cref="ItemColumns"/> names. The attachment rows are the
     /// files' bookkeeping and are not journalled; a deleted item leaves no row and no
     /// revision.</summary>
@@ -663,7 +663,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     private static IReadOnlyList<string> ItemColumnNames =>
         ItemColumns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-    // --- Restoring (local ADR 0070 §4) ----------------------------------------
+    // --- Restoring (local ADR 0071 §4) ----------------------------------------
 
     /// <summary>The item a before-image holds, read as a stored row is, or null when the
     /// image does not read as one — an older shape, or one written by hand.</summary>

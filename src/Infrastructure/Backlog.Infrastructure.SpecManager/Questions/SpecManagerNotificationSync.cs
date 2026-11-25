@@ -30,7 +30,7 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// notification's subject or text: only its id and what went wrong.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerNotificationSync : IDisposable
+internal sealed partial class SpecManagerNotificationSync :IDisposable
 {
     /// <summary>How many unread notifications a pull asks for: the most spec-manager
     /// answers.</summary>
@@ -101,7 +101,7 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         }
         catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
-            _log.LogInformation(ex, "The spec-manager notifications could not be read; the next pull asks again.");
+            NotificationsUnreadable(_log, ex);
             return false;
         }
 
@@ -109,7 +109,7 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         // alert as read.
         if (unread?.Notifications is not { } listed)
         {
-            _log.LogInformation("spec-manager answered the unread notifications without a list; the next pull asks again.");
+            UnreadAnsweredWithoutList(_log);
             return false;
         }
 
@@ -159,8 +159,8 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         if (published is Error error)
         {
             // Never the notification's subject or text: only which one, and the rule it broke.
-            _log.LogWarning(
-                "spec-manager notification {NotificationId} was not published: {Code} {Message}",
+            NotificationNotPublished(
+                _log,
                 notification.Id,
                 error.Code,
                 error.Message);
@@ -175,7 +175,7 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         try
         {
             await _client.MarkNotificationReadAsync(notificationId, cancellationToken).ConfigureAwait(false);
-            _log.LogInformation("Marked spec-manager notification {NotificationId} read, as it was acknowledged in Backlog.", notificationId);
+            NotificationMarkedRead(_log, notificationId);
             return true;
         }
         catch (SpecManagerSignInRequiredException)
@@ -184,7 +184,7 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         }
         catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
-            _log.LogWarning(ex, "spec-manager notification {NotificationId} could not be marked read; the next pull sends it again.", notificationId);
+            NotificationNotMarkedRead(_log, ex, notificationId);
             return true;
         }
     }
@@ -207,8 +207,8 @@ internal sealed class SpecManagerNotificationSync : IDisposable
             var closed = await _notifications.CloseAsync(open.Id, SpecManagerNotificationMapper.ReadReason, cancellationToken).ConfigureAwait(false);
             if (closed is Error error)
             {
-                _log.LogInformation(
-                    "The alert of spec-manager notification {NotificationId} was not closed: {Code}",
+                AlertNotClosed(
+                    _log,
                     notificationId,
                     error.Code);
             }
@@ -249,8 +249,29 @@ internal sealed class SpecManagerNotificationSync : IDisposable
         }
         catch (Exception ex) when (ex is SpecManagerSignInRequiredException || SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
-            _log.LogInformation(ex, "The spec-manager products could not be read; the alerts name no product this time.");
+            ProductsUnreadable(_log, ex);
             return known ?? new Dictionary<Guid, string>();
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The spec-manager notifications could not be read; the next pull asks again.")]
+    private static partial void NotificationsUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager answered the unread notifications without a list; the next pull asks again.")]
+    private static partial void UnreadAnsweredWithoutList(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager notification {NotificationId} was not published: {Code} {Message}")]
+    private static partial void NotificationNotPublished(ILogger logger, Guid notificationId, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Marked spec-manager notification {NotificationId} read, as it was acknowledged in Backlog.")]
+    private static partial void NotificationMarkedRead(ILogger logger, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager notification {NotificationId} could not be marked read; the next pull sends it again.")]
+    private static partial void NotificationNotMarkedRead(ILogger logger, Exception exception, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The alert of spec-manager notification {NotificationId} was not closed: {Code}")]
+    private static partial void AlertNotClosed(ILogger logger, Guid notificationId, string code);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The spec-manager products could not be read; the alerts name no product this time.")]
+    private static partial void ProductsUnreadable(ILogger logger, Exception exception);
 }

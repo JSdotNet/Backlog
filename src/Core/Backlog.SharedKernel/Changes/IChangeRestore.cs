@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.Changes;
 
 /// <summary>
-/// Takes a change set back (local ADR 0070 §4): a later save the person makes, never
+/// Takes a change set back (local ADR 0071 §4): a later save the person makes, never
 /// a rewind. <see cref="PlanAsync"/> says what a restore would do, so the person can
 /// confirm it; <see cref="RestoreAsync"/> does it, as a change set of its own.
 /// </summary>

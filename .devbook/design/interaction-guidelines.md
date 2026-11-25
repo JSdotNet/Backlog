@@ -104,8 +104,8 @@ What the shared `SaveIndicator` builds of this vocabulary is in
 | Undo always available | With no save gate, **undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) MUST cover content edits and reorder actions. |
 | Reorder is undoable | A drag-and-drop or keyboard reorder MUST be a single undoable step that restores the previous order. |
 | History granularity | Undo history SHOULD be per-document and coalesce rapid keystrokes into sensible steps. |
-| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). The person restores an agent's change set ([ADR 0070](../arc42/adr/0070-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)). |
-| Version history | Each change set's prior documents are kept 90 days ([ADR 0070](../arc42/adr/0070-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)); at minimum session-level undo MUST exist. |
+| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). The person restores an agent's change set ([ADR 0071](../arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)). |
+| Version history | Each change set's prior documents are kept 90 days ([ADR 0071](../arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)); at minimum session-level undo MUST exist. |
 
 ### Conflict Handling
 
@@ -819,7 +819,7 @@ control, and each MUST look and act as its kind:
   as a view option does: pressing it again changes nothing, Escape never leaves
   it, and a takeover hides it. Its `aria-controls` names the Calendar's own
   region. A stored last view of `calendar` reopens on it.
-- **Changes tab:** the change journal read back (local ADR 0070): who changed
+- **Changes tab:** the change journal read back (local ADR 0071): who changed
   which documents, and each one's text before beside its text now. It reads what
   was written, not the tasks, so like the Calendar it stands outside the fused
   switch in the loose shape and acts as a view option does. A session's

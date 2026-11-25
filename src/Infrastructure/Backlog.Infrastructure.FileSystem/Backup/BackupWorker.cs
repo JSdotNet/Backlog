@@ -22,7 +22,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <see cref="AgentCheckpoints.FolderName"/> folder of copies beside it — because the
 /// database is what local ADR 0003 makes the whole of the backlog, and a
 /// restore is one file put back. Local ADR 0010 is the decision. The copy
-/// leaves out the change journal's rows (local ADR 0070 §6).
+/// leaves out the change journal's rows (local ADR 0071 §6).
 /// </para>
 /// <para>
 /// One-way, and deliberately so. Nothing here ever reads the repository back
@@ -39,7 +39,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// after every run, because a schedule is a time of day rather than a period.
 /// </para>
 /// </summary>
-public sealed class BackupWorker : IDisposable
+public sealed partial class BackupWorker : IDisposable
 {
     /// <summary>Where the backup lands in the repository. A folder of its own
     /// rather than the root, so a repository somebody also keeps notes in gets
@@ -239,7 +239,7 @@ public sealed class BackupWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A scheduled backup threw outside its run.");
+            ScheduledBackupThrew(_log, ex);
         }
         finally
         {
@@ -304,12 +304,12 @@ public sealed class BackupWorker : IDisposable
             // information, for the reason TaskSyncWorker gives: a laptop with
             // no network is the ordinary failure, and an error per slot for it
             // would drown the log.
-            _log.LogInformation("A backup did not complete: {Message}", ex.Message);
+            BackupDidNotComplete(_log, ex.Message);
             _state.Save(previous with { AttemptedAt = now, Error = ex.Message, LastCopyBytes = copied ?? previous.LastCopyBytes });
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A backup threw.");
+            BackupThrew(_log, ex);
             _state.Save(previous with { AttemptedAt = now, Error = UnexpectedFailure, LastCopyBytes = copied ?? previous.LastCopyBytes });
         }
         finally
@@ -341,7 +341,7 @@ public sealed class BackupWorker : IDisposable
     /// nothing the backlog does not.
     /// </para>
     /// <para>
-    /// The copy leaves the change journal behind (local ADR 0070 §6): its
+    /// The copy leaves the change journal behind (local ADR 0071 §6): its
     /// <c>revisions</c> and <c>change_sets</c> rows are deleted and the copy vacuumed
     /// before it is read, because 90 days of them take the file past GitHub's
     /// 100 MiB limit. Only the copy — the live database keeps its journal. A
@@ -376,4 +376,13 @@ public sealed class BackupWorker : IDisposable
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A scheduled backup threw outside its run.")]
+    private static partial void ScheduledBackupThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A backup did not complete: {Message}")]
+    private static partial void BackupDidNotComplete(ILogger logger, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A backup threw.")]
+    private static partial void BackupThrew(ILogger logger, Exception exception);
 }
