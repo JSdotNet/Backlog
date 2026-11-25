@@ -59,7 +59,8 @@ public static class StandUpClipboard
             if (group.Items.Count == 0) continue;
 
             yield return group.GoalTitle ?? NoGoal;
-            foreach (var item in group.Items) yield return "- " + item.Title;
+            foreach (var item in group.Items)
+                yield return item.Completed is { } completed ? $"- {item.Title} · {GoalsText.Completed(completed)}" : "- " + item.Title;
         }
     }
 
