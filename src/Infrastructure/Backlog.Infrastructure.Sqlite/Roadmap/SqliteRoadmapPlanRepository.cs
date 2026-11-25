@@ -287,7 +287,14 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     /// table and loses nothing.
     /// </para></summary>
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+        SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
+
+    /// <summary>The triggers that write a <c>roadmap-plan</c> revision for every write
+    /// of the plan row (local ADR 0061 §2), its before-image the whole stored
+    /// document.</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:roadmap_plan",
+        ddl: SqliteJournal.Triggers("roadmap_plan", "roadmap-plan", ["id", "document", "updated_at"]));
 
     // No index. The table holds one row and every read is by primary key, so
     // there is nothing an index could accelerate.

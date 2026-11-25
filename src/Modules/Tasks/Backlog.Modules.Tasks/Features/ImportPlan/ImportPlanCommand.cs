@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -169,6 +170,11 @@ public sealed class ImportPlanCommandHandler(
         }
 
         parsedEntries = resolvedEntries;
+
+        // One change set for the whole import (local ADR 0061 §2): the tasks it
+        // writes and the roadmap plan it lays out are taken back together. Opened
+        // here, after the last refusal, so a refused import records nothing.
+        using var change = ChangeContext.Enter(ImportChangeSet(parsedAll));
 
         // Tasks first, then the roadmap, so placement reads the effort this import
         // just gathered rather than the previous version's.
@@ -547,6 +553,26 @@ public sealed class ImportPlanCommandHandler(
     /// <summary>The rule the Import dialog's preview counts by, so the two cannot
     /// disagree.</summary>
     private static IReadOnlyList<string> PlanTags(IEnumerable<string> tags) => ImportPlanPreview.PlanTags(tags);
+
+    /// <summary>
+    /// The change set an import writes under, labelled "Import of +tag" by the plan
+    /// tags its entries carry (local ADR 0061 §2). A new one even when a change set is
+    /// current, so the import is restorable on its own, but by the same actor: an
+    /// agent's import keeps its caller, session and correlation id, and an import from
+    /// an entry point that named nobody is filed under an unknown writer.
+    /// </summary>
+    internal static ChangeSet ImportChangeSet(IEnumerable<EntryTextParser.ParsedEntry> parsed)
+    {
+        var tags = PlanTags(parsed.SelectMany(entry => entry.Tags));
+        var label = tags.Count == 0 ? "Import of a plan" : $"Import of {string.Join(", ", tags)}";
+
+        var current = ChangeContext.Current;
+        var fresh = ChangeSet.Start(current?.Actor ?? ChangeActor.Unknown, label);
+
+        return current is null
+            ? fresh
+            : fresh with { Caller = current.Caller, SessionId = current.SessionId, CorrelationId = current.CorrelationId };
+    }
 
     private static string Bare(string tag) => tag.StartsWith('+') ? tag[1..] : tag;
 

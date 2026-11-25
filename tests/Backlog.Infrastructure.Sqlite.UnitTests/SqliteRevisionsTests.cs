@@ -60,6 +60,36 @@ public sealed class SqliteRevisionsTests : IDisposable
     }
 
     [Fact]
+    public async Task The_roadmap_plan_goals_and_impediments_are_journalled_under_their_own_kinds()
+    {
+        var roadmap = new Roadmap.SqliteRoadmapPlanRepository(_temp.Path);
+        var goals = new Progress.SqliteGoalRepository(_temp.Path);
+        var impediments = new Progress.SqliteImpedimentRepository(_temp.Path);
+
+        var goal = ((Backlog.SharedKernel.Results.Ok<Backlog.Modules.Progress.DomainModels.Goal>)
+            Backlog.Modules.Progress.DomainModels.Goal.Create(Guid.NewGuid(), "Goal", null, null).Value!).Value;
+        var impediment = ((Backlog.SharedKernel.Results.Ok<Backlog.Modules.Progress.DomainModels.Impediment>)
+            Backlog.Modules.Progress.DomainModels.Impediment.Raise(Guid.NewGuid(), "Impediment", new DateOnly(2026, 11, 25)).Value!).Value;
+
+        var change = ChangeSet.Start(ChangeActor.Person, "planning");
+        using (ChangeContext.Enter(change))
+        {
+            await roadmap.SaveAsync(Backlog.Modules.Roadmap.DomainModels.RoadmapPlan.Empty(), Token);
+            await goals.SaveAsync(goal, Token);
+            await impediments.SaveAsync(impediment, Token);
+            await goals.DeleteAsync(goal.Id, Token);
+        }
+
+        var revisions = await ReadAsync(roadmap.DatabasePath);
+
+        Assert.All(revisions, revision => Assert.Equal(change.Id.ToString(), revision.ChangeSetId));
+        Assert.Equal(
+            ["goal", "impediment", "roadmap-plan"],
+            revisions.Select(revision => revision.DocumentKind).Order());
+        Assert.All(revisions, revision => Assert.Null(revision.Before));
+    }
+
+    [Fact]
     public async Task A_typing_session_yields_one_revision()
     {
         var repository = new SqliteTaskRepository(_temp.Path);
