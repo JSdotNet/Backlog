@@ -89,7 +89,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && (needs.changes.outputs.code != 'false' || needs.changes.outputs.scope == 'plugin') }}
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Green runs reach 28 min (the test step alone ~22); 30 cancelled passing runs in their post-steps.
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
