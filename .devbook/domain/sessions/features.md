@@ -1578,7 +1578,7 @@ The area has one switch, because "should this product show me sessions at all" i
 ```meta
 type: feature
 feature-flag: .devbook/domain/sessions/context.md#session-requests
-related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/features.md#plans-view]
 ```
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
@@ -1601,6 +1601,24 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 - **Queue a session for this entry** is a queue icon on a saved prompt entry. It sits
   beside the copy button, both on the entry's row and in the open entry's header. A task,
   a test or an idea does not have it, and the row's right-click menu does not offer it.
+- **A plan is queued only as a whole** (local ADR 0062). On a plan entry, one whose
+  plan a roadmap item carries, the entry's queue icon is disabled, and its tooltip says
+  "Queued with its plan — queue the plan as a whole". The plan's own icon queues it, on
+  its rail row in the [Plans view](../tasks/features.md#plans-view), in its waves view,
+  beside the pressed plan chip and in its roadmap item's dialog. A plan session runs
+  unattended and asks nothing (local ADR 0038).
+- **A plan entry shows the state its plan's run gives it**, as coloured text on its row:
+
+  | State | When |
+  | --- | --- |
+  | Queued with plan | The plan is queued and the entry is ready. |
+  | In plan session | A plan session runs the entry. |
+  | Held for you | A Read-first source the entry names cannot be read, so the run holds it. |
+  | Left for you | A `test` or `task` entry, which the run never does. |
+  | Landed | Its pull request merged into the plan branch. |
+
+  The state is derived from the plan's request, its run and the entry's pull request;
+  nothing new is stored on the entry.
 - The icon's name and tooltip add the repository when there is only one, as
   in "Queue a session for this entry in owner/repo", and say "choose the repository" when the prompt names several.
 - A prompt that names several repositories asks which one first. A repository with no
@@ -1632,7 +1650,19 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   saying which of the three it is. Cancel is offered only while Requested: the
   queue would also cancel a Claimed request, but a dispatcher is already
   starting the session by then.
-- **The session queue** is a button at the right end of the Tasks filter bar. It shows
+- **The session queue is a column docked beside the Tasks list** (local ADR 0062). Its
+  groups, top to bottom:
+  - **Needs you**: a session's question, with **Answer**, and a draft pull request
+    awaiting the person's validation, with **Dismiss** and **Validate**;
+  - **Running**, the Claimed and Started requests, with Cancel shown on hover;
+  - **Up next**, the Requested ones in queue order, reordered as below;
+  - **Landed today**, what merged today;
+  - **Pause queue**, and **Long-running agents**, as below.
+
+  Selecting a queue item filters the list to it: an entry request to that entry, a plan
+  request to that plan. At 48rem wide or narrower the column folds back into the
+  button below.
+- **The folded session queue** is a button at the right end of the Tasks filter bar. It shows
   while the flag is on and counts every open request, entry and plan alike. It reads
   "Session queue, N waiting", or "Session queue, empty" with a muted 0, and adds
   "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover

@@ -87,6 +87,7 @@ between inherited ADRs 0005 and 0009.
 - **[0058 — Agents and devices authenticate by grant and key, the owner by GitHub sign-in](0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md)** *(accepted, built; amended by 0059; amends 0012 §1, 0043 §7 and 0044 §6, retires 0030 §6's exception, applies guideline 0013 to the MCP surface)*
 - **[0059 — Tokenless MCP calls get the scopes the person opens to them](0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md)** *(accepted, built; amends 0058 §3, §4 and §6)*
 - **[0060 — A renamed repository takes its new name as its alias, and what is keyed by the alias follows it](0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md)** *(proposed, not yet built)*
+- **[0062 — The Tasks pane groups by plan, and a plan is queued only as a whole](0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md)** *(proposed, not yet built; changes 0038's queue popover into a docked column, extends 0032's My Day rule to plans)*
 
 ## Inherited decisions
 
