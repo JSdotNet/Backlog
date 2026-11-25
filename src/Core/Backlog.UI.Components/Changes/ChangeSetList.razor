@@ -8,8 +8,12 @@
 
     Presentational. The host reads the journal and hands over the change sets and,
     once a row is opened, that row's documents; this draws them and says which row
-    was opened and which filter was pressed. Read-only: nothing here takes a change
-    back, and no control suggests it might.
+    was opened and which filter was pressed.
+
+    Taking a change set back (local ADR 0061 §4) is offered only when the host can do
+    it — `OnRestore` bound: an opened row that still stands shows "Restore", and the
+    host answers with the plan, drawn in that row as ChangeSetRestorePanel. A change
+    set already restored says so on its row and offers nothing more.
 
     The filter chips are one radio group of toggles, the shape every closed-set
     filter in the library takes. A change set made by Backlog itself (`system`)
@@ -71,11 +75,34 @@
                                 <span class="change-sets__label" data-testid="change-set-label">@(changeSet.Label ?? "No label")</span>
                                 <time class="change-sets__time" datetime="@changeSet.StartedAt.ToString("O", CultureInfo.InvariantCulture)" title="@changeSet.StartedAt.ToString("O", CultureInfo.InvariantCulture)" data-testid="change-set-time">@FormatTime(changeSet.StartedAt)</time>
                                 <span class="change-sets__count" data-testid="change-set-count">@DocumentWord(entry.DocumentCount)</span>
+                                @if (changeSet.UndoneBy is not null)
+                                {
+                                    <Badge Kind="tone" Slug="quiet" Title="A later change set restored what this one replaced" TestId="change-set-restored">Restored</Badge>
+                                }
                             </span>
                         </LabelContent>
                         <ChildContent>
                             @if (open)
                             {
+                                @if (PendingRestore is { } plan && plan.ChangeSetId == changeSet.Id)
+                                {
+                                    <ChangeSetRestorePanel Plan="@plan"
+                                                           Busy="@Restoring"
+                                                           OnConfirm="OnConfirmRestore"
+                                                           OnCancel="OnCancelRestore" />
+                                }
+                                else if (OnRestore.HasDelegate && changeSet.UndoneBy is null && entry.DocumentCount > 0)
+                                {
+                                    <div class="change-sets__actions">
+                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                   Size="ButtonSize.Small"
+                                                   Disabled="@(PendingRestore is not null)"
+                                                   OnClick="() => OnRestore.InvokeAsync(changeSet.Id)"
+                                                   TestId="change-set-restore">
+                                            Restore
+                                        </AppButton>
+                                    </div>
+                                }
                                 @Documents(changeSet.Id, entry.DocumentCount)
                             }
                         </ChildContent>
@@ -107,6 +134,30 @@
     /// <summary>Raised when a row opens, so the host reads its documents.</summary>
     [Parameter]
     public EventCallback<Guid> OnOpen { get; set; }
+
+    /// <summary>Raised by an opened row's Restore, so the host plans that change set's
+    /// restore and hands it back as <see cref="PendingRestore"/>. Unbound, no row
+    /// offers a restore.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnRestore { get; set; }
+
+    /// <summary>The restore waiting for the person's answer, drawn in its change set's
+    /// row, or null.</summary>
+    [Parameter]
+    public RestorePlan? PendingRestore { get; set; }
+
+    /// <summary>True while the pending restore runs.</summary>
+    [Parameter]
+    public bool Restoring { get; set; }
+
+    /// <summary>Raised by the pending restore's Restore, with the conflicts to restore
+    /// anyway.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlySet<DocumentKey>> OnConfirmRestore { get; set; }
+
+    /// <summary>Raised by the pending restore's Cancel.</summary>
+    [Parameter]
+    public EventCallback OnCancelRestore { get; set; }
 
     /// <summary>How a change set's time reads; local <c>d MMM yyyy, HH:mm</c> when unset.</summary>
     [Parameter]
@@ -150,6 +201,10 @@
         if (!expanded)
         {
             _open.Remove(id);
+
+            // A restore waiting in a row that folds away would hide its own Cancel and
+            // hold every other row's Restore: folding it is the cancel.
+            if (PendingRestore?.ChangeSetId == id) await OnCancelRestore.InvokeAsync();
             return;
         }
 

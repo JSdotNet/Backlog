@@ -90,6 +90,9 @@ public sealed class TaskItemStampTests
             task.LoadStamps(Stamped, Stamped);
             task.Restore();
         },
+        // A restore from the change journal has to beat the version it replaces,
+        // which is the one whose stamp it is handed.
+        [nameof(TaskItem.Supersede)] = task => task.Supersede(Stamped, null),
         [nameof(TaskItem.AddSubItem)] = task => task.AddSubItem("Step"),
         [nameof(TaskItem.AddProjectionRef)] = task => task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue")),
 

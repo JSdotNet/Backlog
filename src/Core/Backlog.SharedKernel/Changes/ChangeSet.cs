@@ -29,6 +29,10 @@ public sealed record ChangeSet(Guid Id, ChangeActor Actor, string? Label, DateTi
 
     public string? CorrelationId { get; init; }
 
+    /// <summary>The change set that restored this one (local ADR 0061 §4), or null
+    /// while it stands.</summary>
+    public Guid? UndoneBy { get; init; }
+
     /// <summary>A new change set, stamped now on <paramref name="time"/>.</summary>
     public static ChangeSet Start(ChangeActor actor, string? label = null, TimeProvider? time = null) =>
         new(Guid.CreateVersion7(), actor, label, (time ?? TimeProvider.System).GetUtcNow());

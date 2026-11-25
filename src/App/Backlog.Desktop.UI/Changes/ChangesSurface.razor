@@ -6,8 +6,13 @@
 @*
     The Changes view (local ADR 0061 §2, local ADR 0022 §1): every change set the
     journal holds, newest first, who made it, and — opened in place — what each
-    document was before it beside what it is now. Read-only: taking a change set back
-    is a later step, and nothing here offers it.
+    document was before it beside what it is now.
+
+    An opened change set offers Restore (local ADR 0061 §4) when the host composes a
+    restore: the plan comes back as an in-page panel in that row — how many documents
+    it restores, how many conflict, a choice per conflict — and Restore runs it as the
+    person's own change set, "Restore of <label>". The list is read again after it,
+    so the restored row shows as restored and the restore appears as its own row.
 
     `session=<id>` narrows it to the change sets an agent made in that session — the
     Sessions pane's Changes action. The narrowing is said out loud above the list with
@@ -58,10 +63,22 @@
             <Alert Message="@_error" TestId="changes-error" />
         }
 
+        @if (_restored is not null)
+        {
+            @* A note, not an Alert: an Alert wears the error style, and a restore that
+               finished is no error. *@
+            <Callout Role="status" TestId="changes-restored">@_restored</Callout>
+        }
+
         <ChangeSetList Entries="@_entries"
                        @bind-Filter="_filter"
                        ChangedDocuments="@_documents"
                        OnOpen="OpenAsync"
+                       OnRestore="@(_restore is null ? default(EventCallback<Guid>) : EventCallback.Factory.Create<Guid>(this, PlanRestoreAsync))"
+                       PendingRestore="@_pending"
+                       Restoring="@_restoring"
+                       OnConfirmRestore="RestoreAsync"
+                       OnCancelRestore="CancelRestore"
                        EmptyTitle="@(_session is null ? "No changes recorded yet" : "No change sets from this session")"
                        EmptyDescription="@(_session is null ? "Every write to a task is recorded here, with who made it." : "The agent wrote nothing under this session id, or named another.")"
                        TestId="changes-list" />
@@ -91,7 +108,65 @@
     private bool _loading;
     private string? _error;
 
-    protected override void OnInitialized() => _journal = Services.GetService<IChangeJournal>();
+    private IChangeRestore? _restore;
+    private RestorePlan? _pending;
+    private bool _restoring;
+    private string? _restored;
+
+    protected override void OnInitialized()
+    {
+        _journal = Services.GetService<IChangeJournal>();
+        _restore = Services.GetService<IChangeRestore>();
+    }
+
+    private async Task PlanRestoreAsync(Guid changeSetId)
+    {
+        if (_restore is null) return;
+
+        _error = null;
+        _restored = null;
+        try
+        {
+            _pending = await _restore.PlanAsync(changeSetId);
+            if (_pending is null) _error = "That change set is no longer in the journal.";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _pending = null;
+            _error = $"The restore could not be planned: {exception.Message}";
+        }
+    }
+
+    private void CancelRestore() => _pending = null;
+
+    private async Task RestoreAsync(IReadOnlySet<DocumentKey> restoreAnyway)
+    {
+        if (_restore is null || _pending is not { } plan) return;
+
+        _restoring = true;
+        _error = null;
+        try
+        {
+            var outcome = await _restore.RestoreAsync(plan.ChangeSetId, restoreAnyway);
+            _restored = outcome.Restored == 0
+                ? "Nothing was restored: every document was kept as it is."
+                : $"{outcome.Label}: {DocumentWord(outcome.Restored)} restored{(outcome.Kept > 0 ? $", {outcome.Kept} kept as {(outcome.Kept == 1 ? "it is" : "they are")}" : string.Empty)}.";
+            _pending = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The restore did not finish: {exception.Message}";
+            return;
+        }
+        finally
+        {
+            _restoring = false;
+        }
+
+        await LoadAsync();
+    }
+
+    private static string DocumentWord(int count) => count == 1 ? "1 document" : $"{count} documents";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -105,15 +180,29 @@
         _session = Query is not null && Query.TryGetValue(ChangesSurfaceQuery.SessionKey, out var session) && session.Length > 0
             ? session
             : null;
+        ForgetRestore();
         await LoadAsync();
     }
 
-    private Task RefreshAsync() => LoadAsync();
+    private Task RefreshAsync()
+    {
+        ForgetRestore();
+        return LoadAsync();
+    }
 
     private Task ShowAllAsync()
     {
         _session = null;
+        ForgetRestore();
         return LoadAsync();
+    }
+
+    /// <summary>A new list is a new look: a restore still waiting is dropped, and so
+    /// is the word on the last one.</summary>
+    private void ForgetRestore()
+    {
+        _pending = null;
+        _restored = null;
     }
 
     private async Task LoadAsync()

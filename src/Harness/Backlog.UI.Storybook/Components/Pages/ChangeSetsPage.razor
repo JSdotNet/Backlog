@@ -5,7 +5,7 @@
 <PageTitle>Change sets — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Change sets"
-           Summary="The change journal read back: every change set newest first with who made it, a filter by who, and — opened in place — each document's text before the change set beside its text now. Read-only; nothing here takes a change back."
+           Summary="The change journal read back: every change set newest first with who made it, a filter by who, and — opened in place — each document's text before the change set beside its text now, and — where the host can — a restore that takes a change set back as a later save, confirmed in the row."
            Guidelines="@Rules">
 
     <Story Name="Who changed what"
@@ -37,6 +37,29 @@ Open the agent's row to see each task's entry text before the change beside its 
                        ChangedDocuments="@Documents"
                        TimeFormat="@Time"
                        TestId="story-change-sets-fields" />
+    </Story>
+
+    <Story Name="Restoring a change set"
+           Description="An opened row that still stands offers Restore when the host can take it back. The confirmation opens in the row: how many documents the restore writes back and how many changed since. Each conflict is kept as it is unless the person chooses Restore anyway, and the count follows the choice."
+           Code="@RestoreCode">
+        <ChangeSetRestorePanel Plan="@Plan"
+                               OnConfirm="@(_ => _confirmed = true)"
+                               OnCancel="@(() => _confirmed = false)"
+                               TestId="story-change-restore" />
+        @if (_confirmed)
+        {
+            <Alert Message="Restore pressed." Role="status" TestId="story-change-restore-confirmed" />
+        }
+    </Story>
+
+    <Story Name="Already restored"
+           Description="A change set a later one restored says so on its row and offers no second restore; the restore itself is a row of its own, made by you."
+           Code="@RestoredCode">
+        <ChangeSetList Entries="@([new ChangeSetEntry(Restore, 2), new ChangeSetEntry(AgentRun with { UndoneBy = Restore.Id }, 2)])"
+                       ChangedDocuments="@Documents"
+                       OnRestore="@(_ => { })"
+                       TimeFormat="@Time"
+                       TestId="story-change-sets-restored" />
     </Story>
 
     <Story Name="Nothing recorded yet"
@@ -96,6 +119,20 @@ Open the agent's row to see each task's entry text before the change beside its 
             [GoalEdit.Id] = [new("goal", "g-1", "Ship the journal", "id: g-1\ntitle: Ship the journal\nstate: open\ntarget_on: 2026-12-01", null)],
         };
 
+    private bool _confirmed;
+
+    private static readonly ChangeSet Restore = new(Guid.Parse("0194f0a0-0000-7000-8000-000000000006"), ChangeActor.Person, "Restore of transition", Morning.AddMinutes(55));
+
+    private static readonly RestorePlan Plan = new(
+        AgentRun.Id,
+        AgentRun.Label,
+        UndoneBy: null,
+        [
+            new(new DocumentKey("task", "t-2"), "Pack", RestoreAction.Tombstone, Conflict: false),
+            new(new DocumentKey("task", "t-1"), "Plan the trip", RestoreAction.Revert, Conflict: true),
+            new(new DocumentKey("goal", "g-1"), "Ship the journal", RestoreAction.Revert, Conflict: false),
+        ]);
+
     private static string Time(DateTimeOffset at) => at.UtcDateTime.ToString("d MMM yyyy, HH:mm", System.Globalization.CultureInfo.InvariantCulture);
 
     private const string ListCode = """
@@ -111,6 +148,17 @@ Open the agent's row to see each task's entry text before the change beside its 
 
     private const string FieldsCode = """
         <ChangeSetList Entries="@goalEdit" ChangedDocuments="@documents" />
+        """;
+
+    private const string RestoreCode = """
+        <ChangeSetRestorePanel Plan="@plan"
+                               Busy="@restoring"
+                               OnConfirm="RestoreAsync"
+                               OnCancel="() => plan = null" />
+        """;
+
+    private const string RestoredCode = """
+        <ChangeSetList Entries="@entries" ChangedDocuments="@documents" OnRestore="PlanRestoreAsync" />
         """;
 
     private const string EmptyCode = """
