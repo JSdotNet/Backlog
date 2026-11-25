@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Goals;
 
 using Bunit;
 
@@ -171,6 +172,52 @@ public sealed class PlanSectionsTests
             Assert.Equal("+gamma", host.State.SelectedPlan);
             Assert.Equal("gamma", pane.Find("[data-testid='plan-expanded']").GetAttribute("data-plan"));
         });
+    }
+
+    [Fact]
+    public async Task A_blocked_plans_folded_note_names_the_impediment_linked_to_one_of_its_entries()
+    {
+        using var host = await HostAsync();
+        // +delta: one blocked, one still a draft — nothing ready.
+        var roof = await host.WriteEntryAsync("# Fix the roof +delta\n`task` `!ready` `blocked:2026-10-05`\n");
+        await host.WriteEntryAsync("# Paint the ceiling +delta\n`task` `!draft`\n");
+        await host.State.SelectAsync(null);
+        var source = new PlanImpedimentSource((_, entries) => entries.Contains(roof.Id!.Value) ? "Roofer not booked" : null);
+
+        var pane = SelectZta(host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source)));
+
+        var note = pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-note']");
+        Assert.Equal("Blocked · Roofer not booked · 1 waiting", Text(note));
+        Assert.Contains("plan-sections__folded-note--blocked", note.ClassList);
+        Assert.EndsWith(", Blocked · Roofer not booked · 1 waiting",
+            pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-open']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public async Task A_blocked_plans_folded_note_stays_plain_Blocked_with_no_impediment_linked()
+    {
+        using var host = await HostAsync();
+        await host.WriteEntryAsync("# Fix the roof +delta\n`task` `!ready` `blocked:2026-10-05`\n");
+        await host.State.SelectAsync(null);
+        var source = new PlanImpedimentSource((_, _) => null);
+
+        var pane = SelectZta(host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source)));
+
+        Assert.Equal("Blocked", Text(pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-note']")));
+    }
+
+    [Fact]
+    public void The_folded_note_of_a_blocked_plan_carries_its_impediment_beside_the_waiting_count()
+    {
+        var plan = new PlanRailPlan("+delta", "delta", 0, 2, PlanRunState.Blocked, 0, 0, "Roofer not booked");
+
+        Assert.Equal("Blocked · Roofer not booked", PlanSections.FoldedNote(plan, 0, 0));
+        Assert.Equal("Blocked · Roofer not booked · 2 waiting", PlanSections.FoldedNote(plan, 0, 2));
+        Assert.Equal("Blocked · 2 waiting", PlanSections.FoldedNote(plan with { Impediment = null }, 0, 2));
     }
 
     [Fact]

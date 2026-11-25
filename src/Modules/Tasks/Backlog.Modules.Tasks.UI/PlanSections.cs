@@ -238,7 +238,8 @@ public static partial class PlanSections
     }
 
     /// <summary>A folded plan's note: <c>Queued · 1st up next</c>, <c>Plan session
-    /// running</c>, <c>Blocked</c>, or its ready and waiting counts — ready as Next
+    /// running</c>, <c>Blocked</c> — <c>Blocked · &lt;impediment&gt;</c> when an open
+    /// impediment is linked — or its ready and waiting counts — ready as Next
     /// reads it, so an entry waiting on another is counted waiting, not ready.</summary>
     public static string FoldedNote(PlanRailPlan plan, int ready, int waiting)
     {
@@ -248,7 +249,7 @@ public static partial class PlanSections
         {
             PlanRunState.Running => "Plan session running",
             PlanRunState.Queued => plan.QueuePlace > 0 ? $"Queued · {PlanRail.Ordinal(plan.QueuePlace)} up next" : "Queued",
-            PlanRunState.Blocked => waiting > 0 ? $"Blocked · {waiting.ToString(CultureInfo.InvariantCulture)} waiting" : "Blocked",
+            PlanRunState.Blocked => waiting > 0 ? $"{plan.StateTitle} · {waiting.ToString(CultureInfo.InvariantCulture)} waiting" : plan.StateTitle,
             PlanRunState.Draft => "Draft",
             _ => $"{ready.ToString(CultureInfo.InvariantCulture)} ready · {waiting.ToString(CultureInfo.InvariantCulture)} waiting",
         };

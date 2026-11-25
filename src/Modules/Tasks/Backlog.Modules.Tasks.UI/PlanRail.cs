@@ -51,6 +51,9 @@ public enum PlanRunState
 /// <param name="State">Its run state.</param>
 /// <param name="QueuePlace">Its 1-based place in the queue, for <see cref="PlanRunState.Queued"/>.</param>
 /// <param name="ReadyCount">How many of its open entries are ready and not marked blocked.</param>
+/// <param name="Impediment">For <see cref="PlanRunState.Blocked"/>, the title of the open
+/// impediment that holds back the plan or one of its open entries (local ADR 0035 §5), or
+/// null when none is linked.</param>
 public sealed record PlanRailPlan(
     string Tag,
     string Name,
@@ -58,7 +61,8 @@ public sealed record PlanRailPlan(
     int Total,
     PlanRunState State,
     int QueuePlace,
-    int ReadyCount)
+    int ReadyCount,
+    string? Impediment = null)
 {
     /// <summary>The run state as the row's coloured text — <c>Running</c>,
     /// <c>Queued 2nd</c>, <c>Blocked</c>, <c>3 ready</c>, <c>Draft</c> — or empty.</summary>
@@ -71,6 +75,12 @@ public sealed record PlanRailPlan(
         PlanRunState.Draft => "Draft",
         _ => string.Empty,
     };
+
+    /// <summary>The run state as its tooltip words it: <c>Blocked · &lt;impediment&gt;</c>
+    /// for a Blocked plan an impediment is linked to, else <see cref="StateText"/>.</summary>
+    public string StateTitle => State is PlanRunState.Blocked && Impediment is { } impediment
+        ? $"{StateText} · {impediment}"
+        : StateText;
 
     /// <summary>How far along the plan is, 0 to 100, for its progress line.</summary>
     public int ProgressPercent => Total <= 0 ? 0 : (int)Math.Round(Done * 100.0 / Total, MidpointRounding.AwayFromZero);
@@ -93,11 +103,15 @@ public static class PlanRail
     /// <param name="planRequests">The plans' open session requests, by bare tag.</param>
     /// <param name="queue">The session queue's rows in queue order: a Requested plan's
     /// place is counted among the Requested rows.</param>
+    /// <param name="impedimentOf">The title of the open impediment holding back a plan, by
+    /// its bare tag and its open entries, or null; asked only for a Blocked plan. Unset, no
+    /// plan names one.</param>
     public static IReadOnlyList<PlanRailPlan> Plans(
         IReadOnlyList<TagFilterOption> tagFilters,
         IReadOnlyList<EntryRow> scopedRows,
         IReadOnlyDictionary<string, EntrySessionRequest> planRequests,
-        IReadOnlyList<SessionQueueRow> queue)
+        IReadOnlyList<SessionQueueRow> queue,
+        Func<string, IReadOnlyList<EntryRow>, string?>? impedimentOf = null)
     {
         ArgumentNullException.ThrowIfNull(tagFilters);
         ArgumentNullException.ThrowIfNull(scopedRows);
@@ -128,7 +142,8 @@ public static class PlanRail
                 option.OpenCount + option.CompletedCount,
                 state,
                 state is PlanRunState.Queued ? place : 0,
-                ready));
+                ready,
+                state is PlanRunState.Blocked ? impedimentOf?.Invoke(bare, open) : null));
         }
 
         return plans;

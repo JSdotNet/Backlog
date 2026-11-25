@@ -78,6 +78,7 @@ public partial class TasksPane
 
         SyncFlatScope();
         LetGoOfQueueFocusWhenFolded();
+        FollowPlanImpediments();
     }
 
     private async Task OnBoardGroupingPickedAsync(string? value)

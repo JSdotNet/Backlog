@@ -6974,7 +6974,7 @@
                         <span class="plan-rail__name" data-testid="plan-rail-name">@plan.Name</span>
                         @if (plan.StateText.Length > 0)
                         {
-                            <Badge BaseClass="plan-rail__state" Kind="" Slug="@RailStateSlug(plan.State)" TestId="plan-rail-state">@plan.StateText</Badge>
+                            <Badge BaseClass="plan-rail__state" Kind="" Slug="@RailStateSlug(plan.State)" Title="@(plan.State == PlanRunState.Blocked ? plan.StateTitle : null)" TestId="plan-rail-state">@plan.StateText</Badge>
                         }
                     </span>
                     <span class="plan-rail__line">
@@ -7666,6 +7666,7 @@
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;
         _planSessions.Dispose();
+        StopFollowingPlanImpediments();
 
         if (_listWidthReference is not null)
         {

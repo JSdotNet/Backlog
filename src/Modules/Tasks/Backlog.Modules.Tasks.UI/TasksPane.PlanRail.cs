@@ -1,4 +1,5 @@
 using Backlog.UI.Components.Badges;
+using Backlog.UI.Components.Goals;
 
 using Microsoft.AspNetCore.Components;
 
@@ -56,9 +57,43 @@ public partial class TasksPane
             ? State.TagFilters.Where(tag => tag.Value != TasksDesktopState.NoPlanTag && TagText.Kind(tag.Value) is not TagKind.Plan).ToList()
             : State.TagFilters;
 
-    /// <summary>The rail's plans, with their counts and run states.</summary>
+    /// <summary>
+    /// What names the open impediment holding a Blocked plan back, as the host cascades it
+    /// (local ADR 0035 §5): an impediment is Progress's, and this pane may not reach it
+    /// (§6). With none cascaded a Blocked plan reads plain Blocked.
+    /// </summary>
+    [CascadingParameter]
+    public PlanImpedimentSource? PlanImpediments { get; set; }
+
+    private PlanImpedimentSource? _watchedPlanImpediments;
+    private IDisposable? _planImpedimentsWatch;
+
+    /// <summary>Watches the cascaded source, so the rail and the folded lines draw again
+    /// when an impediment is raised, linked or resolved; a different source replaces the
+    /// subscription, the same one keeps it.</summary>
+    private void FollowPlanImpediments()
+    {
+        if (ReferenceEquals(PlanImpediments, _watchedPlanImpediments)) return;
+
+        _planImpedimentsWatch?.Dispose();
+        _watchedPlanImpediments = PlanImpediments;
+        _planImpedimentsWatch = PlanImpediments?.Watch(HandleSessionRequestsChanged);
+    }
+
+    private void StopFollowingPlanImpediments()
+    {
+        _planImpedimentsWatch?.Dispose();
+        _planImpedimentsWatch = null;
+        _watchedPlanImpediments = null;
+    }
+
+    /// <summary>The rail's plans, with their counts and run states — a Blocked one with
+    /// the impediment that holds it or one of its open entries back.</summary>
     private IReadOnlyList<PlanRailPlan> RailPlans() =>
-        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows());
+        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows(), PlanImpedimentOf);
+
+    private string? PlanImpedimentOf(string plan, IReadOnlyList<EntryRow> open) =>
+        PlanImpediments?.TitleOf(plan, [.. open.Where(row => row.Id is not null).Select(row => row.Id!.Value)]);
 
     /// <summary>How many open entries are plan work in a session, off the rows the
     /// repository scope leaves in view — the pool the bar's scope chips count.</summary>
@@ -84,5 +119,5 @@ public partial class TasksPane
     private static string RailPlanLabel(PlanRailPlan plan) =>
         string.IsNullOrEmpty(plan.StateText)
             ? $"{plan.Name}, {plan.Done} of {plan.Total} done"
-            : $"{plan.Name}, {plan.Done} of {plan.Total} done, {plan.StateText}";
+            : $"{plan.Name}, {plan.Done} of {plan.Total} done, {plan.StateTitle}";
 }
