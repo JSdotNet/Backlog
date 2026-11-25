@@ -67,7 +67,7 @@ public partial class TasksPane
                 return new TagFilterOption(tag, tag, entries.Count - done, done);
             })
             .ToList();
-        var plans = PlanRail.Plans(options, State.Rows, _planSessions.Open, SessionQueueRows());
+        var plans = PlanRail.Plans(options, State.Rows, _planSessions.Open, SessionQueueRows(), ReadsAsNext);
 
         return [.. plans.Select(plan => new PlanToday(plan, State.PlanEntriesForYou(plan.Tag, PlanRunOf(plan.Tag))))];
     }

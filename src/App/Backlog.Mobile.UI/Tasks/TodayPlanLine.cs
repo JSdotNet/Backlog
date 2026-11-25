@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Progress;
 using Backlog.Modules.Tasks.Abstractions;
 
 using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
@@ -41,7 +42,9 @@ public enum TodayPlanState
 /// <param name="Done">Its entries ticked off.</param>
 /// <param name="Total">All its entries, open and ticked.</param>
 /// <param name="State">Its run state.</param>
-/// <param name="ReadyCount">Its open entries that are ready and not marked blocked.</param>
+/// <param name="ReadyCount">Its open entries that read under Next, as the desktop's plan
+/// sections read them, and are not marked blocked: an entry still waiting on another open
+/// one is not among them.</param>
 public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanState State, int ReadyCount)
 {
     /// <summary>The run state in the line's words — <c>In progress</c>, <c>Blocked</c>,
@@ -84,6 +87,7 @@ public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanSt
         var live = tasks
             .Where(row => row.DeletedAt is null && !IsArchived(row))
             .ToList();
+        var waits = PhoneStandUp.WaitsOnOpenWork(live);
         var lines = new List<TodayPlanLine>();
 
         foreach (var (plan, on) in stamps)
@@ -91,7 +95,7 @@ public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanSt
             var entries = live.Where(row => PlanOf(row) == plan).ToList();
             if (!MyDayRule.Includes(on, FinishedOn(entries), today, clearsOvernight)) continue;
 
-            lines.Add(Line(plan, entries));
+            lines.Add(Line(plan, entries, waits));
         }
 
         return lines;
@@ -125,10 +129,10 @@ public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanSt
         return key.ToString();
     }
 
-    private static TodayPlanLine Line(string plan, IReadOnlyList<TaskViewRow> entries)
+    private static TodayPlanLine Line(string plan, IReadOnlyList<TaskViewRow> entries, Func<TaskViewRow, bool> waits)
     {
         var open = entries.Where(row => !TodayPlan.IsTicked(row)).ToList();
-        var ready = open.Count(row => StatusOf(row) is EntryStatus.Ready && row.Task.BlockedSince is null);
+        var ready = open.Count(row => ReadsAsNext(row, waits) && row.Task.BlockedSince is null);
         var done = entries.Count - open.Count;
 
         var state = open.Any(row => StatusOf(row) is EntryStatus.InProgress) ? TodayPlanState.InProgress
@@ -139,6 +143,36 @@ public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanSt
             : TodayPlanState.None;
 
         return new TodayPlanLine(plan, done, entries.Count, state, ready);
+    }
+
+    /// <summary>
+    /// Whether an open entry reads under Next, as the desktop's plan sections read it
+    /// (<c>PlanSections.SectionOf</c> over <c>PlanEntryState.For</c>): a ready <c>task</c>
+    /// or <c>test</c> is left for you and reads under Next; any other entry marked blocked
+    /// is held for you and does too; one in progress does not; any other does only when it
+    /// is ready and waits on no open work — so an entry still waiting on another is not ready.
+    /// The phone holds no plan run or landing, so those states are not read here.
+    /// </summary>
+    private static bool ReadsAsNext(TaskViewRow row, Func<TaskViewRow, bool> waits)
+    {
+        var status = StatusOf(row);
+
+        if (TypeOf(row) is EntryType.Task or EntryType.Test) return status is EntryStatus.Ready;
+        if (row.Task.BlockedSince is not null) return true;
+
+        return status is EntryStatus.Ready && !waits(row);
+    }
+
+    private static EntryType? TypeOf(TaskViewRow row)
+    {
+        try
+        {
+            return EnumMap.ParseType(row.Task.Type?.Trim() ?? string.Empty);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The plan's key of the first plan tag a task carries, or null.</summary>

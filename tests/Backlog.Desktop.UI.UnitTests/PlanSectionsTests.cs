@@ -154,6 +154,24 @@ public sealed class PlanSectionsTests
     }
 
     [Fact]
+    public async Task The_rail_counts_ready_the_way_Next_does_leaving_out_the_entries_still_waiting()
+    {
+        using var host = await HostAsync();
+        var pane = RenderPlans(host);
+
+        pane.WaitForAssertion(() =>
+        {
+            string? State(string name) =>
+                pane.Find($"[data-testid='plan-rail-plan'][data-plan='{name}']").QuerySelector("[data-testid='plan-rail-state']")?.TextContent;
+
+            // +zta has four entries marked ready, but #20 and #21 wait on open work:
+            // Next reads #17 and #18 alone. +gamma's Third waits on First.
+            Assert.Equal("2 ready", State("zta"));
+            Assert.Equal("2 ready", State("gamma"));
+        });
+    }
+
+    [Fact]
     public async Task The_other_plans_fold_to_a_line_each_with_their_note()
     {
         using var host = await HostAsync();
