@@ -710,6 +710,50 @@ actions. A list may hold hundreds of such rows.
 
 Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 
+### Quiet Rows
+
+```meta
+related: [".devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md", ".devbook/design/interaction-guidelines.md#board-cards", ".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/design/accessibility.md#target-sizes-and-text"]
+```
+
+The Tasks pane lists more rows than any other screen, so its rows drop the
+status pill and end in two small buttons (local ADR 0062 §5). The rows above
+hold unchanged; these rules hold only where the host asks for the quiet look.
+
+| Rule | Requirement |
+|---|---|
+| Only the Tasks pane | The quiet look is the Tasks pane's. The Board's cards and every other list keep the pill. |
+| Status as text | The status reads as coloured text with no fill or border, and a press MUST still open the status selector. |
+| One ink per status | In progress light grey, ready teal, draft muted, blocked red. |
+| Trailing slot | After the badges the row ends in two 26px borderless icon buttons: copy, then queue. |
+| Copy on demand | The copy shows on hover and on focus; where nothing hovers it stays shown. |
+| Three queue looks | The queue button is idle, queued or inert for a plan entry, and its label names the act. |
+| Everything else stays | Every other badge, the link handle and the repository edge stay as on any row. |
+
+- **Status as text:** the text is the same selector the pill was, so the
+  status keeps its one control and its keyboard path. Blocked is the hand-set
+  mark, whatever the status, since an entry has no blocked status.
+- **One ink per status:** done takes the success ink and archived the muted
+  one. The words carry the status, so the ink is never its only carrier.
+- **Copy on demand:** a row a pointer hovers shows the copy then; a keyboard
+  reaching it shows it on focus. A copy refused on a blocked row stays dimmed,
+  as on any row.
+- **Three queue looks:**
+  - *Idle* is muted, and a press queues a session for the row.
+  - *Queued* is amber on a dark amber fill, and a press takes the row off the
+    queue while its request is still Requested. Once a dispatcher has it, the
+    button is refused with the request's state as the reason.
+  - *Plan entry* is inert: a plan is queued only as a whole (ADR 0062 §4). The
+    button stays in place, refused, with the plan's reason on its tooltip and
+    to a screen reader, because a control that vanished would read as one the
+    product cannot do.
+  - A press on its way keeps the button focusable, marked busy, and the host
+    refuses a second press.
+
+Review surface: storybook → *Task list* → **Quiet row: in progress**,
+**Quiet row: ready**, **Quiet row: draft**, **Quiet row: blocked**, and
+**Queue button: idle**, **Queue button: queued**, **Queue button: plan entry**.
+
 ### Board Cards
 
 ```meta
