@@ -134,7 +134,7 @@ Read what to say at a stand-up without gathering it by hand, in four blocks over
 
 Each block's heading carries its count. An impediment that is [ready to resolve](domain.md#ready-to-resolve) is marked in its block. A goal without a due date reads as due at the end of the next window, such as "due 23 Oct (end of iteration)", here and in the copied text. A planned item shows its `effort:` in points, and one with a pull request shows its [status](#pull-request-status).
 
-On the desktop, the Goals block is the goals beside the stand-up, which holds Finished, Planned and Impediments. Finished lists only what the goals track, never work no goal holds.
+On the desktop, the Goals block is the goals beside the stand-up, which holds Finished, Planned and Impediments. Finished lists only what the goals track, never work no goal holds. It shows a plan once, not its entries: one row per plan, named by its tag where its first entry would be, with how many of its entries were done in the last window, such as `bank-integration · 4 done`. A task outside a plan and a pull request keep their own rows, and the heading's count still counts every item done.
 
 The **points tag** on Planned compares the planned effort with what the person usually gets done in such a window, such as `21 / 18 pts`. The first figure is the `effort:` of the planned items added up; an item without an effort adds nothing. The second is the person's [pace](domain.md#pace) from the Roadmap, scaled to the next window's working days. The tag's title says it in words, such as "21 points planned, you usually finish 18 a week", the period following the iteration. Without a pace the tag is the planned points alone, such as `21 pts`.
 
@@ -153,6 +153,7 @@ related: [.devbook/domain/progress/requirements.md#the-stand-up]
 
 - each heading with its count;
 - Finished and Planned grouped by goal, No goal last;
+- a finished plan as one line with its entries done, such as `- bank-integration · 4 done`;
 - the points tag beside Planned;
 - "n resolved" after Impediments.
 

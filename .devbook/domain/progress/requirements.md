@@ -593,6 +593,21 @@ The system SHALL list under Finished every item done in the last window that a g
 - **When** the stand-up is read
 - **Then** "Invoice PDF export" is under "Customers get paid faster" and "VAT rate per line item" is not listed
 
+### Requirement: Finished shows a plan once
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.Finished_shows_each_plan_once_with_its_entries_done_in_the_window, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_finished_plan_shows_once_with_its_entries_done_and_counts_them_all, unit:dotnet:Backlog.UI.Components.UnitTests.StandUpClipboardTests.A_finished_plan_reads_its_entries_done_and_the_heading_counts_them]
+```
+
+The system SHALL show under Finished on the desktop each plan whose entries were done in the last window as one row, named by its tag, with how many of those entries were done, and SHALL count each of those entries in the heading.
+
+#### Scenario: A plan worked through in the week
+
+- **Given** "Customers get paid faster" holds the plan `bank-integration`, and three of its entries and the task "Invoice PDF export" were done from 12 to 16 October
+- **When** the stand-up is read on the desktop
+- **Then** Finished shows `bank-integration` with "3 done" and "Invoice PDF export" on its own row, and its heading reads 4
+
 ### Requirement: Planned is derived from three sources
 
 ```meta
