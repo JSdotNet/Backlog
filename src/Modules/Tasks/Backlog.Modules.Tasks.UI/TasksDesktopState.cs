@@ -2048,6 +2048,23 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
         tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
 
     /// <summary>
+    /// Lets go of the plan rail's plan and Unplanned selection — a pressed plan, No
+    /// plan, a plan <see cref="ShowPlan"/> holds, and Now across plans — for a view that
+    /// draws no rail: the Flat view lists the unplanned work plus a plan entry on My Day
+    /// whatever the rail had selected (local ADR 0062 §3). People and general tags, and
+    /// My Day, stay.
+    /// </summary>
+    public void LetGoOfPlanSelection()
+    {
+        if (_shownPlan is null && !NowAcrossPlansOnly && !_selectedTags.Any(IsPlanFilter)) return;
+
+        LetGoOfShownPlan();
+        _selectedTags.RemoveWhere(IsPlanFilter);
+        NowAcrossPlansOnly = false;
+        ApplyFilter();
+    }
+
+    /// <summary>
     /// Shows one plan's work: <paramref name="planTag"/> becomes the one plan chip
     /// pressed, and the list shows every entry the roadmap gathers under the item — what
     /// a roadmap item's "Open in Tasks" asks for.

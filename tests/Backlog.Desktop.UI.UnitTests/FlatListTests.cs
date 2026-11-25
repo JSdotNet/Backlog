@@ -208,6 +208,66 @@ public sealed class FlatListTests
         pane.WaitForAssertion(() => Assert.Equal("2 more unplanned · plan entries live under Plans", Text(pane.Find("[data-testid='flat-footer']"))));
     }
 
+    [Fact]
+    public async Task The_heading_counts_the_open_unplanned_entries()
+    {
+        var seeded = await SeedAsync();
+        using var host = seeded.Host;
+
+        var pane = RenderFlat(host);
+
+        // Runbook, the certificate and the export; the finished one is not counted.
+        pane.WaitForAssertion(() => Assert.Equal("Unplanned 3 · plan entries only from My Day", Text(pane.Find("[data-testid='flat-heading']"))));
+    }
+
+    // --- Flat is its own view, whatever the rail had selected --------------------
+
+    [Fact]
+    public async Task A_plan_selected_on_the_rail_does_not_narrow_Flat()
+    {
+        var seeded = await SeedAsync();
+        using var host = seeded.Host;
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.ListGrouping, TaskListGrouping.Plans));
+        host.State.SelectRailItem(PlanRailItem.Plan, "+zta", Today);
+        pane.WaitForAssertion(() => Assert.Equal("+zta", host.State.SelectedPlan));
+
+        pane.Render(parameters => parameters.Add(p => p.ListGrouping, TaskListGrouping.Flat));
+
+        pane.WaitForAssertion(() =>
+        {
+            var titles = Titles(pane);
+            Assert.Contains("Write the runbook", titles);
+            Assert.Contains("Renew the certificate", titles);
+            Assert.Contains("Add the export", titles);
+            Assert.Contains("16 - Keep sessions alive +zta", titles);
+            Assert.DoesNotContain("14 - Issue device-bound tokens +zta", titles);
+            Assert.Equal("Plan entries live under Plans", Text(pane.Find("[data-testid='flat-footer']")));
+        });
+        Assert.Null(host.State.SelectedPlan);
+    }
+
+    [Fact]
+    public async Task Unplanned_selected_on_the_rail_keeps_the_plan_entry_on_My_Day_in_Flat()
+    {
+        var seeded = await SeedAsync();
+        using var host = seeded.Host;
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.ListGrouping, TaskListGrouping.Plans));
+        host.State.SelectRailItem(PlanRailItem.Unplanned, null, Today);
+        pane.WaitForAssertion(() => Assert.True(host.State.IsRailItemSelected(PlanRailItem.Unplanned)));
+
+        pane.Render(parameters => parameters.Add(p => p.ListGrouping, TaskListGrouping.Flat));
+
+        pane.WaitForAssertion(() =>
+        {
+            var titles = Titles(pane);
+            Assert.Contains("Write the runbook", titles);
+            Assert.Contains("16 - Keep sessions alive +zta", titles);
+        });
+        Assert.False(host.State.IsRailItemSelected(PlanRailItem.Unplanned));
+    }
+
     // --- Selection ------------------------------------------------------------
 
     [Fact]
