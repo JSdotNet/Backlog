@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Goals;
 
 using Bunit;
 
@@ -192,6 +193,52 @@ public sealed class PlanSectionsTests
     }
 
     [Fact]
+    public async Task A_blocked_plans_folded_note_names_the_impediment_linked_to_one_of_its_entries()
+    {
+        using var host = await HostAsync();
+        // +delta: one blocked, one still a draft — nothing ready.
+        var roof = await host.WriteEntryAsync("# Fix the roof +delta\n`task` `!ready` `blocked:2026-10-05`\n");
+        await host.WriteEntryAsync("# Paint the ceiling +delta\n`task` `!draft`\n");
+        await host.State.SelectAsync(null);
+        var source = new PlanImpedimentSource((_, entries) => entries.Contains(roof.Id!.Value) ? "Roofer not booked" : null);
+
+        var pane = SelectZta(host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source)));
+
+        var note = pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-note']");
+        Assert.Equal("Blocked · Roofer not booked · 1 waiting", Text(note));
+        Assert.Contains("plan-sections__folded-note--blocked", note.ClassList);
+        Assert.EndsWith(", Blocked · Roofer not booked · 1 waiting",
+            pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-open']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public async Task A_blocked_plans_folded_note_stays_plain_Blocked_with_no_impediment_linked()
+    {
+        using var host = await HostAsync();
+        await host.WriteEntryAsync("# Fix the roof +delta\n`task` `!ready` `blocked:2026-10-05`\n");
+        await host.State.SelectAsync(null);
+        var source = new PlanImpedimentSource((_, _) => null);
+
+        var pane = SelectZta(host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.ListGrouping, TaskListGrouping.Plans)
+            .AddCascadingValue(source)));
+
+        Assert.Equal("Blocked", Text(pane.Find("[data-testid='plan-folded'][data-plan='delta'] [data-testid='plan-folded-note']")));
+    }
+
+    [Fact]
+    public void The_folded_note_of_a_blocked_plan_carries_its_impediment_beside_the_waiting_count()
+    {
+        var plan = new PlanRailPlan("+delta", "delta", 0, 2, PlanRunState.Blocked, 0, 0, "Roofer not booked");
+
+        Assert.Equal("Blocked · Roofer not booked", PlanSections.FoldedNote(plan, 0, 0));
+        Assert.Equal("Blocked · Roofer not booked · 2 waiting", PlanSections.FoldedNote(plan, 0, 2));
+        Assert.Equal("Blocked · 2 waiting", PlanSections.FoldedNote(plan with { Impediment = null }, 0, 2));
+    }
+
+    [Fact]
     public async Task Unplanned_closes_the_column_and_Select_new_plan_picks_from_it()
     {
         using var host = await HostAsync();
@@ -295,6 +342,42 @@ public sealed class PlanSectionsTests
         var line = PlanSections.DoneLine([Entry("11 - Unmerged", PlanSection.Done), first, last], "plan/p");
 
         Assert.Equal("3 done — 2 merged into plan/p · last: #13, PR #1841", line);
+    }
+
+    [Fact]
+    public async Task A_Now_row_shows_the_stage_its_plan_session_reports_and_follows_it()
+    {
+        using var host = await HostAsync();
+        var tokens = host.State.Rows.Single(row => row.PreviewTitle.StartsWith("14 - ", StringComparison.Ordinal));
+        var stages = new FakePlanEntryStages();
+        stages.Answer = new Dictionary<Guid, string> { [tokens.Id!.Value] = "Review · 8 of 9" };
+        host.Context.Services.AddSingleton<IPlanEntryStages>(stages);
+
+        var pane = SelectZta(RenderPlans(host));
+
+        // #14's session reports a stage; #15's reports none, so its slot stays empty.
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Review · 8 of 9"],
+            pane.FindAll("[data-testid='plan-section-now'] [data-testid='plan-section-row-stage']").Select(Text)));
+
+        stages.Answer = new Dictionary<Guid, string> { [tokens.Id!.Value] = "Build & Test · 5 of 12" };
+        stages.Raise();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Build & Test · 5 of 12"],
+            pane.FindAll("[data-testid='plan-section-now'] [data-testid='plan-section-row-stage']").Select(Text)));
+    }
+
+    /// <summary>The stage source, in memory: what a test says each session reports.</summary>
+    private sealed class FakePlanEntryStages : IPlanEntryStages
+    {
+        public IReadOnlyDictionary<Guid, string> Answer { get; set; } = new Dictionary<Guid, string>();
+
+        public event Action? Changed;
+
+        public void Raise() => Changed?.Invoke();
+
+        public Task<IReadOnlyDictionary<Guid, string>> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Answer);
     }
 
     [Theory]

@@ -157,6 +157,37 @@ public sealed class TaskQuietRowTests
     }
 
     [Fact]
+    public void A_plan_entry_s_button_is_lit_while_its_plan_is_queued_and_stays_refused()
+    {
+        using var context = Context();
+
+        var view = context.Render<QueueButton>(p => p
+            .Add(b => b.State, QueueButtonState.PlanEntry)
+            .Add(b => b.PlanQueued, true)
+            .Add(b => b.Label, "Queue the +plan-first-tasks plan as a whole")
+            .Add(b => b.TestId, "queue"));
+
+        var button = view.Find("[data-testid='queue']");
+        Assert.Contains("queue-button--plan-entry", button.ClassList);
+        Assert.Contains("queue-button--plan-queued", button.ClassList);
+        Assert.True(button.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void PlanQueued_lights_no_button_but_a_plan_entry_s()
+    {
+        using var context = Context();
+
+        var view = context.Render<QueueButton>(p => p
+            .Add(b => b.State, QueueButtonState.Idle)
+            .Add(b => b.PlanQueued, true)
+            .Add(b => b.Label, "Queue a session")
+            .Add(b => b.TestId, "queue"));
+
+        Assert.DoesNotContain("queue-button--plan-queued", view.Find("[data-testid='queue']").ClassList);
+    }
+
+    [Fact]
     public void A_press_on_its_way_keeps_the_button_focusable_and_says_it_is_busy()
     {
         using var context = Context();
