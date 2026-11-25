@@ -13,7 +13,7 @@ using Microsoft.Maui.Storage;
 
 namespace Backlog.Mobile;
 
-public static class MauiProgram
+public static partial class MauiProgram
 {
 	// The sync address, in SyncServiceEndpoint.ResolveStandalone's order: Aspire's
 	// services__sync__http__0 (ports are dynamic, see
@@ -200,8 +200,11 @@ public static class MauiProgram
 		catch (Exception ex)
 		{
 			// The files stay in the recordings folder, and the next start tries again.
-			services.GetService<ILogger<RecordingRecovery>>()
-				?.LogWarning(ex, "Recovering interrupted recordings failed.");
+			if (services.GetService<ILogger<RecordingRecovery>>() is { } logger)
+				LogRecoveryFailed(logger, ex);
 		}
 	}
+
+	[LoggerMessage(Level = LogLevel.Warning, Message = "Recovering interrupted recordings failed.")]
+	private static partial void LogRecoveryFailed(ILogger logger, Exception exception);
 }

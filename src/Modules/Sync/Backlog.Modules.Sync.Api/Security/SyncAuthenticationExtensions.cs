@@ -172,21 +172,23 @@ public static class SyncAuthenticationExtensions
                     return Task.CompletedTask;
                 }
 
-                Logger(context.HttpContext).LogWarning(
-                    "Device token rejected on {Method} {Path}: {Reason}.",
+                DeviceTokenRejected(
+                    Logger(context.HttpContext),
                     context.Request.Method,
                     context.Request.Path,
-                    context.Exception.GetType().Name);
+                    context.Exception.GetType().Name,
+                    null);
 
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
             {
-                Logger(context.HttpContext).LogWarning(
-                    "Unauthenticated call to {Method} {Path} challenged: {Error}.",
+                UnauthenticatedCallChallenged(
+                    Logger(context.HttpContext),
                     context.Request.Method,
                     context.Request.Path,
-                    context.Error ?? "no bearer token");
+                    context.Error ?? "no bearer token",
+                    null);
 
                 return Task.CompletedTask;
             },
@@ -223,9 +225,20 @@ public static class SyncAuthenticationExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.Logger.LogWarning(
-            "No {Key} configured; generated an ephemeral development key. "
-            + "Every device token is invalidated when this service restarts.",
-            SigningKeyPath);
+        EphemeralSigningKey(app.Logger, SigningKeyPath, null);
     }
+
+    // LoggerMessage.Define rather than [LoggerMessage], for the reason GitHubOwnerSignIn
+    // gives: this project sees two copies of the logging source generator.
+    private static readonly Action<ILogger, string, PathString, string, Exception?> DeviceTokenRejected = LoggerMessage.Define<string, PathString, string>(
+        LogLevel.Warning, new EventId(1, nameof(DeviceTokenRejected)), "Device token rejected on {Method} {Path}: {Reason}.");
+
+    private static readonly Action<ILogger, string, PathString, string, Exception?> UnauthenticatedCallChallenged = LoggerMessage.Define<string, PathString, string>(
+        LogLevel.Warning, new EventId(2, nameof(UnauthenticatedCallChallenged)), "Unauthenticated call to {Method} {Path} challenged: {Error}.");
+
+    private static readonly Action<ILogger, string, Exception?> EphemeralSigningKey = LoggerMessage.Define<string>(
+        LogLevel.Warning,
+        new EventId(3, nameof(EphemeralSigningKey)),
+        "No {Key} configured; generated an ephemeral development key. "
+        + "Every device token is invalidated when this service restarts.");
 }

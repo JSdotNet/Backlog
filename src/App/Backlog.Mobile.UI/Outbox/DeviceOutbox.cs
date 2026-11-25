@@ -40,7 +40,7 @@ namespace Backlog.Mobile.UI.Outbox;
 /// two flushes over it would send the same entry twice.
 /// </para>
 /// </summary>
-public sealed class DeviceOutbox : IDisposable
+public sealed partial class DeviceOutbox : IDisposable
 {
     /// <summary>Attempts the outbox makes on its own before it parks an entry.</summary>
     public const int MaxAttempts = 5;
@@ -315,7 +315,7 @@ public sealed class DeviceOutbox : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "The outbox flush failed; its entries stay queued for the next one.");
+            LogFlushFailed(_logger, ex);
         }
     }
 
@@ -546,7 +546,7 @@ public sealed class DeviceOutbox : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Outbox fold {Fold} could not let go of entry {Id}; it has left the outbox.", by.GetType().Name, id);
+                LogFoldRemovedFailed(_logger, ex, by.GetType().Name, id);
             }
         }
 
@@ -565,7 +565,7 @@ public sealed class DeviceOutbox : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Outbox fold {Fold} could not read entry {Id}; it is left as it is.", candidate.GetType().Name, setAside.Id);
+                LogFoldReadFailed(_logger, ex, candidate.GetType().Name, setAside.Id);
             }
         }
 
@@ -695,4 +695,13 @@ public sealed class DeviceOutbox : IDisposable
             delay,
             Timeout.InfiniteTimeSpan);
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The outbox flush failed; its entries stay queued for the next one.")]
+    private static partial void LogFlushFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox fold {Fold} could not let go of entry {Id}; it has left the outbox.")]
+    private static partial void LogFoldRemovedFailed(ILogger logger, Exception exception, string fold, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox fold {Fold} could not read entry {Id}; it is left as it is.")]
+    private static partial void LogFoldReadFailed(ILogger logger, Exception exception, string fold, Guid id);
 }

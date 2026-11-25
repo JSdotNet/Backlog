@@ -436,7 +436,7 @@ app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
 
     context.Response.StatusCode = reply.StatusCode;
     if (reply.ContentType is not null) context.Response.ContentType = reply.ContentType;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+    if (reply.Failure is not null) ProgramLog.TelemetryNotStored(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
@@ -467,8 +467,8 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
     }
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null && reply.StatusCode == 503) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
-    else if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
+    if (reply.Failure is not null && reply.StatusCode == 503) ProgramLog.SessionRequestQueueUnreadable(app.Logger, reply.Failure);
+    else if (reply.Failure is not null) ProgramLog.SessionRequestWaitServedPastFailure(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
@@ -491,7 +491,7 @@ app.MapPost(ScheduleRunReportEndpoint.RoutePath, async context =>
         context.RequestAborted);
 
     context.Response.StatusCode = reply.StatusCode;
-    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "A scheduled run's report could not be recorded; the hook was asked to retry.");
+    if (reply.Failure is not null) ProgramLog.ScheduleRunReportNotRecorded(app.Logger, reply.Failure);
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length == 0) return;
 
@@ -785,4 +785,31 @@ static string? ResolveRepositoryRoot(string contentRootPath)
     }
 
     return null;
+}
+
+/// <summary>The log messages the top-level statements above write (org ADR 0007).
+/// LoggerMessage.Define rather than [LoggerMessage], for the reason
+/// <c>GitHubOwnerSignIn</c> in the sync service gives: a web project here sees two
+/// copies of the logging source generator.</summary>
+internal static class ProgramLog
+{
+    private static readonly Action<ILogger, Exception?> TelemetryNotStoredMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(1, nameof(TelemetryNotStored)), "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+
+    private static readonly Action<ILogger, Exception?> SessionRequestQueueUnreadableMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(2, nameof(SessionRequestQueueUnreadable)), "The session request queue could not be read; the dispatcher was asked to retry.");
+
+    private static readonly Action<ILogger, Exception?> SessionRequestWaitServedPastFailureMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(3, nameof(SessionRequestWaitServedPastFailure)), "The session request wait was served past a failure to read the deliveries or record the dispatcher's check-in.");
+
+    private static readonly Action<ILogger, Exception?> ScheduleRunReportNotRecordedMessage = LoggerMessage.Define(
+        LogLevel.Error, new EventId(4, nameof(ScheduleRunReportNotRecorded)), "A scheduled run's report could not be recorded; the hook was asked to retry.");
+
+    public static void TelemetryNotStored(ILogger logger, Exception exception) => TelemetryNotStoredMessage(logger, exception);
+
+    public static void SessionRequestQueueUnreadable(ILogger logger, Exception exception) => SessionRequestQueueUnreadableMessage(logger, exception);
+
+    public static void SessionRequestWaitServedPastFailure(ILogger logger, Exception exception) => SessionRequestWaitServedPastFailureMessage(logger, exception);
+
+    public static void ScheduleRunReportNotRecorded(ILogger logger, Exception exception) => ScheduleRunReportNotRecordedMessage(logger, exception);
 }

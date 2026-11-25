@@ -32,7 +32,7 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// know its indexing policy or its twelve-month <c>defaultTtl</c>.
 /// </para>
 /// </summary>
-internal sealed class CosmosSessionReplica : ISessionReplica
+internal sealed partial class CosmosSessionReplica :ISessionReplica
 {
     private const string UnavailableMessage = "The session replica is not available yet. Try again shortly.";
 
@@ -200,9 +200,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
             // documents came from.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "A session change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Discarded(owner);
             }
@@ -312,4 +310,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
     /// adapter cannot see for itself.</summary>
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<SessionDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A session change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }

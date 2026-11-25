@@ -228,6 +228,11 @@
     -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <!--
+      The sync service's API reference (org ADR 0004): it renders the OpenAPI
+      document in Development, the only environment that maps the document.
+    -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="3.2.1" />
+    <!--
       The phone's talk note shrinks a slide photo to 1600 px JPEG before it
       enters the outbox. MIT, with the Android and Windows natives in the box, so
       the MAUI head, the browser harness and the unit tests run one codec.

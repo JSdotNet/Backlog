@@ -34,7 +34,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// missed; a missed alert is not raised again.
 /// </para>
 /// </summary>
-public sealed class RemarkNotificationStore(
+public sealed partial class RemarkNotificationStore(
     IDevbookAnnotationStore inner,
     Func<INotifications?> notifications,
     ILogger<RemarkNotificationStore>? logger = null,
@@ -136,11 +136,11 @@ public sealed class RemarkNotificationStore(
             if (_notifications() is not { } notifications) return;
 
             var published = await notifications.PublishAsync(Draft(remark)).ConfigureAwait(false);
-            if (published is Error error) _logger.LogDebug("No alert was raised for remark {Id}: {Error}", remark.Id, error.Message);
+            if (published is Error error) AlertNotRaised(_logger, remark.Id, error.Message);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Raising the alert for remark {Id} failed; the remark is kept.", remark.Id);
+            AlertRaiseFailed(_logger, exception, remark.Id);
         }
     }
 
@@ -177,11 +177,23 @@ public sealed class RemarkNotificationStore(
             if (_notifications() is not { } notifications) return;
 
             var closed = await notifications.CloseForSubjectAsync(Subject(id), DevbookNotificationSubjects.ResolvedReason).ConfigureAwait(false);
-            if (closed is Error error) _logger.LogDebug("Notifications about remark {Id} were not closed: {Error}", id, error.Message);
+            if (closed is Error error) NotificationsNotClosed(_logger, id, error.Message);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Closing the notifications about remark {Id} failed; the next start's probe asks again.", id);
+            ClosingNotificationsFailed(_logger, exception, id);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "No alert was raised for remark {Id}: {Error}")]
+    private static partial void AlertNotRaised(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Raising the alert for remark {Id} failed; the remark is kept.")]
+    private static partial void AlertRaiseFailed(ILogger logger, Exception exception, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notifications about remark {Id} were not closed: {Error}")]
+    private static partial void NotificationsNotClosed(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the notifications about remark {Id} failed; the next start's probe asks again.")]
+    private static partial void ClosingNotificationsFailed(ILogger logger, Exception exception, Guid id);
 }

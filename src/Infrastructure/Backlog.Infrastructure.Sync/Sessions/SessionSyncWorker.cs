@@ -53,7 +53,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// and the failure they prevent is silent.
 /// </para>
 /// </summary>
-public sealed class SessionSyncWorker : IDisposable
+public sealed partial class SessionSyncWorker : IDisposable
 {
     /// <summary>
     /// How long after the loop starts the first cycle runs.
@@ -323,7 +323,7 @@ public sealed class SessionSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A session sync tick failed outside the cycle it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -337,7 +337,7 @@ public sealed class SessionSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A session sync cycle failed unexpectedly.");
+            LogCycleFailedUnexpectedly(_log, ex);
         }
     }
 
@@ -401,8 +401,7 @@ public sealed class SessionSyncWorker : IDisposable
                     break;
                 case Error error:
                     LastError = error.Message;
-                    _log.LogInformation(
-                        "A session sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                    LogCycleIncomplete(_log, error.Code, error.Message);
                     break;
             }
         }
@@ -413,7 +412,7 @@ public sealed class SessionSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A session sync cycle threw.");
+            LogCycleThrew(_log, ex);
             LastError = UnexpectedFailure;
         }
         finally
@@ -457,8 +456,23 @@ public sealed class SessionSyncWorker : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.LogInformation(ex, "Session sync is not composed in this host, so the loop has nothing to do.");
+            LogNotComposed(_log, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A session sync tick failed outside the cycle it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A session sync cycle failed unexpectedly.")]
+    private static partial void LogCycleFailedUnexpectedly(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A session sync cycle did not complete: {Code} {Message}")]
+    private static partial void LogCycleIncomplete(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A session sync cycle threw.")]
+    private static partial void LogCycleThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Session sync is not composed in this host, so the loop has nothing to do.")]
+    private static partial void LogNotComposed(ILogger logger, Exception exception);
 }

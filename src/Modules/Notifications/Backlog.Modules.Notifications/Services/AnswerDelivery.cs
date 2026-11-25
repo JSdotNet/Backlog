@@ -23,7 +23,7 @@ namespace Backlog.Modules.Notifications.Services;
 /// (<c>.devbook/arc42/08-crosscutting-concepts.md#notifications</c>).
 /// </para>
 /// </summary>
-internal sealed class AnswerDelivery(
+internal sealed partial class AnswerDelivery(
     IEnumerable<INotificationAnswerHandler> handlers,
     INotificationRepository repository,
     TimeProvider time,
@@ -57,9 +57,9 @@ internal sealed class AnswerDelivery(
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    _logger.LogWarning(
+                    LogHandlerDidNotTakeAnswer(
+                        _logger,
                         exception,
-                        "The {Source} handler did not take the answer to notification {NotificationId}; it is replayed on the next start.",
                         notification.Source.Context,
                         notification.Id);
                     return false;
@@ -91,7 +91,7 @@ internal sealed class AnswerDelivery(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning(exception, "The answer to notification {NotificationId} was not replayed; it is tried again on the next start.", notification.Id);
+                LogAnswerNotReplayed(_logger, exception, notification.Id);
             }
         }
 
@@ -99,4 +99,10 @@ internal sealed class AnswerDelivery(
     }
 
     public void Dispose() => _gate.Dispose();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The {Source} handler did not take the answer to notification {NotificationId}; it is replayed on the next start.")]
+    private static partial void LogHandlerDidNotTakeAnswer(ILogger logger, Exception exception, string source, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The answer to notification {NotificationId} was not replayed; it is tried again on the next start.")]
+    private static partial void LogAnswerNotReplayed(ILogger logger, Exception exception, Guid notificationId);
 }

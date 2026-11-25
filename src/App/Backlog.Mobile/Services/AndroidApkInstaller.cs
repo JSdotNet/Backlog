@@ -39,7 +39,7 @@ namespace Backlog.Mobile.Services;
 /// survives because an update keeps the package. Nothing here ever uninstalls.
 /// </para>
 /// </remarks>
-public sealed class AndroidApkInstaller(
+public sealed partial class AndroidApkInstaller(
     IHttpClientFactory httpClientFactory,
     ILogger<AndroidApkInstaller> logger) : IApkInstaller
 {
@@ -77,12 +77,12 @@ public sealed class AndroidApkInstaller(
         }
         catch (DownloadRefusedException ex)
         {
-            logger.LogWarning("Downloading update {Version} was refused: {Reason}", release.Version.Display, ex.Message);
+            LogDownloadRefused(logger, release.Version.Display, ex.Message);
             return AppUpdateInstallResult.Failed(ex.Message);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Downloading update {Version} failed.", release.Version.Display);
+            LogDownloadFailed(logger, ex, release.Version.Display);
             return AppUpdateInstallResult.Failed("The update could not be downloaded. Check your connection and try again.");
         }
 
@@ -256,7 +256,7 @@ public sealed class AndroidApkInstaller(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Abandoning install session {SessionId} failed.", sessionId);
+            LogAbandonSessionFailed(logger, ex, sessionId);
         }
     }
 
@@ -268,10 +268,22 @@ public sealed class AndroidApkInstaller(
         }
         catch (IOException ex)
         {
-            logger.LogDebug(ex, "Removing the downloaded update {Path} failed.", path);
+            LogDeleteDownloadFailed(logger, ex, path);
         }
     }
 
     /// <summary>A download refused for a reason the person can read.</summary>
     private sealed class DownloadRefusedException(string message) : Exception(message);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Downloading update {Version} was refused: {Reason}")]
+    private static partial void LogDownloadRefused(ILogger logger, string version, string reason);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Downloading update {Version} failed.")]
+    private static partial void LogDownloadFailed(ILogger logger, Exception exception, string version);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Abandoning install session {SessionId} failed.")]
+    private static partial void LogAbandonSessionFailed(ILogger logger, Exception exception, int sessionId);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Removing the downloaded update {Path} failed.")]
+    private static partial void LogDeleteDownloadFailed(ILogger logger, Exception exception, string path);
 }

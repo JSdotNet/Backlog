@@ -25,7 +25,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <see cref="RetryAfterFailedProbe"/>.
 /// </para>
 /// </summary>
-public sealed class SyncCompatibility : IDisposable
+public sealed partial class SyncCompatibility : IDisposable
 {
     /// <summary>What a person reads wherever a sync failure is shown.</summary>
     public const string UpdateRequiredMessage =
@@ -123,9 +123,7 @@ public sealed class SyncCompatibility : IDisposable
 
             if (updateRequired)
             {
-                _logger.LogWarning(
-                    "The sync service at {Origin} reports version {ServiceVersion}, newer than this app's {AppVersion}; sync is paused until the app is updated.",
-                    origin, serviceVersion, _app.Value);
+                LogServiceNewer(_logger, origin, serviceVersion, _app.Value);
             }
 
             if (changed) Changed?.Invoke();
@@ -163,8 +161,7 @@ public sealed class SyncCompatibility : IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogInformation(
-                    "The sync service root answered {Status}; its version is unknown, so sync goes on.", (int)response.StatusCode);
+                LogRootAnswered(_logger, (int)response.StatusCode);
                 return null;
             }
 
@@ -182,8 +179,17 @@ public sealed class SyncCompatibility : IDisposable
         // them says the service is newer.
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogInformation(ex, "The sync service version could not be read; sync goes on.");
+            LogVersionUnreadable(_logger, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The sync service at {Origin} reports version {ServiceVersion}, newer than this app's {AppVersion}; sync is paused until the app is updated.")]
+    private static partial void LogServiceNewer(ILogger logger, string origin, string? serviceVersion, string appVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The sync service root answered {Status}; its version is unknown, so sync goes on.")]
+    private static partial void LogRootAnswered(ILogger logger, int status);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The sync service version could not be read; sync goes on.")]
+    private static partial void LogVersionUnreadable(ILogger logger, Exception exception);
 }

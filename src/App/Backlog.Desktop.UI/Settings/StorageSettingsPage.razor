@@ -744,7 +744,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            _log?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
+            if (_log is not null) LogBackupNotComposed(_log, ex);
             return null;
         }
     }

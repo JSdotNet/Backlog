@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>What a device sends to enrol as the owner's device: what to call
@@ -6,7 +8,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// 0058 §1). <paramref name="PublicKey"/> is the base64url SubjectPublicKeyInfo of
 /// the device's non-exportable P-256 key (§2): with it the device is bound to that
 /// key and gets no credential.</summary>
-public sealed record RegisterDeviceRequest(string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null, string? PublicKey = null);
+public sealed record RegisterDeviceRequest([Required(AllowEmptyStrings = true)] string DeviceName, string? EnrolmentCode = null, string? CodeVerifier = null, string? PublicKey = null);
 
 /// <summary>
 /// What a newly registered device gets back. <paramref name="Credential"/> is a
@@ -26,10 +28,10 @@ public sealed record DeviceRegistrationResponse(Guid OwnerId, Guid DeviceId, str
 /// beside the code.
 /// </summary>
 public sealed record StartEnrolmentRequest(
-    Uri RedirectUri,
-    string CodeChallenge,
-    string CodeChallengeMethod,
-    string State);
+    [Required] Uri RedirectUri,
+    [Required] string CodeChallenge,
+    [Required] string CodeChallengeMethod,
+    [Required] string State);
 
 /// <summary>Where the device's system browser goes next: GitHub's sign-in page, or —
 /// on a Development service with no owner configured — straight to the loopback with
@@ -46,7 +48,7 @@ public sealed record PairingCodeResponse(string Code, DateTimeOffset ExpiresAt);
 /// <summary>What the second device sends: the code it was given, what to call
 /// itself once it is in, and — for a device bound to a key — its public key, as
 /// on <see cref="RegisterDeviceRequest"/>.</summary>
-public sealed record RedeemPairingCodeRequest(string Code, string DeviceName, string? PublicKey = null);
+public sealed record RedeemPairingCodeRequest([Required] string Code, [Required(AllowEmptyStrings = true)] string DeviceName, string? PublicKey = null);
 
 /// <summary>
 /// What a device offers in exchange for a short-lived access token: either a

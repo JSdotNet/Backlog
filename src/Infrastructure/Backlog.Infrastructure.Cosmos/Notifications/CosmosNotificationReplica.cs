@@ -25,7 +25,7 @@ namespace Backlog.Infrastructure.Cosmos.Notifications;
 /// query for the replies addressed to one instance, and deletes.
 /// </para>
 /// </summary>
-internal sealed class CosmosNotificationReplica : INotificationReplica
+internal sealed partial class CosmosNotificationReplica :INotificationReplica
 {
     private const string UnavailableMessage = "The notification replica is not available yet. Try again shortly.";
 
@@ -130,9 +130,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
             }
             catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
             {
-                _log.LogDebug(
-                    "Notification {NotificationId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
-                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+                NotificationChangedUnderPush(_log, change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -202,9 +200,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
             // another partition's documents is discarded whole.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "A notification change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Page([], owner, continuation: null, drained: true);
             }
@@ -390,4 +386,10 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
 
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<NotificationDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {NotificationId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).")]
+    private static partial void NotificationChangedUnderPush(ILogger logger, Guid notificationId, Guid deviceId, int attempt, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A notification change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }

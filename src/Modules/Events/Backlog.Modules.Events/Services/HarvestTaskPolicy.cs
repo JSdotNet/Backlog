@@ -29,7 +29,7 @@ namespace Backlog.Modules.Events.Services;
 /// Scoped, for the task target it holds.
 /// </para>
 /// </summary>
-internal sealed class HarvestTaskPolicy(
+internal sealed partial class HarvestTaskPolicy(
     IKnowledgeEventRepository events,
     IEventTaskTarget tasks,
     ILogger<HarvestTaskPolicy>? log = null,
@@ -82,7 +82,7 @@ internal sealed class HarvestTaskPolicy(
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 // One event's fault is no reason for the next to wait a day.
-                _log.LogError(ex, "Filing the harvest task of event {EventId} threw; the next check tries again.", due.Id);
+                LogFilingThrew(_log, ex, due.Id);
             }
         }
 
@@ -108,7 +108,7 @@ internal sealed class HarvestTaskPolicy(
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _log.LogError(ex, "Completing harvest task {TaskId} of event {EventId} threw; the event stays Harvested.", link.TaskId, harvested.Id);
+            LogCompletionThrew(_log, ex, link.TaskId, harvested.Id);
             return Result.Failure(CompletionThrew);
         }
     }
@@ -135,7 +135,7 @@ internal sealed class HarvestTaskPolicy(
             || !IsDue(current, today)
             || current.LinkHarvestTask(taskId) is Error)
         {
-            _log.LogWarning("Harvest task {TaskId} is held but event {EventId} changed meanwhile, so it was not linked.", taskId, due.Id);
+            LogNotLinked(_log, taskId, due.Id);
             return false;
         }
 
@@ -149,4 +149,13 @@ internal sealed class HarvestTaskPolicy(
     /// a removed event out; the policy holds its own rule rather than lean on that.</summary>
     private static bool IsDue(KnowledgeEvent e, DateOnly today) =>
         !e.IsRemoved && e.State == KnowledgeEventState.Going && (e.End ?? e.Start) is { } last && last.Date < today;
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Filing the harvest task of event {EventId} threw; the next check tries again.")]
+    private static partial void LogFilingThrew(ILogger logger, Exception exception, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Completing harvest task {TaskId} of event {EventId} threw; the event stays Harvested.")]
+    private static partial void LogCompletionThrew(ILogger logger, Exception exception, string taskId, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Harvest task {TaskId} is held but event {EventId} changed meanwhile, so it was not linked.")]
+    private static partial void LogNotLinked(ILogger logger, string taskId, Guid eventId);
 }

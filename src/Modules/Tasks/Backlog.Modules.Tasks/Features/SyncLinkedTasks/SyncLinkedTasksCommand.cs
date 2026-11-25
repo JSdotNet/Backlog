@@ -70,7 +70,7 @@ public sealed record LinkedTaskSyncSummary(
     int SkippedUntouched,
     int Vanished);
 
-public sealed class SyncLinkedTasksCommandHandler(
+public sealed partial class SyncLinkedTasksCommandHandler(
     IEnumerable<ITaskConnector> connectors,
     ITaskRepository tasks,
     IConnectedTargets targets,
@@ -141,7 +141,7 @@ public sealed class SyncLinkedTasksCommandHandler(
             // vanished: an answer from a source that could not be reached is not an
             // empty source. Only the failure itself is kept, on the target, so its
             // card can say why it is not syncing.
-            _log.LogWarning(ex, "Fetching {Connector} items for {Target} failed.", connector.Descriptor.Id, target.Target);
+            LogFetchFailed(_log, ex, connector.Descriptor.Id, target.Target);
             var error = FetchFailed(connector, target, ex);
             RecordFailure(target, error.Message);
             return error;
@@ -880,7 +880,7 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         if (error is not null)
         {
-            _log.LogWarning("The failed sync of {Connector} {Target} could not be recorded: {Error}", target.ConnectorId, target.Target, error);
+            LogFailureNotRecorded(_log, target.ConnectorId, target.Target, error);
         }
     }
 
@@ -906,7 +906,16 @@ public sealed class SyncLinkedTasksCommandHandler(
         // fetches more next time than it had to, which costs time and loses nothing.
         if (error is not null)
         {
-            _log.LogWarning("The sync of {Connector} {Target} could not record its progress: {Error}", target.ConnectorId, target.Target, error);
+            LogProgressNotRecorded(_log, target.ConnectorId, target.Target, error);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Fetching {Connector} items for {Target} failed.")]
+    private static partial void LogFetchFailed(ILogger logger, Exception exception, string connector, string target);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The failed sync of {Connector} {Target} could not be recorded: {Error}")]
+    private static partial void LogFailureNotRecorded(ILogger logger, string connector, string target, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The sync of {Connector} {Target} could not record its progress: {Error}")]
+    private static partial void LogProgressNotRecorded(ILogger logger, string connector, string target, string error);
 }

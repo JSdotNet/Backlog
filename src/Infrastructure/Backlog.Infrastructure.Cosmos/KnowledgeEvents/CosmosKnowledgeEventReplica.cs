@@ -23,7 +23,7 @@ namespace Backlog.Infrastructure.Cosmos.KnowledgeEvents;
 /// never replaces a later copy. Nothing here reads an event's fields.
 /// </para>
 /// </summary>
-internal sealed class CosmosKnowledgeEventReplica : IKnowledgeEventReplica
+internal sealed partial class CosmosKnowledgeEventReplica :IKnowledgeEventReplica
 {
     private const string UnavailableMessage = "The knowledge event replica is not available yet. Try again shortly.";
 
@@ -140,9 +140,7 @@ internal sealed class CosmosKnowledgeEventReplica : IKnowledgeEventReplica
             }
             catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
             {
-                _log.LogDebug(
-                    "Knowledge event {EventId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
-                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+                EventChangedUnderPush(_log, change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -216,9 +214,7 @@ internal sealed class CosmosKnowledgeEventReplica : IKnowledgeEventReplica
             // included, rather than half of somebody else's data being handed out.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "A knowledge event change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Page([], owner, continuation: null, drained: true);
             }
@@ -275,4 +271,10 @@ internal sealed class CosmosKnowledgeEventReplica : IKnowledgeEventReplica
 
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<KnowledgeEventDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Knowledge event {EventId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).")]
+    private static partial void EventChangedUnderPush(ILogger logger, Guid eventId, Guid deviceId, int attempt, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A knowledge event change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }

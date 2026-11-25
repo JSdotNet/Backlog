@@ -41,7 +41,7 @@ namespace Backlog.Infrastructure.Brain;
 /// the refresher, so the Brain is watched from the first minute rather than from
 /// the first time somebody opens the pane.</para>
 /// </summary>
-public sealed class BrainFolderWatch : IDisposable
+public sealed partial class BrainFolderWatch : IDisposable
 {
     /// <summary>How often a set but missing Brain folder is looked for.</summary>
     public static readonly TimeSpan DefaultMissingFolderRetry = TimeSpan.FromSeconds(30);
@@ -152,7 +152,7 @@ public sealed class BrainFolderWatch : IDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "A Devbook panel failed while reloading after the Brain changed.");
+            PanelReloadFailed(_logger, exception);
         }
     }
 
@@ -212,4 +212,7 @@ public sealed class BrainFolderWatch : IDisposable
             _root = null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A Devbook panel failed while reloading after the Brain changed.")]
+    private static partial void PanelReloadFailed(ILogger logger, Exception exception);
 }

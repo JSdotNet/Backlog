@@ -53,7 +53,7 @@ public sealed record DevbookSubjectSyncSummary(int Pushed, int Pulled, int Appli
 /// every five minutes nor moves its progress.
 /// </para>
 /// </summary>
-public sealed class DevbookSubjectSyncSession
+public sealed partial class DevbookSubjectSyncSession
 {
     /// <summary>How many changes go in one push — the annotation batch size, well
     /// below the service's cap.</summary>
@@ -140,12 +140,7 @@ public sealed class DevbookSubjectSyncSession
 
                 if (DevbookSubjectRecordLimits.WhyRefused(change) is { } reason)
                 {
-                    _log.LogWarning(
-                        "Leaving devbook subject {SubjectId} ({SubjectKey}) out of the push, because the sync service "
-                        + "would refuse it and every state sent beside it. {Reason}",
-                        subject.Id,
-                        subject.Subject.CanonicalKey,
-                        reason);
+                    LogSubjectLeftOutOfPush(_log, subject.Id, subject.Subject.CanonicalKey, reason);
 
                     skipped++;
                     continue;
@@ -258,8 +253,17 @@ public sealed class DevbookSubjectSyncSession
             return Result.Failure<DevbookSubjectSyncSummary>(error);
         }
 
-        _log.LogDebug("The sync service has no devbook subject route yet ({Code}); nothing was exchanged.", error.Code);
+        LogRouteNotYetServed(_log, error.Code);
 
         return Result.Success(new DevbookSubjectSyncSummary(0, 0, 0, _time.GetUtcNow()) { NotYetServed = true });
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Leaving devbook subject {SubjectId} ({SubjectKey}) out of the push, because the sync service "
+            + "would refuse it and every state sent beside it. {Reason}")]
+    private static partial void LogSubjectLeftOutOfPush(ILogger logger, Guid subjectId, string subjectKey, string reason);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The sync service has no devbook subject route yet ({Code}); nothing was exchanged.")]
+    private static partial void LogRouteNotYetServed(ILogger logger, string code);
 }

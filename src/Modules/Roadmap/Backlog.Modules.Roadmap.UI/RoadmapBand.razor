@@ -505,7 +505,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Log.LogWarning(exception, "The roadmap could not store the windows its effort-placed work now makes; it draws them from what is stored.");
+            LogEffortWindowsNotStored(Log, exception);
         }
     }
 
@@ -550,7 +550,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Log.LogWarning(exception, "The roadmap could not read the actual hours from {From} through {Through}; its begun heads show no hours.", from, through);
+            LogActualHoursNotRead(Log, exception, from, through);
             return null;
         }
     }

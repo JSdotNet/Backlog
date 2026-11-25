@@ -156,7 +156,7 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// the <c>events</c> area off, holds it on the replica for a desktop that applies it.
 /// </para>
 /// </summary>
-public sealed class TaskReplicaMerge(
+public sealed partial class TaskReplicaMerge(
     ITaskRepository tasks,
     IInboxIntake? inbox = null,
     ILogger<TaskReplicaMerge>? log = null,
@@ -638,11 +638,7 @@ public sealed class TaskReplicaMerge(
                 // one — and the push endpoint validates nothing. Refused here
                 // means skipped, for the reason the task path gives: a throw
                 // would leave the cursor on this page and replay it for ever.
-                _log.LogWarning(
-                    failure,
-                    "Skipping capture {CaptureId} from the replica: the inbox could not take the document. "
-                    + "It will be offered again the next time the replica hands it out.",
-                    record.Change.Id);
+                LogCaptureSkipped(_log, failure, record.Change.Id);
 
                 return ApplyOutcome.Unreadable;
             }
@@ -690,10 +686,7 @@ public sealed class TaskReplicaMerge(
 
         if (RetiredReplicaDocuments.IsRetired(record.Change))
         {
-            _log.LogDebug(
-                "Dropping {Kind} document {DocumentId} from the replica: this build no longer keeps that kind.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogRetiredDocumentDropped(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Held;
         }
@@ -750,11 +743,7 @@ public sealed class TaskReplicaMerge(
         }
         catch (Exception failure) when (failure is FormatException or ArgumentException)
         {
-            _log.LogWarning(
-                failure,
-                "Skipping task {TaskId} from the replica: this build cannot read the document. "
-                + "It will be offered again the next time the replica hands it out.",
-                record.Change.Id);
+            LogTaskSkipped(_log, failure, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -805,10 +794,7 @@ public sealed class TaskReplicaMerge(
 
         if (successor is not null)
         {
-            _log.LogInformation(
-                "Spawned occurrence {SuccessorId} of repeating task {TaskId}, ticked off on another device.",
-                successor.Id,
-                written.Id);
+            LogOccurrenceSpawned(_log, successor.Id, written.Id);
         }
     }
 
@@ -829,10 +815,7 @@ public sealed class TaskReplicaMerge(
     {
         if (_roadmap is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no roadmap.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoRoadmap(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -865,11 +848,7 @@ public sealed class TaskReplicaMerge(
         }
         catch (Exception failure) when (failure is FormatException or ArgumentException)
         {
-            _log.LogWarning(
-                failure,
-                "Skipping note {NoteId} from the replica: the inbox could not take the document. "
-                + "It will be offered again the next time the replica hands it out.",
-                record.Change.Id);
+            LogNoteSkipped(_log, failure, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -909,10 +888,7 @@ public sealed class TaskReplicaMerge(
         // this build can take it, and it never becomes a task.
         if (_goals is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no goals.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoGoals(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -935,10 +911,7 @@ public sealed class TaskReplicaMerge(
     {
         if (_impediments is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no impediments.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoImpediments(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -1003,11 +976,7 @@ public sealed class TaskReplicaMerge(
 
         if (ImpedimentEditReplicaDocuments.ToEdit(record.Change) is not { } edit)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the edit. "
-                + "It is left on the replica.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogImpedimentEditUnreadable(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -1018,10 +987,7 @@ public sealed class TaskReplicaMerge(
         // edit is kept and offered again once the pull is done (RetryDeferredRequestsAsync).
         if (outcome == ImpedimentEditOutcome.Unknown)
         {
-            _log.LogInformation(
-                "Deferring impediment edit {DocumentId}: this desktop holds no impediment {ImpedimentId} yet.",
-                record.Change.Id,
-                edit.ImpedimentId);
+            LogImpedimentEditDeferred(_log, record.Change.Id, edit.ImpedimentId);
 
             _retirements?.Defer(record.Change);
             return ApplyOutcome.Held;
@@ -1031,10 +997,7 @@ public sealed class TaskReplicaMerge(
 
         if (outcome != ImpedimentEditOutcome.Applied)
         {
-            _log.LogInformation(
-                "Impediment edit {DocumentId} from the phone was not applied ({Outcome}).",
-                record.Change.Id,
-                outcome);
+            LogImpedimentEditNotApplied(_log, record.Change.Id, outcome);
 
             return ApplyOutcome.Held;
         }
@@ -1076,11 +1039,7 @@ public sealed class TaskReplicaMerge(
 
         if (EventAttachmentReplicaDocuments.ToRequest(record.Change) is not { } request)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the request. "
-                + "It is left on the replica.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogAttachmentRequestUnreadable(_log, record.Change.Task.Type, record.Change.Id);
 
             // Held while the area was off, it reads no better on the next retry: let it go, so
             // it is not offered on every cycle. The replica still has it for a newer build.
@@ -1094,10 +1053,7 @@ public sealed class TaskReplicaMerge(
         // offered again after each pull (RetryDeferredRequestsAsync).
         if (outcome == EventAttachmentOutcome.UnknownEvent)
         {
-            _log.LogInformation(
-                "Deferring attachment request {DocumentId}: this desktop holds no knowledge event {EventId} yet.",
-                record.Change.Id,
-                request.EventId);
+            LogAttachmentRequestDeferred(_log, record.Change.Id, request.EventId);
 
             _retirements?.Defer(record.Change);
             return ApplyOutcome.Held;
@@ -1107,10 +1063,7 @@ public sealed class TaskReplicaMerge(
 
         if (outcome != EventAttachmentOutcome.Attached)
         {
-            _log.LogInformation(
-                "Attachment request {DocumentId} from the phone attached nothing ({Outcome}).",
-                record.Change.Id,
-                outcome);
+            LogAttachmentRequestAttachedNothing(_log, record.Change.Id, outcome);
 
             return ApplyOutcome.Held;
         }
@@ -1132,10 +1085,7 @@ public sealed class TaskReplicaMerge(
         // documents give: the preferences will not land until this build can take them.
         if (_myDay is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no My Day preferences.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoMyDay(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -1161,10 +1111,7 @@ public sealed class TaskReplicaMerge(
         // this build can take them, and the one-time feed replay brings them in then.
         if (_iteration is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no iteration settings.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoIterationSettings(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -1188,10 +1135,7 @@ public sealed class TaskReplicaMerge(
     {
         if (_github is null)
         {
-            _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no GitHub settings.",
-                record.Change.Task.Type,
-                record.Change.Id);
+            LogSkippedNoGitHubSettings(_log, record.Change.Task.Type, record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
@@ -1227,12 +1171,7 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Written;
 
             case ReplicaOutcome.Unreadable:
-                _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as {ReadsAs}. "
-                    + "The local copy is left as it is.",
-                    record.Change.Task.Type,
-                    record.Change.Id,
-                    readsAs);
+                LogDocumentDoesNotReadAs(_log, record.Change.Task.Type, record.Change.Id, readsAs);
                 return ApplyOutcome.Unreadable;
 
             default:
@@ -1313,4 +1252,76 @@ public sealed class TaskReplicaMerge(
         /// so it was left where it is.</summary>
         Unreadable,
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping capture {CaptureId} from the replica: the inbox could not take the document. "
+            + "It will be offered again the next time the replica hands it out.")]
+    private static partial void LogCaptureSkipped(ILogger logger, Exception exception, Guid captureId);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Dropping {Kind} document {DocumentId} from the replica: this build no longer keeps that kind.")]
+    private static partial void LogRetiredDocumentDropped(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping task {TaskId} from the replica: this build cannot read the document. "
+            + "It will be offered again the next time the replica hands it out.")]
+    private static partial void LogTaskSkipped(ILogger logger, Exception exception, Guid taskId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Spawned occurrence {SuccessorId} of repeating task {TaskId}, ticked off on another device.")]
+    private static partial void LogOccurrenceSpawned(ILogger logger, Guid successorId, Guid taskId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no roadmap.")]
+    private static partial void LogSkippedNoRoadmap(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping note {NoteId} from the replica: the inbox could not take the document. "
+            + "It will be offered again the next time the replica hands it out.")]
+    private static partial void LogNoteSkipped(ILogger logger, Exception exception, Guid noteId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no goals.")]
+    private static partial void LogSkippedNoGoals(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no impediments.")]
+    private static partial void LogSkippedNoImpediments(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the edit. "
+            + "It is left on the replica.")]
+    private static partial void LogImpedimentEditUnreadable(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deferring impediment edit {DocumentId}: this desktop holds no impediment {ImpedimentId} yet.")]
+    private static partial void LogImpedimentEditDeferred(ILogger logger, Guid documentId, Guid impedimentId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Impediment edit {DocumentId} from the phone was not applied ({Outcome}).")]
+    private static partial void LogImpedimentEditNotApplied(ILogger logger, Guid documentId, ImpedimentEditOutcome outcome);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the request. "
+            + "It is left on the replica.")]
+    private static partial void LogAttachmentRequestUnreadable(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deferring attachment request {DocumentId}: this desktop holds no knowledge event {EventId} yet.")]
+    private static partial void LogAttachmentRequestDeferred(ILogger logger, Guid documentId, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Attachment request {DocumentId} from the phone attached nothing ({Outcome}).")]
+    private static partial void LogAttachmentRequestAttachedNothing(ILogger logger, Guid documentId, EventAttachmentOutcome outcome);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no My Day preferences.")]
+    private static partial void LogSkippedNoMyDay(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no iteration settings.")]
+    private static partial void LogSkippedNoIterationSettings(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} document {DocumentId} from the replica: this head keeps no GitHub settings.")]
+    private static partial void LogSkippedNoGitHubSettings(ILogger logger, string kind, Guid documentId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipping {Kind} document {DocumentId} from the replica: it does not read as {ReadsAs}. "
+            + "The local copy is left as it is.")]
+    private static partial void LogDocumentDoesNotReadAs(ILogger logger, string kind, Guid documentId, string readsAs);
 }

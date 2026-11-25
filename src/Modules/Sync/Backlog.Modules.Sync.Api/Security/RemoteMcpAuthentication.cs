@@ -107,11 +107,12 @@ internal static class RemoteMcpAuthentication
             OnTokenValidated = RefuseRevokedAsync,
             OnAuthenticationFailed = context =>
             {
-                Logger(context.HttpContext).LogWarning(
-                    "Remote MCP token rejected on {Method} {Path}: {Reason}.",
+                TokenRejected(
+                    Logger(context.HttpContext),
                     LogSafe(context.Request.Method),
                     LogSafe(context.Request.Path.Value),
-                    context.Exception.GetType().Name);
+                    context.Exception.GetType().Name,
+                    null);
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -128,11 +129,12 @@ internal static class RemoteMcpAuthentication
                 }
 
                 SyncTelemetry.RemoteMcpRefused.Add(1, new TagList { { "error", invalid ? "invalid_token" : "no_token" } });
-                Logger(context.HttpContext).LogWarning(
-                    "Remote MCP call to {Method} {Path} challenged: {Error}.",
+                CallChallenged(
+                    Logger(context.HttpContext),
                     LogSafe(context.Request.Method),
                     LogSafe(context.Request.Path.Value),
-                    invalid ? "invalid_token" : "no bearer token");
+                    invalid ? "invalid_token" : "no bearer token",
+                    null);
 
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 context.Response.Headers.Append(HeaderNames.WWWAuthenticate, "Bearer " + parameters);
@@ -144,11 +146,12 @@ internal static class RemoteMcpAuthentication
                 var scope = string.Join(' ', ServedScopes);
 
                 SyncTelemetry.RemoteMcpRefused.Add(1, new TagList { { "error", "insufficient_scope" } });
-                Logger(context.HttpContext).LogWarning(
-                    "Remote MCP call to {Method} {Path} refused: the token does not grant {Scope}.",
+                CallForbidden(
+                    Logger(context.HttpContext),
                     LogSafe(context.Request.Method),
                     LogSafe(context.Request.Path.Value),
-                    scope);
+                    scope,
+                    null);
 
                 context.Response.Headers.Append(
                     HeaderNames.WWWAuthenticate,
@@ -194,4 +197,15 @@ internal static class RemoteMcpAuthentication
 
     private static ILogger Logger(HttpContext context) =>
         context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(RemoteMcpAuthentication).FullName!);
+
+    // LoggerMessage.Define rather than [LoggerMessage], for the reason GitHubOwnerSignIn
+    // gives: this project sees two copies of the logging source generator.
+    private static readonly Action<ILogger, string, string, string, Exception?> TokenRejected = LoggerMessage.Define<string, string, string>(
+        LogLevel.Warning, new EventId(1, nameof(TokenRejected)), "Remote MCP token rejected on {Method} {Path}: {Reason}.");
+
+    private static readonly Action<ILogger, string, string, string, Exception?> CallChallenged = LoggerMessage.Define<string, string, string>(
+        LogLevel.Warning, new EventId(2, nameof(CallChallenged)), "Remote MCP call to {Method} {Path} challenged: {Error}.");
+
+    private static readonly Action<ILogger, string, string, string, Exception?> CallForbidden = LoggerMessage.Define<string, string, string>(
+        LogLevel.Warning, new EventId(3, nameof(CallForbidden)), "Remote MCP call to {Method} {Path} refused: the token does not grant {Scope}.");
 }

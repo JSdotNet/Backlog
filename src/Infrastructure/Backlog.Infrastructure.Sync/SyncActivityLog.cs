@@ -95,7 +95,7 @@ public sealed record SyncActivityEntry(
 /// walks a list a writer is moving.
 /// </para>
 /// </summary>
-public sealed class SyncActivityLog
+public sealed partial class SyncActivityLog
 {
     /// <summary>How many entries the window keeps. Enough to read back the last
     /// several cycles on a busy day; small enough that a republish of a whole
@@ -204,8 +204,8 @@ public sealed class SyncActivityLog
         // write, and a level nobody sees by default would leave the dashboard
         // with the counts and nothing else. The title goes in quoted because a
         // task is allowed to be called "deleted".
-        _log.LogInformation(
-            "Sync {Direction} {Kind} {ItemId} \"{Title}\"{Note}",
+        LogActivity(
+            _log,
             entry.Direction,
             entry.Kind,
             entry.Id,
@@ -218,4 +218,7 @@ public sealed class SyncActivityLog
     {
         lock (_gate) return [.. _entries];
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sync {Direction} {Kind} {ItemId} \"{Title}\"{Note}")]
+    private static partial void LogActivity(ILogger logger, SyncDirection direction, SyncItemKind kind, string itemId, string title, string note);
 }

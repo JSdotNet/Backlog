@@ -652,6 +652,30 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 `.devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
 `Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
+**Logging.** Every product log line is a `[LoggerMessage]` method on the type that logs it,
+with a constant message template, as ADR 0007 of the organisation's defaults
+(`JSdotNet/app-defaults`) asks. A template keeps its values as named fields the dashboard can
+query, and the generated method allocates nothing when the level is off.
+
+```csharp
+[LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker refused grant {GrantId}: {Refusal}.")]
+private static partial void LogGrantRefused(ILogger logger, Guid grantId, McpGrantRefusal refusal);
+```
+
+- **Enforced twice:** CA1848 (an `ILogger` extension call) and CA2254 (a template that is not a
+  constant) are warnings under `src/`, so every build fails on them. `LoggerMessageRuleTests`
+  scans the same sources, including the two MAUI heads the pull request build does not compile
+  and the Razor components the analyzers cannot see. Tests may still call the extension
+  methods.
+- **Razor components** declare their methods in a `.razor.cs` code-behind, because the logging
+  generator cannot see code the Razor generator wrote.
+- **A level chosen at run time** is a `LogLevel level` parameter on a method whose attribute
+  names no level.
+- **Exception:** `Backlog.Modules.Sync.Api` and the two web harnesses use
+  `LoggerMessage.Define`, also a constant template. The sync service sees two copies of the
+  logging generator, and each would implement a `[LoggerMessage]` partial; the harnesses follow
+  it.
+
 ## Results and Errors
 
 ```meta
@@ -686,7 +710,7 @@ return await handler.Handle(command, ct) switch
   `Value` is the case it holds, typed `object?`, so it is never read as the success
   value.
 - **Mapping to HTTP:** `ErrorType` picks the status of the Problem Details answer that
-  guideline ADR 0017 defines.
+  guideline ADR 0017 defines. See **Errors at the sync edge** below.
 
 - **Asserting:** a test reads the case with `Assert.IsType<Ok<T>>(result.Value).Value`
   or `Assert.IsType<Error>(result.Value)`.
@@ -695,6 +719,32 @@ Every project reads results this way; the class-based members `IsSuccess`, `Erro
 `Unwrap()` and `TryGetValue` are gone. A `switch` statement over the cases compiles
 without the CS8509 check, so the few call sites that branch into several statements,
 the sync workers among them, are where a new case would pass unnoticed.
+
+**Errors at the sync edge.** Every failure the sync service answers under `/api/sync` is an
+RFC 9457 Problem Details body, as ADR 0004 of the organisation's defaults asks. The body carries
+`type`, `title`, `status`, `traceId`, and for a handler's error also `detail` and the `code` a
+client branches on.
+
+| Failure | Answered by | Status |
+| --- | --- | --- |
+| A body missing a field its request record marks `[Required]` | built-in minimal-API validation (`AddValidation()`) | 400, with an `errors` extension |
+| A body that is not JSON | the framework, through the exception handler | 400 |
+| No valid device token | the bearer handler's challenge | 401 |
+| A handler's `Error` | `SyncResults`, one switch over its code, then its `ErrorType` | 400, 404 or 409 by type; 401, 403, 413, 415, 429, 502 or 503 for named codes |
+| An exception nobody expected | the exception handler | 500, without internals |
+
+- **Validation stays at the edge:** the attributes say only that a field is present. What a
+  value means, such as a device name the model accepts, stays with the handler and the model,
+  which answer with their own code.
+- **Proved per route:** `SyncProblemDetailsCoverageTests` reads every route the service maps
+  and probes each one without a token, with an empty object and with a body that is not JSON.
+  `SyncResultsProblemTests` renders every code in `SyncErrorCodes` under every `ErrorType`.
+- **Routes with a contract of their own:** the OAuth authorization server answers RFC 6749
+  error bodies and browser pages (local ADR 0058 §8). The GitHub callback is a browser
+  redirect, `/mcp` answers JSON-RPC, and `/` describes the service. The coverage test pins
+  this list, so a new root route must be placed on one side.
+- **API reference:** in Development the service maps its OpenAPI document and renders it with
+  Scalar at `/scalar`. A deployed service maps neither.
 
 ## Shared Data Types
 

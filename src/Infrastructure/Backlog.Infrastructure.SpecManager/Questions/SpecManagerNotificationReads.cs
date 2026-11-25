@@ -24,7 +24,7 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// Started and stopped by <see cref="SpecManagerQuestionSource"/>, which owns it.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerNotificationReads : IDisposable
+internal sealed partial class SpecManagerNotificationReads :IDisposable
 {
     private readonly SpecManagerClient _client;
     private readonly SpecManagerSignIn _signIn;
@@ -105,12 +105,18 @@ internal sealed class SpecManagerNotificationReads : IDisposable
         try
         {
             await _client.MarkNotificationReadAsync(notificationId, CancellationToken.None).ConfigureAwait(false);
-            _log.LogInformation("Marked spec-manager notification {NotificationId} read, as it was acknowledged in Backlog.", notificationId);
+            NotificationMarkedRead(_log, notificationId);
         }
         catch (Exception ex)
         {
             // Whatever went wrong, the next pull sends it again while it is unread there.
-            _log.LogInformation(ex, "spec-manager notification {NotificationId} could not be marked read now; the next pull sends it.", notificationId);
+            NotificationNotMarkedRead(_log, ex, notificationId);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Marked spec-manager notification {NotificationId} read, as it was acknowledged in Backlog.")]
+    private static partial void NotificationMarkedRead(ILogger logger, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager notification {NotificationId} could not be marked read now; the next pull sends it.")]
+    private static partial void NotificationNotMarkedRead(ILogger logger, Exception exception, Guid notificationId);
 }

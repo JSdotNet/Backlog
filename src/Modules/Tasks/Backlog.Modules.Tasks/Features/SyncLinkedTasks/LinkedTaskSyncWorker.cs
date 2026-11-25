@@ -41,7 +41,7 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// read from the registry on every run.
 /// </para>
 /// </summary>
-public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
+public sealed partial class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 {
     /// <summary>How long after the app starts the first tick runs. Not zero: the
     /// first seconds of a launch belong to drawing the window, not to the
@@ -215,7 +215,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A linked task sync tick failed outside the run it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -286,17 +286,13 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                 if (result is not Ok<LinkedTaskSyncSummary>(var summary))
                 {
                     var error = (Error)result.Value!;
-                    _log.LogWarning(
-                        "Linked task sync for {Connector} {Target} did not complete: {Code} {Message}",
-                        connectorId, target, error.Code, error.Message);
+                    LogSyncDidNotComplete(_log, connectorId, target, error.Code, error.Message);
                     return Failed(error, target);
                 }
 
                 // Information, not Debug: the Aspire dashboard shows nothing below
                 // it, and a sync that worked must leave a trace there too.
-                _log.LogInformation(
-                    "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Restored} restored, {Updated} updated, {Archived} archived",
-                    connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
+                LogSynced(_log, connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
                 return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
             }
         }
@@ -307,7 +303,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Linked task sync for {Connector} {Target} threw.", connectorId, target);
+            LogSyncThrew(_log, ex, connectorId, target);
             return new LinkedTaskSyncOutcome(false, $"The sync of {target} did not finish. Try again.", "linked_tasks.sync_threw");
         }
     }
@@ -351,4 +347,16 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 
     private static LinkedTaskSyncOutcome Stopped(string target) =>
         new(false, $"The sync has stopped, so {target} was not synced.", "linked_tasks.sync_stopped");
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A linked task sync tick failed outside the run it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Linked task sync for {Connector} {Target} did not complete: {Code} {Message}")]
+    private static partial void LogSyncDidNotComplete(ILogger logger, string connector, string target, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Restored} restored, {Updated} updated, {Archived} archived")]
+    private static partial void LogSynced(ILogger logger, string connector, string target, int fetched, int created, int restored, int updated, int archived);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Linked task sync for {Connector} {Target} threw.")]
+    private static partial void LogSyncThrew(ILogger logger, Exception exception, string connector, string target);
 }

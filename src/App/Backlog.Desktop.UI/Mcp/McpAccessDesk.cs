@@ -139,7 +139,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
             return Refuse(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("Agent {Name} registered itself as grant {GrantId}; request {RequestId} waits for the person.", clean, grant.Id, request.Id);
+        LogAgentRegistered(_log, clean, grant.Id, request.Id);
         await AnnounceAsync(request, cancellationToken).ConfigureAwait(false);
 
         return new McpAccessOutcome(request, grant, null, $"{clean} is registered as {grant.Id} and pending: it gets no token until you allow it in Backlog.");
@@ -267,7 +267,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
 
         if (fresh)
         {
-            _log.LogInformation("Grant {GrantId} asked for {Scopes}; request {RequestId} waits for the person.", grantId, string.Join(' ', request.Scopes), request.Id);
+            LogGrantAskedForScopes(_log, grantId, string.Join(' ', request.Scopes), request.Id);
             await AnnounceAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
@@ -348,7 +348,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
             return Refuse(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("The person allowed request {RequestId}: grant {GrantId} holds {Scopes}.", request.Id, granted.Id, string.Join(' ', granted.Scopes));
+        LogRequestAllowed(_log, request.Id, granted.Id, string.Join(' ', granted.Scopes));
         await SettleAsync(request, "Allowed in Backlog.", cancellationToken).ConfigureAwait(false);
 
         return new McpAccessOutcome(answered, granted, null, $"{request.Name} may use {string.Join(", ", chosen)} from its next token.");
@@ -381,7 +381,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
             return Refuse(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("The person declined request {RequestId} from {Name}.", answered.Id, answered.Name);
+        LogRequestDeclined(_log, answered.Id, answered.Name);
         await SettleAsync(answered, "Declined in Backlog.", cancellationToken).ConfigureAwait(false);
 
         return new McpAccessOutcome(answered, null, null, $"Declined. {answered.Name} cannot ask again until {(answered.AnsweredAt!.Value + DeclineBlock).ToLocalTime().ToString("d MMM HH:mm", CultureInfo.InvariantCulture)}.");
@@ -475,7 +475,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(ex, "The request window for {RequestId} could not be opened.", request.Id);
+            LogRequestWindowOpenFailed(_log, ex, request.Id);
             return false;
         }
     }
@@ -502,13 +502,13 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         try
         {
             var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
-            if (published is Error error) _log.LogInformation("No notification for request {RequestId}: {Error}.", request.Id, error.Code);
+            if (published is Error error) LogRequestNotificationNotPublished(_log, request.Id, error.Code);
         }
 #pragma warning disable CA1031 // A request stands without its alert; the page and the window still show it.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(ex, "The notification for request {RequestId} could not be published.", request.Id);
+            LogRequestNotificationPublishFailed(_log, ex, request.Id);
         }
     }
 
@@ -524,7 +524,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(ex, "The notification for request {RequestId} could not be closed.", request.Id);
+            LogRequestNotificationCloseFailed(_log, ex, request.Id);
         }
     }
 
@@ -534,6 +534,30 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
         new(SHA256.HashData(Encoding.UTF8.GetBytes(NotificationContext + ":" + requestId)).AsSpan(0, 16));
 
     private static string Truncate(string text, int length) => text.Length <= length ? text : text[..(length - 1)] + "…";
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Agent {Name} registered itself as grant {GrantId}; request {RequestId} waits for the person.")]
+    private static partial void LogAgentRegistered(ILogger logger, string name, string grantId, string requestId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Grant {GrantId} asked for {Scopes}; request {RequestId} waits for the person.")]
+    private static partial void LogGrantAskedForScopes(ILogger logger, string grantId, string scopes, string requestId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The person allowed request {RequestId}: grant {GrantId} holds {Scopes}.")]
+    private static partial void LogRequestAllowed(ILogger logger, string requestId, string grantId, string scopes);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The person declined request {RequestId} from {Name}.")]
+    private static partial void LogRequestDeclined(ILogger logger, string requestId, string name);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The request window for {RequestId} could not be opened.")]
+    private static partial void LogRequestWindowOpenFailed(ILogger logger, Exception exception, string requestId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No notification for request {RequestId}: {Error}.")]
+    private static partial void LogRequestNotificationNotPublished(ILogger logger, string requestId, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The notification for request {RequestId} could not be published.")]
+    private static partial void LogRequestNotificationPublishFailed(ILogger logger, Exception exception, string requestId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The notification for request {RequestId} could not be closed.")]
+    private static partial void LogRequestNotificationCloseFailed(ILogger logger, Exception exception, string requestId);
 }
 
 /// <summary>What the desk answered: the request and grant it touched, or a refusal's code and

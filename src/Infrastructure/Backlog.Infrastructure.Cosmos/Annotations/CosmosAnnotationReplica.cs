@@ -24,7 +24,7 @@ namespace Backlog.Infrastructure.Cosmos.Annotations;
 /// the desktop's own store is the system of record and this is a relay.
 /// </para>
 /// </summary>
-internal sealed class CosmosAnnotationReplica : IAnnotationReplica
+internal sealed partial class CosmosAnnotationReplica :IAnnotationReplica
 {
     private const string UnavailableMessage = "The annotation replica is not available yet. Try again shortly.";
 
@@ -165,9 +165,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
                 // round again: the next read sees their version and the
                 // comparison decides, which is the whole point of not having
                 // let timing decide here.
-                _log.LogDebug(
-                    "Annotation {AnnotationId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
-                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+                AnnotationChangedUnderPush(_log, change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -248,9 +246,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
             // being handed out.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "An annotation change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Discarded(owner);
             }
@@ -325,4 +321,10 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
 
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<AnnotationDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Annotation {AnnotationId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).")]
+    private static partial void AnnotationChangedUnderPush(ILogger logger, Guid annotationId, Guid deviceId, int attempt, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An annotation change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }
