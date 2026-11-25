@@ -76,6 +76,74 @@ public static class SqliteChangeHistory
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Empties the journal in a <em>copy</em> of the database and vacuums it, so the
+    /// file shrinks by what the journal held — what the backup worker does to its
+    /// temporary copy before reading the bytes (local ADR 0070 §6).
+    /// <para>
+    /// Unlike <see cref="ClearAsync"/> it runs no schema setup and pools no
+    /// connection: a copy of a database that never had a journal is left as it is,
+    /// and the file is free to read and delete the moment this returns. The tables
+    /// and their triggers stay, so a restored copy journals again at its next write.
+    /// </para>
+    /// </summary>
+    public static async Task<ChangeHistoryPurge> ClearCopyAsync(
+        string copyPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(copyPath);
+
+        if (!File.Exists(copyPath)) return ChangeHistoryPurge.None;
+
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = copyPath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString());
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!await HasTableAsync(connection, "revisions", cancellationToken).ConfigureAwait(false)
+            || !await HasTableAsync(connection, "change_sets", cancellationToken).ConfigureAwait(false))
+        {
+            return ChangeHistoryPurge.None;
+        }
+
+        int revisions;
+        int changeSets;
+        await using (var transaction = (SqliteTransaction)await connection
+                         .BeginTransactionAsync(cancellationToken).ConfigureAwait(false))
+        {
+            revisions = await ExecuteAsync(connection, transaction, "DELETE FROM revisions;", null, cancellationToken).ConfigureAwait(false);
+            changeSets = await ExecuteAsync(connection, transaction, "DELETE FROM change_sets;", null, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (revisions + changeSets > 0)
+        {
+            // As in PurgeAsync: outside the transaction, and the checkpoint puts the
+            // rewritten pages into the file itself, which is what the caller reads.
+            await using var vacuum = connection.CreateCommand();
+            vacuum.CommandText = "VACUUM; PRAGMA wal_checkpoint(TRUNCATE);";
+            await vacuum.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return new ChangeHistoryPurge(revisions, changeSets);
+    }
+
+    private static async Task<bool> HasTableAsync(
+        SqliteConnection connection,
+        string table,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = $name;";
+        command.Parameters.AddWithValue("$name", table);
+        return Convert.ToInt64(
+            await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+            CultureInfo.InvariantCulture) > 0;
+    }
+
     private static async Task<ChangeHistoryPurge> PurgeAsync(
         string databasePath,
         string revisionsSql,

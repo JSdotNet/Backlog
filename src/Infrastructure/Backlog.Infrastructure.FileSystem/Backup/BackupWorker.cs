@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Changes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,7 +21,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// taken — not the inbox folder, not the settings, not any cache, not the
 /// <see cref="AgentCheckpoints.FolderName"/> folder of copies beside it — because the
 /// database is what local ADR 0003 makes the whole of the backlog, and a
-/// restore is one file put back. Local ADR 0010 is the decision.
+/// restore is one file put back. Local ADR 0010 is the decision. The copy
+/// leaves out the change journal's rows (local ADR 0070 §6).
 /// </para>
 /// <para>
 /// One-way, and deliberately so. Nothing here ever reads the repository back
@@ -260,14 +262,20 @@ public sealed class BackupWorker : IDisposable
         var previous = _state.Current;
         var now = _time.GetUtcNow();
 
+        // Kept from the copy on, so a refusal still reports the size of the file it
+        // refused — the figure the Backup card's warning reads.
+        long? copied = null;
+
         try
         {
-            var bytes = CopyDatabase();
+            var bytes = await CopyDatabaseAsync(_lifetime.Token).ConfigureAwait(false);
             if (bytes is null)
             {
                 _state.Save(previous with { AttemptedAt = now, Error = "There is no backlog database to back up yet." });
                 return;
             }
+
+            copied = bytes.LongLength;
 
             var message = $"Back up the backlog from {Environment.MachineName} ({_time.GetLocalNow():yyyy-MM-dd HH:mm})";
             var committed = await _gitHub.CommitFileAsync(repository, RepositoryPath, bytes, message, _lifetime.Token)
@@ -278,7 +286,8 @@ public sealed class BackupWorker : IDisposable
                 DailyCopies = committed.Committed && !SameLocalDay(previous.LastCopyAt, now)
                     ? previous.DailyCopies + 1
                     : previous.DailyCopies,
-                LastCopyAt = committed.Committed ? now : previous.LastCopyAt
+                LastCopyAt = committed.Committed ? now : previous.LastCopyAt,
+                LastCopyBytes = copied
             });
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -296,12 +305,12 @@ public sealed class BackupWorker : IDisposable
             // no network is the ordinary failure, and an error per slot for it
             // would drown the log.
             _log.LogInformation("A backup did not complete: {Message}", ex.Message);
-            _state.Save(previous with { AttemptedAt = now, Error = ex.Message });
+            _state.Save(previous with { AttemptedAt = now, Error = ex.Message, LastCopyBytes = copied ?? previous.LastCopyBytes });
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "A backup threw.");
-            _state.Save(previous with { AttemptedAt = now, Error = UnexpectedFailure });
+            _state.Save(previous with { AttemptedAt = now, Error = UnexpectedFailure, LastCopyBytes = copied ?? previous.LastCopyBytes });
         }
         finally
         {
@@ -331,8 +340,15 @@ public sealed class BackupWorker : IDisposable
     /// operating system to clean up and reported by nothing, because it holds
     /// nothing the backlog does not.
     /// </para>
+    /// <para>
+    /// The copy leaves the change journal behind (local ADR 0070 §6): its
+    /// <c>revisions</c> and <c>change_sets</c> rows are deleted and the copy vacuumed
+    /// before it is read, because 90 days of them take the file past GitHub's
+    /// 100 MiB limit. Only the copy — the live database keeps its journal. A
+    /// restore from a backup therefore brings back the rows without their history.
+    /// </para>
     /// </summary>
-    private byte[]? CopyDatabase()
+    private async Task<byte[]?> CopyDatabaseAsync(CancellationToken cancellationToken)
     {
         var source = _settings.DatabasePath;
         if (!File.Exists(source)) return null;
@@ -342,17 +358,21 @@ public sealed class BackupWorker : IDisposable
         try
         {
             SqliteDatabaseFile.CopyTo(source, copy);
-            return File.ReadAllBytes(copy);
+            await SqliteChangeHistory.ClearCopyAsync(copy, cancellationToken).ConfigureAwait(false);
+            return await File.ReadAllBytesAsync(copy, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            try
+            foreach (var file in new[] { copy, copy + "-wal", copy + "-shm" })
             {
-                File.Delete(copy);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // See the summary.
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // See the summary.
+                }
             }
         }
     }

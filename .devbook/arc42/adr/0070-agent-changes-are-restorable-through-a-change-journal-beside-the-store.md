@@ -158,7 +158,7 @@ Agents get two tools. A proposal only asks; restoring is the person's action in 
 
 Both join ADR 0058 §4's scope table.
 
-### 6. Local, kept 90 days, inside the backup
+### 6. Local, kept 90 days, left out of the backup
 
 ```meta
 ```
@@ -166,8 +166,14 @@ Both join ADR 0058 §4's scope table.
 - **The journal is local to the device that took the write** and is not replicated. An
   agent writes through the desktop MCP server only, so that device holds its journal.
 - **Revisions are kept 90 days by default,** with an action that clears the history.
-- **They travel inside the backup of ADR 0010,** because they are rows in the database
-  it commits.
+- **They stay out of the backup of ADR 0010.** The backup worker empties `revisions`
+  and `change_sets` in its temporary copy and runs `VACUUM` on it before reading the
+  bytes; the live database keeps its journal. The journal would take the file past
+  GitHub's 100 MiB limit (History, 2026-11-25).
+- **A restore from a backup puts back the rows without their history.** Every change
+  set and revision is gone after it, those taken before the backup included, so no
+  earlier change set can be restored or listed. The tables, their triggers and the
+  journalled rows come back whole, and the journal starts again at the next write.
 
 ### 7. A checkpoint and a stale-save refusal
 
@@ -201,9 +207,9 @@ Both join ADR 0058 §4's scope table.
 - **Ctrl+Z still covers the pane only.** The journal is longer-term version history,
   which the design guidelines left open.
 - **Deleted text is retained** until the 90 days pass or the person clears the history.
-- **Backups grew by the revisions they carry.** Measured on a real database, 90 days of
-  revisions take the backup past GitHub's 100 MiB file limit (History, 2026-11-25), so
-  the backup cannot carry them as §6 says.
+- **Backups do not grow with the journal.** Measured on a real database, 90 days of
+  revisions take the file past GitHub's 100 MiB limit (History, 2026-11-25), so the
+  backup leaves them out (§6) and a restored backup has no change history.
 - **A schema change leaves old revisions in old payloads** (ADR 0006), so a restore reads
   past formats. Retention bounds how far back.
 - **Every journalled table gains triggers,** and every app write a `journal_context` row
@@ -226,8 +232,10 @@ Both join ADR 0058 §4's scope table.
   edits made since the run. It stays as the stopgap of §7.
 - **Recording revisions in the repositories rather than in triggers.** It would miss a
   write from any other process.
-- **Keeping the journal in the MCP audit file.** The journal is backlog data and travels
-  with the backup; the audit log is operational and kept 30 days.
+- **Keeping the journal in the MCP audit file.** The journal is backlog data beside the
+  rows it records; the audit log is operational and kept 30 days.
+- **A shorter retention to fit the journal in the backup.** 30 days at the typical rate
+  is about 116 MiB, still past GitHub's limit (History, 2026-11-25).
 - **Letting an agent restore its own run.** An agent proposes; the person confirms.
 
 ## History
@@ -238,6 +246,7 @@ Both join ADR 0058 §4's scope table.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-11-25 | §7's checkpoint extended to the settings files of §8 and to `mcp-grants.json`. It copies `config/repos.json` at its path under the root, and copies `github.json`, `planning-velocity.json`, `my-day-preferences.json`, `iteration-settings.json` and `mcp-grants.json` from the app-data folders into its `app-data` folder, each asked of the store that keeps it and the grants of the desktop head, which alone composes them (ADR 0058 §9). A file not there yet is skipped, and one that cannot be read is logged and left out. Notes and the roadmap plan are rows in `backlog.db`, which the checkpoint already holds. Every secret in these files is a DPAPI envelope under the Windows user (ADRs 0030 and 0058 §3), so a copy beside `backlog.db` opens to no one the live file does not. The Storage page's Checkpoints card names the settings and where each goes back. | An agent's change to a setting or a grant can now be put back by hand, as §7 and §8 promise. |
+| 2026-11-25 | §6's third bullet reversed: the journal no longer travels inside the backup. The backup worker empties `revisions` and `change_sets` in its temporary copy and vacuums it before reading the bytes; the live database keeps its journal. A restore from a backup brings back no change history. The Backup card's size warning reads the size of the last backup copy, not `backlog.db`, which still holds the journal. | The measured journal takes the backup past GitHub's 100 MiB file limit, and a shorter retention does not bring it under. |
 | 2026-11-25 | Renumbered from 0061 to 0070, with every citation in the chapters and the code. | `main` took 0061 for the Events map decision first, and open plan branches claim 0062 to 0069. |
 | 2026-11-25 | The backup's size measured on a backup-API copy of the desktop `backlog.db`, never the live file, page size 4096. Before the journal it is 87,158,784 bytes (83.1 MiB); with the journal tables set up and empty, 83.2 MiB. Its largest table is `claude_api_requests`, the telemetry of ADR 0024: 176,260 rows in 41 days, about 4,260 a day, never pruned, roughly 80 of the 83 MiB; `tasks` holds 1,975 rows. The MCP audit log's 1.8 days, 666 task write calls on two plan-heavy days grouped per caller and document within 30 minutes as §3 groups them, give about 142 agent task revisions a day; with 40 by the person, 21 inbox items, 5 goals, 2 impediments and 5 roadmap-plan revisions, 215 a day. An upper case, one revision per write call and a roadmap keep-up every hour, gives 494 a day. The copy's own rows give the average before-image: task 3.3 KB, roadmap plan 43.5 KB, goal 2.0 KB, inbox item 0.9 KB, impediment 0.6 KB. After 90 days at 215 a day (19,350 revisions, 8,051 change sets) the file is 176.7 MiB; at 494 a day, 345.4 MiB. A plan import of 30 entries, 30 created tasks with null before-images and one roadmap-plan before-image, adds 0.2 MiB: 176.9 MiB after the 90 typical days. The journal adds about 1.0 MiB a day at the typical rate. GitHub blocks a file larger than 100 MiB ("About large files on GitHub"; Git warns above 50 MiB). The docs of "Create or update file contents" state no size, and "Get repository content" serves 1 to 100 MB only through the raw or object media types, and nothing above. The backup worker (ADR 0010) sends the whole consistent copy base64-encoded in one JSON PUT, 4/3 of the file: 110.8 MiB for today's file, 235.6 MiB after the typical 90 days; its sha lookup is a GET with the default media type. The 90-day backup is 1.8 times the limit, and 30 days at the typical rate, about 116 MiB, is past it too, so a shorter retention does not bring it under. The backup copy has to leave `revisions` and `change_sets` out, which reverses §6's third bullet and is its own entry. Today's file without any journal is at 83 % of the limit and grows about 1.9 MB a day by `claude_api_requests`, so it passes 100 MiB within about nine days regardless; that is its own entry too. The 50 MB warning on the Backup card already shows on this database. | Consequences required the backup's size against the Contents API's file limit before this ships. |
 | 2026-11-25 | Every MCP write tool on an existing entry (`transition`, `set_blocked`, `comment`, `link_change`, `link_session`, `set_devbook_references`) takes an optional `expectedUpdatedAt`, the `updatedAt` that `read_item` now answers; a write whose value no longer matches the stored stamp is refused as `tasks.stale_write` and writes nothing, so two calls made one after the other on the same read no longer both land (#2023). A write without it is unpinned as before. | It closes the gap the end-to-end validation row of 2026-11-25 left open: the refusal now guards the read a caller built its text on. |

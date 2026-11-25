@@ -262,10 +262,11 @@
                         TestId="storage-backup-copies" />
         </MetricGrid>
 
-        @* A backup commits the whole file (local ADR 0010), so a database past
-           ChangeHistoryRetention.LargeDatabaseBytes is said here, beside the
-           figures, with the one thing in it the person can let go of: the change
-           history (local ADR 0070 §6). Renders nothing below the threshold. *@
+        @* A backup commits the whole file (local ADR 0010), so a last backup copy
+           past ChangeHistoryRetention.LargeDatabaseBytes is said here, beside the
+           figures. The copy leaves the change history out (local ADR 0070 §6), so
+           it is the copy's size that counts, not backlog.db's. Renders nothing
+           below the threshold or before the first backup. *@
         <Alert Message="@LargeDatabaseWarning"
                BaseClass="setting__warning"
                Id="storage-backup-size-warning"
@@ -984,31 +985,15 @@
     /// is not the renderer's.</summary>
     private void OnHistoryChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>The Backup card's warning while <c>backlog.db</c> is past
-    /// <see cref="ChangeHistoryRetention.LargeDatabaseBytes"/>, else null - which
-    /// renders nothing.</summary>
+    /// <summary>The Backup card's warning while the copy the last backup uploaded
+    /// is past <see cref="ChangeHistoryRetention.LargeDatabaseBytes"/>, else null -
+    /// which renders nothing. The copy, not <c>backlog.db</c>: the backup leaves the
+    /// change journal out (local ADR 0070 §6), so the file on disk is larger than
+    /// what a backup sends, and clearing the history does not shrink a backup.</summary>
     private string? LargeDatabaseWarning =>
-        DatabaseSize() is { } bytes && ChangeHistoryRetention.IsLarge(bytes)
-            ? $"The database is {Size(bytes)}, more than {Size(ChangeHistoryRetention.LargeDatabaseBytes)}, so every backup uploads a large file. The change history is part of it and can be cleared under Change history below."
+        _backup?.Last.LastCopyBytes is { } bytes && ChangeHistoryRetention.IsLarge(bytes)
+            ? $"The last backup was {Size(bytes)}, more than {Size(ChangeHistoryRetention.LargeDatabaseBytes)}. GitHub refuses a file larger than 100 MB, so backups will fail once the backlog grows past that."
             : null;
-
-    /// <summary>The database and its write-ahead log, read off the disk on each
-    /// render, so a clear - which vacuums the file - shows at once.</summary>
-    private long? DatabaseSize()
-    {
-        try
-        {
-            var file = new FileInfo(Store.DatabasePath);
-            if (!file.Exists) return null;
-
-            var log = new FileInfo(Store.DatabasePath + "-wal");
-            return file.Length + (log.Exists ? log.Length : 0);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
 
     // ---- Checkpoints --------------------------------------------------------
 

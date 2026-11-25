@@ -373,18 +373,17 @@ public sealed class SettingsBackupTests
         Assert.Equal(1L, await CountAsync(settings.Store.DatabasePath, "tasks"));
     }
 
-    /// <summary>The Backup card warns once <c>backlog.db</c> is past 50 MB and names
-    /// the change history as what can be cleared; at exactly 50 MB it says nothing.</summary>
+    /// <summary>The Backup card warns once the copy the last backup uploaded is past
+    /// 50 MB; at exactly 50 MB it says nothing. It reads the copy, which leaves the
+    /// change journal out (local ADR 0070 §6), so it no longer offers clearing the
+    /// history as the way to shrink it.</summary>
     [Theory]
     [InlineData(50L * 1024 * 1024, false)]
     [InlineData((50L * 1024 * 1024) + 1, true)]
-    public void The_backup_card_warns_when_the_database_is_larger_than_50_MB(long bytes, bool warns)
+    public void The_backup_card_warns_when_the_last_backup_copy_is_larger_than_50_MB(long bytes, bool warns)
     {
-        using var settings = RenderSettings();
-        using (var file = File.Create(settings.Store.DatabasePath))
-        {
-            file.SetLength(bytes);
-        }
+        var at = new DateTimeOffset(2026, 11, 25, 9, 0, 0, TimeSpan.Zero);
+        using var settings = RenderSettings(new BackupState(at, at, true, null) { LastCopyBytes = bytes });
 
         OpenStorageTab(settings.Component);
 
@@ -396,9 +395,25 @@ public sealed class SettingsBackupTests
         }
 
         var warning = Assert.Single(warnings);
-        Assert.Contains("change history", warning.TextContent, StringComparison.Ordinal);
-        Assert.Contains("cleared", warning.TextContent, StringComparison.Ordinal);
+        Assert.Contains("last backup", warning.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("change history", warning.TextContent, StringComparison.Ordinal);
         Assert.NotNull(settings.Component.Find("[data-testid='storage-backup-settings']").QuerySelector("[data-testid='storage-backup-size-warning']"));
+    }
+
+    /// <summary>The live <c>backlog.db</c> still holds the journal, so its size on
+    /// disk raises no warning: only the copy a backup sends counts.</summary>
+    [Fact]
+    public void A_large_backlog_db_raises_no_warning_before_a_backup_measured_its_copy()
+    {
+        using var settings = RenderSettings();
+        using (var file = File.Create(settings.Store.DatabasePath))
+        {
+            file.SetLength((50L * 1024 * 1024) + 1);
+        }
+
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll("[data-testid='storage-backup-size-warning']"));
     }
 
     private static async Task<long> CountAsync(string databasePath, string table)
