@@ -1007,14 +1007,15 @@ Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each noti
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_reaches_the_hook_and_records_its_device, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_nobody_polls_for_becomes_the_managers_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_device_not_paired_now_is_dropped_and_audited, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.A_device_that_cannot_be_checked_throws_so_the_answer_is_replayed, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_listed_once_and_then_gone_is_revoked, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_never_listed_is_unknown]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_reaches_the_hook_and_records_its_device, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_paired_device_nobody_polls_for_becomes_the_managers_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.An_answer_from_a_device_not_paired_now_is_dropped_and_audited, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayDeviceTests.A_device_that_cannot_be_checked_throws_so_the_answer_is_replayed, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_listed_once_and_then_gone_is_revoked, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.RosterPairedDevicesTests.A_device_never_listed_is_unknown, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_from_a_device_not_paired_now_is_rejected_and_the_question_can_be_answered_again]
 ```
 
+The owner's notification exchange rejects a reply from a device not paired now before it is accepted, so the question's notification stays answerable ([A reply comes from a device paired now](../notifications/domain.invariants.md#invariant-a-reply-comes-from-a-device-paired-now)). The relay's check below is defence in depth.
 An answer reaches the hook or a delivery only when the device it came from is one of the owner's paired devices now, or this desktop.
 An answer from a revoked or unknown device is dropped: the question stays open, and the audit log records the device and the question.
 A device that cannot be checked is never taken as paired; the answer waits for the next start.
 
-Enforced at: `QuestionRelay.HandleAnswerAsync()` (asks `IPairedDevices` before recording), `RosterPairedDevices.StandingOfAsync()` (the owner's device list)
+Enforced at: `NotificationSyncSession` (before `Accept()`), `QuestionRelay.HandleAnswerAsync()` (asks `IPairedDevices` before recording), `RosterPairedDevices.StandingOfAsync()` (the owner's device list)
 
 ### Invariant: A delivery carries only the stored question and the accepted answer
 

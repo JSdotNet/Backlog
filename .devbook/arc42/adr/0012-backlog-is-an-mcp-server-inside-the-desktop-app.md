@@ -1,7 +1,7 @@
 # ADR 0012: Backlog is an MCP server hosted inside the running desktop application
 
 ```meta
-date: 2026-11-19
+date: 2026-11-24
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop.mcp]
 c4-touches: [backlog.mobile, backlog.desktop.tasks, backlog.desktop.sessions]
@@ -205,10 +205,12 @@ question-hook and telemetry tokens are read once only so the migration below can
 what still carries them. On every start `McpTokenRetirement` does three things:
 
 - **Creates the app's own grants** while `mcpServer.grants` is unrecorded: **Backlog
-  delivery** (the Delivery flow role's scopes), **Question hook** (`notify:ask`) and
-  **Telemetry** (`telemetry:write`). It records their ids, which are labels and not
-  secrets, as `mcpServer.grants.delivery`, `questionHook` and `telemetry`. A revoked one
-  is never recreated.
+  delivery** (the Delivery flow preset plus `devbook:write` and `ui:open`), **Question
+  hook** (`notify:ask`), **Telemetry** (`telemetry:write`) and **Manager**
+  (`sessions:dispatch`, `tasks:read` and `tasks:write`). It records their ids, which are
+  labels and not secrets, as `mcpServer.grants.delivery`, `questionHook`, `telemetry` and
+  `manager`. An install recorded before Manager existed gets it once. A revoked one is
+  never recreated.
 - **Rewrites what carries a retired token,** and only where the bearer is exactly that
   token. The `backlog` server in `~/.claude.json`, at user and project scope, gets a
   `headersHelper` running the installed helper with `--grant` for Backlog delivery. A
@@ -225,14 +227,16 @@ machine-specific id. The question hook takes its grant the same way (local ADR 0
 **The escape hatch is a hand-edited debug setting.** The listener accepts the app
 process's `BACKLOG_MCP_TOKEN` only when `settings.json` has
 `"mcpServer": { "acceptEnvironmentToken": true }`, which the app never writes. Its caller
-holds every grantable scope and is audited as `shared token`. The Dev PC catalog's
+holds every grantable scope except `telemetry:write` and `agents:grant`, and is audited as
+`shared token`. The Dev PC catalog's
 `${BACKLOG_MCP_TOKEN}` placeholder resolves only then; otherwise the row reports it
 unresolved.
 
-**Still open:** the `backlog-tools` plugin's `hooks/telemetry-forwarder.mjs` and
-`skills/dispatch-sessions/assets/wait-logic.mjs`, and the `delivery-surface-backlog`
-plugin's `backlog-client.mjs`, read `mcpServer.token` from `settings.json`. The listener
-refuses them until each moves to a grant.
+**Settled for `backlog-tools` (2026-11-24):** its `hooks/telemetry-forwarder.mjs` and
+`skills/dispatch-sessions/assets/wait-logic.mjs` call through `hooks/backlog-grant.mjs`,
+under the Telemetry and Manager grants. **Still open:** the external
+`delivery-surface-backlog` plugin's `backlog-client.mjs` reads `mcpServer.token` and finds
+none, so it calls with no token, under local ADR 0059's Unauthenticated row.
 
 ### 2. The host code: a framework reference in `Backlog.Desktop` only, started the way `TaskSyncWorker` is
 
@@ -499,6 +503,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | §1: the `BACKLOG_MCP_TOKEN` escape hatch no longer holds `telemetry:write` or `agents:grant`. The `backlog-tools` telemetry forwarder and dispatch-sessions call under the Telemetry and Manager grants, and the grant list names Manager. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §3). |
 | 2026-11-19 | Context, §5 and Deviations row 5 name `EntryStatusFlow.NextFrom` for the legal next statuses. `TaskItem.NextStatusesFrom`, which only tests used, was deleted in PR #1911. The decision is unchanged. | Plan `codebase-pruning` step 3 deleted the member, and step 17 brought this record level with the code. |
 | 2026-11-18 | Built: the MCP listener outlives the main window. Closing the window hides it to the tray and the listener keeps answering; Quit, sign-out, shutdown and an MSIX update still stop it. | Plan `tray-keep-alive`, step 5 (`review-plan`), checked what landed. |
 | 2026-11-12 | Retired §1's shared, question-hook and telemetry tokens and Rotate: the app creates its three grants, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |

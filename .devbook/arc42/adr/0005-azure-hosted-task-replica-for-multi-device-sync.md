@@ -1,6 +1,7 @@
 # ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical
 
 ```meta
+date: 2026-11-24
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
 c4: [backlog.cloud, backlog.cloudDb]
 c4-touches: [backlog.taskStore, backlog.mobile, backlog.ide, backlog.desktop.sessions]
@@ -347,6 +348,8 @@ nobody notices.
 |---|---|---|
 | `tasks` | **180 days** | Task tombstones — a document with `deleted_at` set. A live task document carries no expiry. |
 | `sessions` | **12 months** | The whole record. A session record is history, and history that old answers a question nobody is asking. |
+| `assertionReplays` | **Per document** | A spent assertion id, 60 seconds after its assertion stops being acceptable (local ADR 0058 §2). |
+| `connectorCredentials` | **Per document** | A refresh token a day after its own expiry, and a revoked family's marker after 92 days. The client document never expires (local ADR 0058 §8). |
 
 180 days is chosen against how long a device may plausibly stay offline, and the
 number matters in one specific direction: a tombstone that expires *before* a
@@ -755,6 +758,12 @@ own long-lived registration credential in the OS credential store — DPAPI on
 Windows — and exchanges it for a short-lived JWT (15–60 minutes, per inherited
 ADR 0012) on each sync. The `ownerId` is the partition key of both containers.
 
+**Amended 2026-11-24 by local ADR 0058 §1 and §2.** The first device enrols, and
+recovery runs, through the owner's GitHub sign-in. The `ownerId` is the pinned
+`Owner:OwnerId`, or one derived from the owner's GitHub user id. A device proves itself
+with a hardware-bound key and a `private_key_jwt` assertion. Only a device without a key
+still gets a registration credential. The paragraph above stays as the first choice.
+
 **The sync service, not Cosmos, is what keeps a device inside its own partition.**
 An earlier draft of this record said the partition key itself enforced it — that a
 device "can only ever read the partition its token names" — and that was wrong.
@@ -804,6 +813,14 @@ check is the part of the service that carries that weight instead.
 > cross-partition count bounded by how many machines one person owns. The
 > documents hold hashes only, as before: a copy of either container is not a
 > copy of any secret.
+>
+> **Amended, 2026-11-24 — two more containers and one more count (local ADR 0058).**
+> `assertionReplays` holds one document per spent device assertion, created once and
+> never indexed (§2). `connectorCredentials` holds the remote connector's client,
+> refresh tokens and family markers (§8). Both are partitioned on `/id`. The guard that
+> refuses enrolment on a deployed service with no pinned owner (§1) runs one more
+> cross-partition count over `devices`, `AnyOutside`, bounded like the Devices tab's
+> reads.
 
 ### The transport that was considered and deferred
 
@@ -1138,6 +1155,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | Identity follows local ADR 0058: GitHub sign-in at enrolment and recovery, a pinned or derived owner id, and hardware-bound device keys. `assertionReplays` and `connectorCredentials` join the containers, and the unpinned-owner guard adds a cross-partition count over `devices`. | Plan `zero-trust-auth` final check, PR #1971. |
 | 2026-09-23 | A replicated session record carries its title, cut to 500 characters. | The replica is the owner's alone, and an id does not let a person recognise a session once its transcript is cleaned away. |
 | 2026-09-05 | Session records ride the replica under a field whitelist, and the title stays home. | A title is a fragment of a prompt, and prompts stay on the machine. |
 | 2026-09-03 | An Azure-hosted replica carries multi-device sync; the local store stays canonical. | Two machines writing `backlog.db` through file sync produced conflicted copies and reverted edits. |
