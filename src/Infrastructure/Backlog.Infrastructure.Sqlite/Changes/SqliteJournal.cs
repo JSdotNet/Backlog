@@ -64,6 +64,31 @@ internal static class SqliteJournal
         await SqliteSchema.EnsureSetUpAsync(connection, Schema, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Opens <paramref name="databasePath"/> set up for
+    /// <paramref name="schema"/>, then the journal's tables and
+    /// <paramref name="triggers"/> — after the table, because the triggers name its
+    /// columns. How a journalled table's repository opens its connection.</summary>
+    internal static async Task<SqliteConnection> OpenJournalledAsync(
+        string databasePath,
+        SqliteSchemaDefinition schema,
+        SqliteSchemaDefinition triggers,
+        CancellationToken cancellationToken)
+    {
+        var connection = await SqliteSchema.OpenAsync(databasePath, schema, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureAsync(connection, cancellationToken).ConfigureAwait(false);
+            await SqliteSchema.EnsureSetUpAsync(connection, triggers, cancellationToken).ConfigureAwait(false);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     /// <summary>Names the change set the rest of <paramref name="transaction"/> writes
     /// under, or marks it as kept out of the journal when
     /// <paramref name="changeSetId"/> is null.</summary>
