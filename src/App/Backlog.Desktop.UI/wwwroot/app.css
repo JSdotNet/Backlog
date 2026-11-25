@@ -2349,7 +2349,8 @@ h1, h2, h3 {
     gap: var(--spacing-2xs);
 }
 
-.plans-today__tasks-heading {
+.plans-today__tasks-heading,
+.flat-heading {
     padding: var(--spacing-xs) var(--spacing-sm) 0;
 }
 

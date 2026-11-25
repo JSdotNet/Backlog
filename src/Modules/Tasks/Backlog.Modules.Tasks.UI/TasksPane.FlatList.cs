@@ -49,8 +49,9 @@ public partial class TasksPane
 
     /// <summary>
     /// Puts the state's Flat scope in step with the view. Entering Flat lets go of the
-    /// scopes its bar draws no control for — Ready in a plan, Next actions and its area
-    /// — so nothing narrows the list out of sight; leaving it lets go of In the queue.
+    /// scopes its bar draws no control for — Ready in a plan, Next actions and its area,
+    /// and the rail's plan or Unplanned — so nothing narrows the list out of sight;
+    /// leaving it lets go of In the queue.
     /// </summary>
     private void SyncFlatScope()
     {
@@ -60,6 +61,7 @@ public partial class TasksPane
             {
                 State.SetReadyInPlanFilter(false);
                 State.SetNextActionsFilter(false);
+                State.LetGoOfPlanSelection();
 
                 // Open is the Flat bar's first status tab and the one it opens on.
                 if (string.IsNullOrEmpty(State.SelectedStatusFilterWire)) State.SetStatusFilter(TasksDesktopState.OpenStatusWire);
@@ -133,6 +135,11 @@ public partial class TasksPane
             return State.ScopedRows.Count(row => !row.IsPreviewCompleted && TasksDesktopState.IsUnplanned(row) && !shown.Contains(row));
         }
     }
+
+    /// <summary>The Flat list's heading: how many open entries are in no plan, and the
+    /// one way a plan entry joins them.</summary>
+    private string FlatHeadingText =>
+        $"Unplanned {State.ScopedRows.Count(row => !row.IsPreviewCompleted && TasksDesktopState.IsUnplanned(row))} · plan entries only from My Day";
 
     /// <summary>The Flat list's footer.</summary>
     private string FlatFooterText =>

@@ -638,6 +638,13 @@
                         <h3 class="plan-sections__group-title plans-today__tasks-heading" data-testid="tasks-today-heading">Tasks today</h3>
                     }
 
+                    @* Flat's heading: what the list is, whatever the bar narrows it to
+                       (local ADR 0062 §3). *@
+                    @if (FlatListed)
+                    {
+                        <h3 class="plan-sections__group-title flat-heading" data-testid="flat-heading">@FlatHeadingText</h3>
+                    }
+
                     @if (State.IsLoading && State.Rows.Count == 0)
                     {
                         @* The backlog is still being read. Placeholder rows in the
