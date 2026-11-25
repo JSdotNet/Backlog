@@ -93,6 +93,10 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Ids);
 
+        // Every item the selection decides and every entry it makes are one change set
+        // (local ADR 0061 §2).
+        using var change = TriageChangeSet.BeginBatch(command.Ids.Count);
+
         var minted = await MintPlanTagAsync(organizer, command.ListId, command.PlanTitle, cancellationToken).ConfigureAwait(false);
         if (minted is not Ok<string>(var planTag))
         {

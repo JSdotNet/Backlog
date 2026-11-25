@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Events;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Data.Sqlite;
 
@@ -99,7 +101,12 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         var now = Stamp(await NextStampAsync(connection, knowledgeEvent.Id, cancellationToken).ConfigureAwait(false));
+
+        // Under the current change set (local ADR 0061 §2), so the revision the trigger
+        // writes is filed under it: an add_knowledge_event call, an edit in the Events pane.
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
 
         // created_at is left out of the update, so the first save's stamp is the one kept.
         command.CommandText =
@@ -118,6 +125,100 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         command.Parameters.AddWithValue("$document", document);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Takes the event back to the before-image a change set left (local ADR 0061 §4), while
+    /// its row still holds the stamp <paramref name="held"/>; true when it wrote. With
+    /// <paramref name="beforeJson"/> null the change set added the event, so it is removed
+    /// through <see cref="KnowledgeEvent.Remove"/> — a tombstone the other devices hear —
+    /// unless a harvest task holds it. Otherwise the prior document and state come back,
+    /// stamped past the version held.
+    /// </summary>
+    internal async Task<bool> WriteBackAsync(Guid id, string? beforeJson, string? held, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        string document;
+        string state;
+
+        if (beforeJson is null)
+        {
+            await using var read = connection.CreateCommand();
+            read.CommandText = "SELECT document FROM events_knowledge_events WHERE id = $id;";
+            read.Parameters.AddWithValue("$id", Key(id));
+
+            if (await read.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not string stored
+                || Parse(stored) is not { IsRemoved: false } current
+                || current.Remove() is Error)
+            {
+                return false;
+            }
+
+            document = JsonSerializer.Serialize(KnowledgeEventDocument.From(current), KnowledgeEventDocument.JsonOptions);
+            state = current.State.ToString();
+        }
+        else
+        {
+            if (Field(beforeJson, "document") is not { } prior || Parse(prior) is not { } previous) return false;
+
+            document = prior;
+            state = Field(beforeJson, "state") ?? previous.State.ToString();
+        }
+
+        var stamp = Stamp(await NextStampAsync(connection, id, cancellationToken).ConfigureAwait(false));
+
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
+        command.CommandText = held is null
+            ? """
+              INSERT OR IGNORE INTO events_knowledge_events (id, state, created_at, updated_at, document)
+              VALUES ($id, $state, $created_at, $stamp, $document);
+              """
+            : """
+              UPDATE events_knowledge_events SET state = $state, updated_at = $stamp, document = $document
+              WHERE id = $id AND updated_at = $held;
+              """;
+        command.Parameters.AddWithValue("$id", Key(id));
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$stamp", stamp);
+        command.Parameters.AddWithValue("$document", document);
+        command.Parameters.AddWithValue("$created_at", (beforeJson is null ? null : Field(beforeJson, "created_at")) ?? stamp);
+        if (held is not null) command.Parameters.AddWithValue("$held", held);
+
+        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 0) return false;
+
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>The title a before-image's document holds, or null.</summary>
+    internal static string? TitleOfImage(string? beforeJson) =>
+        beforeJson is not null && Field(beforeJson, "document") is { } document && Parse(document) is { } knowledgeEvent
+            ? knowledgeEvent.Title
+            : null;
+
+    /// <summary>Whether a before-image holds an event this build can write back.</summary>
+    internal static bool ReadsAsEvent(string beforeJson) =>
+        Field(beforeJson, "document") is { } document && Parse(document) is not null;
+
+    private static string? Field(string image, string name)
+    {
+        try
+        {
+            using var parsed = JsonDocument.Parse(image);
+            return parsed.RootElement.ValueKind is JsonValueKind.Object
+                && parsed.RootElement.TryGetProperty(name, out var value)
+                && value.ValueKind is JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public async Task<IReadOnlyList<StoredKnowledgeEvent>> ListChangedSinceAsync(
@@ -154,7 +255,9 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         var document = JsonSerializer.Serialize(KnowledgeEventDocument.From(knowledgeEvent), KnowledgeEventDocument.JsonOptions);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = journal.Transaction;
 
         // The WHERE on the update is the latest-write-wins rule, decided by SQLite in the same
         // statement as the write: a row saved here after the copy was read is never overwritten
@@ -176,7 +279,9 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         command.Parameters.AddWithValue("$stamp", Stamp(updatedAt));
         command.Parameters.AddWithValue("$document", document);
 
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+        var written = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return written;
     }
 
     /// <summary>
@@ -226,7 +331,17 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
     private static string Stamp(DateTimeOffset stamp) => stamp.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
 
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+        SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
+
+    /// <summary>What <c>revisions.document_kind</c> calls a knowledge event.</summary>
+    internal const string KnowledgeEventKind = "knowledge-event";
+
+    /// <summary>The triggers that write a <c>knowledge-event</c> revision for every insert
+    /// into and update of <c>events_knowledge_events</c> (local ADR 0061 §2), a removal's
+    /// tombstone included.</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:events_knowledge_events",
+        ddl: SqliteJournal.Triggers("events_knowledge_events", KnowledgeEventKind, ["id", "state", "created_at", "updated_at", "document"]));
 
     /// <summary>
     /// The table's migration: idempotent DDL run on any open the file is not yet stamped for

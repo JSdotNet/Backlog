@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Modules.Inbox.DomainModels;
 
 using Microsoft.Data.Sqlite;
@@ -76,19 +77,41 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
     // --- Items --------------------------------------------------------------
 
-    public async Task SaveAsync(InboxItem item, CancellationToken cancellationToken = default)
+    public Task SaveAsync(InboxItem item, CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(item, held: null, conditional: false, cancellationToken);
+
+    /// <summary>
+    /// Saves <paramref name="item"/> as <see cref="SaveAsync"/> does, but only while its
+    /// row still holds the stamp <paramref name="held"/> — or, with
+    /// <paramref name="held"/> null, while there is no row — so a restore never writes
+    /// over an edit made since (local ADR 0061 §4). True when it wrote.
+    /// </summary>
+    internal Task<bool> SaveIfHeldAsync(InboxItem item, string? held, CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(item, held, conditional: true, cancellationToken);
+
+    private async Task<bool> SaveCoreAsync(InboxItem item, string? held, bool conditional, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(item);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
 
         // One transaction for the row and its files, so a reader never sees an
-        // item with half its attachments — the rows are replaced whole below.
-        await using var transaction = (SqliteTransaction)await connection
-            .BeginTransactionAsync(cancellationToken)
+        // item with half its attachments — the rows are replaced whole below. The
+        // transaction names the current change set (local ADR 0061 §2), so the
+        // revision the trigger writes is filed under it.
+        await using var journal = await ChangeSetTransaction
+            .BeginAsync(connection, requireTransaction: true, cancellationToken)
             .ConfigureAwait(false);
+        var transaction = journal.Transaction!;
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
+
+        // A conditional save updates only the row it was read at; one with no row to
+        // hold inserts, and the insert's conflict then counts no change.
+        var guard = !conditional ? string.Empty
+            : held is null ? "WHERE 0"
+            : "WHERE inbox_items.updated_at = $held";
+        if (conditional && held is not null) command.Parameters.AddWithValue("$held", held);
 
         // One statement for create and update alike: the aggregate is written
         // whole either way, so there is nothing for two code paths to disagree
@@ -128,7 +151,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 note_push_pending = excluded.note_push_pending,
                 restored_at = excluded.restored_at,
                 event_facts = excluded.event_facts,
-                routing_event_id = excluded.routing_event_id;
+                routing_event_id = excluded.routing_event_id
+            {guard};
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -165,11 +189,13 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$event_facts", Nullable(WriteEventFacts(item.EventFacts)));
         command.Parameters.AddWithValue("$routing_event_id", Nullable(item.Routing?.EventId?.ToString()));
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        var written = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        if (conditional && written == 0) return false;
 
         await SaveAttachmentsAsync(connection, transaction, item, cancellationToken).ConfigureAwait(false);
 
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await journal.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     /// <summary>Replaces the item's attachment rows with the aggregate's list —
@@ -620,7 +646,119 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     /// only on a file not yet stamped with this <see cref="Schema"/>, for the
     /// reasons <see cref="SqliteSchema.OpenAsync"/> gives.</summary>
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
-        SqliteSchema.OpenAsync(databasePath, Schema, cancellationToken);
+        SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
+
+    /// <summary>The triggers that write an <c>inbox-item</c> revision for every insert
+    /// into and update of <c>inbox_items</c> (local ADR 0061 §2), the before-image keyed
+    /// by every column <see cref="ItemColumns"/> names. The attachment rows are the
+    /// files' bookkeeping and are not journalled; a deleted item leaves no row and no
+    /// revision.</summary>
+    internal static readonly SqliteSchemaDefinition JournalSchema = new(
+        owner: "journal:inbox_items",
+        ddl: SqliteJournal.Triggers("inbox_items", InboxItemKind, ItemColumnNames));
+
+    /// <summary>What <c>revisions.document_kind</c> calls an inbox item.</summary>
+    internal const string InboxItemKind = "inbox-item";
+
+    private static IReadOnlyList<string> ItemColumnNames =>
+        ItemColumns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    // --- Restoring (local ADR 0061 §4) ----------------------------------------
+
+    /// <summary>The item a before-image holds, read as a stored row is, or null when the
+    /// image does not read as one — an older shape, or one written by hand.</summary>
+    internal static async Task<InboxItem?> ReadBeforeImageAsync(
+        SqliteConnection connection,
+        string beforeJson,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT " + string.Join(", ", ItemColumnNames.Select(column => $"json_extract($image, '$.{column}')")) + ";";
+        command.Parameters.AddWithValue("$image", beforeJson);
+
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadItem(reader) : null;
+        }
+        catch (Exception exception) when (exception is FormatException or InvalidCastException or SqliteException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The before-image's item, for a restore's plan; null when it does not
+    /// read as one.</summary>
+    internal async Task<InboxItem?> ReadBeforeImageAsync(string beforeJson, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        return await ReadBeforeImageAsync(connection, beforeJson, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Takes the item back to <paramref name="beforeJson"/>, the before-image a change
+    /// set left, while its row still holds the stamp <paramref name="held"/>. True when
+    /// it wrote.
+    /// <para>
+    /// The item's own ways back come first, because they settle the replica's side: a
+    /// route the change set made is undone through <see cref="InboxItem.ReturnFromBacklog"/>
+    /// and an archive through <see cref="InboxItem.Restore"/>, each of which withdraws the
+    /// acknowledgement and stamps the reopening. Any other change gets the prior row back
+    /// as it was, its files and its replica bookkeeping kept as they stand now, stamped
+    /// past the version held; a note's text change is pushed to the phone again.
+    /// </para>
+    /// </summary>
+    internal async Task<bool> WriteBackAsync(string beforeJson, string? held, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(beforeJson);
+
+        InboxItem? prior;
+        await using (var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false))
+        {
+            prior = await ReadBeforeImageAsync(connection, beforeJson, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (prior is null) return false;
+
+        var current = await GetAsync(prior.Id, cancellationToken).ConfigureAwait(false);
+        var stamp = current is null || now > current.UpdatedAt ? now : current.UpdatedAt.AddTicks(1);
+
+        InboxItem written;
+        if (current is not null && current.IsRouted && !prior.IsRouted)
+        {
+            current.ReturnFromBacklog(stamp);
+            written = current;
+        }
+        else if (current is not null && current.Status is InboxStatus.Archived && prior.Status is not InboxStatus.Archived && !current.IsRouted)
+        {
+            current.Restore(stamp);
+            written = current;
+        }
+        else
+        {
+            if (current is not null) prior.LoadAttachments(current.Attachments);
+
+            var textChanged = current is not null
+                && (!string.Equals(current.Title, prior.Title, StringComparison.Ordinal)
+                    || !string.Equals(current.BodyMd, prior.BodyMd, StringComparison.Ordinal));
+            var pushNote = prior.IsNote && textChanged;
+
+            prior.LoadState(
+                prior.Status,
+                prior.DeferredUntil,
+                prior.Routing,
+                current?.ReplicaAckPending ?? prior.ReplicaAckPending,
+                stamp,
+                prior.DuplicateOf,
+                prior.DuplicateOfTask,
+                pushNote ? (stamp > current!.EditedAt ? stamp : current.EditedAt.AddTicks(1)) : current?.EditedAt ?? prior.EditedAt,
+                pushNote || (current?.NotePushPending ?? prior.NotePushPending),
+                current?.RestoredAt ?? prior.RestoredAt);
+            written = prior;
+        }
+
+        return await SaveIfHeldAsync(written, held, cancellationToken).ConfigureAwait(false);
+    }
 
     internal static readonly SqliteSchemaDefinition Schema = new(
         owner: "inbox",

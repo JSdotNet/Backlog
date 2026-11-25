@@ -3,6 +3,7 @@ using System.Text.Json;
 using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -64,8 +65,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// </summary>
 // Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
-public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore, IRepositoryAliasKeyedStore
+public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore, IRepositoryAliasKeyedStore, IJournalledDocumentStore
 {
+    /// <summary>What <c>revisions.document_kind</c> calls a subject's state (local
+    /// ADR 0061 §2).</summary>
+    public const string DocumentKind = "devbook-subject";
+
     /// <summary>The folders whose Markdown the import reads, by the key the
     /// panels resolve them with.</summary>
     private static readonly (string Key, DevbookFolder Folder)[] ImportedFolders =
@@ -87,6 +92,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
     private readonly Func<string> _rootDirectory;
     private readonly TimeProvider _time;
     private readonly IDevbookFolderSource? _folders;
+    private readonly IDocumentRevisionJournal? _journal;
     private readonly Lock _gate = new();
 
     /// <summary>The root the files below were read from. A different answer from
@@ -105,19 +111,30 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
     /// <param name="folders">Where this machine has each devbook folder, for the
     /// one-time import of the directions the Markdown states. None composed, none
     /// imported: the map holds what is set.</param>
-    public DevbookSubjectStateStore(Func<string> rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
+    /// <param name="journal">Where each state's prior document is recorded before its
+    /// file is written (local ADR 0061 §2). None composed, nothing is journalled.</param>
+    public DevbookSubjectStateStore(
+        Func<string> rootDirectory,
+        TimeProvider? time = null,
+        IDevbookFolderSource? folders = null,
+        IDocumentRevisionJournal? journal = null)
     {
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
         _rootDirectory = rootDirectory;
         _time = time ?? TimeProvider.System;
         _folders = folders;
+        _journal = journal;
     }
 
     /// <summary>A store over one fixed folder — what a test or a harness that
     /// scopes its state to a content root composes.</summary>
-    public DevbookSubjectStateStore(string rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
-        : this(() => rootDirectory, time, folders)
+    public DevbookSubjectStateStore(
+        string rootDirectory,
+        TimeProvider? time = null,
+        IDevbookFolderSource? folders = null,
+        IDocumentRevisionJournal? journal = null)
+        : this(() => rootDirectory, time, folders, journal)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
     }
@@ -207,23 +224,38 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         var touched = new HashSet<RepositoryFile>();
         var written = 0;
 
+        // One change set for the whole import (local ADR 0061 §2), rather than an
+        // unknown writer's per document, unless the caller already named one.
+        using var change = ChangeContext.BeginIfNone(ChangeActor.System, "Devbook import");
+
         lock (_gate)
         {
             Load();
+
+            var recorded = new List<(RepositoryFile File, JournalRevision Revision)>();
 
             foreach (var state in imported)
             {
                 if (state is null || FindLoaded(state.Id) is not null) continue;
 
-                touched.Add(Place(state));
+                var revision = Record(null, state);
+                var file = Place(state);
+                touched.Add(file);
+                if (revision is not null) recorded.Add((file, revision));
                 written++;
             }
 
             // One rewrite per file touched rather than one per state: a repository's
             // import is a batch, and its file is whole either way.
+            var failed = new HashSet<RepositoryFile>();
             foreach (var file in touched)
             {
-                Save(file);
+                if (!Save(file)) failed.Add(file);
+            }
+
+            foreach (var (file, revision) in recorded)
+            {
+                if (failed.Contains(file)) _journal!.Withdraw(revision);
             }
         }
 
@@ -660,9 +692,121 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         return current is null || now > current.UpdatedAt ? now : current.UpdatedAt.AddTicks(1);
     }
 
-    /// <summary>One document into its repository's file, on disk and in memory.
-    /// Must be called under the lock, after <see cref="Load"/>.</summary>
-    private void Put(DevbookSubjectState state) => Save(Place(state));
+    /// <summary>One document into its repository's file, on disk and in memory, its
+    /// prior document recorded in the journal first and taken back out when the file
+    /// write fails. Must be called under the lock, after <see cref="Load"/>.</summary>
+    private bool Put(DevbookSubjectState state)
+    {
+        var revision = Record(FindLoaded(state.Id), state);
+
+        if (Save(Place(state))) return true;
+
+        if (revision is not null) _journal!.Withdraw(revision);
+        return false;
+    }
+
+    /// <summary>Records <paramref name="before"/> as the prior document of the write
+    /// that leaves <paramref name="after"/> — null when it removes the state — or
+    /// nothing when no journal is composed.</summary>
+    private JournalRevision? Record(DevbookSubjectState? before, DevbookSubjectState? after)
+    {
+        var id = (after ?? before)!.Id;
+        return _journal?.Record(DocumentKind, id.ToString("D"), before is null ? null : Image(before), after?.UpdatedAt);
+    }
+
+    // --- Restoring (local ADR 0061 §4) ----------------------------------------
+
+    IReadOnlyCollection<string> IJournalledDocumentStore.DocumentKinds { get; } = [DocumentKind];
+
+    string? IJournalledDocumentStore.HeldStamp(DocumentKey key)
+    {
+        if (!Guid.TryParse(key.Id, out var id)) return null;
+
+        lock (_gate)
+        {
+            Load();
+            return JournalStamp.Format(FindLoaded(id)?.UpdatedAt);
+        }
+    }
+
+    string? IJournalledDocumentStore.TitleOf(DocumentKey key, string? before)
+    {
+        var state = Guid.TryParse(key.Id, out var id) ? Find(id) : null;
+        state ??= before is null ? null : FromImage(before);
+
+        return state is null ? null : $"{state.Subject.Key}: {state.State}";
+    }
+
+    RestoreAction IJournalledDocumentStore.ActionFor(DocumentKey key, string? before) =>
+        !Guid.TryParse(key.Id, out _) ? RestoreAction.Unsupported
+        : before is null ? RestoreAction.Tombstone
+        : FromImage(before) is not null ? RestoreAction.Revert
+        : RestoreAction.Unsupported;
+
+    /// <summary>
+    /// Puts a subject back to the state <paramref name="before"/> held, stamped past the
+    /// one held now, or — the change set having set its first state — takes its state
+    /// away, so the subject reads as it did before. The subject wire has no tombstone, so
+    /// the removal is this device's; another device keeps the state it holds.
+    /// </summary>
+    bool IJournalledDocumentStore.Restore(DocumentKey key, string? before, string? held)
+    {
+        if (!Guid.TryParse(key.Id, out var id)) return false;
+
+        var prior = before is null ? null : FromImage(before);
+        if (before is not null && prior is null) return false;
+
+        lock (_gate)
+        {
+            Load();
+
+            var current = FindLoaded(id);
+            if (!string.Equals(JournalStamp.Format(current?.UpdatedAt), held, StringComparison.Ordinal)) return false;
+
+            if (prior is null)
+            {
+                if (current is null) return false;
+
+                var file = _files[DevbookSubject.AliasKey(current.RepositoryAlias)];
+                var revision = Record(current, null);
+                file.States.Remove(id);
+
+                if (!Save(file))
+                {
+                    file.States[id] = current;
+                    if (revision is not null) _journal!.Withdraw(revision);
+                    return false;
+                }
+            }
+            else
+            {
+                if (!Put(prior with { UpdatedAt = Stamp(current) })) return false;
+            }
+        }
+
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>A state as the journal keeps it: the file's own entry, with the
+    /// repository it is filed under.</summary>
+    private static string Image(DevbookSubjectState state) =>
+        JsonSerializer.Serialize(new SubjectImageDto { RepositoryAlias = state.RepositoryAlias, Subject = ToDto(state) }, JsonOptions);
+
+    /// <summary>The state an image holds, or null when it does not read as one.</summary>
+    private static DevbookSubjectState? FromImage(string image)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<SubjectImageDto>(image, JsonOptions) is { Subject: { } entry } dto
+                ? FromDto(entry, DevbookSubject.AliasKey(dto.RepositoryAlias))
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>One document into its repository's file in memory, under the
     /// alias as every lookup folds it; the file it went into comes back for the
@@ -744,18 +888,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
 
             foreach (var entry in dto.Subjects ?? [])
             {
-                if (entry is null || entry.Id == Guid.Empty || ToSubject(entry) is not { } subject || string.IsNullOrWhiteSpace(entry.State)) continue;
-
-                file.States[entry.Id] = new DevbookSubjectState(
-                    entry.Id,
-                    file.Alias,
-                    subject,
-                    entry.State,
-                    entry.By ?? string.Empty,
-                    entry.At,
-                    ToDecision(entry.Approval),
-                    ToDecision(entry.Acceptance),
-                    entry.UpdatedAt);
+                if (entry is not null && FromDto(entry, file.Alias) is { } state) file.States[entry.Id] = state;
             }
 
             // A direction is skipped the same way: no address this version can
@@ -778,6 +911,35 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
             return null;
         }
     }
+
+    /// <summary>One file entry as a state, or null for one this version cannot name.</summary>
+    private static DevbookSubjectState? FromDto(SubjectStateDto entry, string alias) =>
+        entry.Id == Guid.Empty || ToSubject(entry) is not { } subject || string.IsNullOrWhiteSpace(entry.State)
+            ? null
+            : new DevbookSubjectState(
+                entry.Id,
+                alias,
+                subject,
+                entry.State,
+                entry.By ?? string.Empty,
+                entry.At,
+                ToDecision(entry.Approval),
+                ToDecision(entry.Acceptance),
+                entry.UpdatedAt);
+
+    private static SubjectStateDto ToDto(DevbookSubjectState state) => new()
+    {
+        Id = state.Id,
+        Kind = DevbookSubjects.KindName(state.Subject.Kind),
+        Key = state.Subject.Key,
+        PullRequest = state.Subject.PullRequest,
+        State = state.State,
+        By = state.By,
+        At = state.At,
+        Approval = FromDecision(state.Approval),
+        Acceptance = FromDecision(state.Acceptance),
+        UpdatedAt = state.UpdatedAt,
+    };
 
     private static DevbookSubject? ToSubject(SubjectStateDto entry)
     {
@@ -813,19 +975,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
                 [
                     .. file.States.Values
                         .OrderBy(state => state.Subject.CanonicalKey, StringComparer.Ordinal)
-                        .Select(state => new SubjectStateDto
-                        {
-                            Id = state.Id,
-                            Kind = DevbookSubjects.KindName(state.Subject.Kind),
-                            Key = state.Subject.Key,
-                            PullRequest = state.Subject.PullRequest,
-                            State = state.State,
-                            By = state.By,
-                            At = state.At,
-                            Approval = FromDecision(state.Approval),
-                            Acceptance = FromDecision(state.Acceptance),
-                            UpdatedAt = state.UpdatedAt,
-                        }),
+                        .Select(ToDto),
                 ],
                 Directions =
                 [
@@ -924,6 +1074,14 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         public DecisionDto? Acceptance { get; init; }
 
         public DateTimeOffset UpdatedAt { get; init; }
+    }
+
+    /// <summary>A state as the change journal keeps it.</summary>
+    private sealed class SubjectImageDto
+    {
+        public string? RepositoryAlias { get; init; }
+
+        public SubjectStateDto? Subject { get; init; }
     }
 
     private sealed class DecisionDto

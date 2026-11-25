@@ -1,5 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;
@@ -128,13 +129,16 @@ internal sealed class EventsPane(
     /// Called only from async methods, whose end also restores the flow's mark.</summary>
     private WriteMark BeginWrite()
     {
-        var mark = new WriteMark(_identity);
+        // The pane's write is the person's change set (local ADR 0061 §2), unless an MCP
+        // call already named an agent's. Set here, in a synchronous method, so the caller's
+        // flow carries it until the mark is disposed.
+        var mark = new WriteMark(_identity, ChangeContext.BeginIfNone(ChangeActor.Person, "Events pane edit"));
         Writing.Value = mark;
         return mark;
     }
 
     /// <summary>One write's self-write mark: whose it is, and whether the write is over.</summary>
-    private sealed class WriteMark(object owner) : IDisposable
+    private sealed class WriteMark(object owner, ChangeContext.Scope change) : IDisposable
     {
         private volatile bool _over;
 
@@ -142,7 +146,11 @@ internal sealed class EventsPane(
 
         public bool IsOver => _over;
 
-        public void Dispose() => _over = true;
+        public void Dispose()
+        {
+            _over = true;
+            change.Dispose();
+        }
     }
 
     public async Task<IReadOnlyList<KnowledgeEventGroupDto>> ListAsync(CancellationToken cancellationToken = default)

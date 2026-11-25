@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using Backlog.Infrastructure.Sqlite.Events;
+using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Tasks;
@@ -31,6 +33,15 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 /// stays, and the plan says so.
 /// </para>
 /// <para>
+/// <b>An inbox item and a knowledge event go back through their own repositories.</b>
+/// An item a triage routed or archived is reopened through the item's own way back,
+/// which withdraws the replica's acknowledgement; a knowledge event the change set added
+/// is removed, its tombstone travelling as any removal does. An inbox item the change set
+/// captured has no tombstone of its own and stays. A devbook subject state or a remark —
+/// JSON files outside this database — goes back through the
+/// <see cref="IJournalledDocumentStore"/> that keeps its kind.
+/// </para>
+/// <para>
 /// The restore is a change set of its own, actor <see cref="ChangeActor.Person"/>,
 /// labelled "Restore of &lt;label&gt;", and the restored change set's
 /// <c>undone_by</c> points at it once it wrote anything.
@@ -44,10 +55,16 @@ public sealed class SqliteChangeRestore : IChangeRestore
     private readonly string _databasePath;
     private readonly ITaskRepository _tasks;
     private readonly TimeProvider _time;
+    private readonly IReadOnlyList<IJournalledDocumentStore> _stores;
 
     /// <summary>A restore over the database in <paramref name="rootDirectory"/>, saving
-    /// tasks through <paramref name="tasks"/>, which must write that same file.</summary>
-    public SqliteChangeRestore(string rootDirectory, ITaskRepository tasks, TimeProvider? time = null)
+    /// tasks through <paramref name="tasks"/>, which must write that same file, and the
+    /// kinds kept outside it through <paramref name="stores"/>.</summary>
+    public SqliteChangeRestore(
+        string rootDirectory,
+        ITaskRepository tasks,
+        TimeProvider? time = null,
+        IEnumerable<IJournalledDocumentStore>? stores = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
 
@@ -55,7 +72,13 @@ public sealed class SqliteChangeRestore : IChangeRestore
         _databasePath = SqliteTaskRepository.DatabasePathFor(rootDirectory);
         _tasks = tasks ?? throw new ArgumentNullException(nameof(tasks));
         _time = time ?? TimeProvider.System;
+        _stores = [.. stores ?? []];
     }
+
+    /// <summary>The store outside this database that keeps <paramref name="kind"/>, or
+    /// null.</summary>
+    private IJournalledDocumentStore? StoreFor(string kind) =>
+        _stores.FirstOrDefault(store => store.DocumentKinds.Contains(kind, StringComparer.Ordinal));
 
     /// <summary>The document kinds other than a task a restore writes back: their table,
     /// and the setup that journals it, so the restore's own write is journalled too.</summary>
@@ -158,6 +181,39 @@ public sealed class SqliteChangeRestore : IChangeRestore
             return new RestoreStep(revision.Key, current?.Title ?? prior?.Title ?? revision.Key.Id, action, conflict);
         }
 
+        if (revision.Key.Kind == SqliteInboxRepository.InboxItemKind)
+        {
+            var prior = revision.Before is null
+                ? null
+                : await SqliteInboxRepository.ReadBeforeImageAsync(connection, revision.Before, cancellationToken).ConfigureAwait(false);
+
+            // Captured by the change set: the inbox has no tombstone, so the item stays.
+            var action = prior is not null ? RestoreAction.Revert : RestoreAction.Unsupported;
+            return new RestoreStep(revision.Key, prior?.Title ?? revision.Key.Id, action, conflict);
+        }
+
+        if (revision.Key.Kind == SqliteKnowledgeEventRepository.KnowledgeEventKind)
+        {
+            var action = revision.Before is null
+                ? Guid.TryParse(revision.Key.Id, out _) ? RestoreAction.Tombstone : RestoreAction.Unsupported
+                : SqliteKnowledgeEventRepository.ReadsAsEvent(revision.Before) ? RestoreAction.Revert : RestoreAction.Unsupported;
+
+            var heldEvent = await HeldRowAsync(connection, "events_knowledge_events", revision.Key.Id, cancellationToken).ConfigureAwait(false);
+            var eventTitle = SqliteKnowledgeEventRepository.TitleOfImage(heldEvent)
+                ?? SqliteKnowledgeEventRepository.TitleOfImage(revision.Before)
+                ?? revision.Key.Id;
+            return new RestoreStep(revision.Key, eventTitle, action, conflict);
+        }
+
+        if (StoreFor(revision.Key.Kind) is { } store)
+        {
+            return new RestoreStep(
+                revision.Key,
+                store.TitleOf(revision.Key, revision.Before) ?? revision.Key.Id,
+                store.ActionFor(revision.Key, revision.Before),
+                conflict);
+        }
+
         if (!Tables.TryGetValue(revision.Key.Kind, out var table))
         {
             return new RestoreStep(revision.Key, revision.Key.Id, RestoreAction.Unsupported, conflict);
@@ -193,6 +249,26 @@ public sealed class SqliteChangeRestore : IChangeRestore
             {
                 return await ApplyTaskAsync(connection, revision, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        if (revision.Key.Kind == SqliteInboxRepository.InboxItemKind)
+        {
+            return revision.Before is not null
+                && await new SqliteInboxRepository(_rootDirectory)
+                    .WriteBackAsync(revision.Before, held, _time.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        }
+
+        if (revision.Key.Kind == SqliteKnowledgeEventRepository.KnowledgeEventKind)
+        {
+            return Guid.TryParse(revision.Key.Id, out var eventId)
+                && await new SqliteKnowledgeEventRepository(_rootDirectory, _time)
+                    .WriteBackAsync(eventId, revision.Before, held, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (StoreFor(revision.Key.Kind) is { } store)
+        {
+            return store.ActionFor(revision.Key, revision.Before) is not RestoreAction.Unsupported
+                && store.Restore(revision.Key, revision.Before, held);
         }
 
         if (!Tables.TryGetValue(revision.Key.Kind, out var table)) return false;
@@ -350,17 +426,21 @@ public sealed class SqliteChangeRestore : IChangeRestore
     /// <summary>The stamp the document's row holds now, as stored text — a task's
     /// coalesced to its <c>created_at</c> as its store reads it — or null when there is
     /// no such row.</summary>
-    private static async Task<string?> HeldStampAsync(SqliteConnection connection, DocumentKey key, CancellationToken cancellationToken)
+    private async Task<string?> HeldStampAsync(SqliteConnection connection, DocumentKey key, CancellationToken cancellationToken)
     {
         string table, stamp;
         if (key.Kind == TaskKind)
         {
             (table, stamp) = ("tasks", "COALESCE(updated_at, created_at)");
         }
-        else if (Tables.TryGetValue(key.Kind, out var documentTable))
+        else if (RowTableFor(key.Kind) is { } rowTable)
         {
-            if (!await TableExistsAsync(connection, documentTable.Name, cancellationToken).ConfigureAwait(false)) return null;
-            (table, stamp) = (documentTable.Name, "updated_at");
+            if (!await TableExistsAsync(connection, rowTable, cancellationToken).ConfigureAwait(false)) return null;
+            (table, stamp) = (rowTable, "updated_at");
+        }
+        else if (StoreFor(key.Kind) is { } store)
+        {
+            return store.HeldStamp(key);
         }
         else
         {
@@ -370,6 +450,25 @@ public sealed class SqliteChangeRestore : IChangeRestore
         await using var command = connection.CreateCommand();
         command.CommandText = $"SELECT {stamp} FROM {table} WHERE id = $id;";
         command.Parameters.AddWithValue("$id", key.Id);
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
+    }
+
+    /// <summary>The table a kind kept in this database lives in, other than a task's.</summary>
+    private static string? RowTableFor(string kind) =>
+        kind == SqliteInboxRepository.InboxItemKind ? "inbox_items"
+        : kind == SqliteKnowledgeEventRepository.KnowledgeEventKind ? "events_knowledge_events"
+        : Tables.TryGetValue(kind, out var documentTable) ? documentTable.Name
+        : null;
+
+    /// <summary>The row as a before-image would hold it — <c>id</c>, <c>state</c> and
+    /// <c>document</c> — or null when there is none.</summary>
+    private static async Task<string?> HeldRowAsync(SqliteConnection connection, string table, string id, CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(connection, table, cancellationToken).ConfigureAwait(false)) return null;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT json_object('id', id, 'document', document) FROM {table} WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id);
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
     }
 
@@ -429,7 +528,10 @@ public sealed class SqliteChangeRestore : IChangeRestore
 
 /// <summary>An <see cref="IChangeRestore"/> that follows a folder somebody can move,
 /// the way <see cref="RootedSqliteChangeJournal"/> does.</summary>
-public sealed class RootedSqliteChangeRestore(Func<string> currentRootDirectory, ITaskRepository tasks) : IChangeRestore
+public sealed class RootedSqliteChangeRestore(
+    Func<string> currentRootDirectory,
+    ITaskRepository tasks,
+    Func<IEnumerable<IJournalledDocumentStore>>? stores = null) : IChangeRestore
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -442,5 +544,5 @@ public sealed class RootedSqliteChangeRestore(Func<string> currentRootDirectory,
     public Task<RestoreOutcome> RestoreAsync(Guid changeSetId, IReadOnlySet<DocumentKey> restoreAnyway, CancellationToken cancellationToken = default) =>
         Current.RestoreAsync(changeSetId, restoreAnyway, cancellationToken);
 
-    private SqliteChangeRestore Current => new(_currentRootDirectory(), _tasks);
+    private SqliteChangeRestore Current => new(_currentRootDirectory(), _tasks, stores: stores?.Invoke());
 }

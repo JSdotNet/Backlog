@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -45,8 +46,11 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// </summary>
 // Not on JsonFileStore<T>: one file per repository under a root that can move, not one document at one path.
-public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositoryAliasKeyedStore
+public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositoryAliasKeyedStore, IJournalledDocumentStore
 {
+    /// <summary>What <c>revisions.document_kind</c> calls a remark (local ADR 0061 §2).</summary>
+    public const string DocumentKind = "remark";
+
     /// <summary>The folder under the storage root the files go in.</summary>
     public const string FolderName = "devbook-annotations";
 
@@ -64,6 +68,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     private readonly Func<string> _rootDirectory;
     private readonly TimeProvider _time;
     private readonly IDevbookFolderSource? _folders;
+    private readonly IDocumentRevisionJournal? _journal;
     private readonly Lock _gate = new();
 
     /// <summary>The root the files below were read from. A different answer
@@ -84,19 +89,30 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     /// <see cref="Canonical"/>. Optional, and absent it degrades to the
     /// conventional folders rather than failing: a harness or a test with no
     /// repository registry still files its remarks under a stable name.</param>
-    public DevbookAnnotationStore(Func<string> rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
+    /// <param name="journal">Where each remark's prior document is recorded before its
+    /// file is written (local ADR 0061 §2). None composed, nothing is journalled.</param>
+    public DevbookAnnotationStore(
+        Func<string> rootDirectory,
+        TimeProvider? time = null,
+        IDevbookFolderSource? folders = null,
+        IDocumentRevisionJournal? journal = null)
     {
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
         _rootDirectory = rootDirectory;
         _time = time ?? TimeProvider.System;
         _folders = folders;
+        _journal = journal;
     }
 
     /// <summary>A store over one fixed folder — what a test or a harness that
     /// scopes its state to a content root composes.</summary>
-    public DevbookAnnotationStore(string rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
-        : this(() => rootDirectory, time, folders)
+    public DevbookAnnotationStore(
+        string rootDirectory,
+        TimeProvider? time = null,
+        IDevbookFolderSource? folders = null,
+        IDocumentRevisionJournal? journal = null)
+        : this(() => rootDirectory, time, folders, journal)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
     }
@@ -227,9 +243,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
             {
                 // Nothing to replicate, so nothing to leave behind: a draft
                 // never made it past ListChangedSince.
-                var file = _files[annotation.RepositoryAlias];
-                file.Annotations.Remove(id);
-                Save(file);
+                RemoveDraft(annotation);
             }
             else
             {
@@ -277,21 +291,36 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
         var touched = new HashSet<RepositoryFile>();
         var written = 0;
 
+        // One change set for the whole import (local ADR 0061 §2), rather than an
+        // unknown writer's per document, unless the caller already named one.
+        using var change = ChangeContext.BeginIfNone(ChangeActor.System, "Devbook import");
+
         lock (_gate)
         {
             Load();
+
+            var recorded = new List<(RepositoryFile File, JournalRevision Revision)>();
 
             foreach (var annotation in imported)
             {
                 if (annotation is null || FindLoaded(annotation.Id) is not null) continue;
 
-                touched.Add(Place(annotation).File);
+                var revision = Record(annotation.Id, null, annotation);
+                var file = Place(annotation).File;
+                touched.Add(file);
+                if (revision is not null) recorded.Add((file, revision));
                 written++;
             }
 
+            var failed = new HashSet<RepositoryFile>();
             foreach (var file in touched)
             {
-                Save(file);
+                if (!Save(file)) failed.Add(file);
+            }
+
+            foreach (var (file, revision) in recorded)
+            {
+                if (failed.Contains(file)) _journal!.Withdraw(revision);
             }
         }
 
@@ -486,10 +515,20 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
     /// a delete leaves. The alias has been rewritten on every write since this
     /// store was written; the chapter path joins it for the same reason.
     /// </para></summary>
-    private DevbookAnnotation Put(DevbookAnnotation annotation)
+    private DevbookAnnotation Put(DevbookAnnotation annotation) => Put(annotation, out _);
+
+    /// <inheritdoc cref="Put(DevbookAnnotation)"/>
+    /// <param name="annotation">The document to write.</param>
+    /// <param name="saved">Whether the file write held.</param>
+    private DevbookAnnotation Put(DevbookAnnotation annotation, out bool saved)
     {
+        // The prior document goes into the journal before the file is written, and comes
+        // back out when the write fails (local ADR 0061 §2).
+        var revision = Record(annotation.Id, FindLoaded(annotation.Id), annotation);
+
         var (file, stored) = Place(annotation);
-        Save(file);
+        saved = Save(file);
+        if (!saved && revision is not null) _journal!.Withdraw(revision);
 
         // A remark is held under one alias. A copy that arrives under another —
         // relabelled on a device that moved it first (local ADR 0060 §3) — leaves
@@ -501,6 +540,162 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
 
         return stored;
     }
+
+    /// <summary>Takes a draft out of its file — a draft never replicated, so it leaves
+    /// no tombstone — journalled as a removal. Must be called under the lock.</summary>
+    private bool RemoveDraft(DevbookAnnotation annotation)
+    {
+        var file = _files[annotation.RepositoryAlias];
+        var revision = Record(annotation.Id, annotation, null);
+        file.Annotations.Remove(annotation.Id);
+
+        if (Save(file)) return true;
+
+        // Kept in memory as the file still has it, so what the panes show stays true.
+        file.Annotations[annotation.Id] = annotation;
+        if (revision is not null) _journal!.Withdraw(revision);
+        return false;
+    }
+
+    /// <summary>Records <paramref name="before"/> as the prior document of a write that
+    /// leaves <paramref name="after"/> — null when it removes the remark — or nothing when
+    /// no journal is composed.</summary>
+    private JournalRevision? Record(Guid id, DevbookAnnotation? before, DevbookAnnotation? after) =>
+        _journal?.Record(DocumentKind, id.ToString("D"), before is null ? null : Image(before), after?.UpdatedAt);
+
+    // --- Restoring (local ADR 0061 §4) ----------------------------------------
+
+    IReadOnlyCollection<string> IJournalledDocumentStore.DocumentKinds { get; } = [DocumentKind];
+
+    string? IJournalledDocumentStore.HeldStamp(DocumentKey key)
+    {
+        if (!Guid.TryParse(key.Id, out var id)) return null;
+
+        lock (_gate)
+        {
+            Load();
+            return JournalStamp.Format(FindLoaded(id)?.UpdatedAt);
+        }
+    }
+
+    string? IJournalledDocumentStore.TitleOf(DocumentKey key, string? before)
+    {
+        var annotation = Guid.TryParse(key.Id, out var id) ? Find(id) : null;
+        annotation ??= before is null ? null : FromImage(before);
+        if (annotation is null) return null;
+
+        var body = annotation.Body.ReplaceLineEndings(" ").Trim();
+        var chapter = Path.GetFileName(annotation.ChapterPath);
+        return body.Length == 0 ? $"Remark on {chapter}" : $"Remark on {chapter}: {(body.Length > 60 ? body[..60] + "…" : body)}";
+    }
+
+    RestoreAction IJournalledDocumentStore.ActionFor(DocumentKey key, string? before) =>
+        !Guid.TryParse(key.Id, out _) ? RestoreAction.Unsupported
+        : before is null ? RestoreAction.Tombstone
+        : FromImage(before) is not null ? RestoreAction.Revert
+        : RestoreAction.Unsupported;
+
+    /// <summary>
+    /// Puts a remark back as <paramref name="before"/> held it, stamped past the copy held
+    /// now, or — the change set having posted it — deletes it, leaving the tombstone a
+    /// delete leaves so the other devices drop it too; a draft goes without one.
+    /// </summary>
+    bool IJournalledDocumentStore.Restore(DocumentKey key, string? before, string? held)
+    {
+        if (!Guid.TryParse(key.Id, out var id)) return false;
+
+        var prior = before is null ? null : FromImage(before);
+        if (before is not null && prior is null) return false;
+
+        lock (_gate)
+        {
+            Load();
+
+            var current = FindLoaded(id);
+            if (!string.Equals(JournalStamp.Format(current?.UpdatedAt), held, StringComparison.Ordinal)) return false;
+
+            if (prior is null)
+            {
+                if (current is not { IsLive: true }) return false;
+
+                if (current.IsDraft)
+                {
+                    if (!RemoveDraft(current)) return false;
+                }
+                else
+                {
+                    var at = Stamp(current);
+                    Put(current with { DeletedAt = at, UpdatedAt = at }, out var saved);
+                    if (!saved) return false;
+                }
+            }
+            else
+            {
+                var at = current is null ? _time.GetUtcNow() : Stamp(current);
+                Put(prior with { UpdatedAt = at }, out var saved);
+                if (!saved) return false;
+            }
+        }
+
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>A remark as the journal keeps it: the file's own entry, with the
+    /// repository it is filed under.</summary>
+    private static string Image(DevbookAnnotation annotation) =>
+        JsonSerializer.Serialize(new AnnotationImageDto { RepositoryAlias = annotation.RepositoryAlias, Annotation = ToDto(annotation) }, JsonOptions);
+
+    /// <summary>The remark an image holds, or null when it does not read as one.</summary>
+    private static DevbookAnnotation? FromImage(string image)
+    {
+        try
+        {
+            if (JsonSerializer.Deserialize<AnnotationImageDto>(image, JsonOptions) is not { Annotation: { } entry } dto
+                || entry.Id == Guid.Empty
+                || string.IsNullOrWhiteSpace(entry.ChapterPath))
+            {
+                return null;
+            }
+
+            return FromDto(entry, Key(dto.RepositoryAlias), entry.ChapterPath);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static DevbookAnnotation FromDto(AnnotationDto entry, string alias, string chapterPath) => new(
+        entry.Id,
+        alias,
+        chapterPath,
+        Math.Max(0, entry.BlockIndex),
+        entry.Body ?? string.Empty,
+        entry.Author ?? string.Empty,
+        entry.CreatedAt,
+        entry.UpdatedAt,
+        entry.Resolved,
+        entry.DeletedAt,
+        NullIfBlank(entry.BlockHash),
+        DevbookAnnotationKinds.Parse(entry.Kind),
+        DevbookAnnotation.BranchKey(entry.Branch));
+
+    private static AnnotationDto ToDto(DevbookAnnotation annotation) => new()
+    {
+        Id = annotation.Id,
+        ChapterPath = annotation.ChapterPath,
+        BlockIndex = annotation.BlockIndex,
+        Body = annotation.Body,
+        Author = annotation.Author,
+        CreatedAt = annotation.CreatedAt,
+        UpdatedAt = annotation.UpdatedAt,
+        Resolved = annotation.Resolved,
+        DeletedAt = annotation.DeletedAt,
+        BlockHash = annotation.BlockHash,
+        Kind = DevbookAnnotationKinds.Name(annotation.Kind),
+        Branch = annotation.Branch,
+    };
 
     /// <summary><see cref="Put"/> without the save: the document settled and held
     /// in memory, and the file it went into, for a caller that writes several and
@@ -677,20 +872,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
             {
                 if (entry.Id == Guid.Empty || string.IsNullOrWhiteSpace(entry.ChapterPath)) continue;
 
-                file.Annotations[entry.Id] = new DevbookAnnotation(
-                    entry.Id,
-                    file.Alias,
-                    Canonical(file.Alias, entry.ChapterPath),
-                    Math.Max(0, entry.BlockIndex),
-                    entry.Body ?? string.Empty,
-                    entry.Author ?? string.Empty,
-                    entry.CreatedAt,
-                    entry.UpdatedAt,
-                    entry.Resolved,
-                    entry.DeletedAt,
-                    NullIfBlank(entry.BlockHash),
-                    DevbookAnnotationKinds.Parse(entry.Kind),
-                    DevbookAnnotation.BranchKey(entry.Branch));
+                file.Annotations[entry.Id] = FromDto(entry, file.Alias, Canonical(file.Alias, entry.ChapterPath));
             }
 
             return file;
@@ -718,21 +900,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
                     .. file.Annotations.Values
                         .OrderBy(annotation => annotation.CreatedAt)
                         .ThenBy(annotation => annotation.Id)
-                        .Select(annotation => new AnnotationDto
-                        {
-                            Id = annotation.Id,
-                            ChapterPath = annotation.ChapterPath,
-                            BlockIndex = annotation.BlockIndex,
-                            Body = annotation.Body,
-                            Author = annotation.Author,
-                            CreatedAt = annotation.CreatedAt,
-                            UpdatedAt = annotation.UpdatedAt,
-                            Resolved = annotation.Resolved,
-                            DeletedAt = annotation.DeletedAt,
-                            BlockHash = annotation.BlockHash,
-                            Kind = DevbookAnnotationKinds.Name(annotation.Kind),
-                            Branch = annotation.Branch,
-                        }),
+                        .Select(ToDto),
                 ],
             }, JsonOptions));
         }
@@ -760,6 +928,14 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore, IRepositor
         public string? RepositoryAlias { get; init; }
 
         public List<AnnotationDto> Annotations { get; init; } = [];
+    }
+
+    /// <summary>A remark as the change journal keeps it.</summary>
+    private sealed class AnnotationImageDto
+    {
+        public string? RepositoryAlias { get; init; }
+
+        public AnnotationDto? Annotation { get; init; }
     }
 
     private sealed class AnnotationDto
