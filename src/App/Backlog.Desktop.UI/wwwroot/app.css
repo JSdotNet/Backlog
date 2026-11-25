@@ -1902,6 +1902,11 @@ h1, h2, h3 {
     transform: rotate(180deg);
 }
 
+/* A slice's glyph stands for its word, which stays the name in an sr-only span. */
+.flat-tab__icon {
+    flex: none;
+}
+
 .flat-menu__empty {
     margin: 0;
     color: var(--color-text-secondary);

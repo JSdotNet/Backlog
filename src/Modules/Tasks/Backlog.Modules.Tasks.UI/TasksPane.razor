@@ -6747,8 +6747,16 @@
                            data-view="@view.ToString()"
                            role="radio"
                            aria-checked="@(active ? "true" : "false")"
+                           title="@FlatQuickViewLabel(view)"
                            OnClick="() => OnFlatQuickViewPicked(view)">
-                    @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    @if (FlatQuickViewIcon(view) is { } icon)
+                    {
+                        @icon<span class="sr-only">@($"{FlatQuickViewLabel(view)} ")</span>
+                    }
+                    else
+                    {
+                        @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                    }
                     @if (count is { } n)
                     {
                         <Badge BaseClass="flat-tab__count" Kind="">@n</Badge>
@@ -6780,13 +6788,13 @@
                           PressedChanged="OnSelectionModeChanged">
                 Select
             </ToggleButton>
-            @RenderQuietToggle("myday-filter-option", "My Day", MyDayCount, MyDayOnly,
+            @RenderQuietToggle("myday-filter-option", SunGlyph, "My Day", MyDayCount, MyDayOnly,
                 MyDayOnly ? "Show everything again" : "Show only what is in today's My Day", OnMyDayFilterChanged)
-            @RenderQuietToggle("readyinplan-filter-option", "Ready in a plan", ReadyInPlanCount, State.ReadyInPlanOnly,
+            @RenderQuietToggle("readyinplan-filter-option", PlayGlyph, "Ready in a plan", ReadyInPlanCount, State.ReadyInPlanOnly,
                 State.ReadyInPlanOnly ? "Show everything again" : "Show only what is ready in a plan", State.SetReadyInPlanFilter)
-            @RenderQuietToggle("waitingfor-filter-option", "Waiting", WaitingForCount, State.WaitingForOnly,
+            @RenderQuietToggle("waitingfor-filter-option", HourglassGlyph, "Waiting", WaitingForCount, State.WaitingForOnly,
                 State.WaitingForOnly ? "Show everything again" : "Show only what is waiting on someone, soonest follow-up first", State.SetWaitingForFilter)
-            @RenderQuietToggle("nextactions-filter-option", "Next actions", NextActionsCount, State.NextActionsOnly,
+            @RenderQuietToggle("nextactions-filter-option", ListTodoGlyph, "Next actions", NextActionsCount, State.NextActionsOnly,
                 State.NextActionsOnly ? "Show everything again" : "Show only the next actions, grouped by context", State.SetNextActionsFilter)
         </div>
 
@@ -6830,17 +6838,34 @@
         @RenderQuietSort()
         </text>;
 
-    /// <summary>One slice of the Plans bar: its word and count as quiet text, pressed
-    /// while it narrows the list.</summary>
-    private RenderFragment RenderQuietToggle(string testId, string label, int count, bool pressed, string title, Action<bool> changed) =>
+    /// <summary>One slice of the Plans bar: its glyph and count, borderless, pressed
+    /// while it narrows the list. The word stays the name, in an sr-only span, and the
+    /// tooltip says what pressing it does.</summary>
+    private RenderFragment RenderQuietToggle(string testId, RenderFragment icon, string label, int count, bool pressed, string title, Action<bool> changed) =>
         @<ToggleButton BaseClass="flat-tab"
                        PressedCssClass="flat-tab--active"
                        Pressed="@pressed"
                        TestId="@testId"
                        Title="@title"
                        PressedChanged="changed">
-            @($"{label} ")<Badge BaseClass="flat-tab__count" Kind="">@count</Badge>
+            @icon<span class="sr-only">@($"{label} ")</span><Badge BaseClass="flat-tab__count" Kind="">@count</Badge>
         </ToggleButton>;
+
+    /// <summary>A Flat quick view's glyph; Everything has none and keeps its word.</summary>
+    private static RenderFragment? FlatQuickViewIcon(FlatQuickView view) => view switch
+    {
+        FlatQuickView.MyDay => SunGlyph,
+        FlatQuickView.InTheQueue => ListEndGlyph,
+        FlatQuickView.Waiting => HourglassGlyph,
+        _ => null,
+    };
+
+    // The slices' glyphs, one each, shared by the Plans and Flat bars.
+    private static readonly RenderFragment SunGlyph = @<SunIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment PlayGlyph = @<PlayIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment HourglassGlyph = @<HourglassIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListTodoGlyph = @<ListTodoIcon Size="14" CssClass="flat-tab__icon" />;
+    private static readonly RenderFragment ListEndGlyph = @<ListEndIcon Size="14" CssClass="flat-tab__icon" />;
 
     /// <summary>The Type, Source and #tag menus Flat and Plans share: disclosures of the
     /// chips the chip bar draws inline.</summary>

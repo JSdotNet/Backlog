@@ -337,9 +337,13 @@ public sealed class PlanRailTests
             Assert.NotEmpty(plans.FindAll($"[data-testid='{menu}-button']"));
         }
 
+        // The slices are glyphs with counts, as Flat's quick views are; the word stays
+        // their name for a screen reader.
         Assert.Equal(
-            ["Select", "My Day", "Ready in a plan", "Waiting", "Next actions"],
-            plans.FindAll("[data-testid='plans-slices'] button").Select(button => button.ChildNodes.OfType<AngleSharp.Dom.IText>().Select(text => text.Text.Trim()).FirstOrDefault(text => text.Length > 0) ?? Text(button)));
+            ["My Day", "Ready in a plan", "Waiting", "Next actions"],
+            plans.FindAll("[data-testid='plans-slices'] button .sr-only").Select(Text));
+        Assert.Equal(4, plans.FindAll("[data-testid='plans-slices'] button svg.flat-tab__icon").Count);
+        Assert.Equal(3, flat.FindAll("[data-testid='flat-quick-view'] svg.flat-tab__icon").Count);
     }
 
     [Fact]
