@@ -55,13 +55,16 @@ copy a file before you take any step that could change it.
 Traces reach the dashboard from `sync`, the three harnesses, and the `desktop` resource when
 Aspire started it. Two sources send nothing:
 
-- The installed desktop app. Read it over CDP instead.
+- The installed desktop app. Reproduce in a Debug build and read it over CDP instead.
 - The Android head, unless the run pins the dashboard's OTLP port.
 
 ## The installed desktop app: CDP on 9222
 
-On Windows, every desktop build starts WebView2 with `--remote-debugging-port=9222`: the
-installed MSIX, and the Aspire `desktop` resource alike (`MauiProgram.ConfigureWebView2RemoteDebugging`).
+On Windows, a Debug desktop build starts WebView2 with `--remote-debugging-port=9222`, as the
+Aspire `desktop` resource does (`MauiProgram.ConfigureWebView2RemoteDebugging`). A Release
+build — the installed MSIX from a commit after local ADR 0058 §6's 5-minute Hello window —
+opens no port, so a script cannot click through an in-window Windows Hello check. Reproduce
+against a Debug build instead.
 
 1. Check which build is answering.
    - Run `Get-Process Backlog.Desktop | Select-Object Path`. The installed app lives under
@@ -102,7 +105,7 @@ Put back everything this session changed, and list each item in the report:
 - **Feature flags and harness settings you toggled.** Examples: Settings → Features, the
   per-worktree harness settings under `obj/local-development/`, and a devbook folder
   override. Set each one back to the value it had before.
-- **Installed desktop app, if it was driven over CDP.** Put back
+- **A desktop build, if it was driven over CDP.** Put back
   `%LOCALAPPDATA%\Backlog\github.json`, the repository registry, and any setting changed in
   the UI.
 - **Resources you stopped or started for the investigation.** Return each to its prior
