@@ -74,7 +74,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list" @ref="_backlogList">
+            <div class="backlog-list @(PlanRailBeside ? "backlog-list--plans" : null)" @ref="_backlogList">
                 @* Status narrows what is already in view, so it sits on the right.
                    Tags are the second label on an entry that already has one, built
                    from what people typed and with no ceiling on how many, so they
@@ -124,6 +124,30 @@
                                          BaseClass="board-columns"
                                          SelectCssClass="board-columns__select"
                                          OnChanged="OnBoardGroupingPickedAsync" />
+                        </div>
+                    }
+
+                    @* The list's own control, first on its bar for the Columns select's
+                       reason: it decides what everything under the bar is — the plans
+                       on a rail beside the list, or one flat list. One of two, so a
+                       radiogroup in the statuses' shape (local ADR 0062 §1). *@
+                    @if (Layout == TasksLayout.List)
+                    {
+                        <div class="filter-group filter-group--grouping" role="radiogroup" aria-label="Group the list" data-testid="list-grouping">
+                            @foreach (var grouping in ListGroupings)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@(ListGrouping == grouping ? "chip--active" : null)"
+                                           TestId="list-grouping-option"
+                                           data-grouping="@grouping.ToString()"
+                                           role="radio"
+                                           aria-checked="@(ListGrouping == grouping ? "true" : "false")"
+                                           title="@(grouping == TaskListGrouping.Plans ? "Group the list by plan, with the plans on a rail" : "Show one flat list")"
+                                           OnClick="() => OnListGroupingPickedAsync(grouping)">
+                                    @grouping
+                                </AppButton>
+                            }
                         </div>
                     }
 
@@ -264,6 +288,10 @@
                                 <ChildContent>
                                     @RenderSourceGroup()
                                     @RenderTypeGroup()
+                                    @if (PlansGrouped)
+                                    {
+                                        @RenderPlanRail()
+                                    }
                                 </ChildContent>
                             </PopoverButton>
                         </div>
@@ -365,7 +393,7 @@
                        aria-pressed, and no "All" chip, because with nothing pressed
                        the list is already everything. That chip was the duplicate of
                        the statuses' own All. *@
-                    @if (State.TagFilters.Count > 0)
+                    @if (StripTags.Count > 0)
                     {
                         @* The strip's own row: last in the markup and, with
                            `order: 1`, below every other group, so it is a full
@@ -383,7 +411,7 @@
                                  class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null) @(_tagStripExpanded ? "filter-group--tags--expanded" : null)"
                                  role="group"
                                  aria-label="Filter by tag">
-                                @foreach (var tag in State.TagFilters)
+                                @foreach (var tag in StripTags)
                                 {
                                     @* Keyed by the tag, on whatever is the iteration's root,
                                        because a pressed plan moves: it leads the strip and
@@ -518,6 +546,13 @@
                                  TestId="backlog-refreshing" />
                     }
                 </div>
+
+                @* The Plans view's rail, on the left of the rows under the bar — or,
+                   on a narrow column, inside the Filter menu above. *@
+                @if (PlanRailBeside)
+                {
+                    @RenderPlanRail()
+                }
 
                 @* Everything below the filter bar scrolls, and the bar does not. The
                    list half used to be the scroll container, so the bar went up with
@@ -6214,9 +6249,92 @@
         </div>;
     }
 
-    /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — which the
-    /// Filter trigger wears as its count while it is not 0.</summary>
-    private int FilterMenuPressedCount => (State.SelectedSource is null ? 0 : 1) + (State.SelectedType is null ? 0 : 1);
+    /// <summary>The Plans / Flat switch's two choices, in the order drawn.</summary>
+    private static readonly TaskListGrouping[] ListGroupings = [TaskListGrouping.Plans, TaskListGrouping.Flat];
+
+    /// <summary>
+    /// The Plans view's rail (local ADR 0062 §2), top to bottom: My Day, Now across
+    /// plans, each plan with a 2px progress line, done/total and its run state as
+    /// coloured text, and Unplanned last. Each item is a toggle: pressed, the list shows
+    /// that plan or that list; pressed again, everything. One item at a time — see
+    /// <see cref="TasksDesktopState.SelectRailItem"/>.
+    /// </summary>
+    private RenderFragment RenderPlanRail()
+    {
+        var plans = RailPlans();
+
+        return @<nav class="plan-rail" aria-label="Plans" data-testid="plan-rail">
+            <div class="plan-rail__heading" data-testid="plan-rail-heading">Plans · @plans.Count</div>
+            <ToggleButton BaseClass="plan-rail__item"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.MyDay)"
+                          TestId="plan-rail-myday"
+                          Title="Show what is in today's My Day"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.MyDay)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">My Day</span>
+                    <span class="plan-rail__count" data-testid="plan-rail-count">@MyDayCount</span>
+                </span>
+            </ToggleButton>
+            <ToggleButton BaseClass="plan-rail__item"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.NowAcrossPlans)"
+                          TestId="plan-rail-now"
+                          Title="Show the plan entries in a session, in every plan"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.NowAcrossPlans)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">Now, across plans</span>
+                    <span class="plan-rail__count" data-testid="plan-rail-count">@NowAcrossPlansCount</span>
+                </span>
+            </ToggleButton>
+            @foreach (var plan in plans)
+            {
+                <ToggleButton @key="plan.Tag"
+                              BaseClass="plan-rail__item plan-rail__item--plan"
+                              PressedCssClass="plan-rail__item--selected"
+                              Pressed="@State.IsRailItemSelected(PlanRailItem.Plan, plan.Tag)"
+                              TestId="plan-rail-plan"
+                              data-plan="@plan.Name"
+                              data-state="@plan.State.ToString()"
+                              aria-label="@RailPlanLabel(plan)"
+                              Title="@($"Show the {plan.Tag} plan")"
+                              PressedChanged="_ => OnRailItemPressed(PlanRailItem.Plan, plan.Tag)">
+                    <span class="plan-rail__line">
+                        <span class="plan-rail__name" data-testid="plan-rail-name">@plan.Name</span>
+                        @if (plan.StateText.Length > 0)
+                        {
+                            <span class="plan-rail__state @RailStateClass(plan.State)" data-testid="plan-rail-state">@plan.StateText</span>
+                        }
+                    </span>
+                    <span class="plan-rail__line">
+                        <span class="plan-rail__bar @(plan.State == PlanRunState.Blocked ? "plan-rail__bar--blocked" : null)" aria-hidden="true">
+                            <span class="plan-rail__bar-fill" style="width: @(plan.ProgressPercent)%"></span>
+                        </span>
+                        <span class="plan-rail__progress" data-testid="plan-rail-progress">@plan.Done/@plan.Total</span>
+                    </span>
+                </ToggleButton>
+            }
+            <ToggleButton BaseClass="plan-rail__item plan-rail__item--unplanned"
+                          PressedCssClass="plan-rail__item--selected"
+                          Pressed="@State.IsRailItemSelected(PlanRailItem.Unplanned)"
+                          TestId="plan-rail-unplanned"
+                          Title="Show the entries in no plan"
+                          PressedChanged="_ => OnRailItemPressed(PlanRailItem.Unplanned)">
+                <span class="plan-rail__line">
+                    <span class="plan-rail__name">Unplanned</span>
+                    <span class="plan-rail__count" data-testid="plan-rail-count">@UnplannedCount</span>
+                </span>
+            </ToggleButton>
+        </nav>;
+    }
+
+    /// <summary>How many of Source and Type are pressed — 0, 1 or 2 — plus one while a
+    /// rail item other than My Day is selected in the menu, which the Filter trigger
+    /// wears as its count while it is not 0. My Day has its own chip on the bar.</summary>
+    private int FilterMenuPressedCount =>
+        (State.SelectedSource is null ? 0 : 1)
+        + (State.SelectedType is null ? 0 : 1)
+        + (PlansGrouped && (State.NowAcrossPlansOnly || State.SelectedPlan is not null || State.IsTagSelected(TasksDesktopState.NoPlanTag)) ? 1 : 0);
 
     /// <summary>The Filter trigger in the chips' shape, reading pressed while a
     /// source or type is, so a narrowed list says so with the menu shut.</summary>
@@ -6230,11 +6348,15 @@
     {
         get
         {
-            var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0) switch
+            var holds = (State.SourceFilters.Count > 0, State.TypeFilters.Count > 0, PlansGrouped) switch
             {
-                (true, true) => "Filter by source and type",
-                (true, false) => "Filter by source",
-                _ => "Filter by type",
+                (true, true, false) => "Filter by source and type",
+                (true, false, false) => "Filter by source",
+                (false, true, false) => "Filter by type",
+                (true, true, true) => "Filter by source and type, or pick a plan",
+                (true, false, true) => "Filter by source, or pick a plan",
+                (false, true, true) => "Filter by type, or pick a plan",
+                _ => "Pick a plan",
             };
 
             return FilterMenuPressedCount switch
@@ -6279,7 +6401,7 @@
 
     /// <summary>The Filter menu has something to hold: at least one of Source and
     /// Type has chips.</summary>
-    private bool FilterMenuOffered => State.SourceFilters.Count > 0 || State.TypeFilters.Count > 0;
+    private bool FilterMenuOffered => State.SourceFilters.Count > 0 || State.TypeFilters.Count > 0 || PlansGrouped;
 
     /// <summary>
     /// The menu opened or shut. The re-render the callback brings applies any wide

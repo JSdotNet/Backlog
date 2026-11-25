@@ -1579,6 +1579,134 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
+/* The Plans view (local ADR 0062 §2): the plan rail on the left of the rows under the
+   bar. The list column becomes a two-by-two grid — the bar across the top, the rail
+   and the scroller under it — only while the rail stands beside the list; at 48rem
+   or narrower the pane draws the rail inside the Filter menu instead, so the column
+   keeps its one-column shape there. */
+.backlog-list--plans {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--spacing-md);
+}
+
+.backlog-list--plans > .filter-bar {
+    grid-column: 1 / -1;
+}
+
+.backlog-list--plans > .backlog-list__scroll {
+    grid-column: 2;
+}
+
+.plan-rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--spacing-lg);
+}
+
+.filter-menu__panel > .plan-rail {
+    max-height: 60vh;
+    padding-bottom: 0;
+}
+
+.plan-rail__heading {
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+/* One rail item: a toggle whose pressed state is the selected plan or list. */
+.plan-rail__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-rail__item:hover,
+.plan-rail__item--selected {
+    background: var(--color-background-alt);
+}
+
+.plan-rail__item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-rail__item--unplanned {
+    margin-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-background-raised);
+    border-radius: 0;
+    padding-top: var(--spacing-sm);
+    color: var(--color-text-secondary);
+}
+
+.plan-rail__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.plan-rail__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-rail__count,
+.plan-rail__progress {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
+}
+
+/* The run state, as coloured text beside the name — words first, so colour is
+   never the only carrier. */
+.plan-rail__state {
+    flex: none;
+    font-size: var(--font-size-xs);
+}
+
+.plan-rail__state--running { color: var(--color-primary); }
+.plan-rail__state--queued { color: var(--color-text-secondary); }
+.plan-rail__state--blocked { color: var(--color-error-text); }
+.plan-rail__state--quiet { color: var(--color-text-disabled); }
+
+/* The 2px progress line: done over total. */
+.plan-rail__bar {
+    flex: 1 1 auto;
+    height: 2px;
+    background: var(--color-background-raised);
+}
+
+.plan-rail__bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--color-success-text);
+}
+
+.plan-rail__bar--blocked .plan-rail__bar-fill {
+    background: var(--color-error-text);
+}
+
 /* The completed group, pulled up under the add-entry row. The library spaces it
    from the open rows with a `--spacing-md` margin, which is right where the list
    stands alone; here the scroller's gap already separates them, and the two

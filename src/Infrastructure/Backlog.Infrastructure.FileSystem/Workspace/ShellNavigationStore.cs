@@ -121,6 +121,10 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
 
+    /// <summary>How the Tasks list groups when nothing else was remembered: by plan
+    /// (local ADR 0062 §1).</summary>
+    public const string DefaultTasksGrouping = "Plans";
+
     /// <summary>The Calendar's range when nothing else was remembered.</summary>
     public const string DefaultCalendarRange = "Month";
 
@@ -173,6 +177,7 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
         RoadmapCompletedShown = dto?.RoadmapCompletedShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
+        TasksGrouping = string.IsNullOrWhiteSpace(dto?.TasksGrouping) ? DefaultTasksGrouping : dto.TasksGrouping;
         CalendarTasksShown = dto?.CalendarTasksShown ?? true;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarEventsShown = dto?.CalendarEventsShown ?? false;
@@ -232,6 +237,14 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// </para>
     /// </summary>
     public string BoardColumns { get; private set; }
+
+    /// <summary>
+    /// How the Tasks list was last grouped — the name of a <c>TaskListGrouping</c>
+    /// member, <c>Plans</c> or <c>Flat</c> (local ADR 0062 §1) — kept beside the Board's
+    /// columns for <see cref="BoardColumns"/>' reason. <see cref="DefaultTasksGrouping"/>
+    /// until changed, and left out of the file while it is.
+    /// </summary>
+    public string TasksGrouping { get; private set; }
 
     /// <summary>Whether the Calendar draws the tasks and their planned hours — its "Show
     /// tasks" box (local ADR 0056 §4): on until the reader turns it off on this device. A
@@ -435,6 +448,19 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
             if (columns == BoardColumns) return false;
 
             BoardColumns = columns;
+            return true;
+        });
+    }
+
+    public void SetTasksGrouping(string grouping)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(grouping);
+
+        Update(() =>
+        {
+            if (grouping == TasksGrouping) return false;
+
+            TasksGrouping = grouping;
             return true;
         });
     }
@@ -766,6 +792,9 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
+                // Likewise left out while the list groups by plan. A stored name: never
+                // rename it without reading the old one.
+                TasksGrouping = TasksGrouping == DefaultTasksGrouping ? null : TasksGrouping,
                 // Left out while on, the default, so only turning it off writes a key. A
                 // stored name: never rename it without reading the old one.
                 CalendarTasksShown = CalendarTasksShown ? null : false,
@@ -837,6 +866,9 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? BoardColumns { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? TasksGrouping { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarTasksShown { get; init; }

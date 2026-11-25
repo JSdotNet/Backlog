@@ -71,6 +71,10 @@ public partial class TasksPane
         // Every status is a column while the columns are by status, so the filter
         // that would narrow to one is set aside for as long as that holds.
         State.SetStatusFilterSuspended(StatusFilterHidden);
+
+        // Now, across plans has no control anywhere but the rail, so a view without the
+        // rail — Flat, or the Board — lets go of it rather than narrowing out of sight.
+        if (!PlansGrouped) State.SetNowAcrossPlansFilter(false);
     }
 
     private async Task OnBoardGroupingPickedAsync(string? value)
