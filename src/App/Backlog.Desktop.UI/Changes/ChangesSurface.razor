@@ -4,11 +4,11 @@
 @inject IServiceProvider Services
 
 @*
-    The Changes view (local ADR 0061 §2, local ADR 0022 §1): every change set the
+    The Changes view (local ADR 0070 §2, local ADR 0022 §1): every change set the
     journal holds, newest first, who made it, and — opened in place — what each
     document was before it beside what it is now.
 
-    An opened change set offers Restore (local ADR 0061 §4) when the host composes a
+    An opened change set offers Restore (local ADR 0070 §4) when the host composes a
     restore: the plan comes back as an in-page panel in that row — how many documents
     it restores, how many conflict, a choice per conflict — and Restore runs it as the
     person's own change set, "Restore of <label>". The list is read again after it,
@@ -20,7 +20,7 @@
     of the journal reads as a journal that recorded a fraction.
 
     `restore=<change set id>` opens that change set with its restore confirmation
-    panel — what an agent's restore proposal answered Restore jumps to (local ADR 0061
+    panel — what an agent's restore proposal answered Restore jumps to (local ADR 0070
     §5). Opening the panel restores nothing: the person still presses Restore or Cancel.
 
     A host that composes no journal says so rather than drawing an empty list.

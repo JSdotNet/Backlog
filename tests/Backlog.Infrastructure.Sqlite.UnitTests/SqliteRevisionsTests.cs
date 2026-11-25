@@ -9,7 +9,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The change journal's <c>revisions</c> (local ADR 0061 §2): the triggers on
+/// The change journal's <c>revisions</c> (local ADR 0070 §2): the triggers on
 /// <c>tasks</c> keep one before-image per document per change set, file a write the
 /// app did not name under an unknown writer, and skip a write kept out of the journal.
 /// </summary>

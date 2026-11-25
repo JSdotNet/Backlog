@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
-/// The change journal's <c>change_sets</c> table (local ADR 0061 §2), shared across
+/// The change journal's <c>change_sets</c> table (local ADR 0070 §2), shared across
 /// bounded contexts the way Sync is, because one change set can span several.
 /// <para>
 /// A change set is recorded by the first journalled write made under it, inside that

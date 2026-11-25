@@ -78,7 +78,7 @@ internal sealed class TaskUndoHistory
     /// delete N times is still one step.
     /// </summary>
     /// <remarks>The gesture is also one change set of the change journal (local ADR
-    /// 0061 §2), made current here for the caller's flow until the outermost scope
+    /// 0070 §2), made current here for the caller's flow until the outermost scope
     /// ends — unless the caller is already inside one, which the writes then join.
     /// </remarks>
     public IDisposable Group(string label)

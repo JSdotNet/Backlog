@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Desktop.UI.Changes;
 
 /// <summary>
-/// Answers an agent's restore proposal (local ADR 0061 §5): the <c>propose_restore</c>
+/// Answers an agent's restore proposal (local ADR 0070 §5): the <c>propose_restore</c>
 /// question, which the <c>mcp</c> source asks with a key naming the change set
 /// (<see cref="RestoreProposals"/>).
 /// <list type="bullet">

@@ -12,7 +12,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Names the change set an MCP write runs under (local ADR 0061 §3): actor agent, the caller
+/// Names the change set an MCP write runs under (local ADR 0070 §3): actor agent, the caller
 /// the request's principal names (<see cref="McpScopePolicies.CallerOf"/>) — a grant by its
 /// name and id, <c>unauthenticated</c>, or the host's own caller — the session its
 /// <c>sessionId</c> argument names, and the correlation id of the audit record of the call that

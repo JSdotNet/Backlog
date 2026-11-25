@@ -1,23 +1,30 @@
 @*
-    The pane's list: the events grouped by state in the order IEventsPane answers them —
-    Going, Considering, Spotted, Attended, Harvested, Skipped, upcoming first within each —
-    with a tally per group. An empty group is never handed in, so none is drawn.
+    The pane's list: the events by date in the sections IEventsPane answers them — Upcoming,
+    soonest first then the undated, and Past, most recent first — with a tally per section. An
+    empty section is never handed in, so none is drawn.
 
     A row is a library AppButton wearing this list's class, as the notification centre's
-    rows are: pressing it opens the event in the editor beside the list. The list holds no
-    state of its own beyond what it is handed.
+    rows are: pressing it opens the event in the editor beside the list and selects its pin.
+    In order it holds the mark (the map number in its tone, the grey ring, ◎ or –), the short
+    date, the title, the place line — where the event is, or why it is not on the map — and
+    the state badge (.devbook/domain/events/features.md#events-map,
+    .devbook/design/color-scheme.md#events-map-marks). The tone is never the only cue: the
+    badge says the state, and the glyphs are hidden from assistive technology because the
+    place line says the same in words. The list holds no state of its own beyond what it is
+    handed, so it is the map's keyboard companion: every pin has its row.
 *@
 
 <nav class="events-list" aria-label="Events" data-testid="events-list">
-    @foreach (var group in Groups)
+    @foreach (var section in Sections)
     {
-        var label = EventPresentation.StateLabel(group.State);
-        <section class="events-list__group" data-testid="events-group" data-state="@group.State">
-            <h3 class="events-list__heading">@label <span class="events-list__tally" data-testid="events-group-tally">@group.Events.Count</span></h3>
+        var label = EventPresentation.SectionLabel(section.Section);
+        <section class="events-list__section" data-testid="events-section" data-section="@section.Section">
+            <h3 class="events-list__heading">@label <span class="events-list__tally" data-testid="events-section-tally">@section.Events.Count</span></h3>
             <ul class="events-list__rows">
-                @foreach (var summary in group.Events)
+                @foreach (var summary in section.Events)
                 {
                     var selected = summary.Id == SelectedId;
+                    var mark = EventPresentation.Mark(summary, section.Section);
                     <li>
                         <AppButton BaseClass="events-list__row"
                                    Variant="ButtonVariant.None"
@@ -25,8 +32,22 @@
                                    TestId="@($"events-row-{summary.Id:N}")"
                                    aria-current="@(selected ? "true" : null)"
                                    OnClick="@(() => OnSelect.InvokeAsync(summary.Id))">
-                            <span class="events-list__title">@summary.Title</span>
-                            <span class="events-list__line" data-testid="events-row-line">@EventPresentation.RowLine(summary)</span>
+                            <span class="@MarkClass(mark)"
+                                  data-testid="events-row-mark"
+                                  data-mark-tone="@ToneSlug(mark.Tone)"
+                                  aria-hidden="@(mark.Number is null ? "true" : null)">@MarkText(mark)</span>
+                            <span class="events-list__date" data-testid="events-row-date">@EventPresentation.ShortDate(summary.Start, Today)</span>
+                            <span class="events-list__text">
+                                <span class="events-list__title">@summary.Title</span>
+                                @if (EventPresentation.PlaceLine(summary.Place) is { } place)
+                                {
+                                    <span class="events-list__line" data-testid="events-row-place">@place</span>
+                                }
+                            </span>
+                            <StatusBadge Status="@EventPresentation.StateTone(summary.State)"
+                                         Text="@EventPresentation.StateLabel(summary.State)"
+                                         CssClass="events-list__badge"
+                                         TestId="events-row-badge" />
                         </AppButton>
                     </li>
                 }
@@ -36,15 +57,37 @@
 </nav>
 
 @code {
-    /// <summary>The groups to draw, in order, none of them empty.</summary>
+    /// <summary>The date sections to draw, in order, none of them empty.</summary>
     [Parameter, EditorRequired]
-    public IReadOnlyList<KnowledgeEventGroupDto> Groups { get; set; } = [];
+    public IReadOnlyList<KnowledgeEventSectionDto> Sections { get; set; } = [];
 
     /// <summary>The event the editor shows.</summary>
     [Parameter]
     public Guid? SelectedId { get; set; }
 
+    /// <summary>Today on the desktop clock: a date in this year reads without its year.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; }
+
     /// <summary>Raised with the event a row was pressed for.</summary>
     [Parameter]
     public EventCallback<Guid> OnSelect { get; set; }
+
+    private static string MarkClass(EventMark mark) => $"events-list__mark events-list__mark--{ToneSlug(mark.Tone)}";
+
+    private static string ToneSlug(EventMarkTone tone) => tone switch
+    {
+        EventMarkTone.Filled => "filled",
+        EventMarkTone.Dashed => "dashed",
+        EventMarkTone.Grey => "grey",
+        EventMarkTone.Online => "online",
+        _ => "off"
+    };
+
+    private static string? MarkText(EventMark mark) => mark.Tone switch
+    {
+        EventMarkTone.Online => "◎",
+        EventMarkTone.Off => "–",
+        _ => mark.Number
+    };
 }

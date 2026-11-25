@@ -45,7 +45,7 @@ public sealed class SessionsPaneDetailTests
     }
 
     /// <summary>The selected session's Changes action hands the shell that session's
-    /// id, so the Changes view opens narrowed to it (local ADR 0061).</summary>
+    /// id, so the Changes view opens narrowed to it (local ADR 0070).</summary>
     [Fact]
     public void The_selected_sessions_changes_action_opens_the_changes_of_that_session()
     {

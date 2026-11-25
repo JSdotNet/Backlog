@@ -1597,7 +1597,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Changes is a main view (local ADR 0061, ADR 0022 §1): its tab stands after the
+    /// Changes is a main view (local ADR 0070, ADR 0022 §1): its tab stands after the
     /// Calendar's, outside the view switch, it replaces the task list inside the workspace, and pressing it
     /// again changes nothing.
     /// </summary>

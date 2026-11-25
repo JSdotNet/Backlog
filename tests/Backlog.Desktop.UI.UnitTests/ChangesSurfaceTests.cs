@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Changes view over the journal (local ADR 0061): it lists what the journal
+/// The Changes view over the journal (local ADR 0070): it lists what the journal
 /// answers, narrows to a session when asked and says so, reads an opened row's
 /// documents, and says when the host records no journal.
 /// </summary>
@@ -192,7 +192,7 @@ public sealed class ChangesSurfaceTests
         Assert.Null(restore.Overrides);
     }
 
-    /// <summary>The jump a restore proposal answered Restore makes (local ADR 0061 §5): the
+    /// <summary>The jump a restore proposal answered Restore makes (local ADR 0070 §5): the
     /// row opens with its confirmation panel, and nothing is restored until the person
     /// presses Restore there.</summary>
     [Fact]

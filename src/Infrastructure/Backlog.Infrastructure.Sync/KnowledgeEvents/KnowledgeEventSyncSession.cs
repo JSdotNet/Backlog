@@ -238,7 +238,7 @@ public sealed class KnowledgeEventSyncSession
             }
 
             pulled += feed.Events.Count;
-            // One applied page is one sync change set (local ADR 0061 §2).
+            // One applied page is one sync change set (local ADR 0070 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying a knowledge event sync page"))
             {
                 applied += (await _merge.ApplyAsync(feed.Events, cancellationToken).ConfigureAwait(false)).Applied;

@@ -146,7 +146,7 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
         TrayHintShown = settings?.Tray?.HintShown ?? false;
 
         // Absent, or a number that is not one of the offered periods, reads as the
-        // default (local ADR 0061 §6).
+        // default (local ADR 0070 §6).
         ChangeHistoryDays = ChangeHistoryRetention.Normalize(settings?.ChangeHistoryDays);
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
@@ -223,7 +223,7 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
     public event Action? BackupChanged;
 
     /// <summary>How many days the change journal keeps a revision and its change
-    /// set (local ADR 0061 §6): one of <see cref="ChangeHistoryRetention.Offered"/>,
+    /// set (local ADR 0070 §6): one of <see cref="ChangeHistoryRetention.Offered"/>,
     /// <see cref="ChangeHistoryRetention.DefaultDays"/> until somebody chooses
     /// otherwise.</summary>
     public int ChangeHistoryDays { get; private set; }

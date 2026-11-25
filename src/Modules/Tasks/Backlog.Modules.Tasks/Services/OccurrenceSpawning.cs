@@ -82,7 +82,7 @@ public static class OccurrenceSpawning
 
         var successor = RecurrencePolicy.NextOccurrence(completed);
 
-        // The successor is the system's change set, not the tick's (local ADR 0061
+        // The successor is the system's change set, not the tick's (local ADR 0070
         // §2): taking back the tick a person made, or the page a sync applied, does
         // not decide whether the next occurrence stays.
         using (ChangeContext.Begin(ChangeActor.System, "spawning the next occurrence"))

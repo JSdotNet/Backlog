@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 
 /// <summary>
 /// The change journal's <c>revisions</c> and <c>journal_context</c> tables (local
-/// ADR 0061 §2), and the triggers that fill <c>revisions</c> from a journalled table.
+/// ADR 0070 §2), and the triggers that fill <c>revisions</c> from a journalled table.
 /// <para>
 /// The triggers, not the repositories, write the revisions, so a write from any
 /// process is caught. The app names its change set in the single

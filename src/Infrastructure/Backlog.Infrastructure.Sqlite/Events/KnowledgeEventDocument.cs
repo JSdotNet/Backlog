@@ -56,7 +56,7 @@ internal sealed record KnowledgeEventDocument(
         EventDateDocument.From(knowledgeEvent.Start),
         EventDateDocument.From(knowledgeEvent.End),
         knowledgeEvent.DateSource,
-        knowledgeEvent.Place is { } place ? new PlaceDocument(place.Venue, place.IsOnline) : null,
+        knowledgeEvent.Place is { } place ? PlaceDocument.From(place) : null,
         knowledgeEvent.Link,
         knowledgeEvent.State,
         knowledgeEvent.SkipReason?.Text,
@@ -126,10 +126,59 @@ internal sealed record EventDateDocument(DateOnly Date, TimeOnly? Time, TimeSpan
     public EventDate ToEventDate() => KnowledgeEventDocument.Valid(EventDate.Create(Date, Time, UtcOffset), "date");
 }
 
-/// <summary>A <see cref="Modules.Events.DomainModels.Place"/> as stored.</summary>
-internal sealed record PlaceDocument(string? Venue, bool Online)
+/// <summary>
+/// A <see cref="Modules.Events.DomainModels.Place"/> as stored. The address, its lookup and its
+/// point were added within version 1 (local ADR 0061): a document written before them holds a
+/// venue and nothing more and reads as that venue, and an older build ignores them. An address
+/// whose lookup is left out reads as not looked up yet, what any new address is.
+/// </summary>
+internal sealed record PlaceDocument(
+    string? Venue,
+    bool Online,
+    AddressDocument? Address = null,
+    AddressLookup? Lookup = null,
+    MapPointDocument? Point = null)
 {
-    public Place ToPlace() => KnowledgeEventDocument.Valid(Place.Create(Venue, Online), "place");
+    public static PlaceDocument From(Place place) => new(
+        place.Venue,
+        place.IsOnline,
+        AddressDocument.From(place.Address),
+        place.Lookup,
+        MapPointDocument.From(place.Point));
+
+    public Place ToPlace()
+    {
+        if (Lookup is { } answer && !Enum.IsDefined(answer))
+            throw new JsonException("A knowledge event document's address lookup comes from its fixed set.");
+
+        var address = Address?.ToAddress();
+        var lookup = address is null ? Lookup : Lookup ?? AddressLookup.NotLookedUpYet;
+
+        return KnowledgeEventDocument.Valid(Place.Create(Venue, Online, address, lookup, Point?.ToMapPoint()), "place");
+    }
+}
+
+/// <summary>An <see cref="Modules.Events.DomainModels.Address"/> as stored, each part left out
+/// when it has none.</summary>
+internal sealed record AddressDocument(string? Street, string? Postcode, string? Town, string? Country)
+{
+    public static AddressDocument? From(Address? address) =>
+        address is null ? null : new AddressDocument(address.Street, address.Postcode, address.Town, address.Country);
+
+    public Address ToAddress() => KnowledgeEventDocument.Valid(Modules.Events.DomainModels.Address.Create(Street, Postcode, Town, Country), "address");
+}
+
+/// <summary>A <see cref="MapPoint"/> as stored, in degrees. A point that leaves out either
+/// degree does not read.</summary>
+internal sealed record MapPointDocument(double? Latitude, double? Longitude)
+{
+    public static MapPointDocument? From(MapPoint? point) =>
+        point is null ? null : new MapPointDocument(point.Latitude, point.Longitude);
+
+    public MapPoint ToMapPoint() =>
+        Latitude is { } latitude && Longitude is { } longitude
+            ? KnowledgeEventDocument.Valid(MapPoint.Create(latitude, longitude), "map point")
+            : throw new JsonException("A knowledge event document's map point holds its latitude and longitude.");
 }
 
 /// <summary>A <see cref="KeyDate"/> as stored.</summary>

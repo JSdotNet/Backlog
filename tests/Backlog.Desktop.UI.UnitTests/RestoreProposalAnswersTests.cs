@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The answer to an agent's restore proposal (local ADR 0061 §5): Restore shows the main
+/// The answer to an agent's restore proposal (local ADR 0070 §5): Restore shows the main
 /// window's Changes view on that change set's confirmation panel, and Keep — or any other
 /// answer of the <c>mcp</c> source — shows nothing, so nothing is restored and nothing moves.
 /// </summary>

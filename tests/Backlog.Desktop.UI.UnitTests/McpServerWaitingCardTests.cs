@@ -188,5 +188,8 @@ public sealed class McpServerWaitingCardTests : IDisposable
             Asked++;
             return Task.FromResult(Answer);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 }

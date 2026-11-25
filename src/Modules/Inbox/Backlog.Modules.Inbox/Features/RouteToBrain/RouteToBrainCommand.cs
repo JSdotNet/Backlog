@@ -42,7 +42,7 @@ public sealed class RouteToBrainCommandHandler(
         var item = await items.GetAsync(command.Id, cancellationToken).ConfigureAwait(false);
         if (item is null) return InboxErrors.ItemNotFound;
 
-        // The item and the home it goes to are one change set (local ADR 0061 §2).
+        // The item and the home it goes to are one change set (local ADR 0070 §2).
         using var change = TriageChangeSet.Begin(item.Title);
 
         if (RouteToBacklogCommandHandler.Refusal(item) is { } refused) return refused;

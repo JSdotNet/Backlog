@@ -311,7 +311,7 @@ public sealed class RecurringTaskTests
     }
 
     /// <summary>The successor is the system's change set, not the tick's (local ADR
-    /// 0061 §2), so taking back the person's tick is a decision apart from the spawn.</summary>
+    /// 0070 §2), so taking back the person's tick is a decision apart from the spawn.</summary>
     [Fact]
     public async Task The_successor_is_saved_under_a_system_change_set_of_its_own()
     {

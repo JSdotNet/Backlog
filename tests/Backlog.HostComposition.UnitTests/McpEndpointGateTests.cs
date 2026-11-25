@@ -801,7 +801,7 @@ public class McpEndpointGateTests
     }
 
     /// <summary>
-    /// A write tool runs under its change set (local ADR 0061 §3): actor agent, the harness's
+    /// A write tool runs under its change set (local ADR 0070 §3): actor agent, the harness's
     /// caller, the session the call names, and the correlation id its audit record carries.
     /// Over the real endpoint, because what holds it is the order the host installed its
     /// filters in: the change set's inside the audit's.

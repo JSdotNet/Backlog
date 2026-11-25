@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// An import is one change set (local ADR 0061 §2), in the desktop harness's own
+/// An import is one change set (local ADR 0070 §2), in the desktop harness's own
 /// composition: the tasks it creates and the roadmap plan document it lays out land in
 /// the journal under the one change set labelled "Import of +tag", so a restore takes
 /// them back together.

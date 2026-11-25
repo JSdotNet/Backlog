@@ -163,7 +163,7 @@ public sealed class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposable
             await _turns.WaitAsync(_stopping).ConfigureAwait(false);
             try
             {
-                // Background work, so the system's change set (local ADR 0061 §2) — the
+                // Background work, so the system's change set (local ADR 0070 §2) — the
                 // flow suppressed in Request carries no person's in.
                 using var change = ChangeContext.Begin(ChangeActor.System, "completing a linked task at its source");
                 var outcome = await CompleteAsync(taskId).ConfigureAwait(false);

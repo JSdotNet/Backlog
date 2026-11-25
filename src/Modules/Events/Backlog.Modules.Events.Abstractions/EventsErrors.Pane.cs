@@ -16,6 +16,11 @@ public static partial class EventsErrors
     public static Error SeriesNameAmbiguous(string name) =>
         Error.Conflict("event_series.ambiguous", $"More than one event series is named {name}; name the series by one that is unique.");
 
+    /// <summary>Look up now on an event that is online, has no place, or has a venue name and no
+    /// address: there is nothing to send.</summary>
+    public static Error AddressMissing() =>
+        Error.Validation("address.missing", "The event has no address to look up.");
+
     public static Error NoteNotLinked() =>
         Error.Conflict("note_link.not_linked", "The event does not link that note.");
 

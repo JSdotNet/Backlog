@@ -502,7 +502,7 @@
     {
         try
         {
-            // The projection's own pass, not a person's gesture (local ADR 0061 §3): it is
+            // The projection's own pass, not a person's gesture (local ADR 0070 §3): it is
             // run outside every gesture's change set, so it names the system.
             using var change = ChangeContext.BeginIfNone(ChangeActor.System, "keeping the roadmap up with the work");
             await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
@@ -1379,7 +1379,7 @@
 
     /// <summary>
     /// Runs one write of the person's gesture under a person change set labelled
-    /// <paramref name="label"/>, unless one is current (local ADR 0061 §3). The scope
+    /// <paramref name="label"/>, unless one is current (local ADR 0070 §3). The scope
     /// holds the write alone: the reload and any keep-up after it run outside it, so the
     /// keep-up projection's own pass is never filed under the person's gesture.
     /// </summary>

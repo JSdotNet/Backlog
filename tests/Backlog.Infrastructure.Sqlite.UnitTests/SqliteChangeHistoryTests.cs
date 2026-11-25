@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The change journal stays bounded (local ADR 0061 §6): a prune drops the revisions
+/// The change journal stays bounded (local ADR 0070 §6): a prune drops the revisions
 /// and change sets older than the cutoff and keeps the rest, and a clear drops all.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]

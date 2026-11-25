@@ -171,7 +171,7 @@ public sealed class ImportPlanCommandHandler(
 
         parsedEntries = resolvedEntries;
 
-        // One change set for the whole import (local ADR 0061 §2): the tasks it
+        // One change set for the whole import (local ADR 0070 §2): the tasks it
         // writes and the roadmap plan it lays out are taken back together. Opened
         // here, after the last refusal, so a refused import records nothing. An import
         // an Inbox decision makes joins that decision's change set instead.
@@ -560,7 +560,7 @@ public sealed class ImportPlanCommandHandler(
     /// its own: an import routed from the Inbox (<see cref="ImportPlanCommand.SourceInboxId"/>
     /// or <see cref="ImportPlanCommand.SourceInboxIds"/>) is the home a triage decision
     /// makes, and that decision's change set — the item and the plan it became — is taken
-    /// back as one (local ADR 0061 §2). An Inbox import with no change set current still
+    /// back as one (local ADR 0070 §2). An Inbox import with no change set current still
     /// opens its own.
     /// </summary>
     internal static bool JoinsCurrent(ImportPlanCommand command) =>
@@ -569,7 +569,7 @@ public sealed class ImportPlanCommandHandler(
 
     /// <summary>
     /// The change set an import writes under, labelled "Import of +tag" by the plan
-    /// tags its entries carry (local ADR 0061 §2). A new one even when a change set is
+    /// tags its entries carry (local ADR 0070 §2). A new one even when a change set is
     /// current, so the import is restorable on its own, but by the same actor: an
     /// agent's import keeps its caller, session and correlation id, and an import from
     /// an entry point that named nobody is filed under an unknown writer.

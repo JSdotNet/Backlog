@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// The numbers that keep the change journal bounded (local ADR 0061 §6): the periods
+/// The numbers that keep the change journal bounded (local ADR 0070 §6): the periods
 /// the person may keep it for, and the database size past which the Backup card says
 /// the history is something that can be cleared.
 /// </summary>

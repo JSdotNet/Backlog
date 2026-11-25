@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// Keeps the change journal in <c>backlog.db</c> bounded (local ADR 0061 §6): once a
+/// Keeps the change journal in <c>backlog.db</c> bounded (local ADR 0070 §6): once a
 /// day it deletes the revisions and change sets older than
 /// <see cref="WorkspaceSettingsStore.ChangeHistoryDays"/>, and on the person's word
 /// it deletes all of them.

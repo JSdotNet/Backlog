@@ -265,7 +265,7 @@
         @* A backup commits the whole file (local ADR 0010), so a database past
            ChangeHistoryRetention.LargeDatabaseBytes is said here, beside the
            figures, with the one thing in it the person can let go of: the change
-           history (local ADR 0061 §6). Renders nothing below the threshold. *@
+           history (local ADR 0070 §6). Renders nothing below the threshold. *@
         <Alert Message="@LargeDatabaseWarning"
                BaseClass="setting__warning"
                Id="storage-backup-size-warning"
@@ -437,7 +437,7 @@
     }
 </SettingsCard>
 
-@* The change journal (local ADR 0061 §6): how long it keeps what each change
+@* The change journal (local ADR 0070 §6): how long it keeps what each change
    set replaced, and a way to drop all of it. Always drawn, so the settings
    search never names a card that is not there; a host that composes no worker
    offers the period alone. Clearing asks first, in the page, because nothing

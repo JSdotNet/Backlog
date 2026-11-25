@@ -11,7 +11,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The band's writes name the person (local ADR 0061 §3), read back from the journal the
+/// The band's writes name the person (local ADR 0070 §3), read back from the journal the
 /// real store's triggers write into this test's own <c>backlog.db</c>: a drag is one
 /// <c>person</c> change set and leaves no unknown-writer one, and the keep-up the band
 /// runs when it opens is the system's own pass.

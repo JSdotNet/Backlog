@@ -290,7 +290,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
 
     /// <summary>The triggers that write a <c>roadmap-plan</c> revision for every write
-    /// of the plan row (local ADR 0061 §2), its before-image the whole stored
+    /// of the plan row (local ADR 0070 §2), its before-image the whole stored
     /// document.</summary>
     internal static readonly SqliteSchemaDefinition JournalSchema = new(
         owner: "journal:roadmap_plan",

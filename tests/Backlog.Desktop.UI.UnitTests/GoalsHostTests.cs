@@ -1370,7 +1370,7 @@ public sealed class GoalsHostTests : IDisposable
 
         public List<(Guid, SetGoalRequest)> Edited { get; } = [];
 
-        /// <summary>The change set current at each edit and attach (local ADR 0061 §3).</summary>
+        /// <summary>The change set current at each edit and attach (local ADR 0070 §3).</summary>
         public List<ChangeSet?> WrittenUnder { get; } = [];
 
         public Error? EditFailure { get; set; }
@@ -1430,7 +1430,7 @@ public sealed class GoalsHostTests : IDisposable
 
         public List<(Guid, ImpedimentState, string?)> Moves { get; } = [];
 
-        /// <summary>The change set current at each move (local ADR 0061 §3).</summary>
+        /// <summary>The change set current at each move (local ADR 0070 §3).</summary>
         public List<ChangeSet?> WrittenUnder { get; } = [];
 
         public Error? Failure { get; set; }

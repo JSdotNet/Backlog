@@ -1,6 +1,6 @@
 namespace Backlog.SharedKernel.Changes;
 
-/// <summary>Who made a change set (local ADR 0061 §2). <see cref="Unknown"/> is a
+/// <summary>Who made a change set (local ADR 0070 §2). <see cref="Unknown"/> is a
 /// write no entry point named: another process, or a path not yet wired.</summary>
 public enum ChangeActor
 {
@@ -12,7 +12,7 @@ public enum ChangeActor
 }
 
 /// <summary>
-/// One change set of the change journal (local ADR 0061 §2): the writes one
+/// One change set of the change journal (local ADR 0070 §2): the writes one
 /// gesture, one applied sync page, one background pass or one agent run made,
 /// taken back together.
 /// <para>
@@ -29,7 +29,7 @@ public sealed record ChangeSet(Guid Id, ChangeActor Actor, string? Label, DateTi
 
     public string? CorrelationId { get; init; }
 
-    /// <summary>The change set that restored this one (local ADR 0061 §4), or null
+    /// <summary>The change set that restored this one (local ADR 0070 §4), or null
     /// while it stands.</summary>
     public Guid? UndoneBy { get; init; }
 

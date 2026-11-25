@@ -64,12 +64,12 @@ public static class SqliteRegistration
                 sp.GetService<INotifications>,
                 sp.GetService<ILogger<RootedSqliteTaskRepository>>()));
 
-        // The change journal's read side (local ADR 0061 §2): the change sets and
+        // The change journal's read side (local ADR 0070 §2): the change sets and
         // revisions the task writes record, in the same file and following the same root.
         services.AddSingleton<IChangeJournal>(sp =>
             new RootedSqliteChangeJournal(() => rootDirectory(sp)));
 
-        // Restoring a change set (local ADR 0061 §4): a later save the person makes,
+        // Restoring a change set (local ADR 0070 §4): a later save the person makes,
         // tasks through the same store the app writes, so the pane and the sync hear it.
         // The kinds kept outside this file — devbook subject states, remarks — go back
         // through the stores that keep them, resolved per restore so the order the hosts
@@ -81,7 +81,7 @@ public static class SqliteRegistration
                 () => sp.GetServices<IJournalledDocumentStore>()));
 
         // The journal port a JSON file store records its revisions through before it
-        // writes (local ADR 0061 §2), into the same tables the triggers fill.
+        // writes (local ADR 0070 §2), into the same tables the triggers fill.
         services.AddSingleton<IDocumentRevisionJournal>(sp =>
             new SqliteDocumentJournal(() => rootDirectory(sp)));
 

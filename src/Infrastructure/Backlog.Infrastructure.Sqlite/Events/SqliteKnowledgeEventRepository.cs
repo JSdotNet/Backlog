@@ -102,7 +102,7 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         var now = Stamp(await NextStampAsync(connection, knowledgeEvent.Id, cancellationToken).ConfigureAwait(false));
 
-        // Under the current change set (local ADR 0061 §2), so the revision the trigger
+        // Under the current change set (local ADR 0070 §2), so the revision the trigger
         // writes is filed under it: an add_knowledge_event call, an edit in the Events pane.
         await using var journal = await ChangeSetTransaction.BeginAsync(connection, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -129,7 +129,7 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
     }
 
     /// <summary>
-    /// Takes the event back to the before-image a change set left (local ADR 0061 §4), while
+    /// Takes the event back to the before-image a change set left (local ADR 0070 §4), while
     /// its row still holds the stamp <paramref name="held"/>; true when it wrote. With
     /// <paramref name="beforeJson"/> null the change set added the event, so it is removed
     /// through <see cref="KnowledgeEvent.Remove"/> — a tombstone the other devices hear —
@@ -337,7 +337,7 @@ public sealed class SqliteKnowledgeEventRepository : IKnowledgeEventRepository, 
     internal const string KnowledgeEventKind = "knowledge-event";
 
     /// <summary>The triggers that write a <c>knowledge-event</c> revision for every insert
-    /// into and update of <c>events_knowledge_events</c> (local ADR 0061 §2), a removal's
+    /// into and update of <c>events_knowledge_events</c> (local ADR 0070 §2), a removal's
     /// tombstone included.</summary>
     internal static readonly SqliteSchemaDefinition JournalSchema = new(
         owner: "journal:events_knowledge_events",

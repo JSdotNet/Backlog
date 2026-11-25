@@ -7,6 +7,7 @@ using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
@@ -217,7 +218,7 @@ public static class DesktopCompositionRegistration
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
-        // An agent's restore proposal (local ADR 0061 §5): Restore shows the Changes view on
+        // An agent's restore proposal (local ADR 0070 §5): Restore shows the Changes view on
         // the change set's confirmation panel, which still asks; Keep does nothing.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, RestoreProposalAnswers>(sp => new RestoreProposalAnswers(
             sp.GetRequiredService<MainWindowSurfaces>(),
@@ -241,6 +242,10 @@ public static class DesktopCompositionRegistration
         // the adapter AddInboxCrossContextAdapters registers, offered while the `events`
         // feature is on. Its pane is the Events takeover AddEventsSurface registers below,
         // behind the same feature; it has no settings section or Ask AI source yet.
+        // Its two map ports over Azure Maps (local ADR 0061 §4), before the module whose own
+        // registrations are TryAdd: the geocoder an address is sent to once on save, and the
+        // tile source the map draws from, both silent until the person enters a key in Settings.
+        services.AddAzureMaps(options.AzureMapsSettings);
         services.AddEventsModule();
 
         // Calendar (local ADR 0055, local ADR 0056): it owns no data, and its services are
@@ -332,7 +337,7 @@ public static class DesktopCompositionRegistration
         // state: one record per tool call, written by the call filter both hosts install.
         services.AddSingleton<IMcpAuditLog>(_ => new SqliteMcpAuditLog(options.McpAuditLogPath));
         services.AddSingleton<BackupWorker>();
-        // The change journal's daily prune and its clear action (local ADR 0061 §6),
+        // The change journal's daily prune and its clear action (local ADR 0070 §6),
         // over the same workspace settings and clock.
         services.AddSingleton<ChangeHistoryWorker>();
         // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
@@ -441,7 +446,7 @@ public static class DesktopCompositionRegistration
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
-        // The change journal read back (local ADR 0061): a view the shell's own
+        // The change journal read back (local ADR 0070): a view the shell's own
         // project draws, since no module owns the journal.
         global::Backlog.Desktop.UI.Changes.ChangesSurfaceRegistration.AddChangesSurface(services);
         services.AddDevbookSurface();
@@ -773,7 +778,7 @@ public static class DesktopCompositionRegistration
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 folders: sp.GetRequiredService<IDevbookFolderSource>(),
                 journal: sp.GetService<IDocumentRevisionJournal>()));
-        // Journalled beside backlog.db (local ADR 0061 §2), so a restore writes a remark
+        // Journalled beside backlog.db (local ADR 0070 §2), so a restore writes a remark
         // back through this store.
         services.AddSingleton<IJournalledDocumentStore>(sp => sp.GetRequiredService<DevbookAnnotationStore>());
         services.AddSingleton<IDevbookAnnotationStore>(sp =>

@@ -696,7 +696,7 @@ public sealed class TaskSyncSession
 
             pulled += feed.Tasks.Count;
 
-            // One applied page is one sync change set (local ADR 0061 §2): every task,
+            // One applied page is one sync change set (local ADR 0070 §2): every task,
             // plan, goal and impediment the page carries, and any occurrence it spawns
             // under its own system change set.
             TaskMergeOutcome merged;

@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The change sets MCP writes are grouped into (local ADR 0061 §3): one per caller and
+/// The change sets MCP writes are grouped into (local ADR 0070 §3): one per caller and
 /// session, or per caller when a call names no session, kept open while each write comes
 /// within <see cref="Window"/> of the one before it.
 /// <para>
@@ -77,7 +77,7 @@ public sealed class McpChangeSets(TimeProvider? time = null)
     }
 
     /// <summary>The caller always, and its session when it names one: a change set is one
-    /// principal's (local ADR 0061 §3), so a session id another caller passes — its own
+    /// principal's (local ADR 0070 §3), so a session id another caller passes — its own
     /// session's, or one it acts on, as <c>mark_session_request</c> does — never files its
     /// writes under the first caller's name.</summary>
     private static string Key(string caller, string? sessionId) =>

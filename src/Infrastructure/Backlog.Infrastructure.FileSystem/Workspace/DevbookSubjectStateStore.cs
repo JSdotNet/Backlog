@@ -68,7 +68,7 @@ namespace Backlog.Infrastructure.FileSystem;
 public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbookSyncDirectionStore, IRepositoryAliasKeyedStore, IJournalledDocumentStore
 {
     /// <summary>What <c>revisions.document_kind</c> calls a subject's state (local
-    /// ADR 0061 §2).</summary>
+    /// ADR 0070 §2).</summary>
     public const string DocumentKind = "devbook-subject";
 
     /// <summary>The folders whose Markdown the import reads, by the key the
@@ -112,7 +112,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
     /// one-time import of the directions the Markdown states. None composed, none
     /// imported: the map holds what is set.</param>
     /// <param name="journal">Where each state's prior document is recorded before its
-    /// file is written (local ADR 0061 §2). None composed, nothing is journalled.</param>
+    /// file is written (local ADR 0070 §2). None composed, nothing is journalled.</param>
     public DevbookSubjectStateStore(
         Func<string> rootDirectory,
         TimeProvider? time = null,
@@ -224,7 +224,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         var touched = new HashSet<RepositoryFile>();
         var written = 0;
 
-        // One change set for the whole import (local ADR 0061 §2), rather than an
+        // One change set for the whole import (local ADR 0070 §2), rather than an
         // unknown writer's per document, unless the caller already named one.
         using var change = ChangeContext.BeginIfNone(ChangeActor.System, "Devbook import");
 
@@ -714,7 +714,7 @@ public sealed class DevbookSubjectStateStore : IDevbookSubjectStateStore, IDevbo
         return _journal?.Record(DocumentKind, id.ToString("D"), before is null ? null : Image(before), after?.UpdatedAt);
     }
 
-    // --- Restoring (local ADR 0061 §4) ----------------------------------------
+    // --- Restoring (local ADR 0070 §4) ----------------------------------------
 
     IReadOnlyCollection<string> IJournalledDocumentStore.DocumentKinds { get; } = [DocumentKind];
 

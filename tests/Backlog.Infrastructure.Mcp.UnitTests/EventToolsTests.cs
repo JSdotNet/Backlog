@@ -214,7 +214,7 @@ public class EventToolsTests
 
         public event Action? Changed { add { } remove { } }
 
-        public Task<IReadOnlyList<KnowledgeEventGroupDto>> ListAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<KnowledgeEventSectionDto>> ListAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Result<KnowledgeEventDto>> GetAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -231,6 +231,12 @@ public class EventToolsTests
         public Task<Result<KnowledgeEventDto>> SetDatesAsync(Guid id, EventDateDto? start, EventDateDto? end, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Result<KnowledgeEventDto>> SetPlaceAsync(Guid id, PlaceDto? place, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result<AddressLookUpDto>> LookUpAddressAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<AddressLookupPassDto> LookUpPendingAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public bool IsLookingUp(Guid id) => false;
 
         public Task<Result<KnowledgeEventDto>> SetLinkAsync(Guid id, string? link, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
