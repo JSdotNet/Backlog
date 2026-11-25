@@ -3074,6 +3074,22 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
+/* A plan entry's state in its plan's queue (local ADR 0062 §4), in words, as quiet
+   as the Devbook count. A held entry takes the error ink and a landed one the
+   success ink; Queued with plan stays secondary until an amber ink is sanctioned
+   (the plan's review), while the lit queue icon beside it carries the amber. The
+   words carry the state either way. */
+.entry-row__plan-state {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.entry-row__plan-state--held-for-you { color: var(--color-error-text); }
+.entry-row__plan-state--landed { color: var(--color-success-text); }
+
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
