@@ -85,6 +85,13 @@ public static class TasksCrossContextAdapterRegistration
             sp.GetService<ILoopRegister>(),
             sp.GetService<ILogger<SessionQueueAttentionReader>>()));
 
+        // The stage each plan entry's session has reached (local ADR 0062 §2), off the
+        // delivery runs this machine recorded; nothing where the host composed no source.
+        services.AddSingleton<IPlanEntryStages>(sp => new PlanEntryStageReader(
+            sp.GetService<IDeliveryRunSource>(),
+            sp.GetService<IDeliveryRunChangeSignal>(),
+            sp.GetService<ILogger<PlanEntryStageReader>>()));
+
         return services;
     }
 

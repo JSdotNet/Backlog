@@ -248,6 +248,42 @@ public sealed class PlanSectionsTests
         Assert.Equal("3 done — 2 merged into plan/p · last: #13, PR #1841", line);
     }
 
+    [Fact]
+    public async Task A_Now_row_shows_the_stage_its_plan_session_reports_and_follows_it()
+    {
+        using var host = await HostAsync();
+        var tokens = host.State.Rows.Single(row => row.PreviewTitle.StartsWith("14 - ", StringComparison.Ordinal));
+        var stages = new FakePlanEntryStages();
+        stages.Answer = new Dictionary<Guid, string> { [tokens.Id!.Value] = "Review · 8 of 9" };
+        host.Context.Services.AddSingleton<IPlanEntryStages>(stages);
+
+        var pane = SelectZta(RenderPlans(host));
+
+        // #14's session reports a stage; #15's reports none, so its slot stays empty.
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Review · 8 of 9"],
+            pane.FindAll("[data-testid='plan-section-now'] [data-testid='plan-section-row-stage']").Select(Text)));
+
+        stages.Answer = new Dictionary<Guid, string> { [tokens.Id!.Value] = "Build & Test · 5 of 12" };
+        stages.Raise();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["Build & Test · 5 of 12"],
+            pane.FindAll("[data-testid='plan-section-now'] [data-testid='plan-section-row-stage']").Select(Text)));
+    }
+
+    /// <summary>The stage source, in memory: what a test says each session reports.</summary>
+    private sealed class FakePlanEntryStages : IPlanEntryStages
+    {
+        public IReadOnlyDictionary<Guid, string> Answer { get; set; } = new Dictionary<Guid, string>();
+
+        public event Action? Changed;
+
+        public void Raise() => Changed?.Invoke();
+
+        public Task<IReadOnlyDictionary<Guid, string>> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Answer);
+    }
+
     [Theory]
     [InlineData("14 - Issue tokens", "#14")]
     [InlineData("Issue tokens", "Issue tokens")]

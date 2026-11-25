@@ -1159,6 +1159,8 @@
             Services.GetService(typeof(TimeProvider)) as TimeProvider);
         _planSessions.Changed += HandleSessionRequestsChanged;
         _ = _planSessions.RefreshAsync(withRepositories: true);
+
+        StartPlanStages();
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -7666,6 +7668,7 @@
         _sessionRequests.Dispose();
         _planSessions.Changed -= HandleSessionRequestsChanged;
         _planSessions.Dispose();
+        StopPlanStages();
 
         if (_listWidthReference is not null)
         {

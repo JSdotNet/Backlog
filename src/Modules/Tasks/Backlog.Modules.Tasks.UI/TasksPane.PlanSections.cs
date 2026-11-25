@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.AspNetCore.Components;
 
 namespace Backlog.Desktop.UI.Tasks;
@@ -53,9 +54,70 @@ public partial class TasksPane
         return PlanSections.Build(selected, State.PlanEntryStatesOf(selected.Tag, PlanRunOf(selected.Tag)), State.ResolvedDependsOn);
     }
 
-    /// <summary>The plan's run as the pane knows it: its open request, and no stage
-    /// source yet — an entry in a session reads off its own status.</summary>
-    private PlanRun PlanRunOf(string tag) => PlanRun.From(_planSessions.OpenFor(tag));
+    /// <summary>The plan's run as the pane knows it: its open request, and the stage each
+    /// entry's plan session reported. An entry no session reports reads off its own status.</summary>
+    private PlanRun PlanRunOf(string tag) => PlanRun.From(_planSessions.OpenFor(tag), _planStages);
+
+    /// <summary>Where the stages come from, or null when the host composed none.</summary>
+    private IPlanEntryStages? _planStageSource;
+
+    /// <summary>The last answer <see cref="_planStageSource"/> gave, by entry id.</summary>
+    private IReadOnlyDictionary<Guid, string> _planStages = PlanRun.None.Stages;
+
+    /// <summary>Moved by every read of the stages, so a slow read that answers after a
+    /// newer one is dropped rather than drawing the older answer.</summary>
+    private int _planStagesVersion;
+
+    /// <summary>Starts listening for the plan sessions' stages and reads them once.</summary>
+    private void StartPlanStages()
+    {
+        _planStageSource = Services.GetService(typeof(IPlanEntryStages)) as IPlanEntryStages;
+        if (_planStageSource is null) return;
+
+        _planStageSource.Changed += HandlePlanStagesChanged;
+        _ = RefreshPlanStagesAsync();
+    }
+
+    private void StopPlanStages()
+    {
+        if (_planStageSource is not null) _planStageSource.Changed -= HandlePlanStagesChanged;
+    }
+
+    private void HandlePlanStagesChanged() => _ = RefreshPlanStagesAsync();
+
+    /// <summary>Reads the stages again and redraws, on the renderer's thread and only
+    /// when no newer read set out after this one.</summary>
+    private async Task RefreshPlanStagesAsync()
+    {
+        if (_planStageSource is null) return;
+
+        var version = Interlocked.Increment(ref _planStagesVersion);
+        IReadOnlyDictionary<Guid, string> answer;
+
+        try
+        {
+            answer = await _planStageSource.ReadAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            answer = PlanRun.None.Stages;
+        }
+
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (version != Volatile.Read(ref _planStagesVersion)) return;
+
+                _planStages = answer;
+                StateHasChanged();
+            }).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The pane went while the read was out.
+        }
+    }
 
     /// <summary>How many of a plan's entries read under Next and how many wait, for its
     /// folded note.</summary>
