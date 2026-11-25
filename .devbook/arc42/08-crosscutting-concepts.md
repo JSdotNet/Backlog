@@ -641,6 +641,33 @@ For the cloud service specifically, three inherited decisions apply:
 - authorization: `0013-authorization-zero-trust.md`;
 - the error contract: `0017-http-error-contract-and-problem-details.md`.
 
+## Testing
+
+```meta
+related: [".devbook/tech/testing.md#playwright", ".devbook/tech/tooling.md#aspire-cli", ".devbook/ai/03-test.md#browser-end-to-end-suite"]
+```
+
+Every test lives under `tests/`, following org ADR 0010 (`JSdotNet/app-defaults`,
+`defaults/arc42/adr/0010-testing.md`). Unit, architecture and integration tests run without
+Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that runs through it.
+
+| Step | The suite's global setup (`E2EAppHost`, an xUnit assembly fixture) |
+| --- | --- |
+| Before the first test | `aspire start --isolated`, detached, then `aspire wait` until `cosmos`, `storage`, `sync` and the three frontends are healthy, then until `sync` answers from Cosmos rather than 503 |
+| Each test | reads a frontend's URL from `aspire describe`; no port is written down |
+| After the last test | fails on any `aspire otel logs --severity Error` entry of any resource that no test declared, then `aspire stop` |
+
+- **Isolated:** Aspire picks the ports and keeps the user secrets apart, so two worktrees
+  can run the suite at once.
+- **Declared errors:** a test that causes an error on purpose declares it by resource,
+  log-id window and message. ConferenceDay stops `sync` while the phone still calls it,
+  so the phone's resilience timeouts in that window are expected. The setup declares the
+  harnesses' retries on the 503 `sync` answers before Cosmos is ready.
+- **Gated:** nothing starts without `BACKLOG_E2E=1`. With `BACKLOG_E2E_ATTACH=1` the suite
+  uses this worktree's running AppHost, counts only new errors, and leaves it running.
+- **Not yet:** the browser logs that `.WithBrowserLogs()` sends are not checked. The suite
+  is C# `Microsoft.Playwright` under xUnit, not `@playwright/test`.
+
 ## Observability
 
 ```meta

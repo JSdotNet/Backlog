@@ -42,6 +42,39 @@ scenario it reports.
 - **Limits** — the MAUI heads cannot be driven, so validation targets the harnesses; the
   Playwright profile is shared per machine, so parallel sessions stagger QA.
 
+## Browser end-to-end suite
+
+```meta
+rating: trial
+type: practice
+stage: [verify]
+substage: [verify/functional-qa]
+feeds: [".devbook/ai/03-test.md#personal-validation-gate: suite result and error logs"]
+evidence: partial
+depends-on: [".devbook/tech/testing.md#playwright", ".devbook/tech/tooling.md#aspire-cli"]
+related: [".devbook/ai/03-test.md#qa-agent-on-the-running-application", ".devbook/arc42/08-crosscutting-concepts.md#testing"]
+date: 2026-11-25
+```
+
+A run that touches a harness flow can also run the checked-in browser suite,
+`tests/Backlog.EndToEndTests`, instead of only driving the harnesses by hand. The suite
+starts its own application, so an agent needs nothing running first.
+
+```mermaid
+flowchart LR
+    start["aspire start --isolated"] --> urls["URLs from aspire describe"] --> tests["Playwright tests"] --> logs["Error logs of every resource"] --> stop["aspire stop"]
+```
+
+- **Used for** — proving the phone, desktop and storybook journeys a change could break,
+  with `BACKLOG_E2E=1`.
+- **Adopted by** — the plan runs that touch those journeys; the solution-wide `dotnet test`
+  builds the suite and runs none of it.
+- **Evidence** — screenshots, `run.log` and `errors.log` under `.qa-workspace/e2e/`.
+- **Moves up when** — `phase-verify` runs it on every change to a journey it covers, and
+  the pull request carries its result.
+- **Limits** — it needs Docker for the Cosmos emulator and an installed browser;
+  `BACKLOG_E2E_ATTACH=1` runs it against an AppHost already running instead.
+
 ## Repository procedures
 
 ```meta
