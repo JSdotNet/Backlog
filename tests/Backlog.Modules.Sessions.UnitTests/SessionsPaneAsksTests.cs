@@ -61,7 +61,7 @@ public sealed class SessionsPaneAsksTests
     }
 
     [Fact]
-    public void Answer_opens_the_questions_notification_in_the_notification_centre()
+    public async Task Answer_opens_the_questions_notification_in_the_notification_centre()
     {
         var questions = new HeldWaitingQuestions();
         var question = questions.Add(Notified(Ask("waiting-1", Branch)));
@@ -80,13 +80,13 @@ public sealed class SessionsPaneAsksTests
         Assert.Null(answer.Closest("[data-testid='sessions-row']"));
         Assert.Equal("Answer", answer.TextContent.Trim());
 
-        answer.Click();
+        await pane.ClickAsync("[data-testid='sessions-asks-answer']");
 
         Assert.Equal([question.NotificationIds[0]], opened);
     }
 
     [Fact]
-    public void Pressing_Answer_does_not_select_the_row()
+    public async Task Pressing_Answer_does_not_select_the_row()
     {
         var questions = new HeldWaitingQuestions();
         questions.Add(Notified(Ask("waiting-1", Branch)));
@@ -101,7 +101,7 @@ public sealed class SessionsPaneAsksTests
         pane.WaitForElement("[data-testid='sessions-asks-answer']");
         var before = pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key");
 
-        pane.Find("[data-testid='sessions-asks-answer']").Click();
+        await pane.ClickAsync("[data-testid='sessions-asks-answer']");
 
         Assert.Equal(before, pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key"));
     }
@@ -123,7 +123,7 @@ public sealed class SessionsPaneAsksTests
     }
 
     [Fact]
-    public void A_dialog_answered_in_part_shows_its_first_open_question_and_opens_that_ones_notification()
+    public async Task A_dialog_answered_in_part_shows_its_first_open_question_and_opens_that_ones_notification()
     {
         var questions = new HeldWaitingQuestions();
         var notified = Notified(Ask("waiting-1", Branch, Tests, Draft));
@@ -140,7 +140,7 @@ public sealed class SessionsPaneAsksTests
             Assert.Equal("+1 more", pane.Find("[data-testid='sessions-asks-more']").TextContent.Trim());
         });
 
-        pane.Find("[data-testid='sessions-asks-answer']").Click();
+        await pane.ClickAsync("[data-testid='sessions-asks-answer']");
 
         Assert.Equal([partly.NotificationIds[1]], opened);
     }
@@ -177,7 +177,7 @@ public sealed class SessionsPaneAsksTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void The_surface_offers_Answer_only_while_the_window_offers_the_notification_centre(bool offered)
+    public async Task The_surface_offers_Answer_only_while_the_window_offers_the_notification_centre(bool offered)
     {
         var questions = new HeldWaitingQuestions();
         var question = questions.Add(Notified(Ask("waiting-1", Branch)));
@@ -204,7 +204,7 @@ public sealed class SessionsPaneAsksTests
             return;
         }
 
-        surface.Find("[data-testid='sessions-asks-answer']").Click();
+        await surface.ClickAsync("[data-testid='sessions-asks-answer']");
         Assert.Equal([question.NotificationIds[0]], opened);
     }
 

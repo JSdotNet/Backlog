@@ -1,7 +1,7 @@
 # ADR 0041: Agent questions reach Backlog by presence and come back through the hook or the Manager
 
 ```meta
-date: 2026-11-12
+date: 2026-11-24
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/sessions/domain.md#question-relay", ".devbook/domain/sessions/domain.md#waiting-question", ".devbook/domain/sessions/domain.md#presence", ".devbook/domain/sessions/domain.md#session-state", ".devbook/domain/sessions/domain.invariants.md#question-relay", ".devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/notifications/context.md"]
 ```
 
@@ -273,6 +273,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | The owner's notification exchange rejects an unpaired device's reply before it accepts it, so the question's notification stays answerable. The relay's own check (2026-11-18 row) stays as defence in depth, and both audit through the shared `DroppedAnswerAudit`. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §2, ADR 0039 §2). |
 | 2026-11-18 | An answer records the device it came from, and reaches the hook or a delivery only from a device paired now. An answer from a revoked or unknown device is dropped and recorded in the audit log. | Plan `zero-trust-auth` entry 20, ADR 0058 Phase 2: an answer steers an agent, so a revoked pairing must not give one. |
 | 2026-11-12 | The question-hook token is retired: the hook asks the token broker for a token for the Question hook grant, which holds `notify:ask` alone. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | The hook presents a question-hook token that reaches only `notify`, `ask`, `get_answer` and `close`, never the MCP server's token. | ADR 0058 phase 0: whoever holds the hook's credential must not be able to call write tools. |

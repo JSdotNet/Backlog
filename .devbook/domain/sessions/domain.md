@@ -1581,8 +1581,10 @@ that holds it, which reads the answer through `get_answer`. A Dialog that escala
 from InSession, and every Prose question, are answered through a **delivery**. The
 relay records the answer as one for the Manager to send to the session.
 
-**Only a paired device answers.** An answer steers the agent, so the relay takes it
-only from a device that is one of the owner's paired devices now, or this desktop. An
+**Only a paired device answers.** An answer steers the agent, so it counts only from a
+device that is one of the owner's paired devices now, or this desktop. The owner's
+notification exchange rejects any other device's reply before it is accepted, so the
+notification is not settled. The relay checks again as defence in depth. An
 answer from a revoked or unknown device is dropped, and the audit log on the MCP
 server page records it as a `dropped answer` naming the device. [The question stays
 open](domain.invariants.md#invariant-only-a-paired-devices-answer-reaches-the-session),

@@ -167,7 +167,7 @@ The optional cloud service runs in Azure as a single-region, low-cost footprint 
 
 ![Cloud Deployment](c4:deployment-azure)
 
-- **Cosmos DB:** [Cloud Service](05-building-block-view.md#cloud-service) names the nine containers.
+- **Cosmos DB:** [Cloud Service](05-building-block-view.md#cloud-service) names the eleven containers.
 - **Clients:** the desktop and IDE extensions reach the service over HTTPS for state sync; the mobile app does too, and for its offline flush.
 - **Identity:** managed identities reach Cosmos DB with a data-plane role, Storage as Blob Data Contributor, and Web PubSub as Web PubSub Service Owner.
 - **Notification Hubs:** the service uses SAS Send and Manage keys. The hub reaches Firebase Cloud Messaging over FCM v1, which delivers a data-only push to the mobile app.
@@ -178,12 +178,13 @@ The optional cloud service runs in Azure as a single-region, low-cost footprint 
 Deployment considerations:
 
 - **Single region**, one Container App instance: enough for a personal tool.
-- **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044). Nor has `knowledgeEvents`, for the same reason (local ADR 0050).
+- **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs. Local ADR 0005 fixes the retentions: task and annotation tombstones at 180 days, session records at 12 months; webhook events (24h) are not built. The `devbookSubjects` container has no TTL, since a subject's state is never deleted and leaves no tombstone (local ADR 0044). Nor has `knowledgeEvents`, for the same reason (local ADR 0050). `assertionReplays` and `connectorCredentials` keep no container default (`defaultTtl -1`) and give each document a TTL of its own (local ADR 0058 §2, §8).
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the service stores and forwards.
 - **Secrets in Key Vault** *(local ADR 0058)* — Key Vault `kv-backlog-sync-we`, in RBAC mode, holds the service's secrets. The service's managed identity reads them as **Key Vault Secrets User**, and no Bicep parameter, GitHub secret or `azd` environment carries one:
   - `sync-token-signing-key`, the device-token signing key. The service reads it on start and refreshes it every five minutes. Outside Development it refuses to start without the vault, and only a Development run takes the key from user-secrets.
   - `github-oauth-client-secret`, stored by hand once the GitHub OAuth App exists, read as `GitHub:ClientSecret`.
-- **GitHub OAuth App** *(local ADR 0058)* — the owner signs in through the OAuth App "Backlog sync", owned by the JSdotNet account. Its homepage is the service's URL, its one callback is `/oauth/github/callback` on that URL, and device flow is off. The client id is public, so it is no vault secret: the container app holds it as the setting `GitHub__ClientId`, read as `GitHub:ClientId`. It was set by hand, and `infra/sync/main.bicep` does not declare it yet, so the next `azd provision` drops it.
+- **GitHub OAuth App** *(local ADR 0058)* — the owner signs in through the OAuth App "Backlog sync", owned by the JSdotNet account. Its homepage is the service's URL, its one callback is `/oauth/github/callback` on that URL, and device flow is off. The client id is public, so it is no vault secret: the container app holds it as the setting `GitHub__ClientId`, read as `GitHub:ClientId`. `infra/sync/main.bicep` declares it as the parameter `gitHubOAuthClientId` and sets `GitHub__ClientId` from it, so a provision keeps it.
+- **Owner pin** *(local ADR 0058 §1)* — the azd value `SYNC_OWNER_ID`, also a variable on the `backlog-sync` GitHub environment, feeds the template's `ownerId` parameter, which sets `Owner__OwnerId`. `deploy-sync.yml` rejects a value that is not a GUID. A deployed service with no pin warns at start and refuses enrolment while another owner's devices exist. `docs/deployment/sync.md` §6 says how to find the id.
 - **Signing key rotation** — a rotation adds a version of `sync-token-signing-key`. The service signs with the newest version. It still accepts the one before for one token lifetime plus one refresh interval after the new version is created, 35 minutes by default, so no device is signed out. `docs/deployment/sync.md#rotating-the-signing-key` is the procedure.
 - **Attachment blob store** *(local ADR 0014)* — `infra/sync/main.bicep`
   provisions one Standard LRS storage account beside the Cosmos replica:
@@ -252,6 +253,8 @@ A local run of `build/Deploy-Azure.ps1` provisioned it on 2026-09-14, and the se
 
 The service deploys unattended: every Release All run that publishes, the nightly included, calls Deploy Sync in `service` mode ([Release](#release)), which runs `azd deploy` alone. A provision reads the running image back and hands it to the template, so it keeps the running service. Only the first provision, with no app yet, runs the placeholder image.
 
+A `service` run provisions nothing, so a release that needs a new resource follows a `provision` or `deploy` run. `assertionReplays` is one. Without it, every key-bound token request answers `503 sync.replica_unavailable`, and the post-deploy `GET /` check still passes.
+
 **The service version is a release decision.** Every desktop and phone stops syncing while the service reports a version above its own (local ADR 0005 §Version compatibility). So:
 
 - `<Version>` in `Backlog.Modules.Sync.Api.csproj` is raised only on purpose, in the change that breaks older clients.
@@ -264,7 +267,7 @@ The service deploys unattended: every Release All run that publishes, the nightl
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
 | **CI/CD** | GitHub Actions, authenticating with **OIDC federated credentials**. Infrastructure is **started by hand**. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same nine containers. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same eleven containers. |
 | **Observability** | Log Analytics and Application Insights, with only application telemetry going to either. |
 
 - **Infrastructure as code:** the template is resource-group scoped, so it deploys into a group created by hand.

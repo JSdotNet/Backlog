@@ -29,12 +29,13 @@ public static class McpToolScopes
     public static IReadOnlyDictionary<string, string> All => ByTool;
 
     /// <summary>
-    /// The tools any admitted caller may call, whatever scopes it holds: <c>request_access</c>
-    /// alone, because an agent that lacks a scope is the one that must ask for it (local ADR
-    /// 0058 §5). Named here, beside the table, so a tool reaches no caller by being forgotten:
-    /// one in neither still meets the fallback-deny.
+    /// The tools served under no scope that a requester may call: <c>request_access</c> alone,
+    /// because an agent that lacks a scope is the one that must ask for it (local ADR 0058 §5).
+    /// A requester holds a scope beyond <see cref="McpScopes.SinglePurpose"/>, so a grant made
+    /// for one route or hook asks for nothing. Named here, beside the table, so a tool reaches
+    /// no caller by being forgotten: one in neither still meets the fallback-deny.
     /// </summary>
-    public static IReadOnlySet<string> AnyCaller { get; } =
+    public static IReadOnlySet<string> RequesterTools { get; } =
         new HashSet<string>([AccessTools.RequestAccess], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

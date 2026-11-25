@@ -78,6 +78,11 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
         ("GitHub:ClientSecret", "test-client-secret"),
     ];
 
+    /// <summary><see cref="ConfiguredOwner"/> with an existing owner id pinned, the shape
+    /// of a deployment that kept the owner minted before sign-in (local ADR 0058 §1).</summary>
+    internal static IReadOnlyList<(string Key, string? Value)> PinnedOwner(Guid ownerId) =>
+        [.. ConfiguredOwner, ("Owner:OwnerId", ownerId.ToString("D"))];
+
     /// <summary>The remote connector's issuer and resource a deployed service needs before it
     /// starts (local ADR 0058 §8). Test values.</summary>
     internal static IReadOnlyList<(string Key, string? Value)> ConfiguredConnector { get; } =

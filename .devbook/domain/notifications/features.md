@@ -206,7 +206,8 @@ reaches Personal Validation asks to be approved, and the answer is recorded on t
 run. The desktop session then opens the pull request, or marks ready for review the
 draft one it already opened. A device that redeems a
 pairing code is asked about on the desktop that showed the code, and only there:
-Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
+Allow keeps it. Refuse revokes it once Windows Hello confirms; an unconfirmed Refuse keeps
+it and raises an alert. A remark left on a Devbook chapter on another
 device raises an alert that links to the chapter. Sessions raises an alert when a
 schedule or a loop session needs the person.
 

@@ -44,10 +44,8 @@ public sealed class McpScopeGateTests
 
     private const string TestGrant = "Test grant (g_test0000000000000)";
 
-    /// <summary>One tool per scope that serves a tool, with the arguments its allowed call
-    /// takes. <c>telemetry:write</c> serves a route, and <c>inbox:capture</c> and
-    /// <c>agents:grant</c> nothing yet;
-    /// McpScopePoliciesTests holds those.</summary>
+    /// <summary>One tool per scope that serves a tool. <c>telemetry:write</c> serves a route
+    /// alone, which McpScopePoliciesTests and McpServerWorkerTests hold.</summary>
     public static TheoryData<string, string> ToolPerScope => new()
     {
         { McpScopes.TasksRead, "find_item" },
@@ -59,6 +57,8 @@ public sealed class McpScopeGateTests
         { McpScopes.NotifyAsk, "get_answer" },
         { McpScopes.UiOpen, "open_window" },
         { McpScopes.SessionsDispatch, "mark_session_request" },
+        { McpScopes.InboxCapture, "capture_to_inbox" },
+        { McpScopes.AgentsGrant, "list_agent_requests" },
     };
 
     [Theory]
@@ -256,6 +256,26 @@ public sealed class McpScopeGateTests
 
         Assert.DoesNotContain("needs the scope", body, StringComparison.Ordinal);
         Assert.Equal("propose_restore", Assert.Single(audit.Records).Tool);
+    }
+
+    /// <summary>A grant holding only a single-purpose scope - the Question hook's
+    /// <c>notify:ask</c> - calls no tool, <c>request_access</c> included: the refusal is
+    /// in-band, says how to ask instead, and the audit names the grant (local ADR 0024).</summary>
+    [Fact]
+    public async Task Request_access_is_refused_to_a_grant_holding_only_a_single_purpose_scope()
+    {
+        var audit = new RecordingAuditLog();
+        await using var harness = new Harness(audit);
+        using var client = harness.CreateClient();
+
+        var body = await CallToolAsync(client, "request_access", [McpScopes.NotifyAsk]);
+
+        Assert.Contains("needs a grant that holds a scope beyond telemetry:write and notify:ask", body, StringComparison.Ordinal);
+        Assert.Contains("headersHelper --request", body, StringComparison.Ordinal);
+        var call = Assert.Single(audit.Records);
+        Assert.Equal("request_access", call.Tool);
+        Assert.Equal(McpCallOutcome.Refused, call.Outcome);
+        Assert.Equal(TestGrant, call.Caller);
     }
 
     /// <summary>A scope as the JSON body spells it inside the message: in escaped apostrophes.</summary>

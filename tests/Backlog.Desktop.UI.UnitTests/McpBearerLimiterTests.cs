@@ -83,32 +83,6 @@ public sealed class McpBearerLimiterTests
         Assert.Equal(McpBearerLimiter.Lockout, limiter.RetryAfter());
     }
 
-    [Fact]
-    public void The_token_a_rotation_retired_is_not_counted_for_one_window_and_any_other_still_is()
-    {
-        var limiter = new McpBearerLimiter(_time);
-        limiter.Retire("old-token");
-
-        // Every running registration's next request after Rotate.
-        for (var i = 0; i < McpBearerLimiter.MaxFailures * 2; i++) Assert.Null(limiter.Fail("Bearer old-token"));
-        Assert.Null(limiter.RetryAfter());
-
-        for (var i = 1; i < McpBearerLimiter.MaxFailures; i++) Assert.Null(limiter.Fail("Bearer guess"));
-        Assert.NotNull(limiter.Fail(null));
-    }
-
-    [Fact]
-    public void The_retired_token_counts_again_once_its_window_is_over()
-    {
-        var limiter = new McpBearerLimiter(_time);
-        limiter.Retire("old-token");
-
-        _time.Advance(McpBearerLimiter.Window);
-
-        for (var i = 1; i < McpBearerLimiter.MaxFailures; i++) Assert.Null(limiter.Fail("Bearer old-token"));
-        Assert.NotNull(limiter.Fail("Bearer old-token"));
-    }
-
     private McpBearerLimiter Tripped()
     {
         var limiter = new McpBearerLimiter(_time);

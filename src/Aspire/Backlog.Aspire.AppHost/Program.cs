@@ -52,6 +52,9 @@ cosmosDatabase.AddContainer("pairingCodes", "/id");
 // `pairingCodes` is. The tokens' and markers' TTLs are stamped per document and the
 // indexing policy lives only in the bicep.
 cosmosDatabase.AddContainer("connectorCredentials", "/id");
+// Spent device assertion ids (local ADR 0058 §2), partitioned on /id for the reason
+// `pairingCodes` is; their TTLs are stamped per document and live only in the bicep.
+cosmosDatabase.AddContainer("assertionReplays", "/id");
 
 // Azure Storage — the attachment store beside the replica (local ADR 0014). Deployed
 // it is a storage account provisioned by infra/sync/main.bicep; here it is Azurite,

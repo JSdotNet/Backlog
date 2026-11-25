@@ -240,6 +240,9 @@ public static class BacklogMcpServerRegistration
         });
     }
 
+    // Read from McpScopes so the refusal cannot drift from the scopes the requester check excludes.
+    private static readonly string SinglePurposeList = string.Join(" and ", McpScopes.SinglePurpose);
+
     /// <summary>
     /// The scope half of local ADR 0058 §4: a call is dispatched only when the request's
     /// principal passes the named policy of the tool's scope (<see cref="McpScopePolicies.ToolPolicy"/>),
@@ -270,6 +273,8 @@ public static class BacklogMcpServerRegistration
                 throw new McpException(
                     McpScopePolicies.NeedsGrantToken(request.User, name)
                         ? $"The tool '{name}' needs a grant token, which a call with no token does not carry."
+                        : McpScopePolicies.IsRequesterTool(name)
+                            ? $"The tool '{name}' needs a grant that holds a scope beyond {SinglePurposeList}; ask with headersHelper --request."
                         : scope is null
                             ? $"The tool '{name}' is served under no scope, so no grant may call it."
                             : $"The tool '{name}' needs the scope '{scope}', which this caller does not hold.");
@@ -295,7 +300,7 @@ public static class BacklogMcpServerRegistration
                 var held = McpScopePolicies.ScopesOf(request.User);
 
                 result.Tools = [.. result.Tools.Where(tool =>
-                    !McpToolScopes.AnyCaller.Contains(tool.Name)
+                    !McpToolScopes.RequesterTools.Contains(tool.Name)
                     && McpToolScopes.ScopeOf(tool.Name) is { } scope
                     && McpScopes.IsUnauthenticatedOfferable(scope)
                     && held.Contains(scope))];

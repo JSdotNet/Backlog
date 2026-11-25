@@ -62,10 +62,10 @@ public sealed class AccessToolsTests
     }
 
     [Fact]
-    public void Any_admitted_caller_may_call_it_whatever_its_scopes()
+    public void It_is_a_requester_tool_served_under_no_scope()
     {
         Assert.Contains(AccessTools.RequestAccess, BacklogMcpTools.ToolNames);
-        Assert.Contains(AccessTools.RequestAccess, McpToolScopes.AnyCaller);
+        Assert.Contains(AccessTools.RequestAccess, McpToolScopes.RequesterTools);
         Assert.Null(McpToolScopes.ScopeOf(AccessTools.RequestAccess));
     }
 
