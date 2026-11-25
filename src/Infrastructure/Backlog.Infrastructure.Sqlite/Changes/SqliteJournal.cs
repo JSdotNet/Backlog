@@ -129,6 +129,12 @@ internal static class SqliteJournal
     /// to the table — which changes <paramref name="columns"/> and with it the
     /// owner's fingerprint — reaches the before-image.
     /// </summary>
+    /// <remarks>
+    /// Each <c>CREATE</c> says <c>IF NOT EXISTS</c>. The batch runs outside a transaction,
+    /// and two connections can set up the same unstamped file at once: both drop, the first
+    /// creates, and a bare <c>CREATE</c> on the second then failed with "trigger … already
+    /// exists". Both create the same body, so the second skipping is the right outcome.
+    /// </remarks>
     /// <param name="table">The journalled table; a compile-time constant.</param>
     /// <param name="documentKind">What <c>revisions.document_kind</c> calls its rows.</param>
     /// <param name="columns">Every column of the table, the before-image's keys.</param>
@@ -151,7 +157,7 @@ internal static class SqliteJournal
 
             sql.Append($"""
                 DROP TRIGGER IF EXISTS {named};
-                CREATE TRIGGER {named} AFTER {operation.ToUpperInvariant()} ON {table}
+                CREATE TRIGGER IF NOT EXISTS {named} AFTER {operation.ToUpperInvariant()} ON {table}
                 WHEN EXISTS (SELECT 1 FROM journal_context WHERE change_set_id IS NOT NULL AND skip = 0)
                 BEGIN
                     INSERT INTO revisions (change_set_id, document_kind, document_id, before, after_updated_at, recorded_at)
@@ -162,7 +168,7 @@ internal static class SqliteJournal
                 END;
 
                 DROP TRIGGER IF EXISTS {unnamed};
-                CREATE TRIGGER {unnamed} AFTER {operation.ToUpperInvariant()} ON {table}
+                CREATE TRIGGER IF NOT EXISTS {unnamed} AFTER {operation.ToUpperInvariant()} ON {table}
                 WHEN NOT EXISTS (SELECT 1 FROM journal_context)
                 BEGIN
                     INSERT INTO change_sets (id, actor_kind, started_at) VALUES ({NewGuid}, 'unknown', {Now});
