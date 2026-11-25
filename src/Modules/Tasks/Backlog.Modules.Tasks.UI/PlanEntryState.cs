@@ -74,7 +74,11 @@ public sealed record PlanRun(bool Queued, IReadOnlyDictionary<Guid, string> Stag
 /// <param name="State">The state.</param>
 /// <param name="Stage">The plan session's stage for <see cref="PlanEntryQueueState.InPlanSession"/>
 /// when the run reported one, else null.</param>
-public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = null)
+/// <param name="WaitsOnOpen">Whether a <see cref="PlanEntryQueueState.LeftForYou"/> entry
+/// waits on another open entry: its state stays Left for you, but the plan sections read
+/// it under Later's waiting line rather than Next (local ADR 0062 §2). False for every
+/// other state, whose own state already says whether it waits.</param>
+public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = null, bool WaitsOnOpen = false)
 {
     /// <summary>The prefix of the branch a plan's work lands on (<c>plan/&lt;tag&gt;</c>).</summary>
     public const string PlanBranchPrefix = "plan/";
@@ -112,7 +116,7 @@ public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = n
 
         if (LandedOnPlanBranch(row)) return new(PlanEntryQueueState.Landed);
 
-        if (row.PreviewType is EntryType.Task or EntryType.Test) return new(PlanEntryQueueState.LeftForYou);
+        if (row.PreviewType is EntryType.Task or EntryType.Test) return new(PlanEntryQueueState.LeftForYou, WaitsOnOpen: waiting);
 
         if (row.IsPreviewBlocked) return new(PlanEntryQueueState.HeldForYou);
 
