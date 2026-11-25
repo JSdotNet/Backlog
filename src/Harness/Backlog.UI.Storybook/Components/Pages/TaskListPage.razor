@@ -412,7 +412,7 @@ It exists for the row that was projected from a document the task itself does no
                           Quiet="true"
                           OnToggle="_ => { }"
                           Actions="@(task => QuietStatus(task, "Ready"))"
-                          Trailing="@(task => QuietQueue(task, queue.State))"
+                          Trailing="@(task => QuietQueue(task, queue.State, queue.PlanQueued))"
                           TestId="@($"queue-{queue.Slug}")" />
             </ul>
             <p class="sb-state" data-testid="@($"task-list-queue-{queue.Slug}-state")">@(_lastQueue ?? "No queue button pressed yet.")</p>
@@ -458,13 +458,14 @@ It exists for the row that was projected from a document the task itself does no
         new("blocked", "blocked", "Ready", true, "A row with `MarkedBlocked` set, whatever its status; its copy is refused as on any row.")
     ];
 
-    private sealed record QueueLook(string Slug, string Label, QueueButtonState State, string Description);
+    private sealed record QueueLook(string Slug, string Label, QueueButtonState State, string Description, bool PlanQueued = false);
 
     private static readonly QueueLook[] QueueLooks =
     [
         new("idle", "idle", QueueButtonState.Idle, "`QueueButton` with `State=\"Idle\"`, for a row nothing is queued for: a press queues a session. The host's `Label` names that act."),
         new("queued", "queued", QueueButtonState.Queued, "`State=\"Queued\"`, for a row a session is queued for: a press takes it off the queue, and the host's `Label` says so. `DisabledReason` refuses it once there is nothing left to take back."),
-        new("plan-entry", "plan entry", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"`, for an entry of a plan, which is queued only as a whole (local ADR 0062 §4): refused, with the reason on its tooltip and in an sr-only span the button points at.")
+        new("plan-entry", "plan entry", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"`, for an entry of a plan, which is queued only as a whole (local ADR 0062 §4): refused, with the reason on its tooltip and in an sr-only span the button points at."),
+        new("plan-queued", "plan entry, plan queued", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"` with `PlanQueued`, for an entry whose plan has a session request open: still refused, but lit amber as a queued row's button is, so the row reads as queued with its plan.", PlanQueued: true)
     ];
 
     private static readonly IReadOnlyList<SelectorOption> QuietStatusOptions =
@@ -484,8 +485,9 @@ It exists for the row that was projected from a document the task itself does no
                          Label="@($"Change status of {task.Title}")"
                          TestId="@($"{task.Id}-status-selector")" />;
 
-    private RenderFragment QuietQueue(TaskRow task, QueueButtonState state) =>
+    private RenderFragment QuietQueue(TaskRow task, QueueButtonState state, bool planQueued = false) =>
         @<QueueButton State="@state"
+                      PlanQueued="@planQueued"
                       Label="@(state switch
                       {
                           QueueButtonState.Queued => $"Take {task.Title} off the queue",
@@ -514,6 +516,7 @@ It exists for the row that was projected from a document the task itself does no
         <QueueButton State="QueueButtonState.Idle" Label="Queue a session for Revoke a device" OnClick="Queue" />
         <QueueButton State="QueueButtonState.Queued" Label="Take Revoke a device off the queue" OnClick="Unqueue" />
         <QueueButton State="QueueButtonState.PlanEntry" Label="Queue the +zero-trust-auth plan as a whole" />
+        <QueueButton State="QueueButtonState.PlanEntry" PlanQueued="true" Label="Queue the +zero-trust-auth plan as a whole" />
         """;
 
     private sealed record OpenQuestion(string Name, string Detail);

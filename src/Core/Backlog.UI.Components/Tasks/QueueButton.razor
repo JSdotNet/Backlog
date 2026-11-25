@@ -8,7 +8,8 @@
     the state, and a toggle whose name changed too would be announced twice. PlanEntry is refused, natively disabled, with the reason
     on the tooltip and in an sr-only span the button points at: a plan is queued only
     as a whole (local ADR 0062 §4), and a control that vanished would read as one the
-    product cannot do.
+    product cannot do. While its plan has a session request open, PlanQueued lights the
+    still-refused icon amber, so the row reads as queued with its plan.
 
     Busy keeps the button in the tab order, marked aria-disabled and aria-busy rather
     than natively disabled, so the focus stays where it was while a press is on its
@@ -51,6 +52,12 @@
     /// state is refused only when this is set.</summary>
     [Parameter]
     public string? DisabledReason { get; set; }
+
+    /// <summary>The row's plan has a session request open: a
+    /// <see cref="QueueButtonState.PlanEntry"/> button stays refused but is lit amber,
+    /// as a queued row's is (local ADR 0062 §4). Ignored in every other state.</summary>
+    [Parameter]
+    public bool PlanQueued { get; set; }
 
     /// <summary>A press is on its way: aria-disabled and aria-busy, still focusable.</summary>
     [Parameter]
@@ -95,6 +102,7 @@
     {
         "queue-button",
         $"queue-button--{StateSlug}",
+        State == QueueButtonState.PlanEntry && PlanQueued ? "queue-button--plan-queued" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 }

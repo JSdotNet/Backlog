@@ -698,6 +698,8 @@
                                    Devbook. *@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
+                                    @RenderRowPlanState(entry)
+
                                     @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
                                     {
                                         @RenderRowWork(entry)
@@ -843,6 +845,8 @@
                                    while the pickers stay among the controls after it. *@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
+                                    @RenderRowPlanState(entry)
+
                                     @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
                                     {
                                         @RenderRowWork(entry)
@@ -1497,6 +1501,7 @@
         string label;
         string? reason;
         Func<Task> press;
+        var planQueued = false;
 
         if (_sessionRequests.OpenFor(id) is { } waiting)
         {
@@ -1511,6 +1516,14 @@
             label = QueueSessionLabel(offer);
             reason = offer.DisabledReason;
             press = () => OnQueueSessionAsync(row);
+
+            // While the plan has a request open the inert icon is lit and says so,
+            // as the board "Row states — entry ↔ queue" draws it.
+            if (offer.PlanTag is { } plan && _planSessions.OpenFor(plan) is not null)
+            {
+                planQueued = true;
+                reason = PlanEntryQueuedReason(plan);
+            }
         }
         else
         {
@@ -1520,6 +1533,7 @@
         // One QueueButton for every state, so a cancel that turns it back to idle
         // re-renders the same button and the focus stays on it.
         return @<QueueButton State="@state"
+                             PlanQueued="@planQueued"
                              Label="@label"
                              DisabledReason="@reason"
                              Busy="@_sessionRequests.IsBusy(id)"
@@ -1527,6 +1541,58 @@
                              TestId="row-queue-session"
                              OnClick="press" />;
     }
+
+    /// <summary>What a plan entry's refused queue icon says while its plan is queued.</summary>
+    internal static string PlanEntryQueuedReason(string plan) =>
+        $"Queued with the {plan} plan — its entries run with it";
+
+    /// <summary>
+    /// A plan entry's plan state for its list row (local ADR 0062 §4; the boards "Row
+    /// states — entry ↔ queue" and "Tasks — flat list, queue docked"), or null when the
+    /// row is in no plan or the state says nothing its own status and blocked mark do not.
+    /// <para>
+    /// In plan session and Landed hold whether or not the plan is queued; Queued with
+    /// plan, Held for you and Left for you are run states, so they show only while the
+    /// plan has a request open (the requirement "A queued plan gives each entry its run
+    /// state"). Ready, Waiting and Done only repeat the status badge and the blocked
+    /// line, so the row leaves them off. The Plans view's own rows draw every state.
+    /// </para>
+    /// </summary>
+    internal PlanEntryState? RowPlanState(EntryRow row)
+    {
+        if (PlanEntryState.PlanTagOf(row) is not { } tag) return null;
+
+        var run = PlanRunOf(tag);
+
+        return State.PlanEntryStateOf(row, run) switch
+        {
+            { State: PlanEntryQueueState.InPlanSession or PlanEntryQueueState.Landed } state => state,
+            { State: PlanEntryQueueState.QueuedWithPlan or PlanEntryQueueState.HeldForYou or PlanEntryQueueState.LeftForYou } state when run.Queued => state,
+            _ => null
+        };
+    }
+
+    /// <summary>The plan state badge on a list row or a board card, or nothing — see
+    /// <see cref="RowPlanState"/>.</summary>
+    private RenderFragment? RenderRowPlanState(EntryRow row)
+    {
+        if (RowPlanState(row) is not { } planState) return null;
+
+        return @<Badge BaseClass="entry-row__plan-state"
+                       Kind=""
+                       Slug="@PlanStateSlug(planState.State)"
+                       TestId="row-plan-state">@planState.Label</Badge>;
+    }
+
+    /// <summary>The badge modifier for a plan state: <c>queued-with-plan</c>.</summary>
+    internal static string PlanStateSlug(PlanEntryQueueState state) => state switch
+    {
+        PlanEntryQueueState.QueuedWithPlan => "queued-with-plan",
+        PlanEntryQueueState.InPlanSession => "in-plan-session",
+        PlanEntryQueueState.HeldForYou => "held-for-you",
+        PlanEntryQueueState.LeftForYou => "left-for-you",
+        _ => state.ToString().ToLowerInvariant()
+    };
 
     // --- The plan filter's queue icon (local ADR 0038 §2) ----------------------
 

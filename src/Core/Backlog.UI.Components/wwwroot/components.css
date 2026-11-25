@@ -7101,7 +7101,8 @@ button.task-panel__check:focus-visible {
     color: var(--color-primary-light);
 }
 
-/* A plan entry: dim and refused. Reaching the row does not lift it. */
+/* A plan entry: dim and refused. Reaching the row does not lift it. While its plan
+   is queued it is lit as a queued row's is, and still refused. */
 .queue-button:disabled,
 .task-item:hover .queue-button:disabled {
     background: transparent;
@@ -7110,7 +7111,9 @@ button.task-panel__check:focus-visible {
 }
 
 .queue-button--queued:disabled,
-.task-item:hover .queue-button--queued:disabled {
+.task-item:hover .queue-button--queued:disabled,
+.queue-button--plan-queued:disabled,
+.task-item:hover .queue-button--plan-queued:disabled {
     background: var(--color-warning);
     color: var(--color-primary-dark);
 }
