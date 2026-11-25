@@ -128,8 +128,9 @@ public sealed class ChangeSetRestorePanelTests
             .Add(p => p.ChangedDocuments, new Dictionary<Guid, IReadOnlyList<ChangedDocument>> { [AgentRun.Id] = [] })
             .Add(p => p.OnRestore, _ => { })
             .Add(p => p.PendingRestore, Plan));
-        list.Find("[data-testid='change-set-toggle']").Click();
 
+        // A pending restore opens its row itself: the jump an agent's restore proposal
+        // makes lands on the panel without the reader opening the row first.
         Assert.Single(list.FindAll("[data-testid='change-restore']"));
         Assert.Empty(list.FindAll("[data-testid='change-set-restore']"));
     }
@@ -146,7 +147,6 @@ public sealed class ChangeSetRestorePanelTests
             .Add(p => p.OnRestore, _ => { })
             .Add(p => p.PendingRestore, Plan)
             .Add(p => p.OnCancelRestore, () => cancelled = true));
-        list.Find("[data-testid='change-set-toggle']").Click();
         list.Find("[data-testid='change-set-toggle']").Click();
 
         Assert.True(cancelled);

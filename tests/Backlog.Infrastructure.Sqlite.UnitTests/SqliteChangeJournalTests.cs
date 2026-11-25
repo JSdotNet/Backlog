@@ -89,6 +89,58 @@ public sealed class SqliteChangeJournalTests : IDisposable
         Assert.Equal(mine.Id, entry.ChangeSet.Id);
     }
 
+    /// <summary>What <c>list_change_sets</c> narrows by (local ADR 0061 §5): the caller,
+    /// without regard to case, and a window whose start is inclusive and end exclusive.</summary>
+    [Fact]
+    public async Task A_query_narrows_by_caller_and_time_window()
+    {
+        var repository = new SqliteTaskRepository(_temp.Path);
+        var task = new TaskItem("Shared", string.Empty, EntryType.Task);
+        var time = new ManualTime(new DateTimeOffset(2026, 11, 25, 9, 0, 0, TimeSpan.Zero));
+        var made = new List<ChangeSet>();
+
+        foreach (var caller in new[] { "Delivery (g_1)", "Other (g_2)", "Delivery (g_1)" })
+        {
+            time.Advance(TimeSpan.FromHours(1));
+            var changeSet = ChangeSet.Start(ChangeActor.Agent, $"by {caller}", time) with { Caller = caller };
+            made.Add(changeSet);
+            using (ChangeContext.Enter(changeSet))
+            {
+                task.Rename($"Shared {made.Count}");
+                await repository.SaveAsync(task, Token);
+            }
+        }
+
+        var journal = new SqliteChangeJournal(repository.DatabasePath);
+
+        var byCaller = await journal.QueryAsync(new ChangeSetQuery(Caller: "delivery (G_1)"), Token);
+        Assert.Equal([made[2].Id, made[0].Id], byCaller.Select(entry => entry.ChangeSet.Id));
+
+        var window = await journal.QueryAsync(new ChangeSetQuery(Since: made[1].StartedAt, Until: made[2].StartedAt), Token);
+        Assert.Equal([made[1].Id], window.Select(entry => entry.ChangeSet.Id));
+
+        var since = await journal.QueryAsync(new ChangeSetQuery(Caller: "Delivery (g_1)", Since: made[1].StartedAt.ToOffset(TimeSpan.FromHours(2))), Token);
+        Assert.Equal([made[2].Id], since.Select(entry => entry.ChangeSet.Id));
+    }
+
+    [Fact]
+    public async Task Find_answers_one_change_set_with_its_count_or_null()
+    {
+        var repository = new SqliteTaskRepository(_temp.Path);
+        var changeSet = ChangeSet.Start(ChangeActor.Agent, "agent run") with { Caller = "claude-code" };
+        using (ChangeContext.Enter(changeSet))
+        {
+            await repository.SaveManyAsync([new TaskItem("One", string.Empty, EntryType.Task), new TaskItem("Two", string.Empty, EntryType.Task)], Token);
+        }
+
+        var journal = new SqliteChangeJournal(repository.DatabasePath);
+
+        var found = await journal.FindAsync(changeSet.Id, Token);
+        Assert.NotNull(found);
+        Assert.Equal((changeSet.Id, "claude-code", 2), (found.ChangeSet.Id, found.ChangeSet.Caller, found.DocumentCount));
+        Assert.Null(await journal.FindAsync(Guid.NewGuid(), Token));
+    }
+
     [Fact]
     public async Task The_limit_keeps_the_newest()
     {

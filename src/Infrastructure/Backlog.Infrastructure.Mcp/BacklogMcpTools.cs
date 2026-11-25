@@ -312,7 +312,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Events, Windows, AccessTools.Group, GrantTools.Group];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, ChangeTools.Group, Roadmap, Devbook, DecisionTools.Group, SyncDirectionTools.Group, Sessions, Surface, Usage, Schedules, Impediments, Goals, SessionRequests, Loops, Notifications, Inbox, Events, Windows, AccessTools.Group, GrantTools.Group];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
