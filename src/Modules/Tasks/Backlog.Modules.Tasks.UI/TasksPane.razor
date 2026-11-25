@@ -6362,7 +6362,7 @@
                     @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
                     @if (count is { } n)
                     {
-                        <span class="flat-tab__count">@n</span>
+                        <Badge BaseClass="flat-tab__count" Kind="">@n</Badge>
                     }
                 </AppButton>
             }
@@ -6457,7 +6457,7 @@
         </text>;
 
     private static RenderFragment RenderFlatMenuEmpty(string text) =>
-        @<p class="flat-menu__empty" data-testid="flat-menu-empty">@text</p>;
+        @<Alert BaseClass="flat-menu__empty" Role="status" Message="@text" TestId="flat-menu-empty" />;
 
     private PopoverButton? _flatMakePlanMenu;
     private PopoverButton? _flatAddToPlanMenu;
@@ -6474,7 +6474,7 @@
         var queueable = FlatQueueableSelection().Count;
 
         return @<div class="flat-selection" role="toolbar" aria-label="Apply to the selected tasks" data-testid="flat-selection" @onkeydown="OnFlatSelectionKeyDown">
-            <span class="flat-selection__count" role="status" data-testid="flat-selection-count">@State.SelectionCount selected</span>
+            <Alert BaseClass="flat-selection__count" Role="status" Inline="true" Message="@($"{State.SelectionCount} selected")" TestId="flat-selection-count" />
 
             <PopoverButton @ref="_flatMakePlanMenu"
                            Id="flat-make-plan"
