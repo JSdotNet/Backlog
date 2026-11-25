@@ -82,6 +82,9 @@ public static class GoalsText
     /// <summary>One item's effort: "5 pts".</summary>
     public static string Points(int points) => $"{points.ToString(English)} pts";
 
+    /// <summary>A plan's entries done in the window, on its Finished row: "9 done".</summary>
+    public static string Completed(int done) => $"{done.ToString(English)} done";
+
     /// <summary>"21 / 18 pts", or "21 pts" without a pace.</summary>
     public static string PointsTag(int planned, int? capacity) =>
         capacity is { } pace ? $"{planned} / {pace} pts" : $"{planned} pts";

@@ -151,17 +151,55 @@ public static class GoalsMapper
                 ? row with { PullRequest = Status(repository, number, row.Title) }
                 : row;
 
-        StandUpGroup Group(StandUpGroupDto group) => new(
-            group.GoalTitle,
-            [.. group.Items.Select(item => new StandUpEntry(
-                item.Title,
-                item.Kind == GoalAttachmentKind.PullRequest && item.Repository is { } repository && item.Number is { } number
-                    ? Status(repository, number, item.Title)
-                    : null,
-                item.Effort))]);
+        StandUpEntry Entry(StandUpItemDto item) => new(
+            item.Title,
+            item.Kind == GoalAttachmentKind.PullRequest && item.Repository is { } repository && item.Number is { } number
+                ? Status(repository, number, item.Title)
+                : null,
+            item.Effort);
+
+        StandUpGroup Group(StandUpGroupDto group) => new(group.GoalTitle, [.. group.Items.Select(Entry)]);
+
+        // Finished shows a plan, not its entries: a task a plan holds folds into one row per
+        // plan, where its first entry was, with how many were done in the window. The plan is
+        // the one the goal attaches, else the task's first.
+        StandUpGroup FinishedGroup(StandUpGroupDto group)
+        {
+            var goalPlans = group.GoalId is { } goalId && attachments.TryGetValue(goalId, out var goal)
+                ? goal.Attachments.Select(a => a.Item).Where(IsPlan).Select(item => GoalSubjects.Bare(item.PlanTag)).ToList()
+                : [];
+
+            string? PlanOf(StandUpItemDto item)
+            {
+                if (item.Kind != GoalAttachmentKind.Task || item.TaskId is not { } id || !tasks.TryGetValue(id, out var task)) return null;
+                var tags = task.PlanTags.Select(GoalSubjects.Bare).Where(tag => tag.Length > 0).ToList();
+                return goalPlans.FirstOrDefault(plan => tags.Any(tag => GoalSubjects.SamePlan(tag, plan))) ?? tags.FirstOrDefault();
+            }
+
+            var rows = new List<StandUpEntry>();
+            var planRows = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in group.Items)
+            {
+                if (PlanOf(item) is not { } plan)
+                {
+                    rows.Add(Entry(item));
+                }
+                else if (planRows.TryGetValue(plan, out var at))
+                {
+                    rows[at] = rows[at] with { Completed = rows[at].Completed + 1 };
+                }
+                else
+                {
+                    planRows[plan] = rows.Count;
+                    rows.Add(new StandUpEntry(plan, Completed: 1));
+                }
+            }
+
+            return new StandUpGroup(group.GoalTitle, rows);
+        }
 
         var standUpModel = new StandUpModel(
-            [.. standUp.Finished.Select(Group)],
+            [.. standUp.Finished.Select(FinishedGroup)],
             [.. standUp.Planned.Select(Group)],
             standUp.PlannedEffort,
             standUp.Capacity,

@@ -2,7 +2,8 @@
 @*
     The stand-up beside the goals (.devbook/domain/progress/features.md#the-stand-up), as
     an aside named "Stand-up": Finished, Planned and Impediments, each heading with its
-    count. Finished lists the items done in the last window grouped by goal. Planned lists
+    count. Finished lists the items done in the last window grouped by goal, a plan once with
+    "9 done" for its entries done instead of each entry, and counts every item. Planned lists
     the next window's items, each with its effort as "5 pts" at the row's end when it carries one and a pull request
     with its status line, and tags the heading with the points planned
     against the scaled pace, "21 / 18 pts", titled in words. Impediments lists every open
@@ -36,7 +37,17 @@
         </div>
         @foreach (var entry in Flatten(StandUp.Finished))
         {
-            <span class="stand-up-panel__item">@Entry(entry)</span>
+            @if (entry.Completed is { } completed)
+            {
+                <span class="stand-up-panel__item stand-up-panel__item--planned" data-testid="@Part("plan")">
+                    <span>@entry.Title</span>
+                    <span class="stand-up-panel__effort" data-testid="@Part("completed")">@GoalsText.Completed(completed)</span>
+                </span>
+            }
+            else
+            {
+                <span class="stand-up-panel__item">@Entry(entry)</span>
+            }
         }
     </section>
 

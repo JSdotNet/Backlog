@@ -1246,6 +1246,23 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     }
 
     [Fact]
+    public void A_finished_plan_shows_once_with_its_entries_done_and_counts_them_all()
+    {
+        var standUp = StandUp with
+        {
+            Finished = [new StandUpGroup("Customers get paid faster", [new StandUpEntry("bank-integration", Completed: 9), new StandUpEntry("Invoice PDF export")])]
+        };
+
+        var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, standUp).Add(c => c.TestId, "su"));
+
+        var plan = panel.Find("[data-testid='su-plan']");
+        Assert.Contains("bank-integration", plan.TextContent);
+        Assert.Equal("9 done", plan.QuerySelector("[data-testid='su-completed']")!.TextContent);
+        Assert.Single(panel.FindAll("[data-testid='su-completed']"));
+        Assert.Equal("10", panel.Find("[data-testid='su-finished-count']").TextContent);
+    }
+
+    [Fact]
     public void A_planned_pull_request_carries_its_status_line()
     {
         var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
