@@ -236,6 +236,36 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 }
 .today__list { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 
+/* A plan in today's My Day: one line, as quiet as a task row beside it, with no
+   entries under it (local ADR 0062 §8). */
+.today-plan {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 3rem;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+.today-plan__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.today-plan__progress,
+.today-plan__state {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+/* The desktop rail's colours for the same states, so a plan reads alike on both. */
+.today-plan__state--running { color: var(--color-primary); }
+.today-plan__state--blocked { color: var(--color-error-text); }
+
 /* Clear of the capture button, so neither the last row nor the card's
    buttons are ever under it. */
 .today { padding-bottom: 5rem; }

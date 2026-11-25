@@ -28,9 +28,23 @@ public interface ITaskViewStore
     /// (.devbook/arc42/adr/0032, §4).</summary>
     Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor, MyDayPreferencesDocument? preferences, CancellationToken cancellationToken = default);
 
+    /// <summary>As <see cref="SaveAsync(IReadOnlyList{TaskViewRow}, string?, MyDayPreferencesDocument?, CancellationToken)"/>,
+    /// and, when <paramref name="roadmapPlan"/> is given, writes it over the plan document
+    /// kept — in the same transaction, for the same reason (local ADR 0062 §8).</summary>
+    Task SaveAsync(
+        IReadOnlyList<TaskViewRow> rows,
+        string? cursor,
+        MyDayPreferencesDocument? preferences,
+        RoadmapPlanCopy? roadmapPlan,
+        CancellationToken cancellationToken = default);
+
     /// <summary>The My Day preferences last pulled, or null when no desktop has sent
     /// any. Synchronous for the reason <see cref="ReadRows"/> is.</summary>
     MyDayPreferencesDocument? ReadMyDayPreferences();
+
+    /// <summary>The roadmap plan document last pulled, or null when no desktop has sent
+    /// one. Synchronous for the reason <see cref="ReadRows"/> is.</summary>
+    RoadmapPlanCopy? ReadRoadmapPlan();
 
     /// <summary>Forgets the cursor, so the next pull starts from the beginning.
     /// The rows stay: a full pull folds over them to the same result.</summary>

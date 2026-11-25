@@ -287,7 +287,7 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 ```meta
 type: requirement
 related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_on_a_plan_picked_yesterday_has_left_My_Day, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteRoadmapPlanReplicaTests.A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_on_a_plan_picked_yesterday_has_left_My_Day, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteRoadmapPlanReplicaTests.A_plans_my_day_date_travels_with_the_copy_and_a_copy_without_it_reads_as_on_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayPlanLineTests.A_plan_is_in_by_the_task_rule, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskViewProjectionMyDayTests.With_the_switch_off_a_plan_picked_yesterday_carries_over_until_it_is_finished]
 ```
 
 The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day date by the rule a task's date is read, under the same Clear My Day overnight setting.
@@ -345,15 +345,23 @@ The desktop's My Day SHALL show a plan in it with its progress and run state and
 
 ```meta
 type: requirement
+related: [.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayScreenTests.A_plan_on_today_is_one_line_above_the_tasks_without_its_entries, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayScreenTests.A_day_with_only_a_plan_shows_the_plan_and_not_the_empty_state, unit:dotnet:Backlog.Mobile.UI.UnitTests.TodayPlanLineTests.The_run_state_reads_off_the_open_entries, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskViewProjectionMyDayTests.The_roadmap_plan_is_kept_with_its_page_and_puts_its_plans_on_Today]
 ```
 
-The phone's Today SHALL show each plan in today's My Day as one line, without its entries.
+The phone's Today SHALL show each plan in today's My Day as one line above the task groups, with its name, its entries done of its total and its run state, without its entries.
 
 #### Scenario: A plan and tasks on Today
 
 - **Given** the plan `+zero-trust-auth` and three tasks are in today's My Day
 - **When** the phone opens Today after its next pull
 - **Then** Today shows the plan as one line and none of its entries, and the tasks in their groups
+
+#### Scenario: Only a plan on Today
+
+- **Given** the plan `+lets-bbq` is in today's My Day and no task is
+- **When** the phone opens Today after its next pull
+- **Then** Today shows the plan's line and not the empty state
 
 ### Requirement: My Day offers no suggestions
 

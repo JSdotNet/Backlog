@@ -270,6 +270,68 @@ public sealed class TodayScreenTests
             StringComparison.Ordinal));
     }
 
+    /// <summary>Local ADR 0062 §8: a plan in today's My Day is one line above the task
+    /// groups — name, done of total and run state — and none of its entries is listed under
+    /// it. The day's progress still counts the tasks alone.</summary>
+    [Fact]
+    public void A_plan_on_today_is_one_line_above_the_tasks_without_its_entries()
+    {
+        var picked = TestTasks.Task("Reply to the design feedback", Now, inMyDayOn: Today);
+        var charcoal = TestTasks.Task("Buy charcoal", Now, status: "in_progress", tags: ["+lets-bbq"]);
+        var invites = Ticked(TestTasks.Task("Send invites", Now, status: "done", tags: ["+lets-bbq"]));
+        var tasks = new ScriptedTaskService(RoadmapPlan(("lets-bbq", Today), ("not-today", Today.AddDays(-1))), picked, charcoal, invites);
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = host.Open("");
+
+        app.WaitForAssertion(() =>
+        {
+            var line = app.Find("[data-testid='today-plans'] [data-testid='today-plan']");
+            Assert.Equal("lets-bbq", line.QuerySelector("[data-testid='today-plan-name']")!.TextContent);
+            Assert.Equal("1 of 2 done", line.QuerySelector("[data-testid='today-plan-progress']")!.TextContent);
+            Assert.Equal("In progress", line.QuerySelector("[data-testid='today-plan-state']")!.TextContent);
+            Assert.Equal("lets-bbq, 1 of 2 done, In progress", line.GetAttribute("aria-label"));
+        });
+
+        Assert.Single(app.FindAll("[data-testid='today-plan']"));
+        Assert.DoesNotContain("Buy charcoal", app.Markup, StringComparison.Ordinal);
+        Assert.Equal(["Reply to the design feedback"], Titles(app, "anytime"));
+        Assert.Equal("0 of 1 done", app.Find("[data-testid='today-progress-label']").TextContent.Trim());
+
+        // Plans today comes before the task groups.
+        var markup = app.Markup;
+        Assert.True(markup.IndexOf("data-testid=\"today-plans\"", StringComparison.Ordinal)
+            < markup.IndexOf("data-testid=\"today-anytime\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_day_with_only_a_plan_shows_the_plan_and_not_the_empty_state()
+    {
+        var tasks = new ScriptedTaskService(RoadmapPlan(("lets-bbq", Today)));
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = host.Open("");
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "lets-bbq",
+            app.Find("[data-testid='today-plan-name']").TextContent));
+
+        Assert.Empty(app.FindAll("[data-testid='tasks-empty']"));
+        Assert.Empty(app.FindAll("[data-testid='today-progress']"));
+        Assert.Empty(app.FindAll("[data-testid='today-plan-state']"));
+    }
+
+    private static TaskChange RoadmapPlan(params (string Tag, DateOnly On)[] plans)
+    {
+        var items = string.Join(",", plans.Select(plan =>
+            $$"""{"id":"{{Guid.NewGuid()}}","title":"{{plan.Tag}}","tag":"{{plan.Tag}}","myDayOn":"{{plan.On:yyyy-MM-dd}}"}"""));
+
+        return TestTasks.Task(
+            "Roadmap plan",
+            Now,
+            type: "roadmap-plan",
+            id: Guid.Parse("7c1a0b52-3d4e-4f6a-9b8c-0d1e2f3a4b01"),
+            contentMd: $$"""{"version":1,"items":[{{items}}]}""");
+    }
+
     private static TaskChange Timed(TaskChange change, string at, int minutes) =>
         change with { Task = change.Task with { AgendaAt = at, AgendaMinutes = minutes } };
 
