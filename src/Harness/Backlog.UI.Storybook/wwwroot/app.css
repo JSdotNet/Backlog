@@ -1055,6 +1055,11 @@ html, body {
     height: 22rem;
 }
 
+/* The phone's map with an event open: 144px, short enough to fold the legend. */
+.sb-map--short {
+    height: 9rem;
+}
+
 /* Deliberately undersized, so the scrollbar components.css styles has somewhere
    to appear on a page whose examples otherwise all fit. */
 .sb-scroll {

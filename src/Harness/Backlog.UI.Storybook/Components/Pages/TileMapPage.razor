@@ -45,6 +45,20 @@
         </div>
     </Story>
 
+    <Story Name="On a short map"
+           Description="A map under 200px tall — the phone's map with an event open is 144px — folds its legend into a Legend button among the controls, which opens it on demand in the same words. The controls sit in a 2×2 block, and Fit all frames the marks clear of them and of the attribution; a mark under any of them is a pill, never a hidden pin."
+           Code="@ShortCode">
+        <div class="sb-map sb-map--short">
+            <TileMap TileUrlTemplate="@StandInTiles"
+                     Attribution="Stand-in tiles, storybook only"
+                     Marks="@Tour"
+                     AriaLabel="Tour map, short"
+                     TestId="story-tile-map-short">
+                <Legend>Filled: playing · Dashed: pencilled in · Grey: played</Legend>
+            </TileMap>
+        </div>
+    </Story>
+
     <Story Name="No tile source"
            Description="With no tile URL the map loads nothing and requests nothing; the host's note says what is missing, with its one way to fix it."
            Code="@MissingCode">
@@ -122,6 +136,16 @@
                     "Lisbon · 4 Nov", Label: null, Tone: TileMapMarkTone.Muted)
             ];
         }
+        """;
+
+    private const string ShortCode = """
+        <div style="height: 9rem">
+            <TileMap TileUrlTemplate="@tiles"
+                     Attribution="© the tile provider"
+                     Marks="@marks">
+                <Legend>Filled: playing · Dashed: pencilled in · Grey: played</Legend>
+            </TileMap>
+        </div>
         """;
 
     private const string KeptCode = """

@@ -179,26 +179,51 @@ public sealed class TileMapScriptTests
     }
 
     /// <summary>
-    /// The short maps of the narrow layout, 390 wide and 128 or 160 tall: the chrome would
-    /// leave less than the fit's room, so it is not reserved — not in the fit and not in the
-    /// view reported for placing pins — and a mark the fit frames is drawn as a pin. A map
-    /// tall enough keeps its reserve in both.
+    /// The view handed to pin placement always carries what the chrome covers, measured on
+    /// the page: a pin under a drawn overlay is never counted in view (it becomes a pill). A
+    /// fit keeps the same reserve and gives up its own padding first, down to 16px, so the
+    /// marks it frames land clear of the chrome. Only a map too small even for that drops
+    /// the reserve from the fit.
+    /// <para>
+    /// Collapsed is the short map's layout: the legend folded into a button among the
+    /// controls (a 2×2 block, 86px in from the right) and only the attribution in the foot
+    /// (30px). Expanded is the tall map's: the controls' column (44px) and a two-line legend
+    /// in the foot (70px).
+    /// </para>
     /// </summary>
     [Theory]
-    [InlineData(128, "reported=0/0 bottomRight=40,40")]
-    [InlineData(160, "reported=0/0 bottomRight=48,48")]
-    [InlineData(256, "reported=44/70 bottomRight=92,118")]
-    public void Fit_and_placement_reserve_the_chrome_by_one_rule(int height, string expected)
+    [InlineData(128, "collapsed", "reported=86/30 topLeft=25,25 bottomRight=111,55")]
+    [InlineData(144, "collapsed", "reported=86/30 topLeft=33,33 bottomRight=119,63")]
+    [InlineData(160, "collapsed", "reported=86/30 topLeft=41,41 bottomRight=127,71")]
+    [InlineData(160, "expanded", "reported=44/70 topLeft=21,21 bottomRight=65,91")]
+    [InlineData(256, "expanded", "reported=44/70 topLeft=48,48 bottomRight=92,118")]
+    [InlineData(128, "expanded", "reported=44/70 topLeft=40,40 bottomRight=40,40")]
+    public void Placement_always_reserves_the_chrome_and_a_fit_gives_up_padding_first(int height, string layout, string expected)
     {
+        var (right, bottom) = layout == "collapsed" ? (86, 30) : (44, 70);
         var result = Run($$"""
-            chromed(element, { box: rect(0, 0, 390, {{height}}), controls: rect(346, 8, 390, 110), foot: rect(8, {{height}} - 70, 338, {{height}}) });
+            chromed(element, { box: rect(0, 0, 390, {{height}}), controls: rect({{390 - right}}, 8, 390, 80), foot: rect(8, {{height - bottom}}, 296, {{height}}) });
             await start({ x: 390, y: {{height}} });
             const view = calls.filter(c => c[0] === 'ViewMoved').at(-1);
             const o = maps[0].fits[0].options;
-            console.log(`reported=${view[7]}/${view[8]} bottomRight=${o.paddingBottomRight}`);
+            console.log(`reported=${view[7]}/${view[8]} topLeft=${o.paddingTopLeft} bottomRight=${o.paddingBottomRight}`);
             """);
 
         Assert.Equal(expected, result);
+    }
+
+    /// <summary>On the wide desktop map the reserve and the full padding both fit.</summary>
+    [Fact]
+    public void A_wide_map_keeps_its_full_padding_and_reserve()
+    {
+        var result = Run("""
+            chromed(element, { box: rect(0, 0, 1440, 400), controls: rect(1396, 8, 1440, 120), foot: rect(8, 360, 1380, 400) });
+            await start({ x: 1440, y: 400 });
+            const o = maps[0].fits[0].options;
+            console.log(`topLeft=${o.paddingTopLeft} bottomRight=${o.paddingBottomRight}`);
+            """);
+
+        Assert.Equal("topLeft=48,48 bottomRight=92,88", result);
     }
 
     /// <summary>The component asks for a measure when its chrome changed after the start; the

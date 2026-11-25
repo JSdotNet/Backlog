@@ -1004,7 +1004,11 @@ Rules:
 - **Pins stack by weight.** Numbered pins draw above unnumbered ones, and the
   selected or focused pin above all, so a grey pin never hides a number.
 - **Pins and edge pills keep out of the controls and the legend.** No pin or
-  pill lands under their plates, and pills sit at least 44px apart.
+  pill lands under their plates, and pills sit at least 44px apart. A pin that
+  would fall under one is drawn as a pill instead.
+- **A short map folds its legend.** Below 200px tall the legend card becomes a
+  *Legend* button beside the controls, which shows the same words on demand,
+  so Fit all keeps the whole map for the pins.
 - **The press area outgrows the mark.** A pin presses across 44px while its
   mark draws at 1.75rem.
 - **The tooltip stays inside the map.** It flips to the other side of its pin

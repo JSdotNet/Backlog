@@ -113,6 +113,17 @@ public sealed class TileMapStylesheetTests
         Assert.DoesNotMatch(@"position:\s*absolute", foot);
     }
 
+    /// <summary>On a short map the controls and the folded legend's button sit in a 2×2
+    /// block, so four buttons fit in a 128px map rather than running off its foot.</summary>
+    [Fact]
+    public void A_short_maps_controls_are_a_two_by_two_block()
+    {
+        var controls = Assert.Single(BodiesOf(".tile-map--short .tile-map__controls"));
+
+        Assert.Matches(@"display:\s*grid", controls);
+        Assert.Matches(@"grid-template-columns:\s*repeat\(2,", controls);
+    }
+
     /// <summary>A tooltip near an edge turns inwards rather than running off the map or
     /// under the controls.</summary>
     [Theory]

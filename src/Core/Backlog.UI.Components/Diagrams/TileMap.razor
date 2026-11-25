@@ -111,6 +111,15 @@
                                 Disabled="@(_viewport is null || Marks.Count == 0)"
                                 TestId="@PartTestId("fit")"
                                 OnClick="FitAsync">&#x2922;</IconButton>
+                    @if (LegendFolded)
+                    {
+                        <IconButton AriaLabel="@LegendLabel"
+                                    CssClass="tile-map__control"
+                                    TestId="@PartTestId("legend-toggle")"
+                                    aria-expanded="@(_legendOpen ? "true" : "false")"
+                                    aria-controls="@LegendId"
+                                    OnClick="ToggleLegend"><InfoIcon /></IconButton>
+                    }
                 </div>
             }
             @if (ShowsLegend || ShowsAttribution)
@@ -118,7 +127,10 @@
                 <div class="tile-map__foot">
                     @if (ShowsLegend)
                     {
-                        <div class="tile-map__legend" data-testid="@PartTestId("legend")">@Legend</div>
+                        <div id="@LegendId"
+                             class="tile-map__legend"
+                             data-testid="@PartTestId("legend")"
+                             hidden="@(LegendFolded && !_legendOpen)">@Legend</div>
                     }
                     @if (ShowsAttribution)
                     {
@@ -187,7 +199,16 @@
     private bool _unavailable;
     private bool _fittedOnMarks;
     private string? _focusPinOf;
-    private (bool Controls, bool Legend, bool Attribution)? _measuredChrome;
+    private (bool Controls, bool Legend, bool Attribution, bool Folded, bool Open)? _measuredChrome;
+    private bool _legendOpen;
+
+    /// <summary>Set when the component asked the map to fit: the next settled view is the
+    /// fit's own.</summary>
+    private bool _awaitingFitView;
+
+    /// <summary>The centre and zoom the map's last fit chose, while the reader has not moved
+    /// off it: a map still on it is fitted again when the legend folds or unfolds.</summary>
+    private (MapCoordinate Center, double Zoom)? _fittedView;
 
     /// <summary>
     /// Leaflet's tile URL template — <c>{z}</c>, <c>{x}</c> and <c>{y}</c> are
@@ -303,6 +324,26 @@
 
     private bool ShowsLegend => Legend is not null && ShowsControls;
 
+    /// <summary>
+    /// A map shorter than this, in CSS pixels, folds its legend into a "Legend" button among
+    /// the controls. The legend card is one or two lines plus its plate, 40 to 70px: on the
+    /// phone's 128 to 160px maps, the 144px one with the editor open among them, it would
+    /// cover half the tiles. 200px folds every one of those and leaves the 256px default and
+    /// every desktop map as they were.
+    /// </summary>
+    internal const double LegendFoldsBelow = 200;
+
+    /// <summary>The legend is a button that opens it, rather than a card over the tiles.</summary>
+    private bool LegendFolded => Legend is not null && ShowsControls && _viewport is { Height: > 0 and < LegendFoldsBelow };
+
+    private string LegendId => _mapId + "-legend";
+
+    /// <summary>The folded legend's button: its accessible name, and its tooltip.</summary>
+    [Parameter]
+    public string LegendLabel { get; set; } = "Legend";
+
+    private void ToggleLegend() => _legendOpen = !_legendOpen;
+
     private bool ShowsAttribution =>
         HasSource && !string.IsNullOrWhiteSpace(Attribution) && State != TileMapState.Unavailable;
 
@@ -328,7 +369,9 @@
         _ => "ready"
     };
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tile-map" : $"tile-map {CssClass}";
+    private string ClassValue =>
+        (string.IsNullOrWhiteSpace(CssClass) ? "tile-map" : $"tile-map {CssClass}")
+        + (LegendFolded ? " tile-map--short" : string.Empty);
 
     /// <summary>The marks a fit frames: the labelled ones — the marks a reader
     /// follows by number — or every mark when none is labelled.</summary>
@@ -438,7 +481,21 @@
                 new TileMapInsets(0, reservedRight, reservedBottom, 0));
             StateHasChanged();
 
-            if (settled) await ViewChanged.InvokeAsync(_viewport);
+            if (settled)
+            {
+                var view = (_viewport.Center, _viewport.Zoom);
+                if (_awaitingFitView)
+                {
+                    _awaitingFitView = false;
+                    _fittedView = view;
+                }
+                else if (_fittedView != view)
+                {
+                    _fittedView = null;
+                }
+
+                await ViewChanged.InvokeAsync(_viewport);
+            }
         });
 
     /// <summary>Reported when the tiles in view stop or start loading: none of a
@@ -484,7 +541,11 @@
 
     private Task ZoomByAsync(int delta) => CallAsync("backlogTileMap.zoomBy", _mapId, delta);
 
-    private Task FitAsync() => CallAsync("backlogTileMap.fit", _mapId, FitOptions());
+    private Task FitAsync()
+    {
+        _awaitingFitView = true;
+        return CallAsync("backlogTileMap.fit", _mapId, FitOptions());
+    }
 
     private Task RetryAsync() => CallAsync("backlogTileMap.retry", _mapId);
 
@@ -560,7 +621,8 @@
         await CallAsync("backlogFocus", PinId(mark), false);
     }
 
-    private (bool Controls, bool Legend, bool Attribution) Chrome => (ShowsControls, ShowsLegend, ShowsAttribution);
+    private (bool Controls, bool Legend, bool Attribution, bool Folded, bool Open) Chrome =>
+        (ShowsControls, ShowsLegend, ShowsAttribution, LegendFolded, _legendOpen);
 
     /// <summary>The chrome the map last measured, against what is drawn now: a legend handed
     /// in late, the controls back after the offline note. When it changed, the map measures
@@ -569,7 +631,11 @@
     {
         if (_measuredChrome == Chrome) return;
 
+        // The legend folding or unfolding moves what the chrome covers; a map still on its
+        // own fit is framed again clear of the new chrome. One the reader moved is left alone.
+        var refit = _measuredChrome is { } measured && measured.Folded != LegendFolded && _fittedView is not null && Marks.Count > 0;
         _measuredChrome = Chrome;
+        if (refit) await FitAsync();
         await CallAsync("backlogTileMap.measure", _mapId);
     }
 
@@ -579,6 +645,7 @@
         _initializedSource = TileUrlTemplate;
         _fittedOnMarks = Marks.Count > 0 || InitialView is not null;
         _measuredChrome = Chrome;
+        _awaitingFitView = InitialView is null;
 
         var options = new
         {

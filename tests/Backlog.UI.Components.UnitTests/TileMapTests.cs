@@ -294,6 +294,108 @@ public sealed class TileMapTests
         }
     }
 
+    /// <summary>
+    /// A short map — under 200px tall, as the phone's 128, 144 (editor open) and 160 are —
+    /// has no room for the legend card over its tiles. The legend folds into a "Legend"
+    /// button among the controls, which opens it on demand in the same words; a tall map
+    /// shows it as before. The attribution stays visible either way.
+    /// </summary>
+    [Theory]
+    [InlineData(128, true)]
+    [InlineData(144, true)]
+    [InlineData(160, true)]
+    [InlineData(256, false)]
+    [InlineData(400, false)]
+    public async Task A_short_map_folds_its_legend_into_a_button(double height, bool folded)
+    {
+        using var context = Context();
+        var map = Render(context, parameters => parameters
+            .Add(m => m.Legend, builder => builder.AddContent(0, "Going / Spotted or considering / Past")));
+        var width = height == 400 ? 1440d : 390d;
+
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, width, height, true));
+
+        Assert.Equal(folded, map.Find("section").ClassList.Contains("tile-map--short"));
+        Assert.Single(map.FindAll("[data-testid='map-attribution']"));
+        var legend = map.Find("[data-testid='map-legend']");
+        Assert.Equal("Going / Spotted or considering / Past", legend.TextContent);
+        if (!folded)
+        {
+            Assert.Empty(map.FindAll("[data-testid='map-legend-toggle']"));
+            Assert.False(legend.HasAttribute("hidden"));
+            return;
+        }
+
+        var toggle = map.Find(".tile-map__controls [data-testid='map-legend-toggle']");
+        Assert.Equal("Legend", toggle.GetAttribute("aria-label"));
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.Equal(legend.Id, toggle.GetAttribute("aria-controls"));
+        Assert.True(legend.HasAttribute("hidden"));
+
+        toggle.Click();
+
+        Assert.Equal("true", map.Find("[data-testid='map-legend-toggle']").GetAttribute("aria-expanded"));
+        Assert.False(map.Find("[data-testid='map-legend']").HasAttribute("hidden"));
+
+        map.Find("[data-testid='map-legend-toggle']").Click();
+
+        Assert.Equal("false", map.Find("[data-testid='map-legend-toggle']").GetAttribute("aria-expanded"));
+        Assert.True(map.Find("[data-testid='map-legend']").HasAttribute("hidden"));
+    }
+
+    /// <summary>Folding or unfolding the legend changes what the chrome covers, so the map
+    /// measures it again; opening the folded legend on demand does too.</summary>
+    [Fact]
+    public async Task Folding_and_opening_the_legend_are_measured_again()
+    {
+        using var context = Context();
+        var map = Render(context, parameters => parameters.Add(m => m.Legend, builder => builder.AddContent(0, "Going")));
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 256, true));
+        var before = context.JSInterop.Invocations["backlogTileMap.measure"].Count;
+
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 144, true));
+        map.Find("[data-testid='map-legend-toggle']").Click();
+
+        Assert.True(context.JSInterop.Invocations["backlogTileMap.measure"].Count >= before + 2);
+    }
+
+    /// <summary>A map still on the view its own fit chose — nobody has panned it — is fitted
+    /// again when the legend folds, so the marks are framed clear of the smaller chrome. A
+    /// view the reader moved is left where it is.</summary>
+    [Fact]
+    public async Task Folding_the_legend_refits_a_map_still_on_its_own_fit_and_not_one_the_reader_moved()
+    {
+        using var context = Context();
+        var map = Render(context, parameters => parameters.Add(m => m.Legend, builder => builder.AddContent(0, "Going")));
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 256, true));
+        var fits = context.JSInterop.Invocations["backlogTileMap.fit"].Count;
+
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 144, true));
+        Assert.Equal(fits + 1, context.JSInterop.Invocations["backlogTileMap.fit"].Count);
+
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 144, true));
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Antwerp.Latitude, Antwerp.Longitude, 8, 390, 144, true));
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Antwerp.Latitude, Antwerp.Longitude, 8, 390, 256, true));
+
+        Assert.Equal(fits + 1, context.JSInterop.Invocations["backlogTileMap.fit"].Count);
+    }
+
+    /// <summary>A pin under the controls (with the folded legend button) on a short map is
+    /// out of view and a pill instead — never a hidden pin.</summary>
+    [Fact]
+    public async Task A_pin_under_the_short_maps_controls_is_a_pill()
+    {
+        using var context = Context();
+        var underControls = new MapCoordinate(50.85, 5.85);
+        var marks = new List<TileMapMark> { new("east", underControls, "1, East", "East", "1") };
+        var map = Render(context, marks: marks);
+
+        await map.InvokeAsync(() => map.Instance.ViewMoved(Brussels.Latitude, Brussels.Longitude, 7, 390, 144, true, 86, 30));
+
+        Assert.Empty(map.FindAll("button.tile-map__pin"));
+        Assert.Contains("tile-map__pill--right", map.Find("button.tile-map__pill").ClassList);
+    }
+
     /// <summary>Two numbered marks pushed to the same stretch of an edge are spread apart, so
     /// neither pill covers the other.</summary>
     [Fact]

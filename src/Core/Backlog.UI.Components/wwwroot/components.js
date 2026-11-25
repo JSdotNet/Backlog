@@ -7261,25 +7261,22 @@
     // The smallest room, in CSS pixels each way, a fit frames its marks into.
     const BACKLOG_TILE_MAP_FIT_ROOM = 48;
 
-    // The padding a fit keeps on each side: its own, plus what the chrome covers on
-    // the right and at the bottom. A map too short or narrow for that — the narrow
-    // layout's 144px map under a two-line legend — would leave a negative room, and
-    // Leaflet answers that with the closest zoom it may use, framing nothing. So the
-    // chrome's reserve goes first, then the padding shrinks, until the marks have
-    // at least BACKLOG_TILE_MAP_FIT_ROOM to be framed in.
+    // Whether a fit with this reserve and this padding still leaves the marks
+    // BACKLOG_TILE_MAP_FIT_ROOM each way. A negative room is what sent Leaflet to the
+    // closest zoom it may use on a short map, framing nothing.
     function backlogTileMapFits(size, right, bottom, edge) {
         return size.x - (2 * edge) - right >= BACKLOG_TILE_MAP_FIT_ROOM
             && size.y - (2 * edge) - bottom >= BACKLOG_TILE_MAP_FIT_ROOM;
     }
 
-    // The chrome's reserve as fit and placement both use it: kept while the map has a
-    // fit's room beside it, dropped otherwise. One rule for both, so a mark a fit frames
-    // is a pin, not a pill or nothing (a short map of the narrow layout drops it).
-    function backlogTileMapEffectiveReserved(size, padding, reserved) {
-        return backlogTileMapFits(size, reserved.right, reserved.bottom, padding)
-            ? reserved
-            : { right: 0, bottom: 0 };
-    }
+    // The padding a fit keeps on each side, and the reserve beside it. The reserve is the
+    // chrome's — the controls' column and the foot, the same the view reports for placing
+    // pins — so a mark the fit frames lands clear of every overlay drawn. When the map is
+    // short, the fit gives up its own padding first, down to BACKLOG_TILE_MAP_FIT_EDGE, and
+    // keeps the reserve; only a map too small even for that drops the reserve from the fit
+    // (placement still keeps it, so a mark under an overlay is a pill, never a hidden pin).
+    // Below that the padding shrinks until the marks have BACKLOG_TILE_MAP_FIT_ROOM.
+    const BACKLOG_TILE_MAP_FIT_EDGE = 16;
 
     function backlogTileMapFitPadding(size, padding, reserved) {
         const room = BACKLOG_TILE_MAP_FIT_ROOM;
@@ -7288,6 +7285,15 @@
         if (fits(reserved.right, reserved.bottom, padding)) {
             return { topLeft: [padding, padding], bottomRight: [padding + reserved.right, padding + reserved.bottom] };
         }
+
+        const tight = Math.floor(Math.min(
+            padding,
+            (size.x - room - reserved.right) / 2,
+            (size.y - room - reserved.bottom) / 2));
+        if (tight >= BACKLOG_TILE_MAP_FIT_EDGE) {
+            return { topLeft: [tight, tight], bottomRight: [tight + reserved.right, tight + reserved.bottom] };
+        }
+
         if (fits(0, 0, padding)) {
             return { topLeft: [padding, padding], bottomRight: [padding, padding] };
         }
@@ -7353,12 +7359,12 @@
                 maxBoundsViscosity: 1
             });
 
-            const state = { map, element, padding: Number(options.fit?.padding) || 0, layer: null, dotnet, frame: 0, drawn: new Set(), failed: 0, reachable: true, pendingFit: null };
+            const state = { map, element, layer: null, dotnet, frame: 0, drawn: new Set(), failed: 0, reachable: true, pendingFit: null };
 
             const send = settled => {
                 const centre = map.getCenter();
                 const size = map.getSize();
-                const reserved = backlogTileMapEffectiveReserved(size, state.padding, backlogTileMapReserved(element));
+                const reserved = backlogTileMapReserved(element);
                 dotnet.invokeMethodAsync('ViewMoved', centre.lat, centre.lng, map.getZoom(), size.x, size.y, settled, reserved.right, reserved.bottom)
                     .catch(() => { });
             };

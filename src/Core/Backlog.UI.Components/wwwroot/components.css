@@ -32082,6 +32082,13 @@ g.c4-diagram__edge-label.c4-diagram__edge--related text {
     pointer-events: auto;
 }
 
+/* A short map folds its legend into a button among the controls: four buttons in a
+   2x2 block, so they fit in a 128px map rather than running off its foot. */
+.tile-map--short .tile-map__controls {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+}
+
 .tile-map__control {
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-semibold);
