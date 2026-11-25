@@ -118,6 +118,16 @@ public sealed class PlanEntryStateTests
         Assert.Equal(PlanEntryQueueState.LeftForYou, StateOf(Row($"{type} !ready"), waiting: true, run: PlanRun.From(Request)));
     }
 
+    [Theory]
+    [InlineData("task")]
+    [InlineData("test")]
+    public void A_task_or_test_left_for_you_says_whether_it_waits_on_another_entry(string type)
+    {
+        Assert.False(PlanEntryState.For(Row($"{type} !ready"), waiting: false)!.WaitsOnOpen);
+        Assert.True(PlanEntryState.For(Row($"{type} !ready"), waiting: true)!.WaitsOnOpen);
+        Assert.Equal("Left for you", PlanEntryState.For(Row($"{type} !ready"), waiting: true)!.Label);
+    }
+
     [Fact]
     public void An_entry_whose_pull_request_merged_into_the_plan_branch_has_landed()
     {

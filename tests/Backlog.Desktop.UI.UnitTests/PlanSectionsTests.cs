@@ -194,6 +194,37 @@ public sealed class PlanSectionsTests
         });
     }
 
+    [Fact]
+    public async Task A_test_waiting_on_an_open_entry_reads_under_Later_not_Next()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Backlog);
+        var revoke = await host.WriteEntryAsync("# 4 - Revoke a device +zta\n`prompt` `!ready` `effort:3`\n");
+        await host.WriteEntryAsync($"# 5 - Sign in on a revoked device +zta\n`test` `!ready` `after:{revoke.Id}`\n");
+        await host.WriteEntryAsync("# 6 - Check the audit log +zta\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+        host.Context.Services.AddSingleton<IPlanTagSessionRequests>(new TasksPlanSessionRequestTests.FakePlanTagSessionRequests());
+        host.Context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow));
+        var pane = SelectZta(RenderPlans(host));
+
+        Assert.Equal(["4 - Revoke a device +zta", "6 - Check the audit log +zta"], Titles(pane, "plan-section-next"));
+        Assert.Equal("1 waiting — next to unlock: #5 when #4 lands", Text(pane.Find("[data-testid='plan-later-waiting']")));
+
+        pane.Find("[data-testid='plan-later-waiting']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(["5 - Sign in on a revoked device +zta"], Titles(pane, "plan-section-later")));
+        Assert.Equal(["Left for you"], pane.FindAll("[data-testid='plan-section-later'] [data-testid='plan-section-row-state']").Select(Text));
+    }
+
+    [Theory]
+    [InlineData(false, PlanSection.Next)]
+    [InlineData(true, PlanSection.Waiting)]
+    public void A_ready_test_left_for_you_reads_under_Next_only_while_it_waits_on_nothing(bool waits, PlanSection expected)
+    {
+        var row = new EntryRow { Id = Guid.NewGuid(), RawText = "# Check it\n`test` `!ready` `+p`\n" };
+
+        Assert.Equal(expected, PlanSections.SectionOf(row, new PlanEntryState(PlanEntryQueueState.LeftForYou, WaitsOnOpen: waits)));
+    }
+
     // --- The unlock line, pure -------------------------------------------------
 
     private static PlanSectionEntry Entry(string title, PlanSection section, Guid? id = null) =>
