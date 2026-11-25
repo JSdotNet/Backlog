@@ -364,7 +364,7 @@
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
-          "Polly.Core": "[8.6.6, )",
+          "Polly.Core": "[8.7.0, )",
           "System.Security.Cryptography.ProtectedData": "[11.0.0, )"
         }
       },
@@ -431,9 +431,9 @@
       },
       "Polly.Core": {
         "type": "CentralTransitive",
-        "requested": "[8.6.6, )",
-        "resolved": "8.6.6",
-        "contentHash": "lCBL9mmhF9TZxHG3beVRkyjlLohkIC464xIAq7J7Y59C+z42hmsdUaeCKl2SIAYertOUU5TeBXyQDLDQGIKePQ=="
+        "requested": "[8.7.0, )",
+        "resolved": "8.7.0",
+        "contentHash": "BS2t+nsBer16PIebCEPNBK5fgMisADQyRCd7K+BgkMWpFmSaiYE+rVVNpFhGRqUkJmNSLmw0uCNzHHWfgml28Q=="
       },
       "System.Security.Cryptography.ProtectedData": {
         "type": "CentralTransitive",

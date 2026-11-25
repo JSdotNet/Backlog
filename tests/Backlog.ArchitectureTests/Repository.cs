@@ -4,7 +4,7 @@ namespace Backlog.ArchitectureTests;
 
 /// <summary>
 /// The repository layout these tests read, rooted at the folder that holds
-/// <c>src</c>, <c>tests</c>, and <c>Backlog.sln</c>, so they keep working no
+/// <c>src</c>, <c>tests</c>, and <c>Backlog.slnx</c>, so they keep working no
 /// matter where the build output lands.
 /// </summary>
 internal static class Repository
@@ -57,6 +57,20 @@ internal static class Repository
             yield return project.Directory!;
         }
     }
+
+    /// <summary>
+    /// Every project <c>Backlog.slnx</c> lists, one quoted path per line in the
+    /// backslash form <c>Backlog.WithoutAppHeads.slnf</c> writes:
+    /// <c>"src\App\Backlog.Desktop\Backlog.Desktop.csproj"</c>. The rules that
+    /// check a project is in the solution read this rather than the XML, so a
+    /// layout change to the solution file is one change here.
+    /// </summary>
+    public static string SolutionProjects() =>
+        string.Join(
+            '\n',
+            XDocument.Load(Path.Combine(Root.FullName, "Backlog.slnx"))
+                .Descendants("Project")
+                .Select(project => $"\"{((string)project.Attribute("Path")!).Replace('/', '\\')}\""));
 
     /// <summary>A presentation assembly: it renders one area's screens rather
     /// than owning a decision.</summary>

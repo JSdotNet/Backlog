@@ -262,10 +262,10 @@ public sealed class AiCohesionLayoutTests
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Backlog.sln"))) return directory.FullName;
+            if (File.Exists(Path.Combine(directory.FullName, "Backlog.slnx"))) return directory.FullName;
         }
 
-        throw new InvalidOperationException("Backlog.sln was not found above the test's output folder.");
+        throw new InvalidOperationException("Backlog.slnx was not found above the test's output folder.");
     }
 
     [Fact]

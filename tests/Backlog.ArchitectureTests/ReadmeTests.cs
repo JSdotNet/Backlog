@@ -53,7 +53,7 @@ public class ReadmeTests
     {
         var section = Section("## Build and test");
 
-        Assert.Contains("dotnet build Backlog.sln", section, StringComparison.Ordinal);
+        Assert.Contains("dotnet build Backlog.slnx", section, StringComparison.Ordinal);
         Assert.Contains("Zero tests ran", section, StringComparison.Ordinal);
     }
 

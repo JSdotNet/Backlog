@@ -369,7 +369,7 @@ public sealed class DevToolClaudeQuestionHooksTests : IDisposable
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Backlog.sln")))
+            if (File.Exists(Path.Combine(directory.FullName, "Backlog.slnx")))
             {
                 return directory.FullName;
             }

@@ -264,7 +264,7 @@ public sealed class DesktopHarnessEventsMapTests
         for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder is not null; folder = folder.Parent)
         {
             var harness = Path.Combine(folder.FullName, "src", "Harness", "Backlog.Desktop.WebHarness");
-            if (File.Exists(Path.Combine(folder.FullName, "Backlog.sln")) && Directory.Exists(harness)) return harness;
+            if (File.Exists(Path.Combine(folder.FullName, "Backlog.slnx")) && Directory.Exists(harness)) return harness;
         }
 
         throw new InvalidOperationException("The desktop harness's folder was not found above the test output.");

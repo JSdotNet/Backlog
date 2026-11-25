@@ -16,7 +16,7 @@ namespace Backlog.Tests;
 /// truth, and it told it a commit too late.</para>
 ///
 /// <para>So the walk stops here. It looks for the folder that holds <c>src</c>,
-/// <c>tests</c> and <c>Backlog.sln</c>, which is the worktree root rather than
+/// <c>tests</c> and <c>Backlog.slnx</c>, which is the worktree root rather than
 /// the checkout above it, and every lookup is resolved beneath that one folder.
 /// A path that is wrong now fails immediately and names the root it was resolved
 /// against, instead of quietly finding something else.</para>
@@ -29,7 +29,7 @@ namespace Backlog.Tests;
 /// </summary>
 internal static class RepositoryRoot
 {
-    /// <summary>The folder holding <c>src</c>, <c>tests</c> and <c>Backlog.sln</c>.</summary>
+    /// <summary>The folder holding <c>src</c>, <c>tests</c> and <c>Backlog.slnx</c>.</summary>
     public static DirectoryInfo Root { get; } = Locate();
 
     /// <summary>
@@ -89,7 +89,7 @@ internal static class RepositoryRoot
         {
             if (System.IO.Directory.Exists(Path.Combine(directory.FullName, "src"))
                 && System.IO.Directory.Exists(Path.Combine(directory.FullName, "tests"))
-                && System.IO.File.Exists(Path.Combine(directory.FullName, "Backlog.sln")))
+                && System.IO.File.Exists(Path.Combine(directory.FullName, "Backlog.slnx")))
             {
                 return directory;
             }

@@ -128,8 +128,9 @@ jobs:
             'src\App\Backlog.Desktop\Backlog.Desktop.csproj',
             'src\App\Backlog.Mobile\Backlog.Mobile.csproj'
           )
-          $solution = (Select-String -Path Backlog.sln -Pattern '"([^"]+\.csproj)"' -AllMatches).Matches |
-            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+          # Backlog.slnx writes forward slashes; the filter and $heads use backslashes.
+          $solution = ([xml](Get-Content Backlog.slnx -Raw)).SelectNodes('//Project') |
+            ForEach-Object { $_.Path.Replace('/', '\') } | Sort-Object -Unique
           $filter = (Get-Content Backlog.WithoutAppHeads.slnf -Raw | ConvertFrom-Json).solution.projects
 
           $unfiltered = @($solution | Where-Object { $_ -notin $filter } | Sort-Object)
@@ -142,7 +143,7 @@ jobs:
           }
 
           if ($stale) {
-            Write-Host 'Listed in Backlog.WithoutAppHeads.slnf but no longer in Backlog.sln:'
+            Write-Host 'Listed in Backlog.WithoutAppHeads.slnf but no longer in Backlog.slnx:'
             $stale | ForEach-Object { Write-Host "  $_" }
             throw 'Remove the stale entries from Backlog.WithoutAppHeads.slnf.'
           }

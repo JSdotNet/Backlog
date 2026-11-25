@@ -95,7 +95,7 @@ public class DevPcModuleTestPlacementTests
     [Fact]
     public void The_module_test_project_is_in_the_solution_and_its_filter()
     {
-        var solution = File.ReadAllText(PathOf("Backlog.sln"));
+        var solution = Repository.SolutionProjects();
         var filter = File.ReadAllText(PathOf("Backlog.WithoutAppHeads.slnf"));
         var path = $@"tests\{ModuleTests}\{ModuleTests}.csproj";
 

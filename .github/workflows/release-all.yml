@@ -129,7 +129,7 @@ jobs:
           # project is written out here. The sync infrastructure is not: Release All
           # never provisions, so an infrastructure change is a Deploy Sync run.
           $extras = @(
-            'Backlog.sln',
+            'Backlog.slnx',
             'azure.yaml',
             'build/Backlog.Desktop.appinstaller.template',
             'build/New-AppInstaller.ps1',

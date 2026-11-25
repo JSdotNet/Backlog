@@ -168,7 +168,7 @@ public sealed partial class DesktopCompositionTests
         Assert.NotNull(project);
         Assert.False(Repository.IsUserInterface(project));
 
-        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var solution = Repository.SolutionProjects();
         var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
 
         Assert.Contains(@"src\App\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj", solution, StringComparison.Ordinal);
