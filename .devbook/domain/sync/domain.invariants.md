@@ -37,6 +37,54 @@ A device is registered or paired only under a name that is not blank, trimmed to
 
 Enforced at: `DeviceName.Validate()`
 
+### Invariant: A device holds a key or a credential, never both
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_credential_device_binds_its_key_once_and_its_credential_stops_working, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_key_bound_device_has_no_credential_to_offer, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_credential_device_cannot_sign_in_by_assertion, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_migration_that_loses_the_race_to_bind_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_migration_with_a_key_that_is_not_one_keeps_the_credential]
+```
+
+Binding a key drops the device's credential hash in the same write, and happens once: a second binding, and the credential, are refused from then on (`device.credential_invalid`).
+A device on a credential is taken on the credential alone, and an assertion beside it is refused rather than ignored.
+
+Enforced at: `IssueDeviceTokenCommandHandler`, `IDeviceRegistry.BindKey()`
+
+### Invariant: A device key is a P-256 public key
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_key_on_another_curve_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_public_key_that_is_not_one_is_refused_before_the_enrolment_code_is_spent, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.Pairing_with_a_public_key_that_is_not_one_leaves_the_code_unspent]
+```
+
+A key offered at registration, pairing or a migration is a base64url SubjectPublicKeyInfo of a P-256 key and nothing else, and is stored re-encoded, so two spellings of one key cannot both be on file (`device.public_key_invalid`).
+It is checked before an enrolment or pairing code is spent, so a bad key leaves the code working.
+
+Enforced at: `DevicePublicKey.Validate()`
+
+### Invariant: An assertion is ES256, from its device, for this service
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_signed_by_another_key_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_for_another_audience_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_issued_by_another_device_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_about_another_subject_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_naming_another_algorithm_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_unsigned_assertion_naming_alg_none_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_with_a_critical_header_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_living_longer_than_five_minutes_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_expired_assertion_is_refused_past_the_clock_skew, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_issued_in_the_future_is_refused]
+```
+
+An assertion is taken only when its key signed it with ES256, its header carries no `crit`, it names the device as both `iss` and `sub` and `backlog-sync/devices/token` as `aud`, and it lives at most five minutes, within the clock skew either side.
+The signature is checked before any claim is read, so nothing an unsigned body says decides anything. Every failure reads the same (`device.credential_invalid`).
+
+Enforced at: `EcdsaDeviceAssertionVerifier.Verify()`, on the shape `SyncAssertion` fixes
+
+### Invariant: An assertion is taken once
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.The_same_assertion_works_once, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_replay_inside_the_clock_skew_after_expiry_is_still_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_forged_assertion_does_not_spend_the_id_it_reuses, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_migration_spends_its_assertion, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_replay_store_that_cannot_answer_mints_no_token]
+```
+
+A verified assertion's id is spent before a token is minted, and kept until the assertion could no longer be taken, so the same assertion is refused however soon it comes back.
+Only an assertion that passed every other check spends its id, so a forgery cannot burn an id a real one will use. A replay store that cannot answer mints no token.
+
+Enforced at: `IAssertionReplayCache.TryAdd()`, the `assertionReplays` container in a deployment
+
 ## Pairing Code
 
 ```meta
@@ -55,6 +103,63 @@ A redemption adds a device only after it has burned the code, so a code pairs on
 Two devices racing on one code both pass the checks before the burn, and only the one that wins it may have a device.
 
 Enforced at: `RedeemPairingCodeCommandHandler`, `IPairingCodeStore.TryBurn()`
+
+## Connector Client
+
+```meta
+type: invariants
+related: [.devbook/domain/sync/domain.md#connector-client]
+```
+
+### Invariant: A client generation outlives nothing issued under an earlier one
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.A_code_issued_before_a_new_secret_is_an_invalid_grant, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.Revoking_the_secret_cuts_off_the_secret_and_every_refresh_token, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorRefreshRaceTests.A_refresh_token_of_an_owner_no_longer_configured_is_an_invalid_grant]
+```
+
+A new secret and a revoke each move the client's generation on, and a code, refresh token or access token whose generation is not the current one is refused (`invalid_grant`, or an invalid token on `/mcp`).
+Every grant carries its generation, so the revoke needs no query over what it kills.
+
+Enforced at: `ExchangeAuthorizationCodeCommandHandler`, `RefreshConnectorTokenCommandHandler`, `RemoteMcpAuthentication`
+
+## Connector Authorization
+
+```meta
+type: invariants
+related: [.devbook/domain/sync/domain.md#connector-authorization]
+```
+
+### Invariant: A code works once, and its reuse revokes what it issued
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.A_code_works_once_and_its_reuse_revokes_what_it_issued, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.A_wrong_verifier_is_an_invalid_grant, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.A_redirect_other_than_the_one_authorized_is_an_invalid_grant, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorRefreshRaceTests.A_code_reuse_that_revokes_before_the_first_exchange_stores_its_token_still_kills_it]
+```
+
+A code is traded only with the verifier behind its S256 challenge and the redirect it was issued for, and only once (`invalid_grant`).
+A second use revokes the refresh-token family its first use started, so a stolen code that loses the race still ends the session it raced.
+
+Enforced at: `ExchangeAuthorizationCodeCommandHandler`
+
+## Connector Refresh Token
+
+```meta
+type: invariants
+related: [.devbook/domain/sync/domain.md#connector-refresh-token]
+```
+
+### Invariant: A spent refresh token presented again revokes its family
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorTokenTests.Replaying_a_rotated_refresh_token_revokes_the_family, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorRefreshRaceTests.A_replay_that_revokes_before_the_rotation_leaves_nothing_issued, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorRefreshRaceTests.A_replay_that_revokes_right_after_the_rotation_kills_the_replacement, unit:dotnet:Backlog.Modules.Sync.UnitTests.ConnectorRefreshRaceTests.A_caller_that_loses_the_rotation_mints_nothing_and_stamps_nothing]
+```
+
+A refresh token that was rotated or revoked is a replay when presented, and revokes every token of its family, the replacement included (`invalid_grant`).
+Of two calls racing on one token, only the one that wins the rotation mints anything.
+
+Enforced at: `RefreshConnectorTokenCommandHandler`, `ConnectorRefreshToken.IsSpent`
 
 ## Change Precedence
 

@@ -31,7 +31,8 @@ internal sealed class ShellHost : IDisposable
         ITaskViewStore? taskView = null,
         IAppUpdateService? updates = null,
         ScriptedNotificationService? notifications = null,
-        ScriptedEventService? events = null)
+        ScriptedEventService? events = null,
+        Action<IServiceCollection>? configure = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
@@ -60,6 +61,7 @@ internal sealed class ShellHost : IDisposable
         if (updates is not null) _context.Services.AddSingleton(updates);
         _context.Services.AddMobileShell();
         _context.Services.AddTestDeviceOutbox(store, taskView);
+        configure?.Invoke(_context.Services);
     }
 
     /// <summary>Another app sharing into this one, triggered by hand.</summary>
@@ -156,6 +158,21 @@ internal sealed class ShellHost : IDisposable
         ScriptedEventService? events = null) =>
         new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications, events);
 
+    /// <summary>A phone paired onto its key — a credential with no secret — on a host
+    /// that cannot open that key, the way an Android Keystore key lost to a
+    /// screen-lock change looks: the token provider has no proof to send. Nothing
+    /// asks it for a token until the test does.</summary>
+    public static ShellHost KeyBound()
+    {
+        var credentials = new InMemoryDeviceCredentialStore(
+            new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Phone", null));
+
+        return new(
+            credentials, pair: null, inbox: null, store: null, clock: null,
+            configure: services => services.AddSingleton(
+                new SyncTokenProvider(new NoTokenEndpoint(), credentials, TimeProvider.System, keys: null)));
+    }
+
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most
     /// of these tests are about.</summary>
@@ -166,6 +183,13 @@ internal sealed class ShellHost : IDisposable
     }
 
     public void Dispose() => _context.Dispose();
+
+    /// <summary>A token endpoint nothing reaches: a device with no key to sign with
+    /// sends no request.</summary>
+    private sealed class NoTokenEndpoint : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new() { BaseAddress = new Uri("https://sync.test") };
+    }
 
     private sealed class ScriptedSyncHandler(
         Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,

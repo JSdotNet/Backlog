@@ -1,0 +1,75 @@
+name: Sync signing-key rotation reminder
+
+# Plans the rotation of the sync service's device-token signing key
+# (`sync-token-signing-key` in `kv-backlog-sync-we`, local ADR 0058): once a
+# quarter it opens one issue that asks a person to rotate the key by the
+# runbook in docs/deployment/sync.md, "Rotating the signing key".
+#
+# It reminds rather than rotates. A workflow that added a version itself would
+# need Key Vault Secrets Officer on the vault from CI, a standing write grant on
+# the one secret every device token depends on; this one holds no Azure
+# credential and touches only issues. Key Vault's own rotation policy covers
+# keys, not secrets, and an expiry date on the secret would risk the service
+# refusing to start the day nobody rotated.
+#
+# One open reminder at a time: a run that finds an open issue with the label
+# comments on it instead of opening a second, so a skipped quarter stays visible
+# on the issue it was skipped on.
+
+on:
+  schedule:
+    # 09:00 UTC on the first day of January, April, July and October.
+    - cron: '0 9 1 1,4,7,10 *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-key-rotation-reminder
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  remind:
+    name: Open the rotation reminder
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_LABEL: sync-key-rotation
+      RUNBOOK: https://github.com/${{ github.repository }}/blob/${{ github.event.repository.default_branch }}/docs/deployment/sync.md#rotating-the-signing-key
+    steps:
+      - name: Open or update the reminder
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+
+          gh label create $env:ISSUE_LABEL --color 'D93F0B' `
+            --description 'Planned rotation of the sync signing key (local ADR 0058)' --force | Out-Null
+
+          $open = gh issue list --label $env:ISSUE_LABEL --state open --json number --jq '.[].number'
+          if ($open) {
+            $number = @($open)[0]
+            gh issue comment $number --body "The quarterly rotation is due again and this reminder is still open. Rotate the key by the [runbook]($env:RUNBOOK), then close this issue."
+            Write-Output "Commented on the open reminder #$number."
+            exit 0
+          }
+
+          $quarter = "$((Get-Date).ToUniversalTime().Year) Q$([math]::Ceiling((Get-Date).ToUniversalTime().Month / 3))"
+          $body = @"
+          The quarterly rotation of the sync service's device-token signing key is due.
+
+          Follow [Rotating the signing key]($env:RUNBOOK) in ``docs/deployment/sync.md``:
+          store a new version of ``sync-token-signing-key`` in ``kv-backlog-sync-we``. The service
+          keeps accepting the previous version for 35 minutes, so no device is signed out.
+
+          Close this issue once the new version is stored, with its creation time in a comment.
+          "@
+          gh issue create --title "Rotate the sync signing key ($quarter)" --label $env:ISSUE_LABEL --body $body

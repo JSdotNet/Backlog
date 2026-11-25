@@ -1,8 +1,8 @@
 # ADR 0058: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
-date: 2026-11-24
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
+date: 2026-11-25
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
 c4: [backlog.desktop, backlog.cloud]
 c4-touches: [backlog.mobile, github, claude]
 ```
@@ -462,6 +462,13 @@ The one tool, `capture_to_inbox`, calls the handler behind `POST /api/sync/inbox
 process under the token's owner, so the capture is a `capture`-kind document (ADR 0009)
 filed under the channel `claude`, and the token goes no further.
 
+**The authorization server's errors take OAuth's shape, not Problem Details.** Its
+routes are protocol endpoints, so a failure answers RFC 6749's `{error,
+error_description}` body (§5.2), or an error on the redirect (§4.1.2.1), as a
+connector client reads them. This is a deliberate exception to guideline ADR 0017's
+Problem Details contract, scoped to those routes; the sync API keeps guideline ADR
+0017.
+
 ### 9. The Aspire web harness keeps no auth
 
 ```meta
@@ -539,6 +546,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | §8 records that the authorization server's routes answer RFC 6749 errors, an exception to guideline ADR 0017. | Entry 21 built it that way and no record said so. Plan `zero-trust-auth` entry 27. |
 | 2026-11-24 | Amended by local ADR 0061, proposed: §4 places `list_change_sets` under `tasks:read` and `propose_restore` under `tasks:write`. | Agents can read the change journal and propose a restore the person confirms. |
 | 2026-11-24 | §2's answer identity: the owner's notification exchange rejects a reply from a device not paired now before it accepts it, and the notification stays Open. | The question's notification stays answerable by a paired device; the relay's own check stays as defence in depth. Plan `zero-trust-auth` final check, PR #1971. |
 | 2026-11-24 | §6: refusing a pairing asks for Windows Hello, its prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device and raises a Warning alert worded by the cause. Settings → Devices lists paired devices with a Hello-gated Revoke on the rows this desktop paired. This reverses the 2026-11-18 choice to refuse without a prompt. | The person decided it in the final-check flow-code run. Plan `zero-trust-auth` final check, PR #1971. |
