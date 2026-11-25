@@ -25,7 +25,8 @@
               FocusSessionId="@FocusSessionId"
               OpenOnSchedules="@OpenOnSchedules"
               FocusScheduleId="@FocusScheduleId"
-              OnSeeUsage="@SeeUsageCallback" />
+              OnSeeUsage="@SeeUsageCallback"
+              OnOpenChanges="@OpenChangesCallback" />
 
 @code {
     /// <summary>The pull requests surface's id, the Sessions context's second list.</summary>
@@ -78,6 +79,19 @@
             ? EventCallback.Factory.Create(this, () => navigator.Show(
                 DashboardSurfaceId,
                 new Dictionary<string, string>(StringComparer.Ordinal) { [DashboardTabKey] = DashboardSessionsTab }))
+            : default;
+
+    /// <summary>Only while the catalog offers the Changes view, so a session's Changes
+    /// action never opens nothing: the view, narrowed to that session (local ADR 0061).</summary>
+    private EventCallback<string> OpenChangesCallback =>
+        Catalog.TryGet(global::Backlog.SharedKernel.Changes.ChangesSurfaceQuery.SurfaceId, out _)
+        && Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>() is { } navigator
+            ? EventCallback.Factory.Create<string>(this, session => navigator.Show(
+                global::Backlog.SharedKernel.Changes.ChangesSurfaceQuery.SurfaceId,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [global::Backlog.SharedKernel.Changes.ChangesSurfaceQuery.SessionKey] = session,
+                }))
             : default;
 
     /// <summary>Only while the window offers the centre, so an Answer never opens

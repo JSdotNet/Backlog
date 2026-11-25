@@ -44,6 +44,37 @@ public sealed class SessionsPaneDetailTests
         });
     }
 
+    /// <summary>The selected session's Changes action hands the shell that session's
+    /// id, so the Changes view opens narrowed to it (local ADR 0061).</summary>
+    [Fact]
+    public void The_selected_sessions_changes_action_opens_the_changes_of_that_session()
+    {
+        using var context = Context([Claude, Copilot], []);
+        string? opened = null;
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.OnOpenChanges, (string session) => opened = session));
+
+        SessionsPaneTests.Pick(pane, "Copilot/0012e2c7");
+        pane.WaitForAssertion(() => Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key")));
+
+        pane.Find("[data-testid='sessions-open-changes']").Click();
+
+        Assert.Equal(Copilot.Id, opened);
+    }
+
+    /// <summary>Without a way to open the view, no session offers the action.</summary>
+    [Fact]
+    public void Without_a_changes_view_no_session_offers_the_action()
+    {
+        using var context = Context([Claude], []);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-detail']")));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-open-changes']"));
+    }
+
     /// <summary>A panel about a row the filters hide would contradict the list, so a
     /// filter that hides the picked row moves the panel to the first one drawn.</summary>
     [Fact]

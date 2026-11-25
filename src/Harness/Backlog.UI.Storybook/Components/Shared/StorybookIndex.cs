@@ -604,6 +604,10 @@ internal static class StorybookIndex
             new("notes", "Notes", "NoteRow, NoteEditor and RecordingBar: a list of notes newest first that a search narrows, one note being written that saves on its own, and a meeting recorded into it."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
+            // Straight after Section comparison: an opened change set draws each
+            // document with MarkdownCompareView, so the comparison is met first.
+            new("change-sets", "Change sets",
+                "ChangeSetList: the change journal read back — who changed what and when, filtered by who, and each document's text before beside its text now."),
 
             // Last: the Devbook pane's Technology page is a whole surface made of
             // chapters from every group above — the metric tiles from Dashboard,

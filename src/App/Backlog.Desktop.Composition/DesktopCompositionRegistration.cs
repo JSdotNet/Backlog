@@ -433,6 +433,9 @@ public static class DesktopCompositionRegistration
         services.AddCalendarSurface();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
+        // The change journal read back (local ADR 0061): a view the shell's own
+        // project draws, since no module owns the journal.
+        global::Backlog.Desktop.UI.Changes.ChangesSurfaceRegistration.AddChangesSurface(services);
         services.AddDevbookSurface();
         services.AddInboxSurface();
         services.AddEventsSurface();

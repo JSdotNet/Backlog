@@ -13020,3 +13020,27 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
+
+/* The Changes view (local ADR 0061): the change journal read back, one column that
+   scrolls on its own, its title row beside Refresh. */
+.changes-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--spacing-lg);
+}
+
+.changes-view__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.changes-view__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+}

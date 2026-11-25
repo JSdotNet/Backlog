@@ -721,6 +721,19 @@ else
                     <IntegrationStateChip Session="@State(row.State)" />
                 }
                 <span class="sessions-detail__when" title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</span>
+                @if (OnOpenChanges.HasDelegate && row.Session is { } changed)
+                {
+                    @* What this session's agent wrote to the backlog, in the Changes
+                       view narrowed to it (local ADR 0061). A session that wrote nothing
+                       still offers it: the view says so, which answers the question. *@
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               CssClass="sessions-detail__changes"
+                               TestId="sessions-open-changes"
+                               Title="What this session changed in the backlog"
+                               OnClick="() => OnOpenChanges.InvokeAsync(changed.Id)">
+                        Changes
+                    </AppButton>
+                }
             </div>
             <h3 class="@($"sessions-detail__title {(IsIdentifierTitle(row) ? "data-table__mono" : string.Empty)}".Trim())" data-testid="sessions-detail-title">@row.Title</h3>
 
@@ -1063,6 +1076,13 @@ else
     /// </summary>
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
+
+    /// <summary>
+    /// How the shell opens the Changes view on a session, by the session's id. Without
+    /// it the selected session offers no Changes action.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenChanges { get; set; }
 
     /// <summary>
     /// The Backlog entry that linked a session, by the session's id. A fallback and
