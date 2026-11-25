@@ -74,7 +74,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list @(PlanRailBeside ? "backlog-list--plans" : null)" @ref="_backlogList">
+            <div class="@BacklogListCssClass" @ref="_backlogList">
                 @* Status narrows what is already in view, so it sits on the right.
                    Tags are the second label on an entry that already has one, built
                    from what people typed and with no ceiling on how many, so they
@@ -366,10 +366,25 @@
                        queue never disappears again; the count is muted at 0. The
                        panel opens inward from that end. Read from the two polls the
                        chips already run: no timer of its own. *@
-                    @if (SessionQueueOffered)
+                    @if (SessionQueueOffered && !QueueDocked)
                     {
                         var queue = SessionQueueRows();
                         <div class="filter-group filter-group--queue">
+                            @* The entry a column item narrowed the list to, kept while the
+                               column is folded — an entry opened beside the list folds it —
+                               with its way back out on the bar, where the column's own
+                               Show all was. *@
+                            @if (SessionQueueFocusName() is { } focusName)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="chip--active session-queue-focus-chip"
+                                           TestId="session-queue-focus-bar"
+                                           title="@($"The list shows {focusName} alone. Show all")"
+                                           OnClick="OnSessionQueueFocusCleared">
+                                    Showing @focusName · Show all
+                                </AppButton>
+                            }
                             <PopoverButton @ref="_sessionQueuePopover"
                                            Id="session-queue"
                                            TestId="session-queue"
@@ -837,6 +852,14 @@
                         }
                     }
                 </div>
+
+                @* The session queue docked on the right of the rows (local ADR 0062 §6),
+                   in Plans and in Flat alike, while the column is wider than 48rem; at
+                   or under it the queue folds back into the bar's popover above. *@
+                @if (QueueDocked)
+                {
+                    @RenderSessionQueueColumn(SessionQueueRows())
+                }
             </div>
         </Start>
 
@@ -1105,6 +1128,8 @@
         _sessionRequests.Refreshed += HandleSessionRequestsRefreshed;
         _sessionClock = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
         _ = _sessionRequests.RefreshAsync();
+        _sessionAttention = Services.GetService(typeof(ISessionQueueAttention)) as ISessionQueueAttention;
+        _ = RefreshSessionAttentionAsync();
 
         _planSessions = new TasksPlanSessionRequests(
             Services.GetService(typeof(IPlanTagSessionRequests)) as IPlanTagSessionRequests,
@@ -1186,7 +1211,8 @@
             _focusSessionQueue = null;
             if (queueTarget.Length == 0)
             {
-                if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
+                if (QueueDocked) await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", SessionQueueColumnHeadingId));
+                else if (_sessionQueuePopover is { } popover) await FocusQuietlyAsync(() => new ValueTask(popover.FocusAsync()));
             }
             else
             {
@@ -1742,14 +1768,15 @@
             _sessionRequests.Open,
             _planSessions.Open,
             entryId => State.Rows.FirstOrDefault(row => row.Id == entryId) is { } entry ? entry.PreviewTitle ?? string.Empty : null,
-            bareTag => PlanChipFor(bareTag) is not null,
+            bareTag => PlanChipFor(bareTag) is not null || (QueueDocked && PlanIsLoaded(bareTag)),
             _sessionRequests.PendingOrder);
 
     private void OnSessionQueueOpenChanged(bool open) => _sessionQueueOpen = open;
 
     private void HandleSessionRequestsRefreshed()
     {
-        if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
+        if (QueueDocked) _ = RefreshSessionAttentionAsync();
+        else if (_sessionQueueOpen) _ = InvokeAsync(StateHasChanged);
     }
 
     /// <summary>The panel: the Pause or Resume control, the paused callout and the
@@ -1762,51 +1789,18 @@
     private RenderFragment RenderSessionQueue(IReadOnlyList<SessionQueueRow> queue)
     {
         var now = _sessionClock.GetUtcNow();
-        var contact = _sessionRequests.DispatcherContact;
-        var warns = contact.WarnsFor(queue.Select(row => row.Request));
         var waiting = SessionQueue.Waiting(queue);
         var reorder = _sessionRequests.CanReorder && waiting.Count > 1;
-
-        var paused = _sessionRequests.IsPaused;
 
         return @<text>
             <span class="sr-only" role="status" aria-live="polite" data-testid="session-queue-announcement">@_sessionQueueAnnouncement</span>
             @if (_sessionRequests.IsOffered)
             {
                 <div class="session-queue__controls">
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               Size="ButtonSize.Small"
-                               Busy="@_sessionRequests.IsPausing"
-                               BusyLabel="@(paused ? "Resuming" : "Pausing")"
-                               TestId="session-queue-pause"
-                               title="@(paused ? "Let a dispatcher start the waiting requests again" : "Hold every request where it is: a dispatcher starts nothing new")"
-                               OnClick="OnSessionQueuePauseAsync">
-                        @(paused ? "Resume queue" : "Pause queue")
-                    </AppButton>
+                    @RenderSessionQueuePause(ButtonVariant.Secondary)
                 </div>
-                @if (_sessionRequests.PauseError is { } pauseError)
-                {
-                    <Alert Message="@pauseError" TestId="session-queue-pause-error" />
-                }
             }
-
-            @if (paused)
-            {
-                <Callout Heading="Queue paused"
-                         TestId="session-queue-paused">
-                    <p>Nothing new will start until you resume the queue. Requests keep their place, and you can still queue or cancel one.</p>
-                </Callout>
-            }
-
-            @if (warns)
-            {
-                <Callout Tone="warning"
-                         Heading="No dispatcher is running"
-                         TestId="session-queue-dispatcher-warning">
-                    <p>@SessionQueue.SilenceSentence(contact, now)</p>
-                    <p>Start <code>@LongRunningAgents.DispatchSessions</code> in a pinned Claude Desktop session.</p>
-                </Callout>
-            }
+            @RenderSessionQueueNotices(queue)
 
             @if (queue.Count == 0)
             {
@@ -1847,68 +1841,359 @@
                             </span>
                             @if (movable)
                             {
-                                <span class="session-queue__order" data-testid="session-queue-order">
-                                    @foreach (var step in SessionQueueSteps)
-                                    {
-                                        var target = SessionQueue.MoveTarget(step, place, waiting.Count);
-                                        var label = SessionQueue.MoveLabel(step, row.Name);
-                                        <AppButton Variant="ButtonVariant.Ghost"
-                                                   Size="ButtonSize.Small"
-                                                   CssClass="@($"session-queue__move session-queue__move--{SessionQueueStepName(step)}")"
-                                                   IconAlone="@(step is not SessionQueueStep.Top)"
-                                                   Icon="@(step is SessionQueueStep.Top ? null : SessionQueueStepGlyph(step))"
-                                                   Disabled="@(target is null)"
-                                                   aria-label="@label"
-                                                   title="@label"
-                                                   TestId="@($"session-queue-move-{SessionQueueStepName(step)}")"
-                                                   id="@SessionQueueControlId($"move-{SessionQueueStepName(step)}", row)"
-                                                   OnClick="() => OnSessionQueueMoveAsync(row, step)">
-                                            @if (step is SessionQueueStep.Top)
-                                            {
-                                                <text>Top</text>
-                                            }
-                                        </AppButton>
-                                    }
-                                </span>
+                                @RenderSessionQueueMoves(row, place, waiting.Count)
                             }
                             @if (row.CanCancel)
                             {
-                                <AppButton Variant="ButtonVariant.Ghost"
-                                           Size="ButtonSize.Small"
-                                           CssClass="session-queue__cancel"
-                                           Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
-                                           BusyLabel="Cancelling"
-                                           aria-label="@($"Cancel the session request for {row.Name}")"
-                                           TestId="session-queue-cancel"
-                                           id="@SessionQueueControlId("cancel", row)"
-                                           OnClick="() => OnSessionQueueCancelAsync(row)">
-                                    Cancel
-                                </AppButton>
+                                @RenderSessionQueueCancel(row)
                             }
                         </li>
                     }
                 </ul>
             }
 
-            <section class="session-queue__agents" aria-labelledby="session-queue-agents-heading" data-testid="session-queue-agents">
-                <h3 class="session-queue__agents-heading" id="session-queue-agents-heading">Long-running agents</h3>
-                <ul class="session-queue__agents-list">
-                    @foreach (var agent in LongRunningAgents.All)
-                    {
-                        <li @key="agent.Command" class="session-queue__agent" data-testid="session-queue-agent">
-                            <span class="session-queue__agent-name">@agent.Name</span>
-                            <code class="session-queue__agent-command">@agent.Command</code>
-                            <CopyButton Text="@agent.Command"
-                                        Label="@($"Copy {agent.Command}")"
-                                        CssClass="session-queue__agent-copy"
-                                        TestId="session-queue-agent-copy" />
-                            <span class="session-queue__agent-purpose">@agent.Purpose</span>
-                        </li>
-                    }
-                </ul>
-            </section>
+            @RenderSessionQueueAgents()
         </text>;
     }
+
+    /// <summary>Pause queue, or Resume queue while paused, and the error a failed press
+    /// leaves under it: one control for the popover and the docked column.</summary>
+    private RenderFragment RenderSessionQueuePause(ButtonVariant variant)
+    {
+        var paused = _sessionRequests.IsPaused;
+
+        return @<text>
+            <AppButton Variant="@variant"
+                       Size="ButtonSize.Small"
+                       Busy="@_sessionRequests.IsPausing"
+                       BusyLabel="@(paused ? "Resuming" : "Pausing")"
+                       TestId="session-queue-pause"
+                       title="@(paused ? "Let a dispatcher start the waiting requests again" : "Hold every request where it is: a dispatcher starts nothing new, answers keep flowing")"
+                       OnClick="OnSessionQueuePauseAsync">
+                @(paused ? "Resume queue" : "Pause queue")
+            </AppButton>
+            @if (_sessionRequests.PauseError is { } pauseError)
+            {
+                <Alert Message="@pauseError" TestId="session-queue-pause-error" />
+            }
+        </text>;
+    }
+
+    /// <summary>The paused callout and the dispatcher warning, each when owed — both at
+    /// once, as they are independent facts.</summary>
+    private RenderFragment RenderSessionQueueNotices(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var contact = _sessionRequests.DispatcherContact;
+        var warns = contact.WarnsFor(queue.Select(row => row.Request));
+
+        return @<text>
+            @if (_sessionRequests.IsPaused)
+            {
+                <Callout Heading="Queue paused"
+                         TestId="session-queue-paused">
+                    <p>Nothing new will start until you resume the queue. Requests keep their place, and you can still queue or cancel one.</p>
+                </Callout>
+            }
+
+            @if (warns)
+            {
+                <Callout Tone="warning"
+                         Heading="No dispatcher is running"
+                         TestId="session-queue-dispatcher-warning">
+                    <p>@SessionQueue.SilenceSentence(contact, _sessionClock.GetUtcNow())</p>
+                    <p>Start <code>@LongRunningAgents.DispatchSessions</code> in a pinned Claude Desktop session.</p>
+                </Callout>
+            }
+        </text>;
+    }
+
+    /// <summary>A Requested row's Move up, Move down and Move to top.</summary>
+    private RenderFragment RenderSessionQueueMoves(SessionQueueRow row, int place, int count) =>
+        @<span class="session-queue__order" data-testid="session-queue-order">
+            @foreach (var step in SessionQueueSteps)
+            {
+                var target = SessionQueue.MoveTarget(step, place, count);
+                var label = SessionQueue.MoveLabel(step, row.Name);
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           CssClass="@($"session-queue__move session-queue__move--{SessionQueueStepName(step)}")"
+                           IconAlone="@(step is not SessionQueueStep.Top)"
+                           Icon="@(step is SessionQueueStep.Top ? null : SessionQueueStepGlyph(step))"
+                           Disabled="@(target is null)"
+                           aria-label="@label"
+                           title="@label"
+                           TestId="@($"session-queue-move-{SessionQueueStepName(step)}")"
+                           id="@SessionQueueControlId($"move-{SessionQueueStepName(step)}", row)"
+                           OnClick="() => OnSessionQueueMoveAsync(row, step)">
+                    @if (step is SessionQueueStep.Top)
+                    {
+                        <text>Top</text>
+                    }
+                </AppButton>
+            }
+        </span>;
+
+    /// <summary>A row's Cancel.</summary>
+    private RenderFragment RenderSessionQueueCancel(SessionQueueRow row) =>
+        @<AppButton Variant="ButtonVariant.Ghost"
+                    Size="ButtonSize.Small"
+                    CssClass="session-queue__cancel"
+                    Busy="@(row.EntryId is { } busyId ? _sessionRequests.IsBusy(busyId) : _planSessions.Busy)"
+                    BusyLabel="Cancelling"
+                    aria-label="@($"Cancel the session request for {row.Name}")"
+                    TestId="session-queue-cancel"
+                    id="@SessionQueueControlId("cancel", row)"
+                    OnClick="() => OnSessionQueueCancelAsync(row)">
+            Cancel
+        </AppButton>;
+
+    /// <summary>The commands that start the long-running agents, each with its copy.</summary>
+    private static RenderFragment RenderSessionQueueAgents() =>
+        @<section class="session-queue__agents" aria-labelledby="session-queue-agents-heading" data-testid="session-queue-agents">
+            <h3 class="session-queue__agents-heading" id="session-queue-agents-heading">Long-running agents</h3>
+            <ul class="session-queue__agents-list">
+                @foreach (var agent in LongRunningAgents.All)
+                {
+                    <li @key="agent.Command" class="session-queue__agent" data-testid="session-queue-agent">
+                        <span class="session-queue__agent-name">@agent.Name</span>
+                        <code class="session-queue__agent-command">@agent.Command</code>
+                        <CopyButton Text="@agent.Command"
+                                    Label="@($"Copy {agent.Command}")"
+                                    CssClass="session-queue__agent-copy"
+                                    TestId="session-queue-agent-copy" />
+                        <span class="session-queue__agent-purpose">@agent.Purpose</span>
+                    </li>
+                }
+            </ul>
+        </section>;
+
+    /// <summary>
+    /// The docked column (local ADR 0062 §6): the header with the Manager's state and
+    /// slots and Pause or Resume, then Needs you, Running, Up next, Landed today and the
+    /// long-running agents, each group drawn only while it holds something but the last.
+    /// Every request control is the popover's own — the same ids, handlers and keys — so
+    /// a move keeps its focus and Alt+arrows reorder here as they do there. Selecting an
+    /// item filters the list to its entry or plan.
+    /// </summary>
+    private RenderFragment RenderSessionQueueColumn(IReadOnlyList<SessionQueueRow> queue)
+    {
+        var now = _sessionClock.GetUtcNow();
+        var contact = _sessionRequests.DispatcherContact;
+        var waiting = SessionQueue.Waiting(queue);
+        var reorder = _sessionRequests.CanReorder && waiting.Count > 1;
+        var running = queue.Where(row => !row.CanMove).ToList();
+        var upNext = queue.Where(row => row.CanMove).ToList();
+        var questions = _attention.Questions;
+        var drafts = SessionQueueDrafts();
+        var landed = SessionQueueLanded();
+        var needsYou = questions.Count + drafts.Count;
+        var focused = SessionQueueFocusName();
+
+        return @<aside class="session-queue-column"
+                       aria-labelledby="@SessionQueueColumnHeadingId"
+                       data-testid="session-queue-column">
+            <span class="sr-only" role="status" aria-live="polite" data-testid="session-queue-announcement">@_sessionQueueAnnouncement</span>
+
+            <div class="session-queue-column__header">
+                <h2 class="session-queue-column__heading" id="@SessionQueueColumnHeadingId" tabindex="-1">Queue</h2>
+                <StatusDot Tone="@ManagerDotTone(contact)"
+                           CssClass="@($"session-queue-column__dot session-queue-column__dot--{SessionQueue.ManagerTone(contact)}")"
+                           TestId="session-queue-manager-dot" />
+                <span class="session-queue-column__manager" data-testid="session-queue-manager">@SessionQueue.ManagerLabel(contact, _attention.Slots)</span>
+                @if (_sessionRequests.IsOffered)
+                {
+                    <span class="session-queue-column__pause">
+                        @RenderSessionQueuePause(ButtonVariant.Ghost)
+                    </span>
+                }
+            </div>
+
+            @RenderSessionQueueNotices(queue)
+
+            @if (focused is not null)
+            {
+                <div class="session-queue-column__focus" data-testid="session-queue-focus">
+                    <span class="session-queue-column__focus-text">Showing @focused</span>
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               TestId="session-queue-focus-clear"
+                               OnClick="OnSessionQueueFocusCleared">
+                        Show all
+                    </AppButton>
+                </div>
+            }
+
+            @if (needsYou > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-needs-heading" data-testid="session-queue-needs">
+                    <h3 class="session-queue-column__group-heading session-queue-column__group-heading--needs" id="session-queue-needs-heading">Needs you · @needsYou</h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var question in questions)
+                        {
+                            <li @key="question.Id" class="session-queue-column__item" data-testid="session-queue-question">
+                                <p class="session-queue-column__text">@(string.IsNullOrWhiteSpace(question.Text) ? "A session is waiting for your answer." : question.Text)</p>
+                                <span class="session-queue-column__meta">
+                                    <span class="session-queue-column__meta-text">Session question · @SessionQueue.Age(question.AskedAt, now)</span>
+                                    <AppButton Variant="ButtonVariant.Primary"
+                                               Size="ButtonSize.Small"
+                                               Disabled="@(!OnOpenSession.HasDelegate)"
+                                               TestId="session-queue-answer"
+                                               title="Open the session that asked, to answer it"
+                                               OnClick="() => OnSessionQueueAnswerAsync(question)">
+                                        Answer
+                                    </AppButton>
+                                </span>
+                            </li>
+                        }
+                        @foreach (var draft in drafts)
+                        {
+                            <li @key="draft.Key" class="session-queue-column__item" data-testid="session-queue-draft" data-key="@draft.Key">
+                                <ToggleButton BaseClass="session-queue-column__name"
+                                              PressedCssClass="session-queue-column__name--pressed"
+                                              Pressed="@IsSessionQueueEntrySelected(draft.EntryId)"
+                                              TestId="session-queue-draft-select"
+                                              Title="@($"Show {draft.Name} in the list")"
+                                              OnClick="() => OnSessionQueuePullRequestSelectAsync(draft)">
+                                    @draft.Name · draft PR @draft.PullRequest.Label
+                                </ToggleButton>
+                                <span class="session-queue-column__meta">
+                                    <span class="session-queue-column__meta-text">Personal Validation</span>
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               TestId="session-queue-dismiss"
+                                               aria-label="@($"Dismiss draft {draft.PullRequest.Label} of {draft.Name}")"
+                                               OnClick="() => OnSessionQueueDraftDismissed(draft)">
+                                        Dismiss
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.Secondary"
+                                               Size="ButtonSize.Small"
+                                               Href="@draft.PullRequest.Url"
+                                               TestId="session-queue-validate"
+                                               aria-label="@($"Validate draft {draft.PullRequest.Label} of {draft.Name} on GitHub")">
+                                        Validate
+                                    </AppButton>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (queue.Count == 0)
+            {
+                <EmptyState Title="Nothing is waiting for a session"
+                            Description="A session you queue on an entry or a plan waits here until a dispatcher starts it."
+                            TestId="session-queue-none" />
+            }
+
+            @if (running.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-running-heading" data-testid="session-queue-running">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-running-heading">
+                        <span>Running</span>
+                        <span class="session-queue-column__hint">cancel on hover</span>
+                    </h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var row in running)
+                        {
+                            @RenderSessionQueueColumnRow(row, null, waiting.Count, false, now)
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (upNext.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-next-heading" data-testid="session-queue-next">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-next-heading">
+                        <span>Up next</span>
+                        @if (reorder)
+                        {
+                            <span class="session-queue-column__hint">Alt+↑↓ to reorder</span>
+                        }
+                    </h3>
+                    <ol class="session-queue-column__list">
+                        @foreach (var row in upNext)
+                        {
+                            var place = IndexOfRequest(waiting, row.Request.Id);
+                            @RenderSessionQueueColumnRow(row, place, waiting.Count, reorder && place >= 0, now)
+                        }
+                    </ol>
+                </section>
+            }
+
+            @if (landed.Count > 0)
+            {
+                <section class="session-queue-column__group" aria-labelledby="session-queue-landed-heading" data-testid="session-queue-landed">
+                    <h3 class="session-queue-column__group-heading" id="session-queue-landed-heading">Landed today</h3>
+                    <ul class="session-queue-column__list">
+                        @foreach (var item in landed)
+                        {
+                            <li @key="item.Key" class="session-queue-column__item session-queue-column__item--landed" data-testid="session-queue-landed-item">
+                                <CheckIcon Size="14" CssClass="session-queue-column__landed-mark" />
+                                <ToggleButton BaseClass="session-queue-column__name"
+                                              PressedCssClass="session-queue-column__name--pressed"
+                                              Pressed="@IsSessionQueueEntrySelected(item.EntryId)"
+                                              TestId="session-queue-landed-select"
+                                              Title="@($"Show {item.Name} in the list")"
+                                              OnClick="() => OnSessionQueuePullRequestSelectAsync(item)">
+                                    @item.Name · PR @item.PullRequest.Label merged
+                                </ToggleButton>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            <div class="session-queue-column__agents">
+                @RenderSessionQueueAgents()
+            </div>
+        </aside>;
+    }
+
+    /// <summary>One Running or Up next row of the docked column: its name, which selects
+    /// it and filters the list to it; a line on what it is; and its controls — Cancel,
+    /// shown on hover and focus, and on an Up next row its place and Move controls.</summary>
+    private RenderFragment RenderSessionQueueColumnRow(SessionQueueRow row, int? place, int count, bool movable, DateTimeOffset now) =>
+        @<li @key="row.Key"
+             class="@(movable ? "session-queue-column__item session-queue-column__row session-queue__row--movable" : "session-queue-column__item session-queue-column__row")"
+             data-testid="session-queue-row"
+             data-key="@row.Key"
+             @onkeydown="e => OnSessionQueueRowKeyDownAsync(e, row)">
+            @if (place is { } at && at >= 0)
+            {
+                <span class="session-queue-column__place" aria-hidden="true">@(at + 1)</span>
+            }
+            <span class="session-queue-column__body">
+                @if (row.InView)
+                {
+                    <ToggleButton BaseClass="session-queue-column__name"
+                                  PressedCssClass="session-queue-column__name--pressed"
+                                  Pressed="@IsSessionQueueItemSelected(row)"
+                                  TestId="session-queue-jump"
+                                  id="@SessionQueueControlId("jump", row)"
+                                  Title="@(row.EntryId is null ? $"Show the {row.Name} plan" : $"Show {row.Name} in the list")"
+                                  OnClick="() => OnSessionQueueSelectAsync(row)">
+                        @row.Name
+                    </ToggleButton>
+                }
+                else
+                {
+                    <span class="session-queue-column__name session-queue-column__name--away" data-testid="session-queue-name">@row.Name</span>
+                }
+                <span class="session-queue-column__detail" data-testid="session-queue-meta">
+                    @SessionQueueRowDetail(row) · @SessionQueue.StateLabel(row.Request.State) · <span title="@row.Request.RequestedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)">@SessionQueue.Age(row.Request.RequestedAt, now)</span>
+                </span>
+            </span>
+            @if (movable && place is { } from)
+            {
+                @RenderSessionQueueMoves(row, from, count)
+            }
+            @if (row.CanCancel)
+            {
+                @RenderSessionQueueCancel(row)
+            }
+        </li>;
 
     /// <summary>Pause or Resume pressed: the whole queue, through the port. A failure
     /// is said in the panel and leaves the control as it was.</summary>
@@ -7046,7 +7331,14 @@
         if (_listReportedNarrow == narrow) return Task.CompletedTask;
 
         var drawn = ListNarrow;
+        var docked = QueueDocked;
         _listReportedNarrow = narrow;
+
+        if (docked != QueueDocked)
+        {
+            if (QueueDocked) _ = RefreshSessionAttentionAsync();
+        }
+
         return drawn == ListNarrow ? Task.CompletedTask : InvokeAsync(StateHasChanged);
     }
 

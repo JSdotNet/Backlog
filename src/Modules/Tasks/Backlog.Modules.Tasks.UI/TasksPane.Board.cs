@@ -77,6 +77,7 @@ public partial class TasksPane
         if (!PlansGrouped) State.SetNowAcrossPlansFilter(false);
 
         SyncFlatScope();
+        LetGoOfQueueFocusWhenFolded();
     }
 
     private async Task OnBoardGroupingPickedAsync(string? value)
