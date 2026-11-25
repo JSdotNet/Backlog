@@ -57,6 +57,7 @@ public static class McpToolScopes
 
         Map(McpScopes.TasksRead,
             TrackerTools.FindItem, TrackerTools.ReadItem, TrackerTools.ListDevbookReferences,
+            ChangeTools.ListChangeSets,
             WorkTools.ListEntries, WorkTools.GetPlanItems,
             RoadmapTools.GetRoadmap,
             GoalTools.ListGoals, GoalTools.ReadIterations,
@@ -65,6 +66,7 @@ public static class McpToolScopes
         Map(McpScopes.TasksWrite,
             TrackerTools.CreateItem, TrackerTools.Comment, TrackerTools.Transition, TrackerTools.SetBlocked,
             TrackerTools.SetDevbookReferences,
+            ChangeTools.ProposeRestore,
             GoalTools.CreateGoal, GoalTools.UpdateGoal, GoalTools.AttachToGoal, GoalTools.DetachFromGoal,
             ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState,
             ImpedimentTools.LinkToImpediment, ImpedimentTools.UnlinkFromImpediment,

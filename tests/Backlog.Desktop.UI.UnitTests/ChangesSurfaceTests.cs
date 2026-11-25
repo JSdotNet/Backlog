@@ -192,6 +192,64 @@ public sealed class ChangesSurfaceTests
         Assert.Null(restore.Overrides);
     }
 
+    /// <summary>The jump a restore proposal answered Restore makes (local ADR 0061 §5): the
+    /// row opens with its confirmation panel, and nothing is restored until the person
+    /// presses Restore there.</summary>
+    [Fact]
+    public void A_restore_query_opens_the_change_sets_confirmation_panel_and_restores_nothing()
+    {
+        var journal = new RecordingJournal();
+        var restore = new RecordingRestore(journal);
+        using var context = Context(journal);
+        context.Services.AddSingleton<IChangeRestore>(restore);
+
+        var view = context.Render<ChangesSurface>(parameters => parameters
+            .Add(p => p.Query, new Dictionary<string, string>(StringComparer.Ordinal) { [ChangesSurfaceQuery.RestoreKey] = AgentRun.Id.ToString("D") }));
+
+        view.WaitForAssertion(() =>
+        {
+            Assert.Single(view.FindAll("[data-testid='change-restore']"));
+            Assert.NotEmpty(view.FindAll("[data-testid='changed-document']"));
+        });
+        Assert.Equal([AgentRun.Id], journal.Reads);
+        Assert.Null(restore.Overrides);
+        Assert.Null(journal.UndoneBy);
+
+        view.Find("[data-testid='change-restore-cancel']").Click();
+
+        view.WaitForAssertion(() => Assert.Empty(view.FindAll("[data-testid='change-restore']")));
+        Assert.Null(restore.Overrides);
+    }
+
+    [Fact]
+    public void A_restore_query_for_a_change_set_already_restored_says_so_and_opens_no_panel()
+    {
+        var journal = new RecordingJournal { UndoneBy = Guid.NewGuid() };
+        using var context = Context(journal);
+        context.Services.AddSingleton<IChangeRestore>(new RecordingRestore(journal));
+
+        var view = context.Render<ChangesSurface>(parameters => parameters
+            .Add(p => p.Query, new Dictionary<string, string>(StringComparer.Ordinal) { [ChangesSurfaceQuery.RestoreKey] = AgentRun.Id.ToString("D") }));
+
+        view.WaitForAssertion(() => Assert.Contains("already restored", view.Find("[data-testid='changes-restored']").TextContent, StringComparison.Ordinal));
+        Assert.Empty(view.FindAll("[data-testid='change-restore']"));
+    }
+
+    [Fact]
+    public void A_restore_query_for_a_change_set_not_listed_says_so()
+    {
+        var journal = new RecordingJournal();
+        using var context = Context(journal);
+        context.Services.AddSingleton<IChangeRestore>(new RecordingRestore(journal));
+
+        var view = context.Render<ChangesSurface>(parameters => parameters
+            .Add(p => p.Query, new Dictionary<string, string>(StringComparer.Ordinal) { [ChangesSurfaceQuery.RestoreKey] = Guid.NewGuid().ToString("D") }));
+
+        view.WaitForAssertion(() => Assert.Contains("not among", view.Find("[data-testid='changes-error']").TextContent, StringComparison.Ordinal));
+        Assert.Empty(view.FindAll("[data-testid='change-restore']"));
+        Assert.Empty(journal.Reads);
+    }
+
     [Fact]
     public void The_registration_makes_it_a_view_that_accepts_a_session()
     {
@@ -204,7 +262,7 @@ public sealed class ChangesSurfaceTests
         Assert.Equal(ChangesSurfaceQuery.SurfaceId, surface!.Id);
         Assert.Equal(ShellSurfaceGroup.View, surface.Group);
         Assert.Equal(typeof(ChangesSurface), surface.Component);
-        Assert.Equal([ChangesSurfaceQuery.SessionKey], surface.QueryKeys);
+        Assert.Equal([ChangesSurfaceQuery.SessionKey, ChangesSurfaceQuery.RestoreKey], surface.QueryKeys);
     }
 
     private static BunitContext Context(IChangeJournal journal)
@@ -232,6 +290,12 @@ public sealed class ChangesSurfaceTests
                 ? Task.FromException<IReadOnlyList<ChangeSetEntry>>(new InvalidOperationException("locked"))
                 : Task.FromResult<IReadOnlyList<ChangeSetEntry>>([new ChangeSetEntry(AgentRun with { UndoneBy = UndoneBy }, 1)]);
         }
+
+        public Task<IReadOnlyList<ChangeSetEntry>> QueryAsync(ChangeSetQuery query, CancellationToken cancellationToken = default) =>
+            ListAsync(query.SessionId, query.Limit, cancellationToken);
+
+        public Task<ChangeSetEntry?> FindAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ChangeSetEntry?>(changeSetId == AgentRun.Id ? new ChangeSetEntry(AgentRun with { UndoneBy = UndoneBy }, 1) : null);
 
         public Task<IReadOnlyList<ChangedDocument>> ReadAsync(Guid changeSetId, CancellationToken cancellationToken = default)
         {

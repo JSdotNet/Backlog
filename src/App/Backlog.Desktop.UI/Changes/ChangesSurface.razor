@@ -19,6 +19,10 @@
     the way back to every change set, because a list that silently shows a fraction
     of the journal reads as a journal that recorded a fraction.
 
+    `restore=<change set id>` opens that change set with its restore confirmation
+    panel — what an agent's restore proposal answered Restore jumps to (local ADR 0061
+    §5). Opening the panel restores nothing: the person still presses Restore or Cancel.
+
     A host that composes no journal says so rather than drawing an empty list.
 *@
 <section class="changes-view" id="changes-view" aria-labelledby="changes-view-title" data-testid="changes-view">
@@ -86,7 +90,8 @@
 </section>
 
 @code {
-    /// <summary>The query the view was shown with: <c>session</c>, or nothing.</summary>
+    /// <summary>The query the view was shown with: <c>session</c>, <c>restore</c>, or
+    /// nothing.</summary>
     [Parameter]
     public IReadOnlyDictionary<string, string>? Query { get; set; }
 
@@ -182,6 +187,40 @@
             : null;
         ForgetRestore();
         await LoadAsync();
+
+        if (Query is not null
+            && Query.TryGetValue(ChangesSurfaceQuery.RestoreKey, out var restore)
+            && Guid.TryParse(restore, out var changeSetId))
+        {
+            await OpenRestoreAsync(changeSetId);
+        }
+    }
+
+    /// <summary>
+    /// Opens <paramref name="changeSetId"/>'s row with its restore confirmation panel, the
+    /// jump an agent's restore proposal makes. Every actor is shown, so the row is listed
+    /// whoever made it. A change set already restored, or one the view does not list,
+    /// is said out loud instead: the panel would offer nothing to confirm.
+    /// </summary>
+    private async Task OpenRestoreAsync(Guid changeSetId)
+    {
+        _filter = ChangeSetFilter.All;
+
+        if (_entries.FirstOrDefault(entry => entry.ChangeSet.Id == changeSetId) is not { } entry)
+        {
+            _error ??= "That change set is not among the change sets listed here.";
+            return;
+        }
+
+        await OpenAsync(changeSetId);
+
+        if (entry.ChangeSet.UndoneBy is not null)
+        {
+            _restored = "That change set was already restored.";
+            return;
+        }
+
+        await PlanRestoreAsync(changeSetId);
     }
 
     private Task RefreshAsync()

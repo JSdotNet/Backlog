@@ -18,6 +18,12 @@ public sealed class RootedSqliteChangeJournal(Func<string> currentRootDirectory)
         CancellationToken cancellationToken = default) =>
         Current.ListAsync(sessionId, limit, cancellationToken);
 
+    public Task<IReadOnlyList<ChangeSetEntry>> QueryAsync(ChangeSetQuery query, CancellationToken cancellationToken = default) =>
+        Current.QueryAsync(query, cancellationToken);
+
+    public Task<ChangeSetEntry?> FindAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
+        Current.FindAsync(changeSetId, cancellationToken);
+
     public Task<IReadOnlyList<ChangedDocument>> ReadAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
         Current.ReadAsync(changeSetId, cancellationToken);
 

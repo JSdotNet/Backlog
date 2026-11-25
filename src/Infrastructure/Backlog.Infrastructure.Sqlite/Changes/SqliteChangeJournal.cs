@@ -24,10 +24,72 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
 
     private readonly string _databasePath = databasePath ?? throw new ArgumentNullException(nameof(databasePath));
 
-    public async Task<IReadOnlyList<ChangeSetEntry>> ListAsync(
+    public Task<IReadOnlyList<ChangeSetEntry>> ListAsync(
         string? sessionId = null,
         int limit = 200,
+        CancellationToken cancellationToken = default) =>
+        QueryAsync(new ChangeSetQuery(SessionId: sessionId, Limit: limit), cancellationToken);
+
+    public async Task<IReadOnlyList<ChangeSetEntry>> QueryAsync(
+        ChangeSetQuery query,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var filters = new List<string>();
+        var parameters = new Dictionary<string, object>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrWhiteSpace(query.SessionId))
+        {
+            filters.Add("c.session_id = $session_id COLLATE NOCASE");
+            parameters["$session_id"] = query.SessionId.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Caller))
+        {
+            filters.Add("c.caller = $caller COLLATE NOCASE");
+            parameters["$caller"] = query.Caller.Trim();
+        }
+
+        // Compared as the round-trip text started_at is stored in, in UTC, the way the
+        // retention prune compares its cutoff.
+        if (query.Since is { } since)
+        {
+            filters.Add("c.started_at >= $since");
+            parameters["$since"] = Instant(since);
+        }
+
+        if (query.Until is { } until)
+        {
+            filters.Add("c.started_at < $until");
+            parameters["$until"] = Instant(until);
+        }
+
+        parameters["$limit"] = Math.Max(1, query.Limit);
+
+        return await SelectAsync(
+            filters.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", filters),
+            parameters,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ChangeSetEntry?> FindAsync(Guid changeSetId, CancellationToken cancellationToken = default)
+    {
+        var found = await SelectAsync(
+            "WHERE c.id = $id",
+            new Dictionary<string, object>(StringComparer.Ordinal) { ["$id"] = changeSetId.ToString(), ["$limit"] = 1 },
+            cancellationToken).ConfigureAwait(false);
+
+        return found.Count == 0 ? null : found[0];
+    }
+
+    private static string Instant(DateTimeOffset at) =>
+        at.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private async Task<IReadOnlyList<ChangeSetEntry>> SelectAsync(
+        string where,
+        IReadOnlyDictionary<string, object> parameters,
+        CancellationToken cancellationToken)
     {
         await using var connection = await SqliteTaskRepository.OpenForJournalAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -36,12 +98,11 @@ public sealed class SqliteChangeJournal(string databasePath) : IChangeJournal
                    (SELECT COUNT(*) FROM revisions r WHERE r.change_set_id = c.id),
                    c.undone_by
             FROM change_sets c
-            {(string.IsNullOrWhiteSpace(sessionId) ? string.Empty : "WHERE c.session_id = $session_id COLLATE NOCASE")}
+            {where}
             ORDER BY c.started_at DESC, c.rowid DESC
             LIMIT $limit;
             """;
-        command.Parameters.AddWithValue("$limit", Math.Max(1, limit));
-        if (!string.IsNullOrWhiteSpace(sessionId)) command.Parameters.AddWithValue("$session_id", sessionId.Trim());
+        foreach (var (name, value) in parameters) command.Parameters.AddWithValue(name, value);
 
         var entries = new List<ChangeSetEntry>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

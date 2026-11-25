@@ -48,6 +48,7 @@ public class McpToolCreationTests
         TrackerTools.FindItem,
         TrackerTools.ReadItem,
         TrackerTools.ListDevbookReferences,
+        ChangeTools.ListChangeSets,
         RoadmapTools.GetRoadmap,
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
@@ -175,6 +176,7 @@ public class McpToolCreationTests
                 NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
                 WindowTools.OpenWindow,
+                ChangeTools.ProposeRestore,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
                 ScheduleTools.ReportScheduleRun,
@@ -217,6 +219,10 @@ public class McpToolCreationTests
             ["id", "repoId", "externalId", "title", "status", "repository", "tag"],
             schemas["find_item"]);
         Assert.Equal(["id"], schemas["read_item"]);
+        Assert.Equal(["sessionId", "caller", "since", "until", "limit"], schemas["list_change_sets"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_change_sets")));
+        Assert.Equal(["changeSetId", "sessionId"], schemas["propose_restore"]);
+        Assert.Equal(["changeSetId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "propose_restore")));
         Assert.Equal(["id", "status", "sessionId"], schemas["transition"]);
         Assert.Equal(["id", "blocked", "sessionId"], schemas["set_blocked"]);
         Assert.Equal(["title", "holdsBack", "pullRequests", "planTags", "note", "sessionId"], schemas["raise_impediment"]);
@@ -446,6 +452,7 @@ public class McpToolCreationTests
             [typeof(ScheduleTools)] = new ScheduleTools(new InMemoryScheduleRegister()),
             [typeof(LoopTools)] = new LoopTools(new InMemoryLoopRegister()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
+            [typeof(ChangeTools)] = new ChangeTools(new FakeNotifications()),
             [typeof(InboxTools)] = new InboxTools(InboxToolsTests.FakeInbox.Over()),
             [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows()),
             [typeof(AccessTools)] = new AccessTools(new McpCallContext()),

@@ -4041,6 +4041,12 @@ public sealed class HomeWorkspaceSurfaceTests
                 [new(new ChangeSet(Guid.NewGuid(), ChangeActor.Person, "Session-less change", DateTimeOffset.UnixEpoch), 1)]);
         }
 
+        public Task<IReadOnlyList<ChangeSetEntry>> QueryAsync(ChangeSetQuery query, CancellationToken cancellationToken = default) =>
+            ListAsync(query.SessionId, query.Limit, cancellationToken);
+
+        public Task<ChangeSetEntry?> FindAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ChangeSetEntry?>(null);
+
         public Task<IReadOnlyList<ChangedDocument>> ReadAsync(Guid changeSetId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ChangedDocument>>([]);
     }
