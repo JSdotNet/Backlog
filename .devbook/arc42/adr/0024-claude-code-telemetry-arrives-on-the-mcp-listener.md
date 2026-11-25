@@ -1,7 +1,7 @@
 # ADR 0024: Claude Code's telemetry arrives as OTLP/HTTP logs on the in-app MCP listener
 
 ```meta
-date: 2026-11-12
+date: 2026-11-24
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md", ".devbook/domain/sessions/domain.md#claude-api-request-log", ".devbook/domain/sessions/features.md#cost-as-claude-code-reports-it"]
 c4: [backlog.desktop.sessions]
 c4-touches: [backlog.taskStore]
@@ -170,6 +170,7 @@ default of 29 minutes outlives the token.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | `request_access` needs a scope beyond `telemetry:write` and `notify:ask`, and the `BACKLOG_MCP_TOKEN` escape hatch no longer holds `telemetry:write`. A leaked block therefore calls no tool, and only the Telemetry grant reaches `/v1/logs`, as the Consequences say. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §3, §5). |
 | 2026-11-12 | The telemetry token is retired: the block's `otelHeadersHelper` fetches a 15-minute token for the Telemetry grant, and the app rewrites a block that carries the old token. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | `/v1/logs` takes a telemetry token of its own and refuses the MCP server's token. | ADR 0058 phase 0: the exporter's header must not be a credential that calls tools. |
 | 2026-10-08 | Proposed: Claude Code's OTLP/HTTP logs arrive at `/v1/logs` on the MCP listener, behind the MCP server's token. | A run's cost is Claude Code's figure, and the listener already had the guard. |

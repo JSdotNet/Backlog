@@ -1,8 +1,8 @@
 # ADR 0058: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
-date: 2026-11-19
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
+date: 2026-11-25
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
 c4: [backlog.desktop, backlog.cloud]
 c4-touches: [backlog.mobile, github, claude]
 ```
@@ -19,10 +19,12 @@ hard to undo, and approving or accepting a devbook decision stays a human action
 ```meta
 ```
 
-Proposed, 2026-11-11, by the flow-spec run `run-mwbv7gaz-4uj5ip` that drafted it,
-as entry 1 (`write-auth-adr`) of the `zero-trust-auth` plan. **Not yet built.** It
-awaits acceptance at the Personal Validation gate of this run's pull request; each
-delivery phase below then goes through flow-code as its own pull request.
+Accepted, 2026-11-11, when PR #1753 merged into `plan/zero-trust-auth`. The flow-spec
+run `run-mwbv7gaz-4uj5ip` drafted it as entry 1 (`write-auth-adr`) of that plan.
+**Built:** every phase, 0 to 3, went through flow-code, and the plan merged to main
+as PR #1878 on 2026-11-19. PR #1971 closed the final check's gaps on 2026-11-24.
+§8's remote endpoint runs on the deployed sync service. Local ADR 0059 amends §3,
+§4 and §6.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one; an inherited one is named "guideline".
@@ -110,6 +112,15 @@ The owner signs in through GitHub OAuth in two moments only:
 Every other moment rests on a device key (§2) or the Windows session. The desktop
 app has no sign-in screen.
 
+*Owner pin built 2026-11-24 by PR #1971.* The owner id is the configured
+`Owner:OwnerId` when one is set. Otherwise the service derives a name-based (v8)
+GUID from the GitHub user id, so it is the same on every start. Only a Development
+run with no owner configured mints one. A deployed service with no pin refuses a
+signed-in enrolment or recovery with `409 enrolment.owner_unpinned` while any device
+of another owner is on record. It refuses before the enrolment code is spent, adds
+and revokes nothing, and warns at startup. The pin flows from the azd value
+`SYNC_OWNER_ID` through the `ownerId` parameter to `Owner__OwnerId` (chapter 07).
+
 ### 2. A device proves itself with a non-exportable key
 
 ```meta
@@ -136,6 +147,20 @@ next token fetch: it sends the credential, the public key and an assertion that 
 signed, and then deletes the credential on the device as the service does. A key that
 exists but will not open is reported as unavailable and never replaced. The phone has
 no screen that shows that state yet.
+
+*Shared replay store built 2026-11-24 by PR #1971.* The service records each spent
+assertion id in the `assertionReplays` Cosmos container, so neither a restart nor a
+second revision reopens a replay. It makes one create per hash of device and `jti`,
+and a 409 answer means a replay. Each record lives until its assertion stops being
+acceptable, plus 60 seconds. A store fault answers `503 sync.replica_unavailable`, or
+`replica_busy` on a 429, and mints nothing. Development keeps the in-memory store.
+
+*Unpaired replies rejected 2026-11-24 by PR #1971.* Before it accepts a reply, the
+owner's notification exchange rejects one from a device that is not one of its paired
+devices now, for every source (`reply.unpaired_device`). The notification stays Open
+for a paired device to answer. A device whose standing cannot be read stops the
+exchange before that reply is deleted, and the next cycle reads it again (ADR 0039
+§2).
 
 ### 3. A local agent holds a grant, and a broker mints its tokens
 
@@ -201,8 +226,14 @@ static ones. On each start the app creates its **Backlog delivery**, **Question 
 and **Telemetry** grants once, records their ids in `settings.json`, and rewrites a
 registration that still carries a retired token to the headers helper. The escape
 hatch is the hand-edited debug setting `"mcpServer": { "acceptEnvironmentToken": true }`,
-which the app never writes. Two `backlog-tools` scripts and the `delivery-surface-backlog`
-plugin's client still read `mcpServer.token` and are refused until they move to a grant.
+which the app never writes. Its caller holds every grantable scope except
+`telemetry:write` and `agents:grant`, so it gets a 403 on `/v1/logs` and makes no grant.
+`backlog-tools` reaches the app under its own grants through its headers helper: the
+telemetry forwarder under Telemetry, and dispatch-sessions under Manager. It never reads
+`mcpServer.token`, and it sends `BACKLOG_MCP_TOKEN` only where no grant is recorded. The
+external `delivery-surface-backlog` client still reads `mcpServer.token`. `settings.json`
+holds none, so that client calls with no token, under local ADR 0059's Unauthenticated
+row.
 
 *Delivery and Manager grants settled 2026-11-15 by entry 9b (`delivery-grant-scopes`).*
 The **Backlog delivery** grant holds the Delivery flow preset and `devbook:write` and
@@ -240,7 +271,7 @@ decides which grant may call a tool that is listed. The names are a starting cut
 | `ui:open` | `open_window` and its link tokens | coding agents |
 | `sessions:dispatch` | the session-request and answer-delivery tools, the wait route (ADR 0038, 0041) | the Manager grant alone, never the delivery grant (§3) |
 | `telemetry:write` | the OTLP logs route (ADR 0024) | the telemetry exporter |
-| `inbox:capture` | a capture into the Inbox | personal assistants, the remote connector (§8) |
+| `inbox:capture` | `capture_to_inbox` | personal assistants, the remote connector (§8) |
 | `agents:grant` | `list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent` | none (§5) |
 
 *Built 2026-11-12 by entry 8 (`scope-policies`).* ADR 0012 §1 records how. The table is
@@ -248,10 +279,10 @@ per tool, not per group, because a flag's group can hold reads and writes. Tools
 leaves out are placed so: `list_devbook_references` is `tasks:read`, and
 `set_devbook_references`, `create_goal`, `update_goal` and the impediment tools are
 `tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
-`runs:write`. Reading the Inbox is `tasks:read` and archiving a capture `tasks:write`,
-because `inbox:capture` is write-only and no local tool captures yet. `inbox:capture` is a
-policy with no tool on the desktop listener; the remote endpoint of §8 serves it. A grant that asks for a scope
-outside the table is refused when it is created.
+`runs:write`. `inbox:capture` is `capture_to_inbox` alone, served on the desktop
+listener and on §8's remote `/mcp`. Reading the Inbox stays `tasks:read` and archiving a
+capture `tasks:write`, because `inbox:capture` is write-only. A grant that asks for a
+scope outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
 link buys now expires after 8 idle hours, and the app logs every link
@@ -296,9 +327,12 @@ and the broker refuses it a token as `pending` while its request is open. The
 request window is the `agent-request` surface, outside the header. Opening it again
 for the same request brings that window forward. A waiting request also shows as a
 card on the MCP server page, as "1 waiting" on its menu badge, and as an ADR 0039
-alert, which the phone shows and cannot answer. `request_access` passes the `/mcp`
-caller policy, not a scope policy, because an agent that lacks a scope is the one
-that must ask. Allow asks `IUserConsent`: the desktop head answers it with
+alert, which the phone shows and cannot answer. `request_access` passes the
+`mcp:requester` policy, not a scope policy, because an agent that lacks a scope is the
+one that must ask. That policy needs a grantable scope beyond `telemetry:write` and
+`notify:ask`, so a Telemetry or Question hook grant asks for nothing, and the tokenless
+caller of local ADR 0059 never passes it. The refusal is in-band and audited, and it
+names `headersHelper --request` as the way to ask. Allow asks `IUserConsent`: the desktop head answers it with
 `UserConsentVerifier`, and the web harness answers "not available", which refuses
 every Allow.
 
@@ -346,6 +380,7 @@ The desktop app asks for Windows Hello through `UserConsentVerifier` before it:
 - runs a `tasks:admin` tool, such as deleting a goal or a bulk change: the tool
   call waits for the desktop prompt;
 - revokes a device;
+- refuses a pairing;
 - mints a pairing code;
 - allows an agent's grant;
 - switches `agents:grant` on for an agent.
@@ -359,9 +394,15 @@ call filter asks it for every tool `tasks:admin` serves, after the scope and arg
 checks. A cancelled or unavailable prompt refuses the call, the audit records the
 refusal, and nothing changes. The sync client asks it before minting a pairing code
 and before revoking a device, and sends neither unconfirmed. The desktop head alone
-composes that step-up. Refusing a pairing, the "Pair it?" answer, revokes the device
-that redeemed the code without a prompt: it shuts out a device nobody trusted yet, and
-the answer may come from the phone while nobody is at the desktop.
+composes that step-up.
+
+*Refuse and Revoke ask for Windows Hello since 2026-11-24, by PR #1971.* Refusing a
+pairing, the "Pair it?" answer, asks too. That prompt expires after 2 minutes, so
+the answers queued behind it are not held. If the person declines it, Hello is
+unavailable, or it expires, nothing is deleted: the device stays paired, the pairing
+ends, and a Warning alert worded by the cause asks the person to refuse it again from
+Settings → Devices. That page lists the paired devices and offers Revoke, through
+Windows Hello, on the rows this desktop paired.
 
 ### 7. Devbook decisions are the person's
 
@@ -406,8 +447,8 @@ server** for it.
 The desktop listener stays bound to loopback. The person can revoke the connector's
 access from Settings.
 
-*Built 2026-11-18 by entries 21 (`authorization-server`) and 22 (`remote-mcp-endpoint`),
-not yet deployed.* The authorization server answers RFC 8414 metadata, an S256
+*Built 2026-11-18 by entries 21 (`authorization-server`) and 22 (`remote-mcp-endpoint`);
+it runs on the deployed sync service and is in use.* The authorization server answers RFC 8414 metadata, an S256
 authorization code grant for the one client `claude-connector`, the owner's GitHub
 sign-in, a consent page, and 15-minute access tokens whose audience is the configured
 `/mcp` resource. The resource server is `/mcp` on the sync service, stateless, behind a
@@ -420,6 +461,13 @@ the authorization server; a token without `inbox:capture` is a 403 `insufficient
 The one tool, `capture_to_inbox`, calls the handler behind `POST /api/sync/inbox` in
 process under the token's owner, so the capture is a `capture`-kind document (ADR 0009)
 filed under the channel `claude`, and the token goes no further.
+
+**The authorization server's errors take OAuth's shape, not Problem Details.** Its
+routes are protocol endpoints, so a failure answers RFC 6749's `{error,
+error_description}` body (§5.2), or an error on the redirect (§4.1.2.1), as a
+connector client reads them. This is a deliberate exception to guideline ADR 0017's
+Problem Details contract, scoped to those routes; the sync API keeps guideline ADR
+0017.
 
 ### 9. The Aspire web harness keeps no auth
 
@@ -498,17 +546,25 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
-| 2026-11-24 | Amended by local ADR 0059, proposed: §3, because a local call with no grant token can be admitted under the scopes the person opens on the Agents card's Unauthenticated row; §4, because the fallback-deny scope policies gain the `unauthenticated` principal; and §6, because widening that row asks for Windows Hello. | Claude Code in the Claude desktop app skips the `headersHelper`, so no desktop-app session could reach Backlog. |
+| 2026-11-25 | §8 records that the authorization server's routes answer RFC 6749 errors, an exception to guideline ADR 0017. | Entry 21 built it that way and no record said so. Plan `zero-trust-auth` entry 27. |
+| 2026-11-24 | §2's answer identity: the owner's notification exchange rejects a reply from a device not paired now before it accepts it, and the notification stays Open. | The question's notification stays answerable by a paired device; the relay's own check stays as defence in depth. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | §6: refusing a pairing asks for Windows Hello, its prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device and raises a Warning alert worded by the cause. Settings → Devices lists paired devices with a Hello-gated Revoke on the rows this desktop paired. This reverses the 2026-11-18 choice to refuse without a prompt. | The person decided it in the final-check flow-code run. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | §4: `inbox:capture` serves `capture_to_inbox` on the desktop listener as well as on §8's `/mcp`. | A personal assistant on the desktop captures through the same tool as the remote connector. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | §3 and §5: the `BACKLOG_MCP_TOKEN` escape hatch no longer holds `telemetry:write` or `agents:grant`, and `request_access` passes `mcp:requester`, which needs a scope beyond `telemetry:write` and `notify:ask`. The `backlog-tools` scripts call under the Telemetry and Manager grants. | A leaked Telemetry block calls no tool, and only the Telemetry grant reaches `/v1/logs`. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | §2: spent assertion ids live in the `assertionReplays` Cosmos container, and a store fault mints nothing. | A restart or a second revision must not reopen a replay. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | §1: the owner id is the pinned `Owner:OwnerId`, else derived from the GitHub user id; a deployed service with no pin refuses enrolment while another owner's devices exist. | The owner id must be the same on every start and on every revision. Plan `zero-trust-auth` final check, PR #1971. |
+| 2026-11-24 | Amended by local ADR 0059, accepted and built 2026-11-24: §3, because a local call with no grant token can be admitted under the scopes the person opens on the Agents card's Unauthenticated row; §4, because the fallback-deny scope policies gain the `unauthenticated` principal; and §6, because widening that row asks for Windows Hello. | Claude Code in the Claude desktop app skips the `headersHelper`, so no desktop-app session could reach Backlog. |
 | 2026-11-19 | Renumbered from 0052 to 0058, with every citation of it. Main took 0052 for the Brain note links and 0053 to 0055 while plan `zero-trust-auth` ran; 0056 and 0057 are held by open branches. Merging main also mapped its new tools — `report_schedule_run` and `check_in` to `runs:write`, `read_iterations` to `tasks:read`, `list_brain_reviews` to `devbook:read`, `capture_to_inbox` to `inbox:capture`, `add_knowledge_event` to `tasks:write` — and its `/schedule-runs` route to `runs:write`. | Two decisions cannot share a number. |
 | 2026-11-18 | Built §2's answer identity: an answer to an agent's question keeps the device the sync service stamped from the poster's token, and the question relay hands it to the hook or the Manager only while that device is in the owner's device list, or is this desktop. An answer from a revoked or unknown device is dropped and audited as a `dropped answer`. | Plan `zero-trust-auth` entry 20, Phase 2. |
 | 2026-11-18 | Built §8's resource server: `/mcp` on the sync service accepts only connector tokens for its own audience and the current client generation, challenges with its RFC 9728 metadata, and serves `capture_to_inbox` under `inbox:capture` alone, writing a capture document to the replica. | Plan `zero-trust-auth` entry 22, Phase 3. |
 | 2026-11-18 | Built §6's step-up: every `tasks:admin` tool, minting a pairing code and revoking a device ask for Windows Hello, and a cancelled or unavailable prompt refuses the act. Refusing a pairing revokes without a prompt. The tool call waits for the desktop prompt instead of using MCP elicitation, and the web harness and the phone ask nothing. | Plan `zero-trust-auth` entry 19, Phase 2. |
 | 2026-11-18 | Built §2 on the phone: a non-exportable P-256 key in Android Keystore, StrongBox first, signs the same `private_key_jwt` assertion as the desktop. A phone paired on a credential moves onto the key at its next sync and deletes the credential. | Plan `zero-trust-auth` entry 18, Phase 2. |
-| 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch` alone, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
+| 2026-11-15 | Settled the migration's grants: Backlog delivery gains `devbook:write` and `ui:open`, a Manager grant holds `sessions:dispatch`, `tasks:read` and `tasks:write`, and an install migrated before gets both once. The Dev PC row registers through the headers helper, and the rewrite of Claude Code's files keeps a concurrent write. | Plan `zero-trust-auth` entry 9b; the person chose a Manager grant over giving the delivery grant `sessions:dispatch`. |
 | 2026-11-13 | Built §5's granter agents: `list_agent_requests`, `grant_agent`, `edit_agent_scopes` and `revoke_agent` under `agents:grant`, held by the access desk to its five rules. Delegated grants expire after 7 days unless renewed, mint only within the granter's scopes, and are revoked in the granter's write. Switching `agents:grant` on asks for Windows Hello, and delegated rows sit under their granter. | Plan `zero-trust-auth` entry 12, Phase 1. |
 | 2026-11-12 | Built §5's self-registration: `--register` makes a pending grant that mints no token, `--request` and `request_access` open or focus the request window, and the waiting request shows on the MCP server page, its badge and an alert. The limits are one per name, five open and a day after a decline. Allow asks for Windows Hello, and no pipe command or tool answers a request. | Plan `zero-trust-auth` entry 11, Phase 1. |
 | 2026-11-12 | Retired the shared, question-hook and telemetry tokens: the app creates its three grants on start, rewrites the registrations that carry a retired token to the headers helper, and drops the tokens. `BACKLOG_MCP_TOKEN` is accepted only under a hand-edited debug setting. | Plan `zero-trust-auth` step `remove-settings-token`, Phase 1. |
 | 2026-11-12 | Built §3's Agents card on the MCP server page in the Bearer token card's place: rows with role, source, last use and scopes, switches that store on change and raise the grant's version, Revoke confirmed in place, and Add agent with its registration. | Plan `zero-trust-auth` entry 10, Phase 1. |
 | 2026-11-12 | Built §4's scopes: one named policy per scope under fallback-deny, per tool and per route, a principal on every admitted request, and an audit record naming the grant. `devbook:decide` is in no grant, token or policy. | Plan `zero-trust-auth` entry 8, Phase 1. |
+| 2026-11-11 | Accepted, when PR #1753 merged into `plan/zero-trust-auth`. | The owner accepted the record as of that merge. |
 | 2026-11-11 | Built §3's token broker and grants beside the shared token: a named pipe for the person's SID alone mints 15-minute JWTs, and the listener refuses one older than its grant's version. Scopes are not enforced yet. | Plan `zero-trust-auth` entry 7, Phase 1. |
 | 2026-11-11 | Proposed: the owner is one GitHub account matched by numeric id, devices hold hardware-bound keys, agents hold grants with 15-minute scoped tokens, Windows Hello confirms what is hard to undo, devbook decisions are human-only, and remote MCP goes through OAuth 2.1 on the sync service. Amends ADR 0012 §1, 0043 §7 and 0044 §6, and retires ADR 0030 §6's exception. | The always-on listener's one plaintext token opened every tool, including approving an agent's own devbook change. |

@@ -99,7 +99,7 @@ never reads the first's. None may sit under the workspace root: a per-machine ca
 
 The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, which `AppDataPaths` in `Backlog.SharedKernel` names. `Backlog` is shared by every build, so a Debug head reads the same settings as the installed app. `Backlog.Debug` in a Debug build, and `Backlog` in a Release one, holds the files a Debug head must never share, such as the workspace pointer, the device identity, the feature flags and the logs. A store whose file sits at one fixed path and is written synchronously reads and writes it through `JsonFileStore<T>`. A missing, locked or corrupt file reads as the store's default. A refused write keeps the change for the session and returns the store's own message. An empty document deletes the file. `ShellNavigationStore` and `ShellWindowStore` read through it and write through their queue. Other stores keep their own code, with the reason in a comment beside the class. The reasons include a write through a temporary file and a move, a value sealed with DPAPI, a root that can move, a copy kept as raw text (`StampedJsonFile`), and a project without a shared-kernel reference.
 
-- **Nine containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
+- **Eleven containers in the cloud.** Seven are replicas, all partitioned on `/ownerId`:
   - `tasks`
   - `sessions`
   - `annotations`
@@ -108,7 +108,10 @@ The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, whic
   - `notifications`
   - `notificationReplies`
 
-  They are separate because each wants its own change feed, indexing policy and retention, and serverless billing has no per-container charge. `devices` and `pairingCodes` hold the device registry. They are not replicas, since no change feed is read from them. They are partitioned on `/id`, because the read on every token mint has only the device id in hand.
+  They are separate because each wants its own change feed, indexing policy and retention, and serverless billing has no per-container charge. Four are not replicas, since no change feed is read from them, and all four are partitioned on `/id`:
+  - `devices` and `pairingCodes` hold the device registry. The read on every token mint has only the device id in hand.
+  - `connectorCredentials` holds the remote connector's client and refresh tokens (local ADR 0058 §8).
+  - `assertionReplays` holds the spent device assertions (local ADR 0058 §2).
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
   annotation tombstones after 180 days, stamped on each tombstone. It expires
   whole session records after 12 months, set on the `sessions` container. It
@@ -470,8 +473,10 @@ These parts are built:
   `backlog.sync.push_failed`, tagged with the call that failed. No log line holds
   an FCM token.
 - **Who may answer.** The sync API accepts a reply only from a device under the
-  same owner, and the owner checks again. Any paired viewer may answer, critical
-  questions included, unless the question says `answerOn: owner`.
+  same owner, and the owner checks again. The owner also rejects a reply from a
+  device not paired now (`reply.unpaired_device`), and the notification stays Open.
+  Any paired viewer may answer, critical questions included, unless the question
+  says `answerOn: owner`.
 - **The flag is per device.** Off on a phone means no push and no Notifications tab. Off on a
   desktop means its sources fall back to toasts, and an MCP `ask` answers that
   notifications are not available.
@@ -570,18 +575,18 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
+related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 ```
 
-Local ADR 0058 decides how each principal proves itself. It is partly built, and
-each item below says where the code stands.
+Local ADR 0058 decides how each principal proves itself. It is built, and the table
+says how each principal is proven today.
 
 | Principal | Proven by | Today |
 | --- | --- | --- |
-| The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Registration is anonymous |
+| The owner | GitHub sign-in, matched by numeric user id, at first-device enrolment and recovery only | Built: a sign-in whose id is not the owner's gets no code. A deployed service with no pinned `Owner:OwnerId` refuses enrolment while another owner's devices exist |
 | A device | A non-exportable key (TPM through CNG, Android Keystore), exchanged by `private_key_jwt` | Built on Windows and Android; a device paired on a stored credential moves onto its key at its next sync |
 | A local agent | A grant; a named-pipe token broker mints 15-minute JWTs with scopes | Built |
-| A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Built, not yet deployed: the authorization server and `/mcp`, serving `inbox:capture` |
+| A remote agent | OAuth 2.1 on the sync service, one static client for the claude.ai connector | Built and running on the deployed sync service: the authorization server and `/mcp`, serving `capture_to_inbox` |
 
 - **No account is required** for personal use in standalone mode. The desktop app
   has no sign-in: the Windows session is the person's identity there.
@@ -598,11 +603,14 @@ each item below says where the code stands.
 - **The MCP listener checks scopes, not one token.** Each tool group requires a scope
   under fallback-deny, behind the loopback `Origin` check, and every call is audited.
   This is built: every tool and route requires a scope by a named policy, and the audit
-  names the grant. The listener takes grant tokens only: a named pipe for the person's SID
+  names the grant. The listener takes grant tokens: a named pipe for the person's SID
   mints a grant's 15-minute JWT, and the listener refuses one older than its grant's version.
-  The shared, question-hook and telemetry tokens are retired, and `settings.json` holds
-  only grant ids. A debug setting can let the listener accept `BACKLOG_MCP_TOKEN`; it is off
-  by default.
+  A call with no token gets the scopes of the Agents card's Unauthenticated row, which are
+  none by default (local ADR 0059). The shared, question-hook and telemetry tokens are
+  retired, and `settings.json` holds only grant ids. A debug setting can let the listener
+  accept `BACKLOG_MCP_TOKEN`. It is off by default, and that caller holds neither
+  `telemetry:write` nor `agents:grant`. `request_access` needs a scope beyond
+  `telemetry:write` and `notify:ask`.
   The audit is built already: one record per tool call the listener admits, in a per-installation
   `mcp-audit.db`, kept 30 days, the latest 200 on the MCP server Settings page.
   A limit on failed bearer attempts is built too: ten within 60 seconds answer every bearer
@@ -613,8 +621,10 @@ each item below says where the code stands.
   expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0058 §5
   has the rules.
 - **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
-  device, minting a pairing code, allowing an agent's grant, and switching
-  `agents:grant` on. A transition to Done asks for none.
+  device, refusing a pairing, minting a pairing code, allowing an agent's grant,
+  switching `agents:grant` on, and widening the Unauthenticated row (local ADR 0059).
+  The Refuse prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device
+  and raises an alert. A transition to Done asks for none.
 - **Devbook decisions are human-only.** Approve and accept are not served over MCP,
   and `devbook_set_state` over MCP accepts `draft` only.
 - **The Aspire web harness keeps no auth**, because it is not the installed app.

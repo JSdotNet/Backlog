@@ -376,6 +376,7 @@ The system SHALL accept the first valid reply the owner processes and reject eve
 
 ```meta
 type: requirement
+related: [.devbook/domain/notifications/domain.invariants.md#invariant-a-reply-comes-from-a-device-paired-now]
 ```
 
 The system SHALL accept a valid reply from any paired viewer instance, critical questions included, unless the question says `answerOn: owner`.
@@ -385,6 +386,12 @@ The system SHALL accept a valid reply from any paired viewer instance, critical 
 - **Given** an Open question that says `answerOn: owner`
 - **When** the person replies on the phone
 - **Then** the owner rejects the reply, and the question stays Open until it is answered on Desktop A
+
+#### Scenario: A reply from a revoked device leaves the question open
+
+- **Given** an Open question, and a phone the person revoked after it pulled the question
+- **When** the phone's reply reaches Desktop A
+- **Then** the owner rejects the reply because the phone is not paired now, and the question stays Open for a paired device to answer
 
 ### Requirement: An invalid reply can be sent again
 
@@ -737,16 +744,22 @@ The system SHALL ask "*run* · Approve or revise" with the run's gate handoff as
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_device_this_desktops_code_paired_is_asked_about_here_only_as_allow_or_refuse, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Refuse_revokes_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Allow_keeps_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_redeemed_in_its_last_seconds_is_still_asked_about, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.The_probe_calls_a_pairing_ended_only_when_this_process_saw_it_end, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_refusal_replayed_after_a_restart_revokes_from_the_source_key_and_a_device_already_gone_counts]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_device_this_desktops_code_paired_is_asked_about_here_only_as_allow_or_refuse, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Refuse_revokes_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Allow_keeps_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_redeemed_in_its_last_seconds_is_still_asked_about, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.The_probe_calls_a_pairing_ended_only_when_this_process_saw_it_end, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_refusal_replayed_after_a_restart_revokes_from_the_source_key_and_a_device_already_gone_counts, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_confirmed_refusal_revokes_the_device, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_refusal_the_person_did_not_confirm_is_never_sent, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_refusal_nobody_confirms_in_time_expires_and_is_never_sent, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_refusal_not_confirmed_keeps_the_device_and_asks_to_refuse_it_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.The_not_refused_alert_is_worded_by_why_Windows_Hello_did_not_confirm]
 ```
 
-The system SHALL ask "Pair *device name*?" with Allow and Refuse, answerable only on the desktop whose pairing code the device redeemed, and SHALL revoke the device when the answer is Refuse.
+The system SHALL ask "Pair *device name*?" with Allow and Refuse, answerable only on the desktop whose pairing code the device redeemed, and SHALL revoke the device when the answer is Refuse and Windows Hello confirms it. Otherwise the device stays paired, and a Warning alert asks the person to refuse it again.
 
 #### Scenario: A device the person does not know
 
 - **Given** Desktop A shows a pairing code
-- **When** a device called "Unknown" redeems it, and the person answers Refuse on Desktop A
+- **When** a device called "Unknown" redeems it, and the person answers Refuse on Desktop A and confirms it with Windows Hello
 - **Then** the device is revoked, and the pairing ends
+
+#### Scenario: A refusal Windows Hello does not confirm
+
+- **Given** a device called "Unknown" redeemed Desktop A's code, and the person answered Refuse
+- **When** the person cancels the Windows Hello prompt, or nobody answers it within 2 minutes
+- **Then** the device stays paired, the pairing ends, and a Warning alert worded by the cause asks the person to refuse it again from Settings → Devices
 
 ### Requirement: A remark left elsewhere raises an alert
 
