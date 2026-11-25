@@ -13,8 +13,16 @@ public interface IUserConsent
 {
     /// <summary>Asks the person to confirm, showing <paramref name="message"/>, and answers how
     /// it ended. Never throws for a person who cancels or a device with no Hello: those are
-    /// outcomes.</summary>
+    /// outcomes. The host may answer from a confirmation it remembers — the desktop's
+    /// <see cref="RememberedUserConsent"/> — so use it for acts the person starts at the desk.</summary>
     Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default);
+
+    /// <summary><see cref="VerifyAsync"/>, always shown: never answered from a remembered
+    /// confirmation, and never opening a window for later checks (local ADR 0058 §6). For an act
+    /// the person did not start at the desk — an agent's <c>tasks:admin</c> call, a Refuse
+    /// answered on the phone. No default body: a decorator that forgot it would otherwise
+    /// forward to its own <see cref="VerifyAsync"/> and answer from a remembered confirmation.</summary>
+    Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default);
 }
 
 /// <summary>How a <see cref="IUserConsent.VerifyAsync"/> ended.</summary>
@@ -39,5 +47,9 @@ public sealed class UnavailableUserConsent : IUserConsent
 {
     /// <inheritdoc />
     public Task<UserConsentOutcome> VerifyAsync(string message, CancellationToken cancellationToken = default) =>
+        Task.FromResult(UserConsentOutcome.NotAvailable);
+
+    /// <inheritdoc />
+    public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
         Task.FromResult(UserConsentOutcome.NotAvailable);
 }
