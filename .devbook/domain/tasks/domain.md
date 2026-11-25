@@ -941,11 +941,13 @@ whose time has passed reads as overdue until it is cleared.
 ```meta
 type: term
 aliases: [in_my_day_on, myday, InMyDay]
-related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/roadmap/domain.md#roadmap-item]
 ```
 
-The set of tasks a person picked to work on today. It is held as the date a task
-was picked for, not as a flag. Membership is derived when My Day is read, from that
+The set of tasks and plans a person picked to work on today. It is held as the date a
+task, or a plan's [Roadmap Item](../roadmap/domain.md#roadmap-item), was picked for,
+not as a flag. A plan's date lives on its item in Roadmap Planning and is read here by
+the same rule (local ADR 0062); this context never writes it. Membership is derived when My Day is read, from that
 date, the reader's current local date and the person's
 [Clear My Day overnight](context.md#clear-my-day-overnight) setting. Nothing
 rewrites the date when a day passes.

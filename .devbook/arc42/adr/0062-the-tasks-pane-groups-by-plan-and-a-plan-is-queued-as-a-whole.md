@@ -1,0 +1,204 @@
+# ADR 0062: The Tasks pane groups by plan, and a plan is queued only as a whole
+
+```meta
+date: 2026-11-25
+related: [".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#plans-view", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/requirements.md#plans-view", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+c4: [backlog.desktop.tasks]
+c4-touches: [backlog.desktop.sessions, backlog.desktop.roadmap, backlog.mobile]
+```
+
+The Tasks pane opens on **Plans**: a rail of plans beside a column that shows one plan
+by Now, Next and Later, with the session queue docked beside the list. **Flat** keeps
+the unplanned entries. A plan is queued only as a whole, and each of its entries shows
+the state the plan's run gives it. A plan can be put on My Day by a My Day date on its
+Roadmap Item.
+
+## Status
+
+```meta
+```
+
+Proposed, 2026-11-25. Not yet built; the later entries of the plan `+plan-first-tasks`
+build it.
+
+A **local** decision, numbered in the local sequence. 0061 is taken by the agent change
+journal on its plan branch. Every bare ADR number below means the local one.
+
+The person settled the design on the boards of the design canvas "Plan-based task
+list": *Tasks — by plan, with the queue docked*, *Row states — entry ↔ queue*, *Tasks —
+flat list, queue docked*, *One plan — dependency waves* and *My Day — plans and tasks
+for today*. Its three *Alt* boards are the rejected alternatives below. The My Day
+board's *Suggested* group is not part of the decision: My Day shows no suggestions.
+
+## Context
+
+```meta
+```
+
+**The list is flat, and most of it is plans.** Of 258 open entries on the design's
+sample, 86 belong to a plan. A plan shows only as a chip on the filter bar's tag strip,
+so the person reads a plan's progress by pressing its chip and counting rows.
+
+**A plan runs unattended, but its entries can each be queued.** `execute-plan` runs a
+plan's prompt entries in nested sessions that ask nothing and land on the plan branch
+(ADR 0038, `plugins/backlog-tools/skills/execute-plan/SKILL.md`). An entry of the plan
+queued on its own starts a second session on the same work, outside the plan's order.
+
+**The queue hides in a popover.** The session queue is a count on the filter bar that
+opens a list (ADR 0038). What needs the person, a question or a validation, is one
+click away and easy to miss.
+
+**My Day holds tasks only.** A person who wants to work a plan today picks its entries
+one by one (ADR 0032's rule is per task).
+
+## Decision
+
+```meta
+```
+
+### 1. A Plans / Flat switch, opening on Plans
+
+```meta
+```
+
+The Tasks pane gains a **Plans / Flat** switch. It opens on Plans the first time and is
+remembered per window, as the window's other view choices are (ADR 0043). The Board and
+the Calendar are unchanged.
+
+### 2. The Plans view
+
+```meta
+```
+
+- **The plan rail** lists, top to bottom: My Day; Now across plans, the entries in a
+  session in any plan; each plan with a thin progress line, `done/total` and its run
+  state as text; and Unplanned with its count.
+- **The main column** shows the selected plan expanded in three groups:
+  - **Now**: its entries in a session, each with the session and its stage.
+  - **Next**: its ready entries, queued with the plan when the plan is queued.
+  - **Later**: one line for the waiting entries, naming what unlocks next, and one line
+    for the done ones.
+- The other plans follow, folded to one line each, then the unplanned entries.
+- A plan here is a [Roadmap Tag](../../domain/roadmap/domain.md#roadmap-tag) the
+  entries in view carry. Its run state comes from its session request and its plan
+  session: Running, Queued with its place, Blocked, Draft, or how many entries are
+  ready.
+
+### 3. The Flat view lists unplanned work
+
+```meta
+```
+
+Flat lists the entries in no plan, plus a plan entry the person put on My Day. The other
+plan entries live under Plans only.
+
+### 4. A plan is queued only as a whole
+
+```meta
+```
+
+Queuing a plan sets a **plan entry state** on each of its entries:
+
+| State | When |
+| --- | --- |
+| Queued with plan | The plan is queued and the entry is ready. |
+| In plan session | A plan session runs the entry. |
+| Held for you | A Read-first source the entry names cannot be read, so the run holds it. |
+| Left for you | A `test` or `task` entry: the run never does it. |
+| Landed | Its pull request merged into the plan branch. |
+
+An entry's own queue button is disabled on a plan entry, with a tooltip saying to queue
+the plan. An unplanned prompt entry keeps its own queue button. Plan sessions run
+unattended and ask nothing (ADR 0038).
+
+### 5. Rows
+
+```meta
+```
+
+In the Tasks pane only, a row shows its status as coloured text instead of a pill, and
+ends in two small icon buttons: copy, shown on hover, and queue. Every other badge stays
+as it is. The Board's cards keep their pill.
+
+### 6. The session queue is a docked column
+
+```meta
+```
+
+The session queue becomes a column docked beside the list, in this order:
+
+- **Needs you**: a session's question, with Answer; a draft awaiting validation, with
+  Dismiss and Validate.
+- **Running**, with Cancel on hover.
+- **Up next**, reordered with Move up and Move down and with Alt+arrows, as today.
+- **Landed today**.
+- **Pause**, and **Long-running agents**, as today.
+
+At 48rem wide or narrower the column folds back into today's popover on the filter bar.
+Selecting a queue item filters the list to it: an entry request to that entry, a plan
+request to that plan.
+
+### 7. One plan's waves view
+
+```meta
+```
+
+Opening one plan shows its entries in columns by dependency depth, the first wave the
+entries that wait on nothing in the plan. A **Waves / List** toggle switches to its rows.
+A run line names the plan branch the run lands on.
+
+### 8. A plan on My Day
+
+```meta
+```
+
+A plan is put on My Day by a My Day date on its
+[Roadmap Item](../../domain/roadmap/domain.md#roadmap-item). The date rides the roadmap
+plan document that already rides the task feed (ADR 0018), so no new document kind is
+needed. Whether the plan is in today's My Day follows exactly the task rule and the
+existing Clear My Day overnight setting (ADR 0032). Putting a plan tag with no Roadmap
+Item on My Day creates its item.
+
+On the desktop, a plan in My Day shows its progress, its run state, and only the entries
+left for you, held, or awaiting validation. The phone's Today tab shows the plan as one
+line, without its entries. My Day shows no suggestions.
+
+## Consequences
+
+```meta
+```
+
+- **A plan's entries can no longer run out of order** from the Tasks pane: the only way
+  to start one is the plan's run.
+- **An entry that must run alone has to leave its plan** first.
+- **The roadmap plan document grows one field per item,** the My Day date. A device on
+  an older build keeps the field it does not read, since the document travels whole.
+- **The phone reads the roadmap plan document** for the first time, for the plan's one
+  line on Today.
+- **The queue takes width from the list** above 48rem, which the open entry also needs.
+- **The plan entry state is derived,** from the plan's request, its run and each entry's
+  pull request; nothing new is stored on the entry.
+
+## Rejected
+
+```meta
+```
+
+- **Quiet groups, with the queue in the status bar.** The plans read as groups of the
+  flat list, and the queue shrinks to a count again: what needs the person stays hidden.
+- **A plans index that opens one plan at a time.** Seeing the other plans means leaving
+  the one open, and the unplanned work has no home on the same screen.
+- **An attention feed whose order is the queue.** It mixes plans and entries into one
+  stream, and loses the plan's own progress.
+- **Queuing a plan entry on its own.** It starts a second session on the plan's work,
+  outside its order and off its branch.
+- **Suggestions on My Day.** My Day is the person's choice for today.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-11-25 | Proposed: Plans / Flat switch, plan rail with Now / Next / Later, plans queued whole with a state per entry, status as text on the rows, the queue docked, a plan's waves view, and a plan on My Day through its Roadmap Item. | The plan-first design the person settled for `+plan-first-tasks`. |

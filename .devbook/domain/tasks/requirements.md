@@ -9,7 +9,7 @@ related: [.devbook/domain/tasks/features.md]
 
 ```meta
 type: requirements
-related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/context.md#clear-my-day-overnight, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 > A carried task is defined under [My Day](domain.md#my-day).
@@ -281,6 +281,90 @@ A device that never set Clear My Day overnight SHALL read it as on and send noth
 - **Given** no desktop has ever set Clear My Day overnight and an open task was picked for yesterday
 - **When** the phone opens Today
 - **Then** the task is not in today's My Day
+
+### Requirement: A plan is in My Day by the task rule
+
+```meta
+type: requirement
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day date by the rule a task's date is read, under the same Clear My Day overnight setting.
+
+#### Scenario: A plan picked today
+
+- **Given** the person put the plan `+zero-trust-auth` on My Day today
+- **When** the person opens My Day on the desktop
+- **Then** the plan is listed among today's plans
+
+#### Scenario: A plan picked yesterday with the switch on
+
+- **Given** Clear My Day overnight is on and the plan `+finance-setup` was put on My Day yesterday with entries still open
+- **When** the person opens My Day today
+- **Then** the plan is not in today's My Day
+
+#### Scenario: A plan picked yesterday with the switch off
+
+- **Given** Clear My Day overnight is off and the plan `+finance-setup` was put on My Day yesterday with entries still open
+- **When** the person opens My Day today
+- **Then** the plan is in today's My Day as a carried plan
+
+### Requirement: A plan tag with no Roadmap Item gets one on My Day
+
+```meta
+type: requirement
+related: [.devbook/domain/roadmap/domain.md#roadmap-item]
+```
+
+The system SHALL create a Roadmap Item carrying the tag and today's My Day date when the person puts a plan tag that no Roadmap Item carries on My Day.
+
+#### Scenario: A tag only entries carry
+
+- **Given** entries carry the plan tag `+lets-bbq-setup` and no Roadmap Item carries it
+- **When** the person puts `+lets-bbq-setup` on My Day
+- **Then** the roadmap holds an item with the tag `lets-bbq-setup`, today's My Day date and no window, and the plan is in today's My Day
+
+### Requirement: A plan on My Day shows only what is left for the person
+
+```meta
+type: requirement
+```
+
+The desktop's My Day SHALL show a plan in it with its progress and run state and only those of its entries that are left for the person, held for the person, or awaiting validation.
+
+#### Scenario: A running plan on My Day
+
+- **Given** the plan `+zero-trust-auth` is on today's My Day and running, with 8 of 24 entries done, three in a plan session, one test entry left for the person and one entry held on an unreadable source
+- **When** the person opens My Day on the desktop
+- **Then** the plan shows "8 of 24" and "Running · unattended", and lists only the test entry and the held entry
+
+### Requirement: The phone shows a plan on Today as one line
+
+```meta
+type: requirement
+```
+
+The phone's Today SHALL show each plan in today's My Day as one line, without its entries.
+
+#### Scenario: A plan and tasks on Today
+
+- **Given** the plan `+zero-trust-auth` and three tasks are in today's My Day
+- **When** the phone opens Today after its next pull
+- **Then** Today shows the plan as one line and none of its entries, and the tasks in their groups
+
+### Requirement: My Day offers no suggestions
+
+```meta
+type: requirement
+```
+
+My Day SHALL list only the tasks and plans the person picked for it, and SHALL suggest none.
+
+#### Scenario: Ready work not picked
+
+- **Given** several ready entries and plans, none picked for today
+- **When** the person opens My Day
+- **Then** My Day lists none of them and shows no suggestion group
 
 ## Linked tasks
 
@@ -863,6 +947,112 @@ The system SHALL keep the next occurrence of a repeating task when the occurrenc
 - **Given** a weekly task the person ticked off, which now has its next occurrence
 - **When** the person unticks it
 - **Then** the next occurrence is still in the backlog
+
+## Plans view
+
+```meta
+type: requirements
+related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+> Local ADR 0062 decides these requirements. None is built yet.
+
+### Requirement: The Tasks list opens on Plans and remembers the switch
+
+```meta
+type: requirement
+```
+
+The Tasks list SHALL open on Plans in a window that never chose, and SHALL reopen each window on the Plans or Flat choice it last made.
+
+#### Scenario: The first open
+
+- **Given** a window that has never chosen Plans or Flat
+- **When** the person opens Tasks
+- **Then** the Plans view is shown
+
+#### Scenario: Flat is remembered
+
+- **Given** the person switched a window to Flat
+- **When** the app is restarted and the window opens Tasks again
+- **Then** the Flat view is shown
+
+### Requirement: The plan rail lists each plan with its progress and run state
+
+```meta
+type: requirement
+```
+
+The Plans view SHALL list on its rail My Day, Now across plans, each plan with a progress line, its done and total entry counts and its run state as text, and Unplanned with its count, in that order.
+
+#### Scenario: Plans in view
+
+- **Given** the plan `+zero-trust-auth` has 8 of 24 entries done and a running plan session, the plan `+gtd-para` is queued second, and 172 open entries carry no plan
+- **When** the person opens the Plans view
+- **Then** the rail lists My Day, Now across plans, `zero-trust-auth` with "8/24" and "Running", `gtd-para` with "Queued 2nd", and Unplanned with 172
+
+### Requirement: The selected plan reads as Now, Next and Later
+
+```meta
+type: requirement
+```
+
+The Plans view SHALL show the selected plan's entries in a session under Now, its ready entries under Next, and under Later one line for its waiting entries naming what unlocks next and one line for its done entries, followed by every other plan folded to one line and then the unplanned entries.
+
+#### Scenario: A plan mid-run
+
+- **Given** the plan `+zero-trust-auth` has three entries in a session, three ready, ten waiting of which #20 waits on #14 and #17, and eight done
+- **When** the person selects it on the rail
+- **Then** Now lists the three entries in a session with their stages, Next lists the three ready ones, Later reads "10 waiting — next to unlock: #20 when #14 and #17 land" and "8 done" on two lines, and the other plans follow folded to one line each before Unplanned
+
+### Requirement: The Flat view lists the unplanned work
+
+```meta
+type: requirement
+```
+
+The Flat view SHALL list the entries that carry no plan and the plan entries in today's My Day, and no other plan entry.
+
+#### Scenario: A plan entry on My Day
+
+- **Given** an unplanned task, a `+zero-trust-auth` entry in today's My Day and a `+zero-trust-auth` entry not in it
+- **When** the person switches to Flat
+- **Then** the list holds the unplanned task and the My Day plan entry, and not the other plan entry
+
+### Requirement: A plan's waves follow its dependencies
+
+```meta
+type: requirement
+related: [.devbook/domain/tasks/features.md#task-dependencies]
+```
+
+A plan's own view SHALL place each of its entries one wave after the latest wave among the plan entries it waits on, and the entries waiting on none of them in the first wave, and SHALL name the plan branch the run lands on.
+
+#### Scenario: Three waves
+
+- **Given** the plan `+zero-trust-auth` where #9 waits on #1, #14 waits on #9, and #1 waits on nothing
+- **When** the person opens the plan's view
+- **Then** #1 is in wave 1, #9 in wave 2, #14 in wave 3, and the run line reads "Lands on plan/zero-trust-auth"
+
+#### Scenario: The list instead of waves
+
+- **Given** the plan's view shows its waves
+- **When** the person presses List on the Waves / List toggle
+- **Then** the plan's entries show as rows
+
+### Requirement: A row shows its status as text and ends in copy and queue
+
+```meta
+type: requirement
+```
+
+A row in the Tasks list SHALL show its status as coloured text rather than a pill, and SHALL end in a copy button shown while the row is hovered or focused and a queue button, keeping every other badge it carries.
+
+#### Scenario: Hovering a row
+
+- **Given** a Ready prompt entry with a plan badge and an effort badge, not hovered
+- **When** the person hovers its row
+- **Then** the row reads "Ready" as text with both badges, and shows the copy button beside its queue button
 
 ## Manual ordering
 

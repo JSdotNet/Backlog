@@ -294,6 +294,9 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 > filter chip. The filter bar's session queue lists every open request, lets the person
 > order the Requested ones, warns when no dispatcher has been heard, and pauses and resumes the queue. The dispatcher side is the wait route and the claim,
 > mark and list tools a Manager session uses.
+>
+> Local ADR 0062 adds the plan-entry, docked-queue and queue-filter requirements below,
+> not yet built.
 
 ### Requirement: Only a click in the app requests a session
 
@@ -445,14 +448,14 @@ The system SHALL mark a Started request Linked when the session its dispatcher r
 - **When** that session calls `link_session` on the entry
 - **Then** the request is Linked and the entry shows the session instead of the waiting request
 
-### Requirement: Every open request is visible on the filter bar
+### Requirement: Every open request is visible in the session queue
 
 ```meta
 type: requirement
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Entry_and_plan_requests_share_one_queue_oldest_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_lists_the_claimed_and_started_requests_first_then_the_requested_with_repository_state_and_age, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_withdraws_the_entry_s_request_and_the_row_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.Cancel_in_the_panel_clears_a_Started_request_whose_session_never_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.Cancel_in_the_panel_clears_a_Started_plan_request_whose_session_never_linked, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_request_whose_session_never_linked_can_be_cancelled, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_Started_request_is_cancelled_and_leaves_the_open_ones]
 ```
 
-The system SHALL list every open entry and plan request in the filter bar's session queue, the Claimed and Started ones first and then the Requested ones in queue order, and mark each unpressed plan chip whose plan has one.
+The system SHALL list every open entry and plan request in the session queue, docked or folded onto the filter bar, the Claimed and Started ones first and then the Requested ones in queue order, and mark each unpressed plan chip whose plan has one.
 
 #### Scenario: A plan waits while its chip is let go
 
@@ -630,6 +633,84 @@ The system SHALL hand out no request on the wait route and refuse every claim wh
 - **Given** the queue is paused and a dispatcher's wait is held while a request is Requested
 - **When** the person presses Resume queue
 - **Then** the callout goes and the held call hands out the Requested request at the head of the queue
+
+### Requirement: A plan entry cannot be queued on its own
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+The system SHALL disable the queue icon of an entry whose plan a roadmap item carries, and SHALL queue that entry only through its plan's request.
+
+#### Scenario: A plan entry's row
+
+- **Given** a prompt entry of the plan `+zero-trust-auth`, which a roadmap item carries
+- **When** the person hovers the entry's queue icon
+- **Then** the icon is disabled and its tooltip reads "Queued with its plan — queue the plan as a whole"
+
+#### Scenario: An unplanned prompt
+
+- **Given** a prompt entry that carries no plan and names a repository with a clone folder
+- **When** the person presses its queue icon
+- **Then** a request for the entry is Requested
+
+### Requirement: A queued plan gives each entry its run state
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+The system SHALL show each entry of a queued plan as Queued with plan while it is ready and waits for the run, In plan session while a plan session runs it, Held for you while a Read-first source it names cannot be read, Left for you when it is a test or task entry, and Landed once its pull request merged into the plan branch.
+
+#### Scenario: A plan is queued
+
+- **Given** the plan `+zero-trust-auth` has a ready prompt entry, a test entry, and a prompt entry whose Read-first artifact cannot be read
+- **When** the person queues the plan and its run reaches them
+- **Then** the ready entry reads "Queued with plan" and then "In plan session", the test entry reads "Left for you", and the other reads "Held for you"
+
+#### Scenario: An entry lands
+
+- **Given** an entry reads "In plan session"
+- **When** its pull request merges into `plan/zero-trust-auth`
+- **Then** the entry reads "Landed"
+
+### Requirement: The queue docks beside a wide list
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+The session queue SHALL dock as a column beside the Tasks list, grouped as Needs you, Running, Up next and Landed today, with Pause queue and Long-running agents, while the pane is wider than 48rem, and SHALL fold into the filter bar's button at 48rem or narrower.
+
+#### Scenario: A wide pane
+
+- **Given** a session asked a question, a draft pull request awaits validation, two requests are Started, one is Requested, and one merged today, on a pane 90rem wide
+- **When** the person opens Tasks
+- **Then** the docked column shows the question with Answer and the draft with Dismiss and Validate under Needs you, the two under Running, the one under Up next, and the merge under Landed today
+
+#### Scenario: A narrow pane
+
+- **Given** the docked column is shown
+- **When** the pane narrows to 48rem
+- **Then** the column is gone and the filter bar ends in the session queue button, whose popover lists the same requests
+
+### Requirement: Selecting a queue item filters the list to it
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+```
+
+The system SHALL filter the Tasks list to a queue item's entry, or to its plan, when the person selects the item in the docked queue.
+
+#### Scenario: A plan in Up next
+
+- **Given** the plan `+gtd-para` waits under Up next
+- **When** the person selects it
+- **Then** the list shows only the entries of `+gtd-para`
 
 ### Requirement: The flag off offers no session requests
 

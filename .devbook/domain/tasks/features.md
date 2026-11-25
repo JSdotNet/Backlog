@@ -332,7 +332,7 @@ occurrence carries over.
 type: feature
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 setting: .devbook/domain/tasks/context.md#clear-my-day-overnight
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day, .devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/roadmap/domain.md#roadmap-item]
 ```
 
 Pick the tasks to work on today, separately from when they are due. A task
@@ -348,6 +348,14 @@ With it off, an unfinished task picked on an earlier day stays in today's My Day
 until the person ticks it off or takes it out. A task ticked off today stays,
 ticked, until the day ends. One ticked off on an earlier day is gone, and a task moved to tomorrow never shows today. The person sets the switch on the desktop,
 and every paired device follows it.
+
+A plan can be put on My Day too, by a My Day date on its
+[Roadmap Item](../roadmap/domain.md#roadmap-item) (local ADR 0062). The plan is in
+today's My Day by exactly the rule a task is, under the same Clear My Day overnight
+setting. Putting a plan tag that no Roadmap Item carries on My Day creates its item.
+On the desktop, the plan shows its progress, its run state, and only its entries left
+for you, held, or awaiting validation. The phone's Today tab shows the plan as one line
+above the task groups, without its entries. My Day offers no suggestions.
 
 A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
 a start time and a duration that place it in the day, such as 10:45 for 45
@@ -819,7 +827,8 @@ appears in the scope, the Board and the pickers is set by
 
 The filtered tasks can be read two ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it, and the
-[Board](#board-view). The two share one filter bar, one open task and one selection, so
+[Board](#board-view). Tasks reads by plan or flat, as the
+[Plans view](#plans-view) says. The two share one filter bar, one open task and one selection, so
 switching never loses what the reader narrowed to. The
 [Calendar](../calendar/features.md#calendar-view) is a surface of its own, under a header
 tab of its own, and shows the tasks as its [Tasks layer](#tasks-on-the-calendar). The
@@ -844,12 +853,59 @@ carries a copy button fused to its chip, which copies the plan tag verbatim,
 [queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
 copy, and the waiting chip takes its place while a request is open. Any other plan chip
 whose plan has an open request carries a waiting mark inside it, named in its tooltip.
-The bar ends with the
-[session queue](../sessions/features.md#start-a-session-from-an-entry), a count of
-every open request, muted at 0, that opens the list of them. **No plan** and
+The
+[session queue](../sessions/features.md#start-a-session-from-an-entry) is a column
+docked beside the list. At 48rem wide or narrower it folds back onto the end of the
+bar, as a count of every open request, muted at 0, that opens the list of them. **No plan** and
 the general tags offer no copy, and a plan offers none once it is let go. When
 the reader presses a plan further along the strip, the plan moves to the front
 with its copy, and the focus stays on the moved chip.
+
+### Plans view
+
+```meta
+type: sub-feature
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/requirements.md#plans-view, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
+```
+
+The Tasks list groups by plan. A **Plans / Flat** switch heads it, opening on Plans
+the first time and remembered per window, as the window's other view choices are
+(local ADR 0062). A plan here is a [Roadmap Tag](domain.md#roadmap-tag) the entries in
+view carry.
+
+**Plans** sets a plan rail beside the main column. The rail lists, top to bottom:
+
+- **My Day**, the plans and tasks picked for today;
+- **Now, across plans**, the entries in a session in any plan;
+- each plan, with a thin progress line, `done/total` and its run state as text, such
+  as `Running`, `Queued 2nd`, `Blocked` or `2 ready`;
+- **Unplanned**, with its count.
+
+The main column shows the plan selected on the rail, expanded in three groups:
+
+- **Now**: its entries in a session, each with the session and its stage.
+- **Next**: its ready entries, queued with the plan while the plan is queued.
+- **Later**: one line for the entries still waiting, naming what unlocks next, such
+  as "#20 when #14 and #17 land", and one line for the done ones.
+
+The other plans follow, folded to one line each, then the unplanned entries.
+
+**Flat** lists the entries in no plan, plus a plan entry the person put on
+[My Day](#my-day). Every other plan entry lives under Plans only.
+
+A plan is queued only as a whole, from its rail row or its own view, as
+[Start a session from an entry](../sessions/features.md#start-a-session-from-an-entry)
+says. Each of its entries then shows the state the plan's run gives it.
+
+**Opening one plan** shows its entries in columns by dependency depth, its waves. The
+first wave holds the entries that [wait on](#task-dependencies) nothing in the plan,
+and each next wave the entries whose last dependency is in the wave before. A **Waves /
+List** toggle switches to its rows, and a run line names the plan branch the run lands
+on, as `Lands on plan/zero-trust-auth · Unattended, asks nothing`.
+
+In the Tasks list a row shows its status as coloured text, not a pill. It ends in two
+small icon buttons: copy, shown while the row is hovered or focused, and queue. Every
+other badge on the row stays.
 
 ### Manual ordering
 
@@ -995,7 +1051,8 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 
 Queue a coding session that runs a prompt, in its repository's clone folder, without
 copying it. The queue icon sits beside the copy button, on the row and
-in the open entry. Pressing it creates a session request in the Sessions context, and the
+in the open entry. On a plan entry it is disabled: a plan is queued only as a whole
+(local ADR 0062). Pressing it creates a session request in the Sessions context, and the
 entry shows it is waiting for a session until the session links itself. The
 [Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
 offered it and what the waiting chip shows.

@@ -78,7 +78,7 @@ including those of the value objects below.
 ```meta
 type: entity
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet, .devbook/domain/tasks/features.md#my-day, .devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
 A single piece of planned work, identified by `roadmap_item_id`. It holds:
@@ -90,7 +90,8 @@ A single piece of planned work, identified by `roadmap_item_id`. It holds:
 - an optional [Task Link](#task-link) and a set of [Knowledge Refs](#knowledge-ref);
 - optional `notes`;
 - `placed_by_import`, when an import placed its window;
-- `completed_on`, the day a person completed it by hand, while it stays completed.
+- `completed_on`, the day a person completed it by hand, while it stays completed;
+- `in_my_day_on`, the day a person put the plan on [My Day](../tasks/domain.md#my-day).
 
 `placed_by_import` records which rule an import placed the window by, as drawn in
 [Who placed an item's window](domain.md#roadmap-plan). The value reads:
@@ -124,6 +125,13 @@ re-laid window starts.
 The effort is laid out one [part](#part) per repository, and the window the item
 stores is the one
 [its parts make together](requirements.md#requirement-each-repository-draws-its-own-part-at-its-own-pace).
+
+`in_my_day_on` is the plan's My Day date, the counterpart of a task's (local ADR 0062).
+It rides the plan document on the task feed (ADR 0018) with the rest of the item, and
+whether the plan is in today's My Day is read from it by the task rule, under the
+person's Clear My Day overnight setting (ADR 0032). It is not a window: it never moves
+the bar. Putting a plan tag that no item carries on My Day creates the item, with the
+tag, the date and no window.
 
 It has no status and no percentage, because execution belongs to Tasks. An item
 that gathers tasks shows their progress. An item that gathers none can be
