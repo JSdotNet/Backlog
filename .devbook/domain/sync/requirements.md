@@ -14,6 +14,30 @@ type: requirements
 related: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
+### Requirement: An unpinned deployed service enrols no device beside another owner's
+
+```meta
+type: requirement
+related: [.devbook/domain/sync/domain.md#ownerid, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#1-the-owner-is-one-github-account-matched-by-its-numeric-user-id]
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.OwnerPinTests.A_pinned_owner_id_is_the_owner_ahead_of_the_derived_one, unit:dotnet:Backlog.Modules.Sync.UnitTests.OwnerPinTests.An_unpinned_deployed_owner_with_devices_under_another_owner_refuses_enrolment_and_changes_nothing, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.OwnerEnrolmentEndpointTests.A_pinned_owner_id_is_the_owner_a_signed_in_enrolment_joins, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.OwnerEnrolmentEndpointTests.Recovery_under_a_pinned_owner_id_keeps_that_owner_and_revokes_the_rest, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.OwnerEnrolmentEndpointTests.An_unpinned_owner_with_devices_under_another_owner_refuses_enrolment, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.OwnerEnrolmentRegistrationTests.A_deployed_service_without_a_pinned_owner_warns_at_startup]
+```
+
+A deployed sync service with no pinned [OwnerId](domain.md#ownerid) SHALL refuse a signed-in enrolment or recovery while devices of another owner are on record (`enrolment.owner_unpinned`). It refuses before the enrolment code is spent, adds and revokes no device, and warns at startup that no owner is pinned.
+
+**Why:** without a pin, the derived owner is a new, empty one, and joining it would orphan the owner whose devices the service already holds.
+
+#### Scenario: A service deployed without its owner pin
+
+- **Given** a deployed sync service with no `Owner:OwnerId` that holds devices of another owner
+- **When** the owner signs in with GitHub to enrol a device
+- **Then** the enrolment is refused, its code still works, and the device list is unchanged
+
+#### Scenario: A pinned owner recovers
+
+- **Given** a deployed sync service whose `Owner:OwnerId` names the owner
+- **When** the owner signs in with GitHub to recover
+- **Then** the recovered device joins that owner, and the owner's other devices are revoked
+
 ### Requirement: A pairing code works for ten minutes
 
 ```meta
@@ -48,16 +72,28 @@ The sync service SHALL accept a pairing code once and refuse every later redempt
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it]
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_confirmed_refusal_revokes_the_device, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_refusal_the_person_did_not_confirm_is_never_sent, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceStepUpTests.A_refusal_nobody_confirms_in_time_expires_and_is_never_sent, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_refusal_not_confirmed_keeps_the_device_and_asks_to_refuse_it_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.The_not_refused_alert_is_worded_by_why_Windows_Hello_did_not_confirm, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsDevicesTests.Revoke_is_offered_only_on_the_rows_this_device_paired, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsDevicesTests.The_second_Revoke_revokes_the_device_once_and_its_row_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsDevicesTests.A_revocation_Windows_Hello_did_not_confirm_leaves_the_row_saying_why]
 ```
 
-The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let only the device whose code paired another revoke it, after which its credential mints no token.
+The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let only the device whose code paired another revoke it, after which it mints no token. The desktop SHALL send a revocation only once Windows Hello confirms it.
 
 #### Scenario: The person refuses a device
 
 - **Given** a phone that redeemed the code the desktop showed
-- **When** the person answers Refuse to "Pair *phone*?" on the desktop
-- **Then** the phone is no longer in the owner's device list, and its credential is refused at the token exchange
+- **When** the person answers Refuse to "Pair *phone*?" on the desktop, and confirms it with Windows Hello
+- **Then** the phone is no longer in the owner's device list, and it is refused at the token exchange
+
+#### Scenario: Windows Hello is not confirmed
+
+- **Given** a phone that redeemed the code the desktop showed
+- **When** the person answers Refuse, then cancels the Windows Hello prompt or leaves it unanswered for 2 minutes
+- **Then** no revocation is sent, the phone stays paired, and a Warning alert asks the person to refuse it again from Settings → Devices
+
+#### Scenario: The person revokes a device this desktop paired
+
+- **Given** the Devices settings page lists a phone this desktop paired
+- **When** the person chooses Revoke, confirms it in the row, and confirms it with Windows Hello
+- **Then** the phone is revoked once, and its row leaves the list
 
 ### Requirement: The registration credential is shown once
 

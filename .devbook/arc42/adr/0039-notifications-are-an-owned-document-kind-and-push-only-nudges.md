@@ -1,7 +1,7 @@
 # ADR 0039: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
 
 ```meta
-date: 2026-11-18
+date: 2026-11-24
 related: [".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md#2-brain-is-the-scope-of-everything-filed-against-no-repository", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/notifications/context.md", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
@@ -90,6 +90,12 @@ replica needs no merge rule beyond the one ADR 0005 already has.
 
 The sync API accepts a reply only from a device under the same owner. The owner
 checks that again before it accepts.
+
+**Amended 2026-11-24 (local ADR 0058 §2).** Before it accepts a reply, the owner also
+rejects one from a device that is not one of its paired devices now, for every source
+(`reply.unpaired_device`). The notification stays Open for a paired device to answer. A
+device whose standing cannot be read stops the exchange before that reply is deleted,
+and the next cycle reads it again.
 
 **Amended 2026-11-04: a viewer acknowledges an alert with a reply too.** A viewer
 that acknowledges an alert writes an acknowledgement: a reply document addressed to
@@ -473,6 +479,7 @@ entered, so no test or device check has yet seen a push reach a phone.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | §2: the owner rejects a reply from a device not paired now before it accepts it, and the notification stays Open. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §2): a revoked device must not answer, and a paired one still can. |
 | 2026-11-18 | §7 added: a notification's images travel as ADR 0014 attachments the owner desktop uploads outside the run gate, listed beside the document and named in the body as `backlog-attachment:<id>`, which the phone's render hook fetches; the blob backstop is their only release. The Personal Validation question carries up to six of the run's evidence screenshots. | The person reviews runs from the phone, where the evidence paths open nothing. |
 | 2026-11-05 | §6 added: the owner publishes the repository each notification is about, as an optional field on the document, resolved at push time to its alias or the Brain, and absent when unknown. | The phone's Notifications tab filters by repository, and the phone cannot work the repository out alone. |
 | 2026-11-04 | §2 amended: a viewer acknowledges an alert with a reply that holds no choice, text or note, through the same outbox, route and container; the owner takes the first one and records the device. | The phone's swipe pager needs a Dismiss for alerts, and a dismiss kept only on the phone would leave the alert open on every other device. |

@@ -265,7 +265,7 @@ Backup card shows its figures in a `MetricGrid`.
 ## Lists That Expand in Place
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#action-density-and-overflow", ".devbook/design/accessibility.md#keyboard-navigation"]
+related: [".devbook/design/interaction-guidelines.md#action-density-and-overflow", ".devbook/design/accessibility.md#keyboard-navigation", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 A setting that is a list of things each with its own settings, such as
@@ -277,6 +277,7 @@ editor in place, under its row.
 | Repositories | A `DataTable` row: alias with its colour mark, folder, devbook, account | An `Edit` button in the row, which reads `Done` while open |
 | GitHub accounts | The whole row is a button: avatar initial, login, a meta line | The row itself |
 | Agents (MCP server) | `AgentGrantRow`: name, a role · source · last-used line, scope chips | An `Edit scopes` button in the row, which reads `Done` while open |
+| Paired devices (Devices) | `AgentGrantRow` with `ShowScopes=false`: name, then a line of `This device` (on its own row) · `Registered with GitHub sign-in`, `Paired by this device`, `Paired by <name>; revoke it there` or `Paired by a device that is no longer listed` · the date added | No editor; `Revoke` only, on the rows this desktop paired |
 
 Rules:
 
@@ -308,9 +309,16 @@ Rules:
   editor is one set of switches, and the row already names the agent. The built-in
   Unauthenticated row, last on the card, has no Revoke: it holds no token, and
   switching every scope off closes it (local ADR 0059).
+- The Paired devices card bends the editor rule the way the Agents card does, with
+  no editor at all. Revoke appears only where the sync service would accept it:
+  never on this device's own row, and never on a row another device paired, whose
+  line names that device instead. One row asks at a time. While one revocation
+  runs, every other row's Revoke is drawn disabled. A failed revocation says why
+  in its own row (local ADR 0058 §6).
 - A destructive act on a row MUST be confirmed in place, in the row's own actions:
   the sentence says what happens, then the act again and Keep. The Agents card's
-  Revoke asks *Revoke <name>? Its sessions lose access now.* No dialog opens.
+  Revoke asks *Revoke <name>? Its sessions lose access now.* The Devices card's
+  Revoke asks *Revoke <name>? It can no longer sync your backlog.* No dialog opens.
 
 ## Phone Width
 
@@ -427,10 +435,12 @@ The checklist a module's page meets, each item from a chapter above:
 | Off state, badge values | `Settings.razor`, `SettingsBadges.cs` |
 | Module badge sources | `InboxRoutingRulesBadgeSource.cs`, `ConnectedTaskSourcesBadgeSource.cs`, `ModelPriceBadgeSource.cs`, `DevicePairingBadgeSource.cs`, each registered by its module's `Add…Settings` |
 | Card | `SettingsCard.razor`; `setting-columns` in the desktop `app.css` |
-| Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor`; the Agents card's `AgentGrantRow`, `AgentScopeSwitches` and `AgentRegistration` in `McpServerSettingsPage.razor` |
+| Expand in place | `RepositoriesSettingsPage.razor`, `GitHubAccountsSettingsPage.razor`; the Agents card's `AgentGrantRow`, `AgentScopeSwitches` and `AgentRegistration` in `McpServerSettingsPage.razor`; the Devices page's Paired devices card in `DevicesSettings.razor`. `AgentGrantRow` is `src/Core/Backlog.UI.Components/Settings/AgentGrantRow.razor` |
 
 The storybook shows the frame, the menu and the card on its *Settings frame*,
-*Settings menu* and *Settings card* pages, and the Agents card's parts on *Agents*. Each page's **Design rules** block
+*Settings menu* and *Settings card* pages, and the Agents card's parts on *Agents*.
+*Agents* also shows the Paired devices row in *A row without scopes* and the
+disabled Revoke in *Revoke while another revocation runs*. Each page's **Design rules** block
 links back to this chapter. The frame links to *Panel and Header* and
 *Headline*. The menu links to *Menu Groups*, *Badges and the Off State* and *Phone
 Width*. The card links to *Settings Card* and *Figure Tiles*. Agents links to

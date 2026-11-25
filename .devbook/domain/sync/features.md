@@ -9,7 +9,7 @@ type: features
 ```meta
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
 ```
 
 ```mermaid
@@ -17,7 +17,7 @@ sequenceDiagram
     participant First as First device
     participant Second as Second device
     participant Sync as Sync service
-    First->>Sync: Register, naming a new owner
+    First->>Sync: Sign in with GitHub, then register under the owner
     Sync-->>First: Registration credential, shown once
     First->>Sync: Ask for a pairing code
     Sync-->>First: Pairing code
@@ -29,10 +29,10 @@ sequenceDiagram
 ```
 
 Join a second machine to the same backlog by entering a short pairing code shown
-on the first, once. There is no account and no sign-in: personal use requires no
-login (`.devbook/arc42/02-constraints.md`), so devices are paired to each other rather
-than to an identity. The Devices settings page shows the code, takes it on the
-second machine, and counts the devices paired to this owner.
+on the first, once. The first device enrols through the owner's GitHub sign-in, and
+later devices pair by code. The Devices settings page shows the code and takes it on
+the second machine. It lists every paired device, says who paired each, and offers
+Revoke on the rows this desktop paired.
 
 The [Owner](domain.md#owner), [Pairing Code](domain.md#pairing-code),
 [Registration credential](domain.md#registration-credential) and
@@ -47,8 +47,9 @@ The cloud store does not enforce it.
 The desktop that showed the code learns of the redemption by reading the owner's
 device list while the code is open. The service does not tell it. It then
 asks its person "Pair *device name*?" in a notification only that desktop can
-answer (`.devbook/domain/notifications/context.md`). Allow keeps the device; Refuse
-revokes it, so its credential mints no further token.
+answer (`.devbook/domain/notifications/context.md`). Allow keeps the device. Refuse
+revokes it once Windows Hello confirms, so it mints no further token. A Refuse not
+confirmed within 2 minutes keeps the device and raises an alert.
 
 ## Syncing between devices
 

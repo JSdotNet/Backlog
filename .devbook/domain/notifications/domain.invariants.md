@@ -209,3 +209,17 @@ A reply, an acknowledgement included, is accepted only from a device under the s
 Enforced at: the sync reply endpoint, and the owner desktop's notification exchange before `Accept()`
 
 The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange rejects a reply whose stamped account differs from its own before `Accept()`, which then checks that the reply is addressed to this owner instance (`reply.wrong_instance`).
+
+### Invariant: A reply comes from a device paired now
+
+```meta
+type: invariant
+related: [.devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_from_a_device_not_paired_now_is_rejected_and_the_question_can_be_answered_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_from_a_revoked_device_is_audited_once_as_a_dropped_answer, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_from_a_paired_device_is_accepted, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.Three_replies_from_one_device_read_its_standing_once_a_cycle, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_whose_device_cannot_be_checked_is_left_for_the_next_cycle, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.The_owners_own_reply_is_accepted_without_reading_the_owners_devices]
+```
+
+A reply to an Open notification from a device that is not one of the owner's paired devices now, revoked or unknown, is rejected for every source (`reply.unpaired_device`). The audit log records it as a dropped answer, and the notification stays Open for a paired device to answer.
+
+A reply from the owner instance itself is not checked. A device whose standing cannot be read stops the exchange before that reply is deleted, and the next cycle reads it again.
+
+Enforced at: the owner desktop's notification exchange (`NotificationSyncSession.FromPairedDeviceAsync`), before `Accept()`

@@ -103,8 +103,10 @@ aliases: [ownerId, owner id]
 related: [.devbook/domain/sync/domain.md#owner]
 ```
 
-The identifier of an [Owner](#owner): a version 7 GUID minted when the first device
-registers. It is a type of its own rather than a bare GUID. An owner id and a
+The identifier of an [Owner](#owner). A deployment that configures `Owner:OwnerId`
+uses that GUID. Otherwise the sync service derives a name-based (version 8) GUID from
+the owner's GitHub user id, the same on every start. Only a Development run with no
+owner configured mints a version 7 one. It is a type of its own rather than a bare GUID. An owner id and a
 device id travel together through every call, and swapping them would not fail to
 compile. It is the partition key of every replica container. Two are equal when their
 GUIDs are equal.
@@ -189,13 +191,13 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [the owner's backlog]
-related: [.devbook/domain/sync/domain.md#ownerid, .devbook/domain/sync/features.md#syncing-between-devices, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
+related: [.devbook/domain/sync/domain.md#ownerid, .devbook/domain/sync/features.md#syncing-between-devices, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#1-the-owner-is-one-github-account-matched-by-its-numeric-user-id]
 ```
 
-The backlog an [OwnerId](#ownerid) names. It is not a person's account, since the
-product requires none, but the identifier every device paired together shares. The
-first device to register mints it; every device paired to that device afterward
-registers under the same one. The sync service reads it out of a device's presented
+The backlog an [OwnerId](#ownerid) names, held by one GitHub account matched by its
+numeric user id. The owner signs in only to enrol the first device and to recover. A
+recovery under that owner revokes its other devices. The local app still asks for no
+sign-in, and every device paired afterward registers under the same owner. The sync service reads it out of a device's presented
 [Device token](#device-token) to decide which partition a call may touch.
 
 It is the partition each stored document and file carries:
