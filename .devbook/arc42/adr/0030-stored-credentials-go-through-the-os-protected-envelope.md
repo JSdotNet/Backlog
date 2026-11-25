@@ -85,19 +85,23 @@ flowchart LR
 
 | Credential | Store | Windows | Android |
 |---|---|---|---|
-| Sync device registration, with the registration credential only on a device without a key | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
+| Sync device credential, for a device not yet on a key | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
 | Spec-manager OAuth tokens | `DpapiSpecManagerTokenStore` | DPAPI, whole file | not composed |
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
 | Azure Foundry API key | `AzureFoundrySettingsStore` | DPAPI, per value | not composed |
 | MCP grant secrets (local ADR 0058 §3) | `FileMcpGrantStore` | DPAPI, per value | not composed |
 
+**2026-11-25: a device key replaces the sync device credential.** Local ADR 0058 §2
+gives each device a P-256 key it cannot export, `CngDeviceKeyStore` on Windows (TPM
+first) and `AndroidKeystoreDeviceKeyStore` on the phone. A key is not a stored
+secret, so it has no row above: the platform keeps it, and no envelope applies. The
+credential row stays for a device with no key store and for one paired before keys,
+which drops its credential at its next token fetch.
+
 The three settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,
 so none needs an Android secure store.
-
-A sync device key is not in the table, because no store writes it out. The
-[Amendment](#amendment) of 2026-11-18 says where it lives.
 
 ### 2. The envelope is on the value, not the file
 
@@ -231,16 +235,6 @@ in the current one. Pull request #1910 deleted three migrations and their tests:
 §3 still holds for every value the current shapes carry. A plaintext token is
 read as it is and sealed during that first read. The rest of the decision is
 unchanged.
-
-**2026-11-18: a sync device holds a key, not a credential.** Local ADR 0058 §2
-gives each device a non-exportable P-256 key: CNG on Windows, TPM first, and
-Android Keystore on the phone, StrongBox first. The service keeps only the public
-half, so the device's stored registration holds no secret. Only a device on a host
-with no key store keeps a registration credential, and the mobile web harness is
-that host today. A device paired before keys moves onto its key at its next sync
-and deletes the credential. On Windows the desktop web harness keeps a software
-key under the same DPAPI envelope (`DpapiDeviceKeyStore`), because it must not sign as the
-installed app. §5 still holds for the registration the device saves.
 
 ## Verification
 

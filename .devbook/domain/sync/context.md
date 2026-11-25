@@ -4,7 +4,7 @@
 index: root
 type: context
 deployment: service
-related: [.devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md]
+related: [.devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0050-events-is-its-own-bounded-context.md]
 ```
 
 Sync keeps one person's data the same on each of their devices. It knows which
@@ -15,12 +15,13 @@ Inside the boundary:
 
 - the [Owner](domain.md#owner) a set of devices shares, and the partition every
   replicated document is stored under;
-- device registration: each [Device](domain.md#device), the
-  [Device key](domain.md#device-key) it proves itself with by a
-  [Device assertion](domain.md#device-assertion), or, for a device without one,
-  its [Registration credential](domain.md#registration-credential), and the
-  [Device token](domain.md#device-token) it trades that proof for;
-- the owner's GitHub sign-in, which enrols the first device and recovers;
+- the owner's GitHub sign-in, which enrols the first device and recovers one,
+  through [Enrolment Tickets](domain.md#enrolment-ticket);
+- device registration: each [Device](domain.md#device), its
+  [Device key](domain.md#device-key) or, without one, its
+  [Registration credential](domain.md#registration-credential), and the
+  [Device token](domain.md#device-token) it trades a
+  [Device assertion](domain.md#device-assertion) or that credential for;
 - pairing: the [Pairing Code](domain.md#pairing-code) that joins a second device
   to an owner;
 - the owner-scoped replicas:
@@ -40,6 +41,13 @@ Inside the boundary:
   [Change Precedence](domain.md#change-precedence);
 - attachment blobs, stored under the owner and served only through the sync
   service (local [ADR 0014](../../arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md));
+- the claude.ai connector: the OAuth 2.1 authorization server for its one
+  [Connector Client](domain.md#connector-client), its
+  [Connector Authorizations](domain.md#connector-authorization) and
+  [Connector Refresh Tokens](domain.md#connector-refresh-token) in the
+  `connectorCredentials` container, and the `/mcp` resource server that takes
+  its [Connector token](domain.md#connector-token) (local
+  [ADR 0058 §8](../../arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#8-a-remote-agent-reaches-backlog-through-oauth-21-on-the-sync-service));
 - the service's version, and whether an app may sync with it at all
   ([Syncing between devices](requirements.md#syncing-between-devices); local
   [ADR 0005 §Version compatibility](../../arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)).

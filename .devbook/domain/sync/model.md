@@ -2,7 +2,7 @@
 
 ```meta
 type: model
-related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/domain.md#device-key]
+related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/domain.md#enrolment-ticket, .devbook/domain/sync/domain.md#connector-client, .devbook/domain/sync/domain.md#connector-authorization, .devbook/domain/sync/domain.md#connector-refresh-token]
 ```
 
 > Structural view of the Sync model: the two aggregates, the values they and the
@@ -23,7 +23,59 @@ classDiagram
         +DateTimeOffset RegisteredAt
         +DeviceId? PairedBy
         +string? PublicKey
-        +bool IsKeyBound
+        +IsKeyBound
+    }
+
+    class EnrolmentTicket {
+        <<aggregate root>>
+        +string KeyHash
+        +EnrolmentTicketKind Kind
+        +string CodeChallenge
+        +Uri RedirectUri
+        +DateTimeOffset ExpiresAt
+        +bool Redeemed
+        +HasExpired(now)
+    }
+
+    class ConnectorClient {
+        <<aggregate root>>
+        +string ClientId
+        +string? SecretHash
+        +DateTimeOffset? CreatedAt
+        +DateTimeOffset? LastUsedAt
+        +int Generation
+        +HasSecret
+    }
+
+    class ConnectorAuthorization {
+        <<aggregate root>>
+        +string KeyHash
+        +ConnectorAuthorizationKind Kind
+        +string CodeChallenge
+        +string RedirectUri
+        +string Scope
+        +string Resource
+        +int ClientGeneration
+        +Guid FamilyId
+        +DateTimeOffset ExpiresAt
+        +OwnerId? Owner
+        +bool Redeemed
+        +HasExpired(now)
+    }
+
+    class ConnectorRefreshToken {
+        <<aggregate root>>
+        +string TokenHash
+        +Guid FamilyId
+        +int ClientGeneration
+        +OwnerId Owner
+        +string Scope
+        +string Resource
+        +DateTimeOffset ExpiresAt
+        +string? ReplacedByHash
+        +bool Revoked
+        +IsSpent
+        +HasExpired(now)
     }
 
     class PairingCode {
@@ -96,7 +148,6 @@ classDiagram
 
     Device --> OwnerId : belongs to
     Device --> DeviceId : identified by
-    Device --> DeviceId : paired by
     PairingCode --> OwnerId : joins a device to
     PairingCode --> DeviceId : issued by
     OwnerScope --> OwnerId
@@ -113,9 +164,6 @@ classDiagram
 - **The two aggregates meet only at the owner.** A Pairing Code names the owner a
   redeeming device joins and the device that issued it. Redeeming it creates a new
   Device under that owner; the code keeps no reference to the device it made.
-- **A Device holds one proof.** `PublicKey` is set for a key-bound device and
-  `CredentialHash` for one without a key. Binding a key clears the hash
-  ([Device key](domain.md#device-key)).
 - **The documents are not Sync's types**, so the diagram writes them without a
   stereotype. `TaskChange`, `SessionRecord`, `AnnotationChange` and
   `DevbookSubjectChange` are the published language in

@@ -76,6 +76,16 @@ else
         _ = TickAsync(_ticking.Token);
     }
 
+    /// <summary>Opens the forget dialog from elsewhere on the screen - the layout's
+    /// callout for a key this phone cannot use, whose way back is pairing again.</summary>
+    public void AskToForget()
+    {
+        if (!Paired) return;
+
+        _forgetting = true;
+        StateHasChanged();
+    }
+
     /// <summary>Clears the credential and nothing else. The store says so, the
     /// layout puts the pairing box on every tab, and the token cache and the
     /// status tracker both let go of what they held for the old pairing.</summary>
