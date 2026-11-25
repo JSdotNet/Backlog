@@ -116,8 +116,8 @@ public sealed class DeviceStepUpTests
         Assert.Empty(handler.Requests);
     }
 
-    /// <summary>A Refuse answered on the phone raises the prompt on a desktop nobody may be
-    /// at, and every answer behind it waits on it: unconfirmed for
+    /// <summary>A Refuse replayed at the next start raises the prompt on a desktop nobody may
+    /// be at yet, and every answer behind it waits on it: unconfirmed for
     /// <see cref="DevicePairingClient.RefuseConfirmationWindow"/>, the prompt expires, and
     /// nothing is sent.</summary>
     [Fact]

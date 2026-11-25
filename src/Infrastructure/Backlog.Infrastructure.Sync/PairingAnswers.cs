@@ -20,7 +20,9 @@ namespace Backlog.Infrastructure.Sync;
 /// <para>
 /// Refusing asks for Windows Hello where the host composed it, as revoking does
 /// (<see cref="IDeviceRoster.RefuseDeviceAsync"/>, local ADR 0058 §6), and that prompt expires
-/// unanswered, so an unattended desktop does not hold every other answer back for long. A
+/// unanswered. A refusal replayed at the next start can raise it before anyone is at the
+/// desktop, and answers are handed over one at a time, so the expiry keeps an unattended
+/// desktop from holding every other answer back for long. A
 /// refusal the person cancelled, could not confirm, or left to expire is consumed, not
 /// replayed — a replay would ask again on every start: the device stays paired, the pairing
 /// ends, and an alert (<see cref="PairingSubjects.NotRefusedAsync"/>) asks the person to refuse

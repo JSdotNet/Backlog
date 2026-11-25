@@ -55,9 +55,10 @@ public sealed class DeviceStepUp(IUserConsent consent, TimeProvider? time = null
 
     /// <summary>
     /// <see cref="ConfirmAsync"/>, with the prompt withdrawn once <paramref name="window"/> has
-    /// passed unanswered: a failure filed under <see cref="ExpiredCode"/>. For a prompt raised
-    /// by something other than the person at this desktop — a Refuse answered on the phone —
-    /// which nobody may be here to answer, and which every answer queued behind it waits on.
+    /// passed unanswered: a failure filed under <see cref="ExpiredCode"/>. For a prompt the
+    /// person at this desktop may not have just asked for — a Refuse replayed at the next
+    /// start — which nobody may be here to answer, and which every answer queued behind it
+    /// waits on.
     /// A confirmation that lands as the window closes still counts.
     /// </summary>
     /// <param name="prompt">What the Windows Hello prompt says.</param>
