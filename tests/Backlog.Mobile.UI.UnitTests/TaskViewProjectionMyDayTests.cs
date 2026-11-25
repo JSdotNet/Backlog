@@ -207,7 +207,77 @@ public sealed class TaskViewProjectionMyDayTests : IDisposable
         Assert.Equal(["Picked today"], _view.Day(Today).Select(Title));
     }
 
+    /// <summary>Local ADR 0062 §8: the roadmap plan document is folded off the feed, kept in
+    /// the same write as its page's cursor, and read for today's plans — never as a row.</summary>
+    [Fact]
+    public async Task The_roadmap_plan_is_kept_with_its_page_and_puts_its_plans_on_Today()
+    {
+        _service.Append(RoadmapPlan(Now, ("lets-bbq", Today), ("docs", Yesterday)));
+        _service.Append(TestTasks.Task("Buy charcoal", Now, tags: ["+lets-bbq"]));
+        var invites = Ticked("Send invites", Yesterday, Today);
+        _service.Append(invites with { Task = invites.Task with { Tags = ["+lets-bbq"] } });
+
+        await _view.PullAsync(Cancellation);
+
+        var line = Assert.Single(_view.PlansToday(Today));
+        Assert.Equal(("lets-bbq", 1, 2), (line.Name, line.Done, line.Total));
+        Assert.Equal(["pos:3"], _store.RoadmapPlanSaves);
+        Assert.DoesNotContain(_view.Live(), row => row.Task.Type == "roadmap-plan");
+    }
+
+    [Fact]
+    public async Task With_the_switch_off_a_plan_picked_yesterday_carries_over_until_it_is_finished()
+    {
+        _service.Append(Preferences(clearsOvernight: false, Now));
+        _service.Append(RoadmapPlan(Now, ("docs", Yesterday)));
+        _service.Append(TestTasks.Task("Write the chapter", Now, tags: ["+docs"]));
+
+        await _view.PullAsync(Cancellation);
+
+        Assert.Equal("docs", Assert.Single(_view.PlansToday(Today)).Name);
+    }
+
+    [Fact]
+    public async Task With_no_roadmap_plan_pulled_Today_has_no_plans_and_a_restart_keeps_the_one_pulled()
+    {
+        Assert.Empty(_view.PlansToday(Today));
+
+        _service.Append(RoadmapPlan(Now, ("docs", Today)));
+        await _view.PullAsync(Cancellation);
+
+        using var restarted = new TaskViewProjection(_store, _outbox, _sync, _clock);
+
+        Assert.Equal("docs", Assert.Single(restarted.PlansToday(Today)).Name);
+    }
+
+    [Fact]
+    public async Task A_later_plan_that_takes_a_plan_off_My_Day_takes_it_off_Today()
+    {
+        _service.Append(RoadmapPlan(Now, ("docs", Today)));
+        await _view.PullAsync(Cancellation);
+
+        _service.Append(RoadmapPlan(Now.AddMinutes(5)));
+        await _view.PullAsync(Cancellation);
+
+        Assert.Empty(_view.PlansToday(Today));
+    }
+
     private static string Title(TaskViewRow row) => row.Task.Title;
+
+    /// <summary>The roadmap plan document as a desktop writes it on the feed: one item per
+    /// plan, each carrying its tag and My Day date.</summary>
+    private static TaskChange RoadmapPlan(DateTimeOffset stamp, params (string Tag, DateOnly On)[] plans)
+    {
+        var items = string.Join(",", plans.Select(plan =>
+            $$"""{"id":"{{Guid.NewGuid()}}","title":"{{plan.Tag}}","start":"2026-09-01","end":"2026-09-30","tag":"{{plan.Tag}}","myDayOn":"{{plan.On:yyyy-MM-dd}}"}"""));
+
+        return TestTasks.Task(
+            "Roadmap plan",
+            stamp,
+            type: "roadmap-plan",
+            id: Guid.Parse("7c1a0b52-3d4e-4f6a-9b8c-0d1e2f3a4b01"),
+            contentMd: $$"""{"version":1,"items":[{{items}}],"milestones":[]}""");
+    }
 
     private static TaskChange Preferences(bool clearsOvernight, DateTimeOffset stamp) =>
         TestTasks.Task(

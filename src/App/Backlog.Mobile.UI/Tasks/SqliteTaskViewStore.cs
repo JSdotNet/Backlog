@@ -54,6 +54,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         using var transaction = connection.BeginTransaction();
 
         var hadPreferences = HasTable(connection, transaction, "my_day_preferences");
+        var hadRoadmapPlan = HasTable(connection, transaction, "roadmap_plan");
 
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -67,6 +68,12 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
                 server_ts   INTEGER NOT NULL,
                 payload     TEXT    NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS roadmap_plan (
+                id          INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+                updated_at  TEXT    NOT NULL,
+                server_ts   INTEGER NOT NULL,
+                payload     TEXT    NOT NULL
+            );
             """;
         command.ExecuteNonQuery();
 
@@ -74,7 +81,9 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         // before the preferences table folded their document away and moved its
         // cursor past it, so the first build that keeps it pulls the feed again from
         // the start. The rows stay — a full pull folds over them to the same result.
-        if (!hadPreferences)
+        // The roadmap plan document takes the same replay (local ADR 0062 §8): every
+        // build before its table folded it away too.
+        if (!hadPreferences || !hadRoadmapPlan)
         {
             using var reset = connection.CreateCommand();
             reset.Transaction = transaction;
@@ -89,17 +98,24 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
 
     public string? ReadCursor() => _view.ReadCursor();
 
-    public MyDayPreferencesDocument? ReadMyDayPreferences()
+    public MyDayPreferencesDocument? ReadMyDayPreferences() =>
+        ReadDocument("my_day_preferences", (updatedAt, serverTs, payload) => new MyDayPreferencesDocument(updatedAt, serverTs, payload));
+
+    public RoadmapPlanCopy? ReadRoadmapPlan() =>
+        ReadDocument("roadmap_plan", (updatedAt, serverTs, payload) => new RoadmapPlanCopy(updatedAt, serverTs, payload));
+
+    private T? ReadDocument<T>(string table, Func<DateTimeOffset, long, string, T> create)
+        where T : class
     {
         using var connection = _view.Open();
         using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT updated_at, server_ts, payload FROM my_day_preferences WHERE id = 1";
+        command.CommandText = $"SELECT updated_at, server_ts, payload FROM {table} WHERE id = 1";
 
         using var reader = command.ExecuteReader();
 
         return reader.Read()
-            ? new MyDayPreferencesDocument(SqliteInstant.Parse(reader.GetString(0)), reader.GetInt64(1), reader.GetString(2))
+            ? create(SqliteInstant.Parse(reader.GetString(0)), reader.GetInt64(1), reader.GetString(2))
             : null;
     }
 
@@ -107,34 +123,59 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         SaveAsync(rows, cursor, preferences: null, cancellationToken);
 
     public Task SaveAsync(IReadOnlyList<TaskViewRow> rows, string? cursor, MyDayPreferencesDocument? preferences, CancellationToken cancellationToken = default) =>
+        SaveAsync(rows, cursor, preferences, roadmapPlan: null, cancellationToken);
+
+    public Task SaveAsync(
+        IReadOnlyList<TaskViewRow> rows,
+        string? cursor,
+        MyDayPreferencesDocument? preferences,
+        RoadmapPlanCopy? roadmapPlan,
+        CancellationToken cancellationToken = default) =>
         _view.SaveAsync(
             rows,
             cursor,
-            preferences is null ? null : (connection, transaction, ct) => SavePreferencesAsync(connection, transaction, preferences, ct),
+            preferences is null && roadmapPlan is null
+                ? null
+                : async (connection, transaction, ct) =>
+                {
+                    if (preferences is not null)
+                    {
+                        await SaveDocumentAsync(connection, transaction, "my_day_preferences", preferences.UpdatedAt, preferences.ServerTimestamp, preferences.Content, ct);
+                    }
+
+                    if (roadmapPlan is not null)
+                    {
+                        await SaveDocumentAsync(connection, transaction, "roadmap_plan", roadmapPlan.UpdatedAt, roadmapPlan.ServerTimestamp, roadmapPlan.Content, ct);
+                    }
+                },
             cancellationToken);
 
     public Task ResetCursorAsync(CancellationToken cancellationToken = default) =>
         _view.ResetCursorAsync(cancellationToken);
 
-    private static async Task SavePreferencesAsync(
+    /// <summary>Writes one of the whole documents kept beside the rows over the one kept.</summary>
+    private static async Task SaveDocumentAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
-        MyDayPreferencesDocument preferences,
+        string table,
+        DateTimeOffset updatedAt,
+        long serverTimestamp,
+        string content,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = """
-            INSERT INTO my_day_preferences (id, updated_at, server_ts, payload)
+        command.CommandText = $"""
+            INSERT INTO {table} (id, updated_at, server_ts, payload)
             VALUES (1, $updatedAt, $serverTs, $payload)
             ON CONFLICT (id) DO UPDATE SET
                 updated_at = excluded.updated_at,
                 server_ts = excluded.server_ts,
                 payload = excluded.payload
             """;
-        command.Parameters.AddWithValue("$updatedAt", SqliteInstant.Format(preferences.UpdatedAt));
-        command.Parameters.AddWithValue("$serverTs", preferences.ServerTimestamp);
-        command.Parameters.AddWithValue("$payload", preferences.Content);
+        command.Parameters.AddWithValue("$updatedAt", SqliteInstant.Format(updatedAt));
+        command.Parameters.AddWithValue("$serverTs", serverTimestamp);
+        command.Parameters.AddWithValue("$payload", content);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

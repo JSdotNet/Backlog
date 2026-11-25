@@ -253,7 +253,7 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md"]
 ```
 
 The phone's Today tab is My Day and nothing else. It reads the owner's task feed, not a My Day endpoint, and keeps only a projection of it. All four writes go through the device outbox:
@@ -319,7 +319,9 @@ sequenceDiagram
   - a `DeletedAt` hides the row, which is kept so page order never changes the result;
   - a non-task document never becomes a row: a `capture` is the Inbox's (ADR 0009), a `note` folds into its own view (ADR 0025).
 - **Preferences are kept, not folded.** A `my-day-preferences` document is taken out of the page, the later `UpdatedAt` wins, and it is saved in the same transaction. The phone never writes it and reads `clearsOvernight: true` until one arrives (ADR 0032).
+- **The roadmap plan is kept the same way.** A `roadmap-plan` document is taken out of the page whole, the later `UpdatedAt` wins, and it is saved in the same transaction. The phone reads only each item's `tag` and `myDayOn` off it and never writes it (local ADR 0062 §8). A file from a build without its table pulls the feed from the start once.
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is the phone's local date and whose status is not `archived`. With it off, an unfinished row with an earlier date stays. A row with `completed_on` today is in Done today. The phone applies the desktop's rule (ADR 0032 §5).
+- **A plan is in by the same rule.** Its stamp is the `myDayOn` of the items carrying its tag, matched by the roadmap's slug; it is finished on the day its last entry was ticked. Each plan in is one line above the task groups: name, done of total and run state, never its entries. The phone has no session queue, so the run state reads off the entries alone: In progress, Blocked, the ready count, Draft or Done.
 - **Other rows group by agenda time** against the phone's clock into Now, Agenda and Anytime today (`.devbook/domain/tasks/features.md#my-day`); a carried row has none and sits in Anytime today.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or `sync.cursor_expired` drops the cursor and pulls from the beginning; kept rows fold to the same result. Any other failure keeps the list with one line saying why.
 - **Adding is a push.** The phone builds a `TaskChange` with a `Guid.CreateVersion7()` id and the typed title. It sets type `task`, status `draft` and priority `medium`, with `CreatedAt` now and `InMyDayOn` today. It is queued as outbox kind `task` and posted to `POST /api/sync/tasks` with a capture's order, backoff and waiting marker. A retry sends the same id, and the whole-document upsert makes it idempotent (ADR 0005).

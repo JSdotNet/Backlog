@@ -121,13 +121,74 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         Assert.Equal("pos:41", new SqliteTaskViewStore(_path).ReadCursor());
     }
 
+    [Fact]
+    public void A_new_file_keeps_no_roadmap_plan()
+    {
+        Assert.Null(new SqliteTaskViewStore(_path).ReadRoadmapPlan());
+    }
+
+    /// <summary>Local ADR 0062 §8: the roadmap plan document is kept whole with the page that
+    /// carried it, beside the preferences, and comes back after a restart.</summary>
+    [Fact]
+    public async Task The_roadmap_plan_survives_a_new_store_beside_the_preferences_and_cursor_of_its_page()
+    {
+        var preferences = new MyDayPreferencesDocument(T0, 3, """{"clearsOvernight":false}""");
+        var plan = new RoadmapPlanCopy(T0.AddMinutes(1), 4, """{"version":1,"items":[{"tag":"lets-bbq","myDayOn":"2026-09-25"}],"later":true}""");
+
+        await new SqliteTaskViewStore(_path).SaveAsync([], "pos:4", preferences, plan, TestContext.Current.CancellationToken);
+
+        var reopened = new SqliteTaskViewStore(_path);
+
+        Assert.Equal(plan, reopened.ReadRoadmapPlan());
+        Assert.Equal(preferences, reopened.ReadMyDayPreferences());
+        Assert.Equal("pos:4", reopened.ReadCursor());
+    }
+
+    [Fact]
+    public async Task A_later_save_replaces_the_one_roadmap_plan_and_a_save_without_one_keeps_it()
+    {
+        var store = new SqliteTaskViewStore(_path);
+        var first = new RoadmapPlanCopy(T0, 1, """{"items":[]}""");
+        var second = new RoadmapPlanCopy(T0.AddMinutes(1), 2, """{"items":[{"tag":"a","myDayOn":"2026-09-25"}]}""");
+
+        await store.SaveAsync([], "pos:1", null, first, TestContext.Current.CancellationToken);
+        await store.SaveAsync([], "pos:2", null, second, TestContext.Current.CancellationToken);
+        await store.SaveAsync([], "pos:3", new MyDayPreferencesDocument(T0, 3, "{}"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(second, store.ReadRoadmapPlan());
+    }
+
+    /// <summary>A phone upgraded from a build that folded the roadmap plan away pulls the
+    /// feed from the start once — its cursor had already passed the plan document — and
+    /// keeps every row and its preferences while it does.</summary>
+    [Fact]
+    public async Task A_file_from_before_the_roadmap_plan_table_forgets_its_cursor_once_and_keeps_its_rows()
+    {
+        var task = TestTasks.Task("Book the train", T0);
+        var preferences = new MyDayPreferencesDocument(T0, 1, """{"clearsOvernight":false}""");
+        await new SqliteTaskViewStore(_path).SaveAsync([new TaskViewRow(task.Id, task.UpdatedAt, null, 1, task.Task)], "pos:40", preferences, TestContext.Current.CancellationToken);
+        DropTable("roadmap_plan");
+
+        var upgraded = new SqliteTaskViewStore(_path);
+
+        Assert.Null(upgraded.ReadCursor());
+        Assert.Single(upgraded.ReadRows());
+        Assert.Equal(preferences, upgraded.ReadMyDayPreferences());
+
+        await upgraded.SaveAsync([], "pos:41", TestContext.Current.CancellationToken);
+
+        Assert.Equal("pos:41", new SqliteTaskViewStore(_path).ReadCursor());
+    }
+
     /// <summary>Takes the file back to the shape a build before ADR 0032 left it in.</summary>
-    private void DropPreferencesTable()
+    private void DropPreferencesTable() => DropTable("my_day_preferences");
+
+    private void DropTable(string table)
     {
         using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path};Pooling=False");
         connection.Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "DROP TABLE my_day_preferences";
+        command.CommandText = $"DROP TABLE {table}";
         command.ExecuteNonQuery();
     }
 }

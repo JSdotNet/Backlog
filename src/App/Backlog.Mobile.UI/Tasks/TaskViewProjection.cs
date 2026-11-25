@@ -38,6 +38,10 @@ public sealed class TaskViewProjection : IDisposable
     /// <summary>The My Day preferences last pulled, under <see cref="_rowsLock"/>.</summary>
     private MyDayPreferencesDocument? _preferences;
 
+    /// <summary>The roadmap plan document last pulled, under <see cref="_rowsLock"/> — read
+    /// for the plans on My Day alone (local ADR 0062 §8).</summary>
+    private RoadmapPlanCopy? _roadmapPlan;
+
     public TaskViewProjection(ITaskViewStore store, DeviceOutbox outbox, CloudSyncClient sync, TimeProvider clock)
     {
         _store = store;
@@ -48,6 +52,7 @@ public sealed class TaskViewProjection : IDisposable
         // Read once, here: the list is drawn from this before any pull answers.
         _rows = store.ReadRows().ToDictionary(row => row.Id);
         _preferences = store.ReadMyDayPreferences();
+        _roadmapPlan = store.ReadRoadmapPlan();
     }
 
     /// <summary>Raised when a row was added, changed or deleted, or a later copy of
@@ -113,6 +118,21 @@ public sealed class TaskViewProjection : IDisposable
         }
     }
 
+    /// <summary>
+    /// The plans in the My Day of <paramref name="today"/>, one line each, in the roadmap's
+    /// item order (local ADR 0062 §8): a plan is in by exactly the rule a task is, under the
+    /// same <see cref="ClearsOvernight"/>. Empty until a desktop has sent the roadmap plan.
+    /// </summary>
+    public IReadOnlyList<TodayPlanLine> PlansToday(DateOnly today)
+    {
+        lock (_rowsLock)
+        {
+            if (_roadmapPlan is null) return [];
+
+            return TodayPlanLine.For(_roadmapPlan.PlansOnMyDay, _rows.Values, today, _preferences?.ClearsOvernight ?? true);
+        }
+    }
+
     /// <summary>Every task the phone holds that is not deleted, in no particular order —
     /// what the stand-up reads its work from (local ADR 0035 §8).</summary>
     public IReadOnlyList<TaskViewRow> Live()
@@ -166,24 +186,30 @@ public sealed class TaskViewProjection : IDisposable
                 var records = page.Tasks ?? [];
                 IReadOnlyList<TaskViewRow> changed;
                 MyDayPreferencesDocument? preferences;
+                RoadmapPlanCopy? roadmapPlan;
 
                 lock (_rowsLock)
                 {
                     changed = TaskFold.Apply(_rows, records);
                     preferences = MyDayPreferencesDocument.Fold(_preferences, records);
+                    roadmapPlan = RoadmapPlanCopy.Fold(_roadmapPlan, records);
                 }
 
-                // The preferences go in the page's own write, so the cursor never
-                // moves past a copy the file did not keep (.devbook/arc42/adr/0032, §4).
-                await _store.SaveAsync(changed, page.Since, preferences, cancellationToken);
+                // The preferences and the plan go in the page's own write, so the cursor
+                // never moves past a copy the file did not keep (.devbook/arc42/adr/0032, §4).
+                await _store.SaveAsync(changed, page.Since, preferences, roadmapPlan, cancellationToken);
                 since = page.Since;
 
-                if (preferences is not null)
+                if (preferences is not null || roadmapPlan is not null)
                 {
-                    lock (_rowsLock) _preferences = preferences;
+                    lock (_rowsLock)
+                    {
+                        if (preferences is not null) _preferences = preferences;
+                        if (roadmapPlan is not null) _roadmapPlan = roadmapPlan;
+                    }
                 }
 
-                if (changed.Count > 0 || preferences is not null) Changed?.Invoke();
+                if (changed.Count > 0 || preferences is not null || roadmapPlan is not null) Changed?.Invoke();
                 if (!page.HasMore) return;
             }
         }

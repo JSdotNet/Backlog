@@ -13,7 +13,9 @@
     Today: the day at a glance, and what the app opens on. Today's My Day split
     the way .devbook/domain/tasks/features.md#my-day splits it — the task on now
     (or next), then Agenda, Anytime today and Done today — under a line saying
-    how far through it the person is.
+    how far through it the person is. The plans in today's My Day come first, one
+    line each — name, done of total and run state, never their entries (local ADR
+    0062 §8).
 
     Each row ticks itself off and back on through TaskEdits, and opens the task's
     own page. Nothing else about a task is changed here. Adding is the capture
@@ -45,11 +47,12 @@
 
 @{
     var plan = Plan;
+    var plans = View.PlansToday(View.Today);
 }
 
 <div class="today" data-testid="today">
 
-@if (plan.Total == 0)
+@if (plan.Total == 0 && plans.Count == 0)
 {
     <EmptyState Title="Nothing picked for today"
                 Description="Pick tasks for today on the desktop, or add one with the capture button."
@@ -57,7 +60,12 @@
 }
 else
 {
-    <DayProgress Done="plan.Done.Count" Total="plan.Total" CssClass="today__progress" TestId="today-progress" />
+    @if (plan.Total > 0)
+    {
+        <DayProgress Done="plan.Done.Count" Total="plan.Total" CssClass="today__progress" TestId="today-progress" />
+    }
+
+    @PlansToday(plans)
 
     @if (plan.Card is { } card)
     {
@@ -162,6 +170,41 @@ else
                 }
             </ul>
         </section>
+    };
+
+    /// <summary>
+    /// The plans in today's My Day, one line each, above the task groups (local ADR 0062
+    /// §8): the plan's name, how many of its entries are done and its run state. No entry
+    /// of a plan is listed, and the line opens nothing — the phone has no plan page.
+    /// </summary>
+    private static RenderFragment PlansToday(IReadOnlyList<TodayPlanLine> plans) => __builder =>
+    {
+        if (plans.Count == 0) return;
+
+        <section class="today__group" aria-labelledby="today-plans" data-testid="today-plans">
+            <h2 class="today__group-title" id="today-plans">Plans today</h2>
+            <ul class="today__list">
+                @foreach (var line in plans)
+                {
+                    <li @key="line.Name" class="today-plan" aria-label="@line.Label" data-testid="today-plan" data-plan="@line.Name">
+                        <span class="today-plan__name" data-testid="today-plan-name">@line.Name</span>
+                        <span class="today-plan__progress" data-testid="today-plan-progress">@line.Done of @line.Total done</span>
+                        @if (line.StateText.Length > 0)
+                        {
+                            <Badge BaseClass="today-plan__state" Kind="" Slug="@StateSlug(line.State)" TestId="today-plan-state">@line.StateText</Badge>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    };
+
+    /// <summary>The state's colour, as the desktop's plan rail colours the same states.</summary>
+    private static string StateSlug(TodayPlanState state) => state switch
+    {
+        TodayPlanState.InProgress => "running",
+        TodayPlanState.Blocked => "blocked",
+        _ => "quiet",
     };
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
