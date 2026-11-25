@@ -1,4 +1,4 @@
-# ADR 0062: The sync tier deploys from hand-written Bicep through `azd`, not `aspire publish` and `aspire deploy`
+# ADR 0063: The sync tier deploys from hand-written Bicep through `azd`, not `aspire publish` and `aspire deploy`
 
 ```meta
 date: 2026-11-25

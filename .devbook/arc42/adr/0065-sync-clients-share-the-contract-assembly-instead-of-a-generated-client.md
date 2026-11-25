@@ -1,4 +1,4 @@
-# ADR 0064: The sync clients share the service's contract assembly instead of a client generated from OpenAPI
+# ADR 0065: The sync clients share the service's contract assembly instead of a client generated from OpenAPI
 
 ```meta
 date: 2026-11-25

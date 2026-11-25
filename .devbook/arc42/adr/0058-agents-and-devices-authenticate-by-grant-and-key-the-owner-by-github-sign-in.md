@@ -404,6 +404,15 @@ ends, and a Warning alert worded by the cause asks the person to refuse it again
 Settings → Devices. That page lists the paired devices and offers Revoke, through
 Windows Hello, on the rows this desktop paired.
 
+*One confirmation holds for 5 minutes since 2026-11-25.* The person's own acts at the
+desktop — a scope switch, widening the Unauthenticated row (ADR 0059), Allow,
+`agents:grant`, minting a pairing code, Revoke — are answered from a confirmation given
+in the last 5 minutes instead of asking again. `RememberedUserConsent` keeps that window
+around the desktop's `IUserConsent`. An agent's `tasks:admin` call and a Refuse raised
+from the phone ask every time through `VerifyEveryTimeAsync`, and neither opens the
+window. So that a script cannot click through the window, a release build opens no
+WebView2 remote-debugging port; only a Debug build listens on 9222.
+
 ### 7. Devbook decisions are the person's
 
 ```meta
@@ -546,6 +555,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-25 | §6: a Windows Hello confirmation holds for 5 minutes for the person's own acts at the desktop. An agent's `tasks:admin` call and a Refuse raised from the phone still ask every time. A release build opens no WebView2 remote-debugging port. | Switching several scopes on asked for the PIN at every switch. The person decided the window and its reach in a flow-code run. |
 | 2026-11-25 | §8 records that the authorization server's routes answer RFC 6749 errors, an exception to guideline ADR 0017. | Entry 21 built it that way and no record said so. Plan `zero-trust-auth` entry 27. |
 | 2026-11-24 | §2's answer identity: the owner's notification exchange rejects a reply from a device not paired now before it accepts it, and the notification stays Open. | The question's notification stays answerable by a paired device; the relay's own check stays as defence in depth. Plan `zero-trust-auth` final check, PR #1971. |
 | 2026-11-24 | §6: refusing a pairing asks for Windows Hello, its prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device and raises a Warning alert worded by the cause. Settings → Devices lists paired devices with a Hello-gated Revoke on the rows this desktop paired. This reverses the 2026-11-18 choice to refuse without a prompt. | The person decided it in the final-check flow-code run. Plan `zero-trust-auth` final check, PR #1971. |

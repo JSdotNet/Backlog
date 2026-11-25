@@ -124,6 +124,8 @@ The menu lists every page under one of three groups, in this order
 A `SettingsSection` picks its group with `Group`; it defaults to `ProductAreas`.
 Within a group the shell's own pages come first, in `SettingsPages.BuiltIn`'s
 order, then the registered sections by ascending `Order`, ties broken by `Id`.
+Events is the one shell page in `ProductAreas` (`SettingsPages.Events`): it holds
+the Azure Maps key, whose store belongs to the map adapter rather than a module.
 
 Rules:
 

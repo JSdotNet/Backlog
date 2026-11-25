@@ -1,4 +1,4 @@
-# ADR 0061: Repository automation stays PowerShell and Node, not C# file-based apps
+# ADR 0062: Repository automation stays PowerShell and Node, not C# file-based apps
 
 ```meta
 date: 2026-11-25

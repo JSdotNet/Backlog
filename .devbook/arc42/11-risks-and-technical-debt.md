@@ -21,7 +21,7 @@ related: [".devbook/arc42/03-context-and-scope.md#business-context"]
 ## Architectural Risks
 
 ```meta
-related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 | # | Risk | Mitigation direction |
@@ -35,7 +35,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 
 - **R5:** Local ADR 0005 accepts this because it resolves whole documents, not fields. Server-assigned ordering removes clock skew as a cause (`.devbook/arc42/08-crosscutting-concepts.md#task-sync`), but the loss remains.
 - **R7:** The desktop client is intended to be Windows-only and close to the .NET stack.
-- **R8:** The credentials are GitHub tokens, Claude and Azure Foundry keys, the sync device credential and the spec-manager tokens. The OS seal is DPAPI under the signed-in user on Windows and the platform secure store on Android. A copied settings folder carries no usable key, but code running as the same user can open them. Keys are not in the backup (ADR 0010), so a new machine or reset profile means entering them again. Rotation happens at the provider and is pasted into Settings. The MCP loopback token stays plaintext by ADR 0012.
+- **R8:** The credentials are GitHub tokens, Claude and Azure Foundry keys, and the spec-manager tokens. A sync device holds a non-exportable key instead of a secret (local ADR 0058 §2). Only a device on a host with no key store, the mobile web harness today, keeps a registration credential, and a device paired before keys deletes its credential at its next sync. The OS seal is DPAPI under the signed-in user on Windows and the platform secure store on Android. A copied settings folder carries no usable key, but code running as the same user can open them. Keys are not in the backup (ADR 0010), so a new machine or reset profile means entering them again. Rotation happens at the provider and is pasted into Settings. The MCP loopback token is retired, so `settings.json` holds only grant ids (local ADR 0058 §3).
 - **R9:** This has happened. A workspace root on OneDrive produced conflicted database copies and silently reverted committed status edits.
   - The sync service replaces file sync. It is built and provisioned by hand, but its delivery pipeline and a second device's real use are unproven (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`).
   - The Storage settings screen tells the person to keep the root on a local disk (D2). `SyncedFolderDetector` names the provider when the root sits inside a synced folder. It knows OneDrive (personal and business), Dropbox, Google Drive and iCloud Drive.

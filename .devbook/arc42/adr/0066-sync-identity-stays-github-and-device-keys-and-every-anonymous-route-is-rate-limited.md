@@ -1,4 +1,4 @@
-# ADR 0065: Sync identity stays GitHub sign-in and device keys, and every anonymous sync route gets a rate limit
+# ADR 0066: Sync identity stays GitHub sign-in and device keys, and every anonymous sync route gets a rate limit
 
 ```meta
 date: 2026-11-25

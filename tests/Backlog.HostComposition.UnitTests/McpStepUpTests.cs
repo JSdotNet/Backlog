@@ -92,6 +92,23 @@ public sealed class McpStepUpTests
         Assert.Equal(McpCallOutcome.Refused, Assert.Single(audit.Records).Outcome);
     }
 
+    /// <summary>The five minutes one confirmation holds cover the person's own acts at the
+    /// desk, never an agent's call: two calls in a row through the desktop's remembering
+    /// consent each ask.</summary>
+    [Fact]
+    public async Task An_admin_tool_asks_every_time_even_within_a_remembered_confirmation()
+    {
+        var inner = new ScriptedConsent(UserConsentOutcome.Verified);
+        var consent = new RememberedUserConsent(inner);
+        await using var harness = new Harness(new RecordingAuditLog(), consent);
+        using var client = harness.CreateClient();
+
+        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+
+        Assert.Equal(2, inner.Prompts.Count);
+    }
+
     [Fact]
     public async Task A_transition_asks_for_nothing()
     {
@@ -229,6 +246,9 @@ public sealed class McpStepUpTests
             lock (_prompts) _prompts.Add(message);
             return Task.FromResult(outcome);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     private sealed class RecordingAuditLog : IMcpAuditLog

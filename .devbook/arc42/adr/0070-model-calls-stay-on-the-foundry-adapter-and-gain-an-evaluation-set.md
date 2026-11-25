@@ -1,8 +1,8 @@
-# ADR 0069: Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set
+# ADR 0070: Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set
 
 ```meta
 date: 2026-11-25
-related: [".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/arc42/adr/0062-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0049-the-desktop-transcribes-a-meeting-recording-through-foundry-then-removes-the-audio.md", ".devbook/arc42/adr/0063-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md", ".devbook/arc42/09-architecture-decisions.md"]
 c4: [backlog.desktop]
 c4-touches: [azureFoundry]
 ```
@@ -41,7 +41,7 @@ calls are single requests with no tool loop:
 | `AzureFoundryTranscriptionClient` | Audio transcription | Local ADRs 0045, 0049 |
 
 The agents that act on Backlog, Claude Code and Copilot, run outside it and reach it
-over MCP (local ADR 0068). Their framework is not Backlog's choice.
+over MCP (local ADR 0069). Their framework is not Backlog's choice.
 
 The modules depend on their own ports (`IInboxTriageAdvisor`, `IInboxPlanDrafter`), not
 on a model SDK, which is the aim of org ADR 0012's `IChatClient` rule. The tests replace

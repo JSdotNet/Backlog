@@ -440,7 +440,7 @@ With a host listening on OnAttach and at least one goal, each row leads with a g
     private static readonly StandUpModel StandUp = new(
         Finished:
         [
-            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
+            new StandUpGroup("Customers get paid faster", [new StandUpEntry("bank-integration", Completed: 4), new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
             new StandUpGroup("Devbook search ships", [new StandUpEntry("Rank results by heading")])
         ],
         Planned:

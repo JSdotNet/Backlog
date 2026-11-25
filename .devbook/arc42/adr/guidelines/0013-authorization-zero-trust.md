@@ -1,6 +1,7 @@
 # ADR 0013: Authorization and the Zero Trust model
 
 ```meta
+date: 2026-11-25
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md"]
 ```
 
@@ -83,3 +84,17 @@ action, resource type and id, outcome, and correlation id.
   off by default, and that caller holds neither `telemetry:write` nor `agents:grant`.
 - Module-to-module calls do not carry a `ClaimsPrincipal`, since no in-process
   operation is security-relevant today.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-11-25 | Status: local ADR 0058's application to the MCP surface and to device and owner identity is built (PR #1878, #1971), and local ADR 0059 amends it. The MCP listener keeps the only audit store, and a tokenless call gets the Unauthenticated row's scopes. | Plan `zero-trust-auth` landed on main, and PR #1992 brought this record level with it. |
+| 2026-11-12 | The MCP listener takes grant tokens only. The shared token is retired, and `BACKLOG_MCP_TOKEN` is accepted only under a debug setting that is off by default. | Plan `zero-trust-auth` Phase 1, step `remove-settings-token` (PR #1828). |
+| 2026-11-11 | Applied for the MCP surface, proposed elsewhere: local ADR 0058 (then numbered 0052) applies it to the desktop listener, the remote `/mcp` endpoint, and device and owner identity on the sync service. | The always-on listener's one plaintext token opened every tool (PR #1753). |
+| 2026-09-07 | A fallback-deny policy and an owner-scoped, resource-based check exist for the sync service. | Device pairing and short-lived device tokens built the first surface with anything to protect (PR #413). |
+| 2026-08-27 | Imported from the organization's ADR 0013 and marked proposed for Backlog. | No authorization policy, resource check or audit existed, and the baseline was single-user (`715dbe0b2`, `dfc9b0023`). |
+| 2026-06-04 | Decided by the organization: verify explicitly, least privilege, assume breach (NIST SP 800-207), with named policies under fallback-deny, resource-based checks, no implicit trust between modules, and audit. | The organization's guideline, as this record's opening line dates it. |

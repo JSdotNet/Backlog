@@ -1,0 +1,100 @@
+@*
+    The Events map (.devbook/domain/events/features.md#events-map, local ADR 0061): the library
+    TileMap over the tile source IEventMapTiles answers, with a pin for each event that has a
+    stored map point and is not Skipped. Drawing reads the stored points only; nothing here
+    sends an address anywhere.
+
+    An upcoming event's pin carries its map number, the same as its row; a past one is grey
+    and unnumbered, so it gets no edge pill. The tones are .devbook/design/color-scheme.md#events-map-marks:
+    filled for Going, a dashed edge for Spotted and Considering, grey for past and settled.
+    Each pin's name says its number, title, state, date and venue, and its tooltip
+    "title · date". Picking a pin or a pill selects the event, which the host shares with the
+    list.
+
+    With no tile source — no map key — the map shows the missing-key note and sends nothing;
+    with tiles out of reach, the offline note. The list beside it is the host's and works
+    either way.
+*@
+
+<TileMap TileUrlTemplate="@Tiles?.UrlTemplate"
+         Attribution="@Tiles?.Attribution"
+         MinZoom="@(Tiles?.MinZoom ?? 2)"
+         MaxZoom="@(Tiles?.MaxZoom ?? 18)"
+         Marks="@Marks"
+         SelectedId="@SelectedId?.ToString("N")"
+         SelectedIdChanged="PickedAsync"
+         ViewChanged="ViewChanged"
+         InitialView="InitialView"
+         AriaLabel="Events map"
+         MissingSourceHeading="The map needs an Azure Maps key."
+         MissingSourceText="Add one in Settings to see where your events are. The list works without it."
+         MissingSourceActionLabel="@(OnOpenSettings.HasDelegate ? "Open Settings" : null)"
+         OnMissingSourceAction="OnOpenSettings"
+         OfflineHeading="The map needs a connection."
+         OfflineText="Its tiles cannot be reached right now. The list and the editor keep working."
+         CssClass="events-map"
+         TestId="events-map">
+    <Legend>
+        <span class="events-map__key"><span class="events-map__swatch events-map__swatch--filled" aria-hidden="true"></span>Going</span>
+        <span class="events-map__key"><span class="events-map__swatch events-map__swatch--dashed" aria-hidden="true"></span>Spotted or considering</span>
+        <span class="events-map__key"><span class="events-map__swatch events-map__swatch--grey" aria-hidden="true"></span>Past</span>
+        <span class="events-map__key">Numbers follow the dates</span>
+    </Legend>
+</TileMap>
+
+@code {
+    /// <summary>The date sections the list draws; the pins follow their order.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<KnowledgeEventSectionDto> Sections { get; set; } = [];
+
+    /// <summary>The event selected in the list and on the map.</summary>
+    [Parameter]
+    public Guid? SelectedId { get; set; }
+
+    /// <summary>Raised with the event a pin or a pill was picked for.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnSelect { get; set; }
+
+    /// <summary>Where the tiles come from, or null while no map key is set.</summary>
+    [Parameter]
+    public EventMapTilesDto? Tiles { get; set; }
+
+    /// <summary>The view the map opens on, kept for the session; null fits the numbered pins.</summary>
+    [Parameter]
+    public TileMapView? InitialView { get; set; }
+
+    /// <summary>Raised with the view once a pan or zoom has settled.</summary>
+    [Parameter]
+    public EventCallback<TileMapViewport> ViewChanged { get; set; }
+
+    /// <summary>Opens the Settings page that holds the map key, from the missing-key note.</summary>
+    [Parameter]
+    public EventCallback OnOpenSettings { get; set; }
+
+    private IReadOnlyList<TileMapMark> Marks =>
+    [
+        .. Sections.SelectMany(section => section.Events
+            .Where(summary => summary.Place?.Point is not null && summary.State != KnowledgeEventState.Skipped)
+            .Select(summary => MarkOf(summary, section.Section)))
+    ];
+
+    private static TileMapMark MarkOf(KnowledgeEventSummaryDto summary, EventListSection section)
+    {
+        var point = summary.Place!.Point!;
+        return new TileMapMark(
+            summary.Id.ToString("N"),
+            new MapCoordinate(point.Latitude, point.Longitude),
+            EventPresentation.PinName(summary),
+            EventPresentation.PinTooltip(summary),
+            summary.MapNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            EventPresentation.Tone(summary.State, section) switch
+            {
+                EventMarkTone.Filled => TileMapMarkTone.Filled,
+                EventMarkTone.Dashed => TileMapMarkTone.Dashed,
+                _ => TileMapMarkTone.Muted
+            });
+    }
+
+    private Task PickedAsync(string? id) =>
+        Guid.TryParseExact(id, "N", out var picked) ? OnSelect.InvokeAsync(picked) : Task.CompletedTask;
+}

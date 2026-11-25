@@ -17,7 +17,7 @@ type: requirements
 related: [.devbook/domain/events/features.md#events-pane, .devbook/domain/events/domain.md#knowledge-event]
 ```
 
-> What the person gets when they add an event and decide on it.
+> What the person gets when they add an event, decide on it, and see where it is.
 
 ### Requirement: An event needs only a title
 
@@ -217,26 +217,317 @@ The system SHALL show an event added or changed outside an open Events pane in t
 - **When** the event is marked Considering in another window
 - **Then** the pane shows it Considering, and the title field keeps what the person typed
 
-### Requirement: The pane lists events by state, upcoming first
+### Requirement: The pane lists events by date, Upcoming then Past
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.The_list_groups_events_by_state_with_upcoming_first_and_draws_no_empty_group, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_no_events_the_pane_says_so_and_offers_to_add_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.The_list_groups_by_state_in_decided_order_and_leaves_empty_groups_out, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.Within_a_group_upcoming_come_soonest_first_then_undated_then_past_most_recent_first, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneTests.An_event_still_running_today_counts_as_upcoming_and_one_that_ended_yesterday_as_past]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.The_list_draws_events_by_date_upcoming_then_past_and_draws_no_empty_section, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_no_events_the_pane_says_so_and_offers_to_add_one, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.Upcoming_lists_the_soonest_first_whatever_the_state_and_no_past_section_is_answered, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.The_undated_close_upcoming_and_past_lists_the_most_recent_first, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.With_only_past_events_no_upcoming_section_is_answered, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.An_event_still_running_today_is_upcoming_and_one_that_ended_yesterday_is_past, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.Past_lists_the_event_that_ended_last_first, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.A_skipped_event_keeps_its_date_section, integration:dotnet:Backlog.Modules.Events.UnitTests.EventPresentationTests.A_row_date_is_short_and_carries_its_year_only_outside_this_one]
 ```
 
-The system SHALL list the events grouped by state, Going, Considering, Spotted, Attended, Harvested, Skipped, drawing no empty group, and within a group the events not yet over soonest first, then the undated ones, then the past ones most recent first.
+The system SHALL list the events in two sections whatever their state, Upcoming with the events not yet over soonest first and then the undated ones, and Past with the rest most recent first, drawing no empty section.
 
-#### Scenario: Upcoming first
+#### Scenario: Soonest first, whatever the state
 
-- **Given** a Going event "NDC Oslo", and the Spotted events "Techorama Belgium" in May 2027 and "dotNET Friday" on 27 November 2026
+- **Given** today is 24 November 2026, a Going event "NDC Oslo" in June 2027, and the Spotted events "Techorama Belgium" in May 2027 and "dotNET Friday" on 27 November 2026
 - **When** the person opens the Events pane
-- **Then** Going comes before Spotted, no other group is drawn, and "dotNET Friday" leads Spotted
+- **Then** Upcoming lists "dotNET Friday", "Techorama Belgium", "NDC Oslo" in that order, and no Past section is drawn
+
+#### Scenario: Undated last, past most recent first
+
+- **Given** an undated Spotted event "Azure Meetup", and the Harvested events "Techorama 2025" in May 2025 and "dotNET Friday" in September 2026
+- **When** the person opens the Events pane
+- **Then** "Azure Meetup" closes Upcoming, its row's date reading "No date", and Past lists "dotNET Friday" before "Techorama 2025"
+
+#### Scenario: A skipped event keeps its date
+
+- **Given** a Skipped event "NDC London" in January 2027
+- **When** the person opens the Events pane
+- **Then** "NDC London" is listed under Upcoming by its date
+
+#### Scenario: Still running today
+
+- **Given** today is 24 November 2026, and an event running from 23 to 25 November 2026
+- **When** the person opens the Events pane
+- **Then** the event is listed under Upcoming
 
 #### Scenario: No events yet
 
 - **Given** the person has no events
 - **When** they open the Events pane
 - **Then** the pane says there are no events yet and offers to add one
+
+### Requirement: Upcoming events on the map are numbered in date order
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#map-number]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.Upcoming_events_on_the_map_are_numbered_in_list_order, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.An_event_with_no_map_point_takes_no_number_and_the_next_one_on_the_map_follows_on, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.Past_and_skipped_events_on_the_map_are_unnumbered, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneListTests.An_upcoming_event_marked_attended_early_keeps_its_number, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Upcoming_events_on_the_map_are_numbered_in_date_order_on_rows_and_pins_and_past_ones_are_grey]
+```
+
+The system SHALL number the upcoming events that have a map point and are not Skipped from 1 in list order, and show each number on both the event's row and its pin.
+
+#### Scenario: Numbers follow the dates
+
+- **Given** the upcoming events "dotNET Friday" in Utrecht, "Techorama Belgium" in Antwerp and "NDC Oslo" in Oslo, each with a map point
+- **When** the person opens the Events pane
+- **Then** their rows and pins read 1, 2 and 3 in that order
+
+#### Scenario: An event off the map takes no number
+
+- **Given** the upcoming events "dotNET Friday" in Utrecht, the online "Build" after it, and "NDC Oslo" in Oslo after that
+- **When** the person opens the Events pane
+- **Then** "dotNET Friday" is 1, "NDC Oslo" is 2, and "Build" has no number
+
+#### Scenario: Past and skipped events are unnumbered
+
+- **Given** a Harvested event "Techorama 2025" and a Skipped upcoming event "NDC London", both with a map point
+- **When** the person opens the Events pane
+- **Then** "Techorama 2025" has a grey pin with no number, and "NDC London" has neither a number nor a pin
+
+#### Scenario: Attended before its last day
+
+- **Given** an event running from 23 to 25 November 2026 with a map point, marked Attended, on 24 November 2026
+- **When** the person opens the Events pane
+- **Then** it is listed under Upcoming with a number, in the grey tone
+
+### Requirement: Picking a pin or a row selects the event in both
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Picking_a_pin_selects_its_row_and_opens_it_and_picking_a_row_presses_its_pin, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.Picking_a_pin_tells_the_host_which_mark]
+```
+
+The system SHALL select an event on the map and in the list together when the person picks its pin or its row, and open it in the editor.
+
+#### Scenario: A pin picked
+
+- **Given** the pin numbered 2 for "Techorama Belgium"
+- **When** the person picks the pin
+- **Then** the row "Techorama Belgium" is selected and the editor shows the event
+
+#### Scenario: A row picked
+
+- **Given** the row "NDC Oslo", numbered 3
+- **When** the person picks the row
+- **Then** pin 3 is selected and the editor shows the event
+
+### Requirement: A numbered event out of view shows on the map's edge
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_numbered_event_out_of_view_is_a_pill_on_the_edge_its_hint_says_so_and_the_pill_selects_it, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.A_numbered_mark_out_of_view_is_a_pill_on_its_edge_and_an_unnumbered_one_is_nothing, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.Picking_a_pill_brings_its_mark_into_view_and_selects_it]
+```
+
+The system SHALL show each numbered event whose map point is outside the map's view as a pill with its number on the map's nearest edge, and bring the event into view and select it when the person picks the pill.
+
+#### Scenario: Oslo out of view
+
+- **Given** the map zoomed on Belgium, and "NDC Oslo" numbered 3
+- **When** the person looks at the map
+- **Then** a pill numbered 3 sits on the map's top edge
+
+#### Scenario: The pill picked
+
+- **Given** the pill numbered 3 on the map's edge
+- **When** the person picks it
+- **Then** the map shows pin 3, and "NDC Oslo" is selected in the list and the editor
+
+### Requirement: An event off the map says why
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#not-on-the-map]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_event_off_the_map_says_why_on_its_row_and_gets_no_number, integration:dotnet:Backlog.Modules.Events.UnitTests.EventPresentationTests.The_place_line_says_why_an_event_is_not_on_the_map_in_four_words]
+```
+
+The system SHALL mark an event's row with why it has no pin: online, no venue yet for an event with no address whether or not it has a venue name, an address the geocoder looked up and could not find, or an address not looked up yet.
+
+#### Scenario: Online
+
+- **Given** the online event "Build"
+- **When** the person opens the Events pane
+- **Then** its row reads "Online · not on the map"
+
+#### Scenario: No venue yet
+
+- **Given** a Spotted event "dotNET Friday" with no place
+- **When** the person opens the Events pane
+- **Then** its row reads "No venue yet · not on the map"
+
+#### Scenario: A venue name with no address
+
+- **Given** an event with the venue name "Jaarbeurs" and no address
+- **When** the person opens the Events pane
+- **Then** its row reads "No venue yet · not on the map"
+
+#### Scenario: Address not found
+
+- **Given** an event whose saved address "Nowherestraat 1, Nergenshuizen" geocoding could not place
+- **When** the person opens the Events pane
+- **Then** its row reads "Address not found · not on the map", and the map has no pin for it
+
+#### Scenario: Address not looked up yet
+
+- **Given** an event whose address "Groenendaallaan 394, 2030 Antwerpen, Belgium" was saved while the desktop was offline
+- **When** the person opens the Events pane
+- **Then** its row reads "Address not looked up yet · not on the map", and the map has no pin for it
+
+### Requirement: The venue field says where the event is on the map
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventPresentationTests.The_venue_hint_says_the_number_or_why_the_event_is_not_on_the_map, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_online_event_offers_no_address_and_its_hint_says_it_is_not_on_the_map, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_numbered_event_out_of_view_is_a_pill_on_the_edge_its_hint_says_so_and_the_pill_selects_it, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.A_past_event_on_the_map_reads_in_grey_and_a_skipped_one_says_it_is_not_on_the_map, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_address_save_lands_at_once_and_the_hint_says_it_is_being_looked_up_until_the_answer]
+```
+
+The system SHALL show under the editor's venue field whether the event is on the map, as its number or in grey, whether its address is being looked up, or why it is not on the map.
+
+#### Scenario: On the map
+
+- **Given** "Techorama Belgium" numbered 2 and in the map's view
+- **When** the person opens it in the editor
+- **Then** the venue field reads "On the map as 2."
+
+#### Scenario: Out of view
+
+- **Given** "NDC Oslo" numbered 3, outside the map's view
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Outside the map's view."
+
+#### Scenario: A past event on the map
+
+- **Given** the Harvested event "Techorama 2025" with a map point
+- **When** the person opens it in the editor
+- **Then** the venue field reads "On the map, in grey."
+
+#### Scenario: A skipped event
+
+- **Given** the Skipped event "NDC London" with a map point
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Skipped: not on the map."
+
+#### Scenario: Being looked up
+
+- **Given** "Techorama Belgium" open in the editor
+- **When** the person saves the address "Groenendaallaan 394, 2030 Antwerpen, Belgium"
+- **Then** the venue field reads "Looking up the address…" until the geocoder answers
+
+#### Scenario: Online
+
+- **Given** the online event "Build"
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Online: not on the map."
+
+#### Scenario: No address
+
+- **Given** an event with the venue name "Jaarbeurs" and no address
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Add an address to put it on the map."
+
+#### Scenario: Address not found
+
+- **Given** an event whose address geocoding could not place
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Address not found: check it."
+
+#### Scenario: Address not looked up yet
+
+- **Given** an event whose address was saved while the desktop had no map key
+- **When** the person opens it in the editor
+- **Then** the venue field reads "Not looked up yet: it will be looked up when you save again, or Look up now."
+
+### Requirement: An address is geocoded once, when it is saved
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#place, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.A_new_address_is_sent_once_and_its_point_kept, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.A_changed_address_is_sent_and_moves_the_point, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.An_unchanged_address_is_not_sent_again_and_keeps_its_point, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.An_address_saved_with_no_answer_back_is_kept_not_looked_up_yet, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.The_next_save_of_a_place_not_looked_up_yet_sends_it_again, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.Look_up_now_sends_an_address_not_looked_up_yet, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.Look_up_now_sends_an_address_not_found_again, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.An_address_typed_part_by_part_is_saved_and_looked_up_once_when_the_focus_leaves_its_fields]
+```
+
+The system SHALL geocode an event's address when the person saves it new or changed, store the map point found or none, keep an address it could not look up as not looked up yet until the next save or the person's retry, and never geocode while drawing the map or in the background.
+
+#### Scenario: A new address placed
+
+- **Given** "Techorama Belgium" with no address
+- **When** the person saves the address "Groenendaallaan 394, 2030 Antwerpen, Belgium"
+- **Then** the event stores the point geocoding found, and the map shows its pin
+
+#### Scenario: A changed address moves the pin
+
+- **Given** "Techorama Belgium" with a point in Antwerp
+- **When** the person changes the town to "Brussel" and saves
+- **Then** the event stores the new point, and the old one is gone
+
+#### Scenario: Drawing sends nothing
+
+- **Given** ten events with saved addresses
+- **When** the person opens, pans and zooms the map
+- **Then** no address is sent to the geocoder
+
+#### Scenario: An unchanged address is not looked up again
+
+- **Given** "Techorama Belgium" with an address and its point
+- **When** the person changes the event's title and saves
+- **Then** the address is not sent to the geocoder, and the point stays
+
+#### Scenario: An address saved offline waits for the next save
+
+- **Given** the desktop has no connection
+- **When** the person saves "Techorama Belgium" with the address "Groenendaallaan 394, 2030 Antwerpen, Belgium"
+- **Then** nothing is sent, the event stores no point, and its address is not looked up yet rather than not found
+- **And** nothing looks it up in the background once the connection returns; the next save of the event or Look up now does
+
+### Requirement: Look up now says when nothing was looked up
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/domain/events/domain.md#address-lookup]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.Look_up_now_that_gets_no_answer_says_nothing_was_looked_up_and_keeps_the_address_not_found, integration:dotnet:Backlog.Modules.Events.UnitTests.EventsPaneLookupTests.Look_up_now_that_gets_no_answer_says_so_and_keeps_the_address_not_found]
+```
+
+The system SHALL tell the person when Look up now gets no answer from the geocoder, and keep the address's lookup as it was.
+
+#### Scenario: The map service out of reach
+
+- **Given** an event whose address "Nowherestraat 1, Nergenshuizen" reads Address not found, and the geocoder cannot be reached
+- **When** the person picks Look up now
+- **Then** the editor reads "Nothing was looked up: the map service could not be reached. Try again later.", and the address still reads Address not found
+
+### Requirement: The map says when it has no key
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_no_map_key_the_map_says_so_offers_settings_and_sends_nothing_and_the_list_still_opens_events, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.With_no_tile_source_the_map_says_so_and_loads_nothing, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.The_missing_source_note_offers_the_hosts_way_to_fix_it]
+```
+
+The system SHALL show a note offering Settings in place of the map while no map key is saved, and keep the list and the editor working.
+
+#### Scenario: No map key
+
+- **Given** no Azure Maps key is saved
+- **When** the person opens the Events pane
+- **Then** the map area reads "The map needs an Azure Maps key." and "Add one in Settings to see where your events are. The list works without it."
+- **And** it offers "Open Settings", and picking a row still opens the event
+
+### Requirement: The map says when it is offline
+
+```meta
+type: requirement
+related: [.devbook/domain/events/features.md#events-map, .devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.EventsScreenTests.With_tiles_out_of_reach_the_map_shows_the_offline_note_and_the_list_keeps_its_numbers_and_opens_events, integration:dotnet:Backlog.UI.Components.UnitTests.TileMapTests.Tiles_that_cannot_be_reached_show_the_offline_note_in_place_of_the_marks]
+```
+
+The system SHALL show an offline note in place of the map while the map tiles cannot be reached, and keep the list and the editor working.
+
+#### Scenario: No connection
+
+- **Given** the desktop has no connection
+- **When** the person opens the Events pane
+- **Then** the map area reads "The map needs a connection." and "Its tiles cannot be reached right now. The list and the editor keep working."
+- **And** the list shows every event with its number
 
 ## To Event route
 

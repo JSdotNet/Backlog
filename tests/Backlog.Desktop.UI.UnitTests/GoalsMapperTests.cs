@@ -505,6 +505,40 @@ public sealed class GoalsMapperTests
         Assert.Equal(1, standUp.ResolvedInLast);
     }
 
+    /// <summary>Finished shows a plan where its entries were: one row per plan, at its first
+    /// entry, with how many were done in the window; a task outside a plan and a pull request
+    /// keep their own rows, and the block still counts every item done.</summary>
+    [Fact]
+    public void Finished_shows_each_plan_once_with_its_entries_done_in_the_window()
+    {
+        var another = Guid.NewGuid();
+        var reading = StandUp with
+        {
+            Finished =
+            [
+                new StandUpGroupDto(PaidId, "Customers get paid faster",
+                [
+                    Item(GoalAttachmentKind.Task, "Bank import rules", Rules),
+                    Item(GoalAttachmentKind.Task, "Invoice PDF export", Invoice),
+                    Item(GoalAttachmentKind.Task, "Payment matching rules", Matching),
+                    new StandUpItemDto(GoalAttachmentKind.PullRequest, null, "JSdotNet/Backlog#1352", "JSdotNet/Backlog", 1352, null, null, Oct(14)),
+                    Item(GoalAttachmentKind.Task, "Statement parser", another)
+                ])
+            ]
+        };
+        var candidates = Candidates with
+        {
+            Tasks = [.. Candidates.Tasks, new(another, "Statement parser", GoalTaskStatus.Done, ["+bank-integration"], [], true)]
+        };
+
+        var finished = GoalsMapper.Map(reading, Summaries, Pulls, candidates).StandUp.Finished;
+
+        var rows = Assert.Single(finished).Items;
+        Assert.Equal(["bank-integration", "Invoice PDF export", "JSdotNet/Backlog#1352"], rows.Select(row => row.Title));
+        Assert.Equal([3, null, null], rows.Select(row => row.Completed));
+        Assert.Equal(5, StandUpGroups.ItemCount(finished));
+    }
+
     [Fact]
     public void An_impediment_carries_its_state_and_only_the_moves_it_may_make()
     {

@@ -129,7 +129,9 @@ public sealed record GoalsItem(GoalSubject Subject, string Title)
 /// <param name="PullRequest">A pull request item's status line; null for anything else.</param>
 /// <param name="Effort">The item's <c>effort:</c> in points, when it carries one; a planned
 /// item shows it.</param>
-public sealed record StandUpEntry(string Title, PullRequestStatusModel? PullRequest = null, int? Effort = null);
+/// <param name="Completed">For a plan in Finished, how many of its entries were done in the
+/// window: the row stands for that many items. Null for a single task or pull request.</param>
+public sealed record StandUpEntry(string Title, PullRequestStatusModel? PullRequest = null, int? Effort = null, int? Completed = null);
 
 /// <summary>The items of one goal, or of No goal when <paramref name="GoalTitle"/> is null.</summary>
 public sealed record StandUpGroup(string? GoalTitle, IReadOnlyList<StandUpEntry> Items);
@@ -145,11 +147,12 @@ public static class StandUpGroups
         return groups.Where(group => group.GoalTitle is not null).Concat(groups.Where(group => group.GoalTitle is null));
     }
 
-    /// <summary>Every item, across the groups: the block's count.</summary>
+    /// <summary>Every item, across the groups: the block's count. A plan's row counts each
+    /// entry it stands for.</summary>
     public static int ItemCount(IReadOnlyList<StandUpGroup> groups)
     {
         ArgumentNullException.ThrowIfNull(groups);
-        return groups.Sum(group => group.Items.Count);
+        return groups.Sum(group => group.Items.Sum(item => item.Completed ?? 1));
     }
 }
 

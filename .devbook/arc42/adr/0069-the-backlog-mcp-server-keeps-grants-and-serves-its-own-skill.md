@@ -1,8 +1,8 @@
-# ADR 0068: The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource
+# ADR 0069: The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource
 
 ```meta
 date: 2026-11-25
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md", ".devbook/arc42/adr/0065-sync-identity-stays-github-and-device-keys-and-every-anonymous-route-is-rate-limited.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md", ".devbook/arc42/adr/0066-sync-identity-stays-github-and-device-keys-and-every-anonymous-route-is-rate-limited.md", ".devbook/arc42/09-architecture-decisions.md"]
 c4: [backlog.desktop]
 c4-touches: [claude, codingAgents, backlog.cloud]
 ```
@@ -93,7 +93,7 @@ descriptions.
 ```
 
 - **OAuth 2.1 with CIMD and token exchange on the local listener (L).** It needs an
-  identity provider that Backlog does not have (local ADR 0065), and it would prove only
+  identity provider that Backlog does not have (local ADR 0066), and it would prove only
   what the pipe's ACL already proves.
 
 ## History

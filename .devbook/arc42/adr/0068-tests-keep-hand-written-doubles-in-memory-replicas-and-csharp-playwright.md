@@ -1,8 +1,8 @@
-# ADR 0067: Tests keep hand-written doubles, in-memory replicas and C# Playwright
+# ADR 0068: Tests keep hand-written doubles, in-memory replicas and C# Playwright
 
 ```meta
 date: 2026-11-25
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0063-data-access-stays-in-infrastructure-adapters-without-ef-core-or-an-outbox.md", ".devbook/arc42/08-crosscutting-concepts.md", ".devbook/tech/testing.md", ".devbook/ai/03-test.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0064-data-access-stays-in-infrastructure-adapters-without-ef-core-or-an-outbox.md", ".devbook/arc42/08-crosscutting-concepts.md", ".devbook/tech/testing.md", ".devbook/ai/03-test.md", ".devbook/arc42/09-architecture-decisions.md"]
 c4: [backlog]
 ```
 

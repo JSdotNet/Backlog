@@ -469,26 +469,18 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The bounds are reported per owner, and a layout that is not mounted must not
-    /// cost the owners after it their report. There is no JS engine here to prove
-    /// the behaviour, so the shape is pinned instead: the lookup, then the measured
-    /// width behind a conditional rather than an early return. The viewport's pane
-    /// capacity, reported for the desktop shell's side panes, went with them, and so
-    /// did the shell's own layout among the selectors and the width it was dragged to.
+    /// cost the owners after it their report. That behaviour is run, not read, in
+    /// <c>Backlog.UI.Components.UnitTests.SplitPaneScriptTests</c>
+    /// (<c>Pane_bounds_are_reported_per_owner_and_an_unmounted_split_costs_the_others_nothing</c>),
+    /// which executes the resizer as it ships in Node; this project has no JS engine.
+    /// What stays here is what is absent: the viewport's pane capacity, reported for
+    /// the desktop shell's side panes, went with them, and so did the shell's own
+    /// layout among the selectors and the width it was dragged to.
     /// </summary>
     [Fact]
     public void Pane_bounds_are_reported_per_owner_and_no_capacity_is()
     {
         var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
-
-        var lookup = componentsJs.IndexOf(
-            "const layout = backlogLayoutForKey(key);",
-            StringComparison.Ordinal);
-        var width = componentsJs.IndexOf(
-            "if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync'",
-            StringComparison.Ordinal);
-
-        Assert.True(lookup >= 0 && width >= 0);
-        Assert.True(lookup < width, "Only the measured width may depend on the layout.");
 
         Assert.DoesNotContain("SetGlobalPaneCapacityAsync", componentsJs, StringComparison.Ordinal);
         Assert.DoesNotContain("backlogPaneCapacity", componentsJs, StringComparison.Ordinal);
@@ -496,16 +488,17 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("--devbook-panel-width", componentsJs, StringComparison.Ordinal);
         Assert.Contains("const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-pane-split]';", componentsJs, StringComparison.Ordinal);
 
-        // An unmeasurable layout must not cost the owners after it their report,
-        // so the reporting function may not return early on one. Scoped to that
-        // function rather than to the file: the drag handler bails out on a
-        // separator with no layout around it, which is a different question with a
-        // different right answer.
+        // The reporter walks every owner and hands each one to the per-owner report,
+        // so a layout the per-owner report skips ends that owner's report only. Kept
+        // as a shape check beside the run behaviour so the walk cannot quietly turn
+        // into an early-returning loop in this project's view of the file either.
         var reporter = componentsJs.IndexOf("function backlogReportPaneBounds()", StringComparison.Ordinal);
         Assert.True(reporter >= 0);
 
-        var body = componentsJs[reporter..componentsJs.IndexOf("window.backlogPaneResizer", StringComparison.Ordinal)];
+        var body = componentsJs[reporter..componentsJs.IndexOf("function backlogReportPaneBound(key)", reporter, StringComparison.Ordinal)];
+        Assert.Contains("for (const key of backlogPaneOwners.keys()) backlogReportPaneBound(key);", body, StringComparison.Ordinal);
         Assert.DoesNotContain("return;", body, StringComparison.Ordinal);
+        Assert.Contains("owner.invokeMethodAsync('SetSidePaneMaxWidthAsync'", componentsJs, StringComparison.Ordinal);
     }
 
     /// <summary>

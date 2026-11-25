@@ -1,4 +1,4 @@
-# ADR 0063: Data access stays in infrastructure adapters, on raw SQLite and the Cosmos SDK, with no EF Core and no event outbox
+# ADR 0064: Data access stays in infrastructure adapters, on raw SQLite and the Cosmos SDK, with no EF Core and no event outbox
 
 ```meta
 date: 2026-11-25
@@ -70,7 +70,7 @@ Backlog is mostly a client app:
    hand-written SQL. Cosmos is read and written with `Microsoft.Azure.Cosmos`.
 3. **No migration-runner resource.** The desktop and the phone bootstrap their own file
    at start (local ADR 0006). Cosmos containers are declared in the Bicep (local ADR
-   0062).
+   0063).
 4. **No integration events and no transactional outbox between modules.** In one
    process the modules call each other's contracts. Between devices the replica and
    the phone's write outbox carry the change, as local ADR 0005 describes.

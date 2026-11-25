@@ -233,7 +233,7 @@ Deployment considerations:
 ### Provisioning and Delivery
 
 ```meta
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/08-crosscutting-concepts.md#configuration", ".devbook/arc42/adr/0062-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/08-crosscutting-concepts.md#configuration", ".devbook/arc42/adr/0063-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md"]
 ```
 
 Local ADR 0005 introduced the delivery artifacts `infra/sync/main.bicep`, `azure.yaml` and `.github/workflows/deploy-sync.yml`.
@@ -293,7 +293,7 @@ AppHost the one model from local run to deployment. In publish mode it declares:
 `aspire publish` generates Bicep from that model, but nothing deploys it yet. The running
 service is still provisioned from `infra/sync/` and deployed by `azd`, which set the same
 settings under the Bicep parameters each AppHost parameter names in its comment. Local ADR
-0062 (proposed) keeps it that way: the Bicep stays the deployment, and the AppHost stays the
+0063 (proposed) keeps it that way: the Bicep stays the deployment, and the AppHost stays the
 model of settings, secrets and alert rules. `AppHostDeploymentModelTests` keeps the two
 lists of settings level. The exception alert reaches Azure only once `infra/sync/main.bicep`
 declares it too.

@@ -1,4 +1,4 @@
-# ADR 0066: Each module ships its own UI project, and the apps under `src/App/` compose them
+# ADR 0067: Each module ships its own UI project, and the apps under `src/App/` compose them
 
 ```meta
 date: 2026-11-25
