@@ -266,7 +266,7 @@ public sealed class GoalToolsTests
     {
         var goals = new FakeGoals();
 
-        var payload = await Tools(goals).CreateAsync("Fundering Financieel", Due, "Funding is signed", Cancellation);
+        var payload = await Tools(goals).CreateAsync("Fundering Financieel", Due, "Funding is signed", cancellationToken: Cancellation);
 
         Assert.Equal("Fundering Financieel", payload.Title);
         Assert.Equal("Funding is signed", payload.Outcome);
@@ -280,7 +280,7 @@ public sealed class GoalToolsTests
     {
         var goals = new FakeGoals();
 
-        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(goals).CreateAsync(" ", Due, null, Cancellation));
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(goals).CreateAsync(" ", Due, null, cancellationToken: Cancellation));
 
         Assert.StartsWith("progress.goal_without_title", failure.Message, StringComparison.Ordinal);
         Assert.Empty(goals.Stored);
@@ -509,7 +509,7 @@ public sealed class GoalToolsTests
         var goal = goals.Seed("Local development", null, Due, GoalItemDto.ForPlan("+goals"));
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            Tools(goals, "JSdotNet/Backlog").DetachAsync(goal, planTag, taskId, repository, number, Cancellation));
+            Tools(goals, "JSdotNet/Backlog").DetachAsync(goal, planTag, taskId, repository, number, cancellationToken: Cancellation));
 
         Assert.StartsWith(code, failure.Message, StringComparison.Ordinal);
         Assert.Single(goals.Find(goal).Attachments);
@@ -523,7 +523,7 @@ public sealed class GoalToolsTests
         var goals = new FakeGoals();
         var goal = goals.Seed("Local development", null, Due, GoalItemDto.ForPlan("+goals"));
 
-        var payload = await Tools(goals).DeleteAsync(goal, Cancellation);
+        var payload = await Tools(goals).DeleteAsync(goal, cancellationToken: Cancellation);
 
         Assert.Equal(goal, payload.Id);
         Assert.Empty(goals.Stored);
@@ -532,7 +532,7 @@ public sealed class GoalToolsTests
     [Fact]
     public async Task Deleting_an_unknown_goal_is_not_found()
     {
-        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(new FakeGoals()).DeleteAsync(Guid.NewGuid(), Cancellation));
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(new FakeGoals()).DeleteAsync(Guid.NewGuid(), cancellationToken: Cancellation));
 
         Assert.StartsWith("progress.goal_not_found", failure.Message, StringComparison.Ordinal);
     }

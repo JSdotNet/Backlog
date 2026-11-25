@@ -182,6 +182,69 @@ public interface ITaskItems
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
 
+    /// <summary>The version the store holds of one live entry — the instant it was
+    /// last written — or null when no live entry has that id.
+    /// <para>
+    /// The token a caller hands back to the versioned writes below, so a change it
+    /// built on what it read is refused once somebody else has saved the entry since
+    /// (<see cref="TaskEntryErrorCodes.StaleWrite"/>). Read it <em>before</em> the
+    /// entry: a save landing between the two reads then leaves the caller holding an
+    /// older version than the text, which refuses its write rather than letting it
+    /// overwrite the save it never saw.
+    /// </para>
+    /// <para>
+    /// Null by default, so a host or a test double that keeps no versions still
+    /// composes; every versioned write on such a port is then refused, never written
+    /// unguarded. The module's own port overrides it.
+    /// </para></summary>
+    Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult<DateTimeOffset?>(null);
+
+    /// <summary>Saves an existing entry's text as <see cref="SaveFromTextAsync"/> does,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/> — the
+    /// <see cref="GetUpdatedAtAsync"/> the caller read before building
+    /// <paramref name="rawText"/>. Any other version is refused with
+    /// <see cref="StaleTaskWrites.StaleWrite"/> and nothing is written.
+    /// <para>
+    /// The module checks and writes in one conditional save. The default here is for a
+    /// double: it compares first and writes after, so it is not atomic.
+    /// </para></summary>
+    async Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid id,
+        string rawText,
+        int order,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await SaveFromTextAsync(id, rawText, order, cancellationToken: cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
+    /// <summary><see cref="LinkToIssueAsync(Guid, string, string, string, CancellationToken)"/>,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/>; on the
+    /// terms of the versioned <see cref="SaveFromTextAsync(Guid, string, int, DateTimeOffset, CancellationToken)"/>.</summary>
+    async Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
+    /// <summary><see cref="SetDevbookReferencesAsync(Guid, IReadOnlyList{string}, CancellationToken)"/>,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/>; on the
+    /// terms of the versioned <see cref="SaveFromTextAsync(Guid, string, int, DateTimeOffset, CancellationToken)"/>.</summary>
+    async Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await SetDevbookReferencesAsync(id, references, cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
     /// <summary>
     /// Brings every entry's <c>repo_ids</c> up to the identity the registry
     /// states, and answers how many entries changed.

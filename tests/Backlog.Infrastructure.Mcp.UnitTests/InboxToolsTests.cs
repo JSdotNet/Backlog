@@ -144,7 +144,7 @@ public class InboxToolsTests
         var item = Item("filed", Day);
         var inbox = FakeInbox.Over(item);
 
-        var answer = await new InboxTools(inbox).ArchiveAsync(item.Id, Cancel);
+        var answer = await new InboxTools(inbox).ArchiveAsync(item.Id, cancellationToken: Cancel);
 
         Assert.Equal("archived", answer.Status);
         var fake = (FakeInbox)(object)inbox;
@@ -156,7 +156,7 @@ public class InboxToolsTests
     {
         var item = Item("done", Day) with { Status = InboxStatus.Archived };
 
-        var refused = await Assert.ThrowsAsync<McpException>(() => Tools(item).ArchiveAsync(item.Id, Cancel));
+        var refused = await Assert.ThrowsAsync<McpException>(() => Tools(item).ArchiveAsync(item.Id, cancellationToken: Cancel));
 
         Assert.Contains("inbox.item.invalid_transition", refused.Message, StringComparison.Ordinal);
     }
@@ -167,7 +167,7 @@ public class InboxToolsTests
         var inbox = FakeInbox.Over();
 
         var answer = await new InboxTools(inbox).CaptureAsync(
-            "Call Anna about the invoice", "Before Friday.", "https://example.test/invoice/42", Cancel);
+            "Call Anna about the invoice", "Before Friday.", "https://example.test/invoice/42", cancellationToken: Cancel);
 
         var fake = (FakeInbox)(object)inbox;
         var call = Assert.Single(fake.Captures);
@@ -219,11 +219,11 @@ public class InboxToolsTests
         await tools.CaptureAsync("Remind me to call the plumber", cancellationToken: Cancel);
         Assert.Equal(1, signal.Raised);
 
-        await tools.ArchiveAsync(item.Id, Cancel);
+        await tools.ArchiveAsync(item.Id, cancellationToken: Cancel);
         Assert.Equal(2, signal.Raised);
 
         await Assert.ThrowsAsync<McpException>(() => tools.CaptureAsync("   ", cancellationToken: Cancel));
-        await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(item.Id, Cancel));
+        await Assert.ThrowsAsync<McpException>(() => tools.ArchiveAsync(item.Id, cancellationToken: Cancel));
         Assert.Equal(2, signal.Raised);
     }
 

@@ -151,6 +151,32 @@ public sealed class TaskItem
     /// </para></summary>
     public DateTimeOffset? DeletedAt { get; private set; }
 
+    /// <summary>The <see cref="UpdatedAt"/> the store held for this task when it
+    /// was last read or written, or null for an aggregate no store has handed out.
+    /// <para>
+    /// The optimistic-concurrency token. A save of a task carrying one is applied
+    /// only while the store still holds that stamp: a second writer that read the
+    /// same version and saves after the first is refused rather than allowed to put
+    /// the older version back over the newer one (<c>tasks.stale_write</c>).
+    /// </para>
+    /// <para>
+    /// What it guards is each save's own read-modify-write — a use case reads the
+    /// task, applies a change, saves it. On its own it does not reach further back:
+    /// a caller that built its text on an older read hands that text to a use case
+    /// that reads the task afresh. A caller that names the version it read
+    /// (<see cref="RequireLoadedAt"/>) carries the guard back to that read — the MCP
+    /// tools do, with the version <c>read_item</c> answered or the one they read
+    /// themselves. The Tasks pane closes the gap its own way, by merging its edit
+    /// onto the stored entry before it saves (<c>RebaseOnStoreAsync</c>).
+    /// </para>
+    /// <para>
+    /// Null is deliberate and means "not read from this store": a task being
+    /// created, and a copy the replica merge builds from another device's document,
+    /// which <c>TaskReplicaMerge</c> decides by its own precedence rule. Such a save
+    /// is written unconditionally, as every save was before the check existed.
+    /// </para></summary>
+    public DateTimeOffset? LoadedUpdatedAt { get; private set; }
+
     /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
     /// have never been ranked share the default 0 and fall back to recency.</summary>
     public int Order { get; private set; }
@@ -749,6 +775,40 @@ public sealed class TaskItem
         DeletedAt = null;
     }
 
+    /// <summary>Makes this task — an earlier version of itself, rebuilt from the change
+    /// journal — the latest version, over the one the store holds now (local ADR 0071
+    /// §4).
+    /// <para>
+    /// It takes the held version's stamps, as the version it is saved against, then
+    /// moves past them the way any edit does, so the restore beats the copy it replaces
+    /// on every device. The earlier version's deletion state comes back with it: a held
+    /// tombstone of a task that was live comes back through <see cref="Restore"/>, and a
+    /// live task that was a tombstone is deleted again through <see cref="MarkDeleted"/>.
+    /// </para></summary>
+    /// <param name="heldUpdatedAt">The stamp the store holds now.</param>
+    /// <param name="heldDeletedAt">The deletion the store holds now, or null.</param>
+    public void Supersede(DateTimeOffset heldUpdatedAt, DateTimeOffset? heldDeletedAt)
+    {
+        var wasDeleted = DeletedAt is not null;
+
+        UpdatedAt = heldUpdatedAt;
+        DeletedAt = heldDeletedAt;
+        LoadedUpdatedAt = heldUpdatedAt;
+
+        if (!wasDeleted && DeletedAt is not null)
+        {
+            Restore();
+        }
+        else if (wasDeleted && DeletedAt is null)
+        {
+            MarkDeleted();
+        }
+        else
+        {
+            Touch();
+        }
+    }
+
     // --- Sub-items ----------------------------------------------------------
 
     public SubItem AddSubItem(string title, string? notes = null)
@@ -894,6 +954,27 @@ public sealed class TaskItem
     {
         UpdatedAt = updatedAt;
         DeletedAt = deletedAt;
+    }
+
+    /// <summary>Records that the store now holds this task as it stands — called
+    /// by storage after a read, and after a save it applied, so the same instance
+    /// can be saved again. Not an edit: <see cref="UpdatedAt"/> stays where it is.
+    /// See <see cref="LoadedUpdatedAt"/>.</summary>
+    public void MarkPersisted() => LoadedUpdatedAt = UpdatedAt;
+
+    /// <summary>Refuses a change built on another version than the one the store
+    /// handed out: when <paramref name="expected"/> is set and is not
+    /// <see cref="LoadedUpdatedAt"/>, throws <see cref="StaleTaskWriteException"/>
+    /// before anything is applied. Null asks nothing.
+    /// <para>
+    /// What carries <see cref="LoadedUpdatedAt"/>'s guard back past the use case's own
+    /// read to the caller's: checked here against the version just loaded, and the
+    /// save that follows is conditional on that same version, so the check and the
+    /// write cannot be split by another writer.
+    /// </para></summary>
+    public void RequireLoadedAt(DateTimeOffset? expected)
+    {
+        if (expected is { } version && LoadedUpdatedAt != version) throw new StaleTaskWriteException(Id);
     }
 
     // --- Internals ----------------------------------------------------------

@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -172,6 +173,12 @@ public sealed class ImportPlanCommandHandler(
         }
 
         parsedEntries = resolvedEntries;
+
+        // One change set for the whole import (local ADR 0071 §2): the tasks it
+        // writes and the roadmap plan it lays out are taken back together. Opened
+        // here, after the last refusal, so a refused import records nothing. An import
+        // an Inbox decision makes joins that decision's change set instead.
+        using var change = JoinsCurrent(command) ? default : ChangeContext.Enter(ImportChangeSet(parsedAll));
 
         // Tasks first, then the roadmap, so placement reads the effort this import
         // just gathered rather than the previous version's.
@@ -550,6 +557,38 @@ public sealed class ImportPlanCommandHandler(
     /// <summary>The rule the Import dialog's preview counts by, so the two cannot
     /// disagree.</summary>
     private static IReadOnlyList<string> PlanTags(IEnumerable<string> tags) => ImportPlanPreview.PlanTags(tags);
+
+    /// <summary>
+    /// Whether the import writes under the change set already current rather than one of
+    /// its own: an import routed from the Inbox (<see cref="ImportPlanCommand.SourceInboxId"/>
+    /// or <see cref="ImportPlanCommand.SourceInboxIds"/>) is the home a triage decision
+    /// makes, and that decision's change set — the item and the plan it became — is taken
+    /// back as one (local ADR 0071 §2). An Inbox import with no change set current still
+    /// opens its own.
+    /// </summary>
+    internal static bool JoinsCurrent(ImportPlanCommand command) =>
+        ChangeContext.Current is not null
+        && (command.SourceInboxId is not null || command.SourceInboxIds is { Count: > 0 });
+
+    /// <summary>
+    /// The change set an import writes under, labelled "Import of +tag" by the plan
+    /// tags its entries carry (local ADR 0071 §2). A new one even when a change set is
+    /// current, so the import is restorable on its own, but by the same actor: an
+    /// agent's import keeps its caller, session and correlation id, and an import from
+    /// an entry point that named nobody is filed under an unknown writer.
+    /// </summary>
+    internal static ChangeSet ImportChangeSet(IEnumerable<EntryTextParser.ParsedEntry> parsed)
+    {
+        var tags = PlanTags(parsed.SelectMany(entry => entry.Tags));
+        var label = tags.Count == 0 ? "Import of a plan" : $"Import of {string.Join(", ", tags)}";
+
+        var current = ChangeContext.Current;
+        var fresh = ChangeSet.Start(current?.Actor ?? ChangeActor.Unknown, label);
+
+        return current is null
+            ? fresh
+            : fresh with { Caller = current.Caller, SessionId = current.SessionId, CorrelationId = current.CorrelationId };
+    }
 
     private static string Bare(string tag) => tag.StartsWith('+') ? tag[1..] : tag;
 

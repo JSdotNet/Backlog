@@ -168,6 +168,8 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         DateOnly? dueDate = null,
         [Description("Optional. One line saying what is true once the goal is reached.")]
         string? outcome = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var created = await goals.CreateAsync(new SetGoalRequest(title, outcome, dueDate), cancellationToken).ConfigureAwait(false);
@@ -195,6 +197,8 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         string? outcome = null,
         [Description("Optional. The new due date, as yyyy-MM-dd.")]
         DateOnly? dueDate = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var stored = (await goals.GetAsync(id, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
@@ -225,6 +229,8 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         int? number = null,
         [Description("Move the item from the goal that holds it now. Without it, an item in another goal is refused.")]
         bool moveFromOtherGoal = false,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var item = Item(planTag, taskId, repository, number, registeredOnly: true);
@@ -250,6 +256,8 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         string? repository = null,
         [Description(NumberDescription)]
         int? number = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var item = Item(planTag, taskId, repository, number, registeredOnly: false);
@@ -266,6 +274,8 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     public async Task<GoalDeletedPayload> DeleteAsync(
         [Description("The goal's id, as a GUID.")]
         Guid id,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var deleted = await goals.DeleteAsync(id, cancellationToken).ConfigureAwait(false);

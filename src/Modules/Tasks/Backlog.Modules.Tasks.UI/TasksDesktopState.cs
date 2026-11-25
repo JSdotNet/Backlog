@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 
 using System.Globalization;
@@ -80,6 +81,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     private const string GitHubFailureTestId = "github-error";
 
     private const string PlanRefusedTestId = "plan-entry-refused";
+
+    /// <summary>The notice and toast a save refused as stale raises. See
+    /// <see cref="ReloadAfterStaleWriteAsync"/>.</summary>
+    public const string StaleWriteTestId = "entry-stale-write";
 
     /// <summary>The toast a save raises when its edit and a write from elsewhere
     /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
@@ -2350,6 +2355,10 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         if (row.IsReadOnly) return;
 
+        // The delete and the renumbering after it are one gesture, so one change set
+        // (local ADR 0071 §2), as they are one Ctrl+Z.
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"deleting “{row.PreviewTitle}”");
+
         if (await DeleteOneAsync(row) is Error) return;
 
         await NormalizeOrderAsync();
@@ -2459,6 +2468,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _replaying = true;
         try
         {
+            // One change set for the whole step, however many entries it puts back.
+            using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"undoing {step.Label}");
             _history.Undone(await RevertAsync(step));
         }
         finally
@@ -2488,6 +2499,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         _replaying = true;
         try
         {
+            using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"redoing {step.Label}");
             _history.Redone(await ReapplyAsync(step));
         }
         finally
@@ -2749,6 +2761,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         if (row.IsReadOnly || ReferenceEquals(row, target)) return;
 
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, $"moving “{row.PreviewTitle}”");
+
         // The Waiting slice draws the rows in follow-up order, not rank order, so a
         // neighbour there is no neighbour in the rank: a move would change a rank the
         // reader cannot see and change nothing they can. The Next actions slice draws
@@ -2808,6 +2822,8 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     {
         var visible = SortableVisibleRows().ToList();
         if (visible.Count < 2 || !CanSortVisibleByStatus) return;
+
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "sorting by status");
 
         var slots = visible.Select(row => Rows.IndexOf(row)).Order().ToList();
         var sorted = StatusSortOrder(visible);
@@ -5892,6 +5908,15 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
             : null;
         var created = row.Id is null;
 
+        // The change set this save writes under (local ADR 0071 §2): the open typing
+        // session's when this save continues one, else the gesture's around it, else
+        // one of its own. Opened here rather than in the use cases, so it is still
+        // current when the history records the step and keeps it for the next save.
+        using var typing = row.Id is { } typedId ? _history.JoinTyping(typedId) : default;
+        using var change = ChangeContext.BeginIfNone(
+            ChangeActor.Person,
+            created ? "adding an entry" : $"editing “{row.PreviewTitle}”");
+
         Result<SavedTaskDto> saved;
         try
         {
@@ -5937,6 +5962,18 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
                 return error;
             }
 
+            // Somebody else — an agent, another window — saved this entry between
+            // the read this save was made on and the write, and the store refused
+            // to put the older text back over theirs. Not a state a typist passes
+            // through, so not held quietly as the two below are: the entry is
+            // reloaded as the store now holds it and the row says so beside the
+            // editor.
+            if (error.Code == TaskEntryErrorCodes.StaleWrite)
+            {
+                await ReloadAfterStaleWriteAsync(row);
+                return error;
+            }
+
             // Nothing has gone wrong *for a typist*: an entry still being typed
             // has no title yet, and one deleted from under us has nowhere to go.
             // Neither is worth alarming anybody about, so the indicator stays
@@ -5949,6 +5986,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
         // Out of the refusal, so the next one is announced again.
         row.PlanRefused = false;
+        row.StaleWriteNotice = null;
 
         var entry = savedTask.Entry;
         _entries[entry.Id] = entry;
@@ -5966,6 +6004,65 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         if (savedTask.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
 
         return Result.Success();
+    }
+
+    /// <summary>What the row says beside the editor after a save was refused as
+    /// stale and the entry reloaded.</summary>
+    public const string StaleWriteMessage = "This entry changed somewhere else. It has been reloaded.";
+
+    /// <summary>
+    /// Takes the entry back as the store holds it after a save was refused as
+    /// stale (<see cref="TaskEntryErrorCodes.StaleWrite"/>), and says so: on the
+    /// row beside the editor, which stays until the next save of the row lands,
+    /// and once as a toast for a reader whose eyes are elsewhere.
+    /// <para>
+    /// Reloaded by merging, not by replacing: the reader's own edit, which was
+    /// never written, is carried onto the stored entry the way
+    /// <see cref="RebaseOnStoreAsync"/> carries one onto an outside write (see
+    /// <see cref="EntryTextMerge"/>), and the stored entry becomes the row's base.
+    /// So the next save — the next keystroke's, or the flush when the editor
+    /// closes — is made on the version the store holds and is not refused again,
+    /// and nothing typed is lost to the reload.
+    /// </para>
+    /// <para>
+    /// The band reads Error rather than Saved until then — the text on screen was
+    /// not written, and a band saying otherwise is what this refusal exists to stop.
+    /// </para>
+    /// </summary>
+    private async Task ReloadAfterStaleWriteAsync(EntryRow row)
+    {
+        SetSaveState(AppSaveState.Error);
+
+        if (row.Id is { } id)
+        {
+            TaskItemDto? stored = null;
+            try
+            {
+                stored = await _entryUseCases.GetAsync(id);
+            }
+            catch (Exception)
+            {
+                // A store that cannot be read now leaves the row as it is; the
+                // notice still says the save did not land.
+            }
+
+            if (stored is not null)
+            {
+                // Read after the await, so a keystroke typed while the read was in
+                // flight is merged rather than overwritten.
+                var baseText = _entries.TryGetValue(id, out var loaded) ? EntryTextParser.ToRawText(loaded) : null;
+                var storedText = EntryTextParser.ToRawText(stored);
+                _entries[id] = stored;
+
+                row.RawText = baseText is null
+                    ? storedText
+                    : EntryTextMerge.Merge(baseText, row.RawText, storedText).Text;
+            }
+        }
+
+        var announce = row.StaleWriteNotice is null;
+        row.StaleWriteNotice = StaleWriteMessage;
+        if (announce) AnnounceRowFailure(row, StaleWriteMessage, StaleWriteTestId);
     }
 
     /// <summary>
@@ -6994,6 +7091,11 @@ public sealed class EntryRow
     /// <c>plan</c> entry. Held so the toast is raised on the way into that state
     /// and not once per keystroke while the text sits there unchanged.</summary>
     public bool PlanRefused { get; set; }
+
+    /// <summary>What the row says beside the editor after its last save was refused
+    /// as stale and the entry reloaded, or null. Cleared by the next save that lands;
+    /// also what keeps the toast to one per refusal rather than one per keystroke.</summary>
+    public string? StaleWriteNotice { get; set; }
 
     public EntryType Type { get; set; } = EntryType.Task;
 

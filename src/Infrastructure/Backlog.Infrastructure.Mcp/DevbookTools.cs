@@ -465,7 +465,9 @@ public sealed class DevbookTools(
         [Description(RepositoryDescription)]
         string repository,
         [Description("The note's id, exactly as list_annotations reports it.")]
-        Guid note)
+        Guid note,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null)
     {
         var scope = ScopeOf(repository);
 
@@ -547,6 +549,8 @@ public sealed class DevbookTools(
         string title,
         [Description("The note's body, in Markdown. Optional. A line that would become a heading or a fence is kept as text.")]
         string? body = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         if (brainNotes is null)

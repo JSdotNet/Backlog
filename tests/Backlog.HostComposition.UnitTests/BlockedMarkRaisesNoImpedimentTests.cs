@@ -56,8 +56,8 @@ public sealed class BlockedMarkRaisesNoImpedimentTests
         var impediments = scope.ServiceProvider.GetRequiredService<IImpediments>();
 
         var entry = await tracker.CreateItemAsync("# Bank import mapping\n`task`\n", cancellationToken: Ct);
-        await tracker.SetBlockedAsync(entry.Id, blocked: true, Ct);
-        await tracker.CommentAsync(entry.Id, "Waiting on the bank.", Ct);
+        await tracker.SetBlockedAsync(entry.Id, blocked: true, cancellationToken: Ct);
+        await tracker.CommentAsync(entry.Id, "Waiting on the bank.", cancellationToken: Ct);
 
         Assert.Empty(Assert.IsType<Ok<IReadOnlyList<ImpedimentDto>>>((await impediments.ListAsync(cancellationToken: Ct)).Value).Value);
     }

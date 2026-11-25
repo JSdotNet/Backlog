@@ -104,8 +104,8 @@ What the shared `SaveIndicator` builds of this vocabulary is in
 | Undo always available | With no save gate, **undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) MUST cover content edits and reorder actions. |
 | Reorder is undoable | A drag-and-drop or keyboard reorder MUST be a single undoable step that restores the previous order. |
 | History granularity | Undo history SHOULD be per-document and coalesce rapid keystrokes into sensible steps. |
-| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). |
-| Version history (optional) | Longer-term version/history browsing is a product feature `[TODO: clarify]`; at minimum session-level undo MUST exist. |
+| AI edits reversible | AI-applied changes MUST be undoable like any other edit (see `design-principles.md#ai-first-surfaces`). The person restores an agent's change set ([ADR 0071](../arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)). |
+| Version history | Each change set's prior documents are kept 90 days ([ADR 0071](../arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)); at minimum session-level undo MUST exist. |
 
 ### Conflict Handling
 
@@ -119,6 +119,7 @@ are last-write-wins** (`.devbook/arc42/08-crosscutting-concepts.md#storage-and-s
 |---|---|
 | New items | Concurrent creation MUST NOT conflict — both items are created (always-create). |
 | Edits | Concurrent edits to the same item resolve by **last-write-wins**; the most recent write is canonical. |
+| Saves on one device | A save made on a version another writer on the same device has since replaced is refused, not written over it (`.devbook/domain/tasks/requirements.md#requirement-a-save-made-on-an-older-version-is-refused`). The editor MUST reload the item with the unsaved edit merged onto it and say so beside the editor; it MUST NOT read Saved. |
 | Non-destructive surfacing | When last-write-wins discards a local change, the UI MUST surface the `Conflict` state, never silently losing edits. |
 | Superseded version | The UI SHOULD offer access to the superseded version where available. |
 | No blocking merge UI | Conflict handling MUST NOT block editing with a mandatory merge dialog; resolution is automatic, notification is passive. |
@@ -780,7 +781,7 @@ question. Below it the workspace shows exactly one **main view**, unless a
 
 | Region | Answers | Holds |
 |---|---|---|
-| Navigation | What am I looking at, over which repositories? | Left to right: **Inbox**, **Weekly review** (while its flag is on), the view switch, the repository scope, **Devbook**, **Calendar**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
+| Navigation | What am I looking at, over which repositories? | Left to right: **Inbox**, **Weekly review** (while its flag is on), the view switch, the repository scope, **Devbook**, **Calendar**, **Changes**, **Events** (while its flag is on), the Goals group, the remaining takeovers. |
 | Status | How is the workspace doing? | The GitHub check, only while a task view, Tasks or Board, is on screen. |
 | Utilities | What cuts across all of it? | **Ask AI**, while an area has something to ask about. |
 
@@ -803,6 +804,7 @@ control, and each MUST look and act as its kind:
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows; a view is never closed. |
 | Calendar tab | `Calendar`, after the Devbook | A view option standing alone: pressed while the Calendar is the main view, never closed. |
+| Changes tab | `Changes`, after the Calendar | A view option standing alone: pressed while the Changes view is the main view, never closed. |
 | Inbox toggle | `Inbox`, first, before the view switch | An on-or-off giving the Inbox the whole screen; pressed again, it returns to the view. |
 | Weekly review toggle | `Weekly review`, after the Inbox, under `weekly-review` | An on-or-off giving the weekly review the whole screen; a second press or Escape returns. |
 | Devbook toggle | `Devbook`, after the repository scope; `Brain` while the Devbook shows the Brain | An on-or-off giving the Devbook the whole screen; a second press or Escape returns. |
@@ -817,6 +819,11 @@ control, and each MUST look and act as its kind:
   as a view option does: pressing it again changes nothing, Escape never leaves
   it, and a takeover hides it. Its `aria-controls` names the Calendar's own
   region. A stored last view of `calendar` reopens on it.
+- **Changes tab:** the change journal read back (local ADR 0071): who changed
+  which documents, and each one's text before beside its text now. It reads what
+  was written, not the tasks, so like the Calendar it stands outside the fused
+  switch in the loose shape and acts as a view option does. A session's
+  **Changes** action in the Sessions list opens it narrowed to that session.
 - **Inbox toggle:** Escape is the Inbox's own key, leaving triage for the list,
   so it does not leave the Inbox.
 - **Devbook toggle:** see `#workspace-panes`. The toggle is named for what the

@@ -118,6 +118,9 @@ public static partial class MauiProgram
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
             // The MCP audit log, per installation and never in the workspace root.
             McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
+            // The MCP grants, copied into every agent checkpoint (local ADR 0071 §7): an
+            // agent holding agents:grant writes them. This head's alone (ADR 0058 §9).
+            CheckpointedHeadFiles = new[] { Path.Combine(appData, FileMcpGrantStore.FileName) },
             // The URL on the Settings page, per machine and never in the workspace.
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             // The catalog is the shell's product copy; the store is the adapter that
@@ -396,6 +399,9 @@ public static partial class MauiProgram
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
+
+        // And the change journal's daily prune, for the same reason.
+        _ = app.Services.GetRequiredService<ChangeHistoryWorker>();
 
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.

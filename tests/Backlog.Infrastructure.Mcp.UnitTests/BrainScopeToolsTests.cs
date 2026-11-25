@@ -106,7 +106,7 @@ public sealed class BrainScopeToolsTests : IDisposable
         Assert.Contains("brain.unavailable", read.Message, StringComparison.Ordinal);
 
         var capture = await Assert.ThrowsAsync<McpException>(() => tools.CaptureNoteAsync(
-            "An idea", body: null, TestContext.Current.CancellationToken));
+            "An idea", body: null, cancellationToken: TestContext.Current.CancellationToken));
         Assert.Contains("brain.unavailable", capture.Message, StringComparison.Ordinal);
     }
 
@@ -265,7 +265,7 @@ public sealed class BrainScopeToolsTests : IDisposable
         var tools = Tools(out _, out _);
 
         var captured = await tools.CaptureNoteAsync(
-            "Ideas for the sync", "Batch the uploads.", TestContext.Current.CancellationToken);
+            "Ideas for the sync", "Batch the uploads.", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("_inbox/ideas-for-the-sync.md", captured.Path);
         Assert.Equal("Ideas for the sync", captured.Title);
@@ -287,8 +287,8 @@ public sealed class BrainScopeToolsTests : IDisposable
     {
         var tools = Tools(out _, out _);
 
-        var first = await tools.CaptureNoteAsync("Same title", "First.", TestContext.Current.CancellationToken);
-        var second = await tools.CaptureNoteAsync("Same title", "Second.", TestContext.Current.CancellationToken);
+        var first = await tools.CaptureNoteAsync("Same title", "First.", cancellationToken: TestContext.Current.CancellationToken);
+        var second = await tools.CaptureNoteAsync("Same title", "Second.", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotEqual(first.Path, second.Path);
 
@@ -302,7 +302,7 @@ public sealed class BrainScopeToolsTests : IDisposable
         var tools = Tools(out _, out _);
 
         var failure = await Assert.ThrowsAsync<McpException>(() => tools.CaptureNoteAsync(
-            "   ", "A body.", TestContext.Current.CancellationToken));
+            "   ", "A body.", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("brain.capture_refused", failure.Message, StringComparison.Ordinal);
         Assert.Contains(BrainNoteWriter.NoTitle, failure.Message, StringComparison.Ordinal);
@@ -315,7 +315,7 @@ public sealed class BrainScopeToolsTests : IDisposable
         var tools = Tools(out _, out _, brainFolder: null);
 
         var failure = await Assert.ThrowsAsync<McpException>(() => tools.CaptureNoteAsync(
-            "An idea", body: null, TestContext.Current.CancellationToken));
+            "An idea", body: null, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("brain.capture_refused", failure.Message, StringComparison.Ordinal);
         Assert.Contains(BrainFolderSource.NoBrainFolder, failure.Message, StringComparison.Ordinal);

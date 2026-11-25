@@ -27,8 +27,13 @@ internal sealed class RecordingTaskItems(int existing = 0) : ITaskItems
     /// <summary>Which save, counted from one, answers with a failure.</summary>
     public int? FailOnSave { get; init; }
 
+    /// <summary>Entries the list answers with after the <c>existing</c> ones, by the id and
+    /// title a test gave them.</summary>
+    public List<(Guid Id, string Title)> Held { get; } = [];
+
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<TaskItemDto>>([.. Enumerable.Range(0, existing).Select(i => Entry(Guid.NewGuid(), $"Existing {i}"))]);
+        Task.FromResult<IReadOnlyList<TaskItemDto>>(
+            [.. Enumerable.Range(0, existing).Select(i => Entry(Guid.NewGuid(), $"Existing {i}")), .. Held.Select(held => Entry(held.Id, held.Title))]);
 
     public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid? id, string rawText, int order, string? sourceInboxId = null, CancellationToken cancellationToken = default)
     {

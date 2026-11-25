@@ -49,13 +49,7 @@ internal static class SqliteSchema
 
             await EnsureAsync(connection, "PRAGMA journal_mode = WAL;", cancellationToken).ConfigureAwait(false);
 
-            if (!string.Equals(
-                    await ReadStampAsync(connection, schema.Owner, cancellationToken).ConfigureAwait(false),
-                    schema.Fingerprint,
-                    StringComparison.Ordinal))
-            {
-                await SetUpAsync(connection, schema, cancellationToken).ConfigureAwait(false);
-            }
+            await EnsureSetUpAsync(connection, schema, cancellationToken).ConfigureAwait(false);
 
             return connection;
         }
@@ -63,6 +57,26 @@ internal static class SqliteSchema
         {
             await connection.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+    }
+
+    /// <summary>Brings a second owner's <paramref name="schema"/> up to date on a
+    /// connection another owner opened — a shared table, such as the change journal's,
+    /// that the opener writes beside its own. One indexed read when the stamp is
+    /// current. Call it outside any transaction: the setup's statements carry none.</summary>
+    internal static async Task EnsureSetUpAsync(
+        SqliteConnection connection,
+        SqliteSchemaDefinition schema,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+
+        if (!string.Equals(
+                await ReadStampAsync(connection, schema.Owner, cancellationToken).ConfigureAwait(false),
+                schema.Fingerprint,
+                StringComparison.Ordinal))
+        {
+            await SetUpAsync(connection, schema, cancellationToken).ConfigureAwait(false);
         }
     }
 

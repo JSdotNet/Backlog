@@ -162,9 +162,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
         // Three standalone toggles — the Inbox, the weekly review and the registered
-        // takeovers' — the Calendar tab, and the four loose takeovers wear the loose
-        // option.
-        Assert.Equal(8, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // takeovers' — the Calendar and Changes tabs, and the four loose takeovers wear
+        // the loose option.
+        Assert.Equal(9, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.

@@ -75,6 +75,8 @@ public sealed class ImpedimentTools(IImpediments impediments, IRepositoryDirecto
         string[]? planTags = null,
         [Description("An optional note.")]
         string? note = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         // Resolved before the port is asked, so a repository nobody registered raises nothing.
@@ -107,6 +109,8 @@ public sealed class ImpedimentTools(IImpediments impediments, IRepositoryDirecto
         string state,
         [Description("Who it is with at this step, in words, e.g. \"bank support\". Optional.")]
         string? with = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(state) || !States.TryGetValue(state.Trim(), out var target))
@@ -138,6 +142,8 @@ public sealed class ImpedimentTools(IImpediments impediments, IRepositoryDirecto
         string? repository = null,
         [Description(NumberDescription)]
         int? number = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var item = Item(planTag, taskId, repository, number, registeredOnly: true);
@@ -163,6 +169,8 @@ public sealed class ImpedimentTools(IImpediments impediments, IRepositoryDirecto
         string? repository = null,
         [Description(NumberDescription)]
         int? number = null,
+        [Description("Your Claude session id, so this write joins your session's change set. Optional.")]
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         var item = Item(planTag, taskId, repository, number, registeredOnly: false);

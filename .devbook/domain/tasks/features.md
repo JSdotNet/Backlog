@@ -1318,6 +1318,26 @@ becoming the shared-folder arrangement that
 [Refresh from shared storage](#refresh-from-shared-storage) records the cost of.
 It is not [Multi-device sync](#multi-device-sync): a backup leaves and stays behind, while sync is a live copy that comes back.
 
+### Checkpoint before an agent's write
+
+```meta
+type: feature
+related: [.devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md]
+```
+
+Before the MCP server runs a tool that can write, the app keeps a checkpoint on this
+machine, so an agent's mistake can be put back by hand. A checkpoint is a folder
+`checkpoints/<UTC time>/` beside `backlog.db`: a consistent copy of the database, and
+copies of the devbook state and remarks stores. One is taken at most every 30 minutes,
+and the newest 10 are kept.
+
+A checkpoint that cannot be taken is logged and never stops the agent's write.
+
+Settings → Storage & backup lists the checkpoints read-only, with when each was taken,
+its size, and **Show in folder**. There is no restore: as for a backup, going back is a
+file copy the person makes with the app closed. A backup never carries the
+`checkpoints/` folder.
+
 ## Roadmap planning
 
 ```meta

@@ -10,6 +10,10 @@
     <!-- The write-back's grace and its debounced follow-up sync are driven by a
          clock whose timers fire when the test advances it. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+
+    <!-- The published port is built as the host builds it, from the module's own
+         registration, so the stale-write mapping is proved where callers meet it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
   <!-- The shared test doubles this project uses. Linked per project rather than

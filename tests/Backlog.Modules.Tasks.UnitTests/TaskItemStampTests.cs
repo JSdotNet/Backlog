@@ -90,6 +90,9 @@ public sealed class TaskItemStampTests
             task.LoadStamps(Stamped, Stamped);
             task.Restore();
         },
+        // A restore from the change journal has to beat the version it replaces,
+        // which is the one whose stamp it is handed.
+        [nameof(TaskItem.Supersede)] = task => task.Supersede(Stamped, null),
         [nameof(TaskItem.AddSubItem)] = task => task.AddSubItem("Step"),
         [nameof(TaskItem.AddProjectionRef)] = task => task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue")),
 
@@ -143,6 +146,14 @@ public sealed class TaskItemStampTests
             task.LoadSubItem(task.CreateSubItemForLoad(Guid.NewGuid(), "Loaded", SubItemStatus.Pending, null, 0)),
         [nameof(TaskItem.LoadUsageEvent)] = task => task.LoadUsageEvent(new UsageEvent(Stamped, "copilot-cli")),
         [nameof(TaskItem.LoadStamps)] = task => task.LoadStamps(Stamped, deletedAt: null),
+
+        // Storage recording which version it holds, the concurrency token a later
+        // save is checked against. Saying where the store stands is not an edit.
+        [nameof(TaskItem.MarkPersisted)] = task => task.MarkPersisted(),
+
+        // Checking a caller's version against that token changes nothing: it either
+        // throws before anything is applied or lets the edit that follows restamp.
+        [nameof(TaskItem.RequireLoadedAt)] = task => task.RequireLoadedAt(null),
 
         // Restoring a task nobody deleted says nothing new, the way deleting a
         // deleted one does not; a stamp moved here would win last-write-wins

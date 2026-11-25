@@ -149,3 +149,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0068 — Tests keep hand-written doubles, in-memory replicas and C# Playwright](adr/0068-tests-keep-hand-written-doubles-in-memory-replicas-and-csharp-playwright.md) (proposed; org ADR 0010)
 - [ADR 0069 — The `backlog` MCP server keeps grant tokens, and serves its own skill as a prompt and a resource](adr/0069-the-backlog-mcp-server-keeps-grants-and-serves-its-own-skill.md) (proposed; org ADR 0011)
 - [ADR 0070 — Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set](adr/0070-model-calls-stay-on-the-foundry-adapter-and-gain-an-evaluation-set.md) (proposed; org ADR 0012)
+- [ADR 0071 — Agent changes are restorable through a change journal beside the store](adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md) (proposed; amends ADR 0058 §4)
