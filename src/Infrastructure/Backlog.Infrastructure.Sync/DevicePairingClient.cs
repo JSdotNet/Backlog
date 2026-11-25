@@ -60,8 +60,9 @@ public sealed class DevicePairingClient : IDeviceRoster
     public static readonly TimeSpan DefaultSignInTimeout = TimeSpan.FromMinutes(5);
 
     /// <summary>How long the Windows Hello prompt for a refusal stands before it expires
-    /// (<see cref="RefuseDeviceAsync"/>). A Refuse answered on the phone raises it on a desktop
-    /// nobody may be at, and the answers queued behind it wait until it settles.</summary>
+    /// (<see cref="RefuseDeviceAsync"/>). A Refuse replayed at the next start raises it on a
+    /// desktop nobody may be at yet, and the answers queued behind it wait until it settles,
+    /// because answers are handed over one at a time.</summary>
     public static readonly TimeSpan RefuseConfirmationWindow = TimeSpan.FromMinutes(2);
 
     private readonly HttpClient _http;

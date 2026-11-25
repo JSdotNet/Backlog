@@ -17,12 +17,14 @@ session as a message. The relay sits behind the existing `notifications` flag.
 ```meta
 ```
 
-Proposed, 2026-10-27. Drafted by an unattended `execute-plan` run of the
-`+question-relay` plan, its `record-decision` item, from the agreed design note
-*Backlog Question Relay* (revised 21 October 2026). It waits for the repository
-owner's Personal Validation on the draft pull request. Not yet built: the plan's
-later items build presence, the waiting question, the MCP changes, the deliveries,
-the hook script and its install.
+Accepted, 2026-10-29, when PR #1566 merged the `plan/question-relay` branch into
+main. An unattended `execute-plan` run of the `+question-relay` plan drafted it on
+2026-10-27, as the plan's `record-decision` item, from the agreed design note
+*Backlog Question Relay* (revised 21 October 2026).
+**Built:** the same merge brought presence, the waiting question, `ask`,
+`get_answer` and `close`, the Manager deliveries, the hook script and its install.
+Follow-ups landed as PR #1632 on 2026-11-02. Local ADR 0058 amends the hook's token
+and the device an answer carries ([History](#history)).
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It amends ADR 0039's MCP tools and ADR 0038's wait route and
@@ -277,4 +279,6 @@ Neutral:
 | 2026-11-18 | An answer records the device it came from, and reaches the hook or a delivery only from a device paired now. An answer from a revoked or unknown device is dropped and recorded in the audit log. | Plan `zero-trust-auth` entry 20, ADR 0058 Phase 2: an answer steers an agent, so a revoked pairing must not give one. |
 | 2026-11-12 | The question-hook token is retired: the hook asks the token broker for a token for the Question hook grant, which holds `notify:ask` alone. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |
 | 2026-11-11 | The hook presents a question-hook token that reaches only `notify`, `ask`, `get_answer` and `close`, never the MCP server's token. | ADR 0058 phase 0: whoever holds the hook's credential must not be able to call write tools. |
+| 2026-10-29 | Accepted, when PR #1566 merged plan `question-relay` into main. | The owner accepted the record as of that merge. |
+| 2026-10-29 | Built on main by PR #1566: presence, the waiting question, the three MCP tools, the Manager deliveries, the hook script and its install. Follow-ups landed as PR #1632 on 2026-11-02. | The plan's later items ran through flow-code. |
 | 2026-10-27 | Proposed: a session's question is registered through MCP `ask`, routed by presence, and answered through the hook or a Manager delivery. Amends ADR 0039's MCP tools and ADR 0038's wait route and capacity rule. | A session that asks while the person is away stops until they come back, and Notifications and the Manager already carry the rest. |

@@ -2,7 +2,7 @@
 
 ```meta
 type: model
-related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code]
+related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/domain.md#enrolment-ticket, .devbook/domain/sync/domain.md#connector-client, .devbook/domain/sync/domain.md#connector-authorization, .devbook/domain/sync/domain.md#connector-refresh-token]
 ```
 
 > Structural view of the Sync model: the two aggregates, the values they and the
@@ -19,8 +19,63 @@ classDiagram
         +DeviceId Id
         +OwnerId OwnerId
         +string Name
-        +string CredentialHash
+        +string? CredentialHash
         +DateTimeOffset RegisteredAt
+        +DeviceId? PairedBy
+        +string? PublicKey
+        +IsKeyBound
+    }
+
+    class EnrolmentTicket {
+        <<aggregate root>>
+        +string KeyHash
+        +EnrolmentTicketKind Kind
+        +string CodeChallenge
+        +Uri RedirectUri
+        +DateTimeOffset ExpiresAt
+        +bool Redeemed
+        +HasExpired(now)
+    }
+
+    class ConnectorClient {
+        <<aggregate root>>
+        +string ClientId
+        +string? SecretHash
+        +DateTimeOffset? CreatedAt
+        +DateTimeOffset? LastUsedAt
+        +int Generation
+        +HasSecret
+    }
+
+    class ConnectorAuthorization {
+        <<aggregate root>>
+        +string KeyHash
+        +ConnectorAuthorizationKind Kind
+        +string CodeChallenge
+        +string RedirectUri
+        +string Scope
+        +string Resource
+        +int ClientGeneration
+        +Guid FamilyId
+        +DateTimeOffset ExpiresAt
+        +OwnerId? Owner
+        +bool Redeemed
+        +HasExpired(now)
+    }
+
+    class ConnectorRefreshToken {
+        <<aggregate root>>
+        +string TokenHash
+        +Guid FamilyId
+        +int ClientGeneration
+        +OwnerId Owner
+        +string Scope
+        +string Resource
+        +DateTimeOffset ExpiresAt
+        +string? ReplacedByHash
+        +bool Revoked
+        +IsSpent
+        +HasExpired(now)
     }
 
     class PairingCode {

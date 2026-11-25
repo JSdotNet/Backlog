@@ -403,6 +403,9 @@ public sealed class McpAccessDeskTests : IDisposable
             Asked++;
             return Task.FromResult(Answer);
         }
+
+        public Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default) =>
+            VerifyAsync(message, cancellationToken);
     }
 
     private sealed class FakeWindows : IAgentRequestWindows

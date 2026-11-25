@@ -43,6 +43,7 @@ public class ContinuousIntegrationWorkflowTests
         [NightlyWorkflow] = 30,
         ["auto-merge.yml"] = 30,
         ["branch-cleanup.yml"] = 30,
+        ["sync-key-rotation-reminder.yml"] = 30,
 
         [ReleaseWorkflow] = 60,
         ["deploy-foundry.yml"] = 60,

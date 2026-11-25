@@ -13,6 +13,7 @@
 @inject NotificationOpenRequests OpenRequests
 @inject CaptureOpenRequests CaptureRequests
 @inject NavigationManager Navigation
+@inject IServiceProvider Services
 @implements IDisposable
 
 @*
@@ -48,6 +49,13 @@
     the update window as its one action. Queued captures wait in the outbox
     meanwhile; none is set aside.
 
+    When the phone is bound to its Keystore key and the key will not open or sign
+    (SyncTokenProvider.KeyUnavailable, local ADR 0058 §2), nothing syncs either,
+    and a callout under the bar says so on every tab - the phone's
+    devices-key-unavailable, as the desktop's Devices page draws it. Its one
+    action is the way back a phone has: pairing again, through the status line's
+    own forget dialog, which says what becomes of anything still waiting.
+
     The Notifications tab follows Inbox once the phone holds a notification
     (NotificationViewProjection.HoldsAny): a desktop pushes them only with its
     notifications feature on, so a phone whose desktops have it off never shows
@@ -79,7 +87,7 @@
     <header class="app-bar">
         <AppUpdateControl @ref="_updates" />
         <div class="app-bar__end">
-            <SyncStatus />
+            <SyncStatus @ref="_syncStatus" />
             <SettingsControl />
         </div>
     </header>
@@ -91,6 +99,17 @@
                  ActionTestId="sync-update-required-action"
                  CssClass="app-sync-paused" TestId="sync-update-required">
             @SyncCompatibility.UpdateRequiredMessage
+        </Callout>
+    }
+
+    @if (KeyUnavailable)
+    {
+        <Callout Tone="warning" Heading="This phone cannot sign in to sync"
+                 Role="alert"
+                 ActionLabel="Pair again" OnAction="AskToPairAgain"
+                 ActionTestId="sync-key-unavailable-action"
+                 CssClass="app-sync-paused" TestId="sync-key-unavailable">
+            This phone signs in with its own key, and Android cannot open that key right now - it may have gone with a screen-lock change or a restore. Nothing syncs until the phone is paired again. Anything waiting stays on this phone and goes once it is.
         </Callout>
     }
 
@@ -145,6 +164,11 @@
     private bool _pullingNotifications;
     private bool _pullingEvents;
     private AppUpdateControl? _updates;
+    private SyncStatus? _syncStatus;
+
+    /// <summary>The token provider whose verdict on this device's key the callout
+    /// reads; none on a host that composes no sync client.</summary>
+    private SyncTokenProvider? _tokens;
     private IDisposable? _openRequests;
     private IDisposable? _captureRequests;
 
@@ -166,8 +190,15 @@
 
     private bool Paired => Credentials.Current is not null;
 
+    /// <summary>This phone is bound to a key the token provider could not use, so it
+    /// cannot sync until it is paired again.</summary>
+    private bool KeyUnavailable => Paired && _tokens?.KeyUnavailable == true;
+
     protected override void OnInitialized()
     {
+        _tokens = Services.GetService(typeof(SyncTokenProvider)) as SyncTokenProvider;
+        if (_tokens is not null) _tokens.KeyUnavailableChanged += OnKeyUnavailableChanged;
+
         Credentials.Changed += OnCredentialsChanged;
         Progress.Changed += OnProgressChanged;
         Notifications.Changed += OnNotificationsChanged;
@@ -180,6 +211,11 @@
     private void OnCompatibilityChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void OpenUpdates() => _updates?.OpenWindow();
+
+    // Raised on whichever thread fetched the token - a background sync's, mostly.
+    private void OnKeyUnavailableChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void AskToPairAgain() => _syncStatus?.AskToForget();
 
     // Pairing is redeemed on the render thread, but a store may raise from
     // wherever it was saved; InvokeAsync is right in both cases.
@@ -302,6 +338,7 @@
         EventView.Changed -= OnEventsChanged;
         Lifecycle.Resumed -= OnResumed;
         Compatibility.Changed -= OnCompatibilityChanged;
+        if (_tokens is not null) _tokens.KeyUnavailableChanged -= OnKeyUnavailableChanged;
         _openRequests?.Dispose();
         _captureRequests?.Dispose();
 
