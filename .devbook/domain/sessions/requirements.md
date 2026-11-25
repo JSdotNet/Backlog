@@ -296,7 +296,7 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 > mark and list tools a Manager session uses.
 >
 > Local ADR 0062 adds the plan-entry, docked-queue and queue-filter requirements below,
-> not yet built.
+> built on the plan branch `plan/plan-first-tasks`.
 
 ### Requirement: Only a click in the app requests a session
 
@@ -660,9 +660,10 @@ The system SHALL disable the queue icon of an entry whose plan a roadmap item ca
 ```meta
 type: requirement
 related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_ready_prompt_of_a_queued_plan_is_queued_with_the_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_the_plan_session_runs_is_in_the_plan_session_with_its_stage, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_in_progress_with_a_linked_session_is_in_the_plan_session_without_a_stage, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_the_run_held_for_an_unreadable_source_is_held_for_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_task_or_test_entry_is_left_for_you_however_the_plan_stands, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.An_entry_whose_pull_request_merged_into_the_plan_branch_has_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_pull_request_merged_into_the_default_branch_is_not_a_landing_on_the_plan_branch]
 ```
 
-The system SHALL show each entry of a queued plan as Queued with plan while it is ready and waits for the run, In plan session while a plan session runs it, Held for you while a Read-first source it names cannot be read, Left for you when it is a test or task entry, and Landed once its pull request merged into the plan branch.
+The system SHALL show each entry of a queued plan as Queued with plan while it is ready and waits for the run, In plan session while a plan session runs it, Held for you while the entry is blocked, Left for you when it is a test or task entry, and Landed once its pull request merged into the plan branch.
 
 #### Scenario: A plan is queued
 
@@ -675,6 +676,44 @@ The system SHALL show each entry of a queued plan as Queued with plan while it i
 - **Given** an entry reads "In plan session"
 - **When** its pull request merges into `plan/zero-trust-auth`
 - **Then** the entry reads "Landed"
+
+### Requirement: A plan entry outside the run reads Waiting, Ready or Done
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_waiting_on_another_entry_of_an_unqueued_plan_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_waiting_on_nothing_in_an_unqueued_plan_is_ready, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_waiting_prompt_of_a_queued_plan_still_waits, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_prompt_that_is_not_ready_and_in_no_session_waits_even_in_a_queued_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_finished_entry_is_done_even_after_it_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.The_tasks_state_reads_waiting_from_its_own_dependency_chain]
+```
+
+The system SHALL show a plan entry as Done once it is Done or Archived, as Waiting while it is not Ready or waits on another open entry, and as Ready while it is ready and its plan is not queued.
+
+#### Scenario: A plan nobody queued
+
+- **Given** the plan `+zero-trust-auth` is not queued, and has a ready prompt entry, a prompt entry that waits on it, and a draft prompt entry
+- **When** the person opens Tasks
+- **Then** the first reads "Ready" and the other two read "Waiting"
+
+#### Scenario: A finished entry that landed
+
+- **Given** an entry whose pull request merged into `plan/zero-trust-auth`
+- **When** the entry is marked Done
+- **Then** it reads "Done", not "Landed"
+
+### Requirement: The first plan entry state that holds wins
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_finished_entry_is_done_even_after_it_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_task_or_test_entry_is_left_for_you_however_the_plan_stands, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_held_prompt_stays_held_while_the_run_reports_a_stage_for_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanEntryStateTests.A_waiting_prompt_of_a_queued_plan_still_waits]
+```
+
+The system SHALL give a plan entry the first state that holds, in the order Done, Landed, Left for you, Held for you, In plan session, Waiting, then Queued with plan or Ready.
+
+#### Scenario: A held entry the run reports on
+
+- **Given** a blocked prompt entry of a queued plan whose session reports a stage for it
+- **When** the person opens Tasks
+- **Then** the entry reads "Held for you", not "In plan session"
 
 ### Requirement: The queue docks beside a wide list
 
@@ -702,15 +741,44 @@ The session queue SHALL dock as a column beside the Tasks list, grouped as Needs
 ```meta
 type: requirement
 related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_an_entry_request_filters_the_list_to_that_entry_and_Show_all_lets_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_draft_filters_the_list_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_plan_request_in_Flat_switches_to_Plans_and_selects_that_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_plan_entry_in_Flat_shows_its_plan_in_Plans_rather_than_an_empty_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Selecting_a_landed_entry_in_Flat_shows_it_though_Flat_opens_on_the_open_entries]
 ```
 
-The system SHALL filter the Tasks list to a queue item's entry, or to its plan, when the person selects the item in the docked queue.
+The system SHALL filter the Tasks list to a queue item's entry, or to its plan, when the person selects the item in the docked queue, without opening an unplanned entry, and SHALL show a plan entry's item as its plan in Plans.
 
 #### Scenario: A plan in Up next
 
 - **Given** the plan `+gtd-para` waits under Up next
 - **When** the person selects it
 - **Then** the list shows only the entries of `+gtd-para`
+
+#### Scenario: An unplanned entry's request
+
+- **Given** an unplanned prompt entry waits under Up next, in Flat
+- **When** the person selects it
+- **Then** the list shows only that entry, no entry is opened, and the column reads "Showing" the entry with Show all
+
+#### Scenario: A plan entry's draft in Flat
+
+- **Given** a draft pull request of a `+gtd-para` entry waits under Needs you, in Flat
+- **When** the person selects it
+- **Then** the pane switches to Plans with `+gtd-para` selected and the entry open
+
+### Requirement: A folded queue keeps its filter behind Show all
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0062-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionQueueColumnTests.Folded_the_queue_keeps_the_entry_it_filtered_the_list_to_with_Show_all_on_the_bar]
+```
+
+The system SHALL keep the entry a queue item filtered the list to when the queue folds into the filter bar, and SHALL show a Show all chip on the filter bar until the person lets it go.
+
+#### Scenario: The pane narrows while filtered
+
+- **Given** the person selected an entry's request and the list shows only that entry
+- **When** the pane narrows to 48rem
+- **Then** the list still shows only that entry, the filter bar shows "Showing" the entry with "Show all", and pressing it shows the whole list
 
 ### Requirement: The flag off offers no session requests
 
