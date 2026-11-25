@@ -105,7 +105,7 @@ public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = n
 
         run ??= PlanRun.None;
 
-        if (row.IsPreviewCompleted || row.PreviewStatus is EntryStatus.Done or EntryStatus.Archived)
+        if (row.IsPreviewFinished)
         {
             return new(PlanEntryQueueState.Done);
         }

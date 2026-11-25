@@ -2824,8 +2824,14 @@
     /// repository, every area, every status, all at once, because a wait does
     /// not stop being real just because the reader scoped the list away from it.
     /// </para>
+    /// <para>
+    /// Done here is <see cref="EntryRow.IsPreviewFinished"/> rather than the tick: a
+    /// step whose status is Done or Archived without a completion date has landed,
+    /// so the entries after it read ready, as the Tasks state's own chain reads them.
+    /// </para>
     /// </summary>
-    private IReadOnlyList<TaskRow> DependencyUniverse() => ToTaskRows(State.Rows);
+    private IReadOnlyList<TaskRow> DependencyUniverse() =>
+        [.. State.Rows.Zip(ToTaskRows(State.Rows), (row, task) => task with { Done = row.IsPreviewFinished })];
 
     /// <summary>What a row is called in the list, live: the open panel's draft
     /// while that row is the one being retitled there, its saved title the rest

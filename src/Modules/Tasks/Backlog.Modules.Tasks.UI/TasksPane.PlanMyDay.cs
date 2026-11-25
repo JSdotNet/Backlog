@@ -63,7 +63,7 @@ public partial class TasksPane
             .Select(tag =>
             {
                 var entries = State.PlanEntryStatesOf(tag);
-                var done = entries.Count(pair => pair.Row.IsPreviewCompleted);
+                var done = entries.Count(pair => pair.Row.IsPreviewFinished);
                 return new TagFilterOption(tag, tag, entries.Count - done, done);
             })
             .ToList();

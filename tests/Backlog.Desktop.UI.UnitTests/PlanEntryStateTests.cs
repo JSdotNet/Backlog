@@ -186,6 +186,39 @@ public sealed class PlanEntryStateTests
         Assert.Equal(PlanEntryQueueState.QueuedWithPlan, host.State.PlanEntryStateOf(first, PlanRun.From(Request))!.State);
     }
 
+    [Theory]
+    [InlineData("!done")]
+    [InlineData("!archived")]
+    public async Task A_ready_entry_after_a_done_status_entry_with_no_completion_date_is_next_not_waiting(string status)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var first = await host.WriteEntryAsync($"# First\n`prompt` `{status}` `+{Plan}`\n\nDone already.\n");
+        var second = await host.WriteEntryAsync($"# Second\n`prompt` `!ready` `+{Plan}` `after:{first.Id}`\n\nThen this.\n");
+
+        Assert.False(first.IsPreviewCompleted);
+        Assert.True(first.IsPreviewFinished);
+        Assert.True(host.State.IsNotWaiting(second));
+        Assert.True(host.State.IsNextAction(second));
+        Assert.False(host.State.IsNextAction(first));
+        Assert.Equal(PlanEntryQueueState.Ready, host.State.PlanEntryStateOf(second)!.State);
+        Assert.Equal(PlanEntryQueueState.QueuedWithPlan, host.State.PlanEntryStateOf(second, PlanRun.From(Request))!.State);
+    }
+
+    [Fact]
+    public async Task The_plan_rail_counts_a_done_status_entry_with_no_completion_date_as_done()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var first = await host.WriteEntryAsync($"# First\n`prompt` `!done` `+{Plan}`\n\nDone already.\n");
+        await host.WriteEntryAsync($"# Second\n`prompt` `!ready` `+{Plan}` `after:{first.Id}`\n\nThen this.\n");
+
+        var plan = Assert.Single(
+            PlanRail.Plans(host.State.TagFilters, host.State.ScopedRows, new Dictionary<string, EntrySessionRequest>(), []),
+            plan => plan.Name == Plan);
+
+        Assert.Equal((1, 2), (plan.Done, plan.Total));
+        Assert.Equal(1, plan.ReadyCount);
+    }
+
     [Fact]
     public async Task A_plan_section_reads_every_entry_of_its_plan_and_only_those()
     {

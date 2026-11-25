@@ -113,7 +113,7 @@ public static class PlanRail
 
             var bare = option.Value.TrimStart('+');
             var open = scopedRows
-                .Where(row => !row.IsPreviewCompleted && row.PreviewTags.Contains(option.Value, StringComparer.OrdinalIgnoreCase))
+                .Where(row => !row.IsPreviewFinished && row.PreviewTags.Contains(option.Value, StringComparer.OrdinalIgnoreCase))
                 .ToList();
             var ready = open.Count(row => row.PreviewStatus is EntryStatus.Ready && !row.IsPreviewBlocked);
             var place = waiting.FindIndex(row => string.Equals(row.PlanTag, bare, StringComparison.OrdinalIgnoreCase)) + 1;
