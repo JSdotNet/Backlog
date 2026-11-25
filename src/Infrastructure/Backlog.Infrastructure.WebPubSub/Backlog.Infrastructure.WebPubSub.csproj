@@ -23,6 +23,7 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Azure.Messaging.WebPubSub" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
