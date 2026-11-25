@@ -1085,7 +1085,7 @@
         if (_focusInlineFilterChip is { } inlineChip)
         {
             _focusInlineFilterChip = null;
-            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusIfLost", inlineChip, FilterMenuSelector));
+            await FocusQuietlyAsync("backlogFocusIfLost", inlineChip, FilterMenuSelector);
         }
 
         if (_focusDevbookPicker && _devbookPicker is not null)
@@ -1103,7 +1103,7 @@
         if (_focusTagChip is { } chip)
         {
             _focusTagChip = null;
-            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
+            await FocusQuietlyAsync("backlogFocusTagChip", TagFilterChipId(chip));
         }
 
         if (_focusSessionQueue is { } queueTarget)
@@ -1115,7 +1115,7 @@
             }
             else
             {
-                await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocus", queueTarget));
+                await FocusQuietlyAsync("backlogFocus", queueTarget);
             }
         }
 
@@ -5134,6 +5134,19 @@
         try
         {
             await focus();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>One focusing script call, kept as quiet as
+    /// <see cref="FocusQuietlyAsync(Func{ValueTask})"/> keeps a control's own.</summary>
+    private async Task FocusQuietlyAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
         }
         catch (Exception)
         {

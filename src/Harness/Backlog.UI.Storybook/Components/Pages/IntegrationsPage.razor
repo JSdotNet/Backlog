@@ -383,7 +383,6 @@ The first three panels below are the same panel on three pretend surfaces at thr
     private async Task RefreshEntry()
     {
         _entryReading = _entryReading with { InFlight = true, FailureReason = null };
-        StateHasChanged();
 
         await Task.Delay(700);
 

@@ -492,7 +492,7 @@
         [
             .. Value!.LongestSessions.Select(session => new MetricRankItem(
                 string.IsNullOrWhiteSpace(session.Title) ? "Untitled session" : session.Title,
-                (decimal)session.ActiveTime.TotalSeconds,
+                ExactDuration.Seconds(session.ActiveTime),
                 LongestDetail(session)))
         ];
 
