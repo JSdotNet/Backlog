@@ -28,12 +28,45 @@ public sealed class SelfAttributedTaskItemsTests
         Assert.Equal((id, (DateOnly?)Monday, true), inner.Asked);
     }
 
-    /// <summary>Records what the due-date write was asked for and whether the pane's mark
-    /// was set while it ran. Every other member is out of this test's reach.</summary>
-    // Differs from RecordingTaskItems: records the due-date write and whether the pane's mark was set during it; every other member throws.
+    /// <summary>The version and a write pinned to it reach the inner port, marked as the
+    /// pane's - not the port's defaults, which would read the version as null and refuse
+    /// the write as stale.</summary>
+    [Fact]
+    public async Task A_pinned_save_and_its_version_are_forwarded_and_marked_as_the_panes_write()
+    {
+        var mark = new AsyncLocal<bool>();
+        var inner = new DueRecordingTaskItems(mark);
+        ITaskItems items = new SelfAttributedTaskItems(inner, mark);
+        var id = Guid.NewGuid();
+        var token = TestContext.Current.CancellationToken;
+
+        var version = await items.GetUpdatedAtAsync(id, token);
+        var saved = await items.SaveFromTextAsync(id, "# Refactor sync", 0, version!.Value, token);
+
+        Assert.IsNotType<Error>(saved.Value);
+        Assert.Equal((id, DueRecordingTaskItems.Version, true), inner.Pinned);
+    }
+
+    /// <summary>Records what the due-date write and a pinned save were asked for and whether
+    /// the pane's mark was set while each ran. Every other member is out of these tests' reach.</summary>
+    // Differs from RecordingTaskItems: records the due-date write and a pinned save and whether the pane's mark was set during each; every other member throws.
     private sealed class DueRecordingTaskItems(AsyncLocal<bool> mark) : ITaskItems
     {
         public (Guid Id, DateOnly? DueOn, bool Marked)? Asked { get; private set; }
+
+        public static readonly DateTimeOffset Version = new(2026, 11, 25, 9, 0, 0, TimeSpan.Zero);
+
+        public (Guid Id, DateTimeOffset Expected, bool Marked)? Pinned { get; private set; }
+
+        public Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<DateTimeOffset?>(Version);
+
+        public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid id, string rawText, int order, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken = default)
+        {
+            Pinned = (id, expectedUpdatedAt, mark.Value);
+            return Task.FromResult<Result<SavedTaskDto>>(new SavedTaskDto(new TaskItemDto(
+                id, "Refactor sync", string.Empty, EntryType.Task, Priority.Medium, EntryStatus.Ready, null, [], 0, 0, 0, [])));
+        }
 
         public Task<Result<TaskItemDto>> SetDueAsync(Guid id, DateOnly? dueOn, CancellationToken cancellationToken = default)
         {

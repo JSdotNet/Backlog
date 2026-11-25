@@ -50,6 +50,50 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
     public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
         inner.CountAsync(cancellationToken);
 
+    // Forwarded too: the port's default answers null, which would refuse every
+    // versioned write below as stale.
+    public Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default) =>
+        inner.GetUpdatedAtAsync(id, cancellationToken);
+
+    // The versioned writes are forwarded rather than left to the port's defaults,
+    // which compare first and write after: the inner port checks and writes in one
+    // conditional save.
+    public async Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid id,
+        string rawText,
+        int order,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "saving an entry");
+        return await inner.SaveFromTextAsync(id, rawText, order, expectedUpdatedAt, cancellationToken);
+    }
+
+    public async Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "linking an entry");
+        return await inner.LinkToIssueAsync(id, repoId, externalId, targetType, expectedUpdatedAt, cancellationToken);
+    }
+
+    public async Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, "setting Devbook references");
+        return await inner.SetDevbookReferencesAsync(id, references, expectedUpdatedAt, cancellationToken);
+    }
+
     public async Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,
         string rawText,

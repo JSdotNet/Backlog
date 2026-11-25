@@ -151,6 +151,10 @@ public sealed class TaskItemStampTests
         // save is checked against. Saying where the store stands is not an edit.
         [nameof(TaskItem.MarkPersisted)] = task => task.MarkPersisted(),
 
+        // Checking a caller's version against that token changes nothing: it either
+        // throws before anything is applied or lets the edit that follows restamp.
+        [nameof(TaskItem.RequireLoadedAt)] = task => task.RequireLoadedAt(null),
+
         // Restoring a task nobody deleted says nothing new, the way deleting a
         // deleted one does not; a stamp moved here would win last-write-wins
         // with no edit to show for it.

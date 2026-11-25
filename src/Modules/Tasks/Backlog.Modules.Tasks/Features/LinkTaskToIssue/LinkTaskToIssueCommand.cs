@@ -15,7 +15,14 @@ namespace Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 /// itself; the host does that and reports back what it created.
 /// </para>
 /// </summary>
-public sealed record LinkTaskToIssueCommand(Guid Id, string RepoId, string ExternalId, string TargetType);
+/// <param name="ExpectedUpdatedAt">The version the caller read the entry at, or
+/// null to link on whatever the store holds.</param>
+public sealed record LinkTaskToIssueCommand(
+    Guid Id,
+    string RepoId,
+    string ExternalId,
+    string TargetType,
+    DateTimeOffset? ExpectedUpdatedAt = null);
 
 public sealed class LinkTaskToIssueCommandHandler(ITaskRepository entries)
     : ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>>
@@ -32,6 +39,8 @@ public sealed class LinkTaskToIssueCommandHandler(ITaskRepository entries)
 
         var entry = await entries.GetAsync(command.Id, cancellationToken);
         if (entry is null) return NotFound;
+
+        entry.RequireLoadedAt(command.ExpectedUpdatedAt);
 
         entry.SetRepoIds(MergedRepoIds(entry, command.RepoId));
         entry.AddProjectionRef(new ProjectionRef(command.RepoId, command.ExternalId, command.TargetType));

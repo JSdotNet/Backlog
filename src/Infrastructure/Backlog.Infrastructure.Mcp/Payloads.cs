@@ -102,6 +102,13 @@ public sealed record EntryTextPayload(Guid Id, string Title, string Status, stri
 
     /// <summary>The day to follow up, or null — the <c>followup:</c> token.</summary>
     public DateOnly? FollowUpOn { get; init; }
+
+    /// <summary>The version of the entry this read is — when the store last wrote
+    /// it. A write tool given it back as <c>expectedUpdatedAt</c> is refused with
+    /// <c>tasks.stale_write</c> once somebody has saved the entry since, so a change
+    /// built on this read never overwrites one it did not see. Null where the store
+    /// keeps no versions.</summary>
+    public DateTimeOffset? UpdatedAt { get; init; }
 }
 
 /// <summary>

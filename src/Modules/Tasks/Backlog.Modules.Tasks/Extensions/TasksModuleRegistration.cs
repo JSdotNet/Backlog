@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Features.CreateTaskIfAbsent;
 using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.FileFollowUp;
 using Backlog.Modules.Tasks.Features.GetTask;
+using Backlog.Modules.Tasks.Features.GetTaskVersion;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
@@ -51,6 +52,7 @@ public static class TasksModuleRegistration
 
         services.AddScoped<IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>>, ListTasksQueryHandler>();
         services.AddScoped<IQueryHandler<GetTaskQuery, TaskItemDto?>, GetTaskQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTaskVersionQuery, DateTimeOffset?>, GetTaskVersionQueryHandler>();
         services.AddScoped<IQueryHandler<CountTasksQuery, int>, CountTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();
         services.AddScoped<ICommandHandler<CreateTaskIfAbsentCommand, Result<bool>>, CreateTaskIfAbsentCommandHandler>();

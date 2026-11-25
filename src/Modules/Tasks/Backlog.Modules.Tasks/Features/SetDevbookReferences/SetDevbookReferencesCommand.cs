@@ -16,7 +16,12 @@ namespace Backlog.Modules.Tasks.Features.SetDevbookReferences;
 /// either; see <see cref="TaskDevbookReference"/>.
 /// </para>
 /// </summary>
-public sealed record SetDevbookReferencesCommand(Guid Id, IReadOnlyList<string> References);
+/// <param name="ExpectedUpdatedAt">The version the caller read the entry at, or
+/// null to replace the list on whatever the store holds.</param>
+public sealed record SetDevbookReferencesCommand(
+    Guid Id,
+    IReadOnlyList<string> References,
+    DateTimeOffset? ExpectedUpdatedAt = null);
 
 public sealed class SetDevbookReferencesCommandHandler(ITaskRepository entries)
     : ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>>
@@ -45,6 +50,8 @@ public sealed class SetDevbookReferencesCommandHandler(ITaskRepository entries)
 
         var entry = await entries.GetAsync(command.Id, cancellationToken);
         if (entry is null) return NotFound;
+
+        entry.RequireLoadedAt(command.ExpectedUpdatedAt);
 
         entry.SetDevbookReferences(references);
 
