@@ -14,6 +14,11 @@ public static class ChangesSurfaceQuery
     /// <summary>The agent session whose change sets alone the view lists.</summary>
     public const string SessionKey = "session";
 
+    /// <summary>The change set whose restore confirmation the view opens on: an agent's
+    /// restore proposal answered Restore (local ADR 0061 §5). The panel still asks the
+    /// person to confirm; nothing is restored by opening it.</summary>
+    public const string RestoreKey = "restore";
+
     /// <summary>Every key the view accepts.</summary>
-    public static IReadOnlyList<string> Keys { get; } = [SessionKey];
+    public static IReadOnlyList<string> Keys { get; } = [SessionKey, RestoreKey];
 }

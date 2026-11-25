@@ -180,6 +180,13 @@
 
     private readonly HashSet<Guid> _open = [];
 
+    /// <summary>A restore the host planned for a row the reader has not opened — a jump
+    /// to its confirmation — opens that row, so its panel is on screen.</summary>
+    protected override void OnParametersSet()
+    {
+        if (PendingRestore is { } plan) _open.Add(plan.ChangeSetId);
+    }
+
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "change-sets" : $"change-sets {CssClass}";
 
     private List<ChangeSetEntry> Shown => [.. Entries.Where(entry => ChangeSetFilters.Keeps(Filter, entry.ChangeSet.Actor))];

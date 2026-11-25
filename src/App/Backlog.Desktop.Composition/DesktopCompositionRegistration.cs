@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Changes;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Goals;
@@ -66,6 +67,7 @@ using Backlog.SharedKernel.Mcp;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Composition;
@@ -215,6 +217,11 @@ public static class DesktopCompositionRegistration
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
+        // An agent's restore proposal (local ADR 0061 §5): Restore shows the Changes view on
+        // the change set's confirmation panel, which still asks; Keep does nothing.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, RestoreProposalAnswers>(sp => new RestoreProposalAnswers(
+            sp.GetRequiredService<MainWindowSurfaces>(),
+            sp.GetService<ILogger<RestoreProposalAnswers>>())));
         // The Settings page's test question: the page reads its answer off the centre, so the
         // handler only takes it, for the same reason.
         services.AddNotificationAnswerHandler<TestNotificationAnswers>();

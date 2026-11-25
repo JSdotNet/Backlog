@@ -80,6 +80,9 @@ internal static class McpRefreshMap
         [NotificationTools.GetAnswer] = NotificationChanges,
         [NotificationTools.Close] = NotificationChanges,
 
+        // A restore proposal is an ask: it publishes a question and writes nothing else.
+        [ChangeTools.ProposeRestore] = NotificationChanges,
+
         [DevbookTools.ResolveAnnotation] = AnnotationChanges,
         [DevbookTools.CaptureNote] = BrainChanges,
 

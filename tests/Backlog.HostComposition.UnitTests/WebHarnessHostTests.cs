@@ -460,7 +460,8 @@ public class WebHarnessHostTests
 
     /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
-    /// the port resolves with them: the MCP tools, the Settings page's test question
+    /// the port resolves with them: the MCP tools — twice, the second taking an agent's
+    /// restore proposal (local ADR 0061 §5) — the Settings page's test question
     /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
     /// (the spec-manager adapter), and the device that
     /// redeemed a pairing code (Sync).
@@ -472,7 +473,7 @@ public class WebHarnessHostTests
 
         var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
 
-        Assert.Equal(["mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.Equal(["mcp", "mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
     }
 

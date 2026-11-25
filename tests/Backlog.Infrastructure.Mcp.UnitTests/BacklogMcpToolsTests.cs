@@ -40,6 +40,11 @@ public class BacklogMcpToolsTests
                 "create_item",
                 "set_devbook_references",
                 "list_devbook_references",
+
+                // The change journal's two agent tools (local ADR 0061 §5), beside the
+                // tracker's: read the change sets, propose a restore the person confirms.
+                "list_change_sets",
+                "propose_restore",
                 "get_roadmap",
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
@@ -200,6 +205,7 @@ public class BacklogMcpToolsTests
             [
                 BacklogMcpTools.Work,
                 BacklogMcpTools.Tracker,
+                ChangeTools.Group,
                 BacklogMcpTools.Roadmap,
                 BacklogMcpTools.Devbook,
                 DecisionTools.Group,
@@ -346,6 +352,7 @@ public class BacklogMcpToolsTests
             NotificationTools.Ask,
             NotificationTools.GetAnswer,
             NotificationTools.Close,
+            ChangeTools.ProposeRestore,
             WindowTools.OpenWindow,
             AccessTools.RequestAccess,
             GrantTools.GrantAgent,
