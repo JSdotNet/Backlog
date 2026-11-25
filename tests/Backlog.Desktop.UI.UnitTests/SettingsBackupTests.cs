@@ -89,6 +89,9 @@ public sealed class SettingsBackupTests
         var card = settings.Component.Find("[data-testid='storage-checkpoints-settings']");
         Assert.Equal("Checkpoints", card.QuerySelector(".settings-card__title")?.TextContent);
         Assert.NotNull(card.QuerySelector("[data-testid='storage-checkpoints-empty']"));
+        var described = string.Join(' ', card.TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("the repositories, and the GitHub account, pace, My Day, iteration and agent settings", described, StringComparison.Ordinal);
+        Assert.Contains($"those in its {AgentCheckpoints.SettingsFolderName} folder", described, StringComparison.Ordinal);
 
         Assert.True(settings.TestContext.Services.GetRequiredService<AgentCheckpoints>().TakeIfDue());
 

@@ -1,3 +1,5 @@
+using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
@@ -159,6 +161,127 @@ public sealed class AgentCheckpointsTests : IDisposable
 
         Assert.True(checkpoints.TakeIfDue());
         Assert.Single(checkpoints.List());
+    }
+
+    [Fact]
+    public void A_checkpoint_holds_the_repository_registry_and_every_settings_file_it_is_given()
+    {
+        Directory.CreateDirectory(_temp.Combine(GitHubSettingsStore.RegistryFolderName));
+        File.WriteAllText(_temp.Combine(GitHubSettingsStore.RegistryFolderName, "repos.json"), "{\"repositories\":[]}");
+
+        var appData = _temp.Combine("app-data-source");
+        Directory.CreateDirectory(appData);
+        string[] names =
+        [
+            "github.json",
+            "planning-velocity.json",
+            MyDayPreferencesStore.FileName,
+            IterationSettingsStore.FileName,
+            FileMcpGrantStore.FileName,
+        ];
+        foreach (var name in names) File.WriteAllText(Path.Combine(appData, name), "{\"of\":\"" + name + "\"}");
+
+        var checkpoints = new AgentCheckpoints(
+            () => _temp.Path, _time, _log, settingsFiles: () => names.Select(name => Path.Combine(appData, name)));
+
+        Assert.True(checkpoints.TakeIfDue());
+
+        var folder = Assert.Single(checkpoints.List()).FolderPath;
+        Assert.Equal(
+            "{\"repositories\":[]}",
+            File.ReadAllText(Path.Combine(folder, GitHubSettingsStore.RegistryFolderName, "repos.json")));
+        foreach (var name in names)
+        {
+            Assert.Equal(
+                "{\"of\":\"" + name + "\"}",
+                File.ReadAllText(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, name)));
+        }
+    }
+
+    [Fact]
+    public void A_settings_file_that_is_missing_or_unnamed_is_skipped_and_the_rest_are_still_checkpointed()
+    {
+        var appData = _temp.Combine("app-data-source");
+        Directory.CreateDirectory(appData);
+        File.WriteAllText(Path.Combine(appData, MyDayPreferencesStore.FileName), "{}");
+
+        var checkpoints = new AgentCheckpoints(
+            () => _temp.Path,
+            _time,
+            _log,
+            settingsFiles: () =>
+            [
+                Path.Combine(appData, FileMcpGrantStore.FileName),
+                null,
+                "  ",
+                Path.Combine(appData, MyDayPreferencesStore.FileName),
+            ]);
+
+        Assert.True(checkpoints.TakeIfDue());
+
+        var folder = Assert.Single(checkpoints.List()).FolderPath;
+        Assert.True(File.Exists(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, MyDayPreferencesStore.FileName)));
+        Assert.False(File.Exists(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, FileMcpGrantStore.FileName)));
+        Assert.False(Directory.Exists(Path.Combine(folder, GitHubSettingsStore.RegistryFolderName)));
+        Assert.Empty(_log.Entries);
+        Assert.Empty(Directory.EnumerateDirectories(_temp.Combine(AgentCheckpoints.FolderName), ".partial-*"));
+    }
+
+    [Fact]
+    public void Two_settings_files_of_one_name_keep_the_first_rather_than_failing_the_checkpoint()
+    {
+        var first = _temp.Combine("first");
+        var second = _temp.Combine("second");
+        Directory.CreateDirectory(first);
+        Directory.CreateDirectory(second);
+        File.WriteAllText(Path.Combine(first, "github.json"), "first");
+        File.WriteAllText(Path.Combine(second, "github.json"), "second");
+
+        var checkpoints = new AgentCheckpoints(
+            () => _temp.Path, _time, _log,
+            settingsFiles: () => [Path.Combine(first, "github.json"), Path.Combine(second, "github.json")]);
+
+        Assert.True(checkpoints.TakeIfDue());
+
+        var folder = Assert.Single(checkpoints.List()).FolderPath;
+        Assert.Equal("first", File.ReadAllText(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, "github.json")));
+    }
+
+    [Fact]
+    public void A_settings_file_list_that_throws_fails_the_checkpoint_without_leaving_a_partial_folder()
+    {
+        var checkpoints = new AgentCheckpoints(
+            () => _temp.Path, _time, _log,
+            settingsFiles: () => throw new InvalidOperationException("no store"));
+
+        Assert.False(checkpoints.TakeIfDue());
+
+        Assert.Empty(checkpoints.List());
+        Assert.Single(_log.Entries);
+        Assert.False(Directory.Exists(_temp.Combine(AgentCheckpoints.FolderName)));
+    }
+
+    [Fact]
+    public void A_settings_file_that_cannot_be_read_is_left_out_and_logged_and_the_checkpoint_is_still_taken()
+    {
+        var appData = _temp.Combine("app-data-source");
+        Directory.CreateDirectory(appData);
+        var locked = Path.Combine(appData, FileMcpGrantStore.FileName);
+        var readable = Path.Combine(appData, MyDayPreferencesStore.FileName);
+        File.WriteAllText(locked, "{}");
+        File.WriteAllText(readable, "{}");
+
+        var checkpoints = new AgentCheckpoints(() => _temp.Path, _time, _log, settingsFiles: () => [locked, readable]);
+
+        using (new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.True(checkpoints.TakeIfDue());
+        }
+
+        var folder = Assert.Single(checkpoints.List()).FolderPath;
+        Assert.True(File.Exists(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, MyDayPreferencesStore.FileName)));
+        Assert.False(File.Exists(Path.Combine(folder, AgentCheckpoints.SettingsFolderName, FileMcpGrantStore.FileName)));
+        Assert.Contains(locked, Assert.Single(_log.Entries).Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -336,11 +336,13 @@ public static class DesktopCompositionRegistration
         // over the same workspace settings and clock.
         services.AddSingleton<ChangeHistoryWorker>();
         // The checkpoint the MCP server takes before an agent's write (AgentCheckpointFilter):
-        // a folder beside backlog.db, following the root as the stores it copies do.
+        // a folder beside backlog.db, following the root as the stores it copies do, and
+        // holding the per-user settings files the change journal leaves out (local ADR 0061 §8).
         services.AddSingleton(sp => new AgentCheckpoints(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
             sp.GetService<TimeProvider>(),
-            sp.GetService<ILogger<AgentCheckpoints>>()));
+            sp.GetService<ILogger<AgentCheckpoints>>(),
+            settingsFiles: () => CheckpointedSettingsFiles(sp, options.CheckpointedHeadFiles)));
 
         // Where the sync service is, asked per client rather than fixed here: the URL
         // on the Settings page, then BACKLOG_SYNC_URL, then "https+http://sync",
@@ -691,6 +693,29 @@ public static class DesktopCompositionRegistration
         services.AddDashboardCrossContextAdapters();
 
         return services;
+    }
+
+    /// <summary>
+    /// The per-user settings files an agent checkpoint copies, asked of the stores this
+    /// composition holds so a head that scopes them elsewhere is copied where they are: the
+    /// GitHub accounts (local ADR 0021), the pace (ADR 0018), My Day (ADR 0032), the iteration
+    /// settings (ADR 0036), then <paramref name="headFiles"/>, which the head keeps alone - the
+    /// MCP grants (ADR 0058 §3). The repository registry sits under the root and is the
+    /// checkpoint's own. A store this head does not compose names nothing.
+    /// </summary>
+    public static IReadOnlyList<string?> CheckpointedSettingsFiles(IServiceProvider services, IEnumerable<string> headFiles)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(headFiles);
+
+        return
+        [
+            services.GetService<GitHubSettingsStore>()?.SettingsPath,
+            services.GetService<PlanningVelocitySettingsStore>()?.SettingsPath,
+            services.GetService<MyDayPreferencesStore>()?.SettingsPath,
+            services.GetService<IterationSettingsStore>()?.SettingsPath,
+            .. headFiles,
+        ];
     }
 
     /// <summary>The base-address callback the three sync registrations share, so

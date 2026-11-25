@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 
+using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,18 @@ public sealed record AgentCheckpoint(DateTimeOffset TakenAt, long SizeBytes, str
 /// <summary>
 /// The safety net taken before an agent's first write: a folder
 /// <c>checkpoints/&lt;UTC timestamp&gt;/</c> beside <c>backlog.db</c> holding a consistent copy
-/// of the database and of the devbook subject-state and annotation stores, so a run that went
-/// wrong can be put back by hand.
+/// of the database, of the devbook subject-state and annotation stores, and of the settings
+/// files the change journal does not cover (local ADR 0061 §7 and §8), so a run that went wrong
+/// can be put back by hand.
+/// <para>
+/// <b>The settings files.</b> The repository registry sits under the root and is copied at the
+/// same relative path. The rest sit in the per-user app-data folder, off the root: the GitHub
+/// accounts, the pace, My Day, the iteration settings and the MCP grants. Their paths are asked
+/// of the host on every checkpoint and each is copied by name into <see cref="SettingsFolderName"/>.
+/// A file that is not there yet is skipped. Every secret in them is a DPAPI envelope sealed under
+/// the Windows user (local ADRs 0030 and 0058 §3), so a copy opens to no one the live file does
+/// not.
+/// </para>
 /// <para>
 /// <b>At most one every <see cref="MinimumInterval"/>.</b> An agent run is many tool calls; a
 /// checkpoint per call would copy the database dozens of times a minute for nothing. The newest
@@ -53,6 +64,9 @@ public sealed class AgentCheckpoints
     /// <summary>The folder name's format: UTC, sortable, and safe in a Windows path.</summary>
     private const string StampFormat = "yyyyMMdd'T'HHmmss'Z'";
 
+    /// <summary>The folder inside a checkpoint the app-data settings files are copied into.</summary>
+    public const string SettingsFolderName = "app-data";
+
     /// <summary>The name a checkpoint is written under until it is whole.</summary>
     private const string PartialPrefix = ".partial-";
 
@@ -63,7 +77,14 @@ public sealed class AgentCheckpoints
         DevbookAnnotationStore.FolderName,
     ];
 
+    /// <summary>The files under the root copied beside the database, by their path under it.</summary>
+    private static readonly string[] CopiedRootFiles =
+    [
+        Path.Combine(GitHubSettingsStore.RegistryFolderName, GitHubSettingsStore.RegistryFileName),
+    ];
+
     private readonly Func<string> _rootDirectory;
+    private readonly Func<IEnumerable<string?>> _settingsFiles;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
     private readonly Action<string, string> _copyDatabase;
@@ -75,11 +96,15 @@ public sealed class AgentCheckpoints
     /// <param name="log">Where a failed checkpoint is reported.</param>
     /// <param name="copyDatabase">The database copy; <see cref="SqliteDatabaseFile.CopyTo"/>
     /// unless a test puts a failing one in its place.</param>
+    /// <param name="settingsFiles">The app-data settings files to copy, by full path, asked on
+    /// every checkpoint; a null or blank path, and one not on disk, is skipped. None when
+    /// null.</param>
     public AgentCheckpoints(
         Func<string> rootDirectory,
         TimeProvider? time = null,
         ILogger<AgentCheckpoints>? log = null,
-        Action<string, string>? copyDatabase = null)
+        Action<string, string>? copyDatabase = null,
+        Func<IEnumerable<string?>>? settingsFiles = null)
     {
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
@@ -87,6 +112,7 @@ public sealed class AgentCheckpoints
         _time = time ?? TimeProvider.System;
         _log = (ILogger?)log ?? NullLogger.Instance;
         _copyDatabase = copyDatabase ?? SqliteDatabaseFile.CopyTo;
+        _settingsFiles = settingsFiles ?? (static () => []);
     }
 
     /// <summary>Raised after a checkpoint was taken, so a page listing them can redraw.</summary>
@@ -103,6 +129,18 @@ public sealed class AgentCheckpoints
     public bool TakeIfDue()
     {
         string? staging = null;
+        IReadOnlyList<string?> settingsFiles;
+        try
+        {
+            // Asked before the gate, so a store the host builds on this first ask cannot reach
+            // the checkpoint again from inside it.
+            settingsFiles = [.. _settingsFiles()];
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The settings files to checkpoint could not be named; the write goes on without a checkpoint.");
+            return false;
+        }
 
         lock (_gate)
         {
@@ -139,6 +177,13 @@ public sealed class AgentCheckpoints
                 {
                     CopyFolder(Path.Combine(root, name), Path.Combine(staging, name));
                 }
+
+                foreach (var name in CopiedRootFiles)
+                {
+                    CopyFile(Path.Combine(root, name), Path.Combine(staging, name));
+                }
+
+                CopySettingsFiles(settingsFiles, Path.Combine(staging, SettingsFolderName));
 
                 System.IO.Directory.Move(staging, folder);
                 staging = null;
@@ -258,6 +303,60 @@ public sealed class AgentCheckpoints
             var target = Path.Combine(destination, Path.GetRelativePath(source, file));
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
+        }
+    }
+
+    /// <summary>Copies each settings file that is on disk into <paramref name="destination"/> by
+    /// its name. A second file of a name already copied is left out: the hosts name distinct
+    /// files, and one checkpoint is worth more than a refusal over a duplicate.</summary>
+    private void CopySettingsFiles(IEnumerable<string?> files, string destination)
+    {
+        var copied = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            if (string.IsNullOrWhiteSpace(file) || !copied.Add(Path.GetFileName(file))) continue;
+            if (!CopyFile(file, Path.Combine(destination, Path.GetFileName(file)))) copied.Remove(Path.GetFileName(file));
+        }
+    }
+
+    /// <summary>Copies one file when it is there.
+    /// <para>
+    /// The source is opened sharing read, write and delete, so a store that replaces its file
+    /// while it is copied - every one writes a temporary file and moves it over - is never
+    /// refused its save. A file that cannot be read now, locked or replaced mid-copy, is left
+    /// out and logged: one settings file is not worth the whole checkpoint.
+    /// </para>
+    /// </summary>
+    /// <returns>Whether it was copied.</returns>
+    private bool CopyFile(string source, string destination)
+    {
+        if (!File.Exists(source)) return false;
+
+        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        try
+        {
+            using var from = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var to = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            from.CopyTo(to);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning(ex, "{File} could not be read into the checkpoint and is left out of it.", source);
+            TryDeleteFile(destination);
+            return false;
+        }
+    }
+
+    private static void TryDeleteFile(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: a half-copied file inside a checkpoint still reads as that file.
         }
     }
 

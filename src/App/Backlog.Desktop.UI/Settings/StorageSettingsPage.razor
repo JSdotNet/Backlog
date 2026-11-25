@@ -401,11 +401,13 @@
     else
     {
         <p class="setting__body">
-            Before an agent changes anything through the MCP server, a copy of the database and
-            the devbook state and remarks is kept in <code>@_checkpoints.Directory</code> - at most
+            Before an agent changes anything through the MCP server, a copy of the database, the
+            devbook state and remarks, the repositories, and the GitHub account, pace, My Day,
+            iteration and agent settings is kept in <code>@_checkpoints.Directory</code> - at most
             one every @((int)AgentCheckpoints.MinimumInterval.TotalMinutes) minutes, and the newest
             @AgentCheckpoints.Keep only. To go back to one, close Backlog and copy its files over
-            the ones in the backlog folder.
+            the ones in the backlog folder, and those in its <code>@AgentCheckpoints.SettingsFolderName</code>
+            folder over the ones in the app's data folders.
         </p>
 
         <Alert Message="@_checkpointError"

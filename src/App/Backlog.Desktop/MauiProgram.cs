@@ -112,6 +112,9 @@ public static class MauiProgram
             BackupStatePath = Path.Combine(appData, "backup-state.json"),
             // The MCP audit log, per installation and never in the workspace root.
             McpAuditLogPath = Path.Combine(appData, "mcp-audit.db"),
+            // The MCP grants, copied into every agent checkpoint (local ADR 0061 §7): an
+            // agent holding agents:grant writes them. This head's alone (ADR 0058 §9).
+            CheckpointedHeadFiles = [Path.Combine(appData, FileMcpGrantStore.FileName)],
             // The URL on the Settings page, per machine and never in the workspace.
             SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
             // The catalog is the shell's product copy; the store is the adapter that

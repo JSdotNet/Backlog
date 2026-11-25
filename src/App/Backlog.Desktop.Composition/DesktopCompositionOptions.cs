@@ -116,6 +116,11 @@ public sealed class DesktopCompositionOptions
     /// app's.</summary>
     public required Func<IServiceProvider, IterationSettingsStore> IterationSettings { get; init; }
 
+    /// <summary>The files only this head keeps that an agent checkpoint copies besides the
+    /// composed stores' settings files: the installed app's MCP grants (local ADR 0058 §3),
+    /// which this composition never names (§9). None in the harness.</summary>
+    public IReadOnlyList<string> CheckpointedHeadFiles { get; init; } = [];
+
     /// <summary>Which surface the shell was last showing.</summary>
     public required Func<IServiceProvider, ShellNavigationStore> ShellNavigation { get; init; }
 
