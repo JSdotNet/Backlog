@@ -151,3 +151,13 @@ dotnet_diagnostic.CA2007.severity = warning
 # they are rewritten.
 [src/Infrastructure/Backlog.Infrastructure.Sqlite/**.cs]
 dotnet_diagnostic.CA2007.severity = suggestion
+
+# Product log messages are [LoggerMessage] source-generated methods, never a call
+# to the ILogger extension methods and never an interpolated or concatenated
+# message (org ADR 0007). CA1848 rejects the extension call, CA2254 a template
+# that is not a constant. LoggerMessageRuleTests checks the same over the MAUI
+# heads' sources, which the pull request build does not compile. The tests keep
+# the extension methods: a test double logging a line is no product message.
+[src/**.cs]
+dotnet_diagnostic.CA1848.severity = warning
+dotnet_diagnostic.CA2254.severity = warning

@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// the write has landed is logged and dropped: the next start's probe asks again.
 /// </para>
 /// </summary>
-internal static class SessionSubjectEnds
+internal static partial class SessionSubjectEnds
 {
     internal static NotificationSubject Session(string id) =>
         new(SessionNotificationSubjects.Context, SessionNotificationSubjects.Session, id);
@@ -42,12 +42,18 @@ internal static class SessionSubjectEnds
 
             if (closed is Error error)
             {
-                logger.LogDebug("Notifications about {Type} {Id} were not closed: {Error}", subject.Type, subject.Id, error.Message);
+                NotificationsNotClosed(logger, subject.Type, subject.Id, error.Message);
             }
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Closing the notifications about {Type} {Id} failed; the next start's probe asks again.", subject.Type, subject.Id);
+            ClosingNotificationsFailed(logger, exception, subject.Type, subject.Id);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notifications about {Type} {Id} were not closed: {Error}")]
+    private static partial void NotificationsNotClosed(ILogger logger, string type, string id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the notifications about {Type} {Id} failed; the next start's probe asks again.")]
+    private static partial void ClosingNotificationsFailed(ILogger logger, Exception exception, string type, string id);
 }

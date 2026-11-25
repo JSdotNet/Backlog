@@ -19,7 +19,7 @@ namespace Backlog.Mobile;
 /// exists once the app has been opened and is not backed up, so it is published on every start.
 /// </para>
 /// </summary>
-internal static class CaptureShortcut
+internal static partial class CaptureShortcut
 {
     /// <summary>The intent action of a tap on the shortcut.</summary>
     public const string Action = "com.jsdotnet.backlog.mobile.CAPTURE";
@@ -54,9 +54,12 @@ internal static class CaptureShortcut
             }
             catch (Exception ex)
             {
-                services?.GetService<ILoggerFactory>()?.CreateLogger(typeof(CaptureShortcut))
-                    .LogWarning("The Capture shortcut could not be published: {Error}", ex.GetType().Name);
+                if (services?.GetService<ILoggerFactory>()?.CreateLogger(typeof(CaptureShortcut)) is { } logger)
+                    LogShortcutPublishFailed(logger, ex.GetType().Name);
             }
         });
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Capture shortcut could not be published: {Error}")]
+    private static partial void LogShortcutPublishFailed(ILogger logger, string error);
 }

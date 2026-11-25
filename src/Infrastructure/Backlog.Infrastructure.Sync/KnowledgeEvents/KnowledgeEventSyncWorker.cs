@@ -41,7 +41,7 @@ namespace Backlog.Infrastructure.Sync.KnowledgeEvents;
 /// <see cref="RequestSync"/>.
 /// </para>
 /// </summary>
-public sealed class KnowledgeEventSyncWorker : IDisposable
+public sealed partial class KnowledgeEventSyncWorker : IDisposable
 {
     /// <summary>How long after the loop starts the first cycle runs — staggered behind every
     /// other loop.</summary>
@@ -264,7 +264,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log.LogWarning(ex, "The events switch could not be recorded, so the phone is not told it moved.");
+                LogSwitchNotRecorded(_log, ex);
             }
         }
     }
@@ -339,7 +339,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A knowledge event sync tick failed outside the cycle it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -351,7 +351,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A knowledge event sync cycle failed unexpectedly.");
+            LogCycleFailedUnexpectedly(_log, ex);
         }
     }
 
@@ -390,8 +390,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
 
             string Failed(Error error)
             {
-                _log.LogInformation(
-                    "A knowledge event sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                LogCycleIncomplete(_log, error.Code, error.Message);
                 return error.Message;
             }
         }
@@ -401,7 +400,7 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A knowledge event sync cycle threw.");
+            LogCycleThrew(_log, ex);
             LastError = UnexpectedFailure;
         }
         finally
@@ -461,8 +460,26 @@ public sealed class KnowledgeEventSyncWorker : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.LogInformation(ex, "Knowledge event sync is not composed in this host, so the loop has nothing to do.");
+            LogNotComposed(_log, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The events switch could not be recorded, so the phone is not told it moved.")]
+    private static partial void LogSwitchNotRecorded(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A knowledge event sync tick failed outside the cycle it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A knowledge event sync cycle failed unexpectedly.")]
+    private static partial void LogCycleFailedUnexpectedly(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A knowledge event sync cycle did not complete: {Code} {Message}")]
+    private static partial void LogCycleIncomplete(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A knowledge event sync cycle threw.")]
+    private static partial void LogCycleThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Knowledge event sync is not composed in this host, so the loop has nothing to do.")]
+    private static partial void LogNotComposed(ILogger logger, Exception exception);
 }

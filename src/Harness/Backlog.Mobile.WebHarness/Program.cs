@@ -104,7 +104,7 @@ try
 }
 catch (Exception ex) when (ex is not OperationCanceledException)
 {
-    app.Logger.LogWarning(ex, "Recovering interrupted recordings failed.");
+    ProgramLog.RecordingRecoveryFailed(app.Logger, ex);
 }
 
 // A stand-up to look at without a desktop that has goals on: goals, impediments, a
@@ -138,3 +138,15 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(Routes).Assembly);
 
 app.Run();
+
+/// <summary>The log messages the top-level statements above write (org ADR 0007).
+/// LoggerMessage.Define rather than [LoggerMessage], for the reason
+/// <c>GitHubOwnerSignIn</c> in the sync service gives: a web project here sees two
+/// copies of the logging source generator.</summary>
+internal static class ProgramLog
+{
+    private static readonly Action<ILogger, Exception?> RecordingRecoveryFailedMessage = LoggerMessage.Define(
+        LogLevel.Warning, new EventId(1, nameof(RecordingRecoveryFailed)), "Recovering interrupted recordings failed.");
+
+    public static void RecordingRecoveryFailed(ILogger logger, Exception exception) => RecordingRecoveryFailedMessage(logger, exception);
+}

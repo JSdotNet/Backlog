@@ -24,7 +24,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// later launch redirected to this instance. A singleton, for the windows outlive every
 /// window's scope.
 /// </summary>
-public sealed class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog catalog, ILogger<BacklogLinkActivation> logger)
+public sealed partial class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog catalog, ILogger<BacklogLinkActivation> logger)
 {
     private readonly object _gate = new();
     private readonly List<string?> _waiting = [];
@@ -67,16 +67,13 @@ public sealed class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog
     {
         if (SurfaceLink.Parse(text) is not { } link)
         {
-            logger.LogWarning("The activation {Link} is no backlog://window/ link; no window was opened.", text);
+            LogNotAWindowLink(logger, text);
             return;
         }
 
         if (!catalog.TryGet(link.SurfaceId, out var surface))
         {
-            logger.LogWarning(
-                "The link {Link} names the surface '{SurfaceId}', which this app does not offer; no window was opened.",
-                text,
-                link.SurfaceId);
+            LogUnknownSurface(logger, text, link.SurfaceId);
             return;
         }
 
@@ -86,4 +83,10 @@ public sealed class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog
         windows.ActivateMainWindow();
         windows.Open(surface.Id, link.Query);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The activation {Link} is no backlog://window/ link; no window was opened.")]
+    private static partial void LogNotAWindowLink(ILogger logger, string? link);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The link {Link} names the surface '{SurfaceId}', which this app does not offer; no window was opened.")]
+    private static partial void LogUnknownSurface(ILogger logger, string? link, string surfaceId);
 }

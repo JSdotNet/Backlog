@@ -29,7 +29,7 @@ namespace Backlog.Infrastructure.SpecManager;
 /// since is otherwise an item read as Open under no name.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignIn
+internal sealed partial class SpecManagerConnector :ITaskConnector, ITaskConnectorSignIn
 {
     /// <summary>The id every linked task from spec-manager carries. Stored, so it
     /// never changes.</summary>
@@ -298,7 +298,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         }
         catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
-            _log.LogInformation(ex, "spec-manager would not list the products; the settings page falls back to typing a slug.");
+            ProductsNotListed(_log, ex);
             return ConnectorTargetChoices.Unavailable(
                 "spec-manager would not list your products. Type the product's slug instead, as it appears in its spec-manager URL.");
         }
@@ -337,7 +337,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         }
         catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
         {
-            _log.LogInformation(ex, "spec-manager would not list the statuses of {Product}; the settings page offers no status rows.", target);
+            StatusesNotListed(_log, ex, target);
             return [];
         }
     }
@@ -403,7 +403,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken) || SpecManagerSignIn.IsNotKept(ex))
         {
             // The sign-in or the fetch has already succeeded; the name is a nicety.
-            _log.LogInformation(ex, "spec-manager did not say whose the sign-in is; it keeps the default name.");
+            AccountNameUnknown(_log, ex);
         }
     }
 
@@ -430,4 +430,13 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         _catalogs[product] = catalog;
         return catalog;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager would not list the products; the settings page falls back to typing a slug.")]
+    private static partial void ProductsNotListed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager would not list the statuses of {Product}; the settings page offers no status rows.")]
+    private static partial void StatusesNotListed(ILogger logger, Exception exception, string product);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "spec-manager did not say whose the sign-in is; it keeps the default name.")]
+    private static partial void AccountNameUnknown(ILogger logger, Exception exception);
 }

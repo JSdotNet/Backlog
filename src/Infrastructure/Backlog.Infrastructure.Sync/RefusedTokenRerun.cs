@@ -25,7 +25,7 @@ namespace Backlog.Infrastructure.Sync;
 /// for the reasons <see cref="Sessions.SessionSyncWorker"/> records.
 /// </para>
 /// </summary>
-internal static class RefusedTokenRerun
+internal static partial class RefusedTokenRerun
 {
     /// <param name="services">Where the loop resolves its session; a host that
     /// registered no <see cref="SyncTokenProvider"/> has no token to refuse, and
@@ -50,11 +50,13 @@ internal static class RefusedTokenRerun
             && tokens.TokensRefused != refusedBefore
             && !tokens.CredentialRejected)
         {
-            log.LogInformation(
-                "A {Loop} sync cycle met a refused token; running it once more with a fresh one: {Code}", loop, error.Code);
+            LogRefusedTokenRerun(log, loop, error.Code);
             result = await exchange().ConfigureAwait(false);
         }
 
         return result;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A {Loop} sync cycle met a refused token; running it once more with a fresh one: {Code}")]
+    private static partial void LogRefusedTokenRerun(ILogger logger, string loop, string code);
 }

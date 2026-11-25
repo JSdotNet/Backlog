@@ -33,7 +33,7 @@ namespace Backlog.Infrastructure.Sync;
 /// answered; <see cref="PairingAnswers"/> reads the device from its source key.
 /// </para>
 /// </summary>
-public sealed class PairingSubjects : IDisposable
+public sealed partial class PairingSubjects : IDisposable
 {
     /// <summary>How often the device list is read while a code waits to be redeemed.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
@@ -164,11 +164,11 @@ public sealed class PairingSubjects : IDisposable
             name ??= await NameFromRosterAsync(deviceId).ConfigureAwait(false);
 
             var alerted = await notifications.PublishAsync(PairingQuestion.NotRefused(pairingId, deviceId, name, code, reason)).ConfigureAwait(false);
-            if (alerted is Error unpublished) _logger.LogDebug("The alert that the device of pairing {Id} was not refused was not published: {Error}", pairingId, unpublished.Message);
+            if (alerted is Error unpublished) LogNotRefusedAlertNotPublished(_logger, pairingId, unpublished.Message);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Publishing the alert that the device of pairing {Id} was not refused failed; the device stays paired.", pairingId);
+            LogNotRefusedAlertFailed(_logger, exception, pairingId);
         }
     }
 
@@ -267,7 +267,7 @@ public sealed class PairingSubjects : IDisposable
             var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
             if (listed is not Ok<DeviceListResponse>(var devices))
             {
-                _logger.LogDebug("The device list was not read while a pairing code is open: {Error}", ((Error)listed.Value!).Message);
+                LogDeviceListNotRead(_logger, ((Error)listed.Value!).Message);
                 return;
             }
 
@@ -286,7 +286,7 @@ public sealed class PairingSubjects : IDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Reading the device list while a pairing code is open failed; the next read tries again.");
+            LogDeviceListReadFailed(_logger, exception);
         }
         finally
         {
@@ -301,11 +301,11 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var asked = await notifications.PublishAsync(PairingQuestion.Draft(pairing.Id, deviceId, deviceName)).ConfigureAwait(false);
-            if (asked is Error error) _logger.LogDebug("The question about the device that redeemed pairing {Id} was not published: {Error}", pairing.Id, error.Message);
+            if (asked is Error error) LogQuestionNotPublished(_logger, pairing.Id, error.Message);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Publishing the question about the device that redeemed pairing {Id} failed; the device stays paired.", pairing.Id);
+            LogQuestionPublishFailed(_logger, exception, pairing.Id);
         }
     }
 
@@ -316,11 +316,11 @@ public sealed class PairingSubjects : IDisposable
             if (_notifications() is not { } notifications) return;
 
             var closed = await notifications.CloseForSubjectAsync(PairingQuestion.Subject(id), SyncNotificationSubjects.EndedReason).ConfigureAwait(false);
-            if (closed is Error error) _logger.LogDebug("Notifications about pairing {Id} were not closed: {Error}", id, error.Message);
+            if (closed is Error error) LogNotificationsNotClosed(_logger, id, error.Message);
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Closing the notifications about pairing {Id} failed.", id);
+            LogCloseNotificationsFailed(_logger, exception, id);
         }
     }
 
@@ -342,4 +342,28 @@ public sealed class PairingSubjects : IDisposable
 
         public bool Ended { get; set; }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The alert that the device of pairing {Id} was not refused was not published: {Error}")]
+    private static partial void LogNotRefusedAlertNotPublished(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing the alert that the device of pairing {Id} was not refused failed; the device stays paired.")]
+    private static partial void LogNotRefusedAlertFailed(ILogger logger, Exception exception, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The device list was not read while a pairing code is open: {Error}")]
+    private static partial void LogDeviceListNotRead(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the device list while a pairing code is open failed; the next read tries again.")]
+    private static partial void LogDeviceListReadFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The question about the device that redeemed pairing {Id} was not published: {Error}")]
+    private static partial void LogQuestionNotPublished(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing the question about the device that redeemed pairing {Id} failed; the device stays paired.")]
+    private static partial void LogQuestionPublishFailed(ILogger logger, Exception exception, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notifications about pairing {Id} were not closed: {Error}")]
+    private static partial void LogNotificationsNotClosed(ILogger logger, Guid id, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Closing the notifications about pairing {Id} failed.")]
+    private static partial void LogCloseNotificationsFailed(ILogger logger, Exception exception, Guid id);
 }

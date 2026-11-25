@@ -25,7 +25,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// included. Sweeps never overlap; writes heard during one run one more sweep after it.
 /// </para>
 /// </summary>
-public sealed class SessionRequestCompletion : IDisposable
+public sealed partial class SessionRequestCompletion : IDisposable
 {
     private readonly ISessionRequestStore? _queue;
     private readonly Func<CancellationToken, Task<IReadOnlyList<TaskItemDto>>> _entries;
@@ -146,13 +146,19 @@ public sealed class SessionRequestCompletion : IDisposable
             {
                 var closed = await SweepAsync().ConfigureAwait(false);
 
-                if (closed > 0) _logger.LogInformation("Closed {Count} session requests whose work is finished.", closed);
+                if (closed > 0) FinishedRequestsClosed(_logger, closed);
             }
             catch (Exception exception)
             {
                 // A sweep that fails leaves the queue as it was; the next write tries again.
-                _logger.LogWarning(exception, "Could not close the session requests whose work is finished.");
+                ClosingFinishedRequestsFailed(_logger, exception);
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Closed {Count} session requests whose work is finished.")]
+    private static partial void FinishedRequestsClosed(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not close the session requests whose work is finished.")]
+    private static partial void ClosingFinishedRequestsFailed(ILogger logger, Exception exception);
 }

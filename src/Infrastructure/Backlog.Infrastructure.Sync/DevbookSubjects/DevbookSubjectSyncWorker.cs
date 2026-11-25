@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.Sync.DevbookSubjects;
 /// <see cref="LastError"/> stays empty while the deployed service catches up.
 /// </para>
 /// </summary>
-public sealed class DevbookSubjectSyncWorker : IDisposable
+public sealed partial class DevbookSubjectSyncWorker : IDisposable
 {
     /// <summary>How long after the loop starts the first cycle runs — staggered
     /// behind every other loop.</summary>
@@ -161,7 +161,7 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A devbook subject sync tick failed outside the cycle it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -173,7 +173,7 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A devbook subject sync cycle failed unexpectedly.");
+            LogCycleFailedUnexpectedly(_log, ex);
         }
     }
 
@@ -209,8 +209,7 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
 
             string Failed(Error error)
             {
-                _log.LogInformation(
-                    "A devbook subject sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                LogCycleIncomplete(_log, error.Code, error.Message);
                 return error.Message;
             }
         }
@@ -220,7 +219,7 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "A devbook subject sync cycle threw.");
+            LogCycleThrew(_log, ex);
             LastError = UnexpectedFailure;
         }
         finally
@@ -241,8 +240,23 @@ public sealed class DevbookSubjectSyncWorker : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.LogInformation(ex, "Devbook subject sync is not composed in this host, so the loop has nothing to do.");
+            LogNotComposed(_log, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A devbook subject sync tick failed outside the cycle it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A devbook subject sync cycle failed unexpectedly.")]
+    private static partial void LogCycleFailedUnexpectedly(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A devbook subject sync cycle did not complete: {Code} {Message}")]
+    private static partial void LogCycleIncomplete(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A devbook subject sync cycle threw.")]
+    private static partial void LogCycleThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Devbook subject sync is not composed in this host, so the loop has nothing to do.")]
+    private static partial void LogNotComposed(ILogger logger, Exception exception);
 }

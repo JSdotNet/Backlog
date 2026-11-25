@@ -55,7 +55,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// head's container. The web harness composes no broker (ADR 0058 §9).
 /// </para>
 /// </summary>
-public sealed class McpTokenBroker : IDisposable
+public sealed partial class McpTokenBroker : IDisposable
 {
     /// <summary>The most a request may be, newline included.</summary>
     public const int MaxRequestBytes = 4096;
@@ -166,7 +166,7 @@ public sealed class McpTokenBroker : IDisposable
     {
         if (!OperatingSystem.IsWindows())
         {
-            _log.LogInformation("The MCP token broker runs on Windows only; grant tokens are not available here.");
+            LogWindowsOnly(_log);
             return;
         }
 
@@ -199,7 +199,7 @@ public sealed class McpTokenBroker : IDisposable
 
         if (!isSameUser())
         {
-            _log.LogWarning("The MCP token broker refused a client that is not this Windows user.");
+            LogRefusedForeignClient(_log);
             reply = new ErrorReply("forbidden");
         }
         else if (ParseAccess(request) is { } access)
@@ -208,7 +208,7 @@ public sealed class McpTokenBroker : IDisposable
         }
         else if (ParseGrantId(request) is not { } grantId)
         {
-            _log.LogWarning("The MCP token broker refused a request that names no grant.");
+            LogRefusedRequestWithoutGrant(_log);
             reply = new ErrorReply("bad-request");
         }
         else
@@ -217,13 +217,13 @@ public sealed class McpTokenBroker : IDisposable
 
             if (minted.Token is { } token)
             {
-                _log.LogInformation("The MCP token broker minted a token for grant {GrantId}.", grantId);
+                LogTokenMinted(_log, grantId);
                 reply = new TokenReply(token.Value, token.ExpiresAt.ToString("O", CultureInfo.InvariantCulture));
             }
             else
             {
                 var error = ErrorFor(minted.Refusal);
-                _log.LogWarning("The MCP token broker refused grant {GrantId}: {Refusal}.", grantId, error);
+                LogGrantRefused(_log, grantId, error);
                 reply = new ErrorReply(error);
             }
         }
@@ -283,7 +283,7 @@ public sealed class McpTokenBroker : IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             _lastError = CouldNotCreate(ex);
-            _log.LogError(ex, "The MCP token broker could not create its pipe {PipeName}; it stays down rather than share the name.", PipeName);
+            LogPipeCreateFailed(_log, ex, PipeName);
             return;
         }
 
@@ -307,7 +307,7 @@ public sealed class McpTokenBroker : IDisposable
 #pragma warning restore CA1031
             {
                 _lastError = "The MCP token broker stopped: " + ex.Message;
-                _log.LogError(ex, "The MCP token broker stopped serving {PipeName}.", PipeName);
+                LogServingStopped(_log, ex, PipeName);
             }
             finally
             {
@@ -358,7 +358,7 @@ public sealed class McpTokenBroker : IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            _log.LogWarning("The MCP token broker dropped a client that held its pipe past {Timeout}.", _connectionTimeout);
+            LogClientTimedOut(_log, _connectionTimeout);
         }
         catch (OperationCanceledException)
         {
@@ -368,7 +368,7 @@ public sealed class McpTokenBroker : IDisposable
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning("The MCP token broker dropped a connection: {Failure}.", ex.GetType().Name);
+            LogConnectionDropped(_log, ex.GetType().Name);
         }
         finally
         {
@@ -413,7 +413,7 @@ public sealed class McpTokenBroker : IDisposable
         }
         catch (IOException ex)
         {
-            _log.LogWarning("The MCP token broker could not disconnect a client: {Failure}.", ex.GetType().Name);
+            LogDisconnectFailed(_log, ex.GetType().Name);
         }
     }
 
@@ -434,7 +434,7 @@ public sealed class McpTokenBroker : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            _log.LogWarning(ex, "The MCP token broker could not read its client's identity.");
+            LogClientIdentityUnreadable(_log, ex);
         }
 
         return sid;
@@ -517,7 +517,7 @@ public sealed class McpTokenBroker : IDisposable
 
             if (outcome.Refused)
             {
-                _log.LogWarning("The MCP token broker refused a registration: {Refusal}.", outcome.Refusal);
+                LogRegistrationRefused(_log, outcome.Refusal);
                 return new AccessErrorReply(outcome.Refusal!, outcome.Message);
             }
 
@@ -609,4 +609,40 @@ public sealed class McpTokenBroker : IDisposable
     private sealed record RegisteredReply(string Grant, string Request, string State);
 
     private sealed record OpenedReply(bool Opened);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The MCP token broker runs on Windows only; grant tokens are not available here.")]
+    private static partial void LogWindowsOnly(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker refused a client that is not this Windows user.")]
+    private static partial void LogRefusedForeignClient(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker refused a request that names no grant.")]
+    private static partial void LogRefusedRequestWithoutGrant(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The MCP token broker minted a token for grant {GrantId}.")]
+    private static partial void LogTokenMinted(ILogger logger, string grantId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker refused grant {GrantId}: {Refusal}.")]
+    private static partial void LogGrantRefused(ILogger logger, string grantId, string refusal);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP token broker could not create its pipe {PipeName}; it stays down rather than share the name.")]
+    private static partial void LogPipeCreateFailed(ILogger logger, Exception exception, string pipeName);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The MCP token broker stopped serving {PipeName}.")]
+    private static partial void LogServingStopped(ILogger logger, Exception exception, string pipeName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker dropped a client that held its pipe past {Timeout}.")]
+    private static partial void LogClientTimedOut(ILogger logger, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker dropped a connection: {Failure}.")]
+    private static partial void LogConnectionDropped(ILogger logger, string failure);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker could not disconnect a client: {Failure}.")]
+    private static partial void LogDisconnectFailed(ILogger logger, string failure);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker could not read its client's identity.")]
+    private static partial void LogClientIdentityUnreadable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The MCP token broker refused a registration: {Refusal}.")]
+    private static partial void LogRegistrationRefused(ILogger logger, string? refusal);
 }

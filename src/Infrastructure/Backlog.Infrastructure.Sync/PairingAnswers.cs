@@ -28,7 +28,7 @@ namespace Backlog.Infrastructure.Sync;
 /// the answer stays undelivered and is replayed on the next start.
 /// </para>
 /// </summary>
-public sealed class PairingAnswers : INotificationAnswerHandler
+public sealed partial class PairingAnswers : INotificationAnswerHandler
 {
     private readonly PairingSubjects _pairings;
     private readonly Func<IDeviceRoster?> _roster;
@@ -57,7 +57,7 @@ public sealed class PairingAnswers : INotificationAnswerHandler
 
         if (SyncNotificationSubjects.ParseSourceKey(answer.Source.Key) is not { } named)
         {
-            _logger.LogDebug("An answer with source key {Key} names no pairing; nothing to do.", answer.Source.Key);
+            LogAnswerNamesNoPairing(_logger, answer.Source.Key);
             return;
         }
 
@@ -70,10 +70,7 @@ public sealed class PairingAnswers : INotificationAnswerHandler
 
             if (revoked is Error unconfirmed && IsUnconfirmed(unconfirmed.Code))
             {
-                _logger.LogInformation(
-                    "The refusal of the device that redeemed pairing {Pairing} was not confirmed ({Code}); it stays paired.",
-                    pairingId,
-                    unconfirmed.Code);
+                LogRefusalNotConfirmed(_logger, pairingId, unconfirmed.Code);
 
                 await _pairings.NotRefusedAsync(pairingId, deviceId, unconfirmed.Code, unconfirmed.Message).ConfigureAwait(false);
             }
@@ -83,7 +80,7 @@ public sealed class PairingAnswers : INotificationAnswerHandler
             }
             else
             {
-                _logger.LogInformation("Refused the device that redeemed pairing {Pairing}; it is revoked.", pairingId);
+                LogDeviceRefused(_logger, pairingId);
             }
         }
 
@@ -94,4 +91,13 @@ public sealed class PairingAnswers : INotificationAnswerHandler
     /// codes — rather than because the service did not take it.</summary>
     private static bool IsUnconfirmed(string code) =>
         code is DeviceStepUp.DeclinedCode or DeviceStepUp.UnavailableCode or DeviceStepUp.ExpiredCode;
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "An answer with source key {Key} names no pairing; nothing to do.")]
+    private static partial void LogAnswerNamesNoPairing(ILogger logger, string key);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The refusal of the device that redeemed pairing {Pairing} was not confirmed ({Code}); it stays paired.")]
+    private static partial void LogRefusalNotConfirmed(ILogger logger, Guid pairing, string code);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Refused the device that redeemed pairing {Pairing}; it is revoked.")]
+    private static partial void LogDeviceRefused(ILogger logger, Guid pairing);
 }

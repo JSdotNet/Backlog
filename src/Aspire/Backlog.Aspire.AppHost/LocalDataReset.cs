@@ -32,7 +32,7 @@ namespace Backlog.Aspire.AppHost;
 /// everything above it belongs to this worktree alone and no other session feels
 /// it going.</para>
 /// </summary>
-internal static class LocalDataReset
+internal static partial class LocalDataReset
 {
     /// <summary>The per-user folder name, mirroring
     /// <c>WorkspaceSettingsStore.DefaultAppDataFolderName</c> — <c>#if DEBUG</c>
@@ -174,8 +174,7 @@ internal static class LocalDataReset
             }
         }
 
-        context.Logger.LogInformation(
-            "Reset the local workspace at {Root}: removed {Files}.", root, string.Join(", ", removed));
+        LogWorkspaceReset(context.Logger, root, string.Join(", ", removed));
 
         return CommandResults.Success($"Reset {root} — removed {string.Join(", ", removed)}.");
     }
@@ -226,4 +225,7 @@ internal static class LocalDataReset
             return false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Reset the local workspace at {Root}: removed {Files}.")]
+    private static partial void LogWorkspaceReset(ILogger logger, string root, string files);
 }

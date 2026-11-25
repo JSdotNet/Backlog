@@ -30,7 +30,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// gone — still records the approval with the person's words, and no follow-up.
 /// </para>
 /// </summary>
-public sealed class SessionValidationAnswers(
+public sealed partial class SessionValidationAnswers(
     IDeliverySurfaceLifecycle lifecycle,
     ILogger<SessionValidationAnswers>? logger = null,
     ITaskFollowUps? followUps = null,
@@ -50,13 +50,13 @@ public sealed class SessionValidationAnswers(
 
         if (SessionNotificationSubjects.ParseValidationSourceKey(answer.Source.Key) is not { } named)
         {
-            _logger.LogDebug("An answer with source key {Key} names no run; nothing to do.", answer.Source.Key);
+            AnswerNamesNoRun(_logger, answer.Source.Key);
             return;
         }
 
         if (_lifecycle is not LocalDeliverySurfaceLifecycle local)
         {
-            _logger.LogDebug("No local run files are composed; the answer about run {Run} is not recorded.", named.RunId);
+            NoLocalRunFiles(_logger, named.RunId);
             return;
         }
 
@@ -64,15 +64,14 @@ public sealed class SessionValidationAnswers(
 
         if (step.Kind is not ValidationAnswerKind.FileFollowUp)
         {
-            _logger.LogDebug(
-                step.Recorded switch
-                {
-                    ValidationRecord.Recorded => "Recorded the validation answer on run {Run}.",
-                    ValidationRecord.Dismissed => "The validation question about run {Run} was dismissed; nothing is recorded on the run.",
-                    ValidationRecord.DesktopStands => "Run {Run} was decided at the desktop first; that decision stands.",
-                    _ => "The validation answer about run {Run} changed nothing."
-                },
-                named.RunId);
+            switch (step.Recorded)
+            {
+                case ValidationRecord.Recorded: AnswerRecorded(_logger, named.RunId); break;
+                case ValidationRecord.Dismissed: QuestionDismissed(_logger, named.RunId); break;
+                case ValidationRecord.DesktopStands: DesktopDecisionStands(_logger, named.RunId); break;
+                default: AnswerChangedNothing(_logger, named.RunId); break;
+            }
+
             return;
         }
 
@@ -83,8 +82,8 @@ public sealed class SessionValidationAnswers(
         {
             // The narrow window the gate was let go for: the desktop decided while Tasks
             // filed. Its decision stands; the entry stays, for the person to keep or drop.
-            _logger.LogWarning(
-                "Run {Run} was decided at the desktop while follow-up {FollowUp} was filed; the desktop's decision stands and the follow-up is kept.",
+            DecidedWhileFollowUpFiled(
+                _logger,
                 named.RunId,
                 filed);
         }
@@ -96,7 +95,7 @@ public sealed class SessionValidationAnswers(
     {
         if (followUps is null)
         {
-            _logger.LogWarning("No Tasks follow-ups are composed; run {Run} records the approval without a follow-up.", runId);
+            NoFollowUpsComposed(_logger, runId);
             return null;
         }
 
@@ -106,10 +105,37 @@ public sealed class SessionValidationAnswers(
 
         if (filed is Ok<Guid>(var followUpId)) return followUpId;
 
-        _logger.LogWarning(
-            "The follow-up asked for on run {Run} was not filed ({Error}); the approval is recorded with its words and no follow-up.",
+        FollowUpNotFiled(
+            _logger,
             runId,
             ((Error)filed.Value!).Code);
         return null;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "An answer with source key {Key} names no run; nothing to do.")]
+    private static partial void AnswerNamesNoRun(ILogger logger, string key);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "No local run files are composed; the answer about run {Run} is not recorded.")]
+    private static partial void NoLocalRunFiles(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Recorded the validation answer on run {Run}.")]
+    private static partial void AnswerRecorded(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The validation question about run {Run} was dismissed; nothing is recorded on the run.")]
+    private static partial void QuestionDismissed(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Run {Run} was decided at the desktop first; that decision stands.")]
+    private static partial void DesktopDecisionStands(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "The validation answer about run {Run} changed nothing.")]
+    private static partial void AnswerChangedNothing(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Run {Run} was decided at the desktop while follow-up {FollowUp} was filed; the desktop's decision stands and the follow-up is kept.")]
+    private static partial void DecidedWhileFollowUpFiled(ILogger logger, string run, Guid followUp);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No Tasks follow-ups are composed; run {Run} records the approval without a follow-up.")]
+    private static partial void NoFollowUpsComposed(ILogger logger, string run);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The follow-up asked for on run {Run} was not filed ({Error}); the approval is recorded with its words and no follow-up.")]
+    private static partial void FollowUpNotFiled(ILogger logger, string run, string error);
 }

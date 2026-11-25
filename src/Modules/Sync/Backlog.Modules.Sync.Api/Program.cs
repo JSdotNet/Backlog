@@ -15,6 +15,7 @@ using Backlog.Modules.Sync.Services;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,12 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 });
 
 builder.Services.AddOpenApi();
+
+// Transport validation at the edge (org ADR 0004): the DataAnnotations on the request
+// records say what a body must carry before any handler runs, and a body that misses one
+// is a 400 Problem Details with an `errors` extension. What a value means — a code that
+// matches, a cursor that is the caller's — stays with the handlers and the model.
+builder.Services.AddValidation();
 
 // Before AddSyncModule, so the concrete replicas win: the module registers its
 // in-memory stand-ins with TryAdd, which no-op once this has registered the
@@ -124,6 +131,9 @@ app.UseRateLimiter();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
+
+    // The API reference over that document (org ADR 0004), on the same terms.
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
 // The GitHub OAuth App's registered callback, at the root rather than under the

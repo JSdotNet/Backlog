@@ -181,6 +181,7 @@ flowchart LR
             JwtBearer["Microsoft.AspNetCore.Authentication.JwtBearer"]:::adopted
             JsonWebTokens["Microsoft.IdentityModel.JsonWebTokens"]:::adopted
             OpenApi["Microsoft.AspNetCore.OpenApi"]:::adopted
+            Scalar["Scalar.AspNetCore"]:::adopted
             AzureIdentity["Azure.Identity"]:::adopted
             BlobStorage["Azure Blob Storage"]:::trial
             ACA["Azure Container Apps"]:::trial
@@ -311,6 +312,7 @@ flowchart LR
     JwtBearer --> AspNetCore
     JsonWebTokens --> DotNet
     OpenApi --> AspNetCore
+    Scalar --> OpenApi
     AzureIdentity --> DotNet
     ACA --> MinimalApis
     BlobStorage --> MinimalApis

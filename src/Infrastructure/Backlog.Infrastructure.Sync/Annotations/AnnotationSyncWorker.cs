@@ -23,7 +23,7 @@ namespace Backlog.Infrastructure.Sync.Annotations;
 /// rather than shared, and the comments on it are there rather than here.
 /// </para>
 /// </summary>
-public sealed class AnnotationSyncWorker : IDisposable
+public sealed partial class AnnotationSyncWorker : IDisposable
 {
     /// <summary>How long after the loop starts the first cycle runs. Staggered
     /// behind both other loops so three exchanges do not fire into the seconds
@@ -158,7 +158,7 @@ public sealed class AnnotationSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "An annotation sync tick failed outside the cycle it was starting.");
+            LogTickFailed(_log, ex);
         }
     }
 
@@ -170,7 +170,7 @@ public sealed class AnnotationSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "An annotation sync cycle failed unexpectedly.");
+            LogCycleFailedUnexpectedly(_log, ex);
         }
     }
 
@@ -206,8 +206,7 @@ public sealed class AnnotationSyncWorker : IDisposable
 
             string Failed(Error error)
             {
-                _log.LogInformation(
-                    "An annotation sync cycle did not complete: {Code} {Message}", error.Code, error.Message);
+                LogCycleIncomplete(_log, error.Code, error.Message);
                 return error.Message;
             }
         }
@@ -217,7 +216,7 @@ public sealed class AnnotationSyncWorker : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "An annotation sync cycle threw.");
+            LogCycleThrew(_log, ex);
             LastError = UnexpectedFailure;
         }
         finally
@@ -238,8 +237,23 @@ public sealed class AnnotationSyncWorker : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.LogInformation(ex, "Annotation sync is not composed in this host, so the loop has nothing to do.");
+            LogNotComposed(_log, ex);
             return null;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An annotation sync tick failed outside the cycle it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An annotation sync cycle failed unexpectedly.")]
+    private static partial void LogCycleFailedUnexpectedly(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "An annotation sync cycle did not complete: {Code} {Message}")]
+    private static partial void LogCycleIncomplete(ILogger logger, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An annotation sync cycle threw.")]
+    private static partial void LogCycleThrew(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Annotation sync is not composed in this host, so the loop has nothing to do.")]
+    private static partial void LogNotComposed(ILogger logger, Exception exception);
 }

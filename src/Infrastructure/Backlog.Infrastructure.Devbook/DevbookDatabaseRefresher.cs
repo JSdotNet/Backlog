@@ -42,7 +42,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// configured, or one that refused — nothing is called and the database answers
 /// by words alone.</para>
 /// </summary>
-public sealed class DevbookDatabaseRefresher : IDisposable
+public sealed partial class DevbookDatabaseRefresher : IDisposable
 {
     /// <summary>The default gap between two checks of one repository.</summary>
     public static readonly TimeSpan DefaultQuietInterval = TimeSpan.FromSeconds(10);
@@ -282,7 +282,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         {
             // A failed build costs speed, never correctness: the readers stay on
             // the Markdown path and the next check tries again.
-            _logger.LogWarning(exception, "Building the devbook database for {RepositoryRoot} failed; the Devbook reads Markdown until the next check.", repositoryRoot);
+            DatabaseBuildFailed(_logger, exception, repositoryRoot);
 
             // A watched folder has no next ask to wait for — its changes are the
             // asks — so a build that failed, say on a file its sync client was
@@ -313,8 +313,8 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         var started = _time.GetTimestamp();
         if (!DevbookDatabaseBuilder.Build(repositoryRoot, target, profile, cancellationToken, _time)) return false;
 
-        _logger.LogInformation(
-            "Built the devbook database for {RepositoryRoot} at {DatabasePath} in {ElapsedMilliseconds} ms.",
+        DatabaseBuilt(
+            _logger,
             repositoryRoot,
             target,
             (long)_time.GetElapsedTime(started).TotalMilliseconds);
@@ -339,8 +339,8 @@ public sealed class DevbookDatabaseRefresher : IDisposable
 
             if (written > 0)
             {
-                _logger.LogInformation(
-                    "Embedded {ChapterCount} devbook chapters for {RepositoryRoot} with {EmbeddingModel} in {ElapsedMilliseconds} ms.",
+                ChaptersEmbedded(
+                    _logger,
                     written,
                     repositoryRoot,
                     embedder.Model,
@@ -353,7 +353,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         {
             // Anything at all: the build before this succeeded and stays, and a
             // failure here must not be reported as the build's.
-            _logger.LogWarning(exception, "Embedding the devbook chapters for {RepositoryRoot} failed; search by meaning waits for the next check.", repositoryRoot);
+            EmbeddingFailed(_logger, exception, repositoryRoot);
             return 0;
         }
     }
@@ -394,4 +394,16 @@ public sealed class DevbookDatabaseRefresher : IDisposable
             stopped();
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Building the devbook database for {RepositoryRoot} failed; the Devbook reads Markdown until the next check.")]
+    private static partial void DatabaseBuildFailed(ILogger logger, Exception exception, string repositoryRoot);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Built the devbook database for {RepositoryRoot} at {DatabasePath} in {ElapsedMilliseconds} ms.")]
+    private static partial void DatabaseBuilt(ILogger logger, string repositoryRoot, string databasePath, long elapsedMilliseconds);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Embedded {ChapterCount} devbook chapters for {RepositoryRoot} with {EmbeddingModel} in {ElapsedMilliseconds} ms.")]
+    private static partial void ChaptersEmbedded(ILogger logger, int chapterCount, string repositoryRoot, string embeddingModel, long elapsedMilliseconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Embedding the devbook chapters for {RepositoryRoot} failed; search by meaning waits for the next check.")]
+    private static partial void EmbeddingFailed(ILogger logger, Exception exception, string repositoryRoot);
 }

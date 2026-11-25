@@ -131,7 +131,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
             return Refused(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("Granter {GranterId} granted request {RequestId}: grant {GrantId} holds {Scopes} until {ExpiresAt}.", granter.Id, request.Id, granted.Id, string.Join(' ', granted.Scopes), granted.ExpiresAt);
+        LogGranterGrantedRequest(_log, granter.Id, request.Id, granted.Id, string.Join(' ', granted.Scopes), granted.ExpiresAt);
         await SettleAsync(request, $"Granted by {granter.Name}.", cancellationToken).ConfigureAwait(false);
         await RecordDelegationAsync(McpAudit.DelegatedGrant, granter, granted, $"{granter.Name} granted {granted.Name}", $"{Scopes(granted)} until {Expiry(granted)}.", cancellationToken).ConfigureAwait(false);
 
@@ -181,7 +181,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
             return Refused(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("Granter {GranterId} set grant {GrantId} to {Scopes} until {ExpiresAt}.", granter.Id, edited.Id, string.Join(' ', edited.Scopes), edited.ExpiresAt);
+        LogGranterSetGrant(_log, granter.Id, edited.Id, string.Join(' ', edited.Scopes), edited.ExpiresAt);
         await RecordDelegationAsync(McpAudit.DelegatedScopes, granter, edited, $"{granter.Name} changed {edited.Name}", $"{Scopes(edited)} until {Expiry(edited)}.", cancellationToken).ConfigureAwait(false);
 
         return new AgentGrantAnswer(View(edited), null, $"{edited.Name} holds {Scopes(edited)} from its next token, renewed until {Expiry(edited)}.");
@@ -214,7 +214,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
             return Refused(McpAccessRefusals.StoreUnavailable, StoreUnavailableMessage);
         }
 
-        _log.LogInformation("Granter {GranterId} revoked grant {GrantId}.", granter.Id, revoked.Id);
+        LogGranterRevokedGrant(_log, granter.Id, revoked.Id);
         await RecordDelegationAsync(McpAudit.DelegatedRevoke, granter, revoked, $"{granter.Name} revoked {revoked.Name}", "Its sessions lost access.", cancellationToken).ConfigureAwait(false);
 
         return new AgentGrantAnswer(View(revoked), null, $"{revoked.Name} is revoked: its sessions lose access now.");
@@ -323,7 +323,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
             catch (Exception ex)
 #pragma warning restore CA1031
             {
-                _log.LogWarning(ex, "The audit record of {What} by {GranterId} on {GrantId} could not be written.", what, granter.Id, target.Id);
+                LogDelegationAuditWriteFailed(_log, ex, what, granter.Id, target.Id);
             }
         }
 
@@ -343,13 +343,13 @@ public sealed partial class McpAccessDesk : IAgentGrants
         try
         {
             var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
-            if (published is Error error) _log.LogInformation("No notification for {What} on {GrantId}: {Error}.", what, target.Id, error.Code);
+            if (published is Error error) LogDelegationNotificationNotPublished(_log, what, target.Id, error.Code);
         }
 #pragma warning disable CA1031 // The grant stands without its notification; the page shows it.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            _log.LogWarning(ex, "The notification for {What} on {GrantId} could not be published.", what, target.Id);
+            LogDelegationNotificationPublishFailed(_log, ex, what, target.Id);
         }
     }
 
@@ -376,4 +376,22 @@ public sealed partial class McpAccessDesk : IAgentGrants
 
     private static string Count(int count, string noun) =>
         count == 1 ? $"1 {noun}" : $"{count.ToString(CultureInfo.InvariantCulture)} {noun}s";
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Granter {GranterId} granted request {RequestId}: grant {GrantId} holds {Scopes} until {ExpiresAt}.")]
+    private static partial void LogGranterGrantedRequest(ILogger logger, string granterId, string requestId, string grantId, string scopes, DateTimeOffset? expiresAt);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Granter {GranterId} set grant {GrantId} to {Scopes} until {ExpiresAt}.")]
+    private static partial void LogGranterSetGrant(ILogger logger, string granterId, string grantId, string scopes, DateTimeOffset? expiresAt);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Granter {GranterId} revoked grant {GrantId}.")]
+    private static partial void LogGranterRevokedGrant(ILogger logger, string granterId, string grantId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The audit record of {What} by {GranterId} on {GrantId} could not be written.")]
+    private static partial void LogDelegationAuditWriteFailed(ILogger logger, Exception exception, string what, string granterId, string grantId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No notification for {What} on {GrantId}: {Error}.")]
+    private static partial void LogDelegationNotificationNotPublished(ILogger logger, string what, string grantId, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The notification for {What} on {GrantId} could not be published.")]
+    private static partial void LogDelegationNotificationPublishFailed(ILogger logger, Exception exception, string what, string grantId);
 }

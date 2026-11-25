@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.DevPc;
 /// answers instead.</para>
 /// </summary>
 // Not a settings store: its JSON catches guard catalog edits, so JsonFileStore<T> does not apply.
-public sealed class DevToolService : IDevToolService
+public sealed partial class DevToolService : IDevToolService
 {
     /// <summary>What a row and the status line say when the host a catalog entry
     /// targets is not installed on this machine.
@@ -526,7 +526,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Failed to list Copilot plugins.");
+            if (_logger is not null) CopilotPluginListingFailed(_logger, ex);
             return new CopilotListing(cli, NoVersions, ["Copilot plugins could not be checked."]);
         }
     }
@@ -548,7 +548,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Failed to list .NET tools.");
+            if (_logger is not null) DotNetToolListingFailed(_logger, ex);
             return new DotNetToolListing(NoVersions, [".NET tools could not be checked."]);
         }
     }
@@ -1424,7 +1424,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger?.LogWarning(ex, "The last tool run could not be kept.");
+            if (_logger is not null) LastToolRunNotKept(_logger, ex);
         }
     }
 
@@ -1503,7 +1503,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
         {
-            _logger?.LogWarning(ex, "Acknowledgement failed for {Key}.", key);
+            if (_logger is not null) AcknowledgementFailed(_logger, ex, key);
             return DevToolActionResult.Failed($"That could not be recorded: {ex.Message}");
         }
     }
@@ -1654,7 +1654,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger?.LogWarning(ex, "Could not delete cached plugin version {Directory}.", directory);
+            if (_logger is not null) CachedPluginVersionNotDeleted(_logger, ex, directory);
             return DevToolActionResult.Failed($"{pluginId} {version} could not be removed from the cache: {ex.Message}");
         }
 
@@ -1730,7 +1730,7 @@ public sealed class DevToolService : IDevToolService
                         }
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                         {
-                            _logger?.LogWarning(ex, "Could not delete cached plugin version {Directory}.", cached.Path);
+                            if (_logger is not null) CachedPluginVersionNotDeleted(_logger, ex, cached.Path);
                             failed.Add($"{Path.GetFileName(plugin)}@{Path.GetFileName(marketplace)} {cached.Version}");
                         }
                     }
@@ -1739,7 +1739,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger?.LogWarning(ex, "Could not walk Claude's plugin cache at {Directory}.", cacheRoot);
+            if (_logger is not null) PluginCacheNotWalked(_logger, ex, cacheRoot);
             return DevToolActionResult.Failed($"Claude's plugin cache could not be read: {ex.Message}");
         }
 
@@ -1780,7 +1780,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
         {
-            _logger?.LogWarning(ex, "Tool catalog edit failed.");
+            if (_logger is not null) ToolCatalogEditFailed(_logger, ex);
             return DevToolActionResult.Failed(ex.Message);
         }
     }
@@ -1831,7 +1831,7 @@ public sealed class DevToolService : IDevToolService
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Claude marketplace action failed for {Key}.", key);
+                if (_logger is not null) MarketplaceActionFailed(_logger, ex, key);
                 return DevToolActionResult.Failed($"{GetString(node, "name")} could not be changed: {ex.Message}");
             }
         }
@@ -1860,7 +1860,7 @@ public sealed class DevToolService : IDevToolService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Tool action failed for {Key}.", key);
+            if (_logger is not null) ToolActionFailed(_logger, ex, key);
             return DevToolActionResult.Failed($"{ToolDisplayName(node)} could not be changed: {ex.Message}");
         }
     }
@@ -4577,4 +4577,31 @@ public sealed class DevToolService : IDevToolService
                 : combined[..OutputLimit] + $"{Environment.NewLine}... output truncated at {OutputLimit} characters.";
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to list Copilot plugins.")]
+    private static partial void CopilotPluginListingFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to list .NET tools.")]
+    private static partial void DotNetToolListingFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last tool run could not be kept.")]
+    private static partial void LastToolRunNotKept(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Acknowledgement failed for {Key}.")]
+    private static partial void AcknowledgementFailed(ILogger logger, Exception exception, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not delete cached plugin version {Directory}.")]
+    private static partial void CachedPluginVersionNotDeleted(ILogger logger, Exception exception, string directory);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not walk Claude's plugin cache at {Directory}.")]
+    private static partial void PluginCacheNotWalked(ILogger logger, Exception exception, string directory);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Tool catalog edit failed.")]
+    private static partial void ToolCatalogEditFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Claude marketplace action failed for {Key}.")]
+    private static partial void MarketplaceActionFailed(ILogger logger, Exception exception, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Tool action failed for {Key}.")]
+    private static partial void ToolActionFailed(ILogger logger, Exception exception, string key);
 }

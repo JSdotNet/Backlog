@@ -31,7 +31,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// while it is not.</param>
 /// <param name="log">Where every minted link is recorded (local ADR 0058 §4); none
 /// records nothing.</param>
-public sealed class DesktopSurfaceWindowHost(
+public sealed partial class DesktopSurfaceWindowHost(
     IShellWindows windows,
     WindowLinkTokens tokens,
     Func<int?> listenerPort,
@@ -60,13 +60,12 @@ public sealed class DesktopSurfaceWindowHost(
             .Where(pair => !string.Equals(pair.Key, WindowLinkTokens.QueryKey, StringComparison.Ordinal))
             .Append(new KeyValuePair<string, string>(WindowLinkTokens.QueryKey, token));
 
-        _log.LogInformation(
-            "open_window minted a web link to {SurfaceId} for {Caller}; its token redeems until {Expires:o}.",
-            surfaceId,
-            caller,
-            expires);
+        LogWebLinkMinted(_log, surfaceId, caller, expires);
 
         return new Uri(
             "http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + SurfaceLink.Path(surfaceId, tokenized));
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "open_window minted a web link to {SurfaceId} for {Caller}; its token redeems until {Expires:o}.")]
+    private static partial void LogWebLinkMinted(ILogger logger, string surfaceId, string caller, DateTimeOffset expires);
 }

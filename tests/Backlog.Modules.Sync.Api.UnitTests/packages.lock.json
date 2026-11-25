@@ -1073,7 +1073,8 @@
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[11.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )",
           "Microsoft.IdentityModel.JsonWebTokens": "[8.23.0, )",
-          "ModelContextProtocol.AspNetCore": "[2.4.0, )"
+          "ModelContextProtocol.AspNetCore": "[2.4.0, )",
+          "Scalar.AspNetCore": "[3.2.1, )"
         }
       },
       "backlog.modules.tasks": {
@@ -1408,6 +1409,12 @@
         "requested": "[8.6.6, )",
         "resolved": "8.6.6",
         "contentHash": "lCBL9mmhF9TZxHG3beVRkyjlLohkIC464xIAq7J7Y59C+z42hmsdUaeCKl2SIAYertOUU5TeBXyQDLDQGIKePQ=="
+      },
+      "Scalar.AspNetCore": {
+        "type": "CentralTransitive",
+        "requested": "[3.2.1, )",
+        "resolved": "3.2.1",
+        "contentHash": "wGrsLOwWvTffOeOLkvNFQFuRVClo4EOADsEby490Hze/5eIxrSkAzqmZ8slJDMRiRrKRoyBzijzTlHS0KSDzyA=="
       },
       "SkiaSharp": {
         "type": "CentralTransitive",

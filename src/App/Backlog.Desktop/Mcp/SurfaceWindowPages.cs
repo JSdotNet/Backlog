@@ -44,7 +44,7 @@ public sealed class DesktopServiceRegistrations(IReadOnlyList<ServiceDescriptor>
 /// <see cref="Admit"/>.
 /// </para>
 /// </summary>
-internal static class SurfaceWindowPages
+internal static partial class SurfaceWindowPages
 {
     /// <summary>The query key a web link carries its link token under.</summary>
     public const string TokenQueryKey = WindowLinkTokens.QueryKey;
@@ -318,7 +318,7 @@ internal static class SurfaceWindowPages
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            log.LogWarning(ex, "The pop-out pages cannot use the desktop app's {Service}; a pane that needs it will not render.", type.Name);
+            LogSingletonServiceUnavailable(log, ex, type.Name);
             return;
         }
 
@@ -374,4 +374,7 @@ internal static class SurfaceWindowPages
         var name = type.Namespace ?? string.Empty;
         return !HostOnlyNamespaces.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal));
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The pop-out pages cannot use the desktop app's {Service}; a pane that needs it will not render.")]
+    private static partial void LogSingletonServiceUnavailable(ILogger logger, Exception exception, string service);
 }

@@ -39,7 +39,7 @@ public sealed record DevbookSubjectMergeOutcome(int Applied);
 /// directions.
 /// </para>
 /// </summary>
-public sealed class DevbookSubjectReplicaMerge
+public sealed partial class DevbookSubjectReplicaMerge
 {
     private readonly IDevbookSubjectStateStore _store;
     private readonly ILogger _log;
@@ -146,9 +146,7 @@ public sealed class DevbookSubjectReplicaMerge
         {
             if (ToState(record.Change) is not { } arriving)
             {
-                _log.LogWarning(
-                    "Skipping devbook subject {SubjectId} from the sync service: this device could not file it under its subject.",
-                    record.Change.Id);
+                LogSubjectSkipped(_log, record.Change.Id);
                 continue;
             }
 
@@ -182,4 +180,7 @@ public sealed class DevbookSubjectReplicaMerge
 
     private static DevbookSubjectDecision? Decision(DevbookSubjectDecisionPayload? payload) =>
         payload is null ? null : new DevbookSubjectDecision(payload.By, payload.At, payload.Fingerprint);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping devbook subject {SubjectId} from the sync service: this device could not file it under its subject.")]
+    private static partial void LogSubjectSkipped(ILogger logger, Guid subjectId);
 }

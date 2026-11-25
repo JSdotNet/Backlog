@@ -50,7 +50,7 @@ public sealed record NotificationSyncSummary(int Pushed, int Accepted, int Rejec
 /// already the answer, or already rejected, is only deleted.
 /// </para>
 /// </summary>
-public sealed class NotificationSyncSession
+public sealed partial class NotificationSyncSession
 {
     /// <summary>How many notifications go in one push — half the service's cap, since one
     /// may weigh 64 KB.</summary>
@@ -298,10 +298,7 @@ public sealed class NotificationSyncSession
                 if (NotificationRecordLimits.WhyRefused(change) is { } reason)
                 {
                     // Never the body or the title: only the id and the rule.
-                    _log.LogWarning(
-                        "Leaving notification {NotificationId} out of the push, because the sync service would refuse it. {Reason}",
-                        id,
-                        reason);
+                    LogNotificationLeftOutOfPush(_log, id, reason);
 
                     Update(id, entry with { Dirty = false, PushedState = change.State, SettledAt = snapshot.SettledAt, PushedAt = change.UpdatedAt, Withheld = true });
                     continue;
@@ -323,9 +320,7 @@ public sealed class NotificationSyncSession
             {
                 // An id the replica holds under another owner instance: a collision nothing
                 // here can mend, so it is named once and not offered on every cycle.
-                _log.LogWarning(
-                    "The sync service holds notification {NotificationId} under another owner instance, so it was not written.",
-                    id);
+                LogNotificationNotOwned(_log, id);
             }
 
             foreach (var (change, snapshot) in batch)
@@ -363,7 +358,7 @@ public sealed class NotificationSyncSession
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _log.LogWarning(exception, "Could not work out which repository {Count} notifications are about; they are pushed as not known.", notifications.Count);
+            LogRepositoriesUnresolved(_log, exception, notifications.Count);
             return new Dictionary<Guid, string?>();
         }
     }
@@ -461,11 +456,7 @@ public sealed class NotificationSyncSession
                 bool Refuse(Error refusal)
                 {
                     // Logged by id and code only: an open answer is the person's own text.
-                    _log.LogInformation(
-                        "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.",
-                        reply.Id,
-                        reply.NotificationId,
-                        refusal.Code);
+                    LogReplyRejected(_log, reply.Id, reply.NotificationId, refusal.Code);
 
                     // A reply to a notification this instance does not hold has nowhere to
                     // say so; it is only deleted.
@@ -519,11 +510,7 @@ public sealed class NotificationSyncSession
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _log.LogWarning(
-                    exception,
-                    "Could not check whether device {Device}, which replied to notification {NotificationId}, is paired; the reply is read again next cycle.",
-                    record.FromDeviceId,
-                    record.Reply.NotificationId);
+                LogDeviceStandingUnreadable(_log, exception, record.FromDeviceId, record.Reply.NotificationId);
 
                 return Result.Failure<bool>(Error.Unexpected(
                     "sync.devices_unreadable",
@@ -535,11 +522,7 @@ public sealed class NotificationSyncSession
 
         if (standing == DeviceStanding.Paired) return true;
 
-        _log.LogWarning(
-            "The reply to notification {NotificationId} came from {Standing} {Device}; it is rejected and the notification stays open.",
-            record.Reply.NotificationId,
-            DroppedAnswerAudit.DeviceLabel(standing),
-            record.FromDeviceId);
+        LogReplyFromUnpairedDevice(_log, record.Reply.NotificationId, DroppedAnswerAudit.DeviceLabel(standing), record.FromDeviceId);
 
         await DroppedAnswerAudit.AppendAsync(
             _audit,
@@ -547,7 +530,7 @@ public sealed class NotificationSyncSession
             standing,
             record.FromDeviceId,
             record.Reply.NotificationId,
-            exception => _log.LogWarning(exception, "The rejected reply to notification {NotificationId} was not written to the audit log.", record.Reply.NotificationId),
+            exception => LogRejectedReplyNotAudited(_log, exception, record.Reply.NotificationId),
             cancellationToken).ConfigureAwait(false);
 
         return false;
@@ -632,4 +615,25 @@ public sealed class NotificationSyncSession
         foreach (var id in stale) tracked.Remove(id);
         _state.Save(_state.Current with { Tracked = tracked });
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Leaving notification {NotificationId} out of the push, because the sync service would refuse it. {Reason}")]
+    private static partial void LogNotificationLeftOutOfPush(ILogger logger, Guid notificationId, string reason);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The sync service holds notification {NotificationId} under another owner instance, so it was not written.")]
+    private static partial void LogNotificationNotOwned(ILogger logger, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not work out which repository {Count} notifications are about; they are pushed as not known.")]
+    private static partial void LogRepositoriesUnresolved(ILogger logger, Exception exception, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Rejected reply {ReplyId} to notification {NotificationId}: {Code}.")]
+    private static partial void LogReplyRejected(ILogger logger, Guid replyId, Guid notificationId, string code);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not check whether device {Device}, which replied to notification {NotificationId}, is paired; the reply is read again next cycle.")]
+    private static partial void LogDeviceStandingUnreadable(ILogger logger, Exception exception, Guid device, Guid notificationId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The reply to notification {NotificationId} came from {Standing} {Device}; it is rejected and the notification stays open.")]
+    private static partial void LogReplyFromUnpairedDevice(ILogger logger, Guid notificationId, string standing, Guid device);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The rejected reply to notification {NotificationId} was not written to the audit log.")]
+    private static partial void LogRejectedReplyNotAudited(ILogger logger, Exception exception, Guid notificationId);
 }

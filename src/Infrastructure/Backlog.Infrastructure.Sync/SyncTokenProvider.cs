@@ -67,7 +67,7 @@ namespace Backlog.Infrastructure.Sync;
 /// sync until its key comes back or it registers again.
 /// </para>
 /// </summary>
-public sealed class SyncTokenProvider : IDisposable
+public sealed partial class SyncTokenProvider : IDisposable
 {
     /// <summary>The named client the token endpoint is called through.</summary>
     public const string HttpClientName = "sync-token";
@@ -287,7 +287,7 @@ public sealed class SyncTokenProvider : IDisposable
             Invalidate();
             if (current && SetKeyUnavailable(true))
             {
-                _log.LogWarning("Device {DeviceId} is bound to a key this machine cannot use, so it cannot sync.", credential.DeviceId);
+                LogKeyUnusable(_log, credential.DeviceId);
             }
 
             return null;
@@ -425,7 +425,7 @@ public sealed class SyncTokenProvider : IDisposable
         }
         catch (CryptographicException ex)
         {
-            _log.Log(KeyFailureLevel(), ex, "This device's key could not be opened; the token fetch goes without it.");
+            LogKeyNotOpened(_log, KeyFailureLevel(), ex);
             return null;
         }
     }
@@ -440,7 +440,7 @@ public sealed class SyncTokenProvider : IDisposable
         }
         catch (CryptographicException ex)
         {
-            _log.Log(KeyFailureLevel(), ex, "This device's key would not sign; the token fetch goes without it.");
+            LogKeyWouldNotSign(_log, KeyFailureLevel(), ex);
             return null;
         }
     }
@@ -466,7 +466,19 @@ public sealed class SyncTokenProvider : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
-            _log.LogWarning(ex, "Device {DeviceId} moved onto its key, but its old secret could not be deleted here; the next token fetch tries again.", current.DeviceId);
+            LogOldSecretNotDeleted(_log, ex, current.DeviceId);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Device {DeviceId} is bound to a key this machine cannot use, so it cannot sync.")]
+    private static partial void LogKeyUnusable(ILogger logger, Guid deviceId);
+
+    [LoggerMessage(Message = "This device's key could not be opened; the token fetch goes without it.")]
+    private static partial void LogKeyNotOpened(ILogger logger, LogLevel level, Exception exception);
+
+    [LoggerMessage(Message = "This device's key would not sign; the token fetch goes without it.")]
+    private static partial void LogKeyWouldNotSign(ILogger logger, LogLevel level, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Device {DeviceId} moved onto its key, but its old secret could not be deleted here; the next token fetch tries again.")]
+    private static partial void LogOldSecretNotDeleted(ILogger logger, Exception exception, Guid deviceId);
 }

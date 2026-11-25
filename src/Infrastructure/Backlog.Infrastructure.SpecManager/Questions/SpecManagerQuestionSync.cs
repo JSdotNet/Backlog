@@ -42,7 +42,7 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// notification, the next round of its derived id. One answered never comes back.
 /// </para>
 /// </summary>
-internal sealed class SpecManagerQuestionSync
+internal sealed partial class SpecManagerQuestionSync
 {
     private readonly SpecManagerClient _client;
     private readonly SpecManagerSignIn _signIn;
@@ -117,13 +117,13 @@ internal sealed class SpecManagerQuestionSync
             catch (Exception ex) when (SpecManagerSignIn.IsUnreachable(ex, cancellationToken))
             {
                 answered = false;
-                _log.LogInformation(ex, "The questions of {Product} could not be read from spec-manager; the next pull asks again.", target.Target);
+                ProductQuestionsUnreadable(_log, ex, target.Target);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // One product's surprise is not the others': they are still pulled.
                 answered = false;
-                _log.LogWarning(ex, "Pulling the questions of {Product} failed; the next pull asks again.", target.Target);
+                ProductPullFailed(_log, ex, target.Target);
             }
         }
 
@@ -199,8 +199,8 @@ internal sealed class SpecManagerQuestionSync
         if (published is Error error)
         {
             // Never the question's text: only which one, and the rule it broke.
-            _log.LogWarning(
-                "spec-manager question {QuestionId} of {Product} was not published: {Code} {Message}",
+            QuestionNotPublished(
+                _log,
                 question.Id,
                 product,
                 error.Code,
@@ -240,7 +240,7 @@ internal sealed class SpecManagerQuestionSync
             if (!withdrawn) return null;
         }
 
-        _log.LogWarning("spec-manager question {QuestionId} came back more than {Rounds} times; it is not published again.", questionId, MaxRounds);
+        QuestionRoundsExhausted(_log, questionId, MaxRounds);
         return null;
     }
 
@@ -305,4 +305,16 @@ internal sealed class SpecManagerQuestionSync
 
         return me;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The questions of {Product} could not be read from spec-manager; the next pull asks again.")]
+    private static partial void ProductQuestionsUnreadable(ILogger logger, Exception exception, string product);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Pulling the questions of {Product} failed; the next pull asks again.")]
+    private static partial void ProductPullFailed(ILogger logger, Exception exception, string product);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager question {QuestionId} of {Product} was not published: {Code} {Message}")]
+    private static partial void QuestionNotPublished(ILogger logger, string questionId, string product, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "spec-manager question {QuestionId} came back more than {Rounds} times; it is not published again.")]
+    private static partial void QuestionRoundsExhausted(ILogger logger, string questionId, int rounds);
 }

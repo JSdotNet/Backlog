@@ -23,7 +23,7 @@ namespace Backlog.Modules.Notifications.Services;
 /// head has no generic host to start one (see <c>TaskSyncWorker</c>).
 /// </para>
 /// </summary>
-public sealed class NotificationsStartup
+public sealed partial class NotificationsStartup
 {
     /// <summary>The reason a notification whose subject a probe reports ended is closed with,
     /// when the probe names no reason of its own.</summary>
@@ -74,7 +74,7 @@ public sealed class NotificationsStartup
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The notifications startup pass did not finish; it runs again on the next start.");
+            LogStartupPassUnfinished(_logger, exception);
         }
     }
 
@@ -104,7 +104,7 @@ public sealed class NotificationsStartup
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning(exception, "The {Context} subject probe failed; its notifications stay open.", subject.Context);
+                LogSubjectProbeFailed(_logger, exception, subject.Context);
                 continue;
             }
 
@@ -129,8 +129,17 @@ public sealed class NotificationsStartup
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogWarning(exception, "The {Context} subject probe could not say why a subject ended; it closes as ended.", subject.Context);
+            LogEndReasonUnknown(_logger, exception, subject.Context);
             return SubjectEndedReason;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The notifications startup pass did not finish; it runs again on the next start.")]
+    private static partial void LogStartupPassUnfinished(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The {Context} subject probe failed; its notifications stay open.")]
+    private static partial void LogSubjectProbeFailed(ILogger logger, Exception exception, string context);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The {Context} subject probe could not say why a subject ended; it closes as ended.")]
+    private static partial void LogEndReasonUnknown(ILogger logger, Exception exception, string context);
 }

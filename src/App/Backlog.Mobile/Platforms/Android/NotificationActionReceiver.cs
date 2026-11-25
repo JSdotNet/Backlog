@@ -34,7 +34,7 @@ namespace Backlog.Mobile;
 /// </para>
 /// </remarks>
 [BroadcastReceiver(Enabled = true, Exported = false)]
-public sealed class NotificationActionReceiver : BroadcastReceiver
+public sealed partial class NotificationActionReceiver : BroadcastReceiver
 {
     /// <summary>The most the queue and its one flush may take, inside Android's ten seconds.</summary>
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(8);
@@ -94,9 +94,12 @@ public sealed class NotificationActionReceiver : BroadcastReceiver
         catch (Exception ex)
         {
             // Never the answer or the text: only that a tray answer did not complete.
-            logger?.LogWarning("An answer from the tray did not complete: {Error}", ex.GetType().Name);
+            if (logger is not null) LogTrayAnswerIncomplete(logger, ex.GetType().Name);
 
             if (!queued) presenter.ShowUnanswered(notificationId, title);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An answer from the tray did not complete: {Error}")]
+    private static partial void LogTrayAnswerIncomplete(ILogger logger, string error);
 }

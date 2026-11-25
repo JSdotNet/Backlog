@@ -26,7 +26,7 @@ public sealed record KnowledgeEventMergeOutcome(int Applied);
 /// phone's to read, and a desktop's own <c>events</c> flag never follows another's.
 /// </para>
 /// </summary>
-public sealed class KnowledgeEventReplicaMerge
+public sealed partial class KnowledgeEventReplicaMerge
 {
     private readonly IKnowledgeEventReplication _replication;
     private readonly ILogger _log;
@@ -85,10 +85,7 @@ public sealed class KnowledgeEventReplicaMerge
             }
             else if (outcome == KnowledgeEventReplicaOutcome.Unreadable)
             {
-                _log.LogWarning(
-                    "Skipping {Kind} {Id} from the sync service: this device could not read it.",
-                    record.Change.Kind,
-                    record.Change.Id);
+                LogUnreadableSkipped(_log, record.Change.Kind, record.Change.Id);
             }
         }
 
@@ -128,4 +125,7 @@ public sealed class KnowledgeEventReplicaMerge
 
         return winners.Values;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping {Kind} {Id} from the sync service: this device could not read it.")]
+    private static partial void LogUnreadableSkipped(ILogger logger, string kind, Guid id);
 }

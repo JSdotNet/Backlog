@@ -650,7 +650,7 @@
         }
         catch (Exception ex)
         {
-            _deviceLog?.LogError(ex, "Revoking a device on the sync service failed unexpectedly.");
+            if (_deviceLog is not null) LogDeviceRevokeFailed(_deviceLog, ex);
             _revokeFailure = (device.DeviceId, DeviceUnexpectedFailure);
         }
         finally
@@ -679,11 +679,11 @@
             _devices = listed is Ok<DeviceListResponse> { Value.Devices: not null } ok ? ok.Value : null;
             _devicesUnread = _devices is null;
 
-            if (listed is Error unread) _deviceLog?.LogDebug("The device list was not read: {Error}", unread.Message);
+            if (listed is Error unread && _deviceLog is not null) LogDeviceListNotRead(_deviceLog, unread.Message);
         }
         catch (Exception ex)
         {
-            _deviceLog?.LogWarning(ex, "Reading the device list from the sync service failed unexpectedly.");
+            if (_deviceLog is not null) LogDeviceListReadFailed(_deviceLog, ex);
             _devices = null;
             _devicesUnread = true;
         }
@@ -907,7 +907,7 @@
         }
         catch (System.Security.Cryptography.CryptographicException ex)
         {
-            _deviceLog?.LogWarning(ex, "This device's key could not be opened to read how it is kept.");
+            if (_deviceLog is not null) LogDeviceKeyNotOpened(_deviceLog, ex);
             _keyProtection = null;
         }
     }
@@ -969,7 +969,7 @@
             // because an exception swallowed in an event handler leaves the panel
             // looking like nothing happened at all. What reaches the screen is a
             // sentence; what the exception itself said goes to the log.
-            _deviceLog?.LogError(ex, "Registering this device with the sync service failed unexpectedly.");
+            if (_deviceLog is not null) LogDeviceRegistrationFailed(_deviceLog, ex);
             ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
         }
         finally
@@ -1006,7 +1006,7 @@
         }
         catch (Exception ex)
         {
-            _deviceLog?.LogError(ex, "Pairing this device with the sync service failed unexpectedly.");
+            if (_deviceLog is not null) LogDevicePairingFailed(_deviceLog, ex);
             ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
         }
         finally
@@ -1044,7 +1044,7 @@
         catch (Exception ex)
         {
             _issuedCode = null;
-            _deviceLog?.LogError(ex, "Asking the sync service for a pairing code failed unexpectedly.");
+            if (_deviceLog is not null) LogPairingCodeRequestFailed(_deviceLog, ex);
             ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
         }
         finally
@@ -1083,7 +1083,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            _deviceLog?.LogWarning(ex, "The session sync loop is registered but could not be built; the sessions card is hidden.");
+            if (_deviceLog is not null) LogSessionSyncNotBuilt(_deviceLog, ex);
             return null;
         }
     }
@@ -1096,8 +1096,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            _deviceLog?.LogInformation(
-                ex, "Task sync is not composed in this host, so the sync section is not offered.");
+            if (_deviceLog is not null) LogTaskSyncNotComposed(_deviceLog, ex);
             return null;
         }
     }

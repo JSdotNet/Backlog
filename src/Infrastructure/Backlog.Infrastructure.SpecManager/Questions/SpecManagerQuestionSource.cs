@@ -44,7 +44,7 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// generic host to start a hosted service.
 /// </para>
 /// </summary>
-public sealed class SpecManagerQuestionSource : IDisposable
+public sealed partial class SpecManagerQuestionSource : IDisposable
 {
     /// <summary>How often a pull runs while the stream is open, in case an event went
     /// missing.</summary>
@@ -301,7 +301,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
             catch (Exception ex)
             {
                 // Nothing here may end the loop: the next pull is the recovery.
-                _log.LogError(ex, "Pulling the spec-manager questions failed unexpectedly.");
+                QuestionPullFailed(_log, ex);
             }
         }
     }
@@ -362,7 +362,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // Never the notifications' pull's business: it runs all the same.
-            _log.LogError(ex, "Pulling the spec-manager questions failed unexpectedly.");
+            QuestionPullFailed(_log, ex);
         }
         finally
         {
@@ -392,7 +392,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _log.LogError(ex, "Pulling the spec-manager notifications failed unexpectedly.");
+            NotificationPullFailed(_log, ex);
         }
     }
 
@@ -426,7 +426,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "The spec-manager notification stream failed unexpectedly.");
+                StreamFailed(_log, ex);
                 wait = retry;
                 retry = Next(retry);
             }
@@ -457,7 +457,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _log.LogInformation(ex, "The spec-manager notification stream did not open; questions are pulled every two minutes meanwhile.");
+            StreamDidNotOpen(_log, ex);
             return false;
         }
 
@@ -477,7 +477,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                _log.LogInformation(ex, "The spec-manager notification stream dropped; opening it again, and pulling every two minutes meanwhile.");
+                StreamDropped(_log, ex);
             }
             finally
             {
@@ -526,4 +526,19 @@ public sealed class SpecManagerQuestionSource : IDisposable
     /// <summary>Why the pull loop stopped waiting: the interval ran out, a pull was asked
     /// for, the stream opened — any of them together.</summary>
     private readonly record struct Woken(bool Due, bool Asked, bool Opened);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Pulling the spec-manager questions failed unexpectedly.")]
+    private static partial void QuestionPullFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Pulling the spec-manager notifications failed unexpectedly.")]
+    private static partial void NotificationPullFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The spec-manager notification stream failed unexpectedly.")]
+    private static partial void StreamFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The spec-manager notification stream did not open; questions are pulled every two minutes meanwhile.")]
+    private static partial void StreamDidNotOpen(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The spec-manager notification stream dropped; opening it again, and pulling every two minutes meanwhile.")]
+    private static partial void StreamDropped(ILogger logger, Exception exception);
 }

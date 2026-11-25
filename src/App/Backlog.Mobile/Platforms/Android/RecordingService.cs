@@ -35,7 +35,7 @@ namespace Backlog.Mobile;
 /// </para>
 /// </remarks>
 [Service(Exported = false, ForegroundServiceType = ForegroundService.TypeMicrophone)]
-public sealed class RecordingService : Service
+public sealed partial class RecordingService : Service
 {
     public const string PauseAction = "com.jsdotnet.backlog.mobile.RECORDING_PAUSE";
     public const string ResumeAction = "com.jsdotnet.backlog.mobile.RECORDING_RESUME";
@@ -181,7 +181,7 @@ public sealed class RecordingService : Service
         {
             // The recorder has not opened the microphone yet: it waits on this answer, and says
             // the recording could not start.
-            Warn("The recording service could not enter the foreground: {Error}", ex.GetType().Name);
+            if (Logger() is { } logger) LogForegroundFailed(logger, ex.GetType().Name);
             Promoted(false);
             StopSelf();
             return;
@@ -349,12 +349,17 @@ public sealed class RecordingService : Service
         catch (Exception ex)
         {
             // The session puts ordinary failures into words itself; this is the rest.
-            Warn("A recording action from the notification failed: {Error}", ex.GetType().Name);
+            if (Logger() is { } logger) LogNotificationActionFailed(logger, ex.GetType().Name);
         }
     }
 
-    private static void Warn(string message, string error) =>
-        Services()?.GetService<ILogger<RecordingService>>()?.LogWarning(message, error);
+    private static ILogger? Logger() => Services()?.GetService<ILogger<RecordingService>>();
 
     private static IServiceProvider? Services() => IPlatformApplication.Current?.Services;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The recording service could not enter the foreground: {Error}")]
+    private static partial void LogForegroundFailed(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A recording action from the notification failed: {Error}")]
+    private static partial void LogNotificationActionFailed(ILogger logger, string error);
 }

@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Sync.KnowledgeEvents;
 /// answers them. A write that fails is logged and keeps the request in memory for the process.
 /// </para>
 /// </summary>
-public sealed class FileHeldAttachmentRequestStore : IHeldAttachmentRequestStore
+public sealed partial class FileHeldAttachmentRequestStore : IHeldAttachmentRequestStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -95,7 +95,7 @@ public sealed class FileHeldAttachmentRequestStore : IHeldAttachmentRequestStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log.LogWarning(ex, "The held attachment requests could not be written to {Path}; they are held for this run only.", _path);
+            LogHeldRequestsNotWritten(_log, ex, _path);
         }
     }
 
@@ -115,8 +115,14 @@ public sealed class FileHeldAttachmentRequestStore : IHeldAttachmentRequestStore
             or ArgumentException
             or NotSupportedException)
         {
-            _log.LogWarning(ex, "The held attachment requests in {Path} could not be read; this desktop starts holding none.", _path);
+            LogHeldRequestsNotRead(_log, ex, _path);
             return [];
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The held attachment requests could not be written to {Path}; they are held for this run only.")]
+    private static partial void LogHeldRequestsNotWritten(ILogger logger, Exception exception, string path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The held attachment requests in {Path} could not be read; this desktop starts holding none.")]
+    private static partial void LogHeldRequestsNotRead(ILogger logger, Exception exception, string path);
 }

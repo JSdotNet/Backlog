@@ -623,7 +623,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Listing the disconnected connector sources threw.");
+            LogDisconnectedSourcesListFailed(Log, ex);
             sources = [];
         }
 
@@ -658,7 +658,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Listing the deleted linked tasks threw.");
+            LogDeletedLinkedTasksListFailed(Log, ex);
             sources = [];
         }
 
@@ -703,7 +703,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Signing in to {Connector} threw.", connectorId);
+            LogSignInFailed(Log, ex, connectorId);
             error = "Signing in did not finish. Try again.";
         }
 
@@ -730,7 +730,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Signing out of {Connector} threw.", connectorId);
+            LogSignOutFailed(Log, ex, connectorId);
             if (!_disposed) state.Error = "Signing out did not finish. Try again.";
         }
     }
@@ -971,7 +971,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Deleting the tasks of {Connector} {Target} threw.", source.ConnectorId, source.Target);
+            LogSourceTasksDeleteFailed(Log, ex, source.ConnectorId, source.Target);
             message = $"Deleting the tasks from {source.Target} did not finish. Try again.";
         }
         finally
@@ -1031,7 +1031,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Restoring the deleted tasks of {Connector} {Target} threw.", target.ConnectorId, target.Target);
+            LogDeletedTasksRestoreFailed(Log, ex, target.ConnectorId, target.Target);
             message = $"Restoring the tasks of {target.Target} did not finish. Try again.";
         }
 
@@ -1062,7 +1062,7 @@
         }
         catch (Exception ex)
         {
-            Log.LogError(ex, "Syncing {Connector} {Target} threw.", target.ConnectorId, target.Target);
+            LogTargetSyncFailed(Log, ex, target.ConnectorId, target.Target);
             message = $"The sync of {target.Target} did not finish. Try again.";
         }
         finally

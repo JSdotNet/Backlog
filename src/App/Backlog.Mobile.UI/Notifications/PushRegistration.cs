@@ -22,7 +22,7 @@ namespace Backlog.Mobile.UI.Notifications;
 /// Never throws for a failed registration, and never logs the token.
 /// </para>
 /// </summary>
-public sealed class PushRegistration : IDisposable
+public sealed partial class PushRegistration : IDisposable
 {
     /// <summary>The most each outbound step of a registration may take — reading the token from
     /// Play Services, then the call to the sync service — so neither can hold the background work
@@ -86,7 +86,7 @@ public sealed class PushRegistration : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            _logger.LogWarning("No push token to register: {Error}", ex.GetType().Name);
+            LogNoPushToken(_logger, ex.GetType().Name);
             return false;
         }
 
@@ -150,13 +150,13 @@ public sealed class PushRegistration : IDisposable
             // so the phone does not ask it again until something changes.
             _registered = pair;
 
-            if (!response.Registered) _logger.LogInformation("The sync service has no push hub; this phone gets no pushes.");
+            if (!response.Registered) LogNoPushHub(_logger);
             return response.Registered;
         }
         catch (Exception ex) when (ex is HttpRequestException or SyncUnavailableException
             || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
         {
-            _logger.LogWarning("Push registration did not reach the sync service: {Error}", (ex as SyncUnavailableException)?.Code ?? ex.GetType().Name);
+            LogRegistrationUnreached(_logger, (ex as SyncUnavailableException)?.Code ?? ex.GetType().Name);
             return false;
         }
         finally
@@ -164,4 +164,13 @@ public sealed class PushRegistration : IDisposable
             _gate.Release();
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No push token to register: {Error}")]
+    private static partial void LogNoPushToken(ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The sync service has no push hub; this phone gets no pushes.")]
+    private static partial void LogNoPushHub(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Push registration did not reach the sync service: {Error}")]
+    private static partial void LogRegistrationUnreached(ILogger logger, string error);
 }

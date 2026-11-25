@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Tasks;
 /// TTL and indexing policy that file sets.
 /// </para>
 /// </summary>
-internal sealed class CosmosTaskReplica : ITaskReplica
+internal sealed partial class CosmosTaskReplica :ITaskReplica
 {
     private const string UnavailableMessage = "The task replica is not available yet. Try again shortly.";
 
@@ -185,9 +185,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
                 // round again: the next read sees their version and the
                 // comparison decides, which is the whole point of not having
                 // let timing decide here.
-                _log.LogDebug(
-                    "Task {TaskId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
-                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+                TaskChangedUnderPush(_log, change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -290,9 +288,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
             // with it, because it names the range those documents came from.
             if (documents.Any(document => !string.Equals(document.OwnerId, key, StringComparison.Ordinal)))
             {
-                _log.LogError(
-                    "A change feed page for owner {OwnerId} contained documents from another partition. Discarding it.",
-                    key);
+                ForeignPartitionPageDiscarded(_log, key);
 
                 return Discarded(owner);
             }
@@ -485,4 +481,10 @@ internal sealed class CosmosTaskReplica : ITaskReplica
     /// adapter cannot see for itself.</summary>
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<TaskDocument> Documents);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Task {TaskId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).")]
+    private static partial void TaskChangedUnderPush(ILogger logger, Guid taskId, Guid deviceId, int attempt, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A change feed page for owner {OwnerId} contained documents from another partition. Discarding it.")]
+    private static partial void ForeignPartitionPageDiscarded(ILogger logger, string ownerId);
 }
