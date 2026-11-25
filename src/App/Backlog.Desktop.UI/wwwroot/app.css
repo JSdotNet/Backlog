@@ -2255,6 +2255,193 @@ h1, h2, h3 {
     border-top: var(--border-width) solid var(--color-background-raised);
 }
 
+/* The expanded plan's name opens that plan on its own. */
+.plan-sections__name-open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.plan-sections__name-open:hover { text-decoration: underline; }
+
+.plan-sections__name-open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+/* One plan alone (local ADR 0062 §7): heading, waves or list, and the run line. */
+.plan-focus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+}
+
+.plan-focus__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.plan-focus__bar {
+    flex: 0 0 140px;
+}
+
+.plan-focus__layout {
+    margin-inline-start: auto;
+}
+
+.plan-focus__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+/* Waves: one column per wave, the current one on a soft background. */
+.plan-waves {
+    display: grid;
+    grid-template-columns: repeat(var(--plan-waves-columns, 1), minmax(12rem, 1fr));
+    gap: var(--spacing-md);
+    overflow-x: auto;
+}
+
+.plan-waves__wave {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+}
+
+.plan-waves__wave--current {
+    background: var(--color-background-alt);
+}
+
+.plan-waves__heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-2xs);
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+}
+
+.plan-waves__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.plan-waves__label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-waves__label--current { color: var(--color-primary); }
+
+.plan-waves__card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-2xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.plan-waves__card:hover { background: var(--color-background-raised); }
+
+.plan-waves__card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.plan-waves__card--waiting { opacity: 0.7; }
+
+.plan-waves__text {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.plan-waves__card-title {
+    font-size: var(--font-size-sm);
+    line-height: 1.35;
+}
+
+.plan-waves__meta,
+.plan-waves__state {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.plan-waves__state--done { color: var(--color-text-secondary); }
+.plan-waves__state--session { color: var(--color-primary); }
+.plan-waves__state--ready,
+.plan-waves__state--left { color: var(--color-band-2); }
+.plan-waves__state--held { color: var(--color-error-text); }
+
+/* The status mark: a 14px ring in the state's colour. */
+.plan-waves__mark {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-text-disabled);
+}
+
+.plan-waves__mark--done { border-color: var(--color-success-text); }
+.plan-waves__mark--session { border-color: var(--color-primary); border-right-color: transparent; }
+.plan-waves__mark--ready { border-color: var(--color-band-2); border-style: dotted; }
+.plan-waves__mark--left { border-color: var(--color-band-2); }
+.plan-waves__mark--held { border-color: var(--color-error-text); background: var(--color-error-text); }
+.plan-waves__mark--waiting { border-style: dashed; }
+
+/* The run line: where the plan lands, then its copy and queue. */
+.plan-focus__run {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.plan-focus__run-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+.plan-focus__branch {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.plan-focus__run-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin-inline-start: auto;
+}
+
 /* The completed group, pulled up under the add-entry row. The library spaces it
    from the open rows with a `--spacing-md` margin, which is right where the list
    stands alone; here the scroller's gap already separates them, and the two

@@ -44,6 +44,10 @@ public partial class TasksPane
         {
             _planLaterPlan = selected.Tag;
             _planLaterOpen = null;
+
+            // A plan opened on its own stays open only while it stays selected:
+            // coming back to it later shows the sections again.
+            if (!string.Equals(_planFocus, selected.Tag, StringComparison.OrdinalIgnoreCase)) _planFocus = null;
         }
 
         return PlanSections.Build(selected, State.PlanEntryStatesOf(selected.Tag, PlanRunOf(selected.Tag)), State.ResolvedDependsOn);

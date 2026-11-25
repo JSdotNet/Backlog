@@ -905,7 +905,9 @@ A plan is queued only as a whole, from its rail row or its own view, as
 [Start a session from an entry](../sessions/features.md#start-a-session-from-an-entry)
 says. Each of its entries then shows the state the plan's run gives it.
 
-**Opening one plan** shows its entries in columns by dependency depth, its waves. The
+**Opening one plan**, from its heading, shows that plan alone under a **← Plans** link back,
+with its entries in columns by dependency depth, its waves; the current wave, the first
+not yet landed, sits on a soft background and the entries still waiting are faded. The
 first wave holds the entries that [wait on](#task-dependencies) nothing in the plan,
 and each next wave the entries whose last dependency is in the wave before. A **Waves /
 List** toggle switches to its rows, and a run line names the plan branch the run lands
