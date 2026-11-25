@@ -100,15 +100,17 @@ public partial class McpServerSettingsPage
             var status = await _connector.GetStatusAsync(_connectorCancel.Token);
             if (_disposed) return;
 
-            switch (status)
+            // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+            _connectorError = status switch
             {
-                case Ok<ConnectorStatusResponse>(var read):
-                    _connectorStatus = read;
-                    _connectorError = null;
-                    break;
-                case Error error:
-                    _connectorError = error.Message;
-                    break;
+                Ok<ConnectorStatusResponse>(var read) => Shown(read),
+                Error error => error.Message,
+            };
+
+            string? Shown(ConnectorStatusResponse read)
+            {
+                _connectorStatus = read;
+                return null;
             }
         }
         catch (OperationCanceledException) when (_disposed)

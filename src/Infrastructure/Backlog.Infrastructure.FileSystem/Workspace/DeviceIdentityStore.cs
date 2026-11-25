@@ -93,6 +93,9 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
 
     private readonly TimeSpan _adoptionWindow;
 
+    /// <summary>What an empty file's age is measured against (app-defaults ADR 0005).</summary>
+    private readonly TimeProvider _clock;
+
     /// <summary>The per-user location: <c>device.json</c> in the same app-data folder
     /// <see cref="WorkspaceSettingsStore"/> puts the workspace pointer in.</summary>
     public DeviceIdentityStore()
@@ -117,8 +120,9 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
     }
 
     /// <summary>The adoption window injected too, so the give-up branch can be asserted
-    /// without a test spending the whole default window on it.</summary>
-    internal DeviceIdentityStore(string path, string machineName, TimeSpan adoptionWindow)
+    /// without a test spending the whole default window on it, and the clock, so an empty
+    /// file's age can be asserted without back-dating it.</summary>
+    internal DeviceIdentityStore(string path, string machineName, TimeSpan adoptionWindow, TimeProvider? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(machineName);
@@ -126,6 +130,7 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
 
         _path = path;
         _adoptionWindow = adoptionWindow;
+        _clock = clock ?? TimeProvider.System;
         Current = Resolve(machineName);
     }
 
@@ -303,7 +308,7 @@ public sealed class DeviceIdentityStore : IDeviceIdentitySource
             // sat empty for so long that no write can still be landing in it.
             if (string.IsNullOrWhiteSpace(text))
             {
-                return DateTime.UtcNow - File.GetLastWriteTimeUtc(_path) > AbandonedEmptyAfter
+                return _clock.GetUtcNow().UtcDateTime - File.GetLastWriteTimeUtc(_path) > AbandonedEmptyAfter
                     ? (ReadOutcome.Unusable, default)
                     : (ReadOutcome.Unreadable, default);
             }

@@ -117,11 +117,11 @@
             ? DashboardFormat.Date(period.From)
             : "W" + System.Globalization.ISOWeek.GetWeekOfYear(period.From.ToDateTime(TimeOnly.MinValue)).ToString("00", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static decimal HoursOf(TimeSpan span) => Math.Round((decimal)span.TotalHours, 2);
+    private static decimal HoursOf(TimeSpan span) => Math.Round(ExactDuration.Hours(span), 2);
 
     private string? ShareOf(TimeSpan part) =>
         Value!.Actual > TimeSpan.Zero
-            ? $"{MetricFormat.Percent((decimal)(part.Ticks / (double)Value!.Actual.Ticks))} of the hours worked"
+            ? $"{MetricFormat.Percent(ExactDuration.Share(part, Value!.Actual))} of the hours worked"
             : null;
 
     protected override bool FollowsRepository => false;

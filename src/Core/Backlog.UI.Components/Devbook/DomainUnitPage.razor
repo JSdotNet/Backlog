@@ -407,7 +407,6 @@
             _active = unit.Key;
             await ActiveUnitChanged.InvokeAsync(unit.Key);
         }
-        StateHasChanged();
     }
 
     // Every unit's rules in the context, read once per set of files: what a

@@ -231,16 +231,23 @@ public sealed partial class NotificationSyncWorker : IDisposable, INotificationN
             var result = await RefusedTokenRerun.RunAsync(
                 _services, () => session.SyncAsync(pollReplies, _lifetime.Token), _log, "notification").ConfigureAwait(false);
 
-            switch (result)
+            // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+            LastError = result switch
             {
-                case Ok<NotificationSyncSummary>(var summary):
-                    LastSummary = summary;
-                    LastError = null;
-                    break;
-                case Error error:
-                    LastError = error.Message;
-                    LogCycleIncomplete(_log, error.Code, error.Message);
-                    break;
+                Ok<NotificationSyncSummary>(var summary) => Completed(summary),
+                Error error => Failed(error),
+            };
+
+            string? Completed(NotificationSyncSummary summary)
+            {
+                LastSummary = summary;
+                return null;
+            }
+
+            string Failed(Error error)
+            {
+                LogCycleIncomplete(_log, error.Code, error.Message);
+                return error.Message;
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

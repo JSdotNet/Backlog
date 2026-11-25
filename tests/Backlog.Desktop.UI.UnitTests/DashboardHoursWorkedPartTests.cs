@@ -117,6 +117,29 @@ public sealed class DashboardHoursWorkedPartTests
         Assert.Equal("34.0h", rows[2].QuerySelectorAll("td")[^1].TextContent);
     }
 
+    /// <summary>
+    /// A day's hours that sit on a hundredth's midpoint are rounded from the duration, not
+    /// from the double <see cref="TimeSpan.TotalHours"/>. 26 min 42 s is 0.445 h: banker's
+    /// rounding makes it 0.44 and the cell 0.4h. Cast from the double — 0.44500000…0284 on
+    /// .NET 11 — it became 0.45 and the cell 0.5h, a tenth no clock measured.
+    /// </summary>
+    [Theory]
+    [InlineData(26 * 60 + 42, "0.4h")]
+    [InlineData(68 * 60 + 42, "1.1h")]
+    [InlineData(32 * 60 + 42, "0.5h")]
+    public void A_midpoint_day_is_rounded_from_its_duration(int seconds, string expected)
+    {
+        var source = new ScriptedSource { Hours = { [Monday] = (TimeSpan.FromSeconds(seconds), TimeSpan.Zero) } };
+        using var context = Context(source);
+
+        var part = context.Render<HoursWorkedPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
+
+        var chart = part.Find("[data-testid='dashboard-hours-worked-bars']");
+        var headings = chart.QuerySelectorAll("thead th").Skip(1).Select(cell => cell.TextContent).ToList();
+        var monday = headings.IndexOf("05 Oct");
+        Assert.Equal(expected, chart.QuerySelectorAll("tbody tr")[0].QuerySelectorAll("td")[monday].TextContent);
+    }
+
     [Fact]
     public void A_source_that_cannot_state_the_hours_shows_unavailable_not_zero()
     {

@@ -101,7 +101,7 @@ Renders the sync API's OpenAPI document as an interactive API reference.
 
 - **Used for** — `MapScalarApiReference()` at `/scalar` in `Backlog.Modules.Sync.Api`, in
   Development only, beside `MapOpenApi()`.
-- **Why** — the API reference ADR 0004 of the organisation's defaults names; it reads the
+- **Why** — the API reference org ADR 0004 names; it reads the
   first-party document and adds no generator of its own.
 
 ## Azure.Identity

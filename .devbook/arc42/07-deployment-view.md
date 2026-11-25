@@ -218,6 +218,14 @@ Deployment considerations:
     route answers `503`, so every phone dictates on-device.
   - Locally, the AppHost points `Endpoint` at a transcription stand-in in
     `Backlog.AzureFoundry.TestService`.
+- **Exception alert** *(org ADR 0002)* — the AppHost models a log alert on the sync tier's
+  Application Insights component, `sync-exceptions`. Every hour it counts the component's
+  `exceptions` by `problemId`, the grouping `.github/workflows/app-insights-exceptions.yml`
+  files one GitHub issue per problem from. It fires once per problem and resolves itself after
+  an hour without one. The action group `ag-sync-exceptions` emails the `sync-alert-email`
+  parameter. Aspire has no integration for a log alert, so `SyncDeployment.cs` adds
+  `Alerts/sync-exception-alert.bicep` through `AddBicepTemplate`. `infra/sync/main.bicep`
+  declares no alert yet, so none is deployed (below).
 - **First provisioned 2026-11-04** — the Web PubSub and Notification Hubs
   resources in `infra/sync/main.bicep` exist in Azure, and the sync container app
   carries their settings. Pushes wait on the hub's FCM credential.
@@ -225,7 +233,7 @@ Deployment considerations:
 ### Provisioning and Delivery
 
 ```meta
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/08-crosscutting-concepts.md#configuration", ".devbook/arc42/adr/0062-the-sync-tier-deploys-from-hand-written-bicep-through-azd.md"]
 ```
 
 Local ADR 0005 introduced the delivery artifacts `infra/sync/main.bicep`, `azure.yaml` and `.github/workflows/deploy-sync.yml`.
@@ -274,6 +282,26 @@ A `service` run provisions nothing, so a release that needs a new resource follo
 - **CI/CD:** a person starts infrastructure from `Deploy Sync` or `Deploy All`. The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. The repository holds no publish profile, service principal secret or service secret: the token signing key is in Key Vault.
 - **Local development:** Azurite is the `storage` resource with the `attachments` container (local ADR 0014), so the sync path builds and tests with no cloud account.
 - **Observability:** OpenTelemetry already flows through `AddServiceDefaults()`. No domain data goes to either sink, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. A 1 GB/day ingestion cap (`logDailyQuotaGb`) stops runaway logging. Once it is reached, Azure drops the rest of the day, exceptions included, which is intended since the volume is the incident. See `docs/deployment/sync.md`.
+
+**The AppHost models the deployed settings, `azd` still deploys.** Org ADR 0002 makes the
+AppHost the one model from local run to deployment. In publish mode it declares:
+
+- the sync service's settings and secrets, as parameters ([Configuration](08-crosscutting-concepts.md#configuration) lists them);
+- its Application Insights component, `sync-appinsights`, which sets `APPLICATIONINSIGHTS_CONNECTION_STRING`;
+- the exception alert above.
+
+`aspire publish` generates Bicep from that model, but nothing deploys it yet. The running
+service is still provisioned from `infra/sync/` and deployed by `azd`, which set the same
+settings under the Bicep parameters each AppHost parameter names in its comment. Local ADR
+0062 (proposed) keeps it that way: the Bicep stays the deployment, and the AppHost stays the
+model of settings, secrets and alert rules. `AppHostDeploymentModelTests` keeps the two
+lists of settings level. The exception alert reaches Azure only once `infra/sync/main.bicep`
+declares it too.
+
+The published model is not yet deployable. It has no compute environment, no Key Vault, Web
+PubSub or Notification Hubs resource, and none of the Bicep's `Sync__Cosmos__*` container
+names and TTLs. Published, the dictation relay has no endpoint, because the local Foundry
+stand-in is a harness the AppHost wires in run mode only.
 
 The Bicep declares one resource ADR 0005 did not name: a container registry, where `azd` pushes the built image. Its admin user is off, and the managed identity that reaches Cosmos holds the pull role.
 

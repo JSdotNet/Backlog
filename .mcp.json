@@ -9,10 +9,10 @@
       "type": "http",
       "url": "https://learn.microsoft.com/api/mcp"
     },
-    "aspire": {
+    "jsdotnet-app-defaults": {
       "type": "stdio",
-      "command": "aspire",
-      "args": ["mcp", "start"]
+      "command": "dnx",
+      "args": ["JSdotNet.AppDefaults.Mcp", "--yes"]
     },
     "playwright": {
       "type": "stdio",

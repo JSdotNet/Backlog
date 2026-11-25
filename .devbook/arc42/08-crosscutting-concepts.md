@@ -641,6 +641,84 @@ For the cloud service specifically, three inherited decisions apply:
 - authorization: `0013-authorization-zero-trust.md`;
 - the error contract: `0017-http-error-contract-and-problem-details.md`.
 
+## Configuration
+
+```meta
+related: [".devbook/arc42/adr/guidelines/0018-configuration-and-options-binding.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+```
+
+Org ADR 0002 sets the rules: settings bind to validated options, Aspire parameters are the
+source of settings and secrets, and a managed identity replaces a secret wherever the target
+takes one.
+
+- **Every options class is validated at start.** A class bound from configuration with
+  `Bind` or `BindConfiguration` also chains `Validate` or `ValidateDataAnnotations`, and
+  `ValidateOnStart()`. A bad setting stops the service as it starts, never on the first
+  request that reads it. `OptionsValidationTests` scans `src/` and fails on a binding without
+  both. It also refuses `Configure<T>(IConfiguration)`, which binds with no way to validate.
+- **A few settings are still read raw.** The Notification Hubs, Web PubSub and Cosmos
+  registrations read their keys from `IConfiguration` to decide whether to register at all.
+  No options class carries them, so the scan cannot see them.
+- **Some rules hold outside Development only.** A deployed sync service refuses to start
+  without the owner's GitHub user id, both halves of the GitHub OAuth App, the Key Vault URI,
+  and the connector's issuer and resource. A Development run defaults or mints each one.
+- **The deployed sync service's settings are AppHost parameters.** `SyncDeployment.cs` in the
+  AppHost declares them, in publish mode only:
+
+  | Parameter | Sets | Kind |
+  | --- | --- | --- |
+  | `sync-owner-github-user-id` | `Owner__GitHubUserId` | required |
+  | `sync-github-oauth-client-id` | `GitHub__ClientId` | required |
+  | `sync-key-vault-uri` | `Modules__Sync__Tokens__KeyVaultUri` | required |
+  | `sync-public-origin` | `Modules__Sync__Connector__Issuer`, and `…Resource` with `/mcp` | required |
+  | `sync-owner-id` | `Owner__OwnerId` | optional, empty derives the owner |
+  | `sync-notification-hubs-hub` | `Sync__NotificationHubs__Hub` | optional, `backlog` |
+  | `sync-notification-hubs-send-connection-string` | `Sync__NotificationHubs__SendConnectionString` | required secret |
+  | `sync-notification-hubs-manage-connection-string` | `Sync__NotificationHubs__ManageConnectionString` | required secret |
+  | `sync-alert-email` | the exception alert's action group | required |
+
+  A required parameter has no default, so a publish fails without it. Each environment sets the
+  values under `Parameters:<name>` in the AppHost's configuration, and the secrets with
+  `aspire secret set --environment`. `AppHostDeploymentModelTests` keeps the list level with the
+  settings `infra/sync/main.bicep` gives the container.
+- **Run mode declares none of them.** A run-mode parameter with no value holds its resource
+  until someone answers the dashboard, which would stop every unattended `aspire start`. The
+  Development run keeps its defaults, and `Program.cs` points the connector's issuer at the
+  service's own endpoint.
+- **Key Vault secrets are not parameters.** The token signing key and the GitHub OAuth client
+  secret stay in Key Vault, read with the service's managed identity (local ADR 0058). The
+  Notification Hubs connection strings are the only secret parameters, because that service
+  takes no managed identity.
+- **Nothing secret is committed.** The service's `appsettings.json` holds only defaults and
+  explanations. A Development signing key lives in user-secrets.
+
+## Testing
+
+```meta
+related: [".devbook/tech/testing.md#playwright", ".devbook/tech/tooling.md#aspire-cli", ".devbook/ai/03-test.md#browser-end-to-end-suite"]
+```
+
+Every test lives under `tests/`, following org ADR 0010 (`JSdotNet/app-defaults`,
+`defaults/arc42/adr/0010-testing.md`). Unit, architecture and integration tests run without
+Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that runs through it.
+
+| Step | The suite's global setup (`E2EAppHost`, an xUnit assembly fixture) |
+| --- | --- |
+| Before the first test | `aspire start --isolated`, detached, then `aspire wait` until `cosmos`, `storage`, `sync` and the three frontends are healthy, then until `sync` answers from Cosmos rather than 503 |
+| Each test | reads a frontend's URL from `aspire describe`; no port is written down |
+| After the last test | fails on any `aspire otel logs --severity Error` entry of any resource that no test declared, then `aspire stop` |
+
+- **Isolated:** Aspire picks the ports and keeps the user secrets apart, so two worktrees
+  can run the suite at once.
+- **Declared errors:** a test that causes an error on purpose declares it by resource,
+  log-id window and message. ConferenceDay stops `sync` while the phone still calls it,
+  so the phone's resilience timeouts in that window are expected. The setup declares the
+  harnesses' retries on the 503 `sync` answers before Cosmos is ready.
+- **Gated:** nothing starts without `BACKLOG_E2E=1`. With `BACKLOG_E2E_ATTACH=1` the suite
+  uses this worktree's running AppHost, counts only new errors, and leaves it running.
+- **Not yet:** the browser logs that `.WithBrowserLogs()` sends are not checked. The suite
+  is C# `Microsoft.Playwright` under xUnit, not `@playwright/test`.
+
 ## Observability
 
 ```meta
@@ -653,8 +731,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 `Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
 **Logging.** Every product log line is a `[LoggerMessage]` method on the type that logs it,
-with a constant message template, as ADR 0007 of the organisation's defaults
-(`JSdotNet/app-defaults`) asks. A template keeps its values as named fields the dashboard can
+with a constant message template, as org ADR 0007 asks. A template keeps its values as named fields the dashboard can
 query, and the generated method allocates nothing when the level is off.
 
 ```csharp
@@ -715,13 +792,25 @@ return await handler.Handle(command, ct) switch
 - **Asserting:** a test reads the case with `Assert.IsType<Ok<T>>(result.Value).Value`
   or `Assert.IsType<Error>(result.Value)`.
 
+- **Several statements per arm:** a switch expression over a local function per arm,
+  never a `switch` statement with `case Ok<T>:` labels. **Why:** a statement compiles
+  without the CS8509 check, so a new case would pass it unnoticed.
+  `ResultSwitchStatementTests` fails on such a label anywhere in `src/`.
+
+  ```csharp
+  LastError = result switch
+  {
+      Ok<TaskSyncSummary>(var summary) => Completed(summary),
+      Error error => Failed(error),
+  };
+  ```
+
 Every project reads results this way; the class-based members `IsSuccess`, `Error`,
-`Unwrap()` and `TryGetValue` are gone. A `switch` statement over the cases compiles
-without the CS8509 check, so the few call sites that branch into several statements,
-the sync workers among them, are where a new case would pass unnoticed.
+`Unwrap()` and `TryGetValue` are gone, and so are the `switch` statements the sync workers
+and the MCP connector settings page used to branch with.
 
 **Errors at the sync edge.** Every failure the sync service answers under `/api/sync` is an
-RFC 9457 Problem Details body, as ADR 0004 of the organisation's defaults asks. The body carries
+RFC 9457 Problem Details body, as org ADR 0004 asks. The body carries
 `type`, `title`, `status`, `traceId`, and for a handler's error also `detail` and the `code` a
 client branches on.
 

@@ -38,7 +38,7 @@
                       BareEditor="@Bare"
                       DevbookDocumentPath="@DevbookDocumentPath"
                       OnDevbookNavigate="@OnDevbookNavigate"
-                      OnBlur="FlushAsync"
+                      OnBlur="FlushPendingAsync"
                       TestId="devbook-chapter" />
 </div>
 
@@ -224,13 +224,19 @@
     /// which order it is keeping and why it is this one.
     /// </para>
     /// </summary>
-    public async Task FlushAsync()
+    public Task FlushAsync() => HandlerRendering.RunAsync(FlushPendingAsync, () =>
+    {
+        if (!_disposed) StateHasChanged();
+    });
+
+    /// <summary>The flush itself, for the callers Blazor already renders around: the
+    /// editor's blur, Done, and a move to another chapter.</summary>
+    private async Task FlushPendingAsync()
     {
         CancelDebounce();
         if (!_pendingSave) return;
 
         await SaveAsync();
-        if (!_disposed) StateHasChanged();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -256,7 +262,7 @@
         // pending save belongs to the chapter that is leaving, and the writer
         // still has the ref that names it, so it goes to disk before the buffer
         // points anywhere else.
-        await FlushAsync();
+        await FlushPendingAsync();
 
         _loadedChapter = Chapter;
         _editing = false;
@@ -292,7 +298,7 @@
     private async Task OnEditingChangedAsync(bool editing)
     {
         _editing = editing;
-        if (!editing) await FlushAsync();
+        if (!editing) await FlushPendingAsync();
     }
 
     private void ScheduleDebouncedSave()

@@ -22,22 +22,23 @@ aspire start --isolated --non-interactive --apphost src/Aspire/Backlog.Aspire.Ap
 - Use forward slashes in `--apphost`, and pass the same path to every later `aspire`
   command for this run.
 - **Never trust the exit code.** `aspire start` detaches and exits `0` even when the AppHost
-  failed to come up. The health verdict comes from the Aspire MCP (see Healthy).
+  failed to come up. The health verdict comes from `aspire describe` (see Healthy).
 - To stop this worktree's AppHost, run `aspire stop --apphost <same path>`. Never use
   `--all`, and never kill `dotnet`, `dcp` or `Aspire*` processes by name, because they may
-  belong to another worktree. For CLI details, run `aspire <command> --help`, or ask the
-  Aspire MCP's `search_docs` and `get_doc` tools. Both answer for the installed version.
+  belong to another worktree. For CLI details, run `aspire <command> --help`, or
+  `aspire docs search <query>` and `aspire docs get <slug>`. Both answer for the installed version.
 
-1. **Check that it is not already running.** Call the Aspire MCP `list_apphosts` and read the
-   list titled "App hosts within scope of working directory". If this worktree's AppHost is
-   in it, reuse that one and say so. An AppHost from another worktree is not yours.
+1. **Check that it is not already running.** Run `aspire ps --format Json` and look for this
+   worktree's AppHost path. If it is there, reuse that one and say so. An AppHost from another
+   worktree is not yours.
 2. **Run the command** in the background. If it fails, report the failure. Never swap in
    `aspire run`, `dotnet run`, or a command without `--isolated`.
-3. **Select this AppHost.** Call `select_apphost` with this worktree's AppHost path. It fails,
-   listing what is available, when this AppHost never registered. That failure is the
-   startup failure, whatever the exit code was.
-4. **Wait for the signals under Healthy** by polling `list_resources`. Stop waiting on a
-   `FailedToStart` or `Exited` for a resource that should run, or after two minutes with no
+3. **Confirm this AppHost registered.** Run `aspire describe --apphost <same path>`. It fails
+   when this AppHost never came up. That failure is the startup failure, whatever the exit
+   code was.
+4. **Wait for the signals under Healthy** with `aspire wait <resource> --status up --apphost <same path>`
+   per resource, or by polling `aspire describe --format Json --apphost <same path>`. Stop waiting
+   on a `FailedToStart` or `Exited` for a resource that should run, or after two minutes with no
    state change. Never report a partly started app as healthy.
 5. **Read the entry points from this run** (see Entry points). Every port changes on every
    start.
@@ -48,11 +49,10 @@ later stages all use it.
 
 ## Healthy
 
-- **Check the path before trusting a state.** On any resource in `list_resources`, check
-  `project.path` or `executable.workDir`: it must be under this worktree. When no AppHost of
-  this worktree is running, the Aspire MCP answers about whichever AppHost it last selected,
-  with healthy states and real ports. If the MCP cannot see this `--isolated` AppHost, take
-  the verdict from `aspire describe --apphost <same path>` instead, and say that you did.
+- **Pass `--apphost` on every call.** Several worktrees run an AppHost at once; without
+  `--apphost <same path>`, `aspire describe`, `aspire logs` and `aspire otel` may answer about
+  another worktree's. Check a resource's project path in `aspire describe --format Json`: it
+  must be under this worktree.
 - **Healthy** means `sync`, `azure-foundry-test`, `desktop-web-harness`,
   `mobile-web-harness` and `ui-storybook` are all `Running`. `desktop-web-harness` waits for
   `azure-foundry-test`, and `mobile-web-harness` waits for `sync`, so a short delay before
@@ -79,7 +79,7 @@ later stages all use it.
 
 Every host binds `localhost:0`, so the OS picks a new port on every run. Never hard-code a
 port, and never reuse one from an earlier session, a log, or another worktree. Read each URL
-from `list_resources` (or `aspire describe`) for this run. The dashboard URL is printed by
+from `aspire describe --apphost <same path>` for this run. The dashboard URL is printed by
 `aspire start`.
 
 | Entry point | Answers |

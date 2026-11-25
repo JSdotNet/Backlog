@@ -1,5 +1,6 @@
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem.Calendar;
 
@@ -32,7 +33,7 @@ public sealed class RoadmapCalendarCapacity : ICalendarCapacity, IDisposable
     public event Action? Changed;
 
     public decimal HoursOn(DateOnly day) =>
-        Math.Round((decimal)_settings.WorkingWeek.WorkedOn(day).TotalHours, 2, MidpointRounding.AwayFromZero);
+        Math.Round(ExactDuration.Hours(_settings.WorkingWeek.WorkedOn(day)), 2, MidpointRounding.AwayFromZero);
 
     private void OnSettingsChanged() => Changed?.Invoke();
 

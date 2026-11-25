@@ -28,6 +28,9 @@
 
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="17.0.0" />
+    <!-- AddAzureApplicationInsights: the sync tier's component in the published model, and
+         the exception alert that watches it (org ADR 0002). Publish mode only. -->
+    <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="17.0.0" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="17.0.0" />

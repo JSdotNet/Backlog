@@ -98,18 +98,21 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await PullAsync();
+        if (firstRender) await PullAndRenderAsync();
     }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnResumed() => _ = InvokeAsync(PullAsync);
+    private void OnResumed() => _ = InvokeAsync(PullAndRenderAsync);
+
+    /// <summary>A pull nothing on the page asked for — the first render, a resume — drawn
+    /// the way the refresh button's is.</summary>
+    private Task PullAndRenderAsync() => HandlerRendering.RunAsync(PullAsync, StateHasChanged);
 
     private async Task PullAsync()
     {
         if (_pulling) return;
         _pulling = true;
-        StateHasChanged();
 
         try
         {
@@ -124,7 +127,6 @@
         {
             _pulling = false;
             _pulled = true;
-            StateHasChanged();
         }
     }
 

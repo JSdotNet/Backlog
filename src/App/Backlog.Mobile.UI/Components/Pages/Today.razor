@@ -166,13 +166,17 @@ else
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+    private void OnResumed() => _ = InvokeAsync(RefreshAndRenderAsync);
+
+    /// <summary>A refresh nothing on the page asked for — a resume, a delivery — drawn the
+    /// way the refresh button's is.</summary>
+    private Task RefreshAndRenderAsync() => HandlerRendering.RunAsync(RefreshAsync, StateHasChanged);
 
     /// <summary>The replica has the write now; the pull brings back its own copy,
     /// which replaces the one this phone wrote.</summary>
     private void OnDelivered(OutboxEntry entry)
     {
-        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAsync);
+        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAndRenderAsync);
     }
 
     /// <summary>
@@ -202,8 +206,6 @@ else
         {
             _refreshing = false;
         }
-
-        StateHasChanged();
     }
 
     private Task ToggleAsync(Guid id, bool done) =>

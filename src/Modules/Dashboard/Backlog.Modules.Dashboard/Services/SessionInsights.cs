@@ -703,7 +703,7 @@ public sealed class SessionInsights(
     /// <summary>What a week's cells add up to, in hours. Decimal from the total rather
     /// than from a rounded figure, so the columns sum to the tile to the tick.</summary>
     private static decimal Hours(IReadOnlyList<KeyValuePair<HourCell, HourReading>> inWeek) =>
-        (decimal)inWeek.Aggregate(TimeSpan.Zero, (running, cell) => running + cell.Value.Total).TotalHours;
+        ExactDuration.Hours(inWeek.Aggregate(TimeSpan.Zero, (running, cell) => running + cell.Value.Total));
 
     /// <summary>The most at once in any of a week's cells, or zero for a week with none —
     /// a maximum, which is the one arithmetic a peak survives.</summary>

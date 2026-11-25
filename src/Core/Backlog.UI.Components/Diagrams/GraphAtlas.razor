@@ -219,7 +219,8 @@
     /// the renderer's dispatcher and touching component state off it throws — which
     /// a reader would see as the picture going dead to clicks.</para></summary>
     [JSInvokable]
-    public Task NodePicked(string? nodeId) => InvokeAsync(() => SelectAsync(nodeId));
+    public Task NodePicked(string? nodeId) =>
+        InvokeAsync(() => HandlerRendering.RunAsync(() => SelectAsync(nodeId), StateHasChanged));
 
     /// <summary>Reported by a renderer that keeps a camera, as it moves. On the
     /// renderer's dispatcher, for the reason <see cref="NodePicked"/> is.</summary>
@@ -245,7 +246,6 @@
         _seenSelectedId = nodeId;
         Follow(nodeId);
         await SelectedIdChanged.InvokeAsync(nodeId);
-        StateHasChanged();
     }
 
     /// <summary>The index moved its active row: spotlight it, and nothing else.
