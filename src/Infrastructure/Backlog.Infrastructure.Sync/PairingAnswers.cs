@@ -15,10 +15,17 @@ namespace Backlog.Infrastructure.Sync;
 /// <para>
 /// Idempotent, as the contract asks: the pairing and the device are read from the answer's
 /// source key, not from memory, so an answer replayed after a restart revokes the same
-/// device, and a device already gone counts as revoked. A revocation that fails for any
-/// other reason throws, so the answer stays undelivered and is replayed on the next start.
-/// Refusing asks for no Windows Hello (<see cref="IDeviceRoster.RefuseDeviceAsync"/>): it shuts
-/// out a device nobody has trusted yet, and a prompt here would hold every other answer back.
+/// device, and a device already gone counts as revoked.
+/// </para>
+/// <para>
+/// Refusing asks for Windows Hello where the host composed it, as revoking does
+/// (<see cref="IDeviceRoster.RefuseDeviceAsync"/>, local ADR 0058 §6), and that prompt expires
+/// unanswered, so an unattended desktop does not hold every other answer back for long. A
+/// refusal the person cancelled, could not confirm, or left to expire is consumed, not
+/// replayed — a replay would ask again on every start: the device stays paired, the pairing
+/// ends, and an alert (<see cref="PairingSubjects.NotRefusedAsync"/>) asks the person to refuse
+/// it again from Settings → Devices. A revocation that fails for any other reason throws, so
+/// the answer stays undelivered and is replayed on the next start.
 /// </para>
 /// </summary>
 public sealed class PairingAnswers : INotificationAnswerHandler
@@ -61,14 +68,30 @@ public sealed class PairingAnswers : INotificationAnswerHandler
             var roster = _roster() ?? throw new InvalidOperationException("No sync client is composed to revoke the refused device with.");
             var revoked = await roster.RefuseDeviceAsync(deviceId, cancellationToken).ConfigureAwait(false);
 
-            if (revoked is Error error && error.Code != SyncErrorCodes.DeviceNotFound)
+            if (revoked is Error unconfirmed && IsUnconfirmed(unconfirmed.Code))
+            {
+                _logger.LogInformation(
+                    "The refusal of the device that redeemed pairing {Pairing} was not confirmed ({Code}); it stays paired.",
+                    pairingId,
+                    unconfirmed.Code);
+
+                await _pairings.NotRefusedAsync(pairingId, deviceId, unconfirmed.Code, unconfirmed.Message).ConfigureAwait(false);
+            }
+            else if (revoked is Error error && error.Code != SyncErrorCodes.DeviceNotFound)
             {
                 throw new InvalidOperationException($"The refused device {deviceId:D} was not revoked: {error.Message}");
             }
-
-            _logger.LogInformation("Refused the device that redeemed pairing {Pairing}; it is revoked.", pairingId);
+            else
+            {
+                _logger.LogInformation("Refused the device that redeemed pairing {Pairing}; it is revoked.", pairingId);
+            }
         }
 
         await _pairings.SettledAsync(pairingId).ConfigureAwait(false);
     }
+
+    /// <summary>Whether a refusal failed because the person did not confirm it — the step-up's
+    /// codes — rather than because the service did not take it.</summary>
+    private static bool IsUnconfirmed(string code) =>
+        code is DeviceStepUp.DeclinedCode or DeviceStepUp.UnavailableCode or DeviceStepUp.ExpiredCode;
 }

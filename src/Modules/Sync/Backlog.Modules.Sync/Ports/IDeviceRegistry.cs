@@ -25,6 +25,14 @@ public interface IDeviceRegistry
     /// device. There is no owner record separate from its devices.</summary>
     Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Whether any device is on record under an owner other than this one. Asked
+    /// only by a signed-in enrolment on a service with no pinned owner (local ADR
+    /// 0058 §1), so it reads across every owner on purpose: the question is whether
+    /// joining <paramref name="ownerId"/> would leave someone else's devices behind.
+    /// </summary>
+    Task<bool> AnyOutside(OwnerId ownerId, CancellationToken cancellationToken = default);
+
     /// <summary>Every device this owner has, in no particular order.</summary>
     Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default);
 

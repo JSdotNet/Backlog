@@ -26798,6 +26798,12 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     text-align: end;
 }
 
+/* Why the last confirming Revoke did not revoke: in the row, beside the Revoke the
+   focus went back to, rather than in a status line at the foot of the page. */
+.agent-row__error {
+    color: var(--color-error-text);
+}
+
 .agent-row__editor {
     grid-column: 1 / -1;
     padding-top: var(--spacing-xs);

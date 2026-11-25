@@ -14,13 +14,22 @@ namespace Backlog.Modules.Sync.Features.Enrolment;
 /// <param name="ConfiguredOwnerId">The owner id the GitHub user's devices join. Set
 /// to keep an owner minted before sign-in existed; otherwise derived from
 /// <paramref name="GitHubUserId"/>, so it is the same on every start.</param>
-public sealed record OwnerEnrolment(long? GitHubUserId, Guid? ConfiguredOwnerId = null)
+/// <param name="GuardsUnpinnedOwner">Whether a signed-in enrolment without a
+/// <paramref name="ConfiguredOwnerId"/> is refused while the registry holds devices
+/// of another owner. Set on a deployed service: there the derived owner is a new,
+/// empty one, and joining it would orphan the owner whose devices the service
+/// already holds. A Development run leaves it off.</param>
+public sealed record OwnerEnrolment(long? GitHubUserId, Guid? ConfiguredOwnerId = null, bool GuardsUnpinnedOwner = false)
 {
     /// <summary>No owner configured: the Development stand-in.</summary>
     public static OwnerEnrolment Open { get; } = new(GitHubUserId: null);
 
     /// <summary>Whether enrolling needs the owner's GitHub sign-in.</summary>
     public bool RequiresSignIn => GitHubUserId is not null;
+
+    /// <summary>Whether an enrolment must first check that no other owner's devices
+    /// are on record: a signed-in enrolment on a guarded service with no pinned owner.</summary>
+    public bool MustCheckForOtherOwners => GuardsUnpinnedOwner && RequiresSignIn && ConfiguredOwnerId is null;
 
     /// <summary>The owner a signed-in enrolment joins, or null when there is no
     /// configured owner and each enrolment mints its own.</summary>

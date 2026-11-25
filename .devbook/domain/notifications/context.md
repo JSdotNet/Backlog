@@ -84,7 +84,7 @@ answer handler for their source:
 | Context | Publishes | About | Answer handler |
 | --- | --- | --- | --- |
 | Sessions | "*run* · Approve or revise", when a run's Personal Validation stage first reports a handoff | the run | `SessionValidationAnswers` |
-| Sync | "Pair *device name*?": Allow or Refuse, `answerOn: owner`, when a device redeems this desktop's code | the pairing | `PairingAnswers` revokes the device on Refuse, then ends the pairing |
+| Sync | "Pair *device name*?": Allow or Refuse, `answerOn: owner`, when a device redeems this desktop's code | the pairing | `PairingAnswers` revokes the device on Refuse once Windows Hello confirms, then ends the pairing |
 | Devbook | An info alert "Remark left on *chapter*", when a remark left on another device syncs in | the remark | none |
 
 - **Sessions.** The question carries the gate's handoff as its body and offers
@@ -117,7 +117,8 @@ stateDiagram-v2
   Waiting --> Asked : a device redeems it, and is paired
   Waiting --> Finished : the code expires unredeemed
   Asked --> Finished : Allow keeps the device
-  Asked --> Finished : Refuse revokes the device
+  Asked --> Finished : Refuse confirmed by Windows Hello revokes the device
+  Asked --> Finished : Refuse not confirmed keeps the device, and an alert asks again
   Finished --> [*]
 ```
 
@@ -250,7 +251,7 @@ contract, as an open host service.
 |---|---|---|---|---|
 | [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync`, and `SessionValidationAnswers` for the `sessions` source; closes by subject; answers the startup probe | `Backlog.Modules.Notifications.Abstractions`; a choice that takes text on the [Answer Spec](domain.md#answer-spec) | A question at Personal Validation is answered once and handed back to its handler. |
 | MCP server (`Backlog.Infrastructure.Mcp`) | OHS + Published Language (Notifications = supplier) | `notify` and `ask` publish as source `mcp`; `get_answer` and `close` read and withdraw | `Backlog.Modules.Notifications.Abstractions` | `ask` answers the id at once and never waits. |
-| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes "Pair *device name*?", and `PairingAnswers` for the `sync` source; closes by subject | `Backlog.Modules.Notifications.Abstractions` | Allow keeps the device; Refuse revokes it. |
+| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes "Pair *device name*?", and `PairingAnswers` for the `sync` source; closes by subject | `Backlog.Modules.Notifications.Abstractions` | Allow keeps the device. Refuse revokes it once Windows Hello confirms; an unconfirmed Refuse keeps it and raises an alert. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an info alert when a remark left on another device syncs in | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task ends, here or synced in; answers the startup probe | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |
 

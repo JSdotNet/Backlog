@@ -1,7 +1,7 @@
 # ADR 0013: Authorization and the Zero Trust model
 
 ```meta
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md"]
 ```
 
 Inherited from the organization's ADR 0013 (decided 2026-06-04,
@@ -11,7 +11,8 @@ Inherited from the organization's ADR 0013 (decided 2026-06-04,
 accepted upstream and binds any work that reaches this ground. Local ADR 0058
 (2026-11-11) applies it to the MCP surface, the desktop listener and the remote
 `/mcp` endpoint, and to device and owner identity on the sync service. That
-application is decided and not yet built. Module-to-module calls stay as below.
+application is built, from 2026-11-11 to 2026-11-24 (PR #1878 and #1971), and local
+ADR 0059 amends it. Module-to-module calls stay as below.
 
 ## Decision
 
@@ -70,11 +71,15 @@ action, resource type and id, outcome, and correlation id.
   surface (`sync`) that has anything to protect. It is single-owner
   authorization, not the multi-tenant, role-based policy set this decision
   otherwise describes, and it does not reach any other module.
-- **No audit log yet.** Sensitive-operation auditing is not implemented anywhere,
-  local or cloud. Local ADR 0058 decides one for every MCP call, in its first
-  delivery phase.
-- **The MCP listener takes grant tokens only** (local ADR 0058 §3). The shared token
-  is retired; the listener accepts `BACKLOG_MCP_TOKEN` only under a debug setting that
-  is off by default.
+- **The MCP listener keeps the only audit store.** It records every admitted call
+  and every refusal, per installation, in `mcp-audit.db`, a SQLite file kept for 30
+  days. The sync service logs refused device tokens as warnings, and its `/mcp`
+  logs its own refusals, but it keeps no audit store. Module-to-module calls stay
+  unaudited.
+- **The MCP listener takes grant tokens** (local ADR 0058 §3), and a call with no
+  `Authorization` header gets the Unauthenticated row's scopes. That row is empty by
+  default and widened only with Windows Hello (local ADR 0059). The shared token is
+  retired. The listener accepts `BACKLOG_MCP_TOKEN` only under a debug setting that is
+  off by default, and that caller holds neither `telemetry:write` nor `agents:grant`.
 - Module-to-module calls do not carry a `ClaimsPrincipal`, since no in-process
   operation is security-relevant today.

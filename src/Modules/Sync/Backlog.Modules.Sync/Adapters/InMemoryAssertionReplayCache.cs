@@ -5,10 +5,9 @@ using Backlog.Modules.Sync.Ports;
 namespace Backlog.Modules.Sync.Adapters;
 
 /// <summary>
-/// Spent assertion ids, in memory. Enough for a service that runs one replica: a
-/// restart forgets them, and what that reopens is bounded by the five minutes an
-/// assertion may live (<see cref="Abstractions.SyncAssertion.MaxLifetime"/>). A
-/// second replica needs a shared store behind the port.
+/// Spent assertion ids, in memory: the Development and test stand-in. A restart
+/// forgets them and a second instance never sees them, so the deployed service
+/// registers the Cosmos store over this one.
 /// <para>
 /// Lapsed entries are swept on the way in, at most once every
 /// <see cref="SweepInterval"/>, so the table holds no more than the assertions of

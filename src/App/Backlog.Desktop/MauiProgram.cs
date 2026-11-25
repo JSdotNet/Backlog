@@ -213,7 +213,7 @@ public static class MauiProgram
         // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
         // opens the request window over these windows and raises its notification (ADR 0039).
         builder.Services.TryAddSingleton<IUserConsent>(sp => new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()));
-        // Minting a pairing code and revoking a device ask for the same Hello (§6). Only this
+        // Minting a pairing code, revoking a device and refusing one ask for the same Hello (§6). Only this
         // head composes it: the harness and the phone keep no step-up, so their pairing client
         // asks nothing.
         builder.Services.TryAddSingleton(sp => new DeviceStepUp(sp.GetRequiredService<IUserConsent>()));

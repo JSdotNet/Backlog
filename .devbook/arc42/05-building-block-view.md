@@ -675,7 +675,7 @@ Each adapter project is the only one that references its Azure SDK; the Azure re
   `tasks`, `sessions`, `annotations`, `devbookSubjects`, `knowledgeEvents`,
   `notifications` and `notificationReplies` containers (local ADRs 0005, 0011,
   0039, 0044 and 0050). It
-  serves the device registry and pairing-code store from `devices` and `pairingCodes`, so a registration survives a restart. It is the only project referencing the Cosmos SDK.
+  serves the device registry and pairing-code store from `devices` and `pairingCodes`, so a registration survives a restart. It serves the remote connector's credentials from `connectorCredentials` and the spent-assertion store from `assertionReplays` (local ADR 0058 §2, §8). It is the only project referencing the Cosmos SDK.
 - `Backlog.Infrastructure.BlobStorage` implements `IAttachmentStore` against the
   `attachments` blob container (local ADR 0014). It is the only project that
   references the Storage SDK.
@@ -715,7 +715,7 @@ addressed to it and deletes each once processed. A desktop asks
 hands its FCM token to `PUT /api/sync/notifications/push`, which answers whether
 the service registered it.
 
-The Cosmos database holds nine containers: `tasks`, `sessions`, `annotations`, `devbookSubjects`, `knowledgeEvents`, `notifications` and `notificationReplies` partitioned on the owner, and `devices` and `pairingCodes` on their own id.
+The Cosmos database holds eleven containers: `tasks`, `sessions`, `annotations`, `devbookSubjects`, `knowledgeEvents`, `notifications` and `notificationReplies` partitioned on the owner, and `devices`, `pairingCodes`, `connectorCredentials` and `assertionReplays` on their own id.
 
 The blob store stages an upload as uncommitted blocks. It commits them only once
 the handler has checked the size and digest, so a refused upload never becomes a

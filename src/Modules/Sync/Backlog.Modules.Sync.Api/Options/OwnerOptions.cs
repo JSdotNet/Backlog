@@ -17,6 +17,8 @@ public sealed class OwnerOptions
 
     /// <summary>An existing owner id the GitHub user's devices join — an owner minted
     /// before sign-in existed, so its data is kept. Absent, the id is derived from
-    /// <see cref="GitHubUserId"/>.</summary>
+    /// <see cref="GitHubUserId"/>; a deployed service then refuses enrolment and recovery
+    /// while devices of another owner are on record, rather than orphan them. Set as
+    /// <c>Owner__OwnerId</c>, from azd's <c>SYNC_OWNER_ID</c>.</summary>
     public Guid? OwnerId { get; set; }
 }

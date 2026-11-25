@@ -91,8 +91,10 @@ param ownerGitHubUserId string = '7655166'
 @description('Client id of the "Backlog sync" GitHub OAuth App the owner signs in through.')
 param gitHubOAuthClientId string = 'Ov23liBu5KgGALI2x3F2'
 
-// The owner id the owner's devices join. Empty derives it from ownerGitHubUserId; set it
-// to an owner minted before sign-in existed, before the first enrolment, to keep its data.
+// The owner id the owner's devices join, from the azd value SYNC_OWNER_ID
+// (main.parameters.json). Empty derives it from ownerGitHubUserId; set it to an owner
+// minted before sign-in existed to keep its data. Unset while another owner's devices are
+// on record, the service refuses enrolment and recovery rather than orphan them.
 @description('Existing owner id (GUID) the devices of the owner join; empty derives one from the GitHub user id.')
 param ownerId string = ''
 
@@ -741,6 +743,42 @@ resource connectorCredentialsContainer 'Microsoft.DocumentDB/databaseAccounts/sq
   }
 }
 
+// `assertionReplays` — one document per spent device assertion (local ADR 0058 §2),
+// partitioned on `/id`: the hash of the device id and the assertion's `jti`. Spending is a
+// create of that id, so a second spend is the store's own 409 on whichever instance of the
+// service it lands; nothing is read back or queried, so nothing is indexed but the key.
+//
+// defaultTtl is -1, as on `pairingCodes`: each document carries its own ttl, the minutes
+// until the assertion could no longer be taken plus a grace — at most the assertion's
+// five-minute lifetime and a two-minute clock skew either side.
+resource assertionReplaysContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'assertionReplays'
+  properties: {
+    resource: {
+      id: 'assertionReplays'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: []
+        excludedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
+    }
+  }
+}
+
 // The data-plane role the sync service reaches Cosmos with. Scoped to the account,
 // which is as narrow as it goes: ADR 0005 Identity records that this grants sight
 // of every partition, and that keeping a device inside its own partition is a check
@@ -1237,6 +1275,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__ConnectorCredentialsContainerName'
               value: connectorCredentialsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__AssertionReplaysContainerName'
+              value: assertionReplaysContainer.name
             }
             {
               name: 'Sync__Cosmos__TaskTombstoneTtlSeconds'

@@ -1,7 +1,7 @@
 # ADR 0043: A surface can open in its own window, and modules register the surfaces the shell shows
 
 ```meta
-date: 2026-11-18
+date: 2026-11-24
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/06-runtime-view.md#main-window-close-hide-and-quit", ".devbook/design/interaction-guidelines.md#save-timing-and-debounce", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/component-libraries.md", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
@@ -274,7 +274,7 @@ surface's own feature flag still hides it everywhere the catalog is read (§1).
 
 **Amended 2026-11-11 by local ADR 0058 §4.** `open_window` and the link tokens it mints
 need the `ui:open` scope, so only a grant holding it can open a window or mint a web
-link; that scope is not built yet. The cookie a link buys expires after 8 idle hours
+link. The cookie a link buys expires after 8 idle hours
 rather than living as long as the app runs: each request it admits slides it, and a
 page whose circuit is connected is never idle. A page asked for on an expired cookie
 answers 401 with a page asking for the window to be opened again. The app logs every
@@ -372,6 +372,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-24 | §7's note no longer says the `ui:open` scope is unbuilt: it was built 2026-11-12, and the delivery and Coding agent grants hold it. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §4). |
 | 2026-11-18 | Built §5's last part: a `backlog://` link handed to a running instance shows the main window before it opens its pop-out, so a main window hidden to the tray comes back. `BacklogLinkActivation` calls `IShellWindows.ActivateMainWindow` first, and three unit tests cover it ([#1857](https://github.com/JSdotNet/Backlog/pull/1857)). | The plan's desktop QA found the link left a hidden main window hidden. |
 | 2026-11-18 | Built §5's tray keep-alive under plan `tray-keep-alive`: the close policy, the hide on close, the tray icon with **Open Backlog** and **Quit**, the one-time toast, the plain second-launch redirect, both switches on the MCP server settings page and the MSIX `StartupTask` that starts to the tray. The desktop QA passed and the installed-app check is marked done, except that a `backlog://` link opens its pop-out and leaves a hidden main window hidden; that re-show is still open. | Step 5 of the plan, `review-plan`, checked what landed against §5. |
 | 2026-11-11 | Amended §4: **Keep on top** and **Remember this window** leave the slim header for the popped-out window's title bar, in that order, just left of the system caption buttons. The head draws them as native controls in the trailing content of MAUI's `Window.TitleBar`, whose title follows the surface. The slim header keeps the title, the scope chips and **Show in main window**. No surface draws a close of its own in a window: the window hands it no close callback, and the OS close closes it. §5 names the toggle's new place. The toggles' behaviour, persistence and `shell-windows.json` are unchanged. Rejected gains the toggles among the caption buttons, a Blazor-drawn title bar and the surface ✕ in a window; the Consequences gain the toggles' move out of the component library. The design chapter takes their 32 px target as an exception and drops the ✕ from the main window's takeovers too. Built in the same pull request. | The repository owner wants the toggles beside the system buttons and no second ✕ under the OS one. |

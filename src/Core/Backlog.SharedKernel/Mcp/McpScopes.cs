@@ -66,6 +66,20 @@ public static class McpScopes
     /// spelled exactly.</summary>
     public static bool IsGrantable(string? scope) => scope is not null && Grantable.Contains(scope, StringComparer.Ordinal);
 
+    /// <summary>The scopes that guard one route or one hook and no tool an agent works with:
+    /// the telemetry exporter's logs route and the Question hook's asks. A grant holding nothing
+    /// beyond them may not call <c>request_access</c> either, so a leaked Telemetry or Question
+    /// hook block cannot ask for more (local ADR 0024).</summary>
+    public static IReadOnlyList<string> SinglePurpose { get; } = [TelemetryWrite, NotifyAsk];
+
+    /// <summary>Whether a caller holding <paramref name="held"/> may ask for more scopes: it holds
+    /// at least one grantable scope outside <see cref="SinglePurpose"/>.</summary>
+    public static bool MayRequestAccess(IEnumerable<string> held)
+    {
+        ArgumentNullException.ThrowIfNull(held);
+        return held.Any(scope => IsGrantable(scope) && !SinglePurpose.Contains(scope, StringComparer.Ordinal));
+    }
+
     /// <summary>The scopes an agent never grants another (local ADR 0058 §5): deciding, which no
     /// grant holds; granting, so delegation stays one level deep; and the admin scope, which asks
     /// the person for Windows Hello each time.</summary>

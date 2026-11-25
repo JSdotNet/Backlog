@@ -1,8 +1,11 @@
 @*
-    One agent that can reach Backlog, as a row of the MCP server page's Agents card
-    (local ADR 0058 §3): its name, one line saying what it is - its role, where it was
-    added, when it was last used - and its scopes as chips, so the row says what the
-    agent may do without opening it.
+    One thing that can reach the owner's backlog and can be shut out of it, as a row of a
+    settings card: an agent on the MCP server page's Agents card (local ADR 0058 §3), and a
+    paired device on the Devices page's Paired devices card (§6). Its name, one line saying
+    what it is - for an agent its role, where it was added, when it was last used - and, for
+    an agent, its scopes as chips, so the row says what the agent may do without opening it.
+    A device has no scopes, so its host turns them off (ShowScopes) rather than drawing a
+    second row: the two lists of things that can be shut out read, and behave, the same.
 
     Edit scopes opens the agent's switches in place, under the row, the way a
     repository's editor opens (.devbook/design/settings-pages.md#lists-that-expand-in-place):
@@ -13,30 +16,41 @@
     Revoke is confirmed in place, never in a dialog: the row's actions give way to the
     sentence saying what happens and the two answers, Revoke and Keep. The sentence is
     an alert, so a screen reader hears the question the moment it replaces the
-    button that asked it. The host is called only on the second Revoke.
+    button that asked it, and the focus moves onto the confirming Revoke, because the
+    button it was on has just gone. Keep, or a second Revoke the host could not carry out,
+    puts it back on the row's Revoke; a row the host removed takes nothing with it. The host
+    is called only on the second Revoke, and says why it failed through RevokeError, which
+    the row draws in its own actions, beside the button that failed.
+
+    The question is the row's own unless the host binds Confirming, as a page does where only
+    one row may ask at a time. Such a host also sets RevokeDisabled on the other rows while it
+    carries one revocation out, so a second never starts under it.
 *@
 
-<li class="@ClassValue" data-testid="@TestId" data-grant="@GrantId">
+<li class="@ClassValue" data-testid="@TestId" data-grant="@GrantId" @attributes="AdditionalAttributes">
     <div class="agent-row__who">
         <span class="agent-row__name" data-testid="agent-row-name">@Name</span>
         @if (!string.IsNullOrWhiteSpace(Meta))
         {
             <span class="agent-row__meta" data-testid="agent-row-meta">@Meta</span>
         }
-        <ul class="agent-row__scopes" aria-label="@($"Scopes of {Name}")" data-testid="agent-row-scopes">
-            @if (Scopes.Count == 0)
-            {
-                <li><Badge Kind="tone" Slug="quiet">no scopes</Badge></li>
-            }
-            @foreach (var scope in Scopes)
-            {
-                <li @key="scope">
-                    <Badge Kind="tone"
-                           Slug="@(Highlighted.Contains(scope, StringComparer.Ordinal) ? "alert" : "quiet")"
-                           TestId="agent-row-scope">@scope</Badge>
-                </li>
-            }
-        </ul>
+        @if (ShowScopes)
+        {
+            <ul class="agent-row__scopes" aria-label="@($"Scopes of {Name}")" data-testid="agent-row-scopes">
+                @if (Scopes.Count == 0)
+                {
+                    <li><Badge Kind="tone" Slug="quiet">no scopes</Badge></li>
+                }
+                @foreach (var scope in Scopes)
+                {
+                    <li @key="scope">
+                        <Badge Kind="tone"
+                               Slug="@(Highlighted.Contains(scope, StringComparer.Ordinal) ? "alert" : "quiet")"
+                               TestId="agent-row-scope">@scope</Badge>
+                    </li>
+                }
+            </ul>
+        }
     </div>
 
     <div class="agent-row__actions">
@@ -44,14 +58,15 @@
         {
             <Alert BaseClass="agent-row__confirm"
                    TestId="agent-row-revoke-question"
-                   Message="@RevokeQuestion(Name)" />
-            <DeleteButton Label="Revoke"
+                   Message="@QuestionValue" />
+            <DeleteButton @ref="_confirmButton"
+                          Label="Revoke"
                           ShowIcon="false"
-                          AriaLabel="@($"Revoke {Name} now")"
+                          AriaLabel="@($"Revoke {SpokenName} now")"
                           Busy="@_revoking"
                           TestId="agent-row-revoke-confirm"
                           OnClick="ConfirmAsync" />
-            <AppButton TestId="agent-row-revoke-keep" Disabled="@_revoking" OnClick="Keep">
+            <AppButton TestId="agent-row-revoke-keep" Disabled="@_revoking" OnClick="KeepAsync">
                 Keep
             </AppButton>
         }
@@ -68,13 +83,19 @@
             }
             @if (CanRevoke)
             {
-                <DeleteButton Label="Revoke"
+                <DeleteButton @ref="_revokeButton"
+                              Label="Revoke"
                               ShowIcon="false"
-                              AriaLabel="@($"Revoke {Name}")"
+                              AriaLabel="@($"Revoke {SpokenName}")"
                               TestId="agent-row-revoke"
-                              OnClick="Ask" />
+                              Disabled="@RevokeDisabled"
+                              OnClick="AskAsync" />
             }
         }
+        <Alert BaseClass="agent-row__confirm"
+               CssClass="agent-row__error"
+               TestId="agent-row-revoke-error"
+               Message="@(_confirming ? null : RevokeError)" />
     </div>
 
     @if (Expanded && ChildContent is not null)
@@ -86,12 +107,18 @@
 </li>
 
 @code {
-    /// <summary>The sentence Revoke asks before it acts.</summary>
+    /// <summary>The sentence Revoke asks before it acts, for an agent.</summary>
     public static string RevokeQuestion(string name) => $"Revoke {name}? Its sessions lose access now.";
 
-    /// <summary>What the person calls the agent.</summary>
+    /// <summary>What the person calls the agent or the device.</summary>
     [Parameter, EditorRequired]
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>What the Revoke buttons call the row to a screen reader, where
+    /// <see cref="Name"/> alone does not tell two rows apart - two devices both named
+    /// "Pixel 8". <see cref="Name"/> when unset.</summary>
+    [Parameter]
+    public string? AccessibleName { get; set; }
 
     /// <summary>The grant's id, written on the row so a test or a link can find it. Never
     /// drawn: the registration line is where a person reads it.</summary>
@@ -102,6 +129,11 @@
     /// The host writes it, because the library holds no clock.</summary>
     [Parameter]
     public string? Meta { get; set; }
+
+    /// <summary>Whether the row draws scope chips. Off for a row whose subject holds none -
+    /// a paired device, which syncs everything or nothing.</summary>
+    [Parameter]
+    public bool ShowScopes { get; set; } = true;
 
     /// <summary>The scopes the agent holds, in the order to draw them.</summary>
     [Parameter]
@@ -118,9 +150,32 @@
 
     /// <summary>Whether the row offers Revoke. Off for a row that holds no token, so has
     /// nothing to revoke - the Unauthenticated row (local ADR 0059 §1), which is closed by
-    /// switching its scopes off.</summary>
+    /// switching its scopes off - and for a device this device may not revoke.</summary>
     [Parameter]
     public bool CanRevoke { get; set; } = true;
+
+    /// <summary>Whether the offered Revoke cannot be pressed now: the host is carrying out
+    /// another row's revocation, and runs one at a time.</summary>
+    [Parameter]
+    public bool RevokeDisabled { get; set; }
+
+    /// <summary>The sentence the second Revoke stands beside: what revoking does to this
+    /// row's subject. <see cref="RevokeQuestion"/> of <see cref="Name"/> when unset.</summary>
+    [Parameter]
+    public string? Question { get; set; }
+
+    /// <summary>Whether Revoke is asking. Bound by a host that lets one row ask at a time;
+    /// left unbound, the row keeps it itself.</summary>
+    [Parameter]
+    public bool Confirming { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ConfirmingChanged { get; set; }
+
+    /// <summary>Why the last second Revoke did not revoke, drawn in the row's actions beside
+    /// its Revoke; null for none. The host clears it when Revoke asks again.</summary>
+    [Parameter]
+    public string? RevokeError { get; set; }
 
     /// <summary>Whether the switches are open under the row.</summary>
     [Parameter]
@@ -148,9 +203,33 @@
     [Parameter]
     public string? TestId { get; set; }
 
+    /// <summary>Anything else the host writes on the row - a <c>data-device</c> a test or a
+    /// link finds it by.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private enum FocusTarget
+    {
+        None,
+        Confirm,
+        Revoke,
+    }
+
     private bool _confirming;
 
     private bool _revoking;
+
+    private FocusTarget _focus;
+
+    private DeleteButton? _confirmButton;
+
+    private DeleteButton? _revokeButton;
+
+    private bool Bound => ConfirmingChanged.HasDelegate;
+
+    private string SpokenName => string.IsNullOrWhiteSpace(AccessibleName) ? Name : AccessibleName;
+
+    private string QuestionValue => string.IsNullOrWhiteSpace(Question) ? RevokeQuestion(Name) : Question;
 
     private string ClassValue
     {
@@ -163,23 +242,88 @@
         }
     }
 
-    private void Ask() => _confirming = true;
+    protected override void OnParametersSet()
+    {
+        if (Bound) _confirming = Confirming;
+    }
 
-    private void Keep() => _confirming = false;
+    private Task AskAsync()
+    {
+        _focus = FocusTarget.Confirm;
+        return SetConfirmingAsync(true);
+    }
+
+    private Task KeepAsync()
+    {
+        _focus = FocusTarget.Revoke;
+        return SetConfirmingAsync(false);
+    }
 
     private async Task ConfirmAsync()
     {
         if (_revoking) return;
 
         _revoking = true;
+        var returned = false;
         try
         {
             await OnRevoke.InvokeAsync();
+            returned = true;
         }
         finally
         {
             _revoking = false;
-            _confirming = false;
+
+            // A host that threw answers nothing, so an unbound row would keep asking a
+            // question no button can settle: it puts its own Revoke back. A bound row's
+            // question is its host's to close. Drawn here, because the framework draws
+            // nothing after a handler that faults once it has awaited.
+            if (!returned && !Bound)
+            {
+                _confirming = false;
+                _focus = FocusTarget.Revoke;
+                StateHasChanged();
+            }
+        }
+
+        // Still drawn, so the host did not take the row away: the Revoke it asked from
+        // is back, and the focus goes to it rather than to the page.
+        _focus = FocusTarget.Revoke;
+        await SetConfirmingAsync(false);
+    }
+
+    private Task SetConfirmingAsync(bool confirming)
+    {
+        // Bound, the host's answer comes back as Confirming: it may keep another row asking.
+        if (Bound) return ConfirmingChanged.InvokeAsync(confirming);
+
+        _confirming = confirming;
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var target = _focus;
+        _focus = FocusTarget.None;
+
+        // The button asked for, if it is the one drawn: a bound host that kept another row
+        // asking, or a Revoke the row no longer offers, leaves the focus where it is.
+        var button = target switch
+        {
+            FocusTarget.Confirm when _confirming => _confirmButton,
+            FocusTarget.Revoke when !_confirming && CanRevoke => _revokeButton,
+            _ => null,
+        };
+
+        if (button is null) return;
+
+        try
+        {
+            await button.FocusAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            // Prerendered, torn down or its circuit gone: nothing to move the focus to.
         }
     }
 }
