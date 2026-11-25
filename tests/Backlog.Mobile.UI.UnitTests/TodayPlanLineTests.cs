@@ -126,6 +126,50 @@ public sealed class TodayPlanLineTests
     }
 
     [Fact]
+    public void Ready_counts_the_entries_Next_reads_and_not_one_still_waiting_on_another()
+    {
+        // #1 done; #2 and #3 ready; #4 ready but waiting on #2 and #3; a test #5 ready,
+        // waiting on #4 — left for you, so Next reads it too.
+        var first = Entry("+lets-bbq", "done", completedOn: Yesterday);
+        var second = Entry("+lets-bbq", "ready", type: "prompt");
+        var third = Entry("+lets-bbq", "ready", type: "prompt");
+        var fourth = Entry("+lets-bbq", "ready", type: "prompt", dependsOn: [second.Id.ToString(), third.Id.ToString()]);
+        var fifth = Entry("+lets-bbq", "ready", type: "test", dependsOn: [fourth.Id.ToString()]);
+
+        var line = Assert.Single(TodayPlanLine.For(
+            [("lets-bbq", Today)],
+            [first, second, third, fourth, fifth],
+            Today,
+            clearsOvernight: true));
+
+        Assert.Equal(TodayPlanState.Ready, line.State);
+        Assert.Equal("3 ready", line.StateText);
+    }
+
+    [Fact]
+    public void An_entry_waiting_only_on_done_work_is_ready()
+    {
+        var first = Entry("+lets-bbq", "done", completedOn: Yesterday);
+        var second = Entry("+lets-bbq", "ready", type: "prompt", dependsOn: [first.Id.ToString()]);
+
+        var line = Assert.Single(TodayPlanLine.For([("lets-bbq", Today)], [first, second], Today, clearsOvernight: true));
+
+        Assert.Equal("1 ready", line.StateText);
+    }
+
+    [Fact]
+    public void A_plan_whose_ready_entries_all_wait_on_a_draft_says_nothing()
+    {
+        var draft = Entry("+lets-bbq", "draft", type: "prompt");
+        var waiting = Entry("+lets-bbq", "ready", type: "prompt", dependsOn: [draft.Id.ToString()]);
+
+        var line = Assert.Single(TodayPlanLine.For([("lets-bbq", Today)], [draft, waiting], Today, clearsOvernight: true));
+
+        Assert.Equal(TodayPlanState.None, line.State);
+        Assert.Equal(0, line.ReadyCount);
+    }
+
+    [Fact]
     public void Lines_keep_the_order_the_roadmap_lists_its_plans()
     {
         var lines = TodayPlanLine.For([("zeta", Today), ("alpha", Today)], [], Today, clearsOvernight: true);
@@ -141,9 +185,19 @@ public sealed class TodayPlanLineTests
     public void PlanKey_is_the_roadmaps_slug(string tag, string key) =>
         Assert.Equal(key, TodayPlanLine.PlanKey(tag));
 
-    private static TaskViewRow Entry(string plan, string status, DateOnly? completedOn = null)
+    private static TaskViewRow Entry(
+        string plan,
+        string status,
+        DateOnly? completedOn = null,
+        string type = "task",
+        IReadOnlyList<string>? dependsOn = null)
     {
-        var change = TestTasks.Task("Entry", Now, status: status, tags: [plan]);
-        return new TaskViewRow(change.Id, change.UpdatedAt, change.DeletedAt, 1, change.Task with { CompletedOn = completedOn });
+        var change = TestTasks.Task("Entry", Now, status: status, type: type, tags: [plan]);
+        return new TaskViewRow(
+            change.Id,
+            change.UpdatedAt,
+            change.DeletedAt,
+            1,
+            change.Task with { CompletedOn = completedOn, DependsOn = dependsOn ?? [] });
     }
 }

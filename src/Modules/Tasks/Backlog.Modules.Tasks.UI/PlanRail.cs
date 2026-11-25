@@ -50,7 +50,9 @@ public enum PlanRunState
 /// <param name="Total">All its entries, open and finished.</param>
 /// <param name="State">Its run state.</param>
 /// <param name="QueuePlace">Its 1-based place in the queue, for <see cref="PlanRunState.Queued"/>.</param>
-/// <param name="ReadyCount">How many of its open entries are ready and not marked blocked.</param>
+/// <param name="ReadyCount">How many of its open entries read under Next
+/// (<see cref="PlanSections.SectionOf"/>) and are not marked blocked: ready as the run
+/// would pick them up, an entry still waiting on another one not among them.</param>
 public sealed record PlanRailPlan(
     string Tag,
     string Name,
@@ -93,16 +95,22 @@ public static class PlanRail
     /// <param name="planRequests">The plans' open session requests, by bare tag.</param>
     /// <param name="queue">The session queue's rows in queue order: a Requested plan's
     /// place is counted among the Requested rows.</param>
+    /// <param name="readsAsNext">Whether an open entry reads under Next in its plan's
+    /// sections (<see cref="PlanSections.SectionOf"/> over its plan entry state), so the
+    /// rail's <c>N ready</c> counts as the plan's own sections do — never a Ready entry
+    /// still waiting on another one.</param>
     public static IReadOnlyList<PlanRailPlan> Plans(
         IReadOnlyList<TagFilterOption> tagFilters,
         IReadOnlyList<EntryRow> scopedRows,
         IReadOnlyDictionary<string, EntrySessionRequest> planRequests,
-        IReadOnlyList<SessionQueueRow> queue)
+        IReadOnlyList<SessionQueueRow> queue,
+        Func<EntryRow, bool> readsAsNext)
     {
         ArgumentNullException.ThrowIfNull(tagFilters);
         ArgumentNullException.ThrowIfNull(scopedRows);
         ArgumentNullException.ThrowIfNull(planRequests);
         ArgumentNullException.ThrowIfNull(queue);
+        ArgumentNullException.ThrowIfNull(readsAsNext);
 
         var waiting = queue.Where(row => row.CanMove).ToList();
         var plans = new List<PlanRailPlan>();
@@ -115,7 +123,9 @@ public static class PlanRail
             var open = scopedRows
                 .Where(row => !row.IsPreviewFinished && row.PreviewTags.Contains(option.Value, StringComparer.OrdinalIgnoreCase))
                 .ToList();
-            var ready = open.Count(row => row.PreviewStatus is EntryStatus.Ready && !row.IsPreviewBlocked);
+            // An entry held for you reads under Next but is marked blocked, so it is not
+            // counted ready: alone it leaves the plan Blocked.
+            var ready = open.Count(row => readsAsNext(row) && !row.IsPreviewBlocked);
             var place = waiting.FindIndex(row => string.Equals(row.PlanTag, bare, StringComparison.OrdinalIgnoreCase)) + 1;
             planRequests.TryGetValue(bare, out var request);
 
@@ -136,7 +146,8 @@ public static class PlanRail
 
     /// <summary>A plan's run state: its request first — Running once a dispatcher holds
     /// it, Queued while it waits — then its open entries: Blocked when one is marked
-    /// blocked and none is ready, the ready count when any is, Draft when all are drafts.</summary>
+    /// blocked and none is ready, the ready count when any is, Draft when all are drafts.
+    /// <paramref name="ready"/> is the plan's <see cref="PlanRailPlan.ReadyCount"/>.</summary>
     internal static PlanRunState RunState(EntrySessionRequestState? request, IReadOnlyList<EntryRow> open, int ready)
     {
         if (request is EntrySessionRequestState.Claimed or EntrySessionRequestState.Started) return PlanRunState.Running;
