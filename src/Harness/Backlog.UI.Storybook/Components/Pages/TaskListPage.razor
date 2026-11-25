@@ -384,6 +384,41 @@ It exists for the row that was projected from a document the task itself does no
         </div>
     </Story>
 
+    @foreach (var quiet in QuietStatuses)
+    {
+        <Story Name="@($"Quiet row: {quiet.Label}")"
+               Description="@($"`Quiet` on the row — `QuietRows` on the list — is the look the Tasks pane opts into. The status is the same `StatusSelector` in `Actions`, drawn as text, and a press still opens its list. {quiet.Ink} The row ends in the copy and the host's `Trailing` control. Every badge, the link handle and the repository stripe stay as they are.")"
+               Code="@QuietRowCode">
+            <ul class="task-list sb-menu-wide" data-testid="@($"task-list-quiet-{quiet.Slug}")">
+                <TaskItem Task="@(new TaskRow($"quiet-{quiet.Slug}", "Revoke a device from Settings", MarkedBlocked: quiet.Blocked))"
+                          Quiet="true"
+                          LinkHandle="true"
+                          OnToggle="_ => { }"
+                          OnSelected="_ => { }"
+                          Actions="@(task => QuietStatus(task, quiet.Value))"
+                          Trailing="@(task => QuietQueue(task, QueueButtonState.Idle))"
+                          TestId="@($"quiet-{quiet.Slug}")" />
+            </ul>
+        </Story>
+    }
+
+    @foreach (var queue in QueueLooks)
+    {
+        <Story Name="@($"Queue button: {queue.Label}")"
+               Description="@queue.Description"
+               Code="@QueueButtonCode">
+            <ul class="task-list sb-menu-wide" data-testid="@($"task-list-queue-{queue.Slug}")">
+                <TaskItem Task="@(new TaskRow($"queue-{queue.Slug}", "Revoke a device from Settings"))"
+                          Quiet="true"
+                          OnToggle="_ => { }"
+                          Actions="@(task => QuietStatus(task, "Ready"))"
+                          Trailing="@(task => QuietQueue(task, queue.State))"
+                          TestId="@($"queue-{queue.Slug}")" />
+            </ul>
+            <p class="sb-state" data-testid="@($"task-list-queue-{queue.Slug}-state")">@(_lastQueue ?? "No queue button pressed yet.")</p>
+        </Story>
+    }
+
     <Story Name="What is deliberately not here"
            Description="The list of things a component would have had to guess, and which the product should decide first. Each of them is a parameter or a callback today rather than behaviour.">
         <dl class="sb-grid" data-testid="task-list-open-questions">
@@ -403,6 +438,7 @@ It exists for the row that was projected from a document the task itself does no
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#task-rows", "What a row states, in what order, and what goes quiet when."),
+        new("color-scheme.md#badge-and-chip-tones", "Which ink each status takes on a quiet row."),
         new("interaction-guidelines.md#drag-and-drop-reordering", "The grip, the drop indicator and what may be dragged."),
         new("interaction-guidelines.md#keyboard-accessible-reordering", "The keys that move a row without a pointer."),
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why a rename and a tick commit without asking."),
@@ -411,6 +447,74 @@ It exists for the row that was projected from a document the task itself does no
         new("accessibility.md#target-sizes-and-text", "Why an address in a title is underlined as well as coloured."),
         new("typography-and-layout.md#metadata-lines", "How dates, repeats and tags are set beside a title.")
     ];
+
+    private sealed record QuietStatusSample(string Slug, string Label, string Value, bool Blocked, string Ink);
+
+    private static readonly QuietStatusSample[] QuietStatuses =
+    [
+        new("in-progress", "in progress", "InProgress", false, "`CurrentValue=\"InProgress\"`."),
+        new("ready", "ready", "Ready", false, "`CurrentValue=\"Ready\"`."),
+        new("draft", "draft", "Draft", false, "`CurrentValue=\"Draft\"`."),
+        new("blocked", "blocked", "Ready", true, "A row with `MarkedBlocked` set, whatever its status; its copy is refused as on any row.")
+    ];
+
+    private sealed record QueueLook(string Slug, string Label, QueueButtonState State, string Description);
+
+    private static readonly QueueLook[] QueueLooks =
+    [
+        new("idle", "idle", QueueButtonState.Idle, "`QueueButton` with `State=\"Idle\"`, for a row nothing is queued for: a press queues a session. The host's `Label` names that act."),
+        new("queued", "queued", QueueButtonState.Queued, "`State=\"Queued\"`, for a row a session is queued for: a press takes it off the queue, and the host's `Label` says so. `DisabledReason` refuses it once there is nothing left to take back."),
+        new("plan-entry", "plan entry", QueueButtonState.PlanEntry, "`State=\"PlanEntry\"`, for an entry of a plan, which is queued only as a whole (local ADR 0062 §4): refused, with the reason on its tooltip and in an sr-only span the button points at.")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> QuietStatusOptions =
+    [
+        new("Draft", "Draft"),
+        new("Ready", "Ready"),
+        new("InProgress", "In progress"),
+        new("Done", "Done"),
+        new("Archived", "Archived")
+    ];
+
+    private string? _lastQueue;
+
+    private RenderFragment QuietStatus(TaskRow task, string value) =>
+        @<StatusSelector CurrentValue="@value"
+                         Options="@QuietStatusOptions"
+                         Label="@($"Change status of {task.Title}")"
+                         TestId="@($"{task.Id}-status-selector")" />;
+
+    private RenderFragment QuietQueue(TaskRow task, QueueButtonState state) =>
+        @<QueueButton State="@state"
+                      Label="@(state switch
+                      {
+                          QueueButtonState.Queued => $"Take {task.Title} off the queue",
+                          QueueButtonState.PlanEntry => "Queue the +zero-trust-auth plan as a whole — its entries are not queued one by one",
+                          _ => $"Queue a session for {task.Title}"
+                      })"
+                      ReasonId="@($"{task.Id}-queue-reason")"
+                      TestId="@($"{task.Id}-queue")"
+                      OnClick="() => PressQueue(task, state)" />;
+
+    private void PressQueue(TaskRow task, QueueButtonState state) =>
+        _lastQueue = $"Pressed the {state} queue button on {task.Id}.";
+
+    private const string QuietRowCode = """
+        <TaskListView Tasks="@rows" QuietRows="true" AllowCopy="true" ...>
+            <RowActions Context="task">
+                <StatusSelector CurrentValue="Ready" Options="@statuses" Label="@($"Change status of {task.Title}")" />
+            </RowActions>
+            <RowTrailing Context="task">
+                <QueueButton State="QueueButtonState.Idle" Label="@($"Queue a session for {task.Title}")" OnClick="..." />
+            </RowTrailing>
+        </TaskListView>
+        """;
+
+    private const string QueueButtonCode = """
+        <QueueButton State="QueueButtonState.Idle" Label="Queue a session for Revoke a device" OnClick="Queue" />
+        <QueueButton State="QueueButtonState.Queued" Label="Take Revoke a device off the queue" OnClick="Unqueue" />
+        <QueueButton State="QueueButtonState.PlanEntry" Label="Queue the +zero-trust-auth plan as a whole" />
+        """;
 
     private sealed record OpenQuestion(string Name, string Detail);
 

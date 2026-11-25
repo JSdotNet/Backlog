@@ -74,7 +74,7 @@ public sealed class TasksSessionRequestTests
             Assert.Equal((row.Id!.Value, Backlog, BacklogClone), asked);
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='session-request-chip']").TextContent, StringComparison.Ordinal);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+            Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
         Assert.Contains(host.Toasts.Visible, toast => toast.TestId == "session-request-queued");
     }
@@ -98,7 +98,7 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
-    public async Task A_saved_prompt_s_list_row_carries_the_icon_in_its_actions_and_queues_from_there()
+    public async Task A_saved_prompt_s_list_row_ends_in_the_queue_button_after_its_copy_and_queues_from_there()
     {
         var (host, queue, _) = await HostAsync();
         using var _host = host;
@@ -106,8 +106,11 @@ public sealed class TasksSessionRequestTests
 
         var pane = host.Render();
         var button = RowIcon(pane, row);
-        Assert.NotNull(button.Closest(".task-item__actions"));
-        Assert.Contains("task-item__action-button", button.ClassList);
+        Assert.NotNull(button.Closest(".task-item__trailing"));
+        Assert.Null(button.Closest(".task-item__actions"));
+        Assert.Contains("queue-button--idle", button.ClassList);
+        Assert.Contains("task-item__copy", button.Closest(".task-item__trailing")!.PreviousElementSibling!.ClassList);
+        Assert.Contains("task-item--quiet", RowOf(pane, row).ClassList);
         Assert.Equal($"Queue a session for this entry in {Backlog}", button.GetAttribute("aria-label"));
 
         button.Click();
@@ -115,7 +118,9 @@ public sealed class TasksSessionRequestTests
         pane.WaitForAssertion(() =>
         {
             Assert.Equal((row.Id!.Value, Backlog, BacklogClone), Assert.Single(queue.Asked));
-            Assert.Empty(RowOf(pane, row).QuerySelectorAll("[data-testid='row-queue-session']"));
+            var queued = RowIcon(pane, row);
+            Assert.Contains("queue-button--queued", queued.ClassList);
+            Assert.Equal("Take Add the Start session action off the queue", queued.GetAttribute("aria-label"));
             Assert.NotNull(RowOf(pane, row).QuerySelector("[data-testid='row-session-request']"));
         });
     }
@@ -149,7 +154,7 @@ public sealed class TasksSessionRequestTests
         {
             Assert.Single(queue.Asked);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+            Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
     }
 
@@ -479,7 +484,12 @@ public sealed class TasksSessionRequestTests
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='row-session-request']").TextContent, StringComparison.Ordinal);
             Assert.Equal(cancellable, pane.FindAll("[data-testid='session-request-cancel']").Count == 1);
             Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
-            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+
+            // The row's queue button stays, queued, and takes the request back only
+            // while the open entry's Cancel would.
+            var queued = RowIcon(pane, row);
+            Assert.Equal("queued", queued.GetAttribute("data-queue-state"));
+            Assert.Equal(!cancellable, queued.HasAttribute("disabled"));
         });
     }
 
@@ -505,6 +515,29 @@ public sealed class TasksSessionRequestTests
             Assert.Empty(pane.FindAll("[data-testid='row-session-request']"));
             Assert.False(EntryIcon(pane).HasAttribute("disabled"));
             Assert.False(RowIcon(pane, row).HasAttribute("disabled"));
+        });
+    }
+
+    [Fact]
+    public async Task Pressing_the_row_s_queued_button_takes_the_request_back()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var requestId = Guid.NewGuid();
+        queue.Open[row.Id!.Value] = new(requestId, EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch);
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("queued", RowIcon(pane, row).GetAttribute("data-queue-state")));
+        Assert.Equal("Take Add the Start session action off the queue", RowIcon(pane, row).GetAttribute("aria-label"));
+
+        RowIcon(pane, row).Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([requestId], queue.Cancelled);
+            Assert.Empty(queue.Asked);
+            Assert.Equal("idle", RowIcon(pane, row).GetAttribute("data-queue-state"));
         });
     }
 

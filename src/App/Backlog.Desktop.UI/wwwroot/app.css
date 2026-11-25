@@ -2523,6 +2523,19 @@ h1, h2, h3 {
         padding: 0;
         color: transparent;
     }
+
+    /* The quiet row (TaskItem Quiet) draws its status as ink with no fill, so its
+       dot is filled with that ink instead: the same state colour, said shorter.
+       Scoped one class deeper than the quiet rule in components.css so the dot, not
+       the word, wins at this width. */
+    .task-item--quiet .entry-row__pickers .badge--status {
+        width: var(--spacing-md);
+        min-width: var(--spacing-md);
+        height: var(--spacing-md);
+        border: var(--border-width) solid currentColor;
+        border-radius: var(--border-radius-full);
+        background: currentColor;
+    }
 }
 
 /* 26rem: down here the column is close to the 20rem the separator can drag it to,
