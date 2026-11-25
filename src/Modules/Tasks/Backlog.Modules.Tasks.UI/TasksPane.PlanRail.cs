@@ -56,9 +56,17 @@ public partial class TasksPane
             ? State.TagFilters.Where(tag => tag.Value != TasksDesktopState.NoPlanTag && TagText.Kind(tag.Value) is not TagKind.Plan).ToList()
             : State.TagFilters;
 
-    /// <summary>The rail's plans, with their counts and run states.</summary>
+    /// <summary>The rail's plans, with their counts and run states. Which plans it lists
+    /// follows the bar's plan chips, so a slice narrows it to the plans with an entry in
+    /// it; each plan's <c>done/total</c> counts the whole plan in every selection
+    /// (<see cref="TasksDesktopState.WholePlanChip"/>), as its run state does.</summary>
     private IReadOnlyList<PlanRailPlan> RailPlans() =>
-        PlanRail.Plans(State.TagFilters, State.ScopedRows, _planSessions.Open, SessionQueueRows(), ReadsAsNext);
+        PlanRail.Plans(
+            [.. State.TagFilters.Select(State.WholePlanChip)],
+            State.ScopedRows,
+            _planSessions.Open,
+            SessionQueueRows(),
+            ReadsAsNext);
 
     /// <summary>Whether an entry reads under Next in its plan's sections — the one
     /// reading the rail's <c>N ready</c>, the expanded plan and its folded note share.</summary>

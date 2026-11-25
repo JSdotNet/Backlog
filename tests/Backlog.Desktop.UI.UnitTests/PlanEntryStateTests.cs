@@ -212,7 +212,12 @@ public sealed class PlanEntryStateTests
         await host.WriteEntryAsync($"# Second\n`prompt` `!ready` `+{Plan}` `after:{first.Id}`\n\nThen this.\n");
 
         var plan = Assert.Single(
-            PlanRail.Plans(host.State.TagFilters, host.State.ScopedRows, new Dictionary<string, EntrySessionRequest>(), []),
+            PlanRail.Plans(
+                host.State.TagFilters,
+                host.State.ScopedRows,
+                new Dictionary<string, EntrySessionRequest>(),
+                [],
+                row => host.State.PlanEntryStateOf(row) is { } state && PlanSections.SectionOf(row, state) is PlanSection.Next),
             plan => plan.Name == Plan);
 
         Assert.Equal((1, 2), (plan.Done, plan.Total));

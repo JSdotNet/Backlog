@@ -237,6 +237,45 @@ public sealed class PlanRailTests
     }
 
     [Fact]
+    public async Task Now_across_plans_and_My_Day_keep_each_plans_done_and_total_whole()
+    {
+        var (host, _) = await HostAsync();
+        using var _host = host;
+        // One +alpha entry in today's My Day, so My Day narrows the rail to +alpha alone.
+        await host.WriteEntryAsync($"# Review it +alpha\n`task` `!draft` `myday:{DateOnly.FromDateTime(DateTime.Now):yyyy-MM-dd}`\n");
+        await host.State.SelectAsync(null);
+        var pane = RenderPlans(host);
+
+        AngleSharp.Dom.IElement Plan(string name) => pane.Find($"[data-testid='plan-rail-plan'][data-plan='{name}']");
+
+        void AlphaReadsWhole()
+        {
+            Assert.Equal("1/5", Text(Plan("alpha").QuerySelector("[data-testid='plan-rail-progress']")!));
+            Assert.Equal("width: 20%", Plan("alpha").QuerySelector(".plan-rail__bar-fill")!.GetAttribute("style"));
+            Assert.Equal("alpha, 1 of 5 done, 1 ready", Plan("alpha").GetAttribute("aria-label"));
+        }
+
+        pane.WaitForAssertion(AlphaReadsWhole);
+
+        pane.Find("[data-testid='plan-rail-now']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.True(host.State.NowAcrossPlansOnly);
+            AlphaReadsWhole();
+            Assert.Equal("0/1", Text(Plan("epsilon").QuerySelector("[data-testid='plan-rail-progress']")!));
+        });
+
+        pane.Find("[data-testid='plan-rail-myday']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotNull(host.State.MyDayOn);
+            AlphaReadsWhole();
+        });
+    }
+
+    [Fact]
     public async Task In_Plans_the_strip_keeps_people_and_tags_and_drops_the_plan_chips()
     {
         var (host, _) = await HostAsync();
