@@ -99,16 +99,74 @@ The sync service SHALL list an owner's devices with the device whose code paired
 
 ```meta
 type: requirement
+related: [.devbook/domain/sync/domain.md#registration-credential]
 tests: unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.Only_the_hash_of_the_credential_is_stored
 ```
 
-The sync service SHALL hand a device its [Registration credential](domain.md#registration-credential) only in the answer to its registration or pairing, and SHALL keep only a hash of it.
+The sync service SHALL hand a device that registers or pairs without a public key its [Registration credential](domain.md#registration-credential) only in that answer, and SHALL keep only a hash of it.
 
-#### Scenario: A device registers
+#### Scenario: A device with no device key registers
 
-- **Given** a device registering with the sync service
+- **Given** a device registering with no device key
 - **When** the service answers
 - **Then** the answer carries the credential, and the service's store holds only its hash
+
+### Requirement: A device with a key gets no secret
+
+```meta
+type: requirement
+related: [.devbook/domain/sync/domain.md#device-key, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.Registering_with_a_public_key_stores_the_key_and_mints_no_credential, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.Pairing_with_a_public_key_stores_the_key_and_mints_no_credential, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_public_key_that_is_not_one_is_refused_before_the_enrolment_code_is_spent, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.Pairing_with_a_public_key_that_is_not_one_leaves_the_code_unspent, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyRoundTripTests.A_device_registered_with_its_key_signs_for_a_token_that_syncs_and_keeps_no_secret, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceKeyClientTests.Registering_with_a_key_sends_the_public_key_and_stores_no_secret, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceKeyClientTests.Pairing_with_a_key_sends_the_public_key_and_stores_no_secret]
+```
+
+The sync service SHALL store the public half of a device's [Device key](domain.md#device-key) and return no credential when the device enrols or pairs with one. It SHALL refuse a malformed key before the enrolment or pairing code is spent.
+
+#### Scenario: A phone pairs with its key
+
+- **Given** a pairing code the desktop showed, and a phone with a device key
+- **When** the phone redeems the code with its public key
+- **Then** it is paired under the desktop's owner, and neither the answer nor the phone's store holds a secret
+
+### Requirement: A key-bound device gets a token only for an assertion its key signed
+
+```meta
+type: requirement
+related: [.devbook/domain/sync/domain.md#device-assertion, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_valid_assertion_gets_a_token_naming_the_device, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.The_same_assertion_works_once, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_signed_by_another_key_is_refused, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyEndpointTests.A_key_bound_device_signs_for_a_thirty_minute_token_that_syncs, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyEndpointTests.A_replayed_assertion_is_unauthorized, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyEndpointTests.A_key_bound_device_has_no_credential_path, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyRoundTripTests.A_bound_device_sending_its_secret_alone_is_refused]
+```
+
+The sync service SHALL mint a [Device token](domain.md#device-token) for a key-bound device only for a [Device assertion](domain.md#device-assertion) its key signed, and only once for each assertion.
+
+**Why:** a copied app folder holds no secret, so it cannot sync from another machine (local ADR 0058 §2).
+
+#### Scenario: A copied app folder on another machine
+
+- **Given** a key-bound desktop whose app folder was copied to another machine
+- **When** the other machine asks for a device token
+- **Then** the request is refused as unauthorized
+
+#### Scenario: A replayed assertion
+
+- **Given** a device assertion that has already been exchanged for a token
+- **When** it is sent again
+- **Then** the request is refused as unauthorized
+
+### Requirement: A device on a credential moves onto its key once
+
+```meta
+type: requirement
+related: [.devbook/domain/sync/domain.md#registration-credential, .devbook/domain/sync/domain.md#device-key]
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_credential_device_binds_its_key_once_and_its_credential_stops_working, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyRoundTripTests.A_credential_device_moves_onto_its_key_and_its_old_secret_is_refused, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceKeyRoundTripTests.A_migration_resent_after_the_bind_succeeds_and_forgets_the_secret, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceKeyClientTests.A_device_on_a_credential_moves_onto_its_key_once_and_forgets_the_secret, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DerSignedDeviceKeyTests.A_paired_phone_moves_onto_its_key_on_the_next_fetch_and_deletes_its_stored_secret, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.DeviceKeyClientTests.A_host_with_no_key_store_goes_on_sending_the_secret]
+```
+
+A device on a [Registration credential](domain.md#registration-credential), on a host with a key store, SHALL bind its [Device key](domain.md#device-key) at its next token fetch and then delete the credential. The sync service SHALL refuse that credential once the key is bound. A host with no key store SHALL go on with the credential.
+
+#### Scenario: A phone paired before keys
+
+- **Given** a phone that holds a registration credential and now has a key store
+- **When** it next asks for a device token
+- **Then** it gets one, its key is bound, and its stored credential is gone
+- **And** the old credential is refused from then on
 
 ### Requirement: A device token expires
 

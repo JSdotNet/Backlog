@@ -123,7 +123,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/events/context.md", ".devbook/domain/calendar/context.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0047-the-domain-view-reads-by-unit.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/events/context.md", ".devbook/domain/calendar/context.md", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client and the one channel that serves every domain. It runs **Standalone** or **Connected** (`.devbook/arc42/12-glossary.md#terms`).
@@ -401,10 +401,11 @@ An area may also open the panel itself. Each dashboard part's frame draws an Ask
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and both web harnesses. The harnesses register it separately, so they pair as two distinct devices. Its parts:
 
-- `IDeviceCredentialStore` holds the registration credential: `DpapiDeviceCredentialStore` on Windows, `SecureValueDeviceCredentialStore` on Android over MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) so a force-stop does not un-pair the phone, and an in-memory store for tests.
-- `SyncTokenProvider` exchanges the credential for a device token and caches it, refreshing within two minutes of expiry and never retrying a 401.
+- `IDeviceKeyStore` is the port for the device's non-exportable signing key (local ADR 0058 §2). The desktop head registers `CngDeviceKeyStore`, TPM first, and the phone head `AndroidKeystoreDeviceKeyStore`, StrongBox first. A development harness keeps a software key (`DeviceKeyStoreFactory`). The mobile web harness registers none, so its device stays on a registration credential.
+- `IDeviceCredentialStore` holds the device's registration: owner, device and name, plus the registration credential only for a device without a key. It is `DpapiDeviceCredentialStore` on Windows, `SecureValueDeviceCredentialStore` on Android over MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) so a force-stop does not un-pair the phone, and an in-memory store for tests.
+- `SyncTokenProvider` gets a device token and caches it, refreshing within two minutes of expiry and never retrying a 401. A key-bound device signs a fresh [Device assertion](../domain/sync/domain.md#device-assertion) for each fetch. A device still on a credential moves onto its key at its next fetch and deletes the credential. A bound device whose key will not open reports `KeyUnavailable`.
 - `SyncAuthenticationHandler` attaches the token to outbound requests.
-- `DevicePairingClient` drives the pairing calls and awaits the store's `SaveAsync`, so the Android store never blocks the pairing screen.
+- `DevicePairingClient` drives the enrolment and pairing calls, sending the device's public key where it has a key store, and awaits the store's `SaveAsync`, so the Android store never blocks the pairing screen.
 
 The GitHub, Claude and Azure Foundry settings stores seal their keys with the same DPAPI scope, one value at a time (local ADR 0030).
 
@@ -483,7 +484,7 @@ graph TB
     Speech["Speech transcriber\n(on-device, or Cloud engine)"]
     Share["Share target"]
     Shortcut["Launcher shortcut (Capture)"]
-    Creds["Secure storage\n(device credential)"]
+    Creds["Android Keystore\n(device key)"]
     Installer["APK installer\n(PackageInstaller)"]
   end
 
@@ -525,7 +526,7 @@ graph TB
   API -->|"GET /api/sync/tasks (task feed)"| TaskView
   API -->|"GET /api/sync/tasks (note documents)"| NoteView
   API -->|"GET /api/sync/knowledge-events"| EventView
-  Creds -.->|bearer| API
+  Creds -.->|"signs the token request"| API
 ```
 
 The shell (`MainLayout`) is an app bar, the page, and bottom tabs. The app bar holds the version control, the sync line and the settings cog. The tabs are withheld until the device is paired.

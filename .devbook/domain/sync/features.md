@@ -9,7 +9,7 @@ type: features
 ```meta
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device, .devbook/domain/sync/domain.md#device-key, .devbook/domain/sync/domain.md#device-assertion]
 ```
 
 ```mermaid
@@ -17,14 +17,19 @@ sequenceDiagram
     participant First as First device
     participant Second as Second device
     participant Sync as Sync service
-    First->>Sync: Sign in with GitHub, then register under the owner
-    Sync-->>First: Registration credential, shown once
-    First->>Sync: Ask for a pairing code
+    participant GitHub
+    First->>Sync: Start the owner sign-in
+    Sync->>GitHub: Authorize
+    GitHub-->>Sync: The owner's numeric user id
+    Sync-->>First: One-time enrolment code, to its loopback
+    First->>Sync: Register with the code, the verifier and its public key
+    Sync-->>First: Device id, same owner, no secret
+    First->>Sync: Ask for a pairing code, confirmed with Windows Hello
     Sync-->>First: Pairing code
     Note over First,Second: The person enters the code on the second device
-    Second->>Sync: Redeem the code
-    Sync-->>Second: Its own registration credential, same owner
-    Second->>Sync: Exchange credential for a device token
+    Second->>Sync: Redeem the code with its public key
+    Sync-->>Second: Device id, same owner, no secret
+    Second->>Sync: Signed device assertion
     Sync-->>Second: Short-lived device token
 ```
 
@@ -35,10 +40,13 @@ the second machine. It lists every paired device, says who paired each, and offe
 Revoke on the rows this desktop paired.
 
 The [Owner](domain.md#owner), [Pairing Code](domain.md#pairing-code),
+[Device key](domain.md#device-key), [Device assertion](domain.md#device-assertion),
 [Registration credential](domain.md#registration-credential) and
-[Device token](domain.md#device-token) give each step's rules. A registration
-credential is never stored anywhere in the clear. Neither device ever holds the
-other's credential.
+[Device token](domain.md#device-token) give each step's rules. Each device's
+private key stays on that device, and the service keeps only the public half.
+Neither device ever holds the other's key. A device on a host with no key store
+gets a registration credential instead, shown once and stored only as a hash. A
+device paired before keys moves onto its key at its next sync.
 
 A paired device reaches exactly one owner's data. The sync service enforces that by reading the owner out of the presented
 token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).

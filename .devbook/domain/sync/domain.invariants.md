@@ -20,11 +20,48 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_wrong_credential_gets_no_token, unit:dotnet:Backlog.Modules.Sync.UnitTests.DevicePairingTests.A_credential_belonging_to_another_device_gets_no_token, unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.SyncCursorCodecTests.A_tampered_signature_is_malformed]
 ```
 
-A registration credential is checked against its stored hash, and a cursor against its signature, by a comparison whose time does not depend on how much of the secret was right (`device.credential_invalid`, `sync.cursor_malformed`).
+A device's registration credential, while it has one, is checked against its stored hash, and a cursor against its signature, by a comparison whose time does not depend on how much of the secret was right (`device.credential_invalid`, `sync.cursor_malformed`).
 An ordinary equality check stops at the first byte that differs, so a caller timing enough attempts could walk a secret out byte by byte.
 The tests prove a wrong secret is refused. The timing itself is held by the call to `CryptographicOperations.FixedTimeEquals` and is not measured.
 
 Enforced at: `Sha256CredentialHasher.Matches()`, `HmacSyncCursorCodec`
+
+### Invariant: An assertion is checked against the device's bound key before any claim is read
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_signed_by_another_key_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_unsigned_assertion_naming_alg_none_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_for_another_audience_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_living_longer_than_five_minutes_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.An_assertion_about_another_subject_is_refused]
+```
+
+A [Device assertion](domain.md#device-assertion) is accepted only when its ES256 signature verifies against the device's bound key, and only then are its claims read (`device.credential_invalid`).
+The header names ES256, carries no `crit`, and says `typ` JWT or nothing. The issuer and subject are the device, the audience is the token audience, the times fall within the clock skew, the lifetime is at most five minutes, and an assertion id is present.
+Every failure reads the same, so a refusal tells a caller nothing about which check it failed.
+
+Enforced at: `EcdsaDeviceAssertionVerifier.Verify()`
+
+### Invariant: An assertion is taken once
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.The_same_assertion_works_once, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_replay_inside_the_clock_skew_after_expiry_is_still_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_forged_assertion_does_not_spend_the_id_it_reuses, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_replay_store_that_cannot_answer_mints_no_token]
+```
+
+A verified assertion's id is spent for its device before a token is minted, and a replay is refused (`device.credential_invalid`). A replay store that cannot answer mints nothing (`sync.replica_unavailable`).
+Only a verified assertion spends its id, so a forged one cannot burn an id a real assertion still needs. The store is shared, so neither a restart nor a second revision reopens a replay (local ADR 0058 §2).
+
+Enforced at: `IssueDeviceTokenCommandHandler`, `IAssertionReplayCache.TryAdd()`
+
+### Invariant: A device binds one key, and binding it retires its credential
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_credential_device_binds_its_key_once_and_its_credential_stops_working, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_migration_without_an_assertion_binds_nothing, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_migration_that_loses_the_race_to_bind_is_refused, unit:dotnet:Backlog.Modules.Sync.UnitTests.DeviceKeyTests.A_key_bound_device_has_no_credential_to_offer, unit:dotnet:Backlog.Infrastructure.Cosmos.UnitTests.CosmosDeviceRegistryBindKeyTests.Binding_stores_the_key_and_clears_the_credential_hash, unit:dotnet:Backlog.Infrastructure.Cosmos.UnitTests.CosmosDeviceRegistryBindKeyTests.Of_two_bindings_racing_exactly_one_wins]
+```
+
+A key binds to a device only beside its correct registration credential and an assertion that key signed, and it binds once (`device.credential_invalid`).
+Binding drops the credential hash, so the credential path is closed from then on. Of two bindings that race, exactly one wins.
+
+Enforced at: `IssueDeviceTokenCommandHandler`, `IDeviceRegistry.BindKey()`
 
 ### Invariant: A device has a name
 

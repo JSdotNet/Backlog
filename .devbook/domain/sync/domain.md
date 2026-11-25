@@ -12,7 +12,7 @@ type: domain
 ```meta
 type: aggregate
 aliases: [device registration, registered device]
-related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device, .devbook/domain/sync/domain.md#device-key, .devbook/domain/sync/domain.md#device-assertion, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
 ```
 
 One machine's registration with the sync service. It holds:
@@ -20,18 +20,22 @@ One machine's registration with the sync service. It holds:
 - the machine's [DeviceId](#deviceid);
 - the [OwnerId](#ownerid) whose data it may see;
 - the name a person calls it in the device list;
-- a hash of its [Registration credential](#registration-credential).
+- the device whose code paired it, none for an owner's first device;
+- one proof: the public half of its [Device key](#device-key), or, for a device
+  without one, a hash of its [Registration credential](#registration-credential).
 
-The service never holds the credential itself, so a copy of the record is not a
-copy of the secret.
+Neither proof is a secret, so a copy of the record copies no secret. Binding a
+key drops the credential hash, so a device never holds both (`Device`).
 
-A device comes in once, by registering as the first device of a new owner or by
-redeeming a [Pairing Code](#pairing-code). A paired device also names the device
-whose code it redeemed, so the desktop that issued the code can ask its person
-whether to keep it. It is the consistency boundary for "who is this caller": a
-token is minted only for a device whose stored hash matches the credential it
-presents. The device whose code paired it can revoke it. Its credential then
-mints no further token, and a token it already holds lasts until it expires.
+A device comes in once. The first device of an owner enrols through the owner's
+GitHub sign-in (see [Owner](#owner)), and every later one redeems a
+[Pairing Code](#pairing-code). The desktop that issued the code can then ask its
+person whether to keep the device. The aggregate is the consistency boundary for
+"who is this caller". A key-bound device is minted a token only for a
+[Device assertion](#device-assertion) its key signed, once per assertion. A
+device without a key is minted one only for a credential whose hash matches. The
+device whose code paired it can revoke it. It then mints no further token, and a
+token it already holds lasts until it expires.
 
 It is not the machine. The machine is the shared kernel's
 [Device](../tasks/domain.md#device), which every context shares. This aggregate is
@@ -42,7 +46,7 @@ that machine as the sync service knows it, under an id the service issued.
 ```meta
 type: aggregate
 aliases: [PairingCode, pairing code, XXXX-XXXX code]
-related: [.devbook/domain/sync/domain.invariants.md#pairing-code, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#pairing-a-device]
+related: [.devbook/domain/sync/domain.invariants.md#pairing-code, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/sync/domain.md#device-key]
 ```
 
 A short, single-use code a paired device issues so a second device can join its
@@ -52,8 +56,10 @@ letters and digits (`PairingCodeFormat`), and the person sees it as `XXXX-XXXX`.
 and [pairs one device](requirements.md#requirement-a-pairing-code-pairs-one-device),
 so a code that leaks unused stops being a way in on its own.
 
-It is an invitation, not a credential: it authorizes one act, minting a
-registration credential, and only within its window. The service stores it by
+It is an invitation, not a credential: it authorizes one act, adding a device
+under the code's owner, and only within its window. The new device is bound to
+the [Device key](#device-key) it sent, or is given a
+[Registration credential](#registration-credential) when it sent none. The service stores it by
 hash and records who issued it, when it expires, and whether it has been redeemed.
 Redeeming it is the one transition, and the code is burned before the new
 [Device](#device) is added.
@@ -213,29 +219,76 @@ It is the partition each stored document and file carries:
 ```meta
 type: term
 aliases: [device credential, credential]
-related: [.devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.md#device]
+related: [.devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#device-key, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
 ```
 
-The long-lived secret a device receives at first registration or at pairing, and
-[is shown once](requirements.md#requirement-the-registration-credential-is-shown-once).
-The device keeps it in its own OS credential store rather than anywhere the backlog
-itself is stored. Before every sync call, a device exchanges it for a
-[Device token](#device-token) rather than presenting the credential itself on the
-wire.
+The long-lived secret a device receives at registration or pairing only when it
+brings no [Device key](#device-key). It
+[is shown once](requirements.md#requirement-the-registration-credential-is-shown-once),
+and the device keeps it in its own OS credential store. Two kinds of device hold one:
+
+- a device on a host with no key store, which today is the mobile web harness;
+- a device paired before local ADR 0058 §2 gave devices keys.
+
+A device on a host with a key store moves onto its key at its next token fetch. It
+sends the credential, its public key, and an assertion that key signed. Then the
+service and the device both drop the credential
+([A device on a credential moves onto its key once](requirements.md#requirement-a-device-on-a-credential-moves-onto-its-key-once)).
+
+### Device key
+
+```meta
+type: term
+aliases: [key-bound device, non-exportable key, public key]
+related: [.devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#device-assertion, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key]
+```
+
+A P-256 key pair a device generates, whose private half cannot be exported. A device
+that has one is key-bound. The key is kept:
+
+- on Windows, in CNG, through the TPM's Platform Crypto Provider, or as a
+  non-exportable software key where no TPM is usable (`CngDeviceKeyStore`);
+- on Android, in Android Keystore, in StrongBox where the phone has one
+  (`AndroidKeystoreDeviceKeyStore`).
+
+The service stores only the public half. The device sends it when it enrols or
+pairs, or binds it once when it moves off a
+[Registration credential](#registration-credential). A key that exists but will
+not open is reported unavailable and never replaced (`SyncTokenProvider`).
+
+**Why:** a copied app folder holds no secret, so it cannot sync from another
+machine (local ADR 0058 §2).
+
+### Device assertion
+
+```meta
+type: term
+aliases: [client assertion, private_key_jwt]
+related: [.devbook/domain/sync/domain.md#device-key, .devbook/domain/sync/domain.md#device-token, .devbook/domain/sync/domain.invariants.md#device]
+```
+
+The short-lived `private_key_jwt` assertion (RFC 7523) a key-bound device signs
+with its [Device key](#device-key) for each token fetch. It is an ES256 JWT
+whose issuer and subject are the device and whose audience is
+`backlog-sync/devices/token`. It carries an assertion id (`jti`) and lives at most
+five minutes (`SyncAssertion`). The service checks the signature before any claim
+and accepts each assertion once
+([its invariants](domain.invariants.md#device)).
 
 ### Device token
 
 ```meta
 type: term
 aliases: [access token, device session token, sync token]
-related: [.devbook/domain/sync/domain.md#registration-credential, .devbook/domain/sync/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
+related: [.devbook/domain/sync/domain.md#registration-credential, .devbook/domain/sync/domain.md#device-assertion, .devbook/domain/sync/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
 ```
 
 The short-lived credential a device actually presents on a sync call. It lasts
 thirty minutes unless the deployment sets a lifetime between 15 and 60, and
 [an expired one is refused](requirements.md#requirement-a-device-token-expires).
-The device obtains it by exchanging its
-[Registration credential](#registration-credential), so the registration
-credential itself never crosses the wire a second time. It names the device and
+A key-bound device obtains it by signing a fresh
+[Device assertion](#device-assertion), and a device without a key by presenting
+its [Registration credential](#registration-credential). Either way, the
+long-lived proof never rides a sync call. It names the device and
 the [Owner](#owner) it belongs to, and
 [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).

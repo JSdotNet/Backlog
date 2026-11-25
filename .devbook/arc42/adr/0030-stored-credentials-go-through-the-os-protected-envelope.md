@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/tech/desktop.md#systemsecuritycryptographyprotecteddata", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".devbook/domain/sync/domain.md#device-key", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop, backlog.mobile]
 c4-touches: [github, claude, azureFoundry, backlog.cloud]
 ```
@@ -85,7 +85,7 @@ flowchart LR
 
 | Credential | Store | Windows | Android |
 |---|---|---|---|
-| Sync device credential | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
+| Sync device registration, with the registration credential only on a device without a key | `DpapiDeviceCredentialStore`, `SecureValueDeviceCredentialStore` | DPAPI, whole file | Keystore-backed `SecureStorage` |
 | Spec-manager OAuth tokens | `DpapiSpecManagerTokenStore` | DPAPI, whole file | not composed |
 | GitHub account and repository tokens | `GitHubSettingsStore` | DPAPI, per value | not composed |
 | Claude Admin API keys | `ClaudeSettingsStore` | DPAPI, per value | not composed |
@@ -95,6 +95,9 @@ flowchart LR
 The three settings stores are desktop-only. Only the Windows head and the desktop
 web harness construct them, and only the Windows head constructs the grant store,
 so none needs an Android secure store.
+
+A sync device key is not in the table, because no store writes it out. The
+[Amendment](#amendment) of 2026-11-18 says where it lives.
 
 ### 2. The envelope is on the value, not the file
 
@@ -228,6 +231,16 @@ in the current one. Pull request #1910 deleted three migrations and their tests:
 §3 still holds for every value the current shapes carry. A plaintext token is
 read as it is and sealed during that first read. The rest of the decision is
 unchanged.
+
+**2026-11-18: a sync device holds a key, not a credential.** Local ADR 0058 §2
+gives each device a non-exportable P-256 key: CNG on Windows, TPM first, and
+Android Keystore on the phone, StrongBox first. The service keeps only the public
+half, so the device's stored registration holds no secret. Only a device on a host
+with no key store keeps a registration credential, and the mobile web harness is
+that host today. A device paired before keys moves onto its key at its next sync
+and deletes the credential. On Windows the desktop web harness keeps a software
+key under the same DPAPI envelope (`DpapiDeviceKeyStore`), because it must not sign as the
+installed app. §5 still holds for the registration the device saves.
 
 ## Verification
 
