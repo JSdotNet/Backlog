@@ -31,9 +31,12 @@ public sealed class TasksSessionRequestTests
 
     private static async Task<(TasksPaneHost Host, FakeEntrySessionRequests Queue, FakeTimeProvider Clock)> HostAsync(
         bool cloneBacklog = true,
-        bool cloneTools = false)
+        bool cloneTools = false,
+        IRoadmapTagSource? roadmapTags = null)
     {
-        var host = await TasksPaneHost.CreateAsync(Backlog, Tools);
+        var host = roadmapTags is null
+            ? await TasksPaneHost.CreateAsync(Backlog, Tools)
+            : await TasksPaneHost.CreateAsync(roadmapTags, [Backlog, Tools]);
         if (cloneBacklog) host.GitHub.Settings.SetCloneDirectory("backlog", BacklogClone);
         if (cloneTools) host.GitHub.Settings.SetCloneDirectory("tools", @"D:\Repos\Tools");
 
@@ -270,6 +273,88 @@ public sealed class TasksSessionRequestTests
         EntryIcon(pane).Click();
         RowIcon(pane, row).Click();
         Assert.Empty(queue.Asked);
+    }
+
+    /// <summary>A plan is queued only as a whole (local ADR 0062 §4): a plan entry's own
+    /// icon is disabled, its name and reason say to queue the plan, and a press asks for
+    /// nothing.</summary>
+    [Fact]
+    public async Task A_plan_entry_s_own_queue_is_refused_and_says_to_queue_the_plan_as_a_whole()
+    {
+        var (host, queue, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        const string expected = "Queued with its plan — queue the plan as a whole";
+
+        foreach (var (button, reasonTestId) in new[] { (EntryIcon(pane), "entry-queue-session-reason"), (RowIcon(pane, row), "row-queue-session-reason") })
+        {
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Equal("Queue the +plan-first-tasks plan as a whole — its entries are not queued one by one", button.GetAttribute("aria-label"));
+            Assert.Equal(expected, button.GetAttribute("title"));
+            var reason = pane.Find($"[id='{button.GetAttribute("aria-describedby")}']");
+            Assert.Equal(reasonTestId, reason.GetAttribute("data-testid"));
+            Assert.Equal(expected, reason.TextContent);
+        }
+
+        EntryIcon(pane).Click();
+        RowIcon(pane, row).Click();
+        Assert.Empty(queue.Asked);
+    }
+
+    [Fact]
+    public void A_plan_entry_s_offer_is_refused_even_with_a_clone_folder()
+    {
+        var offer = SessionStartOffer.For(
+            EntryType.Prompt,
+            persisted: true,
+            [Repo("backlog", "JSdotNet", "Backlog", BacklogClone)],
+            planTag: "+plan-first-tasks");
+
+        Assert.NotNull(offer);
+        Assert.False(offer.IsEnabled);
+        Assert.Null(offer.Only);
+        Assert.False(offer.AsksWhichRepository);
+        Assert.Equal("+plan-first-tasks", offer.PlanTag);
+        Assert.Equal(PlanQueueOffer.QueueThePlanAsAWhole, offer.DisabledReason);
+    }
+
+    /// <summary>A plan tag no roadmap item carries has no plan queue, so its entry keeps
+    /// its own icon.</summary>
+    [Fact]
+    public async Task An_entry_whose_plan_tag_no_roadmap_item_carries_keeps_its_own_queue()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+another-plan"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Loose\n`prompt` `+unplanned-tag` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+
+        var pane = host.Render();
+
+        Assert.False(RowIcon(pane, row).HasAttribute("disabled"));
+        Assert.Equal($"Queue a session for this entry in {Backlog}", RowIcon(pane, row).GetAttribute("aria-label"));
+    }
+
+    private sealed class PlannedTags(params string[] tags) : IRoadmapTagSource
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(tags);
+    }
+
+    [Fact]
+    public void An_unplanned_prompt_keeps_its_own_queue()
+    {
+        var offer = SessionStartOffer.For(EntryType.Prompt, persisted: true, [Repo("backlog", "JSdotNet", "Backlog", BacklogClone)], planTag: null);
+
+        Assert.True(offer!.IsEnabled);
+        Assert.Null(offer.PlanTag);
     }
 
     [Fact]
