@@ -726,7 +726,7 @@ hold unchanged; these rules hold only where the host asks for the quiet look.
 |---|---|
 | Only the Tasks pane | The quiet look is the Tasks pane's. The Board's cards and every other list keep the pill. |
 | Status as text | The status reads as coloured text with no fill or border, and a press MUST still open the status selector. |
-| One ink per status | In progress light grey, ready teal, draft muted, blocked red. |
+| One ink per status | In progress and ready light grey, draft muted, blocked red. |
 | Trailing slot | After the badges the row ends in two 26px borderless icon buttons: copy, then queue. |
 | Copy on demand | The copy shows on hover and on focus; where nothing hovers it stays shown. |
 | Three queue looks | The queue button is idle, queued or inert for a plan entry, and its label names the act. |
