@@ -80,28 +80,35 @@ internal sealed partial class InboxBacklogTarget(
                 .SaveFromTextAsync(null, Compose(request, repo), order++, request.InboxItemId.ToString("D"), cancellationToken)
                 .ConfigureAwait(false);
 
-            if (saved is not Ok<SavedTaskDto>(var savedTask))
+            Error? failure = saved switch
             {
-                var refused = (Error)saved.Value!;
-
-                // Not compensated: the entries already made are real work in the
-                // backlog and deleting them would be a second surprise. Named
-                // instead, so the person can see what is there. Theoretical in
-                // practice — the only validation failure on this path needs an
-                // empty title, and an inbox item always has one.
-                return Result.Failure<IReadOnlyList<Guid>>(created.Count == 0
-                    ? refused
-                    : refused with
-                    {
-                        Message = $"{refused.Message} {created.Count} of {targets.Count} entries were created first: "
-                            + string.Join(", ", created.Select(id => id.ToString("D"))) + ".",
-                    });
-            }
-
-            created.Add(savedTask.Entry.Id);
+                Ok<SavedTaskDto>(var savedTask) => Created(savedTask.Entry.Id),
+                Error refused => Named(refused),
+            };
+            if (failure is { } failed) return Result.Failure<IReadOnlyList<Guid>>(failed);
         }
 
         return created;
+
+        // Null once the entry is counted, so the loop goes on.
+        Error? Created(Guid id)
+        {
+            created.Add(id);
+            return null;
+        }
+
+        // Not compensated: the entries already made are real work in the
+        // backlog and deleting them would be a second surprise. Named
+        // instead, so the person can see what is there. Theoretical in
+        // practice — the only validation failure on this path needs an
+        // empty title, and an inbox item always has one.
+        Error Named(Error refused) => created.Count == 0
+            ? refused
+            : refused with
+            {
+                Message = $"{refused.Message} {created.Count} of {targets.Count} entries were created first: "
+                    + string.Join(", ", created.Select(id => id.ToString("D"))) + ".",
+            };
     }
 
     /// <summary>
@@ -187,30 +194,50 @@ internal sealed partial class InboxBacklogTarget(
             .ImportPlanAsync(document.ToString(), defaultRepo: null, repoMatches: null, sourceInboxId: null, sourceInboxIds: sources, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        if (imported is not Ok<ImportPlanResultDto>(var plan)) return new InboxBatchTargetResultDto([], Ordered(refused), (Error)imported.Value!);
+        return RoutedOrRefused(imported, sent, refused, request);
+    }
 
-        var byImportItemId = plan.Entries
-            .Where(entry => entry.ImportItemId is not null)
-            .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
-
-        var routed = new List<InboxRoutedDto>(sent.Count);
-        var positions = request.Items.Select((item, index) => (item.InboxItemId, index)).ToDictionary(pair => pair.InboxItemId, pair => pair.index);
-
-        foreach (var (item, importItemIds) in sent)
+    /// <summary>The batch's answer once the import has run: each item routed with the entries
+    /// made for it, or the whole import's refusal. Its own method because, inline at the end of
+    /// <see cref="CreateBatchTasksAsync"/>, the compiler's flow analysis holds the import's result
+    /// as maybe null and the exhaustive switch over its two cases as incomplete.</summary>
+    private static InboxBatchTargetResultDto RoutedOrRefused(
+        Result<ImportPlanResultDto> imported,
+        List<(Guid Item, IReadOnlyList<string> ImportItemIds)> sent,
+        List<(int Position, InboxBatchFailureDto Failure)> refused,
+        InboxBatchRouteRequestDto request)
+    {
+        return imported switch
         {
-            var made = importItemIds
-                .Where(byImportItemId.ContainsKey)
-                .Select(importItemId => byImportItemId[importItemId])
-                .ToList();
+            Ok<ImportPlanResultDto>(var plan) => Routed(plan),
+            Error error => new InboxBatchTargetResultDto([], Ordered(refused), error),
+        };
 
-            // Written already, so not a refusal of the batch: the other items
-            // are routed, and whatever was made for this one is named.
-            if (made.Count == importItemIds.Count) routed.Add(new InboxRoutedDto(item, made));
-            else refused.Add((positions[item], new InboxBatchFailureDto(item, InboxErrors.BatchItemMissing(made))));
+        InboxBatchTargetResultDto Routed(ImportPlanResultDto plan)
+        {
+            var byImportItemId = plan.Entries
+                .Where(entry => entry.ImportItemId is not null)
+                .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
+
+            var routed = new List<InboxRoutedDto>(sent.Count);
+            var positions = request.Items.Select((item, index) => (item.InboxItemId, index)).ToDictionary(pair => pair.InboxItemId, pair => pair.index);
+
+            foreach (var (item, importItemIds) in sent)
+            {
+                var made = importItemIds
+                    .Where(byImportItemId.ContainsKey)
+                    .Select(importItemId => byImportItemId[importItemId])
+                    .ToList();
+
+                // Written already, so not a refusal of the batch: the other items
+                // are routed, and whatever was made for this one is named.
+                if (made.Count == importItemIds.Count) routed.Add(new InboxRoutedDto(item, made));
+                else refused.Add((positions[item], new InboxBatchFailureDto(item, InboxErrors.BatchItemMissing(made))));
+            }
+
+            return new InboxBatchTargetResultDto(routed, Ordered(refused));
         }
-
-        return new InboxBatchTargetResultDto(routed, Ordered(refused));
     }
 
     /// <summary>Why an item cannot go into a batch's document, or null when it
@@ -578,11 +605,18 @@ internal sealed partial class InboxBacklogTarget(
         if (taskIds.Count == 0) return Result.Success();
 
         var present = await DeletableTasksAsync(taskIds, madeDone, cancellationToken).ConfigureAwait(false);
-        if (present is not Ok<List<TaskItemDto>>(var deletable)) return (Error)present.Value!;
+        return present switch
+        {
+            Ok<List<TaskItemDto>>(var deletable) => await DeletedAsync(deletable).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
+        async Task<Result> DeletedAsync(List<TaskItemDto> deletable)
+        {
+            await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
 
-        return Result.Success();
+            return Result.Success();
+        }
     }
 
     /// <summary>
@@ -603,29 +637,36 @@ internal sealed partial class InboxBacklogTarget(
         ArgumentNullException.ThrowIfNull(plan);
 
         var present = await DeletableTasksAsync(taskIds, madeDone: false, cancellationToken).ConfigureAwait(false);
-        if (present is not Ok<List<TaskItemDto>>(var deletable)) return (Error)present.Value!;
-
-        IReadOnlyList<RoadmapItemDto> laidOut = [];
-        if (roadmap is not null)
+        return present switch
         {
-            var current = await roadmap.GetPlanAsync(cancellationToken).ConfigureAwait(false);
-            laidOut = [.. current.Items.Where(item => string.Equals(item.Tag, plan.PlanTag, StringComparison.OrdinalIgnoreCase))];
+            Ok<List<TaskItemDto>>(var deletable) => await DeletedAsync(deletable).ConfigureAwait(false),
+            Error error => error,
+        };
 
-            if (laidOut.FirstOrDefault(item => !AsLaidOut(item, plan, current)) is { } edited)
+        async Task<Result> DeletedAsync(List<TaskItemDto> deletable)
+        {
+            IReadOnlyList<RoadmapItemDto> laidOut = [];
+            if (roadmap is not null)
             {
-                return Result.Failure(InboxErrors.UndoPlanEdited(WhitespaceRun().Replace(edited.Title.Trim(), " ")));
+                var current = await roadmap.GetPlanAsync(cancellationToken).ConfigureAwait(false);
+                laidOut = [.. current.Items.Where(item => string.Equals(item.Tag, plan.PlanTag, StringComparison.OrdinalIgnoreCase))];
+
+                if (laidOut.FirstOrDefault(item => !AsLaidOut(item, plan, current)) is { } edited)
+                {
+                    return Result.Failure(InboxErrors.UndoPlanEdited(WhitespaceRun().Replace(edited.Title.Trim(), " ")));
+                }
             }
+
+            await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
+
+            foreach (var item in laidOut)
+            {
+                var removed = await roadmap!.RemoveItemAsync(item.Id, cancellationToken).ConfigureAwait(false);
+                if (removed is Error) return removed;
+            }
+
+            return Result.Success();
         }
-
-        await DeleteAsync(deletable, cancellationToken).ConfigureAwait(false);
-
-        foreach (var item in laidOut)
-        {
-            var removed = await roadmap!.RemoveItemAsync(item.Id, cancellationToken).ConfigureAwait(false);
-            if (removed is Error) return removed;
-        }
-
-        return Result.Success();
     }
 
     /// <summary>Whether a Roadmap Item still reads as Create plan's <c>plan</c>

@@ -1098,27 +1098,33 @@
         {
             var moveTo = drop ? null : _moveToId;
             var result = await tasks.RefileRepositoryTasksAsync(offer.Repository.FullName, moveTo, drop);
-            if (result is not Ok<int>(var refiled))
+            var done = result switch
             {
-                // Said on the dialog while it is up; on the page's status line if
-                // it has gone, so a refusal is never said to nobody.
-                var error = (Error)result.Value!;
-                if (_offer is null) _repoError = error.Message;
-                else _offerError = error.Message;
-                return;
-            }
-
-            var done = drop
-                ? $"{Plural(refiled, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
-                : $"{Plural(refiled, "open task", "open tasks")} moved to {moveTo}.";
+                Ok<int>(var refiled) => Done(refiled),
+                Error error => Refused(error),
+            };
+            if (done is null) return;
 
             CloseOffer();
             if (offer.Archiving) Archive(offer.Repository, $"Archived. {done}");
             else SetArchiveNote(offer.Repository, done);
+
+            string Done(int refiled) => drop
+                ? $"{Plural(refiled, "open task", "open tasks")} dropped; each keeps its filing under {offer.Repository.FullName}."
+                : $"{Plural(refiled, "open task", "open tasks")} moved to {moveTo}.";
         }
         finally
         {
             _offerRunning = false;
+        }
+
+        // Said on the dialog while it is up; on the page's status line if
+        // it has gone, so a refusal is never said to nobody.
+        string? Refused(Error error)
+        {
+            if (_offer is null) _repoError = error.Message;
+            else _offerError = error.Message;
+            return null;
         }
     }
 
@@ -1459,11 +1465,18 @@
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {
             var result = await rewrite;
-            if (result is Ok<int>(var count)) return count;
+            return result switch
+            {
+                Ok<int>(var count) => count,
+                Error error => Reported(error),
+            };
 
-            var message = $"{what} could not follow the rename: {((Error)result.Value!).Message}";
-            _repoError = _repoError is null ? message : $"{_repoError} {message}";
-            return 0;
+            int Reported(Error error)
+            {
+                var message = $"{what} could not follow the rename: {error.Message}";
+                _repoError = _repoError is null ? message : $"{_repoError} {message}";
+                return 0;
+            }
         }
 
         static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";

@@ -143,14 +143,24 @@ public sealed partial class AnnotationSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response is not Ok<PushAnnotationsResponse>(var answer)) return (Error)response.Value!;
+                Error? failure = response switch
+                {
+                    Ok<PushAnnotationsResponse>(var answer) => Counted(answer),
+                    Error error => error,
+                };
+                if (failure is { } failed) return failed;
+            }
 
+            // Null once the batch is counted, so the push goes on.
+            Error? Counted(PushAnnotationsResponse answer)
+            {
                 // A 200 with fewer accepted than sent is the replica keeping a later
                 // version of the rest. The watermark still moves past them — offering
                 // them again would be refused again — so the count is the one place
                 // the loss is said.
                 pushed += answer.Accepted;
                 refused += Math.Max(0, changes.Count - answer.Accepted);
+                return null;
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, annotation => annotation.UpdatedAt) is { } advanced)
@@ -178,30 +188,44 @@ public sealed partial class AnnotationSyncSession
         var pulled = 0;
         var applied = 0;
         var startedOver = false;
+        var more = true;
 
-        while (true)
+        while (more)
         {
             var page = await _client
                 .PullAsync(cursor, AnnotationSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page is not Ok<PullAnnotationsResponse>(var feed))
+            Error? failure = page switch
             {
-                var error = (Error)page.Value!;
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
-                {
-                    return error;
-                }
+                Ok<PullAnnotationsResponse>(var feed) => Applied(feed),
+                Error error => StartedOverOr(error),
+            };
+            if (failure is { } failed) return failed;
+        }
 
-                startedOver = true;
-                cursor = null;
-                _state.Save(_state.Current with { PullCursor = null });
-                pulled = 0;
-                applied = 0;
+        return Result.Success(new AnnotationSyncSummary(0, pulled, applied, _time.GetUtcNow()));
 
-                continue;
+        // The error when starting over cannot help; null once the cursor and counts are reset.
+        Error? StartedOverOr(Error error)
+        {
+            if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
+            {
+                return error;
             }
 
+            startedOver = true;
+            cursor = null;
+            _state.Save(_state.Current with { PullCursor = null });
+            pulled = 0;
+            applied = 0;
+
+            return null;
+        }
+
+        // Null once the page is applied and its cursor saved; the last page ends the loop.
+        Error? Applied(PullAnnotationsResponse feed)
+        {
             pulled += feed.Annotations.Count;
             // One applied page is one sync change set (local ADR 0071 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying an annotation sync page"))
@@ -212,10 +236,9 @@ public sealed partial class AnnotationSyncSession
             cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!feed.HasMore) break;
+            more = feed.HasMore;
+            return null;
         }
-
-        return Result.Success(new AnnotationSyncSummary(0, pulled, applied, _time.GetUtcNow()));
     }
 
     /// <summary>Push, then pull; a failed push stops the exchange. A remark the
@@ -223,20 +246,29 @@ public sealed partial class AnnotationSyncSession
     public async Task<Result<AnnotationSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push is not Ok<AnnotationSyncSummary>(var pushSummary)) return (Error)push.Value!;
-
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull is not Ok<AnnotationSyncSummary>(var pullSummary)) return (Error)pull.Value!;
-
-        return Result.Success(new AnnotationSyncSummary(
-            pushSummary.Pushed,
-            pullSummary.Pulled,
-            pullSummary.Applied,
-            _time.GetUtcNow())
+        return push switch
         {
-            Refused = pushSummary.Refused,
-            Skipped = pushSummary.Skipped,
-        });
+            Ok<AnnotationSyncSummary>(var pushSummary) => await PullAfterAsync(pushSummary).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<AnnotationSyncSummary>> PullAfterAsync(AnnotationSyncSummary pushSummary)
+        {
+            var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+            return pull switch
+            {
+                Ok<AnnotationSyncSummary>(var pullSummary) => Result.Success(new AnnotationSyncSummary(
+                    pushSummary.Pushed,
+                    pullSummary.Pulled,
+                    pullSummary.Applied,
+                    _time.GetUtcNow())
+                {
+                    Refused = pushSummary.Refused,
+                    Skipped = pushSummary.Skipped,
+                }),
+                Error error => error,
+            };
+        }
     }
 
     [LoggerMessage(

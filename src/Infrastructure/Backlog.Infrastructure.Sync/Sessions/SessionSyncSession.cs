@@ -219,21 +219,31 @@ public sealed class SessionSyncSession
                 .PushAsync([.. batch.Select(item => item.Record)], cancellationToken)
                 .ConfigureAwait(false);
 
-            if (response is not Ok<PushSessionsResponse>(var answer)) return (Error)response.Value!;
-
-            pushed += answer.Accepted;
-            sent += batch.Count;
-
-            // One RecordRange per batch, so the footer redraws once per request.
-            if (_activity is { } syncLog)
+            Error? failure = response switch
             {
-                syncLog.RecordRange(batch.Select(item => syncLog.Entry(
-                    SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title)));
-            }
+                Ok<PushSessionsResponse>(var answer) => Sent(answer),
+                Error error => error,
+            };
+            if (failure is { } failed) return failed;
 
-            if (ReplicaRoutes.WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count, session => session.LastActivityAt) is { } advanced)
+            // Null once the batch is counted, logged and past the watermark, so the loop goes on.
+            Error? Sent(PushSessionsResponse answer)
             {
-                _state.Save(_state.Current with { PushWatermark = advanced });
+                pushed += answer.Accepted;
+                sent += batch.Count;
+
+                // One RecordRange per batch, so the footer redraws once per request.
+                if (_activity is { } syncLog)
+                {
+                    syncLog.RecordRange(batch.Select(item => syncLog.Entry(
+                        SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title)));
+                }
+
+                if (ReplicaRoutes.WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count, session => session.LastActivityAt) is { } advanced)
+                {
+                    _state.Save(_state.Current with { PushWatermark = advanced });
+                }
+                return null;
             }
         }
 
@@ -432,36 +442,49 @@ public sealed class SessionSyncSession
 
         try
         {
-            while (true)
+            var more = true;
+
+            while (more)
             {
                 var page = await _client
                     .PullAsync(cursor, SessionSyncClient.DefaultMaxItems, cancellationToken)
                     .ConfigureAwait(false);
 
-                if (page is not Ok<PullSessionsResponse>(var feed))
+                Error? failure = page switch
                 {
-                    var error = (Error)page.Value!;
-                    if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
-                    {
-                        return error;
-                    }
+                    Ok<PullSessionsResponse>(var feed) => Kept(feed),
+                    Error error => StartedOverOr(error),
+                };
+                if (failure is { } failed) return failed;
+            }
 
-                    startedOver = true;
-                    cursor = null;
-                    moved = false;
-                    _state.Save(_state.Current with { PullCursor = null });
-
-                    // The counts go with the cursor. What was kept before the restart
-                    // is about to arrive again, and a summary that added the two would
-                    // tell the person twice as much had arrived as did. The records
-                    // themselves stay: they are real, and arriving again lands them
-                    // where they already are.
-                    pulled = 0;
-                    applied = 0;
-
-                    continue;
+            // The error when starting over cannot help; null once the cursor and counts are reset.
+            Error? StartedOverOr(Error error)
+            {
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
+                {
+                    return error;
                 }
 
+                startedOver = true;
+                cursor = null;
+                moved = false;
+                _state.Save(_state.Current with { PullCursor = null });
+
+                // The counts go with the cursor. What was kept before the restart
+                // is about to arrive again, and a summary that added the two would
+                // tell the person twice as much had arrived as did. The records
+                // themselves stay: they are real, and arriving again lands them
+                // where they already are.
+                pulled = 0;
+                applied = 0;
+
+                return null;
+            }
+
+            // Null once the page is kept and the cursor moved; the last page ends the loop.
+            Error? Kept(PullSessionsResponse feed)
+            {
                 pulled += feed.Sessions.Count;
 
                 // Every record is kept, this machine's own included. The service holds
@@ -483,7 +506,8 @@ public sealed class SessionSyncSession
                 cursor = feed.Since;
                 moved = true;
 
-                if (!feed.HasMore) break;
+                more = feed.HasMore;
+                return null;
             }
         }
         finally
@@ -525,16 +549,25 @@ public sealed class SessionSyncSession
     public async Task<Result<SessionSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push is not Ok<SessionSyncSummary>(var pushSummary)) return (Error)push.Value!;
+        return push switch
+        {
+            Ok<SessionSyncSummary>(var pushSummary) => await PullAfterAsync(pushSummary).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull is not Ok<SessionSyncSummary>(var pullSummary)) return (Error)pull.Value!;
-
-        return Result.Success(new SessionSyncSummary(
-            pushSummary.Pushed,
-            pullSummary.Pulled,
-            pullSummary.Applied,
-            _time.GetUtcNow()));
+        async Task<Result<SessionSyncSummary>> PullAfterAsync(SessionSyncSummary pushSummary)
+        {
+            var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+            return pull switch
+            {
+                Ok<SessionSyncSummary>(var pullSummary) => Result.Success(new SessionSyncSummary(
+                    pushSummary.Pushed,
+                    pullSummary.Pulled,
+                    pullSummary.Applied,
+                    _time.GetUtcNow())),
+                Error error => error,
+            };
+        }
     }
 
     /// <summary>What a record from another machine is called in the log: its own

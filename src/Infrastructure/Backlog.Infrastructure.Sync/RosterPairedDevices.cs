@@ -59,25 +59,40 @@ public sealed class RosterPairedDevices : IPairedDevices
         if (_identity?.Current.Id == deviceId) return DeviceStanding.Paired;
 
         var roster = _roster() ?? throw new InvalidOperationException("No sync client is composed to read the owner's devices with.");
+        var listed = await ListedAsync(roster, cancellationToken).ConfigureAwait(false);
+
+        return listed switch
+        {
+            Ok<DeviceListResponse>(var devices) => StandingIn(devices),
+            Error error => throw new InvalidOperationException($"The owner's devices could not be read: {error.Code}."),
+        };
+
+        DeviceStanding StandingIn(DeviceListResponse devices)
+        {
+            _seen.TryAdd(devices.CallerDeviceId, 0);
+            foreach (var device in devices.Devices) _seen.TryAdd(device.DeviceId, 0);
+
+            if (deviceId == devices.CallerDeviceId || devices.Devices.Any(device => device.DeviceId == deviceId))
+                return DeviceStanding.Paired;
+
+            return _seen.ContainsKey(deviceId) ? DeviceStanding.Revoked : DeviceStanding.Unknown;
+        }
+    }
+
+    /// <summary>The owner's device list, read again a few times while the service refuses it, so a
+    /// passing blip does not hold a paired device's answer until the next start. Its own method
+    /// because the retry's <c>is Error</c> test, in the same method as the switch that reads the
+    /// list, leaves the compiler holding the list as maybe null and the switch as not exhaustive.</summary>
+    private async Task<Result<DeviceListResponse>> ListedAsync(IDeviceRoster roster, CancellationToken cancellationToken)
+    {
         var listed = await roster.ListDevicesAsync(cancellationToken).ConfigureAwait(false);
 
-        // A read the service refuses is tried again a few times, so a passing blip does not
-        // hold a paired device's answer until the next start.
         for (var attempt = 1; listed is Error && attempt < Attempts; attempt++)
         {
             await Task.Delay(RetryAfter, _clock, cancellationToken).ConfigureAwait(false);
             listed = await roster.ListDevicesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        if (listed is not Ok<DeviceListResponse>(var devices))
-            throw new InvalidOperationException($"The owner's devices could not be read: {((Error)listed.Value!).Code}.");
-
-        _seen.TryAdd(devices.CallerDeviceId, 0);
-        foreach (var device in devices.Devices) _seen.TryAdd(device.DeviceId, 0);
-
-        if (deviceId == devices.CallerDeviceId || devices.Devices.Any(device => device.DeviceId == deviceId))
-            return DeviceStanding.Paired;
-
-        return _seen.ContainsKey(deviceId) ? DeviceStanding.Revoked : DeviceStanding.Unknown;
+        return listed;
     }
 }

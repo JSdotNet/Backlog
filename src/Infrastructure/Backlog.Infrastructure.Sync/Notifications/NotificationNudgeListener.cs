@@ -241,55 +241,63 @@ public sealed partial class NotificationNudgeListener : IDisposable
     {
         var negotiated = await NegotiateAsync(cancellationToken).ConfigureAwait(false);
 
-        if (negotiated is not Ok<Uri?>(var hub))
+        return negotiated switch
         {
-            var error = (Error)negotiated.Value!;
+            Ok<Uri?>(var hub) => await ListenAsync(hub).ConfigureAwait(false),
+            Error error => NotNegotiated(error),
+        };
+
+        Attempt NotNegotiated(Error error)
+        {
             LogNegotiationFailed(_log, error.Code, error.Message);
             return Attempt.Failed;
         }
 
-        if (hub is not { } url)
+        async Task<Attempt> ListenAsync(Uri? hub)
         {
-            LogNoNudgeHub(_log);
-            return Attempt.Unavailable;
-        }
+            if (hub is not { } url)
+            {
+                LogNoNudgeHub(_log);
+                return Attempt.Unavailable;
+            }
 
-        INotificationNudgeSocket socket;
-
-        try
-        {
-            socket = await _connector.ConnectAsync(url, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-        {
-            LogSocketDidNotOpen(_log, ex);
-            return Attempt.Failed;
-        }
-
-        var openedAt = _time.GetTimestamp();
-
-        await using (socket.ConfigureAwait(false))
-        {
-            SetOpen(true);
+            INotificationNudgeSocket socket;
 
             try
             {
-                while (await socket.ReceiveAsync(cancellationToken).ConfigureAwait(false) is { } message)
-                {
-                    if (IsPull(message)) _target.RequestSync();
-                }
+                socket = await _connector.ConnectAsync(url, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                LogSocketDropped(_log, ex);
+                LogSocketDidNotOpen(_log, ex);
+                return Attempt.Failed;
             }
-            finally
-            {
-                SetOpen(false);
-            }
-        }
 
-        return _time.GetElapsedTime(openedAt) >= StableConnection ? Attempt.Listened : Attempt.Failed;
+            var openedAt = _time.GetTimestamp();
+
+            await using (socket.ConfigureAwait(false))
+            {
+                SetOpen(true);
+
+                try
+                {
+                    while (await socket.ReceiveAsync(cancellationToken).ConfigureAwait(false) is { } message)
+                    {
+                        if (IsPull(message)) _target.RequestSync();
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    LogSocketDropped(_log, ex);
+                }
+                finally
+                {
+                    SetOpen(false);
+                }
+            }
+
+            return _time.GetElapsedTime(openedAt) >= StableConnection ? Attempt.Listened : Attempt.Failed;
+        }
     }
 
     private async Task<Result<Uri?>> NegotiateAsync(CancellationToken cancellationToken)

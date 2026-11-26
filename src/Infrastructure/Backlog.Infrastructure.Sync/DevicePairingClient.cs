@@ -154,21 +154,37 @@ public sealed partial class DevicePairingClient : IDeviceRoster
                 cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        if (started is not Ok<EnrolmentStartResponse>(var enrolment)) return (Error)started.Value!;
+        return started switch
+        {
+            Ok<EnrolmentStartResponse>(var enrolment) => await SignedInAsync(enrolment).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        var answer = await SignInAsync(loopback, enrolment.SignInAddress, cancellationToken).ConfigureAwait(false);
-        if (answer is not Ok<Uri>(var redirect)) return (Error)answer.Value!;
+        async Task<Result<DeviceCredential>> SignedInAsync(EnrolmentStartResponse enrolment)
+        {
+            var answer = await SignInAsync(loopback, enrolment.SignInAddress, cancellationToken).ConfigureAwait(false);
+            return answer switch
+            {
+                Ok<Uri>(var redirect) => await RegisteredAsync(redirect).ConfigureAwait(false),
+                Error error => error,
+            };
+        }
 
-        var code = ReadAnswer(redirect, state);
-        if (code is not Ok<string>(var authorizationCode)) return (Error)code.Value!;
-
-        return await StoreAsync(
-            () => _http.PostAsJsonAsync(
-                SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
-                new RegisterDeviceRequest(name, authorizationCode, verifier, PublicKeyOrNull()),
-                cancellationToken),
-            registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
-            cancellationToken).ConfigureAwait(false);
+        async Task<Result<DeviceCredential>> RegisteredAsync(Uri redirect)
+        {
+            var code = ReadAnswer(redirect, state);
+            return code switch
+            {
+                Ok<string>(var authorizationCode) => await StoreAsync(
+                    () => _http.PostAsJsonAsync(
+                        SyncRoutes.Absolute(SyncRoutes.RegisterDevice),
+                        new RegisterDeviceRequest(name, authorizationCode, verifier, PublicKeyOrNull()),
+                        cancellationToken),
+                    registration => new DeviceCredential(registration.OwnerId, registration.DeviceId, name, registration.Credential),
+                    cancellationToken).ConfigureAwait(false),
+                Error error => error,
+            };
+        }
     }
 
     private async Task<Result<Uri>> SignInAsync(LoopbackRedirectListener loopback, Uri signInAddress, CancellationToken cancellationToken)
@@ -384,30 +400,35 @@ public sealed partial class DevicePairingClient : IDeviceRoster
         CancellationToken cancellationToken)
     {
         var response = await SyncHttp.SendAsync<DeviceRegistrationResponse>(send, cancellationToken).ConfigureAwait(false);
-        if (response is not Ok<DeviceRegistrationResponse>(var registered)) return (Error)response.Value!;
-
-        var credential = toCredential(registered);
-
-        try
+        return response switch
         {
-            // Not cancellable: the service has already issued this credential and
-            // will not issue it again, so a save abandoned now would throw away
-            // the only copy of a registration that did happen.
-            await _credentials.SaveAsync(credential, CancellationToken.None).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
-        {
-            // The service registered this device and will not do so again for
-            // the same credential, but nothing here can keep it, so the pairing
-            // is reported as failed rather than as a success that evaporates on
-            // the next restart. Pairing again is the recovery, and it is the
-            // thing the screen already offers.
-            return Result.Failure<DeviceCredential>(Error.Unexpected(
-                CredentialStoreFailedCode,
-                "This device was registered, but its credential could not be saved on this machine. Try again."));
-        }
+            Ok<DeviceRegistrationResponse>(var registered) => await SavedAsync(toCredential(registered)).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        return Result.Success(credential);
+        async Task<Result<DeviceCredential>> SavedAsync(DeviceCredential credential)
+        {
+            try
+            {
+                // Not cancellable: the service has already issued this credential and
+                // will not issue it again, so a save abandoned now would throw away
+                // the only copy of a registration that did happen.
+                await _credentials.SaveAsync(credential, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+            {
+                // The service registered this device and will not do so again for
+                // the same credential, but nothing here can keep it, so the pairing
+                // is reported as failed rather than as a success that evaporates on
+                // the next restart. Pairing again is the recovery, and it is the
+                // thing the screen already offers.
+                return Result.Failure<DeviceCredential>(Error.Unexpected(
+                    CredentialStoreFailedCode,
+                    "This device was registered, but its credential could not be saved on this machine. Try again."));
+            }
+
+            return Result.Success(credential);
+        }
     }
 
     [LoggerMessage(Message = "This device's key could not be opened or made, so it registers with a credential instead.")]

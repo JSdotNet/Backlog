@@ -153,10 +153,20 @@ public sealed partial class DevbookSubjectSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response is not Ok<PushDevbookSubjectsResponse>(var answer)) return (Error)response.Value!;
+                Error? failure = response switch
+                {
+                    Ok<PushDevbookSubjectsResponse>(var answer) => Counted(answer),
+                    Error error => error,
+                };
+                if (failure is { } failed) return failed;
+            }
 
+            // Null once the batch is counted, so the push goes on.
+            Error? Counted(PushDevbookSubjectsResponse answer)
+            {
                 pushed += answer.Accepted;
                 refused += Math.Max(0, changes.Count - answer.Accepted);
+                return null;
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, subject => subject.UpdatedAt) is { } advanced)
@@ -182,30 +192,44 @@ public sealed partial class DevbookSubjectSyncSession
         var pulled = 0;
         var applied = 0;
         var startedOver = false;
+        var more = true;
 
-        while (true)
+        while (more)
         {
             var page = await _client
                 .PullAsync(cursor, DevbookSubjectSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page is not Ok<PullDevbookSubjectsResponse>(var feed))
+            Error? failure = page switch
             {
-                var error = (Error)page.Value!;
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
-                {
-                    return error;
-                }
+                Ok<PullDevbookSubjectsResponse>(var feed) => Applied(feed),
+                Error error => StartedOverOr(error),
+            };
+            if (failure is { } failed) return failed;
+        }
 
-                startedOver = true;
-                cursor = null;
-                _state.Save(_state.Current with { PullCursor = null });
-                pulled = 0;
-                applied = 0;
+        return Result.Success(new DevbookSubjectSyncSummary(0, pulled, applied, _time.GetUtcNow()));
 
-                continue;
+        // The error when starting over cannot help; null once the cursor and counts are reset.
+        Error? StartedOverOr(Error error)
+        {
+            if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
+            {
+                return error;
             }
 
+            startedOver = true;
+            cursor = null;
+            _state.Save(_state.Current with { PullCursor = null });
+            pulled = 0;
+            applied = 0;
+
+            return null;
+        }
+
+        // Null once the page is applied and its cursor saved; the last page ends the loop.
+        Error? Applied(PullDevbookSubjectsResponse feed)
+        {
             pulled += feed.Subjects.Count;
             // One applied page is one sync change set (local ADR 0071 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying a Devbook subject sync page"))
@@ -216,10 +240,9 @@ public sealed partial class DevbookSubjectSyncSession
             cursor = feed.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
-            if (!feed.HasMore) break;
+            more = feed.HasMore;
+            return null;
         }
-
-        return Result.Success(new DevbookSubjectSyncSummary(0, pulled, applied, _time.GetUtcNow()));
     }
 
     /// <summary>Push, then pull; a failed push stops the exchange. A bare 404
@@ -228,20 +251,29 @@ public sealed partial class DevbookSubjectSyncSession
     public async Task<Result<DevbookSubjectSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push is not Ok<DevbookSubjectSyncSummary>(var pushSummary)) return NotYetOr((Error)push.Value!);
-
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull is not Ok<DevbookSubjectSyncSummary>(var pullSummary)) return NotYetOr((Error)pull.Value!);
-
-        return Result.Success(new DevbookSubjectSyncSummary(
-            pushSummary.Pushed,
-            pullSummary.Pulled,
-            pullSummary.Applied,
-            _time.GetUtcNow())
+        return push switch
         {
-            Refused = pushSummary.Refused,
-            Skipped = pushSummary.Skipped,
-        });
+            Ok<DevbookSubjectSyncSummary>(var pushSummary) => await PullAfterAsync(pushSummary).ConfigureAwait(false),
+            Error error => NotYetOr(error),
+        };
+
+        async Task<Result<DevbookSubjectSyncSummary>> PullAfterAsync(DevbookSubjectSyncSummary pushSummary)
+        {
+            var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+            return pull switch
+            {
+                Ok<DevbookSubjectSyncSummary>(var pullSummary) => Result.Success(new DevbookSubjectSyncSummary(
+                    pushSummary.Pushed,
+                    pullSummary.Pulled,
+                    pullSummary.Applied,
+                    _time.GetUtcNow())
+                {
+                    Refused = pushSummary.Refused,
+                    Skipped = pushSummary.Skipped,
+                }),
+                Error error => NotYetOr(error),
+            };
+        }
     }
 
     /// <summary>

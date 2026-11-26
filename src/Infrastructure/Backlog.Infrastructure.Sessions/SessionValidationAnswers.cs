@@ -103,13 +103,20 @@ public sealed partial class SessionValidationAnswers(
             .FileAfterAsync(new TaskFollowUpRequest(gated, answer.Text!.Trim(), answer.NotificationId), cancellationToken)
             .ConfigureAwait(false);
 
-        if (filed is Ok<Guid>(var followUpId)) return followUpId;
+        return filed switch
+        {
+            Ok<Guid>(var followUpId) => followUpId,
+            Error error => NotFiled(error),
+        };
 
-        FollowUpNotFiled(
-            _logger,
-            runId,
-            ((Error)filed.Value!).Code);
-        return null;
+        Guid? NotFiled(Error error)
+        {
+            FollowUpNotFiled(
+                _logger,
+                runId,
+                error.Code);
+            return null;
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "An answer with source key {Key} names no run; nothing to do.")]

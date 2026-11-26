@@ -132,20 +132,28 @@ internal static partial class ValidationQuestions
 
                 var published = await port.PublishAsync(Draft(run, runId, worktree, handoff, shown, repositories), cancellationToken).ConfigureAwait(false);
 
-                if (published is not Ok<Guid>(var notificationId))
+                // Nothing follows in this branch, so a refusal that leaves the run as it was ends
+                // the step as the early return it replaces did.
+                var question = published switch
                 {
-                    QuestionNotPublished(logger, runId, ((Error)published.Value!).Message);
-                    return;
-                }
-
-                run[Key] = new JsonObject
-                {
-                    ["notificationId"] = notificationId.ToString("D"),
-                    ["askedAt"] = Stamp(DateTimeOffset.UtcNow),
-                    ["answered"] = false,
-                    ["closed"] = false,
-                    ["armed"] = false
+                    Ok<Guid>(var notificationId) => new JsonObject
+                    {
+                        ["notificationId"] = notificationId.ToString("D"),
+                        ["askedAt"] = Stamp(DateTimeOffset.UtcNow),
+                        ["answered"] = false,
+                        ["closed"] = false,
+                        ["armed"] = false
+                    },
+                    Error error => NotPublished(error),
                 };
+
+                if (question is not null) run[Key] = question;
+
+                JsonObject? NotPublished(Error error)
+                {
+                    QuestionNotPublished(logger, runId, error.Message);
+                    return null;
+                }
             }
             else
             {

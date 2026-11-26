@@ -554,21 +554,12 @@ public sealed partial class QuestionRelay : IQuestionRelay
             {
                 var published = await notifications.PublishAsync(Draft(question, i, session), cancellationToken).ConfigureAwait(false);
 
-                if (published is not Ok<Guid>(var notificationId))
+                Error? failure = published switch
                 {
-                    var refused = (Error)published.Value!;
-                    QuestionNotPublished(_logger, id, refused.Message);
-                    await CloseAllAsync(notifications, ids, "Not published", cancellationToken).ConfigureAwait(false);
-
-                    // Held in the session and tried again once per notify delay, never on
-                    // every tick: a refusal that keeps recurring must not buzz the phone.
-                    var later = Now + _notifyAfter();
-                    await _store.ChangeAsync(id, held => WaitingQuestions.Postpone(held, later), cancellationToken).ConfigureAwait(false);
-
-                    return refused;
-                }
-
-                ids.Add(notificationId);
+                    Ok<Guid>(var notificationId) => Added(notificationId),
+                    Error refused => await PostponedAsync(refused).ConfigureAwait(false),
+                };
+                if (failure is { } failed) return failed;
             }
 
             var outcome = await _store.ChangeAsync(id, held => WaitingQuestions.Notify(held, ids), cancellationToken).ConfigureAwait(false);
@@ -585,6 +576,26 @@ public sealed partial class QuestionRelay : IQuestionRelay
             }
 
             return outcome.Question ?? question;
+
+            // Null once the notification is held, so the next question is published.
+            Error? Added(Guid notificationId)
+            {
+                ids.Add(notificationId);
+                return null;
+            }
+
+            async Task<Error?> PostponedAsync(Error refused)
+            {
+                QuestionNotPublished(_logger, id, refused.Message);
+                await CloseAllAsync(notifications, ids, "Not published", cancellationToken).ConfigureAwait(false);
+
+                // Held in the session and tried again once per notify delay, never on
+                // every tick: a refusal that keeps recurring must not buzz the phone.
+                var later = Now + _notifyAfter();
+                await _store.ChangeAsync(id, held => WaitingQuestions.Postpone(held, later), cancellationToken).ConfigureAwait(false);
+
+                return refused;
+            }
         }
         finally
         {

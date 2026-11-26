@@ -121,17 +121,24 @@ public sealed partial class KnowledgeEventSyncSession
         var change = KnowledgeEventDocuments.ToChange(new EventsAreaReplicaDto(EventsAreaReplicaDto.WellKnownId, area.On, area.At));
 
         var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
-        if (response is not Ok<PushKnowledgeEventsResponse>(var answer)) return (Error)response.Value!;
-
-        // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
-        if (answer.Accepted == 0)
+        return response switch
         {
-            LogSwitchNotTaken(_log);
+            Ok<PushKnowledgeEventsResponse>(var answer) => Marked(answer),
+            Error error => error,
+        };
+
+        Result<bool> Marked(PushKnowledgeEventsResponse answer)
+        {
+            // Not taken: the replica holds a later switch, by another desktop's clock. That one stands.
+            if (answer.Accepted == 0)
+            {
+                LogSwitchNotTaken(_log);
+            }
+
+            _state.Update(state => state.Area == area ? state with { Area = area with { Sent = true } } : state);
+
+            return Result.Success(true);
         }
-
-        _state.Update(state => state.Area == area ? state with { Area = area with { Sent = true } } : state);
-
-        return Result.Success(true);
     }
 
     /// <summary>
@@ -181,10 +188,20 @@ public sealed partial class KnowledgeEventSyncSession
             if (changes.Count > 0)
             {
                 var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
-                if (response is not Ok<PushKnowledgeEventsResponse>(var answer)) return (Error)response.Value!;
+                Error? failure = response switch
+                {
+                    Ok<PushKnowledgeEventsResponse>(var answer) => Counted(answer),
+                    Error error => error,
+                };
+                if (failure is { } failed) return failed;
+            }
 
+            // Null once the batch is counted, so the push goes on.
+            Error? Counted(PushKnowledgeEventsResponse answer)
+            {
                 pushed += answer.Accepted;
                 refused += Math.Max(0, changes.Count - answer.Accepted);
+                return null;
             }
 
             if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, change => change.UpdatedAt) is { } advanced)
@@ -209,30 +226,44 @@ public sealed partial class KnowledgeEventSyncSession
         var pulled = 0;
         var applied = 0;
         var startedOver = false;
+        var more = true;
 
-        while (true)
+        while (more)
         {
             var page = await _client
                 .PullAsync(cursor, KnowledgeEventSyncClient.DefaultMaxItems, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (page is not Ok<PullKnowledgeEventsResponse>(var feed))
+            Error? failure = page switch
             {
-                var error = (Error)page.Value!;
-                if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
-                {
-                    return error;
-                }
+                Ok<PullKnowledgeEventsResponse>(var feed) => await AppliedAsync(feed).ConfigureAwait(false),
+                Error error => StartedOverOr(error),
+            };
+            if (failure is { } failed) return failed;
+        }
 
-                startedOver = true;
-                cursor = null;
-                _state.Update(state => state with { PullCursor = null });
-                pulled = 0;
-                applied = 0;
+        return Result.Success(new KnowledgeEventSyncSummary(0, pulled, applied, _time.GetUtcNow()));
 
-                continue;
+        // The error when starting over cannot help; null once the cursor and counts are reset.
+        Error? StartedOverOr(Error error)
+        {
+            if (startedOver || cursor is null || !ReplicaRoutes.Retired(error.Code))
+            {
+                return error;
             }
 
+            startedOver = true;
+            cursor = null;
+            _state.Update(state => state with { PullCursor = null });
+            pulled = 0;
+            applied = 0;
+
+            return null;
+        }
+
+        // Null once the page is applied and its cursor saved; the last page ends the loop.
+        async Task<Error?> AppliedAsync(PullKnowledgeEventsResponse feed)
+        {
             pulled += feed.Events.Count;
             // One applied page is one sync change set (local ADR 0071 §2).
             using (ChangeContext.Begin(ChangeActor.Sync, "applying a knowledge event sync page"))
@@ -243,10 +274,9 @@ public sealed partial class KnowledgeEventSyncSession
             cursor = feed.Since;
             _state.Update(state => state with { PullCursor = cursor });
 
-            if (!feed.HasMore) break;
+            more = feed.HasMore;
+            return null;
         }
-
-        return Result.Success(new KnowledgeEventSyncSummary(0, pulled, applied, _time.GetUtcNow()));
     }
 
     /// <summary>
@@ -260,9 +290,14 @@ public sealed partial class KnowledgeEventSyncSession
     {
         var sent = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
 
-        if (sent is not Ok<bool>(var areaSent))
+        return sent switch
         {
-            var error = (Error)sent.Value!;
+            Ok<bool>(var areaSent) => Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = areaSent }),
+            Error error => Refused(error),
+        };
+
+        Result<KnowledgeEventSyncSummary> Refused(Error error)
+        {
             if (string.Equals(error.Code, SyncErrorCodes.KnowledgeEventInvalid, StringComparison.Ordinal))
             {
                 LogSwitchRefused(_log, error.Code);
@@ -271,8 +306,6 @@ public sealed partial class KnowledgeEventSyncSession
 
             return NotYetOr(error);
         }
-
-        return Result.Success(new KnowledgeEventSyncSummary(0, 0, 0, _time.GetUtcNow()) { AreaSent = areaSent });
     }
 
     /// <summary>Push, then the switch, then pull; a failed push stops the exchange. A bare 404
@@ -282,27 +315,36 @@ public sealed partial class KnowledgeEventSyncSession
     public async Task<Result<KnowledgeEventSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push is not Ok<KnowledgeEventSyncSummary>(var pushSummary)) return NotYetOr((Error)push.Value!);
-
-        var area = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
-        if (area is Error areaError)
+        return push switch
         {
-            LogSwitchNotSent(_log, areaError.Code, areaError.Message);
+            Ok<KnowledgeEventSyncSummary>(var pushSummary) => await AreaThenPullAsync(pushSummary).ConfigureAwait(false),
+            Error error => NotYetOr(error),
+        };
+
+        async Task<Result<KnowledgeEventSyncSummary>> AreaThenPullAsync(KnowledgeEventSyncSummary pushSummary)
+        {
+            var area = await PushAreaAsync(cancellationToken).ConfigureAwait(false);
+            if (area is Error areaError)
+            {
+                LogSwitchNotSent(_log, areaError.Code, areaError.Message);
+            }
+
+            var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+            return pull switch
+            {
+                Ok<KnowledgeEventSyncSummary>(var pullSummary) => Result.Success(new KnowledgeEventSyncSummary(
+                    pushSummary.Pushed,
+                    pullSummary.Pulled,
+                    pullSummary.Applied,
+                    _time.GetUtcNow())
+                {
+                    Refused = pushSummary.Refused,
+                    Skipped = pushSummary.Skipped,
+                    AreaSent = area is Ok<bool>(true),
+                }),
+                Error error => NotYetOr(error),
+            };
         }
-
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull is not Ok<KnowledgeEventSyncSummary>(var pullSummary)) return NotYetOr((Error)pull.Value!);
-
-        return Result.Success(new KnowledgeEventSyncSummary(
-            pushSummary.Pushed,
-            pullSummary.Pulled,
-            pullSummary.Applied,
-            _time.GetUtcNow())
-        {
-            Refused = pushSummary.Refused,
-            Skipped = pushSummary.Skipped,
-            AreaSent = area is Ok<bool>(true),
-        });
     }
 
     /// <summary>A failure, unless it is the bare 404 a service without the route answers. A 404

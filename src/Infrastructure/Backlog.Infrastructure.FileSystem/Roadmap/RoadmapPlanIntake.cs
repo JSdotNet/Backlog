@@ -41,16 +41,23 @@ public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
             cancellationToken).ConfigureAwait(false);
 
         // All or nothing on the roadmap's side: a refusal left the plan as it was.
-        if (imported is not Ok<PlanImportResultDto>(var result)) return RoadmapIntakeResultDto.Refused(((Error)imported.Value!).Message);
+        return imported switch
+        {
+            Ok<PlanImportResultDto>(var result) => LaidOut(result),
+            Error error => RoadmapIntakeResultDto.Refused(error.Message),
+        };
 
-        return new RoadmapIntakeResultDto(
-            result.Created.Count,
-            result.Updated.Count,
-            result.Relengthened.Count,
-            result.SkippedWithoutTag,
-            [],
-            [.. result.AmbiguousTags.Select(ambiguous => ambiguous.Tag)],
-            [.. result.UnresolvedDependencies.Select(unresolved => new ImportUnresolvedDependencyDto(unresolved.Tag, unresolved.After))]);
+        static RoadmapIntakeResultDto LaidOut(PlanImportResultDto result)
+        {
+            return new RoadmapIntakeResultDto(
+                result.Created.Count,
+                result.Updated.Count,
+                result.Relengthened.Count,
+                result.SkippedWithoutTag,
+                [],
+                [.. result.AmbiguousTags.Select(ambiguous => ambiguous.Tag)],
+                [.. result.UnresolvedDependencies.Select(unresolved => new ImportUnresolvedDependencyDto(unresolved.Tag, unresolved.After))]);
+        }
     }
 
     private static PlanImportEntryDto ToRoadmap(RoadmapPlanEntryDto entry) =>

@@ -168,31 +168,52 @@ public sealed partial class NotificationSyncSession
         MarkLocalChanges(open);
 
         var pushed = await PushDirtyAsync(cancellationToken).ConfigureAwait(false);
-        if (pushed is not Ok<(int Pushed, bool Settled)>(var pushCounts)) return (Error)pushed.Value!;
-
-        // Replies are listed while a question is open, and once more in the cycle that pushes a
-        // notification as settled: a reply that reached the service before the question closed
-        // here is then rejected as closed rather than left waiting for the backstop expiry.
-        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushCounts.Settled)
+        return pushed switch
         {
-            Prune();
-            return Result.Success(new NotificationSyncSummary(pushCounts.Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
+            Ok<(int Pushed, bool Settled)>(var pushCounts) => await RepliedAsync(pushCounts).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<NotificationSyncSummary>> RepliedAsync((int Pushed, bool Settled) pushCounts)
+        {
+            // Replies are listed while a question is open, and once more in the cycle that pushes a
+            // notification as settled: a reply that reached the service before the question closed
+            // here is then rejected as closed rather than left waiting for the backstop expiry.
+            if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushCounts.Settled)
+            {
+                Prune();
+                return Result.Success(new NotificationSyncSummary(pushCounts.Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));
+            }
+
+            var processed = await ProcessRepliesAsync(me, cancellationToken).ConfigureAwait(false);
+            return processed switch
+            {
+                Ok<(int Accepted, int Rejected)>(var replyCounts) => await PushedAfterAsync(replyCounts).ConfigureAwait(false),
+                Error error => error,
+            };
+
+            async Task<Result<NotificationSyncSummary>> PushedAfterAsync((int Accepted, int Rejected) replyCounts)
+            {
+                var pushedAfter = await PushDirtyAsync(cancellationToken).ConfigureAwait(false);
+                return pushedAfter switch
+                {
+                    Ok<(int Pushed, bool Settled)>(var laterPushCounts) => Summed(laterPushCounts),
+                    Error error => error,
+                };
+
+                Result<NotificationSyncSummary> Summed((int Pushed, bool Settled) laterPushCounts)
+                {
+                    Prune();
+
+                    return Result.Success(new NotificationSyncSummary(
+                        pushCounts.Pushed + laterPushCounts.Pushed,
+                        replyCounts.Accepted,
+                        replyCounts.Rejected,
+                        PolledReplies: true,
+                        _time.GetUtcNow()));
+                }
+            }
         }
-
-        var processed = await ProcessRepliesAsync(me, cancellationToken).ConfigureAwait(false);
-        if (processed is not Ok<(int Accepted, int Rejected)>(var replyCounts)) return (Error)processed.Value!;
-
-        var pushedAfter = await PushDirtyAsync(cancellationToken).ConfigureAwait(false);
-        if (pushedAfter is not Ok<(int Pushed, bool Settled)>(var laterPushCounts)) return (Error)pushedAfter.Value!;
-
-        Prune();
-
-        return Result.Success(new NotificationSyncSummary(
-            pushCounts.Pushed + laterPushCounts.Pushed,
-            replyCounts.Accepted,
-            replyCounts.Rejected,
-            PolledReplies: true,
-            _time.GetUtcNow()));
     }
 
     /// <summary>Follows a new pairing. Under the same owner the instance keeps its progress and
@@ -310,34 +331,44 @@ public sealed partial class NotificationSyncSession
             if (batch.Count == 0) continue;
 
             var response = await _client.PushAsync([.. batch.Select(item => item.Change)], cancellationToken).ConfigureAwait(false);
-            if (response is not Ok<PushNotificationsResponse>(var answer)) return (Error)response.Value!;
-
-            pushed += answer.Accepted;
-
-            var notOwned = (answer.NotOwned ?? []).ToHashSet();
-
-            foreach (var id in notOwned)
+            Error? failure = response switch
             {
-                // An id the replica holds under another owner instance: a collision nothing
-                // here can mend, so it is named once and not offered on every cycle.
-                LogNotificationNotOwned(_log, id);
-            }
+                Ok<PushNotificationsResponse>(var answer) => await SentAsync(answer).ConfigureAwait(false),
+                Error error => error,
+            };
+            if (failure is { } failed) return failed;
 
-            foreach (var (change, snapshot) in batch)
+            // Null once the batch is counted, marked and its foreign ids closed, so the loop goes on.
+            async Task<Error?> SentAsync(PushNotificationsResponse answer)
             {
-                settled |= change.State != NotificationStates.Open;
+                pushed += answer.Accepted;
 
-                Update(change.Id, _state.Current.Tracked[change.Id] with
+                var notOwned = (answer.NotOwned ?? []).ToHashSet();
+
+                foreach (var id in notOwned)
                 {
-                    Dirty = false,
-                    PushedState = change.State,
-                    SettledAt = snapshot.SettledAt,
-                    PushedAt = change.UpdatedAt,
-                    Withheld = notOwned.Contains(change.Id),
-                });
-            }
+                    // An id the replica holds under another owner instance: a collision nothing
+                    // here can mend, so it is named once and not offered on every cycle.
+                    LogNotificationNotOwned(_log, id);
+                }
 
-            await CloseOwnedElsewhereAsync(notOwned, cancellationToken).ConfigureAwait(false);
+                foreach (var (change, snapshot) in batch)
+                {
+                    settled |= change.State != NotificationStates.Open;
+
+                    Update(change.Id, _state.Current.Tracked[change.Id] with
+                    {
+                        Dirty = false,
+                        PushedState = change.State,
+                        SettledAt = snapshot.SettledAt,
+                        PushedAt = change.UpdatedAt,
+                        Withheld = notOwned.Contains(change.Id),
+                    });
+                }
+
+                await CloseOwnedElsewhereAsync(notOwned, cancellationToken).ConfigureAwait(false);
+                return null;
+            }
         }
 
         return (pushed, settled);
@@ -400,81 +431,88 @@ public sealed partial class NotificationSyncSession
     private async Task<Result<(int Accepted, int Rejected)>> ProcessRepliesAsync(DeviceCredential me, CancellationToken cancellationToken)
     {
         var listed = await _client.ListRepliesAsync(_identity.Current.Id, NotificationSyncClient.DefaultMaxReplies, cancellationToken).ConfigureAwait(false);
-        if (listed is not Ok<PullNotificationRepliesResponse>(var replyPage)) return (Error)listed.Value!;
-
-        _state.Save(_state.Current with { LastReplyPoll = _time.GetUtcNow() });
-
-        var accepted = 0;
-        var rejected = 0;
-
-        // Each device's standing is read once a cycle, however many of its replies it takes.
-        var standings = new Dictionary<Guid, DeviceStanding>();
-
-        // The order the service took them in; its stamp is in seconds, so two replies in the
-        // same second are put in the order the people made them.
-        foreach (var record in replyPage.Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
+        return listed switch
         {
-            var reply = record.Reply;
-            var snapshot = await _notifications.GetAsync(reply.NotificationId, cancellationToken).ConfigureAwait(false);
+            Ok<PullNotificationRepliesResponse>(var replyPage) => await ProcessedAsync(replyPage).ConfigureAwait(false),
+            Error error => error,
+        };
 
-            if (!AlreadyProcessed(record, snapshot))
+        async Task<Result<(int Accepted, int Rejected)>> ProcessedAsync(PullNotificationRepliesResponse replyPage)
+        {
+            _state.Save(_state.Current with { LastReplyPoll = _time.GetUtcNow() });
+
+            var accepted = 0;
+            var rejected = 0;
+
+            // Each device's standing is read once a cycle, however many of its replies it takes.
+            var standings = new Dictionary<Guid, DeviceStanding>();
+
+            // The order the service took them in; its stamp is in seconds, so two replies in the
+            // same second are put in the order the people made them.
+            foreach (var record in replyPage.Replies.OrderBy(record => record.ServerTimestamp).ThenBy(record => record.Reply.RepliedAt))
             {
-                Result<NotificationAnswer> outcome;
+                var reply = record.Reply;
+                var snapshot = await _notifications.GetAsync(reply.NotificationId, cancellationToken).ConfigureAwait(false);
 
-                if (record.OwnerId != me.OwnerId)
+                if (!AlreadyProcessed(record, snapshot))
                 {
-                    outcome = Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyForeignOwner());
+                    Result<NotificationAnswer> outcome;
+
+                    if (record.OwnerId != me.OwnerId)
+                    {
+                        outcome = Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyForeignOwner());
+                    }
+                    else
+                    {
+                        var paired = await FromPairedDeviceAsync(record, snapshot, me, standings, cancellationToken).ConfigureAwait(false);
+
+                        // Stop here, before the delete: the reply is listed again next cycle.
+                        if (paired is Error unread) return Result.Failure<(int, int)>(unread);
+
+                        outcome = paired is Ok<bool> { Value: true }
+                            ? await _replies.AcceptReplyAsync(ToReply(record, me), cancellationToken).ConfigureAwait(false)
+                            : Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyUnpairedDevice());
+                    }
+
+                    // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
+                    var taken = outcome switch
+                    {
+                        Ok<NotificationAnswer> => Accept(),
+                        Error refusal => Refuse(refusal),
+                    };
+
+                    if (taken) accepted++;
+                    else rejected++;
+
+                    bool Accept()
+                    {
+                        MarkDirty(reply.NotificationId);
+                        return true;
+                    }
+
+                    bool Refuse(Error refusal)
+                    {
+                        // Logged by id and code only: an open answer is the person's own text.
+                        LogReplyRejected(_log, reply.Id, reply.NotificationId, refusal.Code);
+
+                        // A reply to a notification this instance does not hold has nowhere to
+                        // say so; it is only deleted.
+                        if (snapshot is not null) Reject(record, refusal);
+                        return false;
+                    }
                 }
-                else
+
+                var deleted = await _client.DeleteReplyAsync(reply.Id, cancellationToken).ConfigureAwait(false);
+                if (deleted is Error notDeleted && notDeleted.Code != SyncErrorCodes.NotificationReplyNotFound)
                 {
-                    var paired = await FromPairedDeviceAsync(record, snapshot, me, standings, cancellationToken).ConfigureAwait(false);
-
-                    // Stop here, before the delete: the reply is listed again next cycle.
-                    if (paired is Error unread) return Result.Failure<(int, int)>(unread);
-
-                    outcome = paired is Ok<bool> { Value: true }
-                        ? await _replies.AcceptReplyAsync(ToReply(record, me), cancellationToken).ConfigureAwait(false)
-                        : Result.Failure<NotificationAnswer>(NotificationsErrors.ReplyUnpairedDevice());
-                }
-
-                // A switch expression, so CS8509 proves both cases handled (app-defaults ADR 0005).
-                var taken = outcome switch
-                {
-                    Ok<NotificationAnswer> => Accept(),
-                    Error refusal => Refuse(refusal),
-                };
-
-                if (taken) accepted++;
-                else rejected++;
-
-                bool Accept()
-                {
-                    MarkDirty(reply.NotificationId);
-                    return true;
-                }
-
-                bool Refuse(Error refusal)
-                {
-                    // Logged by id and code only: an open answer is the person's own text.
-                    LogReplyRejected(_log, reply.Id, reply.NotificationId, refusal.Code);
-
-                    // A reply to a notification this instance does not hold has nowhere to
-                    // say so; it is only deleted.
-                    if (snapshot is not null) Reject(record, refusal);
-                    return false;
+                    // Stop here: the reply is still listed next time, and processing it again
+                    // only deletes it.
+                    return notDeleted;
                 }
             }
 
-            var deleted = await _client.DeleteReplyAsync(reply.Id, cancellationToken).ConfigureAwait(false);
-            if (deleted is Error notDeleted && notDeleted.Code != SyncErrorCodes.NotificationReplyNotFound)
-            {
-                // Stop here: the reply is still listed next time, and processing it again
-                // only deletes it.
-                return notDeleted;
-            }
+            return (accepted, rejected);
         }
-
-        return (accepted, rejected);
     }
 
     /// <summary>

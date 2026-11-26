@@ -235,8 +235,17 @@ public sealed partial class SessionAlertPublisher(
                 : SessionAlerts.ClosedReason(subject.Id);
             var result = await port.CloseForSubjectAsync(subject, reason, cancellationToken).ConfigureAwait(false);
 
-            if (result is Ok<int>(var count)) closed += count;
-            else AlertNotClosed(_logger, subject.Id, ((Error)result.Value!).Message);
+            closed += result switch
+            {
+                Ok<int>(var count) => count,
+                Error error => NotClosed(error),
+            };
+
+            int NotClosed(Error error)
+            {
+                AlertNotClosed(_logger, subject.Id, error.Message);
+                return 0;
+            }
         }
 
         // Open, acknowledged or closed, an alert the owner holds is not raised again. The one

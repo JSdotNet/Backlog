@@ -149,12 +149,19 @@ public sealed class InboxTools(IInboxItems inbox, IInboxChangeSignal? changes = 
         var captured = await inbox
             .CaptureAsync(title, body, InboxEnumMap.ManualChannel, sourceUrl, cancellationToken)
             .ConfigureAwait(false);
-        if (captured is not Ok<InboxItemDto>(var item)) throw RepositoryScope.Failure((Error)captured.Value!);
+        return captured switch
+        {
+            Ok<InboxItemDto>(var item) => Captured(item),
+            Error error => throw RepositoryScope.Failure(error),
+        };
 
-        // Heard by an open Inbox, which reloads; the pane learns of no other way.
-        changes?.Raise();
+        InboxItemSummaryPayload Captured(InboxItemDto item)
+        {
+            // Heard by an open Inbox, which reloads; the pane learns of no other way.
+            changes?.Raise();
 
-        return InboxItemSummaryPayload.From(item);
+            return InboxItemSummaryPayload.From(item);
+        }
     }
 
     private async Task<InboxItemDto> FindAsync(Guid id, CancellationToken cancellationToken)

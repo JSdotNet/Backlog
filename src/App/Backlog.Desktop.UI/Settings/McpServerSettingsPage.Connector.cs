@@ -151,8 +151,15 @@ public partial class McpServerSettingsPage
             _connectorSecret = null;
             var created = await connector.CreateSecretAsync(cancellationToken);
             if (_disposed) return null;
-            if (created is not Ok<ConnectorSecretResponse>(var secret)) return ((Error)created.Value!).Message;
+            return created switch
+            {
+                Ok<ConnectorSecretResponse>(var secret) => Created(secret),
+                Error error => error.Message,
+            };
+        });
 
+        string? Created(ConnectorSecretResponse secret)
+        {
             _connectorSecret = secret.ClientSecret;
             // The service holds a secret now even if the read that follows fails, so the
             // card says so and the next press still asks before it replaces this one.
@@ -162,7 +169,7 @@ public partial class McpServerSettingsPage
             }
 
             return null;
-        });
+        }
     }
 
     private void AskRevokeConnector() => _connectorConfirm = ConnectorConfirm.Revoke;

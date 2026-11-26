@@ -265,23 +265,32 @@ public sealed partial class PairingSubjects : IDisposable
             if (_roster() is not { } roster) return;
 
             var listed = await roster.ListDevicesAsync().ConfigureAwait(false);
-            if (listed is not Ok<DeviceListResponse>(var devices))
+            await (listed switch
             {
-                LogDeviceListNotRead(_logger, ((Error)listed.Value!).Message);
-                return;
+                Ok<DeviceListResponse>(var devices) => ClaimAsync(devices),
+                Error error => NotRead(error),
+            }).ConfigureAwait(false);
+
+            Task NotRead(Error error)
+            {
+                LogDeviceListNotRead(_logger, error.Message);
+                return Task.CompletedTask;
             }
 
-            foreach (var device in devices.Devices.Where(device => device.PairedBy == devices.CallerDeviceId))
+            async Task ClaimAsync(DeviceListResponse devices)
             {
-                if (_claimed.ContainsKey(device.DeviceId)) continue;
+                foreach (var device in devices.Devices.Where(device => device.PairedBy == devices.CallerDeviceId))
+                {
+                    if (_claimed.ContainsKey(device.DeviceId)) continue;
 
-                var redeemed = _open.Values
-                    .Where(pairing => Waiting(pairing) || pairing.Id == final)
-                    .Where(pairing => pairing.RedeemedBy is null && device.RegisteredAt >= pairing.IssuedAt - ClockAllowance)
-                    .OrderByDescending(pairing => pairing.IssuedAt)
-                    .FirstOrDefault();
+                    var redeemed = _open.Values
+                        .Where(pairing => Waiting(pairing) || pairing.Id == final)
+                        .Where(pairing => pairing.RedeemedBy is null && device.RegisteredAt >= pairing.IssuedAt - ClockAllowance)
+                        .OrderByDescending(pairing => pairing.IssuedAt)
+                        .FirstOrDefault();
 
-                if (redeemed is not null) await RedeemedAsync(redeemed.Id, device.DeviceId, device.Name).ConfigureAwait(false);
+                    if (redeemed is not null) await RedeemedAsync(redeemed.Id, device.DeviceId, device.Name).ConfigureAwait(false);
+                }
             }
         }
         catch (Exception exception)
