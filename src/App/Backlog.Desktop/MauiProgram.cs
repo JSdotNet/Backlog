@@ -165,7 +165,9 @@ public static partial class MauiProgram
                 sp.GetRequiredService<IMcpEndpointSource>(),
                 sp.GetService<ILogger<DevToolService>>())
             {
-                QuestionHookScriptPath = AskBacklogHook.PathUnder(appData)
+                QuestionHookScriptPath = AskBacklogHook.PathUnder(appData),
+                // Dev PCs' Machine keys the per-PC folder (local ADR 0073 §7).
+                Machine = sp.GetRequiredService<IMachineRegistry>().Current
             },
             // Beside settings.json in the same per-user folder, and never in the
             // Brain folder itself (local ADR 0026).

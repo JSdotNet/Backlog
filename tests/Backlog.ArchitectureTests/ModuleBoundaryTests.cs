@@ -46,6 +46,8 @@ public class ModuleBoundaryTests
             "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point (local ADR 0040 §2; .devbook/domain/context-map.md)"),
         ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Abstractions",
             "Customer/Supplier: the Brain answers Devbook's personal-source port and opens repository chapters in its published language (local ADR 0040 §2, ADR 0027 §6; .devbook/domain/context-map.md)"),
+        ("Backlog.Modules.Insights.UI", "Backlog.Modules.DevPc.Abstractions",
+            "Customer/Supplier: Dev PCs owns the Machine and Insights' machine filter reads it through the registry port (local ADR 0073 §7; .devbook/domain/context-map.md)"),
     ];
 
     [Fact]

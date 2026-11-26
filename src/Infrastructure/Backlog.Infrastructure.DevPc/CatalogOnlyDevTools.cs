@@ -82,9 +82,14 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
     /// shape a browser test here could not tell from a broken one.</summary>
     private readonly HashSet<string> _removedCache = new(StringComparer.OrdinalIgnoreCase);
 
-    public CatalogOnlyDevTools(ITaskStore store)
+    /// <summary>The machine whose per-PC folder this reads (local ADR 0073 §7), or
+    /// none for the folder named after <see cref="Environment.MachineName"/>.</summary>
+    private readonly Machine? _machine;
+
+    public CatalogOnlyDevTools(ITaskStore store, Machine? machine = null)
     {
         _store = store;
+        _machine = machine;
     }
 
     public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
@@ -761,7 +766,16 @@ internal sealed class CatalogOnlyDevTools : IDevToolService
         };
     }
 
-    private DevToolConfigurationPaths Paths => DevToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);
+    private DevToolConfigurationPaths Paths
+    {
+        get
+        {
+            if (_machine is null) return DevToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);
+
+            return DevToolConfiguration.AdoptLegacyPcFolder(
+                DevToolConfigurationPaths.FromStorageRoot(_store.RootDirectory, _machine));
+        }
+    }
 
     private static IEnumerable<JsonNode> GetArray(JsonNode root, string name) =>
         root[name]?.AsArray().Where(node => node is not null).Cast<JsonNode>() ?? [];

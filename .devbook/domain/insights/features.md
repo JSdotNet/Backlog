@@ -218,7 +218,7 @@ Beside the chart, the hour grid shows one calendar week, Monday to Sunday, from 
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/sessions/domain.md#session-history]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsHeadlinesTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.InsightsScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeviceMachineDirectoryTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsHeadlinesTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.InsightsScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.MachineFilterOptionsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.SessionMachineRegistryTests]
 ```
 
 The pane's header names the tab on show as an eyebrow, such as "Dashboard · Tasks", and leads with one sentence about that tab. The sentence is a fixed template filled from the figures the tab reads, never written by a model:
@@ -245,7 +245,7 @@ The Window toggle offers 4, 8, 12 and 26 weeks, and the pane opens on 12. It is 
 
 On the Devbook tab the header says "Window and machine don't apply" and disables both controls, because a verdict is the sweep's last result and an issue is open today. Neither depends on the window or the machine. On the Cost tab the header names the month instead and disables both, because spend is read for the calendar month and no provider reports it per machine. Both come back on every other tab. They are disabled rather than hidden, so the reader does not have to find them again.
 
-The Machine select lists each machine by its name. Two machines can share a name and each is still its own option. A shared name carries "(this device)" for this machine, and the first eight characters of its id for any other: "JS-DESKTOP (0f4c2a9e)".
+The Machine select lists the [machines Dev PC Management knows](../dev-pc-management/domain.md#machine) (local ADR 0073 §7), each by its name. Two machines can share a name and each is still its own option. A shared name carries "(this device)" for this machine, and the first eight characters of its id for any other: "JS-DESKTOP (0f4c2a9e)".
 
 ### Deltas against the previous window
 

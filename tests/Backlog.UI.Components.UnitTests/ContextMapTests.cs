@@ -585,6 +585,7 @@ public sealed class ContextMapTests
             ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "RoadmapItemScheduled", "AIWorkLogged",
              "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
              "The devbook database of each registered repository, read through Devbook's reader (local ADR 0015)",
+             "Machine", "MachineId", "IMachineRegistry", "Backlog.Modules.DevPc.Abstractions",
              "MachineStatusChanged", "ComplianceUpdated",
              "The pull request contract",
              "ITaskLookup", "Backlog.Modules.Work.Abstractions",

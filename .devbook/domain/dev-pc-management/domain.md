@@ -30,12 +30,32 @@ the registry holds are in [its invariants](domain.invariants.md#machine-registry
 
 ```meta
 type: entity
-aliases: [machine_id]
-related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
+aliases: [machine_id, MachineId, IMachineRegistry]
+related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/work/domain.md#device]
 ```
 
-A single development PC identified by `MachineId` (e.g. "work-laptop-001"). It
-holds:
+A single development PC. This context owns it (local ADR 0073 §7). It is built
+over Sync's device identity, the [Device](../work/domain.md#device) the shared
+kernel mints once per installation:
+
+- `MachineId` is that identity, a GUID that survives a rename;
+- `name` is what the operating system calls the box now, for a person to
+  recognise and never a key, because two machines can share a name.
+
+`Machine` and `MachineId` are in `Backlog.Modules.DevPc.Abstractions`, with the
+`IMachineRegistry` port. The registry answers the current machine and every
+machine known since a date: this device, then each machine whose session
+records Sync replicated here, by name, each once by id. An infrastructure
+adapter answers it, because it joins the kernel's identity to
+[Sessions](../sessions/domain.md#session-log)' records. Insights' machine filter
+and the tools pane read it.
+
+The tools pane keeps this machine's own choices and its
+[last run](#last-tool-run) in a per-PC folder named by `MachineId`. An older
+build named that folder after the machine's normalised name, and the first read
+copies that folder under the id ([invariants](domain.invariants.md#machine-registry)).
+
+A machine also holds:
 
 - its network identity: `ip_local`, `ip_public`, `mac_address`, `rdp_port`;
 - `status`, `last_heartbeat`, and `desktop_version`, the desktop app's version;
@@ -289,7 +309,7 @@ Published when a registered machine changes runtime status.
 
 ### Payload
 
-- `machine_id` - machine identifier.
+- `machine_id` - the [Machine](#machine)'s `MachineId`.
 - `previous_status` - prior `Machine Status`.
 - `new_status` - new `Machine Status`.
 - `last_heartbeat` - latest heartbeat observed.
@@ -316,7 +336,7 @@ team tools baseline.
 
 ### Payload
 
-- `machine_id` - machine identifier.
+- `machine_id` - the [Machine](#machine)'s `MachineId`.
 - `compliance_score` - current score.
 - `baseline_version` - baseline snapshot used for the calculation.
 - `out_of_date_tools` - tools outside the baseline.

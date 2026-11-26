@@ -34,6 +34,12 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.goals.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.inbox.abstractions": {
         "type": "Project",
         "dependencies": {
@@ -41,12 +47,6 @@
         }
       },
       "backlog.modules.notifications.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

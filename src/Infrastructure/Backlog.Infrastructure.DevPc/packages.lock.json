@@ -3,7 +3,10 @@
   "dependencies": {
     "net11.0": {
       "backlog.modules.devpc.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.work.abstractions": {
         "type": "Project",
