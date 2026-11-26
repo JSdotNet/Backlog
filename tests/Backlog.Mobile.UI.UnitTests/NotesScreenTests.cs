@@ -60,7 +60,7 @@ public sealed class NotesScreenTests
 
         var app = host.Open("notes");
 
-        // The page's own pull, and the one the shell makes for Progress.
+        // The page's own pull, and the one the shell makes for Goals.
         app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
         var empty = app.Find("[data-testid='notes-empty']");
         Assert.Contains("No notes yet", empty.TextContent, StringComparison.Ordinal);

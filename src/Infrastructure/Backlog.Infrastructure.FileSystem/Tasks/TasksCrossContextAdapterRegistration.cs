@@ -39,7 +39,7 @@ public static class TasksCrossContextAdapterRegistration
 
         // The pull requests a task links to, through Repositories' one
         // contract, so the task row shares its cache with the Pull requests pane,
-        // Progress and the side panel. A host that composed no contract answers with
+        // Goals and the side panel. A host that composed no contract answers with
         // nothing, the way the session states above do.
         services.AddSingleton<ILinkedPullRequestStates>(sp =>
             sp.GetService<IPullRequests>() is { } pullRequests

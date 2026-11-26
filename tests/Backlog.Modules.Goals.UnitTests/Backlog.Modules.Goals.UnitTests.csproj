@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Goals\Backlog.Modules.Goals\Backlog.Modules.Goals.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Goals\Backlog.Modules.Goals.Abstractions\Backlog.Modules.Goals.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The progress reading counts working days up to "today"; the tests pin it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- AddGoalsModule() is resolved through a real container once. -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

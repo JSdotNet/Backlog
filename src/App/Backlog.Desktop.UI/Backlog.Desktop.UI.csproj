@@ -69,9 +69,9 @@
     <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.UI\Backlog.Modules.Insights.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
-    <!-- Progress's Goals view and attach-to-goal control, drawn behind the goals
+    <!-- Goals' Goals view and attach-to-goal control, drawn behind the goals
          key the catalog lists. -->
-    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.UI\Backlog.Modules.Progress.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Goals\Backlog.Modules.Goals.UI\Backlog.Modules.Goals.UI.csproj" />
     <!-- Sync has no pane, only the Devices page on the settings screen, which the
          settings screen draws as the section AddSyncSettings() registers. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.UI\Backlog.Modules.Sync.UI.csproj" />

@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
 using Bunit;

@@ -1,9 +1,9 @@
 @page "/standup/impediments/{Id:guid}"
-@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Goals
 @using Backlog.Mobile.UI.Tasks
-@using Backlog.Modules.Progress.Abstractions
-@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
-@inject ProgressViewProjection Progress
+@using Backlog.Modules.Goals.Abstractions
+@using Backlog.Modules.Goals.Abstractions.DataTransferObjects
+@inject GoalsViewProjection GoalsView
 @inject PhoneStandUp StandUp
 @inject TaskViewProjection Tasks
 @inject DeviceOutbox Outbox
@@ -19,7 +19,7 @@
     it raises no impediment and links or unlinks nothing — a desktop's Stand-up panel
     does.
 
-    The one thing the phone changes in Progress is here: the state, the
+    The one thing the phone changes in Goals is here: the state, the
     check-again day and the note, each queued through the device outbox as an
     impediment-edit for a desktop to apply (local ADR 0035 §8). The phone owns
     none of it, so the impediment it holds does not change until a desktop has
@@ -32,7 +32,7 @@
     the same edit twice. The fields stay live while an edit is being kept: the
     projection queues edits one at a time, in the order they were asked.
 
-    What was asked is the projection's to say (ProgressViewProjection.AskedFor),
+    What was asked is the projection's to say (GoalsViewProjection.AskedFor),
     by the rule its next edit reads too: it gives way once the impediment says it
     (applied), once it says something that is neither what was asked nor what the
     phone saw (a desktop changed it since, and that change stands), or once the
@@ -51,7 +51,7 @@
     <span class="standup-back__title">Impediment</span>
 </nav>
 
-@if (!Progress.HoldsStandUp)
+@if (!GoalsView.HoldsStandUp)
 {
     @if (_looked)
     {
@@ -85,7 +85,7 @@ else if (Impediment is { } impediment)
             </span>
             @if (open?.ReadyToResolve == true)
             {
-                <Badge Kind="tone" Slug="settled" TestId="impediment-ready">@(global::Backlog.UI.Components.Progress.GoalsText.ReadyToResolve)</Badge>
+                <Badge Kind="tone" Slug="settled" TestId="impediment-ready">@(global::Backlog.UI.Components.Goals.GoalsText.ReadyToResolve)</Badge>
             }
         </div>
 
@@ -182,11 +182,11 @@ else if (_looked)
     [Parameter]
     public Guid Id { get; set; }
 
-    private ImpedimentDto? Impediment => Progress.FindImpediment(Id);
+    private ImpedimentDto? Impediment => GoalsView.FindImpediment(Id);
 
     /// <summary>The state this phone asked for last, while it can still stand — the
     /// projection's answer, so the page and the next edit read one rule.</summary>
-    private ImpedimentState? AskedState => Progress.AskedFor(Id, ImpedimentEditKind.State)?.State;
+    private ImpedimentState? AskedState => GoalsView.AskedFor(Id, ImpedimentEditKind.State)?.State;
 
     private bool _disposed;
 
@@ -198,7 +198,7 @@ else if (_looked)
     /// </summary>
     protected override void OnInitialized()
     {
-        Progress.Changed += OnChanged;
+        GoalsView.Changed += OnChanged;
         Tasks.Changed += OnChanged;
         Outbox.Changed += OnChanged;
 
@@ -209,7 +209,7 @@ else if (_looked)
     {
         try
         {
-            await Progress.PullAsync();
+            await GoalsView.PullAsync();
             await Tasks.PullAsync();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -241,7 +241,7 @@ else if (_looked)
     public void Dispose()
     {
         _disposed = true;
-        Progress.Changed -= OnChanged;
+        GoalsView.Changed -= OnChanged;
         Tasks.Changed -= OnChanged;
         Outbox.Changed -= OnChanged;
     }
@@ -254,19 +254,19 @@ else if (_looked)
 
     /// <summary>
     /// Takes into the fields nobody is typing in what they should show: the value this phone
-    /// asked for while it can still stand (<see cref="ProgressViewProjection.AskedFor"/>),
+    /// asked for while it can still stand (<see cref="GoalsViewProjection.AskedFor"/>),
     /// else the impediment's own.
     /// </summary>
     private void Take()
     {
         if (Impediment is not { } impediment) return;
 
-        var checkAsked = Progress.AskedFor(Id, ImpedimentEditKind.CheckAgain);
+        var checkAsked = GoalsView.AskedFor(Id, ImpedimentEditKind.CheckAgain);
         var check = Day(checkAsked is null ? impediment.CheckAgain : checkAsked.CheckAgain);
         if (!_taken || _checkText == _checkBase) _checkText = check;
         _checkBase = check;
 
-        var noteAsked = Progress.AskedFor(Id, ImpedimentEditKind.Note);
+        var noteAsked = GoalsView.AskedFor(Id, ImpedimentEditKind.Note);
         var note = (noteAsked is null ? impediment.Note : noteAsked.Note) ?? string.Empty;
         if (!_taken || SameNote(_noteText, _noteBase)) _noteText = note;
         _noteBase = note;
@@ -281,7 +281,7 @@ else if (_looked)
     /// the outbox, the way Today marks a tick still on its way.</summary>
     private RenderFragment Waiting(ImpedimentEditKind kind) => __builder =>
     {
-        if (Progress.AskedFor(Id, kind) is null || !Progress.IsWaiting(Id, kind)) return;
+        if (GoalsView.AskedFor(Id, kind) is null || !GoalsView.IsWaiting(Id, kind)) return;
 
         <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
                TestId="@($"impediment-waiting-{kind.ToString().ToLowerInvariant()}")">Waiting</Badge>
@@ -293,7 +293,7 @@ else if (_looked)
     {
         var steps = StandupText.History(impediment);
         return AskedState is { } asked && asked != impediment.State
-            ? [.. steps, new StandupImpedimentStep(StandupText.State(asked), Progress.Today, null)]
+            ? [.. steps, new StandupImpedimentStep(StandupText.State(asked), GoalsView.Today, null)]
             : steps;
     }
 
@@ -307,7 +307,7 @@ else if (_looked)
         _moving = target;
         try
         {
-            await KeepAsync(() => Progress.MoveImpedimentAsync(Id, target));
+            await KeepAsync(() => GoalsView.MoveImpedimentAsync(Id, target));
         }
         finally
         {
@@ -328,7 +328,7 @@ else if (_looked)
         // A date field reports an incomplete date as empty; only a cleared field clears it.
         if (day is null && text.Length > 0) return;
 
-        if (await KeepAsync(() => Progress.SetCheckAgainAsync(Id, day)) is not null) _checkBase = text;
+        if (await KeepAsync(() => GoalsView.SetCheckAgainAsync(Id, day)) is not null) _checkBase = text;
     }
 
     private async Task SaveNoteAsync(ChangeEventArgs change)
@@ -337,7 +337,7 @@ else if (_looked)
         _noteText = text;
         if (SameNote(text, _noteBase)) return;
 
-        if (await KeepAsync(() => Progress.EditNoteAsync(Id, text)) is not null) _noteBase = text;
+        if (await KeepAsync(() => GoalsView.EditNoteAsync(Id, text)) is not null) _noteBase = text;
     }
 
     /// <summary>Queues one edit. One that could not be kept on the phone says so and leaves
@@ -366,7 +366,7 @@ else if (_looked)
     /// <summary>The tasks, pull requests and plans it holds back, in the order they were
     /// linked, each settled or not by the stand-up reading's rule.</summary>
     private IReadOnlyList<HeldBackLine> HeldBack(ImpedimentDto impediment) =>
-        StandupText.HeldBack(impediment, PhoneStandUp.Work(Tasks.Live()), Progress.Context());
+        StandupText.HeldBack(impediment, PhoneStandUp.Work(Tasks.Live()), GoalsView.Context());
 
     private static FlowStepTone Tone(HeldBackLine line) =>
         line.Settled ? FlowStepTone.Done : line.Blocked ? FlowStepTone.Blocked : FlowStepTone.Pending;

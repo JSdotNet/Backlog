@@ -4,7 +4,7 @@
     The Repositories module's public surface — everything a host or an
     adapter is allowed to see (ADR 0005, ADR 0009, local ADR 0042):
       DataTransferObjects/  a pull request's status as every reader receives it —
-                            the pane, the session card, a task's row, Progress —
+                            the pane, the session card, a task's row, Goals —
                             and the listings that carry it
       Services/             IPullRequests, the one contract every reader and every
                             act goes through, and the ports the module asks of
@@ -16,7 +16,7 @@
       PullRequestLabelFilter
                             the one verdict per pull request, its stack and its
                             merge offer, as pure policy statics. A deviation from
-                            ADR 0009's "DTOs and ports only", made after Progress's
+                            ADR 0009's "DTOs and ports only", made after Goals'
                             GoalForecasting: every reader must derive the same
                             verdict from the same status, so the rule ships with
                             the surface rather than behind a call.

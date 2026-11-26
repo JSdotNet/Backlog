@@ -4,7 +4,7 @@ using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Outbox;
-using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Goals;
 using Backlog.Mobile.UI.Recordings;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
@@ -189,8 +189,8 @@ public static class MobileShellServiceCollectionExtensions
         // Goals, impediments and the stand-up (local ADR 0035 §8): their own view and
         // cursor over the task feed, the stand-up read from it with the desktop's rules, and
         // the impediment edits the phone queues for a desktop to apply.
-        services.AddSingleton<IProgressViewStore>(_ => new SqliteProgressViewStore(databasePath));
-        services.AddSingleton<ProgressViewProjection>();
+        services.AddSingleton<IGoalsViewStore>(_ => new SqliteGoalsViewStore(databasePath));
+        services.AddSingleton<GoalsViewProjection>();
         services.AddSingleton<PhoneStandUp>();
         services.AddSingleton<IOutboxKind, ImpedimentEditOutboxKind>();
 

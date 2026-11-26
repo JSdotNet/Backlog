@@ -2400,7 +2400,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     /// <summary>
     /// Saves a new task titled <paramref name="title"/> and answers with its id — the Goals
-    /// view's "New task" row, which the shell hands this to because Progress UI may not
+    /// view's "New task" row, which the shell hands this to because Goals UI may not
     /// reach Tasks (ADR 0035 §6, local ADR 0028). The Goals view attaches it to the goal
     /// itself: nothing about a goal is written into the task.
     /// <para>

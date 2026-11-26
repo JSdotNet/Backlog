@@ -6,7 +6,7 @@
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Ai
 @using Backlog.Modules.Devbook.Abstractions
-@using Backlog.Modules.Progress.Abstractions
+@using Backlog.Modules.Goals.Abstractions
 @using Microsoft.AspNetCore.Components.Sections
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
@@ -149,7 +149,7 @@
                 }
 
                 @* The weekly review, beside the Inbox it starts from: a takeover like
-                   the Inbox, the Progress context's surface, offered behind its own
+                   the Inbox, the Goals context's surface, offered behind its own
                    flag (.devbook/domain/goals/features.md#the-weekly-review). Unlike
                    the Inbox it keeps no key of its own, so Escape closes it. *@
                 @if (WeeklyReviewOffered)
@@ -164,8 +164,8 @@
                                   OnClick="ToggleWeeklyReview">
                         <ListTodoIcon />
                         <span class="header-nav-label header-nav-label--tier-3">Weekly review</span>
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(ProgressFeatures.WeeklyReview)"
-                                            Title="@FeatureStatusTitle(ProgressFeatures.WeeklyReview)"
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(GoalsFeatures.WeeklyReview)"
+                                            Title="@FeatureStatusTitle(GoalsFeatures.WeeklyReview)"
                                             TestId="weekly-review-feature-status" />
                     </ToggleButton>)
                 }
@@ -1048,7 +1048,7 @@
     private const string NotificationsSurfaceId = NotificationsSurfaceRegistration.SurfaceId;
     private const string ToolsSurfaceId = Backlog.Modules.DevPc.UI.ToolsSurfaceRegistration.SurfaceId;
     private const string AtlasSurfaceId = global::Backlog.Desktop.UI.Devbook.Extensions.AtlasSurfaceRegistration.SurfaceId;
-    private const string WeeklyReviewSurfaceId = Backlog.Modules.Progress.UI.WeeklyReview.WeeklyReviewSurfaceRegistration.SurfaceId;
+    private const string WeeklyReviewSurfaceId = Backlog.Modules.Goals.UI.WeeklyReview.WeeklyReviewSurfaceRegistration.SurfaceId;
 
     /// <summary>The takeovers the header places itself — each in its group, with its
     /// glyph and its fold tier. Any other takeover the catalog offers is drawn after
@@ -1131,7 +1131,7 @@
     private const string BoardViewId = TasksSurfaceQuery.BoardId;
     private const string CalendarViewId = Backlog.Modules.Calendar.UI.CalendarSurfaceRegistration.SurfaceId;
     private const string RoadmapViewId = RoadmapSurfaceQuery.SurfaceId;
-    private const string GoalsViewId = Backlog.Modules.Progress.UI.Goals.GoalsSurfaceQuery.SurfaceId;
+    private const string GoalsViewId = Backlog.Modules.Goals.UI.Goals.GoalsSurfaceQuery.SurfaceId;
     private const string ChangesViewId = Backlog.SharedKernel.Changes.ChangesSurfaceQuery.SurfaceId;
 
     /// <summary>Whether the header offers the Changes tab: the host registered the view.</summary>

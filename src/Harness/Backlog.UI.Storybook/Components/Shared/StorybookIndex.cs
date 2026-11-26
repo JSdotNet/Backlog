@@ -190,7 +190,7 @@ internal static class StorybookIndex
             // page rather than stories on Progress, because the stand-up read on a
             // phone — a goal as a card that opens its page, a block grouped by goal,
             // an impediment's state as the list that moves it — is a convention of
-            // its own, and the Progress chapter is the desktop's Goals view. It draws its
+            // its own, and the Goals chapter is the desktop's Goals view. It draws its
             // own components, the Badge Badges introduced and the RadioGroup Radio
             // group did, both above.
             new("standup", "Stand-up", "StandupGoalCard, GoalStackedBar, WeekSpark, StandupWorkList, StandupImpedimentCard and ImpedimentStateSteps: the phone's Stand-up tab, a goal's page and an impediment's page.")
@@ -456,7 +456,7 @@ internal static class StorybookIndex
             new("devbook/devbook-adoption", "Devbook adoption", "The AI section's Devbook tab: one Card per stack component read from the stamps in `.devbook/config.json` — a full stack, a partial one and none.")
         ]),
 
-        // The first subject, ahead of Integrations rather than with Progress where its
+        // The first subject, ahead of Integrations rather than with Goals where its
         // context is: the goal control is drawn on the work cards, the task side panel
         // and the roadmap shelf, which are all below, so the page that introduces it has
         // to come first or each of those would be a bend. It is made of parts only — a
@@ -533,11 +533,11 @@ internal static class StorybookIndex
 
         // Its own chapter, after Roadmap: goals and the stand-up are a convention of
         // their own, read over iteration windows rather than over a plan's axis.
-        new("Progress",
+        new("Goals view",
         [
             // Before the Goals view, which draws it on every goal's pull requests: nothing
             // is shown before its parts.
-            new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Progress and the Pull requests pane."),
+            new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Goals and the Pull requests pane."),
             new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker and note.")
         ]),
 

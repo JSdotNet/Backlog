@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.PhoneStandup;
 /// <summary>
 /// Whether a goal lands in time, in the two words its forecast badge prints
 /// (<c>.devbook/design/color-scheme.md#goal-forecast-badges</c>). The library's own: it
-/// references no module, so a host maps the Progress module's standing onto this.
+/// references no module, so a host maps the Goals module's standing onto this.
 /// </summary>
 public enum StandupStanding
 {

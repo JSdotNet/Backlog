@@ -3,7 +3,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Events.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -134,7 +134,7 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// local ADR 0035): counted as nothing to do, never written and never taken as a task.
 /// </para>
 /// <para>
-/// <b>Nor is a goal.</b> A <c>goal</c> document is one of Progress's goals, whole
+/// <b>Nor is a goal.</b> A <c>goal</c> document is one of Goals' goals, whole
 /// (local ADR 0035 §9), and goes to its replication port on the roadmap's terms. So does
 /// an <c>impediment</c> document, to its own port.
 /// </para>
@@ -146,7 +146,7 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// </para>
 /// <para>
 /// <b>Nor are the iteration settings.</b> An <c>iteration-settings</c> document goes to
-/// Progress's iteration settings port on the same terms (local ADR 0036, §4), and is
+/// Goals' iteration settings port on the same terms (local ADR 0036, §4), and is
 /// Skipped on a head without the port.
 /// </para>
 /// <para>
@@ -212,18 +212,18 @@ public sealed partial class TaskReplicaMerge(
     /// context instead.</summary>
     private readonly IIterationSettingsReplication? _iteration = iteration;
 
-    /// <summary>Where a goal goes, or null on a head without Progress — the phone, or a
+    /// <summary>Where a goal goes, or null on a head without Goals — the phone, or a
     /// build from before the port.</summary>
     private readonly IGoalReplication? _goals = goals;
 
-    /// <summary>Where an impediment goes, or null on a head without Progress.</summary>
+    /// <summary>Where an impediment goes, or null on a head without Goals.</summary>
     private readonly IImpedimentReplication? _impediments = impediments;
 
     /// <summary>Where an impediment edit the phone asked for is applied, or null on a head
     /// without Progress, which leaves the edit on the replica for one that has it.</summary>
     private readonly IImpedimentEditIntake? _impedimentEdits = impedimentEdits;
 
-    /// <summary>Where the tombstone of an edit Progress answered waits for the push, or null
+    /// <summary>Where the tombstone of an edit Goals answered waits for the push, or null
     /// on a head that sends none — the edit then stays on the replica, and the next desktop
     /// refuses it as stale.</summary>
     private readonly PhoneRequestRetirements? _retirements = retirements;
@@ -883,7 +883,7 @@ public sealed partial class TaskReplicaMerge(
     }
 
     /// <summary>
-    /// Hands a goal document to Progress's port and counts what it answered, exactly as
+    /// Hands a goal document to Goals' port and counts what it answered, exactly as
     /// <see cref="ApplyRoadmapAsync"/> does for the roadmap's (local ADR 0035 §9).
     /// </summary>
     private async Task<ApplyOutcome> ApplyGoalAsync(
@@ -908,7 +908,7 @@ public sealed partial class TaskReplicaMerge(
     }
 
     /// <summary>
-    /// Hands an impediment document to Progress's port and counts what it answered, exactly
+    /// Hands an impediment document to Goals' port and counts what it answered, exactly
     /// as <see cref="ApplyGoalAsync"/> does for a goal (local ADR 0035 §9).
     /// </summary>
     private async Task<ApplyOutcome> ApplyImpedimentAsync(
@@ -934,7 +934,7 @@ public sealed partial class TaskReplicaMerge(
     /// Offers again every impediment edit a pull deferred because this desktop did not hold
     /// its impediment yet — the session calls it once a pull has finished, when the
     /// impediment may have arrived. One still unknown is deferred again, for the life of the
-    /// process; one Progress answers is retired as any other. An attachment request deferred
+    /// process; one Goals answers is retired as any other. An attachment request deferred
     /// for an event this desktop did not hold yet, or met while the <c>events</c> area was off,
     /// is offered again the same way: the event arrives on its own feed and the area may be
     /// switched on later, so a later cycle's retry is the one that finds it — in a later run
@@ -969,7 +969,7 @@ public sealed partial class TaskReplicaMerge(
 
     /// <summary>
     /// Hands an impediment edit the phone asked for to Progress, which applies it through its
-    /// impediment features, and queues the edit's tombstone once Progress has answered it —
+    /// impediment features, and queues the edit's tombstone once Goals has answered it —
     /// applied, already so, stale or refused alike, since none of those answers changes on a
     /// second asking (local ADR 0035 §8). A retired edit, or one on a head without Progress, is
     /// left alone: another desktop may still apply it.

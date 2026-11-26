@@ -87,13 +87,13 @@ public class BacklogMcpToolsTests
                 // A scheduled run's report (local ADR 0051).
                 "report_schedule_run",
 
-                // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
+                // Goals' impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
                 "link_to_impediment",
                 "unlink_from_impediment",
 
-                // Progress's goals: read them and their iterations, set, edit, attach, detach,
+                // Goals' goals: read them and their iterations, set, edit, attach, detach,
                 // delete (local ADR 0035).
                 "list_goals",
                 "read_iterations",
@@ -165,7 +165,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Schedules.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
-        // Progress has no switch: its impediment and goal tools are always listed.
+        // Goals has no switch: its impediment and goal tools are always listed.
         Assert.Null(BacklogMcpTools.Impediments.FeatureKey);
         Assert.Null(BacklogMcpTools.Goals.FeatureKey);
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
@@ -191,7 +191,7 @@ public class BacklogMcpToolsTests
     /// </para>
     /// <para>
     /// The groups of an area no switch turns off carry no key at all: the backlog,
-    /// the roadmap and the devbook are permanent, Progress has no switch of its own
+    /// the roadmap and the devbook are permanent, Goals has no switch of its own
     /// (local ADR 0035 §10), and <c>open_window</c> is ungated (local ADR 0043 §7).
     /// The keys the groups name are five: sessions, the session request queue's
     /// <c>session-requests</c>, the notification tools' <c>notifications</c>, the Inbox

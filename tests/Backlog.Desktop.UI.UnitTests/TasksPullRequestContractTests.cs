@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Repositories.Abstractions;
@@ -16,9 +16,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The task row through Repositories' one contract (local ADR 0042 §4, V10):
-/// the task list, the Pull requests pane and Progress composed over one module, the way
+/// the task list, the Pull requests pane and Goals composed over one module, the way
 /// the hosts compose them, over one GitHub client that counts what it is sent. A merge
-/// from the row is what the pane and Progress read next, with no read of their own; a
+/// from the row is what the pane and Goals read next, with no read of their own; a
 /// merge from the pane reaches the row's entry the same way.
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -72,7 +72,7 @@ public sealed class TasksPullRequestContractTests : IDisposable
         Assert.Equal(EntryStatus.Done, world.Row(row).Status);
         Assert.Empty(listed.PullRequests);
         Assert.Equal(PullRequestState.Merged, Assert.Single(pinned.PullRequests).State);
-        Assert.Equal(Backlog.Modules.Progress.Abstractions.LinkedPullRequestState.Merged, Assert.Single(goals).State);
+        Assert.Equal(Backlog.Modules.Goals.Abstractions.LinkedPullRequestState.Merged, Assert.Single(goals).State);
         Assert.Equal(sent, world.Sent());
     }
 

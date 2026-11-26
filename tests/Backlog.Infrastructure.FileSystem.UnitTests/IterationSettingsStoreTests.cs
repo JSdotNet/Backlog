@@ -1,9 +1,9 @@
 using System.Text.Json.Nodes;
 
-using Backlog.Infrastructure.FileSystem.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Infrastructure.FileSystem.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.SharedKernel.Replication;
 
 using Microsoft.Extensions.Time.Testing;

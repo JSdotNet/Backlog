@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
-using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Tasks;
 using Backlog.SharedKernel.Changes;
@@ -84,8 +84,8 @@ public sealed class SqliteChangeRestore : IChangeRestore
     /// and the setup that journals it, so the restore's own write is journalled too.</summary>
     private static readonly IReadOnlyDictionary<string, DocumentTable> Tables = new Dictionary<string, DocumentTable>(StringComparer.Ordinal)
     {
-        ["goal"] = new("progress_goals", SqliteGoalRepository.Schema, SqliteGoalRepository.JournalSchema, HasCreatedAt: true, CanTombstone: true),
-        ["impediment"] = new("progress_impediments", SqliteImpedimentRepository.Schema, SqliteImpedimentRepository.JournalSchema, HasCreatedAt: true, CanTombstone: false),
+        ["goal"] = new("goals_goals", SqliteGoalRepository.Schema, SqliteGoalRepository.JournalSchema, HasCreatedAt: true, CanTombstone: true),
+        ["impediment"] = new("goals_impediments", SqliteImpedimentRepository.Schema, SqliteImpedimentRepository.JournalSchema, HasCreatedAt: true, CanTombstone: false),
         ["roadmap-plan"] = new("roadmap_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
     };
 

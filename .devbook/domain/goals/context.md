@@ -69,7 +69,7 @@ related: [".devbook/domain/goals/features.md#the-weekly-review", ".devbook/domai
 
 Turning it on shows the Weekly review option in the Home shell's header, right after the Inbox's. It gives the [weekly review](features.md#the-weekly-review) the whole screen in place of the main view, as the Inbox does. Pressed again, or Escape, returns to that view.
 
-It ships off and marked `DEV` while the review is new. The key is Goals' own, `ProgressFeatures.WeeklyReview`, which the surface's registration and the Shell both read. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json`.
+It ships off and marked `DEV` while the review is new. The key is Goals' own, `GoalsFeatures.WeeklyReview`, which the surface's registration and the Shell both read. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json`.
 
 ## Iteration length
 

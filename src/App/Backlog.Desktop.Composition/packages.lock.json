@@ -366,7 +366,7 @@
           "Backlog.Modules.Insights.UI": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.UI": "[1.0.0, )",
-          "Backlog.Modules.Progress.UI": "[1.0.0, )",
+          "Backlog.Modules.Goals.UI": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.UI": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -463,7 +463,7 @@
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -496,7 +496,7 @@
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
@@ -534,7 +534,7 @@
           "Backlog.Modules.Events": "[1.0.0, )",
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
-          "Backlog.Modules.Progress": "[1.0.0, )",
+          "Backlog.Modules.Goals": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
@@ -548,7 +548,7 @@
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
@@ -744,23 +744,23 @@
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )"
         }
       },
-      "backlog.modules.progress": {
+      "backlog.modules.goals": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.progress.abstractions": {
+      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.progress.ui": {
+      "backlog.modules.goals.ui": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )"

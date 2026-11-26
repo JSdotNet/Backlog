@@ -1,7 +1,7 @@
-using Backlog.Desktop.UI.Goals;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Desktop.UI.ShellGoals;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
@@ -38,7 +38,7 @@ public sealed class PullRequestOneCacheTests
         var answer = await goals.ReadAsync([new(Repository, "656"), new(Repository, "700")], TestContext.Current.CancellationToken);
 
         // The side panel's open read answered for 700, its read by number for 656, and
-        // Progress asked GitHub about neither again.
+        // Goals asked GitHub about neither again.
         Assert.Equal([$"{Repository} 656"], host.Client.PinnedReadByNumber);
         Assert.Equal([LinkedPullRequestState.Closed, LinkedPullRequestState.Open], answer.Select(pull => pull.State));
         Assert.Equal(656, Assert.Single(sidePanel.LinkedPullRequests).Number);

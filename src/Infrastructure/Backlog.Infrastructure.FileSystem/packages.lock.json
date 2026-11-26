@@ -253,7 +253,7 @@
           "Backlog.Modules.Events": "[1.0.0, )",
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
-          "Backlog.Modules.Progress": "[1.0.0, )",
+          "Backlog.Modules.Goals": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
@@ -329,14 +329,14 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.progress": {
+      "backlog.modules.goals": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.progress.abstractions": {
+      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

@@ -1,4 +1,4 @@
-﻿using Backlog.UI.Components.Progress;
+﻿using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Integrations;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;

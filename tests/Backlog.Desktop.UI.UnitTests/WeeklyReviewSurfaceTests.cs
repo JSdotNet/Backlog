@@ -1,4 +1,4 @@
-using Backlog.Modules.Progress.UI.WeeklyReview;
+using Backlog.Modules.Goals.UI.WeeklyReview;
 using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
