@@ -93,6 +93,5 @@ The Brain is downstream of Devbook, whose reading machinery it uses, and of the 
 |---|---|---|---|---|
 | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route), answered by `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` | The Brain writes a Knowledge Note into its inbox area for each item routed **To Brain**. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Reference read model plus bi-directional link | `.devbook/domain/brain/domain.md#cross-linking` | The notes that name a task stay countable without sharing aggregates. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side feed of knowledge activity | `.devbook/domain/brain/domain.md#knowledge-note` | Knowledge activity feeds the project health view, and insights can be captured back as notes. |
 
 An item routed **To Brain** from the Inbox may be a capture or an Inbox note; the Brain treats them alike.

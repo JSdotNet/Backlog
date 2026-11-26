@@ -26,7 +26,7 @@ This serves quality goals 1 (availability) and 2 (credential privacy) in `.devbo
 related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
-`.devbook/arc42/01-introduction-and-goals.md#requirements-overview` lists the domains and `.devbook/domain/context-map.md#subdomain-landscape` classifies them. Each is separately designable and deployable within the desktop client. A one-directional pipeline keeps coupling low: Capture → Inbox → route to Tasks or Devbook → signals to Monitoring. Channels can expose a subset of domains without owning lifecycle rules.
+`.devbook/arc42/01-introduction-and-goals.md#requirements-overview` lists the domains and `.devbook/domain/context-map.md#subdomain-landscape` classifies them. Each is separately designable and deployable within the desktop client. A one-directional pipeline keeps coupling low: Capture → Inbox → route to Tasks or Devbook → read by Insights. Channels can expose a subset of domains without owning lifecycle rules.
 
 ## Thin Cloud, Rich Desktop
 

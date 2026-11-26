@@ -1,4 +1,4 @@
-# Productivity
+# Insights
 
 ```meta
 type: features
@@ -11,7 +11,7 @@ type: features
 
 ```meta
 type: feature
-related: [.devbook/domain/productivity/domain.md#productivity-ledger, .devbook/domain/tasks/domain.md#aiworklogged]
+related: [.devbook/domain/insights/domain.md#productivity-ledger, .devbook/domain/tasks/domain.md#aiworklogged]
 ```
 
 **AI-assisted activity recording**
@@ -19,18 +19,16 @@ related: [.devbook/domain/productivity/domain.md#productivity-ledger, .devbook/d
 ```mermaid
 sequenceDiagram
     participant Tasks as Tasks
-    participant Productivity as Productivity
-    participant Monitor as Monitoring & Dashboard
+    participant Productivity as Insights
 
     Tasks->>Productivity: AIWorkLogged
     Productivity->>Productivity: Append Productivity Entry
     Productivity->>Productivity: Recompute derived summaries
-    Productivity-->>Monitor: ProductivityRecorded
 ```
 
 - Tasks owns the work item and emits activity evidence.
-- Productivity owns the measurement ledger and derived summaries.
-- Monitoring may display productivity signals but does not change productivity records.
+- Insights owns the measurement ledger and derived summaries.
+- The dashboard displays them and never changes a ledger entry.
 
 [AI Productivity Tracking](domain.md#ai-productivity-tracking) shows what changed because of AI assistance: tasks moved, artifacts created, prompts reused, reviews shortened and research summarized.
 
@@ -62,8 +60,8 @@ Capture optional estimates or calibrated defaults for time saved, kept visibly s
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
-related: [.devbook/domain/productivity/dependencies.md#outbound-dependencies]
+feature-flag: .devbook/domain/insights/context.md#ai-usage-metrics
+related: [.devbook/domain/insights/dependencies.md#outbound-dependencies]
 ```
 
 Import token, cost and session usage from the AI vendors the person works through, so insight rests on measured usage rather than recollection. Both vendors report at organization level only: Claude to an organization holding an Admin API key, and GitHub Copilot usage to an organization owner. The import is evidence for the ledger and never becomes the ledger.
@@ -72,8 +70,8 @@ Import token, cost and session usage from the AI vendors the person works throug
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
-related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
+feature-flag: .devbook/domain/insights/context.md#ai-usage-metrics
+related: [.devbook/domain/insights/features.md#ai-vendor-usage-import]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageReadLogStoreTests, unit:dotnet:Backlog.Infrastructure.Claude.UnitTests.ClaudeSpendSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.CopilotSpendSourceReadTests, unit:dotnet:Backlog.Infrastructure.AzureFoundry.UnitTests.AzureFoundrySpendSourceReadTests]
 ```
 
@@ -87,8 +85,8 @@ The record is runtime state of one device, kept in `usage-reads.json` in the per
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
-related: [.devbook/domain/productivity/features.md#when-each-usage-source-was-last-read]
+feature-flag: .devbook/domain/insights/context.md#ai-usage-metrics
+related: [.devbook/domain/insights/features.md#when-each-usage-source-was-last-read]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AiProvidersOverviewTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsAiUsageTests]
 ```
 
@@ -114,7 +112,7 @@ Claude and GitHub are offered with usage metrics, Azure Foundry with the AI assi
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import]
+related: [.devbook/domain/insights/features.md#ai-vendor-usage-import]
 ```
 
 Accumulate usage locally, call by call, for the person who has no organization behind their AI subscription.
@@ -129,19 +127,26 @@ This is kept as an idea rather than a plan. It measures only work that flows thr
 
 ```meta
 type: feature
-setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
-related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
+setting: [.devbook/domain/insights/context.md#working-week, .devbook/domain/insights/context.md#weekly-usage-reset, .devbook/domain/insights/context.md#monthly-spend-budget]
+related: [.devbook/domain/insights/requirements.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 Expose productivity trends as personal insight rather than team performance reporting. The view shows patterns and evidence and leaves interpretation to the user.
 
 The dashboard is one pane of six tabs. The Overview answers "how is it going, and what needs me?" in one screen; the other five each answer one question in depth. A person can also read the last finished week as a short brief instead of as charts.
 
+It is what Monitoring & Dashboard described before it merged into Insights (local ADR 0073 §2): its layered dashboards are the six tabs, its attention rules are [What needs you](#what-needs-you), and its agent-session layer is the Sessions tab. Team monitoring and scanning across repositories are dropped. Monitoring's other layers are not built:
+
+- an application layer from Application Insights;
+- a GitHub issue whose state disagrees with its task's;
+- the Inbox's unprocessed count and oldest age, and the capture monitors' last runs;
+- an alert on a `stalled` agent session.
+
 ### Six tabs and what each answers
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/productivity/features.md#the-header-and-its-controls, .devbook/domain/productivity/features.md#deltas-against-the-previous-window, .devbook/domain/productivity/requirements.md#six-tabs-and-what-each-answers]
+related: [.devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/features.md#spend-against-a-monthly-budget, .devbook/domain/insights/features.md#the-weekly-brief, .devbook/domain/insights/features.md#the-header-and-its-controls, .devbook/domain/insights/features.md#deltas-against-the-previous-window, .devbook/domain/insights/requirements.md#six-tabs-and-what-each-answers]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests]
 ```
 
@@ -212,7 +217,7 @@ Beside the chart, the hour grid shows one calendar week, Monday to Sunday, from 
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/sessions/domain.md#session-history]
+related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/sessions/domain.md#session-history]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHeadlinesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeviceMachineDirectoryTests]
 ```
 
@@ -246,7 +251,7 @@ The Machine select lists each machine by its name. Two machines can share a name
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/requirements.md#deltas-against-the-previous-window, .devbook/domain/sessions/domain.md#session-history]
+related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/insights/requirements.md#deltas-against-the-previous-window, .devbook/domain/sessions/domain.md#session-history]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
 
@@ -269,7 +274,7 @@ A delta is left out when there is no honest earlier figure to compare with:
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/requirements.md#what-needs-you]
+related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/insights/features.md#drift-at-a-glance, .devbook/domain/insights/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/insights/features.md#spend-against-a-monthly-budget, .devbook/domain/insights/requirements.md#what-needs-you]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests]
 ```
 
@@ -337,8 +342,8 @@ Each rule reads its tab's own figures, so an item never says what its tab does n
 
 ```meta
 type: sub-feature
-setting: [.devbook/domain/productivity/context.md#monthly-spend-budget]
-related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import, .devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/requirements.md#spend-against-a-monthly-budget]
+setting: [.devbook/domain/insights/context.md#monthly-spend-budget]
+related: [.devbook/domain/insights/features.md#ai-vendor-usage-import, .devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/requirements.md#spend-against-a-monthly-budget]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProviderNamesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardMoneyFormatTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostTabTests]
 ```
 
@@ -375,7 +380,7 @@ Each card keeps its provider's spend on its own. The figures differ in kind (one
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+related: [.devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
 ```
 
@@ -434,7 +439,7 @@ It counts the refusals inside the window only. An older Claude Code wrote some r
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_follow_the_machine_filter, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_longest_sessions_read_to_the_minute_and_link_to_all_of_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardFormatTimeTests]
 ```
 
@@ -457,8 +462,8 @@ The time is the measure the agent-active figure sums, so the first row never exc
 
 ```meta
 type: sub-feature
-setting: [.devbook/domain/productivity/context.md#working-week]
-related: [.devbook/domain/productivity/requirements.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/productivity/dependencies.md#outbound-dependencies]
+setting: [.devbook/domain/insights/context.md#working-week]
+related: [.devbook/domain/insights/requirements.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/insights/dependencies.md#outbound-dependencies]
 tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
 ```
 
@@ -564,7 +569,7 @@ An unestimated task counts nothing here, because the part reports it as unestima
 ```meta
 type: sub-feature
 feature-flag: .devbook/domain/tasks/context.md#ai-assistant
-related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/productivity/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
+related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/insights/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
 ```
 

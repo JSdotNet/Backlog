@@ -415,7 +415,7 @@ capture now.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/monitoring/features.md#automation-status]
+related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 Let the user compose a monitor from a trigger, a condition, and the
@@ -433,8 +433,8 @@ a composed monitor's source credentials stay on the machine and never route
 through the optional Cloud Service.
 
 Boundary: this covers monitors watching sources *outside* the product. Signals
-about the product's own health continue to reach the Inbox as Monitoring's
-[`FollowUpCaptured`](../monitoring/domain.md#followupcaptured), not as a capture.
+about the product's own health are [Insights'](../insights/features.md#personal-productivity-dashboard)
+to show, and never reach the Inbox as a capture.
 
 ## Web clipper capture
 

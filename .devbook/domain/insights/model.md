@@ -1,4 +1,4 @@
-# Productivity
+# Insights
 
 ```meta
 type: model
@@ -61,7 +61,7 @@ classDiagram
 
 - `ProductivityLedger` is the aggregate root and owns append-only
   `ProductivityEntry` records.
-- `WorkSubjectRef` is opaque by design so Productivity can link to tasks,
+- `WorkSubjectRef` is opaque by design so Insights can link to tasks,
   sessions, issues, pull requests, commits, or notes without owning those models.
 - `ProductivityMetric` is derived from ledger entries and is not stored as the
   authoritative activity record.

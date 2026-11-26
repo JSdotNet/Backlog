@@ -734,8 +734,8 @@ Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that r
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
-Monitoring dashboards read telemetry signals from Application Insights (errors,
-latency per project) alongside local queue/backlog health metrics. Telemetry follows
+An application layer on the dashboard, reading errors and latency per project from
+Application Insights, is not built (`.devbook/domain/insights/features.md#personal-productivity-dashboard`). Telemetry follows
 `.devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
 `Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
@@ -847,7 +847,7 @@ client branches on.
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -859,7 +859,6 @@ boundaries, which makes them an architectural concern:
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
 | **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
-| **ProgressSignal** (planned; no type in the code yet) | `.devbook/domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
 | **SessionLog** | `.devbook/domain/sessions/domain.md#session-log` |

@@ -29,8 +29,7 @@ The system is split into independent functional domains, each designed, built an
 | **Tasks** | Refine, prioritize, and route backlog items with sub-items (multi-repo entries) |
 | **Roadmap Planning** | Plan what happens when across repositories, with its own priorities and the dependencies between planned work |
 | **Devbook** | Organize project knowledge and cross-project context (PARA structure) |
-| **Productivity** | Turn AI-assisted work activity into personal productivity insight |
-| **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
+| **Insights** | Turn the work the person and their agents do into personal insight on the dashboard |
 | **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
 | **Sessions** | Record what the AI coding agents have been doing on each environment |
 | **Repositories** | Track repositories, package versions, issues, and health scoring, and launch each repository's named environments |

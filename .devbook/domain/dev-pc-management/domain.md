@@ -15,7 +15,7 @@ type: domain
 
 ```meta
 type: aggregate
-related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 aliases: [MachineRegistry]
 ```
 
@@ -297,7 +297,7 @@ Published when a registered machine changes runtime status.
 
 ### Consumers
 
-- Monitoring & Dashboard, which turns machine-state changes into infrastructure signals.
+- Insights, which would show machine state on the dashboard. Not built.
 
 ### Published language rules
 
@@ -324,7 +324,7 @@ team tools baseline.
 
 ### Consumers
 
-- Monitoring & Dashboard, which shows compliance health.
+- Insights, which would show compliance health. Not built.
 
 ### Published language rules
 

@@ -317,7 +317,7 @@ are imported once into remarks (local ADR 0011).
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/insights/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
 ```
 
 Show beside each chapter heading its [Sync Verdict](domain.md#sync-verdict): the
@@ -334,7 +334,7 @@ carries nothing.
 
 Each verdict also keeps the unit's sync direction as the sweep resolved it, and
 where it was inherited from. The dashboard's
-[Drift at a glance](../productivity/features.md#drift-at-a-glance) part reads the
+[Drift at a glance](../insights/features.md#drift-at-a-glance) part reads the
 same verdicts a unit at a time and groups them by that direction.
 
 ### A devbook that stays current

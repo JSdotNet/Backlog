@@ -1,4 +1,4 @@
-# Productivity
+# Insights
 
 ```meta
 type: domain
@@ -11,16 +11,16 @@ type: domain
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-Productivity tracks how the person uses AI-assisted work tools and turns those
-activity signals into personal productivity insight. It measures contribution,
-time saved, flow, and outcomes; it does not own task work, agent sessions
-(Sessions), repository state, or completion decisions.
+Insights tracks how the person and their agents work and turns that activity
+into personal insight. It measures contribution, time saved, flow, and outcomes;
+it does not own task work, plans, agent sessions (Sessions), repository state, or
+completion decisions.
 
 ## Productivity Ledger
 
 ```meta
 type: aggregate
-related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/productivity/domain.invariants.md#productivity-ledger]
+related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/insights/domain.invariants.md#productivity-ledger]
 aliases: [ProductivityLedger]
 ```
 
@@ -95,7 +95,7 @@ The AI-assisted channel used for the activity. The values stay configurable beca
 
 ```meta
 type: domain-service
-related: [.devbook/domain/productivity/domain.md#productivity-ledger]
+related: [.devbook/domain/insights/domain.md#productivity-ledger]
 ```
 
 Computes productivity summaries from ledger entries:
@@ -108,11 +108,30 @@ Computes productivity summaries from ledger entries:
 
 It is a service because it derives insight across many entries rather than enforcing a single entry invariant. Invocation semantics: query/composition-oriented, when the person opens a productivity view or requests a report.
 
+## Dashboard
+
+```meta
+type: domain-service
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/insights/features.md#what-needs-you, .devbook/arc42/08-crosscutting-concepts.md#observability]
+```
+
+Composes the dashboard from what other contexts already hold, one tab per question:
+
+- shipping, from GitHub pull request and issue activity;
+- planned work, from Tasks and Roadmap Planning;
+- agent sessions and hours worked, from Sessions;
+- devbook drift, from Devbook's sync verdicts;
+- spend, from each [spend provider](#spend-provider).
+
+It reads every source on its own, so one that cannot answer leaves the others standing, and it raises [What needs you](features.md#what-needs-you) from the tabs' own figures. It writes into no other context and keeps no state of its own beyond the settings on [context.md](context.md). It is a service because it reads across contexts and owns no aggregate.
+
+Invocation semantics: query/composition service, invoked when the dashboard pane opens or a part is refreshed.
+
 ## ProductivityRecorded
 
 ```meta
 type: domain-event
-related: [.devbook/domain/productivity/domain.md#productivity-ledger]
+related: [.devbook/domain/insights/domain.md#productivity-ledger]
 ```
 
 Published when a productivity-relevant activity is appended to the Productivity
@@ -130,8 +149,7 @@ Ledger.
 
 ### Consumers
 
-- Monitoring & Dashboard, which can display productivity trends alongside other
-  work signals.
+- None outside Insights. The dashboard reads the ledger in the same context.
 
 ### Published language rules
 
@@ -147,7 +165,7 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Productivity currently has a single aggregate, so `Activity Kind` and `AI Tool`
+Insights currently has a single aggregate, so `Activity Kind` and `AI Tool`
 are documented under it. This chapter is reserved for future cross-aggregate
 enums.
 
@@ -162,7 +180,7 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [AI productivity, AI-assisted productivity]
-related: [.devbook/domain/productivity/features.md#ai-productivity-tracking]
+related: [.devbook/domain/insights/features.md#ai-productivity-tracking]
 ```
 
 The product capability for understanding how AI-assisted work contributes to the
@@ -173,7 +191,7 @@ person's outcomes.
 ```meta
 type: term
 aliases: [office hours, inside office hours, outside office hours]
-related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/requirements.md#hours-worked]
+related: [.devbook/domain/insights/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/requirements.md#hours-worked]
 ```
 
 The span of time on one date that the person meant to work: that date's start and end in the [working week](context.md#working-week), with the [day overrides](../roadmap/domain.md#day-override) applied. A blocked date has no office hours. An unblocked date has the start and end its weekday stores. A day whose end is not after its start has none either.
@@ -187,7 +205,7 @@ The term exists because the split needs one date's span, overrides applied. *Wor
 ```meta
 type: term
 aliases: [spend provider, SpendProvider]
-related: [.devbook/domain/productivity/context.md#monthly-spend-budget, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
+related: [.devbook/domain/insights/context.md#monthly-spend-budget, .devbook/domain/insights/features.md#spend-against-a-monthly-budget]
 ```
 
 An assistant whose spend the dashboard reads, kept apart from the others all the

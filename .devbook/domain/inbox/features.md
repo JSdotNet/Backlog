@@ -1146,7 +1146,7 @@ focus stays where it was.
 
 ```meta
 type: feature
-related: [.devbook/domain/monitoring/features.md#inbox-and-queue-health]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 Track unprocessed count and oldest item age, surface items unprocessed for too
@@ -1156,7 +1156,7 @@ long, and raise configurable alerts when the queue exceeds a threshold.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health, .devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
+related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests]
 ```
@@ -1174,7 +1174,7 @@ room. The header beside the pane's title repeats the short form, "n waiting ·
 oldest d days".
 
 It reads the whole queue, whichever list is open. The dashboard half, and the
-configurable alerts, are Monitoring's.
+configurable alerts, are Insights', and not built.
 
 Under the lines, the Brain's inbox area is counted too: "n notes to file in the
 Brain", in the Brain's teal. It counts every note in the area a route

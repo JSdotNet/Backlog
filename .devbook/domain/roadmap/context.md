@@ -25,7 +25,7 @@ The plan and the pace follow their owner across the devices they have paired
 ([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)).
 The pace is counted over the owner's working week, which travels with it
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
-weekly pattern is set in [Productivity](../productivity/context.md#working-week);
+weekly pattern is set in [Insights](../insights/context.md#working-week);
 its [day overrides](domain.md#day-override) are set on the roadmap's axis.
 
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
@@ -40,7 +40,7 @@ type: setting
 key: planning-velocity.json
 scope: user
 default: 7
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/insights/context.md#working-week]
 ```
 
 This setting is how many story points the reader gets through in a working week.
@@ -157,6 +157,6 @@ How the pace is stored and travels:
   ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). The key
   holds the weekly pattern and an `overrides` list of `{date, worked}` pairs, one
   per [day override](domain.md#day-override). A file without the key reads the
-  device's own [working week](../productivity/context.md#working-week), or the
+  device's own [working week](../insights/context.md#working-week), or the
   default week, and writes the key on its next change. How the overrides travel
   is in [the requirements](requirements.md#carrying-the-pace-with-the-person).

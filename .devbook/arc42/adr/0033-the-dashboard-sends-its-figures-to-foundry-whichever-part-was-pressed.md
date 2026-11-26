@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-16
-related: [".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/domain/productivity/features.md", ".devbook/domain/productivity/requirements.md"]
+related: [".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/domain/insights/features.md", ".devbook/domain/insights/requirements.md"]
 c4: [backlog.desktop.dashboard, azureFoundry]
 c4-touches: [github]
 ```
@@ -25,7 +25,7 @@ Accepted, 2026-10-16, by the repository owner at the Personal Validation gate
 of the run that drafted it. Proposed 2026-10-15. The decision was already built:
 PR #1316 (merge `9a87218c`) widened `DashboardAiContentSource` and added
 `DashboardAiFigures`, and PR #1322 recorded the feature in
-`domain/productivity/`. The repository owner asked for this record at that run's
+`domain/insights/`. The repository owner asked for this record at that run's
 Personal Validation, because the change widens what leaves the machine.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below

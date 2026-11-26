@@ -70,7 +70,7 @@ session to a machine behind NAT or a firewall.
 
 ```meta
 type: feature
-related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 List all registered PCs, each with:

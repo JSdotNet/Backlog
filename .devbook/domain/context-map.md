@@ -17,8 +17,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Roadmap Planning | Core | It owns the forward plan and alone holds a dependency between two pieces of planned work. |
 | Devbook | Core | It reads, builds, renders and searches a repository's devbook, and supplies that machinery to the Brain. |
 | Brain | Core | It owns one person's own notes, linked to their work by id and into a repository's devbook. |
-| Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight, owning no work items or tools. |
-| Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions, owning no work. |
+| Insights | Supporting | It turns the work the person and their agents do into personal insight on the dashboard, reading the other contexts and owning no work. |
 | Repositories | Supporting | It provides repository inventory, health and dependency visibility, launches each repository's named environments, and owns the state of pull requests. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
@@ -31,6 +30,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Roadmap Planning:** The plan says what is intended, when, and in what order. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns.
 - **Devbook:** It reads the devbook a repository carries beside its code in place.
 - **Brain:** The person and their agent organize the notes. The link into a repository's devbook runs one way (local ADR 0040).
+- **Insights:** Monitoring & Dashboard merged into Productivity under this name (local ADR 0073 §2). Team monitoring and scanning across repositories were dropped.
 - **Repositories:** The core work contexts use its inventory, health and dependency visibility. It owns the status, readiness verdict, stacks and merge commands of the registered repositories' pull requests (local ADR 0042). Environment folded into it: a repository holds its named environments, each with a launch link (local ADR 0073 §3).
 - **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
@@ -57,8 +57,7 @@ flowchart LR
     Roadmap[Roadmap Planning]
     Devbook[Devbook]
     Brain[Brain]
-    Productivity[Productivity]
-    Monitor["Monitoring & Dashboard"]
+    Insights[Insights]
     Repo[Repositories]
     DevPC[Dev PC Management]
     Sessions[Sessions]
@@ -82,41 +81,39 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Tasks
     Devbook -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
-    %% Monitoring & Dashboard has no code
-    %% (local ADR 0073), so every edge to or from it is dashed. So are the
-    %% FollowUpCaptured, ProductivityRecorded, MachineStatusChanged and
-    %% ComplianceUpdated events: none has a reference in src/.
-    Roadmap -.->|"OHS + Published Language (not built)<br/>RoadmapItemScheduled"| Monitor
-
-    Tasks -.->|"OHS + Published Language (not built)<br/>StatusChanged / TaskProjected / TaskCompleted"| Monitor
-    Inbox -.->|"Customer/Supplier (not built)<br/>Queue-health feed"| Monitor
-    Repo -.->|"Customer/Supplier (not built)<br/>Health and scan feed"| Monitor
-    DevPC -.->|"OHS + Published Language (not built)<br/>MachineStatusChanged / ComplianceUpdated"| Monitor
-    Productivity -.->|"OHS + Published Language (not built)<br/>ProductivityRecorded"| Monitor
-    Monitor -.->|"OHS + Published Language (not built)<br/>FollowUpCaptured"| Inbox
 
     %% Technology Stack is dissolved (local ADR 0073 §5): a repository's
     %% technologies, ratings and approved versions are its devbook tech/ folder.
     Devbook -.->|"Customer/Supplier (not built)<br/>Every registered devbook's tech/, read-only, for portfolio adoption"| Repo
 
-    Tasks -->|OHS + Published Language<br/>AIWorkLogged| Productivity
-    Monitor -.->|"OHS + Published Language (not built)<br/>CopilotSession signal"| Productivity
-    Productivity -->|Customer/Supplier<br/>Productivity summaries| Tasks
+    %% Insights reads across the contexts for the dashboard (local ADR 0073 §2).
+    %% Each read below is an infrastructure adapter answering a port in
+    %% Backlog.Modules.Dashboard.Abstractions; Insights publishes no event and
+    %% writes into no other context.
+    Tasks -->|OHS + Published Language<br/>AIWorkLogged| Insights
+    Insights -->|Customer/Supplier<br/>Productivity summaries| Tasks
+    Roadmap -->|Customer/Supplier<br/>Plan progress and pace| Insights
+    Devbook -->|Customer/Supplier<br/>Sync verdicts of the drifted units| Insights
+    Repo -->|Customer/Supplier<br/>Registered repositories, archived skipped| Insights
+    %% The published events below have no reference in src/, so their edges are dashed.
+    Tasks -.->|"OHS + Published Language (not built)<br/>StatusChanged / TaskProjected / TaskCompleted"| Insights
+    Roadmap -.->|"OHS + Published Language (not built)<br/>RoadmapItemScheduled"| Insights
+    DevPC -.->|"OHS + Published Language (not built)<br/>Machine, MachineStatusChanged / ComplianceUpdated"| Insights
 
     %% Environment folded into Repositories (local ADR 0073 §3): a repository's
     %% named environments are its own, so its four unbuilt edges left the map.
 
-    %% Sessions. The Sessions -> Productivity and Sessions -> Tasks edges are
+    %% Sessions. The Sessions -> Insights and Sessions -> Tasks edges are
     %% built, each through an infrastructure adapter rather than a published
     %% event. The other two below are named and not built: see the strategic
     %% rules below and .devbook/domain/sessions/dependencies.md. Tasks -> Sessions
     %% is the follow-up a gate answer files, in process through ITaskFollowUps; built.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
-    Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
+    Sessions -->|Customer/Supplier<br/>Agent session facts| Insights
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
     Tasks -->|Customer/Supplier<br/>File a follow-up after an entry| Sessions
     Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Progress
-    Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
+    Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session alert"| Insights
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
@@ -196,16 +193,14 @@ flowchart LR
 |---|---|---|
 | Capture | `.devbook/domain/capture/domain.md#itemcaptured` | Inbox |
 | Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks, Brain |
-| Tasks | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted` | Monitoring & Dashboard |
-| Tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | Productivity |
-| Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Monitoring & Dashboard |
+| Tasks | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted` | Insights (not built) |
+| Tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | Insights |
+| Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Insights (not built) |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-item` | Tasks |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
 | Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas); Repositories, read-only, for [portfolio technology adoption](repositories/features.md#portfolio-technology-adoption) (not built) |
-| Monitoring & Dashboard | `.devbook/domain/monitoring/domain.md#followupcaptured` | Inbox |
-| Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
-| Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
+| Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Insights (not built) |
 | Repositories | The pull request contract (`.devbook/domain/repositories/domain.md#pull-request-status`, `.devbook/domain/repositories/domain.md#readiness-verdict`, `.devbook/domain/repositories/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.Repositories.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repositories' and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
@@ -253,27 +248,26 @@ flowchart LR
   technologies, their ratings and approved versions are its devbook `tech/` folder;
   `Repositories` reads them across the portfolio through Devbook's reader,
   and the tools a machine must have are `Dev PC Management`'s tool catalog.
-- `Monitoring & Dashboard` is an observer context. Its only write-back is `FollowUpCaptured` into `Inbox`.
-- `Productivity` measures personal and AI-assisted work from published activity
-  signals. It never changes backlog status, agent sessions (`Sessions`), or repository state.
+- `Insights` is an observer context. It measures personal and AI-assisted work from
+  what the other contexts publish and hold, and writes into none of them: it never
+  changes backlog status, plans, agent sessions (`Sessions`), or repository state.
 - `Repositories` holds each registered repository's named
   [environments](repositories/domain.md#environment), each with a launch link, and a
   [no-repository group](repositories/domain.md#no-repository-group) for a destination
   that belongs to none. It stores no credential, only where one is kept.
 - `Sessions` is the single owner of the agent-session record. No other context
-  models agent sessions. `Monitoring`'s own `copilot_session` signal kind gives way
-  to this context once the two are wired together.
+  models agent sessions.
 - `Sessions` publishes no domain event and owns no row of the
   published-language table (it only uses Sync's replica protocol). Its
-  Dev PC Management and Monitoring edges stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
+  Dev PC Management and stalled-alert edges stay dashed. Two infrastructure adapters read it directly, as Customer/Supplier
   reads rather than published contracts:
-  - for `Productivity`, the
+  - for `Insights`, the
     [Session Log](sessions/domain.md#session-log);
   - for `Tasks`, the [session state](sessions/domain.md#session-state) a task's
     work badge shows.
 
-  That is why those two edges draw solid without a table row. When Monitoring
-  consumes Sessions too, or Sessions publishes an event, the event goes
+  That is why those two edges draw solid without a table row. When the stalled alert
+  is built, or Sessions publishes an event, the event goes
   into `.devbook/domain/sessions/domain.md` and that table in the same change.
   The pull requests its sessions open are Repositories'.
 - `Repositories` is the single owner of pull request state
@@ -293,7 +287,7 @@ flowchart LR
   merge command there. The reverse question, which task a session or a pull request
   belongs to, is `Tasks`' lookup. The shell asks it, so no two contexts
   form a cycle. The pull request activity history that the dashboard
-  and `Productivity` read is a different question and stays outside this rule.
+  and `Insights` read is a different question and stays outside this rule.
 - A `Sessions` [Environment](sessions/domain.md#environment) is not an
   [`Repositories` Environment](repositories/domain.md#environment), and not a
   `Dev PC Management` [Machine](dev-pc-management/domain.md#machine). The two words

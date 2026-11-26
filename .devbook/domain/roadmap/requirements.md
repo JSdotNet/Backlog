@@ -122,7 +122,7 @@ The system SHALL end the wait of every item that depends on a plan completed by 
 
 ```meta
 type: requirement
-related: [.devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window]
+related: [.devbook/domain/insights/features.md#whether-each-plan-will-land-in-its-window]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.A_task_less_item_completed_by_hand_crosses_as_finished_on_the_day_it_was_completed, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests.An_item_its_tasks_carry_crosses_by_its_tasks_whatever_day_was_set_by_hand]
 ```
 

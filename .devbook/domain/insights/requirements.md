@@ -2,7 +2,7 @@
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md]
+related: [.devbook/domain/insights/features.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
@@ -17,7 +17,7 @@ calendar weeks.
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
 ```
 
 > The requirements of the dashboard's tabs. The feature chapter says what each tab
@@ -63,7 +63,7 @@ The system SHALL show the Overview tab each time the dashboard pane opens, which
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#deltas-against-the-previous-window]
+related: [.devbook/domain/insights/features.md#deltas-against-the-previous-window]
 ```
 
 > The requirements of the deltas on the headline figures. The feature chapter says
@@ -128,7 +128,7 @@ The system SHALL leave out a figure's delta when its source does not hold the fi
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#what-needs-you]
+related: [.devbook/domain/insights/features.md#what-needs-you]
 ```
 
 > The requirements of Needs you on the Overview. The feature chapter says what each
@@ -214,7 +214,7 @@ The system SHALL show "Nothing needs you." in Needs you when no item qualifies.
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
+related: [.devbook/domain/insights/features.md#spend-against-a-monthly-budget]
 ```
 
 > The requirements of the month-end projection. The feature chapter says how the Cost
@@ -258,7 +258,7 @@ The system SHALL project a provider's month-end spend as its month-to-date spend
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#hours-worked]
+related: [.devbook/domain/insights/features.md#hours-worked]
 ```
 
 > The requirements of the dashboard's Hours worked part. The feature chapter
@@ -324,7 +324,7 @@ The system SHALL show for each week in the dashboard's window the sum of its day
 
 ```meta
 type: requirements
-related: [.devbook/domain/productivity/features.md#asking-ai-about-a-part]
+related: [.devbook/domain/insights/features.md#asking-ai-about-a-part]
 ```
 
 > The requirements of a dashboard part's Ask AI control. The feature chapter says

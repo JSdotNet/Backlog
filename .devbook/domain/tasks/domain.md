@@ -500,7 +500,7 @@ readiness a conclusion about whether the task can be started. Readiness's
 
 ```meta
 type: domain-service
-related: [.devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/06-runtime-view.md#task-to-github-issue, .devbook/domain/tasks/requirements.md#projection]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/arc42/06-runtime-view.md#task-to-github-issue, .devbook/domain/tasks/requirements.md#projection]
 aliases: [ProjectionRef]
 ```
 
@@ -548,7 +548,7 @@ flowchart TD
     Q -->|yes| P["Occurrence Spawning policy"]
     P --> K["Occurrence N stays ticked — the record of what was done"]
     P --> C["Occurrence N+1 created: ready, due 28 Aug, sub-items pending, recurrence_source_id points at N"]
-    C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Monitoring would read the series"]
+    C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Insights would read the series"]
 ```
 
 - Completion is the [tick](domain.md#completed), the save that sets
@@ -556,7 +556,7 @@ flowchart TD
   [the tick spawns the next occurrence](requirements.md#requirement-the-tick-spawns-the-next-occurrence).
 - The finished occurrence stays in place and the next is a separate aggregate.
   The link between them, `recurrence_source_id`, is provenance, not ownership.
-- The spawn is a synchronous step inside the save (solid arrow). The dashed arrow is the event that would tell Monitoring.
+- The spawn is a synchronous step inside the save (solid arrow). The dashed arrow is the event that would tell Insights.
   This context documents it but does not yet emit it, so a consumer
   reads a series by following `recurrence_source_id`.
 - The next due date comes from the completed occurrence's `due_on`, not
@@ -644,7 +644,7 @@ Published when a `Task` changes `Task Status`.
 
 ### Consumers
 
-- Monitoring & Dashboard, which turns work-state changes into progress signals.
+- Insights, which turns work-state changes into progress signals.
 
 ### Published language rules
 
@@ -672,7 +672,7 @@ policy creates one downstream artifact per targeted repository.
 
 ### Consumers
 
-- Monitoring & Dashboard, which correlates planned work with external execution.
+- Insights, which correlates planned work with external execution.
 
 ### Published language rules
 
@@ -697,7 +697,7 @@ Published when a completed `Task` closes its downstream projections.
 
 ### Consumers
 
-- Monitoring & Dashboard, which reconciles work completion against external systems.
+- Insights, which reconciles work completion against external systems.
 
 ### Published language rules
 
@@ -722,7 +722,7 @@ Published when a completed repeating `Task` produces its successor.
 
 ### Consumers
 
-- Monitoring & Dashboard, which needs the two tasks linked to read a repeating
+- Insights, which needs the two tasks linked to read a repeating
   series as a series rather than as unrelated items.
 
 ### Published language rules
@@ -756,7 +756,7 @@ the work item.
 
 ### Consumers
 
-- Productivity, which turns AI-assisted activity into personal productivity
+- Insights, which turns AI-assisted activity into personal productivity
   metrics and trends.
 
 ### Published language rules

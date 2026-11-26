@@ -16,7 +16,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 
 ```meta
 type: aggregate
-related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repositories/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repositories/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 aliases: [RepositoryRegistry]
 ```
 
