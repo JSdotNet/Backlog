@@ -1,14 +1,14 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.RepositoryManagement;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Infrastructure.GitHub.Repositories;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
-/// Repository Management's pull-request source and registry answered from GitHub
+/// Repositories' pull-request source and registry answered from GitHub
 /// (local ADR 0042): the read by number through the pinned read, at most twenty-five
 /// numbers a query, with the REST read backfilling a merged answer's default branch and
 /// standing in for a server that refused the pinned read; every refusal said as a

@@ -1009,7 +1009,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
     /// <summary>How many pull requests one read by number that asks for each one's
     /// status sends in a single query: each one asks for up to
     /// <see cref="HeadCheckLimit"/> checks beside its own facts, and one query aliasing
-    /// too many is the kind GitHub refuses for its size. Repository Management's source
+    /// too many is the kind GitHub refuses for its size. Repositories' source
     /// batches the pinned read by it.</summary>
     internal const int LinkedStatusBatchSize = 25;
 

@@ -26,7 +26,7 @@ It reads each registered repository's technologies, their ratings and approved v
 
 It holds each repository's named [environments](domain.md#environment) — its local harness, development, staging and production, its dashboards — each with a launch link, and a [no-repository group](domain.md#no-repository-group) for a destination no repository owns ([Environment quick access](features.md#environment-quick-access)). Environment folded into this context, which was renamed Repositories from Repository Management (local [ADR 0073 §3](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories)). Environments are planned and not built. This context stores no credential for one, only where it is kept.
 
-Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`, which becomes `Backlog.Modules.Repositories` (local ADR 0073 §3). Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
+Pull request state is built in this context's module, `Backlog.Modules.Repositories` (local ADR 0073 §3). Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
 
 - the readiness verdict;
 - the stacks;
@@ -55,9 +55,9 @@ Outside it:
 type: feature-flag
 key: pull-requests
 related: [".devbook/domain/repositories/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
-tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.RepositoryManagementFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
+tests: [unit:dotnet:Backlog.Modules.Repositories.UnitTests.RepositoriesFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
 ```
 
 With the `pull-requests` flag on, the shell offers the pull requests pane, with its lanes, detail panel and acts. Off, the pane is not offered, and a task's side panel names only sessions under its linked work.
 
-The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's mark for a feature still under construction ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). A person's choice is kept in `features.json` beside the app's other per-device choices. The key is declared as `RepositoryManagementFeatures.PullRequests` in this context's `.Abstractions` project. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key) moved the declaration here from `SessionFeatures` and kept the key, so a stored choice still applies. It is retired when the pane leaves `DEV`.
+The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's mark for a feature still under construction ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). A person's choice is kept in `features.json` beside the app's other per-device choices. The key is declared as `RepositoriesFeatures.PullRequests` in this context's `.Abstractions` project. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key) moved the declaration here from `SessionFeatures` and kept the key, so a stored choice still applies. It is retired when the pane leaves `DEV`.

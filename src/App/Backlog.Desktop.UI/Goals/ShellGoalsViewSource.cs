@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Progress.UI.Goals;
-using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -56,7 +56,7 @@ public sealed class ShellGoalsViewSource : IGoalsViewSource, IDisposable
     public Task ReadAsync(bool refresh)
     {
         // Whether pull requests are read at all is the Pull requests switch.
-        _reader.ReadsPullRequests = _features?.IsEnabled(RepositoryManagementFeatures.PullRequests) ?? true;
+        _reader.ReadsPullRequests = _features?.IsEnabled(RepositoriesFeatures.PullRequests) ?? true;
         _ = refresh ? _reader.ReadAsync() : _reader.EnsureAllAsync();
         return Task.CompletedTask;
     }

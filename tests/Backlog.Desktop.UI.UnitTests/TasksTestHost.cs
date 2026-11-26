@@ -1,4 +1,4 @@
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Desktop.UI.Tasks;
@@ -171,12 +171,12 @@ internal static class TasksTestHost
 
     /// <summary>
     /// Tasks' pull-request port the way the hosts compose it (local ADR 0042 §4): the
-    /// adapter over Repository Management's real module, over the GitHub source, over
+    /// adapter over Repositories' real module, over the GitHub source, over
     /// <paramref name="gitHub"/> — so what a test's client says GitHub holds is what the
     /// task row reads, through the one cache, on <paramref name="clock"/>.
     /// </summary>
     public static ILinkedPullRequestStates PullRequestStatesOver(GitHubIntegration gitHub, TimeProvider? clock = null, ISettledPullRequestStore? settled = null) =>
-        new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(RepositoryManagementChain.For(gitHub, clock, settled));
+        new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(RepositoriesChain.For(gitHub, clock, settled));
 
     /// <summary>Waits on <see cref="TasksDesktopState.Changed"/> for what a moved
     /// clock set off. The timer fires on the thread that moved it, but the save

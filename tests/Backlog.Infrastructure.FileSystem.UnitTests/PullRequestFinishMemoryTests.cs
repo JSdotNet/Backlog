@@ -22,7 +22,7 @@ public sealed class PullRequestFinishMemoryTests : IDisposable
     private PullRequestFinishMemory Memory() => new(() => _root);
 
     /// <summary>The folder and its files are the ones the outcome memory wrote, so an
-    /// entry settled before the move to Repository Management stays settled: its outcome,
+    /// entry settled before the move to Repositories stays settled: its outcome,
     /// read time and branches are passed over, and its settled entries come back.</summary>
     [Fact]
     public void A_file_the_outcome_memory_wrote_still_reads_its_settled_entries()

@@ -383,7 +383,7 @@ internal static partial class ValidationQuestions
 
     /// <summary>How long the gate waits on the run's pull requests, all of them together. It
     /// runs inside the run's gate, which other writers wait on, so it is bounded; the reads go
-    /// through Repository Management's cache, so it is usually instant.</summary>
+    /// through Repositories' cache, so it is usually instant.</summary>
     internal static readonly TimeSpan PullRequestReadBudget = TimeSpan.FromSeconds(10);
 
     /// <summary>

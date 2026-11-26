@@ -14,7 +14,7 @@ public sealed record TaskIssueReference(string RepositoryFullName, int Number);
 /// <summary>
 /// One pull request, open or merged, as the lookup asks about it: what a screen that
 /// lists pull requests knows of one, in Tasks' own words, so Tasks never names
-/// Repository Management's types (local ADR 0042 §4).
+/// Repositories' types (local ADR 0042 §4).
 /// </summary>
 /// <param name="ClosingIssues">The issues the pull request says it closes.</param>
 /// <param name="SessionId">The session the asking screen matched the pull request to,

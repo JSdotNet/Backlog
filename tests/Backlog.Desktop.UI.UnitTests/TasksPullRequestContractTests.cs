@@ -3,9 +3,9 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -15,7 +15,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The task row through Repository Management's one contract (local ADR 0042 §4, V10):
+/// The task row through Repositories' one contract (local ADR 0042 §4, V10):
 /// the task list, the Pull requests pane and Progress composed over one module, the way
 /// the hosts compose them, over one GitHub client that counts what it is sent. A merge
 /// from the row is what the pane and Progress read next, with no read of their own; a
@@ -65,7 +65,7 @@ public sealed class TasksPullRequestContractTests : IDisposable
 
         var listed = await world.Contract.ListOpenAsync([Repository], PullRequestReadOptions.Default, TestContext.Current.CancellationToken);
         var pinned = await world.Contract.ReadAsync([new PullRequestReference(Repository, 710)], PullRequestReadOptions.Default, TestContext.Current.CancellationToken);
-        var goals = await new RepositoryManagementGoalPullRequests(() => world.Contract)
+        var goals = await new RepositoriesGoalPullRequests(() => world.Contract)
             .ReadAsync([new(Repository, "710")], TestContext.Current.CancellationToken);
 
         Assert.Equal(["merge 710"], world.Client.MergeCalls);
@@ -124,7 +124,7 @@ public sealed class TasksPullRequestContractTests : IDisposable
         };
         var gitHub = new GitHubIntegration(settings, client, new StubProbe(new GitHubConnection(true, "Connected.")));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(gitHub, clock);
+        var contract = RepositoriesChain.For(gitHub, clock);
 
         var state = TasksTestHost.StateFor(store, gitHub, clock: clock, pullRequestStates: new LinkedPullRequestStates(contract));
         _states.Add(state);
