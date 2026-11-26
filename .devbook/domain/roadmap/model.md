@@ -158,7 +158,7 @@ classDiagram
   answers "what depends on this" by scanning, so no reverse edge is stored.
 - `RepositoryScope` holds aliases as **plain strings, by value**, never a
   reference to a `Repository` from
-  [Repository Management](../repository-management/model.md). That keeps the two
+  [Repositories](../repositories/model.md). That keeps the two
   contexts independent and makes resolution a read-path service.
 - `TaskLink` is likewise **an id, not an association**: `Task` is a separate
   aggregate in another context, related by Partnership (see `dependencies.md`).

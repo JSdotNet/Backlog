@@ -134,7 +134,7 @@ already: "this token never registers a repository on its own."
 
 Import is the one caller that relaxes that. An unrecognized name triggers
 registration through Repository Management's existing registration capability
-(`.devbook/domain/repository-management/features.md#repository-registration`) before
+(`.devbook/domain/repositories/features.md#repository-registration`) before
 the entry naming it is created, so a plan can introduce a repository to the
 product just by mentioning it. This leniency belongs to Import specifically —
 `.devbook/domain/tasks/features.md#repository-resolution-on-import` already scopes it

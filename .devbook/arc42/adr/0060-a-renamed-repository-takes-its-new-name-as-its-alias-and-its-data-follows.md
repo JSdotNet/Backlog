@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-24
-related: [".devbook/domain/repository-management/features.md#following-a-repository-rename", ".devbook/domain/repository-management/domain.md#repository-alias", ".devbook/domain/repository-management/domain.md#rename-record", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/domain/repositories/features.md#following-a-repository-rename", ".devbook/domain/repositories/domain.md#repository-alias", ".devbook/domain/repositories/domain.md#rename-record", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 c4: [backlog.desktop.persistence]
 c4-touches: [backlog.desktop.roadmap, backlog.desktop.devbook, backlog.desktop.sessions, backlog.desktop.notifications, backlog.desktop.shell, backlog.mobile, backlog.cloud]
 ```
@@ -41,7 +41,7 @@ The person wants a rename to move everything to the new name.
 Entries and inbox items already follow a rename, because they store the repository's
 id. A `RepositoryRename` record in the registry resolves an old id on a device that
 has not caught up, and a reconcile pass at start re-points what is left
-([Following a repository rename](../../domain/repository-management/features.md#following-a-repository-rename)).
+([Following a repository rename](../../domain/repositories/features.md#following-a-repository-rename)).
 Nothing like that exists for the alias. A relabel today leaves every alias-keyed
 store behind under a label no row carries.
 

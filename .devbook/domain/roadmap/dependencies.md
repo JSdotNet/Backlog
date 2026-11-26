@@ -13,13 +13,13 @@ related: [.devbook/domain/context-map.md]
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Roadmap Planning = customer) | Registry lookup by repository alias, on the read path | `.devbook/domain/repository-management/domain.md#repository` | Repository Scope aliases resolve to configured repositories, so a plan reads one project at a time. |
+| [Repositories](../repositories/domain.md#repository-registry) | Customer/Supplier (Roadmap Planning = customer) | Registry lookup by repository alias, on the read path | `.devbook/domain/repositories/domain.md#repository` | Repository Scope aliases resolve to configured repositories, so a plan reads one project at a time. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Optional foreign-id cross-link, read-side gather by tag, and a read of imported plans (`IImportedPlanSource`) | `.devbook/domain/tasks/domain.md#task` | An item may name its executing task, gathers tasks by tag, and totals their registered effort. |
 | [Sessions](../sessions/domain.md#agent-session) | Customer/Supplier (Roadmap Planning = customer) | Infrastructure adapter reads `IAgentSessionSource`; a separate port serves actual hours | `.devbook/domain/sessions/domain.md#activity-window`; for actual hours, [human turns](../sessions/domain.md#human-turn) and runs (`AgentActivityRun`) | Linked sessions date gathered tasks, and the axis draws working stretches and actual hours from them. |
 | [Devbook](../devbook/domain.md#shared-value-objects) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.devbook/domain/devbook/domain.md#shared-value-objects` | A Roadmap Item gathers chapters by reference and by tag, and totals their registered effort. |
 | [Productivity](../productivity/context.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the working week on the placement path; carries it in the synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | An effort-sized window counts the person's working hours; a pace's week is that week's hours. |
 
-- **Repository Management:** Roadmap conforms to the registry's identity and never
+- **Repositories:** Roadmap conforms to the registry's identity and never
   becomes a second authority for what a repository is.
 - **Tasks:**
   - The [shelf](features.md#laying-out-a-plan-whose-tasks-arrived-first) reads the
@@ -108,7 +108,5 @@ related: [.devbook/domain/context-map.md]
   link. The item holds the bare slug of the tag, and the plan's tasks carry it with the
   [Plan Sigil](domain.md#plan-sigil), which only the adapters on the two edges
   lift.
-- There is no dependency on [Environment](../environment/domain.md#environment-catalog).
-  Environment shortcuts beside planned work are
-  [Environment's own feature](../environment/features.md#environment-aware-work-context),
-  offered to whatever view asks for it, and put no Roadmap dependency in the model.
+- There is no dependency on a repository's [environments](../repositories/domain.md#environment):
+  Roadmap reads the registry for its scope alone, and shows no launch link.

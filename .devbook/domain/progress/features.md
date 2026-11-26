@@ -264,13 +264,13 @@ The impediments it raised stay. Each holds back its one task, so it reads ready 
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
 
-Goal rows show the status Repository Management publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repository-management/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repository-management/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
+Goal rows show the status Repositories publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repositories/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repositories/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
 
-Progress defines neither mark: it names a pull request by its repository and number, and Repository Management answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
+Progress defines neither mark: it names a pull request by its repository and number, and Repositories answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
 
 ## The weekly review
 

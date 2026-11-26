@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The band of an archived repository (local ADR 0029,
-/// <c>repository-management/requirements.md#the-roadmap-keeps-an-archived-repositorys-past-in-view</c>
+/// <c>repositories/requirements.md#the-roadmap-keeps-an-archived-repositorys-past-in-view</c>
 /// and <c>#the-roadmap-hides-an-archived-repositorys-open-work</c>): drawn greyed and
 /// marked archived with only its finished work, while the window the timeline draws
 /// holds some of it; its open work drawn in no band, and never under No repository,

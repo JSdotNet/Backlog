@@ -90,7 +90,7 @@ public class RoadmapCompletedWorkTests
     }
 
     /// <summary>Finished work of an archived repository still counts toward history and
-    /// pace (local ADR 0029; <c>repository-management/requirements.md#finished-work-of-an-archived-repository-still-counts</c>):
+    /// pace (local ADR 0029; <c>repositories/requirements.md#finished-work-of-an-archived-repository-still-counts</c>):
     /// archiving a repository changes neither what is counted over a past range nor the
     /// alias it is counted under, and the repository is still offered for its own pace.</summary>
     [Fact]

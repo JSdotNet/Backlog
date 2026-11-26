@@ -256,7 +256,7 @@ classDiagram
 
   The `resolved_repository` beside it is also a string. It is the
   one lookup this context does perform: which registered clone directory contains the
-  working folder. It is asked of Repository Management through a one-method port, on
+  working folder. It is asked of Repositories through a one-method port, on
   the environment that read the session. It is a second attribute rather than a
   fallback value for the first, so the recorded string stays exactly what the agent
   wrote.

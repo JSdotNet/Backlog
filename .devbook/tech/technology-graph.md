@@ -429,9 +429,9 @@ No bounded context keeps a baseline beside them (local ADR 0073 §5):
 - **A deprecation** is `hold`: kept, with nothing new built on it. The chapter
   names what replaces it and links the decision record. `retired` ends it.
 
-Repository Management reads these ratings from every registered repository's
+Repositories reads these ratings from every registered repository's
 devbook for its
-[portfolio technology adoption](../domain/repository-management/features.md#portfolio-technology-adoption).
+[portfolio technology adoption](../domain/repositories/features.md#portfolio-technology-adoption).
 
 ## AI development vocabulary
 

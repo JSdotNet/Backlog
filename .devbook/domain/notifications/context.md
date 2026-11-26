@@ -262,7 +262,7 @@ contract, as an open host service.
   probe for all three, and asks it again every five minutes about the runs an open
   validation question is about. It reads a pull request's state (open, draft,
   merged or closed) through `ISessionPullRequestStates`, which the desktop shell
-  implements over Repository Management's `IPullRequests` (local ADR 0042). A choice's text reaches
+  implements over Repositories' `IPullRequests` (local ADR 0042). A choice's text reaches
   the handler with the answer. Closing by subject also closes the MCP tools'
   notifications about a session.
 - **MCP server, publishing.** `notify` and `ask` publish keyed by the call. A

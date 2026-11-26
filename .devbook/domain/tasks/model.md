@@ -210,7 +210,7 @@ What is it, and where did the person put it?
 
 What does it point at, and where did it come from?
 
-- `repo_ids` — Target repositories, resolved by Repository Management.
+- `repo_ids` — Target repositories, resolved by Repositories.
 - `depends_on` — Tasks this one waits on. A missing one still blocks. Rules: [a missing task still blocks](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks), [a loop reads blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
 - `source_inbox_id` — The inbox item it was triaged from.
 - `recurrence_source_id` — The occurrence it followed. Provenance, not ownership.
@@ -230,7 +230,7 @@ Written by the device, never by hand.
   `SubItem` is an owned entity (identity within the aggregate only);
   `ProjectionRef`, `UsageEvent`, and `AIWorkLog` are immutable value objects.
 - `repo_ids` is a plain list of repository identifiers, not object references, so
-  Tasks stays decoupled from Repository Management. Projection records a
+  Tasks stays decoupled from Repositories. Projection records a
   `ProjectionRef` for a `repo_id` when the task is pushed to it.
 - `area` and `order` are plain scalars on the root, not separate value objects.
   They place the task in the person's own working set, as a self-chosen grouping

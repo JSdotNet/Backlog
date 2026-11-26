@@ -610,7 +610,7 @@ policy, and what it will promise is in
 ```meta
 type: sub-feature
 feature-flag: .devbook/domain/tasks/context.md#github-integration
-related: [.devbook/domain/repository-management/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
+related: [.devbook/domain/repositories/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
 ```
 
 **The background check of a linked pull request**
@@ -636,7 +636,7 @@ The pull requests a task records are also checked in the background, without the
 person asking. The pull requests pane, Progress and the side panel share the cache that one read goes through. Merged and closed answers land on screen
 before open ones.
 
-A merge is remembered on this device. Repository Management keeps it in app storage, so the backlog opens instantly and offline
+A merge is remembered on this device. Repositories keeps it in app storage, so the backlog opens instantly and offline
 and draws a merged link from the first frame. Tasks keeps only which of its
 entries each merge has finished (`IPullRequestFinishMemory`). A restart therefore
 neither moves an entry to Done twice nor forgets a move still owed. Neither fact is written to the
@@ -653,7 +653,7 @@ person's to tick.
 
 ```meta
 type: feature
-related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/domain/tasks/requirements.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 Connect a GitHub repository or a spec-manager product, and every open item in it
@@ -675,7 +675,7 @@ Settings → Connectors shows each [Connected Target](domain.md#connected-target
 with two settings that decide where its tasks land:
 
 - **Repository** picks one of the repositories in the
-  [Repository Registry](../repository-management/domain.md#repository-registry).
+  [Repository Registry](../repositories/domain.md#repository-registry).
   The target's new tasks, and its tasks not yet filed under a repository, are
   filed under it. A spec-manager product's tasks can then sit under the
   repository the product is built in. Left empty, a GitHub repository files its
@@ -783,7 +783,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
+related: [.devbook/domain/brain/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/brain/features.md#brain-scope, .devbook/domain/repositories/requirements.md#archiving-a-repository, .devbook/domain/sessions/features.md#start-a-session-from-an-entry]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.An_unpressed_plan_waiting_for_a_session_carries_the_mark_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPlanSessionRequestTests.The_pressed_plan_keeps_its_waiting_chip_and_wears_no_mark_while_another_waiting_plan_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_nothing_queued_the_trigger_still_shows_muted_at_0_and_the_panel_says_nothing_is_waiting, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.With_the_action_not_offered_there_is_no_queue_on_the_bar, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_tab_shows_the_grid_in_its_own_region_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
@@ -821,9 +821,9 @@ and Brain in its place when it was pressed. The Devbook is then offered on
 them with no chip to press. A repository no longer
 configured is dropped, and a scope with none left is
 every repository. A scope narrowed back to one comes back as that one. Where an
-[archived repository](../repository-management/domain.md#archived-repository)
+[archived repository](../repositories/domain.md#archived-repository)
 appears in the scope, the Board and the pickers is set by
-[its requirements](../repository-management/requirements.md#archiving-a-repository).
+[its requirements](../repositories/requirements.md#archiving-a-repository).
 
 The filtered tasks can be read two ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it, and the
@@ -960,7 +960,7 @@ whatever is typed.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPaneBoardTests.Columns_by_plan_leave_out_finished_work_and_a_plan_with_nothing_left_has_no_column]
 ```
 
@@ -1085,7 +1085,7 @@ AI was put to work on it.
 ```meta
 type: feature
 depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage, .devbook/domain/tasks/requirements.md#import]
+related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repositories/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage, .devbook/domain/tasks/requirements.md#import]
 ```
 
 ```mermaid
@@ -1190,15 +1190,15 @@ written and says so.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/repository-management/domain.md#repository-registry]
+related: [.devbook/domain/repositories/features.md#repository-registration, .devbook/domain/repositories/domain.md#repository-registry]
 ```
 
 Resolve each entry's target repository by the name the plan's author wrote,
-against the same [Repository Registry](../repository-management/domain.md#repository-registry)
+against the same [Repository Registry](../repositories/domain.md#repository-registry)
 [multi-repo targeting](#multi-repo-targeting) already resolves `repo_ids`
 against. A known name resolves to its `repo_id`. A name the registry has never seen is registered there on the spot,
-before the task naming it is created. Import uses Repository Management's
-[registration capability](../repository-management/features.md#repository-registration),
+before the task naming it is created. Import uses Repositories'
+[registration capability](../repositories/features.md#repository-registration),
 so a plan can introduce a repository just by mentioning it.
 
 Import triggers registration; it does not perform it. The repository is
@@ -1356,7 +1356,7 @@ desktop's replica merge applies the later-edit-wins rule to each pulled copy; se
 
 ```meta
 type: feature
-related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/repository-management/features.md, .devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md]
+related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/repositories/features.md, .devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md]
 ```
 
 Keep a copy of the backlog off the machine, by

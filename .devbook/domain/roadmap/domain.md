@@ -16,14 +16,14 @@ What Roadmap Planning owns and what it leaves to Tasks and Devbook is in
 [Tasks](../tasks/domain.md#task), because it holds work not yet refined into a
 task. A Roadmap Item may name the task that executes it. Every item names its
 repositories from the
-[Repository Registry](../repository-management/domain.md#repository-registry) by
+[Repository Registry](../repositories/domain.md#repository-registry) by
 alias, so a portfolio-wide plan reads as one [band](#band) per repository.
 
 ## Roadmap Plan
 
 ```meta
 type: aggregate
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/repository-management/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/roadmap/domain.invariants.md#roadmap-plan]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/repositories/domain.md#repository-registry, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/roadmap/domain.invariants.md#roadmap-plan]
 aliases: [RoadmapPlan, plan, the plan]
 ```
 
@@ -67,7 +67,7 @@ whether a dependency it is about to accept closes a loop three items away, and a
 boundary around one item would push that rule outside the model. The plan is also
 read and written as a whole, so the boundary and the transaction share a shape.
 This mirrors
-[Repository Registry](../repository-management/domain.md#repository-registry),
+[Repository Registry](../repositories/domain.md#repository-registry),
 the other singleton-registry aggregate in this product.
 
 The rules the plan holds are in [its invariants](domain.invariants.md#roadmap-plan),
@@ -196,7 +196,7 @@ normalized, and what an empty scope means, are
 [invariants of the plan](domain.invariants.md#invariant-scope-aliases-are-normalized-and-distinct).
 
 Aliases are the shared key with
-[Repository Management](../repository-management/domain.md#repository), held as
+[Repositories](../repositories/domain.md#repository), held as
 opaque strings and resolved by
 [Repository Scope Resolution](#repository-scope-resolution).
 
@@ -355,12 +355,12 @@ adding a dependency.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/environment/domain.md#environment-shortcut-resolution]
+related: [.devbook/domain/repositories/domain.md#repository]
 ```
 
 Turns the opaque aliases in a Repository Scope into the repositories the reader
 recognizes, by asking the
-[Repository Registry](../repository-management/domain.md#repository-registry),
+[Repository Registry](../repositories/domain.md#repository-registry),
 and reports which aliases did not resolve.
 
 It keeps the aggregate free of a foreign repository model and of the registry
@@ -490,7 +490,7 @@ and on every reschedule that actually moves a date.
 - The window is always inclusive at both ends. A consumer that treats `end` as
   exclusive will be one day short on every item.
 - `repository_aliases` are opaque and unresolved by design. A consumer that needs
-  repository facts asks Repository Management, not this payload.
+  repository facts asks Repositories, not this payload.
 - Absent `previous_start`/`previous_end` means "newly planned". It does not mean
   "unchanged".
 - The event carries no status and no progress. Those are Tasks's

@@ -74,7 +74,7 @@ for every agent, linked to issues and tasks. Alert when one is `stalled`.
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/features.md#repository-health-scoring]
+related: [.devbook/domain/repositories/features.md#repository-health-scoring]
 ```
 
 Scan the registered repositories for backlog changes and GitHub issue status,

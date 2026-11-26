@@ -47,7 +47,7 @@ stateDiagram-v2
 ```
 
 - The edges from `Draft`, `Ready` and `InProgress` to `Archived` are
-  [dropping an archived repository's open tasks](../repository-management/requirements.md#archiving-a-repository).
+  [dropping an archived repository's open tasks](../repositories/requirements.md#archiving-a-repository).
   `RefileRepositoryTasksCommand` sets each open task filed under that
   repository to `Archived` through `TaskItem.SetStatus`, outside the
   lifecycle's own transitions, as a person's `!archived` edit does. The task

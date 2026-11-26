@@ -2,7 +2,7 @@
 
 ```meta
 type: requirements
-related: [.devbook/domain/repository-management/features.md, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/repositories/features.md, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
@@ -12,7 +12,7 @@ related: [.devbook/domain/repository-management/features.md, .devbook/arc42/adr/
 
 ```meta
 type: requirements
-related: [.devbook/domain/repository-management/features.md#archiving-a-repository, .devbook/domain/repository-management/domain.md#archived-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+related: [.devbook/domain/repositories/features.md#archiving-a-repository, .devbook/domain/repositories/domain.md#archived-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 ```
 
 > The requirements of an [archived repository](domain.md#archived-repository):
@@ -429,7 +429,7 @@ The system SHALL carry whether a repository is archived to every paired device w
 
 ```meta
 type: requirements
-related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/progress/requirements.md#pull-request-status]
+related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/progress/requirements.md#pull-request-status]
 ```
 
 > The checks and approvals marks of the [pull request status](domain.md#pull-request-status)

@@ -30,11 +30,10 @@ The system is split into independent functional domains, each designed, built an
 | **Roadmap Planning** | Plan what happens when across repositories, with its own priorities and the dependencies between planned work |
 | **Devbook** | Organize project knowledge and cross-project context (PARA structure) |
 | **Productivity** | Turn AI-assisted work activity into personal productivity insight |
-| **Environment** | Give quick access to named local, cloud, and project environments |
 | **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
 | **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
 | **Sessions** | Record what the AI coding agents have been doing on each environment |
-| **Repository Management** | Track repositories, package versions, issues, and health scoring |
+| **Repositories** | Track repositories, package versions, issues, and health scoring, and launch each repository's named environments |
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue; Inbox does not know how items were captured. See `.devbook/arc42/03-context-and-scope.md#business-context` for the boundaries and `.devbook/arc42/05-building-block-view.md` for the container mapping.
 
