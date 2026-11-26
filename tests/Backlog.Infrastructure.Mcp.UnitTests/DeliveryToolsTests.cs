@@ -53,6 +53,24 @@ public class DeliveryToolsTests
         Assert.Equal("Postgres", answer.Delivery.Answer);
     }
 
+    /// <summary>A delivery stored under the Claude desktop app's id, before the transcript
+    /// id was the key, still resolves: it reports the transcript id and goes to the same
+    /// desktop session.</summary>
+    [Fact]
+    public async Task A_delivery_stored_under_a_desktop_alias_reports_the_transcript_id_and_its_desktop_session()
+    {
+        var delivery = Delivery("local_1");
+
+        var answer = await _tools.ClaimDeliveryAsync(delivery.Id, "manager-1", Ct);
+        var listed = Assert.Single((await _tools.ListDeliveriesAsync(cancellationToken: Ct)).Deliveries);
+
+        Assert.True(answer.Claimed);
+        Assert.Equal("cli-1", answer.Delivery.SessionId);
+        Assert.Equal("local_1", answer.Delivery.DesktopSessionId);
+        Assert.Equal("cli-1", listed.SessionId);
+        Assert.Equal("local_1", listed.DesktopSessionId);
+    }
+
     [Fact]
     public async Task A_claim_on_a_delivery_another_dispatcher_holds_reports_it_taken()
     {

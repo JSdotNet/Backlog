@@ -117,7 +117,7 @@ public sealed class SessionRequestTools(
 
         var result = asked switch
         {
-            Started => await requests.ReportStartedAsync(id, who, Required(sessionId, nameof(sessionId)), cancellationToken).ConfigureAwait(false),
+            Started => await requests.ReportStartedAsync(id, who, await StartedSessionAsync(sessionId, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false),
             Released => await requests.ReleaseAsync(id, who, cancellationToken).ConfigureAwait(false),
             _ => throw RepositoryScope.Failure(Error.Validation(
                 "session_request.outcome",
@@ -263,6 +263,15 @@ public sealed class SessionRequestTools(
             [.. listed.Select(question => AnswerDeliveryPayload.From(question, desktop[question.SessionId], now))]);
     }
 
+    /// <summary>The session a <c>started</c> report names, by its canonical id: a Claude
+    /// desktop app id (<c>local_&lt;guid&gt;</c>) is stored as the transcript id its record
+    /// names, and stays as reported while the record names none yet — <c>link_session</c>
+    /// still matches the request under that alias.</summary>
+    private async Task<string> StartedSessionAsync(string? sessionId, CancellationToken cancellationToken) =>
+        await new DesktopSessionIds(sessions)
+            .CanonicalAsync(Required(sessionId, nameof(sessionId)), cancellationToken)
+            .ConfigureAwait(false);
+
     private IWaitingQuestionStore Questions() =>
         questions ?? throw RepositoryScope.Failure(Error.Validation(
             "delivery.not_available",
@@ -270,9 +279,9 @@ public sealed class SessionRequestTools(
 
     private async Task<AnswerDeliveryPayload> DeliveryAsync(WaitingQuestion question, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var desktop = await new DesktopSessionIds(sessions).ResolveAsync([question.SessionId], cancellationToken).ConfigureAwait(false);
+        var targets = await new DesktopSessionIds(sessions).ResolveAsync([question.SessionId], cancellationToken).ConfigureAwait(false);
 
-        return AnswerDeliveryPayload.From(question, desktop[question.SessionId], now);
+        return AnswerDeliveryPayload.From(question, targets[question.SessionId], now);
     }
 
     private static WaitingQuestion Found(Guid id, WaitingQuestionOutcome outcome) =>

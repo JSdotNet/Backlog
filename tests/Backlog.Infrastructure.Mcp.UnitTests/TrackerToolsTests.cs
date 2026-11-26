@@ -868,6 +868,80 @@ public class TrackerToolsTests
         Assert.All(queue.Links, link => Assert.Contains("+session-dispatch", link.PlanTags));
     }
 
+    private static FakeAgentSessionSource DesktopSessionA() =>
+        new(new AgentSessionCatalog(
+            [Sessions.Session("session-a") with { DesktopSessionId = "local_desktop-a" }],
+            Unreadable: [],
+            Discovered: 1));
+
+    /// <summary>The transcript id is the key: a session that links itself by its Claude
+    /// desktop app alias is stored under the transcript id the alias resolves to, and the
+    /// queue is told under both.</summary>
+    [Fact]
+    public async Task Link_session_given_a_desktop_alias_stores_the_transcript_id()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Run the plan", id: id, importPlanId: "+session-dispatch"));
+        var queue = new RecordingSessionRequestStore();
+        var tools = new TrackerTools(
+            entries,
+            new FakeRepositoryDirectory([Backlog]),
+            new FakeDevbookReferenceResolver(),
+            sessionRequests: queue,
+            features: new FakeAppFeatureSettings(SessionFeatures.SessionRequests),
+            sessions: DesktopSessionA());
+
+        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "local_desktop-a", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("session-a", answer.SessionId);
+        Assert.False(answer.AlreadyLinked);
+        Assert.Equal("session-a", Assert.Single(entries.Links).ExternalId);
+        Assert.Equal(["session-a", "local_desktop-a"], queue.Links.Select(link => link.SessionId));
+    }
+
+    /// <summary>A link stored under the desktop alias, before the transcript id was the
+    /// key, still answers for the session: linking it by its transcript id records nothing
+    /// new.</summary>
+    [Fact]
+    public async Task Link_session_finds_a_link_stored_under_the_desktop_alias()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry(
+            "Run the plan",
+            id: id,
+            projections: [new EntryProjectionDto("JSdotNet/Backlog", "local_desktop-a", EntryProjectionDto.SessionTargetType)]));
+        var tools = new TrackerTools(
+            entries,
+            new FakeRepositoryDirectory([Backlog]),
+            new FakeDevbookReferenceResolver(),
+            sessions: DesktopSessionA());
+
+        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "session-a", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(answer.AlreadyLinked);
+        Assert.Equal("session-a", answer.SessionId);
+        Assert.Empty(entries.Links);
+    }
+
+    /// <summary>An alias no session record names yet is kept as given: nothing is
+    /// concluded from an id the app cannot resolve.</summary>
+    [Fact]
+    public async Task Link_session_keeps_a_desktop_alias_no_record_names()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Run the plan", id: id));
+        var tools = new TrackerTools(
+            entries,
+            new FakeRepositoryDirectory([Backlog]),
+            new FakeDevbookReferenceResolver(),
+            sessions: DesktopSessionA());
+
+        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "local_unknown", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("local_unknown", answer.SessionId);
+        Assert.Equal("local_unknown", Assert.Single(entries.Links).ExternalId);
+    }
+
     [Fact]
     public async Task Link_session_leaves_the_queue_alone_while_the_flag_is_off()
     {

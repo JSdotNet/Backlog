@@ -240,7 +240,7 @@ public static class SessionRequestWaitEndpoint
 
         var ids = await desktop.ResolveAsync(due.Select(question => question.SessionId), cancellationToken).ConfigureAwait(false);
 
-        return due.FirstOrDefault(question => ids[question.SessionId] is not null) is { } first
+        return due.FirstOrDefault(question => ids[question.SessionId].DesktopSessionId is not null) is { } first
             ? JsonSerializer.SerializeToUtf8Bytes(AnswerDeliveryPayload.From(first, ids[first.SessionId], now), Json)
             : null;
     }

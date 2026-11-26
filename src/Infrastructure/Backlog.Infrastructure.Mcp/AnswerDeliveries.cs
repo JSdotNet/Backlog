@@ -12,7 +12,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// session request.</param>
 /// <param name="Id">The waiting question's id, which <c>claim_delivery</c> and
 /// <c>mark_delivery</c> take.</param>
-/// <param name="SessionId">The session that asked, as it named itself when it asked.</param>
+/// <param name="SessionId">The session that asked, by its canonical id — the Claude Code
+/// transcript id, which a stored desktop app alias (<c>local_&lt;guid&gt;</c>) resolves to
+/// wherever the session list names one.</param>
 /// <param name="DesktopSessionId">The Claude desktop app's id for that session — the id
 /// <c>send_message</c> takes — while the desktop app holds it open; null when it holds no
 /// record of it, or archived it. Null means there is nobody to send the answer to.</param>
@@ -39,7 +41,7 @@ public sealed record AnswerDeliveryPayload(
     public const string DeliveryKind = "delivery";
 
     /// <summary>The delivery of <paramref name="question"/> as it reads at <paramref name="now"/>.</summary>
-    public static AnswerDeliveryPayload From(WaitingQuestion question, string? desktopSessionId, DateTimeOffset now)
+    public static AnswerDeliveryPayload From(WaitingQuestion question, SessionTarget? target, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(question);
 
@@ -50,8 +52,8 @@ public sealed record AnswerDeliveryPayload(
         return new AnswerDeliveryPayload(
             DeliveryKind,
             question.Id,
-            question.SessionId,
-            desktopSessionId,
+            target?.SessionId ?? question.SessionId,
+            target?.DesktopSessionId,
             asked,
             answer,
             state is { } known ? SessionRequestPayload.WireName(known) : "none",
@@ -82,21 +84,40 @@ public sealed record DeliveryMarkPayload(string Outcome, bool Marked, string? Re
 public sealed record DeliveriesPayload(string? State, int Count, IReadOnlyList<AnswerDeliveryPayload> Deliveries);
 
 /// <summary>
-/// Finds the Claude desktop app's id for the sessions answer deliveries are for, by
-/// reading the session list once and keeping what it found for this instance's life — one
-/// wait call, or one tool call. A session the desktop app holds no record of, or archived,
-/// has none: a CLI session gets its answer only through the hook or in the session
-/// (local ADR 0041 §3), and an ended one has nobody to send it to.
+/// One session id as the app keys it, and where an answer to it goes.
 /// </summary>
-/// <param name="sessions">The session list; null when the host composed none, and then no
-/// session has a desktop id.</param>
+/// <param name="SessionId">The canonical id: the Claude Code transcript id, which the id
+/// asked about resolves to when it is a Claude desktop app alias (<c>local_&lt;guid&gt;</c>)
+/// the session list knows; otherwise the id as asked.</param>
+/// <param name="DesktopSessionId">The Claude desktop app's id for the session while the
+/// desktop app holds it open, or null.</param>
+public sealed record SessionTarget(string SessionId, string? DesktopSessionId);
+
+/// <summary>
+/// Resolves the ids a session is known by. The Claude Code transcript id is the canonical
+/// one: a session links itself and asks by it. A Claude desktop app id,
+/// <c>local_&lt;guid&gt;</c>, stays accepted as an alias of the same session — a
+/// dispatcher reports it, and links and deliveries stored before the transcript id was
+/// canonical carry it — and resolves to the transcript id wherever the desktop app's
+/// record names one.
+/// <para>
+/// Reads the session list once and keeps what it found for this instance's life — one wait
+/// call, or one tool call — reading it again only for an id not looked up before. A session
+/// the desktop app holds no record of, or archived, has no desktop target: a CLI session
+/// gets its answer only through the hook or in the session (local ADR 0041 §3), and an
+/// ended one has nobody to send it to.
+/// </para>
+/// </summary>
+/// <param name="sessions">The session list; null when the host composed none, and then
+/// every id is its own canonical id and no session has a desktop id.</param>
 public sealed class DesktopSessionIds(IAgentSessionSource? sessions)
 {
-    private readonly Dictionary<string, string?> _found = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SessionTarget> _found = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _aliasByCanonical = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The desktop id of each of <paramref name="sessionIds"/>, reading the session
-    /// list again only when one of them was not looked up before.</summary>
-    public async Task<IReadOnlyDictionary<string, string?>> ResolveAsync(
+    /// <summary>Where each of <paramref name="sessionIds"/> resolves: its canonical id and
+    /// the desktop id an answer to it is sent to, keyed by the id as given.</summary>
+    public async Task<IReadOnlyDictionary<string, SessionTarget>> ResolveAsync(
         IEnumerable<string> sessionIds,
         CancellationToken cancellationToken = default)
     {
@@ -107,7 +128,8 @@ public sealed class DesktopSessionIds(IAgentSessionSource? sessions)
 
         if (unknown.Count > 0)
         {
-            var open = new Dictionary<string, string>(StringComparer.Ordinal);
+            var cliByDesktop = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var openDesktopByCli = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             if (sessions is not null)
             {
@@ -115,14 +137,38 @@ public sealed class DesktopSessionIds(IAgentSessionSource? sessions)
 
                 foreach (var session in catalog.Sessions)
                 {
-                    if (session.DesktopSessionId is { Length: > 0 } desktopId && session.Archived is not true)
-                        open.TryAdd(session.Id, desktopId);
+                    if (session.DesktopSessionId is not { Length: > 0 } desktopId) continue;
+
+                    cliByDesktop.TryAdd(desktopId, session.Id);
+                    _aliasByCanonical.TryAdd(session.Id, desktopId);
+                    if (session.Archived is not true) openDesktopByCli.TryAdd(session.Id, desktopId);
                 }
             }
 
-            foreach (var id in unknown) _found[id] = open.GetValueOrDefault(id);
+            foreach (var id in unknown)
+            {
+                var canonical = cliByDesktop.GetValueOrDefault(id) ?? id;
+                _found[id] = new SessionTarget(canonical, openDesktopByCli.GetValueOrDefault(canonical));
+            }
         }
 
         return wanted.ToDictionary(id => id, id => _found[id], StringComparer.Ordinal);
+    }
+
+    /// <summary>The canonical id of <paramref name="sessionId"/>: the transcript id a desktop
+    /// app alias resolves to, or the id itself.</summary>
+    public async Task<string> CanonicalAsync(string sessionId, CancellationToken cancellationToken = default) =>
+        (await ResolveAsync([sessionId], cancellationToken).ConfigureAwait(false))[sessionId].SessionId;
+
+    /// <summary>Every id <paramref name="sessionId"/> is known by, the canonical id first,
+    /// then its desktop app alias while the session list names one, then the id as given
+    /// when it is neither. Each once.</summary>
+    public async Task<IReadOnlyList<string>> AliasesAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        var canonical = await CanonicalAsync(sessionId, cancellationToken).ConfigureAwait(false);
+
+        return [.. new[] { canonical, _aliasByCanonical.GetValueOrDefault(canonical), sessionId }
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 }

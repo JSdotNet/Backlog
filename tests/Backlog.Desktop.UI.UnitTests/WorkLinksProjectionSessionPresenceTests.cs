@@ -62,6 +62,38 @@ public sealed class WorkLinksProjectionSessionPresenceTests
         Assert.Equal(IntegrationSessionState.Waiting, card.State);
     }
 
+    /// <summary>A link stored under the Claude desktop app's id, before the transcript id
+    /// was the key, still resolves to the session it names, and that session is not
+    /// listed again as loose work.</summary>
+    [Fact]
+    public void A_link_stored_under_a_desktop_alias_resolves_to_its_session()
+    {
+        var row = Row("local_1");
+        var session = Session("cli-1") with { DesktopSessionId = "local_1", Archived = false, State = AgentSessionState.Running };
+        var projection = Projection(row, [session], _ => null);
+
+        var card = Assert.Single(projection.SessionsOf(row));
+
+        Assert.Equal("cli-1", card.Id);
+        Assert.Equal(IntegrationSessionPresence.Open, card.Presence);
+        Assert.DoesNotContain(projection.Loose([]), work => work.Session?.Id == "cli-1");
+    }
+
+    /// <summary>An entry linked to one session under both its ids, from before the
+    /// transcript id was the key, draws that session once.</summary>
+    [Fact]
+    public void A_session_linked_under_both_its_ids_is_drawn_once()
+    {
+        var row = new EntryRow
+        {
+            Id = Guid.NewGuid(),
+            SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "cli-1"), new EntrySessionLink("JSdotNet/Backlog", "local_1")]
+        };
+        var projection = Projection(row, [Session("cli-1") with { DesktopSessionId = "local_1" }], _ => null);
+
+        Assert.Equal("cli-1", Assert.Single(projection.SessionsOf(row)).Id);
+    }
+
     private static EntryRow Row(string sessionId) => new()
     {
         Id = Guid.NewGuid(),
