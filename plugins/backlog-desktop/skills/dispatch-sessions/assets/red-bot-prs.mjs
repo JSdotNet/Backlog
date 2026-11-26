@@ -5,8 +5,8 @@
 //
 //   node red-bot-prs.mjs <clone-folder> [--sessions <file>]
 //
-// `--sessions` names a file holding Claude Desktop's list_sessions answer (include_archived) as
-// JSON, or just each row's `title`, `prNumber` and `isArchived` — a file, since a title may hold a
+// `--sessions` names a file holding the session host's list() answer (archived included) as JSON —
+// each row's `name`, `prNumber` and `archived`, or Claude Desktop's `title`, `prNumber` and `isArchived` — a file, since a title may hold a
 // quote no shell argument survives. Without it nothing counts as watched. Lines:
 //   {"repository","number","head","title","brief"}   a pull request to start a fixer for
 //   {"repository","number","skip"}                    one held back: watched, fixing or gave-up
@@ -16,7 +16,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-import { fixBrief, fixTitle, redBotPullRequests, skipReason } from "./mend-logic.mjs";
+import { fixersFor } from "./mend-logic.mjs";
 
 function gh(folder, args) {
     const run = spawnSync("gh", args, { cwd: folder, encoding: "utf8" });
@@ -45,12 +45,7 @@ if (at >= 0) {
 try {
     const repository = gh(folder, ["repo", "view", "--json", "nameWithOwner"]).nameWithOwner;
     const open = gh(folder, ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,isDraft,isCrossRepository,author,headRefOid,statusCheckRollup"]);
-    for (const { number, head } of redBotPullRequests(open)) {
-        const skip = skipReason(repository, number, sessions);
-        console.log(JSON.stringify(skip
-            ? { repository, number, skip }
-            : { repository, number, head, title: fixTitle(repository, number), brief: fixBrief(repository, number, head) }));
-    }
+    for (const line of fixersFor(repository, open, sessions)) console.log(JSON.stringify(line));
 } catch (error) {
     console.error(error.message);
     process.exit(1);

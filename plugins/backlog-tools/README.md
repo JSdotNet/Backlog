@@ -265,6 +265,23 @@ run with nobody present, so they do not.
 plan lands under — the keys of a repository's `.devbook/backlog-tools.json` — read by
 `final-check`, `close-merged` and `backlog-desktop`'s `execute-plan` alike.
 
+`resources/dispatch/assets/` holds the dispatcher of local ADR 0038 without its host. A
+dispatcher acts on sessions only through the **session-host port**, `session-host-port.mjs`:
+five operations — start a session in a new worktree with the fixed brief, report its id, list
+the sessions, read one's state (working, waiting, idle) and deliver a message — that each host
+implements as an adapter in its own plugin. `dispatcher-logic.mjs` holds the steps every adapter
+runs the same way: releasing a restart's held claims, answer delivery (local ADR 0041 §3), the
+claim and start of a request with the late-report rule, capacity against the check-in answer
+with the fixers the app never counts, the queue in the person's order, and the mend of a bot's
+red pull request (§6, `mend-logic.mjs`). The long poll is `wait-requests.mjs`, its decisions
+`wait-logic.mjs`; `manager-call.mjs` is one Manager-grant tool call from a shell and
+`capacity.ps1` the CPU and memory probe. `fake-session-host.mjs` is a host held in memory that
+records each call; `tests/dispatcher.test.mjs` drives the steps against it, and
+`tests/dispatch-assets.test.mjs` runs the scripts as processes. `backlog-desktop`'s
+`dispatch-sessions` is the Claude Desktop adapter: it runs byte-identical copies of these files
+from its own `assets/`, which its `tests/shared-copies.test.mjs` holds equal, so edit them here
+and copy them there.
+
 ### The devbook sweep routine
 
 Run the two sweeps as **one local routine per repository**, the way `delivery-schedule`

@@ -120,11 +120,18 @@ copies of `backlog-tools`' own, held so by `tests/shared-copies.test.mjs`.
   the gate. It needs the `session-requests` flag on in the app. Started by the person alone,
   yet model-invocable: `/loop` runs its inner command through the Skill tool, which refuses a
   `disable-model-invocation` skill, so its description confines invocation to that start and
-  `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it. `tests/dispatch-sessions.test.ts` drives the wait
-  script's decisions under `claude plugin test`; the processes themselves — the wait script,
-  `manager-call.mjs` and the capacity probe — run under
-  `node --test plugins/backlog-desktop/tests/dispatch-sessions-assets.test.mjs`, since that
-  sandbox spawns nothing.
+  `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it. It is the **Claude
+  Desktop adapter** of the session-host port (local ADR 0038 §4): `assets/claude-desktop-host.mjs`
+  writes each operation down as the call the skill makes — Start is `start_session`, Report id
+  the id it answers, List Claude Desktop's `list_sessions`, Read state `backlog`'s `list_sessions`
+  `Waiting` else `isRunning`, Deliver `send_message` — and `tests/claude-desktop-host.test.mjs`
+  holds those calls to the arguments the skill sends, run through the shared `dispatcher-logic.mjs`.
+  Every other file in `assets/` is a byte-identical copy of `backlog-tools`'
+  `resources/dispatch/assets/`, the host-neutral dispatcher (its README says what each holds),
+  which `tests/shared-copies.test.mjs` holds equal: edit them there and copy them here.
+  `tests/dispatch-sessions.test.ts` drives the wait script's decisions under `claude plugin test`;
+  the processes themselves — the wait script, `manager-call.mjs` and the capacity probe — run under
+  `node --test plugins/backlog-tools/tests/dispatch-assets.test.mjs`, since that sandbox spawns nothing.
 
 ## Scheduled run reports
 
