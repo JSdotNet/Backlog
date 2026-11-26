@@ -44,6 +44,7 @@
       "src\\Modules\\Inbox\\Backlog.Modules.Inbox.UI\\Backlog.Modules.Inbox.UI.csproj",
       "src\\Modules\\Inbox\\Backlog.Modules.Inbox\\Backlog.Modules.Inbox.csproj",
       "src\\Modules\\Devbook\\Backlog.Modules.Devbook.Abstractions\\Backlog.Modules.Devbook.Abstractions.csproj",
+      "src\\Modules\\Devbook\\Backlog.Modules.Devbook.Contracts.UI\\Backlog.Modules.Devbook.Contracts.UI.csproj",
       "src\\Modules\\Devbook\\Backlog.Modules.Devbook.UI\\Backlog.Modules.Devbook.UI.csproj",
       "src\\Modules\\Brain\\Backlog.Modules.Brain.Abstractions\\Backlog.Modules.Brain.Abstractions.csproj",
       "src\\Modules\\Brain\\Backlog.Modules.Brain.UI\\Backlog.Modules.Brain.UI.csproj",

@@ -39,7 +39,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// own folder and without the area prefix, which is what a menu node carries
     /// and what a selection is remembered by. Both layouts' folder prefixes come
     /// off — <c>.domain/</c> and <c>.devbook/domain/</c>.</summary>
-    public string RelativePath => DevbookMenu.IsPersonalTabKey(AreaKey) ? Path : DevbookLayout.WithinFolder(Path);
+    public string RelativePath => DevbookTabKeys.IsPersonalTabKey(AreaKey) ? Path : DevbookLayout.WithinFolder(Path);
 
     /// <summary>
     /// Whether this names a view of the C4 model beside the chapters rather than a
@@ -122,7 +122,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// A note of the Brain, addressed the way the Brain's database names it:
     /// relative to the Brain's root, its first segment the area folder
     /// (<c>projects/plan.md#next</c>). Its area key is the Brain's
-    /// (<see cref="DevbookMenu.PersonalTabKey"/>), and its path is already the one
+    /// (<see cref="DevbookTabKeys.PersonalTabKey"/>), and its path is already the one
     /// the Brain's menu selects by, so <see cref="RelativePath"/> leaves it whole.
     /// A note at the Brain's root sits in no area and resolves to nothing. An area
     /// folder alone, with its trailing slash (<c>_inbox/</c>), names the area's tab
@@ -142,12 +142,12 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
         // health opens the Brain's inbox area: that area's tab.
         if (separator > 0 && separator == path.Length - 1 && reference.Slug is null)
         {
-            return new DevbookChapterLink(DevbookMenu.PersonalTabKey(path[..separator]), path, null);
+            return new DevbookChapterLink(DevbookTabKeys.PersonalTabKey(path[..separator]), path, null);
         }
 
         if (separator <= 0 || !IsChapterFile(path)) return null;
 
-        return new DevbookChapterLink(DevbookMenu.PersonalTabKey(path[..separator]), path, reference.Slug);
+        return new DevbookChapterLink(DevbookTabKeys.PersonalTabKey(path[..separator]), path, reference.Slug);
     }
 
     private static bool IsChapterFile(string path) =>
@@ -161,8 +161,8 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     {
         if (!path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase)) return false;
 
-        return path.EndsWith($"arc42/{C4DevbookStore.WorkspaceFile}", StringComparison.OrdinalIgnoreCase)
-            || path.Contains($"arc42/{C4DevbookStore.IncludeDirectory}/", StringComparison.OrdinalIgnoreCase)
-            || path.Contains($"/{C4DevbookStore.ReferenceDirectory}/", StringComparison.OrdinalIgnoreCase);
+        return path.EndsWith($"arc42/{DevbookC4Paths.WorkspaceFile}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"arc42/{DevbookC4Paths.IncludeDirectory}/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"/{DevbookC4Paths.ReferenceDirectory}/", StringComparison.OrdinalIgnoreCase);
     }
 }

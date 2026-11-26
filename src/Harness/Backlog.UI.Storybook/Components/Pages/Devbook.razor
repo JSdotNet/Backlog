@@ -247,9 +247,32 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         </div>
     </Story>
 
+    <Story Name="A parsed chapter, drawn as the panels draw it"
+           Description="`DevbookMarkdownView` draws a chapter the devbook panels have already parsed into blocks: a heading is a whole section with its record on the line under it, and every other block is handed to `MarkdownBlockView`. It is the one viewer the Devbook pane and a mode drawn on it share (local ADR 0073 §9), so a note on the pane reads exactly as a repository chapter does.
+
+The blocks here are written by hand; on the pane the chapter parser makes them. Without `OnDevbookNavigate` a reference on a heading's line stays inert, which is the honest rendering of a link nobody can follow."
+           Code="@ViewerCode">
+        <div data-testid="devbook-markdown-view">
+            <DevbookMarkdownView Blocks="@ViewerBlocks" />
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
+    private static readonly IReadOnlyList<DevbookBlock> ViewerBlocks =
+    [
+        new DevbookHeadingBlock(2, "Context", new DevbookMeta("active", ["arc42/adr/0073-the-bounded-contexts-are-redrawn.md"])),
+        new DevbookParagraphBlock(MarkdownPreview.ParseInlines("The Brain's screens reach Devbook's viewer through **a shared component**.")),
+        new DevbookListBlock(false, [MarkdownPreview.ParseInlines("The pane draws the tabs."), MarkdownPreview.ParseInlines("The mode supplies the source.")]),
+        new DevbookCodeBlock("csharp", "var document = DevbookMarkdownParser.Parse(path, text);"),
+    ];
+
+    private const string ViewerCode = """
+        <DevbookMarkdownView Blocks="@document.ContentBlocks"
+                             InlineTarget="@inlineTarget"
+                             OnDevbookNavigate="OpenAsync" />
+        """;
     private static readonly DesignGuideline[] Rules =
     [
         new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),

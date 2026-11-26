@@ -42,8 +42,8 @@ public class ModuleBoundaryTests
         // adapter under src/Infrastructure, which is where a cross-context edge
         // belongs unless a pane renders on another context's pane. The next entry
         // needs the context map's say-so in its Relationship, as these have.
-        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.UI",
-            "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point (local ADR 0040 §2; .devbook/domain/context-map.md)"),
+        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Contracts.UI",
+            "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point, through the pane's published surface rather than its screens (local ADR 0040 §2, ADR 0073 §9; .devbook/domain/context-map.md)"),
         ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Abstractions",
             "Customer/Supplier: the Brain answers Devbook's personal-source port and opens repository chapters in its published language (local ADR 0040 §2, ADR 0027 §6; .devbook/domain/context-map.md)"),
         ("Backlog.Modules.Insights.UI", "Backlog.Modules.DevPc.Abstractions",
@@ -209,6 +209,7 @@ public class ModuleBoundaryTests
                 .Where(names.Contains)
                 .Where(reference => !reference.Equals(self, StringComparison.OrdinalIgnoreCase))
                 .Where(reference => !IsAllowedCrossContextEdge(self, reference))
+                .Where(reference => !IsOwnPublishedSurface(self, reference))
                 .Select(reference => $"{self} -> {reference}"));
         }
 
@@ -1045,6 +1046,14 @@ public class ModuleBoundaryTests
             .Select(p => Path.GetFileNameWithoutExtension(p.Name))
             .Where(name => name.Split('.').Length == 3)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A context's screens taking the UI surface that same context publishes
+    /// to another's (<c>Backlog.Modules.Devbook.UI</c> on
+    /// <c>Backlog.Modules.Devbook.Contracts.UI</c>, local ADR 0073 §9). Only that
+    /// direction: the published surface never reaches back onto its own screens.</summary>
+    private static bool IsOwnPublishedSurface(string from, string to) =>
+        to.Equals(OwningModuleOf(from) + ".Contracts.UI", StringComparison.OrdinalIgnoreCase)
+        && from.Equals(OwningModuleOf(from) + ".UI", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAllowedCrossContextEdge(string from, string to) =>
         AllowedCrossContextUi.Any(allowed =>

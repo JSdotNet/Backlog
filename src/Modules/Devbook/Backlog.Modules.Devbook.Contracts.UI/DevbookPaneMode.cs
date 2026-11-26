@@ -29,7 +29,7 @@ public interface IDevbookPaneMode
     event Action? ShowsHiddenChanged;
 
     /// <summary>The control at the end of the menu heading
-    /// (<see cref="DevbookMenuTreeView.HeadingTrailing"/>); null draws none.</summary>
+    /// (<c>DevbookMenuTreeView.HeadingTrailing</c>); null draws none.</summary>
     RenderFragment? MenuHeadingTrailing { get; }
 
     /// <summary>The strip's first action while the mode is shown; null draws none.</summary>

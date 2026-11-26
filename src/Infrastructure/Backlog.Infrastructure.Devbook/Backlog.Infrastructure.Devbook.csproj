@@ -68,6 +68,8 @@
          stores and panels there still call them, and the tests that drive them,
          and subclass the reader, are still that project's. -->
     <InternalsVisibleTo Include="Backlog.Modules.Devbook.UI" />
+    <!-- The chapter parser and content loader moved to the pane's published surface. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Devbook.Contracts.UI" />
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
