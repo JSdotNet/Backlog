@@ -1,5 +1,5 @@
-using Backlog.Infrastructure.FileSystem.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.FileSystem.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -14,7 +14,7 @@ public class SyncVerdictDriftUnitSourceTests
 
     private const string Unit = ".devbook/domain/sessions/domain.md#delivery-run";
 
-    private static readonly DashboardRepository Backlog = new("backlog", Repository);
+    private static readonly InsightsRepository Backlog = new("backlog", Repository);
 
     private static readonly DateTimeOffset Earlier = new(2026, 10, 1, 4, 0, 0, TimeSpan.Zero);
 

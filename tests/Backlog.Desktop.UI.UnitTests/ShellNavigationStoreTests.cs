@@ -76,12 +76,12 @@ public sealed class ShellNavigationStoreTests
         store.SetLastView("Board");
         store.SetLastSurface("Dashboard");
 
-        Assert.Equal("dashboard", store.LastSurface);
+        Assert.Equal("insights", store.LastSurface);
         Assert.Equal("board", store.LastView);
 
         var restarted = new ShellNavigationStore(path);
 
-        Assert.Equal("dashboard", restarted.LastSurface);
+        Assert.Equal("insights", restarted.LastSurface);
         Assert.Equal("board", restarted.LastView);
 
         restarted.SetLastSurface("Workspace");
@@ -718,7 +718,38 @@ public sealed class ShellNavigationStoreTests
         var store = new ShellNavigationStore(path);
 
         Assert.Equal("tasks", store.LastView);
-        Assert.Equal("dashboard", store.LastSurface);
+        Assert.Equal("insights", store.LastSurface);
+    }
+
+    /// <summary>
+    /// The Insights surface was stored as <c>dashboard</c> until the Dashboard module was
+    /// renamed (local ADR 0073 §10). A file from then reopens on Insights, and the next
+    /// save writes the new id, never the old one.
+    /// </summary>
+    [Fact]
+    public void A_dashboard_surface_from_before_the_rename_reads_as_insights()
+    {
+        using var temp = new TemporaryDirectory("backlog-shell-navigation-tests");
+        var path = temp.Combine("shell-navigation.json");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """
+            {
+              "lastSurface": "dashboard",
+              "lastView": "board",
+              "atlasReturnSurface": "dashboard"
+            }
+            """);
+
+        var store = new ShellNavigationStore(path);
+
+        Assert.Equal("insights", store.LastSurface);
+        Assert.Equal("insights", store.AtlasReturnSurface);
+
+        store.SetLastView("tasks");
+
+        Assert.DoesNotContain("\"dashboard\"", Written(path), StringComparison.Ordinal);
+        Assert.Equal("insights", new ShellNavigationStore(path).LastSurface);
     }
 
     /// <summary>
@@ -966,7 +997,7 @@ public sealed class ShellNavigationStoreTests
 
         var restarted = new ShellNavigationStore(path);
         Assert.Equal("atlas", restarted.LastSurface);
-        Assert.Equal("dashboard", restarted.AtlasReturnSurface);
+        Assert.Equal("insights", restarted.AtlasReturnSurface);
         Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
 
         // All, from the header, is no scope at all; the workspace is no takeover.
@@ -1045,7 +1076,7 @@ public sealed class ShellNavigationStoreTests
 
         for (var press = 0; press < 20; press++)
         {
-            var surface = press % 2 == 0 ? "sessions" : "dashboard";
+            var surface = press % 2 == 0 ? "sessions" : "insights";
             store.SetLastSurface(surface);
 
             Assert.Equal(surface, new ShellNavigationStore(path).LastSurface);
@@ -1070,7 +1101,7 @@ public sealed class ShellNavigationStoreTests
     [Theory]
     [InlineData("Workspace", null, "tasks")]
     [InlineData("Tools", "tools", "tasks")]
-    [InlineData("Dashboard", "dashboard", "tasks")]
+    [InlineData("Dashboard", "insights", "tasks")]
     [InlineData("Roadmap", null, "roadmap")]
     [InlineData("Sessions", "sessions", "tasks")]
     [InlineData("PullRequests", "pull-requests", "tasks")]
@@ -1103,11 +1134,12 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>The map names exactly the retired enum's members but <c>Roadmap</c>,
-    /// which the store reads as a view.</summary>
+    /// which the store reads as a view, plus <c>dashboard</c>, the Insights surface's id
+    /// before local ADR 0073 §10 renamed it.</summary>
     [Fact]
     public void The_retired_surface_names_are_the_retired_enum_members()
     {
-        string[] members = ["Workspace", "Tools", "Dashboard", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas"];
+        string[] members = ["Workspace", "Tools", "Dashboard", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas", "dashboard"];
 
         Assert.Equal(members.Order(StringComparer.Ordinal), ShellNavigationStore.RetiredSurfaceNames.Keys.Order(StringComparer.Ordinal));
     }

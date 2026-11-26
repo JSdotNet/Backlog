@@ -10,7 +10,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;

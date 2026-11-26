@@ -259,32 +259,32 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IRepositoryDirectory>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IMachineDirectory>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivitySource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivityBaselineSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IClaudeSpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ICopilotSpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>(harness.Services);
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Dashboard.AgentActivityHoursWorkedSource>(
-            harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>());
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftIssueSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IRepositoryDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IMachineDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivitySource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivityBaselineSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IClaudeSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.ICopilotSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IHoursWorkedSource>(harness.Services);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Insights.AgentActivityHoursWorkedSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.Insights.Abstractions.Services.IHoursWorkedSource>());
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IDriftIssueSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IDriftUnitSource>(harness.Services);
 
         // The verdict store is composed here, so the drift part reads the sweeps' verdicts
         // rather than answering that this host keeps none.
-        Assert.True(harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>().IsAvailable);
+        Assert.True(harness.Services.GetRequiredService<Backlog.Modules.Insights.Abstractions.Services.IDriftUnitSource>().IsAvailable);
 
         using var first = harness.Services.CreateScope();
         using var second = harness.Services.CreateScope();
 
-        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>();
-        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
-        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>();
+        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>());
+        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>());
 
         var askAi = first.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>()
-            .Single(source => source.GetType().Name == "DashboardAiContentSource");
+            .Single(source => source.GetType().Name == "InsightsAiContentSource");
         Assert.DoesNotContain(askAi, second.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>());
 
         static void AssertSingleton<TPort>(IServiceProvider services) where TPort : class
@@ -727,17 +727,17 @@ public class WebHarnessHostTests
 
     /// <summary>
     /// The desktop harness carries the Dashboard's settings section too, without a
-    /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
+    /// line of its own: the shared composition's <c>AddInsightsUi()</c> registers it.
     /// </summary>
     [Fact]
-    public void The_desktop_harness_registers_the_dashboard_settings_section_through_the_shared_composition()
+    public void The_desktop_harness_registers_the_insights_settings_section_through_the_shared_composition()
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
         using var scope = harness.Services.CreateScope();
 
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
-        Assert.Single(sections, section => section.Id == "dashboard" && section.Title == "Dashboard");
+        Assert.Single(sections, section => section.Id == "insights" && section.Title == "Insights");
     }
 
     /// <summary>

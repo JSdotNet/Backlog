@@ -1,0 +1,244 @@
+using Backlog.Modules.Insights.Abstractions;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Insights.UI;
+using Backlog.SharedKernel;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Backlog.Desktop.UI.UnitTests;
+
+/// <summary>
+/// What a shell test needs in the container for the dashboard surface to render.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The doubles answer "unavailable", which is not a cop-out: it is the state the
+/// dashboard is actually in on a machine with no Anthropic admin key and no GitHub
+/// sign-in, which is every machine running these tests. A shell test asking whether
+/// the takeover replaced the panes should not also be deciding what a productivity
+/// score is.
+/// </para>
+/// <para>
+/// It also makes these tests prove something worth proving: the surface renders,
+/// the filter renders, and every part explains itself, with no provider reachable
+/// at all. A pane that only worked with data behind it would fail here.
+/// </para>
+/// </remarks>
+internal static class InsightsTestHost
+{
+    internal const string UnavailableReason = "No provider is configured in this test.";
+
+    internal static IServiceCollection AddUnavailableInsights(
+        this IServiceCollection services,
+        params string[] repositoryAliases)
+    {
+        services.AddSingleton<IRepositoryDirectory>(new FixedRepositoryDirectory(repositoryAliases));
+        services.AddSingleton<IMachineDirectory>(new FixedMachineDirectory(MachineId, MachineName));
+        services.AddSingleton<IProductivityInsights, UnavailableProductivityInsights>();
+        services.AddSingleton<ISessionInsights, UnavailableSessionInsights>();
+        services.AddSingleton<ICostInsights, UnavailableCostInsights>();
+        services.AddSingleton<ITaskInsights, UnavailableTaskInsights>();
+        services.AddSingleton<IHoursWorkedInsights, UnavailableHoursWorkedInsights>();
+        services.AddSingleton<IDriftInsights, UnavailableDriftInsights>();
+        services.AddSingleton<IAttentionInsights, NothingReadAttentionInsights>();
+
+        // The default week, not this machine's. A grid asserted against whatever hours
+        // the person running the tests happens to keep is a grid asserted against
+        // nothing — the same reason the clock and the time zone are fixed.
+        services.AddSingleton<IWorkingHoursSettings>(new FixedWorkingHours());
+        services.AddSingleton<IUsageResetSettings>(new NoUsageReset());
+
+        // The pane publishes its scope here for the Ask AI source, and injects it
+        // hard the way the application hosts compose it. The source itself is
+        // not registered: a shell test decides for itself which areas answer.
+        services.AddScoped<InsightsScopeInView>();
+
+        return services;
+    }
+
+    /// <summary>The one machine every dashboard test runs on. A Guid in the form the
+    /// device identity store writes, because the filter's value is an id and a test
+    /// that used a friendly string would not notice the day the two stopped
+    /// matching.</summary>
+    internal const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
+
+    internal const string MachineName = "DEV-TOWER";
+
+    private sealed class FixedRepositoryDirectory(IReadOnlyList<string> aliases) : IRepositoryDirectory
+    {
+        public IReadOnlyList<InsightsRepository> Repositories { get; } =
+            [.. aliases.Select(alias => new InsightsRepository(alias, $"JSdotNet/{alias}"))];
+    }
+
+    /// <summary>One machine, which is what the real adapter answers on an installation
+    /// no record has replicated to. Answering from a completed task rather than a
+    /// delay: the pane reads this once as it initializes, and a test measuring the
+    /// filter should not have to wait for a fixture.</summary>
+    private sealed class FixedMachineDirectory(string id, string name) : IMachineDirectory
+    {
+        private readonly IReadOnlyList<InsightsMachine> _machines = [new InsightsMachine(id, name)];
+
+        public Task<IReadOnlyList<InsightsMachine>> GetMachinesAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(_machines);
+    }
+
+    private sealed class UnavailableSessionInsights : ISessionInsights
+    {
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    private sealed class UnavailableProductivityInsights : IProductivityInsights
+    {
+        public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityHeadline>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<ReworkInsight>> GetReworkAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ReworkInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate(InsightsScope scope)
+        {
+        }
+    }
+
+    private sealed class UnavailableTaskInsights : ITaskInsights
+    {
+        public Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<TaskThroughputInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<PlanInsight>> GetPlanAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<PlanInsight>.Unavailable(UnavailableReason));
+    }
+
+    private sealed class UnavailableDriftInsights : IDriftInsights
+    {
+        public Task<InsightResult<DriftInsight>> GetDriftAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<DriftInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>The Needs-you derivation over sources none of which answered: nothing
+    /// qualifies, and every source is skipped with the test's reason - which is what the
+    /// real derivation answers over the unavailable doubles above.</summary>
+    private sealed class NothingReadAttentionInsights : IAttentionInsights
+    {
+        public Task<NeedsYouInsight> GetNeedsYouAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new NeedsYouInsight([], [UnavailableReason]));
+    }
+
+    private sealed class UnavailableHoursWorkedInsights : IHoursWorkedInsights
+    {
+        public Task<InsightResult<HoursWorkedInsight>> GetHoursWorkedAsync(
+            InsightsScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<HoursWorkedInsight>.Unavailable(UnavailableReason));
+    }
+
+    private sealed class UnavailableCostInsights : ICostInsights
+    {
+        public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendThisMonthInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>
+    /// The default working week, fixed, and never read off disk.
+    /// <para>
+    /// A settings store here would make every assertion about an outlined cell depend on
+    /// what the person running the tests had set their own hours to — and on whether a
+    /// <c>working-hours.json</c> existed on the build agent at all.
+    /// </para>
+    /// </summary>
+    /// <summary>No configured reset, so the insight is on whatever it detects — and
+    /// the stubbed insights detect nothing, which is the calendar-week default.</summary>
+    private sealed class NoUsageReset : IUsageResetSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public IReadOnlyList<NamedUsageReset> Resets => [];
+
+        public NamedUsageReset? Selected => null;
+
+        public string SettingsPath => "usage-reset.json";
+
+        public (string? Id, string? Error) Add(string name, DayOfWeek day, TimeOnly time) => (null, null);
+
+        public string? Update(string id, string name, DayOfWeek day, TimeOnly time) => null;
+
+        public string? Remove(string id) => null;
+
+        public string? Select(string id) => null;
+    }
+
+    private sealed class FixedWorkingHours : IWorkingHoursSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public WorkingHours Current => WorkingHours.Default;
+
+        public string SettingsPath => "working-hours.json";
+
+        public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
+
+        public string? ResetToDefault() => null;
+
+        public string? ToggleDate(DateOnly date) => null;
+
+        public string? BlockDays(DateOnly from, DateOnly through) => null;
+
+        public string? AddWorkedDay(DateOnly date) => null;
+
+        public string? RemoveDayOverride(DateOnly date) => null;
+    }
+}

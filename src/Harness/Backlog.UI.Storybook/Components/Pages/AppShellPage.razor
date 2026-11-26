@@ -8,7 +8,7 @@
            Guidelines="@Rules">
 
     <Story Name="Desktop header navigation"
-           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the Goals group and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The Goals group is led by Goals, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Goals is always offered, whether or not those two lists are. Dashboard and Tools stand loose.
+           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the Goals group and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The Goals group is led by Goals, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Goals is always offered, whether or not those two lists are. Insights and Tools stand loose.
 
 Each view and Goals group option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
 
@@ -161,7 +161,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
         new("app-shell/events", "Events", Icon: @<CalendarIcon Size="20" />)
     ];
 
-    private static readonly string[] Surfaces = ["Dashboard", "Tools"];
+    private static readonly string[] Surfaces = ["Insights", "Tools"];
 
     /// <summary>The Inbox takes the screen like a takeover, though it sits with the
     /// workspace's controls rather than in a takeover group.</summary>
@@ -317,7 +317,7 @@ These tabs are live too: tapping the bell opens /app-shell/notifications and lig
                 @HeaderItem(PullRequestsSurfaceId, @<ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>)
             </ButtonGroup>
             <ButtonGroup CssClass="header-group header-group--loose header-group--surface" AriaLabel="Surface">
-                @HeaderItem(DashboardSurfaceId, @<ToggleButton Pressed="DashboardVisible" PressedChanged="ToggleDashboard">Dashboard</ToggleButton>)
+                @HeaderItem(InsightsSurfaceId, @<ToggleButton Pressed="InsightsVisible" PressedChanged="ToggleInsights">Insights</ToggleButton>)
                 @HeaderItem(ToolsSurfaceId, @<ToggleButton Pressed="ToolsVisible" PressedChanged="ToggleTools">Tools</ToggleButton>)
             </ButtonGroup>
         </nav>

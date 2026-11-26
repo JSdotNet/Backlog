@@ -3,7 +3,7 @@
 ```meta
 date: 2026-11-26
 related: [".devbook/domain/goals/context.md", ".devbook/domain/goals/domain.md#goal", ".devbook/domain/goals/domain.md#goal-forecast", ".devbook/domain/goals/domain.md#impediment", ".devbook/domain/goals/domain.md#holds-back", ".devbook/domain/goals/domain.md#stand-up-reading", ".devbook/domain/goals/domain.invariants.md#impediment", ".devbook/domain/goals/domain.md#iteration", ".devbook/domain/goals/features.md#the-goals-view", ".devbook/domain/goals/features.md#the-stand-up", ".devbook/domain/goals/features.md#tracking-an-impediment", ".devbook/domain/goals/requirements.md#tracking-an-impediment", ".devbook/domain/goals/features.md#pull-request-status", ".devbook/domain/goals/features.md#goals-on-the-phone", ".devbook/domain/goals/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
-c4-touches: [backlog.desktop.shell, backlog.desktop.dashboard, backlog.mobile, backlog.cloud, backlog.taskStore]
+c4-touches: [backlog.desktop.shell, backlog.desktop.insights, backlog.mobile, backlog.cloud, backlog.taskStore]
 ```
 
 Progress stops modelling sprints. It owns two aggregates instead: a **Goal**,

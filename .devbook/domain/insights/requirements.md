@@ -27,7 +27,7 @@ related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
 
 ```meta
 type: requirement
-tests: integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview
+tests: integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_sections_are_a_tablist_that_opens_on_overview
 ```
 
 The system SHALL show the dashboard's tabs in the order Overview, Productivity, Tasks, Sessions, Devbook, Cost.
@@ -42,7 +42,7 @@ The system SHALL show the dashboard's tabs in the order Overview, Productivity, 
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.A_pane_opened_again_starts_on_overview]
 ```
 
 The system SHALL show the Overview tab each time the dashboard pane opens, whichever tab was shown when it last closed.
@@ -74,7 +74,7 @@ related: [.devbook/domain/insights/features.md#deltas-against-the-previous-windo
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_merged_pull_requests_tile_says_how_far_it_moved_against_the_previous_window, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_comparison_names_the_period_the_reader_picked, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDeltaPartTests.The_merged_pull_requests_tile_says_how_far_it_moved_against_the_previous_window, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDeltaPartTests.The_comparison_names_the_period_the_reader_picked, unit:dotnet:Backlog.Modules.Insights.UnitTests.ProductivityInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.Eight_weeks_is_compared_with_the_eight_before_it]
 ```
 
 The system SHALL compare a headline figure over a window of N weeks with the same figure over the N weeks just before that window.
@@ -89,7 +89,7 @@ The system SHALL compare a headline figure over a window of N weeks with the sam
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Twenty_six_weeks_has_no_previous_agent_active_time_because_it_was_never_read, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Twelve_weeks_has_no_previous_when_the_records_begin_inside_the_twelve_before, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests.A_baseline_with_no_block_or_an_incomplete_one_gives_no_previous_figure, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests.Copilot_has_no_previous_spend_and_is_not_asked_for_one, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_merged_pull_requests_tile_draws_no_comparison_when_there_is_no_previous_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests.The_agent_active_time_tile_compares_as_a_share_and_only_when_there_is_an_earlier_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Open_drift_reads_on_the_drift_tone_with_no_delta_or_trend]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.Twenty_six_weeks_has_no_previous_agent_active_time_because_it_was_never_read, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.Twelve_weeks_has_no_previous_when_the_records_begin_inside_the_twelve_before, unit:dotnet:Backlog.Modules.Insights.UnitTests.ProductivityInsightsTests.A_baseline_with_no_block_or_an_incomplete_one_gives_no_previous_figure, unit:dotnet:Backlog.Modules.Insights.UnitTests.CostInsightsTests.Copilot_has_no_previous_spend_and_is_not_asked_for_one, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDeltaPartTests.The_merged_pull_requests_tile_draws_no_comparison_when_there_is_no_previous_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDeltaPartTests.The_agent_active_time_tile_compares_as_a_share_and_only_when_there_is_an_earlier_figure, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests.Open_drift_reads_on_the_drift_tone_with_no_delta_or_trend]
 ```
 
 The system SHALL leave out a figure's delta when its source does not hold the figure for the whole previous window.
@@ -139,7 +139,7 @@ related: [.devbook/domain/insights/features.md#what-needs-you]
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.The_items_come_in_rule_order_drift_roadmap_budget_rework
+tests: unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.The_items_come_in_rule_order_drift_roadmap_budget_rework
 ```
 
 The system SHALL list the items that need the person in this order: devbook units whose sync failed or whose verdict is conflict, roadmap items behind pace, providers projected past their monthly budget, and rework.
@@ -154,7 +154,7 @@ The system SHALL list the items that need the person in this order: devbook unit
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_needs_you_when_more_than_a_quarter_of_reviewed_pull_requests_came_back_after_review, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_just_over_a_quarter_needs_you, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_of_exactly_a_quarter_does_not_need_you, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_divides_by_reviewed_not_merged_pull_requests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Rework_over_no_reviewed_pull_requests_does_not_need_you]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Rework_needs_you_when_more_than_a_quarter_of_reviewed_pull_requests_came_back_after_review, unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Rework_just_over_a_quarter_needs_you, unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Rework_of_exactly_a_quarter_does_not_need_you, unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Rework_divides_by_reviewed_not_merged_pull_requests, unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Rework_over_no_reviewed_pull_requests_does_not_need_you]
 ```
 
 The system SHALL list rework under Needs you only when more than 25% of the pull requests reviewed in the window came back after review.
@@ -193,7 +193,7 @@ The system SHALL list rework under Needs you only when more than 25% of the pull
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests.Nothing_needs_you_when_every_source_answers_clean, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Needs_you_says_nothing_needs_you_when_nothing_qualifies, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Needs_you_names_the_skipped_sources_under_an_empty_list]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests.Nothing_needs_you_when_every_source_answers_clean, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests.Needs_you_says_nothing_needs_you_when_nothing_qualifies, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests.Needs_you_names_the_skipped_sources_under_an_empty_list]
 ```
 
 The system SHALL show "Nothing needs you." in Needs you when no item qualifies.
@@ -225,7 +225,7 @@ related: [.devbook/domain/insights/features.md#spend-against-a-monthly-budget]
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests.A_card_shows_spend_of_budget_with_a_projected_marker_and_says_it_will_pass]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.SpendProjectionTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsCostPartsTests.A_card_shows_spend_of_budget_with_a_projected_marker_and_says_it_will_pass]
 ```
 
 The system SHALL project a provider's month-end spend as its month-to-date spend plus its average daily spend over this month's last seven days through today, times the days left after today.
@@ -334,7 +334,7 @@ related: [.devbook/domain/insights/features.md#asking-ai-about-a-part]
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_clears_an_earlier_answer, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_ends_an_ask_in_flight, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_clears_an_earlier_answer, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_ends_an_ask_in_flight, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPartFrameTests]
 ```
 
 The system SHALL open the assistant on the Dashboard with the question begun `About the "<part>" chart: ` when the person presses a dashboard part's Ask AI.
@@ -355,7 +355,7 @@ The system SHALL open the assistant on the Dashboard with the question begun `Ab
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.No_dashboard_part_offers_ask_ai_while_the_assistant_is_off, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests.Without_a_handler_cascaded_the_frame_draws_no_ask_ai]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.No_dashboard_part_offers_ask_ai_while_the_assistant_is_off, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPartFrameTests.Without_a_handler_cascaded_the_frame_draws_no_ask_ai]
 ```
 
 The system SHALL show no Ask AI control on any dashboard part while the AI assistant is switched off.

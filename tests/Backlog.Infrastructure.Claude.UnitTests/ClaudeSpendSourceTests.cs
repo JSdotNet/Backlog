@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Claude;
-using Backlog.Infrastructure.Claude.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.Claude.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Claude.UnitTests;

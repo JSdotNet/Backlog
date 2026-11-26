@@ -386,7 +386,7 @@
     {
         var page = string.IsNullOrWhiteSpace(id)
             ? null
-            : OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+            : OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, SettingsPages.CurrentId(id.Trim()), StringComparison.OrdinalIgnoreCase));
         var target = page?.Id ?? SettingsPages.Features;
         var changed = !IsShowing(target);
 

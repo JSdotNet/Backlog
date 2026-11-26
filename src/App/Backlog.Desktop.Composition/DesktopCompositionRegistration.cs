@@ -15,7 +15,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Calendar;
-using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Progress;
@@ -34,8 +34,8 @@ using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
-using Backlog.Modules.Dashboard.Extensions;
-using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Insights.Extensions;
+using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
@@ -402,11 +402,11 @@ public static partial class DesktopCompositionRegistration
         // The Dashboard module brings its derivations; the adapters beside it decide
         // which providers are behind them. Every part reports itself unavailable
         // with a reason until the credential it needs exists.
-        services.AddDashboardModule();
-        services.AddGitHubDashboardAdapters();
-        services.AddClaudeDashboardAdapters();
-        services.AddAzureFoundryDashboardAdapters();
-        services.AddDashboardUi();
+        services.AddInsightsModule();
+        services.AddGitHubInsightsAdapters();
+        services.AddClaudeInsightsAdapters();
+        services.AddAzureFoundryInsightsAdapters();
+        services.AddInsightsUi();
 
         // Tasks' own adapter: an imported plan resolves a `repo:` name against the
         // repositories somebody has configured, and registers one it names that
@@ -457,7 +457,7 @@ public static partial class DesktopCompositionRegistration
         services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
-        services.AddDashboardSurface();
+        services.AddInsightsSurface();
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
@@ -698,7 +698,7 @@ public static partial class DesktopCompositionRegistration
         // machine it describes. Then the join between the Dashboard's sessions part
         // and the Sessions context, after both of the ports it sits between.
         services.AddAgentActivitySource();
-        services.AddDashboardCrossContextAdapters();
+        services.AddInsightsCrossContextAdapters();
 
         return services;
     }

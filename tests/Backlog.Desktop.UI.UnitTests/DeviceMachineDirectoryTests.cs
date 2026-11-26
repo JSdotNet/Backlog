@@ -1,7 +1,7 @@
-using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Dashboard.Abstractions.Insights;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI.Adapters;
+using Backlog.Modules.Insights.Abstractions;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Insights.UI.Adapters;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.Time.Testing;
 
@@ -176,7 +176,7 @@ public sealed class DeviceMachineDirectoryTests
 
         _ = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(Noon - DashboardScope.Horizon, Assert.Single(source.Horizons));
+        Assert.Equal(Noon - InsightsScope.Horizon, Assert.Single(source.Horizons));
     }
 
     private static DeviceMachineDirectory Directory(params AssistantSession[] sessions) =>
