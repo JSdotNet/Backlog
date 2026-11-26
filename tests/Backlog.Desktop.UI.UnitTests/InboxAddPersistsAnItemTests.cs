@@ -415,7 +415,7 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
+        _ = context.Services.AddUnavailableInsights("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The halves of Capture the shell needs: the module for the run, the

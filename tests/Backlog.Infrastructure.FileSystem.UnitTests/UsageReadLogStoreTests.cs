@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 

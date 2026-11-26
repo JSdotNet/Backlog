@@ -436,11 +436,11 @@
           "Backlog.Infrastructure.Sqlite": "[1.0.0, )",
           "Backlog.Modules.Calendar.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Capture.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
@@ -454,8 +454,8 @@
       "backlog.infrastructure.github": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
@@ -497,12 +497,6 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.dashboard.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
       "backlog.modules.devbook.abstractions": {
         "type": "Project",
         "dependencies": {
@@ -533,6 +527,12 @@
         }
       },
       "backlog.modules.inbox.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.insights.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

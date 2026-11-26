@@ -1,4 +1,4 @@
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 
 // The component's published namespace, not the folder's: see the note at the top
 // of Settings.razor for why the two must differ.

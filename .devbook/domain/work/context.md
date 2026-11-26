@@ -253,7 +253,7 @@ key: working-hours.json
 scope: user
 default: Monday to Friday 09:00-17:30; Saturday and Sunday not worked
 related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/work/features.md#placing-a-plan-in-time, .devbook/domain/work/domain.md#working-week, .devbook/domain/work/domain.md#day-override, .devbook/domain/work/features.md#blocking-and-unblocking-a-day, .devbook/domain/work/features.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_grid_outlines_the_hours_of_the_working_week]
 ```
 
 ```mermaid

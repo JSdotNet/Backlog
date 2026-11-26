@@ -68,7 +68,7 @@
     <Using Include="Backlog.Modules.Roadmap.UI" />
     <!-- The Dashboard does have one, so its feature key comes from there and its
          pane from the .UI project beside it. -->
-    <Using Include="Backlog.Modules.Dashboard.Abstractions" />
+    <Using Include="Backlog.Modules.Insights.Abstractions" />
     <!-- The app-wide ports and feature keys: the feature port, and the
          folder-editor port every knowledge screen's "Open in VS Code" goes
          through. Both are shared kernel because more than one context asks and
@@ -140,8 +140,8 @@
          Backlog.Infrastructure.Sessions.UnitTests. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Insights\Backlog.Modules.Insights.UI\Backlog.Modules.Insights.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
     <!-- Capture, all three sides: the Home hosts here compose the module the way
          the application hosts do, the Inbox tests drive its port, and the
          sources panel on the Inbox pane is rendered on its own. -->

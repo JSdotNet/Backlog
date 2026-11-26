@@ -140,7 +140,7 @@ graph TB
       InboxUI["Backlog.Modules.Inbox.UI"]
       RoadmapUI["Backlog.Modules.Roadmap.UI"]
       DevbookUI["Backlog.Modules.Devbook.UI"]
-      DashboardUI["Backlog.Modules.Dashboard.UI"]
+      InsightsUI["Backlog.Modules.Insights.UI"]
       CaptureUI["Backlog.Modules.Capture.UI"]
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
       SessionsUI["Backlog.Modules.Sessions.UI"]
@@ -153,7 +153,7 @@ graph TB
       Tasks["Backlog.Modules.Tasks"]
       Inbox["Backlog.Modules.Inbox"]
       Roadmap["Backlog.Modules.Roadmap"]
-      Dashboard["Backlog.Modules.Dashboard"]
+      Insights["Backlog.Modules.Insights"]
       Capture["Backlog.Modules.Capture"]
       RepoMgmt["Backlog.Modules.Repositories\n(pull-request contract, one cache)"]
       Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
@@ -188,13 +188,13 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & InsightsUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
   TasksUI -->|Abstractions| Tasks
   InboxUI -->|Abstractions| Inbox
   RoadmapUI -->|Abstractions| Roadmap
-  DashboardUI -->|Abstractions| Dashboard
+  InsightsUI -->|Abstractions| Insights
   CaptureUI -->|Abstractions| Capture
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
@@ -213,7 +213,7 @@ graph TB
   Inbox -->|IInboxBacklogTarget| FileSystem
   FileSystem -->|ITaskItems| Tasks
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
-  Claude -->|Dashboard.Abstractions| Dashboard
+  Claude -->|Insights.Abstractions| Insights
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
   FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
 
@@ -393,9 +393,9 @@ A source never describes the screen. Filter text, sort, layout and selection sta
 
 A source may pin the records every question needs. `AiContentBudget` charges a pinned record first, so no question's words can rank it out. Tasks pins the open entry.
 
-The Dashboard pins one line per insight across every tab, worded as its part words it, whichever tab is on show. The figures lead the body, under a line saying they are not entries. The first line counts only merged pull requests and closed issues, so the assistant never reports a figure line as a pull request. An insight that cannot answer keeps its line with the reason. Local ADR 0033 records what this sends to Foundry and why.
+Insights pins one line per insight across every tab, worded as its part words it, whichever tab is on show. The figures lead the body, under a line saying they are not entries. The first line counts only merged pull requests and closed issues, so the assistant never reports a figure line as a pull request. An insight that cannot answer keeps its line with the reason. Local ADR 0033 records what this sends to Foundry and why.
 
-An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control. `DashboardPane.OnAskAi` hands the part's title to the shell, which opens the panel on the Dashboard with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and a Dashboard source is composed, so no part offers a control that leads nowhere.
+An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control. `InsightsPane.OnAskAi` hands the part's title to the shell, which opens the panel on Insights with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and an Insights source is composed, so no part offers a control that leads nowhere.
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and both web harnesses. The harnesses register it separately, so they pair as two distinct devices. Its parts:
 

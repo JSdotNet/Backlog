@@ -491,7 +491,7 @@ public sealed class SettingsSectionRenderingTests
         services.AddInboxSettings();
         Backlog.Modules.Sessions.UI.Extensions.SessionsSettingsRegistration.AddSessionsSettings(services);
         Backlog.Modules.Sync.UI.SyncSettingsRegistration.AddSyncSettings(services);
-        Backlog.Modules.Dashboard.UI.Extensions.DashboardSettingsRegistration.AddDashboardSettings(services);
+        Backlog.Modules.Insights.UI.Extensions.InsightsSettingsRegistration.AddInsightsSettings(services);
         var registered = services.Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>();
 
         var pages = SettingsPages.InMenuOrder(SettingsPages.BuiltIn, registered);
@@ -507,7 +507,7 @@ public sealed class SettingsSectionRenderingTests
                 (SettingsGroup.Ai, "Claude Code"),
                 (SettingsGroup.Ai, "Model prices"),
                 (SettingsGroup.ProductAreas, "Events"),
-                (SettingsGroup.ProductAreas, "Dashboard"),
+                (SettingsGroup.ProductAreas, "Insights"),
                 (SettingsGroup.ProductAreas, "Working week"),
                 (SettingsGroup.ProductAreas, "Inbox"),
                 (SettingsGroup.ProductAreas, "Connectors"),

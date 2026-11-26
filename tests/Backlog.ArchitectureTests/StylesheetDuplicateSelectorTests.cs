@@ -25,7 +25,7 @@ public class StylesheetDuplicateSelectorTests
     private const string Components = "src/Core/Backlog.UI.Components/wwwroot/components.css";
     private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
     private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
-    private const string Dashboard = "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css";
+    private const string Dashboard = "src/Modules/Insights/Backlog.Modules.Insights.UI/wwwroot/dashboard.css";
     private const string DevPc = "src/Modules/DevPc/Backlog.Modules.DevPc.UI/wwwroot/devpc.css";
     private const string Inbox = "src/Modules/Inbox/Backlog.Modules.Inbox.UI/wwwroot/inbox.css";
 

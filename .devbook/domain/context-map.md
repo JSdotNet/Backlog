@@ -86,7 +86,7 @@ flowchart LR
 
     %% Insights reads across the contexts for the dashboard (local ADR 0073 §2).
     %% Each read below is an infrastructure adapter answering a port in
-    %% Backlog.Modules.Dashboard.Abstractions; Insights publishes no event and
+    %% Backlog.Modules.Insights.Abstractions; Insights publishes no event and
     %% writes into no other context.
     Work -->|OHS + Published Language<br/>AIWorkLogged| Insights
     Insights -->|Customer/Supplier<br/>Productivity summaries| Work

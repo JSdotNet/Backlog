@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;

@@ -1,0 +1,99 @@
+namespace Backlog.Modules.Insights.Abstractions.Insights;
+
+/// <summary>
+/// Whether a source can answer at all, and — when it cannot — why, in words fit
+/// to put on screen.
+/// <para>
+/// Unavailable is not an error. Every provider behind this dashboard answers an
+/// availability question before it answers a data question, and "no credential
+/// is configured" is the answer most of them give most of the time. Carrying the
+/// reason as data is what lets a part explain itself instead of showing a zero
+/// that reads as "you did nothing this month".
+/// </para>
+/// </summary>
+public sealed record InsightAvailability(bool IsAvailable, string Reason)
+{
+    public static InsightAvailability Available { get; } = new(true, string.Empty);
+
+    public static InsightAvailability Unavailable(string reason) => new(false, reason);
+}
+
+/// <summary>
+/// An amount exactly as the provider reported it, with the currency it named.
+/// <para>
+/// Never converted and never rescaled. Anthropic reports an estimate in the
+/// currency it bills in and GitHub reports United States dollars; a dashboard
+/// that prints one symbol over the other's figure is worse than one that prints
+/// the code. The metrics library has a type of the same shape, and this one is
+/// deliberately separate — a module contract that borrowed it would drag a UI
+/// library into every consumer of this module.
+/// </para>
+/// </summary>
+public sealed record InsightsMoney(decimal Amount, string Currency)
+{
+    public static InsightsMoney Zero(string currency) => new(0m, currency);
+
+    /// <summary>
+    /// Adds two amounts of the same currency. Throws on a mismatch rather than
+    /// picking one, because there is no exchange rate in this product and a
+    /// silently wrong total is the failure mode worth being loud about.
+    /// </summary>
+    public static InsightsMoney operator +(InsightsMoney left, InsightsMoney right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+
+        if (!string.Equals(left.Currency, right.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Cannot add {left.Currency} to {right.Currency}: Backlog holds no exchange rate, so mixed "
+                + "currencies are reported side by side rather than summed.");
+        }
+
+        return new InsightsMoney(left.Amount + right.Amount, left.Currency);
+    }
+
+    /// <summary>This amount as the dashboard writes one; see the static overload.</summary>
+    public string Format() => Format(Amount, Currency);
+
+    /// <summary>
+    /// An amount as every dashboard surface writes one - the headline, the cards, the
+    /// brief and Needs you alike: the currency's sign before it where it has a common one
+    /// (€, $, £), its code after it otherwise; whole from a hundred up or when there are
+    /// no cents, to the cent below that. One format, because a tab that said "€23.28" in
+    /// its headline and "23.28 EUR" on the card under it read as two figures.
+    /// </summary>
+    public static string Format(decimal amount, string currency)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var figure = amount >= 100m || amount == decimal.Truncate(amount)
+            ? Math.Round(amount, MidpointRounding.AwayFromZero).ToString("N0", culture)
+            : amount.ToString("N2", culture);
+
+        return (currency ?? string.Empty).ToUpperInvariant() switch
+        {
+            "EUR" => "€" + figure,
+            "USD" => "$" + figure,
+            "GBP" => "£" + figure,
+            "" => figure,
+            _ => $"{figure} {currency}"
+        };
+    }
+}
+
+/// <summary>One bucket of a series — a week, a day, or a month — and its value.</summary>
+public sealed record InsightPoint(string Label, decimal Value);
+
+/// <summary>One row of a breakdown — a model, a provider — with whatever
+/// measures the source reported. A null is "not reported", which is a different
+/// fact from zero and is displayed differently.</summary>
+public sealed record InsightRow(string Name, long? Tokens = null, InsightsMoney? Cost = null, string? Detail = null)
+{
+    /// <summary>Input tokens, or null when the source does not split tokens by
+    /// direction.</summary>
+    public long? InputTokens { get; init; }
+
+    /// <summary>Output tokens, or null when the source does not split tokens by
+    /// direction.</summary>
+    public long? OutputTokens { get; init; }
+}

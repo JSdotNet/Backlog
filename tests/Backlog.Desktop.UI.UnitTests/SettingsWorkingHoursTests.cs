@@ -2,8 +2,8 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI;
-using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Insights.UI;
+using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Bunit;
@@ -246,7 +246,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_card_on_the_page_is_the_one_its_section_declares()
     {
-        var section = new ServiceCollection().AddDashboardSettings()
+        var section = new ServiceCollection().AddInsightsSettings()
             .Select(descriptor => descriptor.ImplementationInstance)
             .OfType<SettingsSection>()
             .Single(registered => registered.Id == "working-week");
@@ -346,7 +346,7 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
-        context.Services.AddSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ISpendBudgetSettings>(
+        context.Services.AddSingleton<Backlog.Modules.Insights.Abstractions.Services.ISpendBudgetSettings>(
             new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json")));
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
@@ -357,7 +357,7 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
-        context.Services.AddDashboardSettings();
+        context.Services.AddInsightsSettings();
 
         return new SettingsRenderContext(temp, context, context.Render<Settings>(), workingWeek);
     }

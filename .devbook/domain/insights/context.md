@@ -9,8 +9,9 @@ Insights turns the work the person and their agents do into personal insight for
 that one person, on the [dashboard](features.md#personal-productivity-dashboard),
 and owns none of the work it reads. Monitoring & Dashboard merged into it under
 [local ADR 0073 §2](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#2-insights);
-its code is still `Backlog.Modules.Dashboard` until that module is renamed
-`Backlog.Modules.Insights`.
+its code is `Backlog.Modules.Insights`. The screen and its settings page are named
+Insights; a surface id, settings address or shell file stored as `dashboard` by an older
+build still reads as Insights (§10).
 
 Inside the boundary: the productivity ledger and the summaries read off it, the
 dashboard that reads across the other contexts and points at what needs the person,
@@ -29,7 +30,7 @@ key: usage-reset.json
 scope: user
 default: unset
 related: [.devbook/domain/insights/features.md#personal-productivity-dashboard]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.Under_a_usage_reset_the_grid_says_it_is_a_calendar_week_beside_reset_columns, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.A_grid_is_a_calendar_week_and_names_the_usage_week_beginning_in_it]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.Under_a_usage_reset_the_grid_says_it_is_a_calendar_week_beside_reset_columns, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.A_grid_is_a_calendar_week_and_names_the_usage_week_beginning_in_it]
 ```
 
 When the assistant's weekly usage allowance starts again: a day of the week and a time, recurring every seven days.
@@ -73,7 +74,7 @@ Per value:
 
 An amount is a bare number with no currency. It is read in the currency that provider reports its spend in, because Backlog holds no exchange rate. A provider with no spend yet this month has no currency of its own: its budget is read in the currency of the month's other spend, and in US dollars when nothing has been spent. A negative amount, or text that is not an amount, is refused with a message, and the budget in force stays. A file entry that cannot be read is dropped, and the other budgets are kept.
 
-The person sets it in Dashboard settings. It is stored per device beside the weekly usage reset, and clearing the last budget removes the file. Like the reset, nothing syncs it, so `scope: user` is the nearest rung the vocabulary offers. The same reader on a second machine starts with no budgets.
+The person sets it in Insights settings. It is stored per device beside the weekly usage reset, and clearing the last budget removes the file. Like the reset, nothing syncs it, so `scope: user` is the nearest rung the vocabulary offers. The same reader on a second machine starts with no budgets.
 
 ## AI usage metrics
 

@@ -147,7 +147,7 @@ It is what Monitoring & Dashboard described before it merged into Insights (loca
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/features.md#spend-against-a-monthly-budget, .devbook/domain/insights/features.md#the-weekly-brief, .devbook/domain/insights/features.md#the-header-and-its-controls, .devbook/domain/insights/features.md#deltas-against-the-previous-window, .devbook/domain/insights/requirements.md#six-tabs-and-what-each-answers]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_sections_are_a_tablist_that_opens_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.A_pane_opened_again_starts_on_overview, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_devbook_tab_carries_the_open_drift_issue_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_sessions_part_keeps_its_own_more_fold, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_tasks_tab_puts_the_two_task_charts_side_by_side_above_the_roadmap, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsProductivityTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsSessionsTabTests]
 ```
 
 The pane holds six tabs, in this order:
@@ -218,7 +218,7 @@ Beside the chart, the hour grid shows one calendar week, Monday to Sunday, from 
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/sessions/domain.md#session-history]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHeadlinesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeviceMachineDirectoryTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneHeaderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsHeadlinesTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.InsightsScopeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeviceMachineDirectoryTests]
 ```
 
 The pane's header names the tab on show as an eyebrow, such as "Dashboard · Tasks", and leads with one sentence about that tab. The sentence is a fixed template filled from the figures the tab reads, never written by a model:
@@ -252,7 +252,7 @@ The Machine select lists each machine by its name. Two machines can share a name
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/insights/requirements.md#deltas-against-the-previous-window, .devbook/domain/sessions/domain.md#session-history]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDeltaPartTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.ProductivityInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDeltaPartTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.ProductivityInsightsTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.CostInsightsTests]
 ```
 
 A headline figure carries a delta against the previous window of the same length: a window of N weeks is compared with the N weeks just before it. Pull requests merged and story points done show the difference as a count. Agent-active time shows it as a share of the earlier figure.
@@ -275,7 +275,7 @@ A delta is left out when there is no honest earlier figure to compare with:
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers, .devbook/domain/insights/features.md#drift-at-a-glance, .devbook/domain/insights/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/insights/features.md#spend-against-a-monthly-budget, .devbook/domain/insights/requirements.md#what-needs-you]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewBoardTests]
 ```
 
 ```mermaid
@@ -344,7 +344,7 @@ Each rule reads its tab's own figures, so an item never says what its tab does n
 type: sub-feature
 setting: [.devbook/domain/insights/context.md#monthly-spend-budget]
 related: [.devbook/domain/insights/features.md#ai-vendor-usage-import, .devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/requirements.md#spend-against-a-monthly-budget]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProjectionTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SpendProviderNamesTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DashboardMoneyFormatTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardCostTabTests]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.SpendProjectionTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.CostInsightsTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.SpendProviderNamesTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.InsightsMoneyFormatTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsCostPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsCostTabTests]
 ```
 
 Show what each [spend provider](domain.md#spend-provider) has cost this month, and whether it will stay inside the budget the person set for it. The providers carry the same names:
@@ -354,9 +354,9 @@ Show what each [spend provider](domain.md#spend-provider) has cost this month, a
 - in the brief;
 - in Needs you;
 - in the model table;
-- in Dashboard settings.
+- in Insights settings.
 
-Each provider has its own monthly budget, set in Dashboard settings; an empty budget means none. The dashboard projects each provider's month-end spend like this:
+Each provider has its own monthly budget, set in Insights settings; an empty budget means none. The dashboard projects each provider's month-end spend like this:
 
 ```text
 projected = spend so far this month + (average daily spend over the last 7 days × days left)
@@ -381,7 +381,7 @@ Each card keeps its provider's spend on its own. The figures differ in kind (one
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.CostInsightsTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyBriefSentencesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsWeeklyBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsBriefFiguresTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.BriefWeekTests, unit:dotnet:Backlog.Modules.Insights.UnitTests.CostInsightsTests]
 ```
 
 Read the last finished week as a few sentences rather than as charts. The brief covers the last completed week, Monday to Sunday, and links to the week before it. The person reaches it from the "Read as brief" link on the tab strip, and "Open overview" takes them back to the Overview.
@@ -417,7 +417,7 @@ Every block reports the same Monday-to-Sunday week. The Sessions block reads hou
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Limit_hits_are_split_by_what_overage_did_about_them, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.Refusals_are_counted_over_the_half_open_window_and_agree_with_a_hand_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_limit_hits_tile_says_unstamped_refusals_are_not_counted]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.Limit_hits_are_split_by_what_overage_did_about_them, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.Refusals_are_counted_over_the_half_open_window_and_agree_with_a_hand_count, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsSessionsTabTests.The_limit_hits_tile_says_unstamped_refusals_are_not_counted]
 ```
 
 This part sits on the Sessions tab. Beside time, it reads what the session records carry:
@@ -440,7 +440,7 @@ It counts the refusals inside the window only. An older Claude Code wrote some r
 ```meta
 type: sub-feature
 related: [.devbook/domain/insights/features.md#six-tabs-and-what-each-answers]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.The_longest_sessions_follow_the_machine_filter, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardSessionsTabTests.The_longest_sessions_read_to_the_minute_and_link_to_all_of_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardFormatTimeTests]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window, unit:dotnet:Backlog.Modules.Insights.UnitTests.SessionInsightsTests.The_longest_sessions_follow_the_machine_filter, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsSessionsTabTests.The_longest_sessions_read_to_the_minute_and_link_to_all_of_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.InsightsFormatTimeTests]
 ```
 
 The Sessions tab opens on its six figures as one joined row:
@@ -464,7 +464,7 @@ The time is the measure the agent-active figure sums, so the first row never exc
 type: sub-feature
 setting: [.devbook/domain/work/context.md#working-week]
 related: [.devbook/domain/insights/requirements.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/work/domain.md#actual-hours, .devbook/domain/work/domain.md#working-stretch, .devbook/domain/work/domain.md#day-override, .devbook/domain/insights/dependencies.md#outbound-dependencies]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
 ```
 
 Show how long the person actually worked, and how much of it fell outside the hours they meant to work. The dashboard shows the person's [actual hours](../work/domain.md#actual-hours) over the window, split into the time **inside** and **outside** their [office hours](domain.md#office-hours). It sets them beside the planned hours of the working week, in two places:
@@ -483,7 +483,7 @@ It is presentation only, like the hour grids: no other dashboard figure changes 
 ```meta
 type: sub-feature
 related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unattended-runs.md]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.DriftInsightsTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubDriftIssueSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLabelledIssuesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardDriftPartTests]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.DriftInsightsTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubDriftIssueSourceTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientLabelledIssuesTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsDriftPartTests]
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a chapter. This part is the Devbook tab, framed as "Last verdict per unit", with a subtitle counting what it holds: "42 units verified · 5 drift issues open · 1 sync failed".
@@ -520,7 +520,7 @@ The issues are read from each repository's list of open issues labelled `devbook
 ```meta
 type: sub-feature
 related: [.devbook/domain/work/features.md#placing-a-plan-in-time, .devbook/domain/work/features.md#forecasting-work-in-flight, .devbook/domain/work/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
-tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
+tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
 ```
 
 See, without opening the roadmap, which plans will land inside the window they were given. The Tasks tab draws the roadmap as a week-by-week timeline of the plans whose window overlaps the weeks the selector picks. It also draws every plan whose window is still sized by its effort. The Overview's roadmap chart sets the same plans against their pace, and a plan that is behind pace is listed under [What needs you](#what-needs-you).
@@ -570,7 +570,7 @@ An unestimated task counts nothing here, because the part reports it as unestima
 type: sub-feature
 feature-flag: .devbook/domain/work/context.md#ai-assistant
 related: [.devbook/domain/work/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/insights/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
 ```
 
 Ask the assistant about one chart without describing it first. Every part of the dashboard's tabs has an Ask AI control beside its refresh. Pressing it opens the assistant on the Dashboard with a question already begun, such as `About the "Throughput" chart: `, and the person finishes the question.

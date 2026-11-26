@@ -4,7 +4,7 @@
 date: 2026-10-03
 related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/work/context.md#story-points-a-week", ".devbook/domain/work/features.md#placing-a-plan-in-time", ".devbook/domain/work/features.md#carrying-the-pace-with-the-person", ".devbook/domain/work/features.md#reading-the-near-term-closely", ".devbook/domain/work/domain.md#working-week", ".devbook/domain/work/dependencies.md", ".devbook/domain/work/context.md#working-week", ".devbook/domain/insights/features.md#personal-productivity-dashboard", ".devbook/domain/insights/features.md#personal-productivity-dashboard", ".devbook/domain/sessions/domain.md", ".devbook/domain/sessions/domain.md#activity-window"]
 c4: [backlog.desktop.roadmap]
-c4-touches: [backlog.desktop.dashboard, backlog.desktop.sessions, backlog.cloud]
+c4-touches: [backlog.desktop.insights, backlog.desktop.sessions, backlog.cloud]
 ```
 
 The roadmap places an effort-sized window by counting the person's working

@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Infrastructure.AzureFoundry.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.AzureFoundry.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
@@ -96,7 +96,7 @@ public sealed class AzureFoundrySpendSourceReadTests
         var services = new ServiceCollection();
         services.AddSingleton<IAzureFoundryCostClient>(new StubCost());
         services.AddSingleton<IUsageReadRecorder>(reads);
-        services.AddAzureFoundryDashboardAdapters();
+        services.AddAzureFoundryInsightsAdapters();
         using var provider = services.BuildServiceProvider();
 
         await provider.GetRequiredService<IAzureFoundrySpendSource>().GetSpendAsync(September, September, Cancellation);

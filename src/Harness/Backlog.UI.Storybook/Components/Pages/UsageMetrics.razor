@@ -606,7 +606,7 @@ A total across two currencies is a wrong number rather than a missing one, so th
     private const string BreakdownFormatCode = """
         <MetricBreakdown Rows="byModel"
                          Label="By model"
-                         FormatCost="@(money => DashboardMoney.Format(money.Amount, money.Currency))" />
+                         FormatCost="@(money => InsightsMoney.Format(money.Amount, money.Currency))" />
         """;
 
     private const string BreakdownNullCode = """

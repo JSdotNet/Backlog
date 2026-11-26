@@ -2,7 +2,7 @@ using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Repositories.Abstractions.Services;
@@ -88,11 +88,11 @@ public static class ShellSurfaceWiring
             windowStateLifetime));
 
         services.Add(new ServiceDescriptor(
-            typeof(DashboardSurfaceWiring),
+            typeof(InsightsSurfaceWiring),
             sp =>
             {
                 var state = sp.GetRequiredService<TasksDesktopState>();
-                return new DashboardSurfaceWiring
+                return new InsightsSurfaceWiring
                 {
                     RepositoryAliases = () => state.SelectedRepositoryAliases,
                     RepositoryColour = state.RepositoryColourFor,

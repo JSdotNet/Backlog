@@ -1,0 +1,494 @@
+@*
+    The devbook's drift at a glance: a bar of the last verdict per unit, then the sync
+    units that need a look - the aligned ones folded away behind "Show all" - filtered
+    by the direction each goes, with the last verdict and what the sweep did about it;
+    beside them the devbook-drift issues still open, the sync-failed ones first.
+
+    The direction is the one the sweep read when it verified the unit. Code → chapter is
+    the pull direction and Chapter → code the push direction; the units a sync, report
+    or off sweep owns, or whose direction no sweep recorded, are under All only. A unit
+    no sweep has verified is not here: this reads what the sweeps said.
+
+    Neither the window nor the machine narrows it. A verdict is the latest a sweep left,
+    and an issue is open now; the note says so. The repository chips do narrow it.
+*@
+@using global::Backlog.UI.Components.Integrations
+@inherits InsightsPartBase<DriftInsight>
+@inject IDriftInsights Insights
+@inject IServiceProvider Services
+
+<PartFrame Title="Last verdict per unit"
+           Note="@Note"
+           Busy="IsLoading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-drift">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            @* The frame's subtitle (board Devbook): the three counts in one line, the
+               sync-failed one in its own tone. A dash where the issues could not be read
+               at all, because zero would say none are open; when some were read, the
+               floor is said in plain sight under the line. *@
+            <p class="dashboard-drift__summary" data-testid="dashboard-drift-summary">
+                <span data-testid="dashboard-drift-units">@Count(Value!.UnitCount, "unit", "units") verified</span>
+                <span aria-hidden="true"> · </span>
+                <span data-testid="dashboard-drift-issues-open">@IssuesOpenText</span>
+                <span aria-hidden="true"> · </span>
+                <span class="@(Value!.SyncFailed.Count > 0 ? "dashboard-drift__summary-failed" : null)"
+                      title="Waiting on a person to clear the label before a sweep retries."
+                      data-testid="dashboard-drift-sync-failed">@SyncFailedText</span>
+            </p>
+            @if (!IssuesUnread && Value!.IssuesNote is { } floor)
+            {
+                <p class="dashboard-drift__floor" data-testid="dashboard-drift-issues-floor">@floor</p>
+            }
+
+            @* Every unit whatever the direction filter says: the bar is how much of the
+               devbook agrees with its code. The bar is aria-hidden and the legend under it
+               is the content, as in MetricBreakdownBar - a share drawn only as a width is
+               not a number anyone can read. *@
+            @if (Value!.UnitCount > 0)
+            {
+                <div class="dashboard-drift__verdicts" data-testid="dashboard-drift-verdicts">
+                    <div class="dashboard-drift__verdict-track" aria-hidden="true">
+                        @foreach (var share in VerdictShares.Where(share => share.Count > 0))
+                        {
+                            <span class="@($"dashboard-drift__verdict-segment dashboard-drift__verdict--{share.Slug}")"
+                                  style="@($"flex-grow: {share.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}")"
+                                  title="@($"{share.Name}: {share.Count}")"
+                                  data-verdict="@share.Slug"
+                                  data-testid="dashboard-drift-verdict-segment"></span>
+                        }
+                    </div>
+                    <ul class="dashboard-drift__verdict-legend" aria-label="Last verdict per unit">
+                        @foreach (var share in VerdictShares)
+                        {
+                            <li class="dashboard-drift__verdict-legend-item"
+                                data-verdict="@share.Slug"
+                                data-testid="dashboard-drift-verdict-count">
+                                <span class="@($"dashboard-drift__verdict-swatch dashboard-drift__verdict--{share.Slug}")" aria-hidden="true"></span>
+                                <span>@share.Name</span>
+                                <strong class="dashboard-drift__verdict-count">@MetricFormat.Compact(share.Count)</strong>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="dashboard-drift__body">
+                <section class="dashboard-drift__units" aria-labelledby="@($"{_id}-units")">
+                    <div class="dashboard-drift__units-head">
+                        <h3 id="@($"{_id}-units")" class="dashboard-drift__heading">Units that need a look</h3>
+                        <ButtonGroup Radio="true" AriaLabel="Which direction" TestId="dashboard-drift-direction">
+                            <ToggleButton Pressed="_direction == DirectionFilter.All"
+                                          PressedChanged="_ => _direction = DirectionFilter.All"
+                                          TestId="dashboard-drift-direction-all">
+                                All
+                            </ToggleButton>
+                            <ToggleButton Pressed="_direction == DirectionFilter.Pull"
+                                          PressedChanged="_ => _direction = DirectionFilter.Pull"
+                                          Title="The pull direction: a sweep brings the chapter up to the code."
+                                          TestId="dashboard-drift-direction-pull">
+                                Code → chapter
+                            </ToggleButton>
+                            <ToggleButton Pressed="_direction == DirectionFilter.Push"
+                                          PressedChanged="_ => _direction = DirectionFilter.Push"
+                                          Title="The push direction: a sweep brings the code up to the chapter."
+                                          TestId="dashboard-drift-direction-push">
+                                Chapter → code
+                            </ToggleButton>
+                        </ButtonGroup>
+                    </div>
+
+                    <DataTable TItem="DriftUnit"
+                               Columns="@UnitColumns"
+                               Items="@ShownUnits"
+                               RowKey="@(unit => $"{unit.RepositoryAlias}|{unit.Unit}")"
+                               RowCssClass="@(unit => unit.SyncFailed ? "dashboard-drift__unit--failed" : null)"
+                               AriaLabel="Devbook sync units with the last verdict"
+                               RowNoun="unit"
+                               EmptyMessage="@UnitsEmptyMessage"
+                               EmptyDescription="@UnitsEmptyDescription"
+                               TestId="dashboard-drift-units-table">
+                        <Row Context="unit">
+                            <td title="@UnitTitle(unit)">
+                                @UnitLabel(unit)
+                                @if (ManyRepositories)
+                                {
+                                    <span class="dashboard-drift__repository"> · @unit.RepositoryAlias</span>
+                                }
+                            </td>
+                            <td>@DirectionName(unit.Direction)</td>
+                            <td>
+                                <Badge Kind="sync-verdict"
+                                       Slug="@VerdictSlug(unit.Verdict)"
+                                       Href="@unit.Link"
+                                       Title="@VerdictTitle(unit)"
+                                       TestId="dashboard-drift-unit-verdict">@(unit.Verdict ?? "no verdict")</Badge>
+                            </td>
+                            <td>
+                                @Action(unit.Action)
+                                @if (unit.SyncFailed)
+                                {
+                                    <Badge Kind="sync-verdict"
+                                           Slug="conflict"
+                                           Title="Its drift issue carries sync-failed: a sweep did not finish it and will not retry until the label is cleared."
+                                           TestId="dashboard-drift-unit-failed">sync-failed</Badge>
+                                }
+                            </td>
+                            @* How long ago, as the board writes it (AC24); the date itself
+                               one pointer away. *@
+                            <td title="@unit.RecordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
+                                data-testid="dashboard-drift-unit-checked">@InsightsFormat.Ago(unit.RecordedAt, Now)</td>
+                        </Row>
+                    </DataTable>
+
+                    @if (AlignedInDirection > 0)
+                    {
+                        @* One button whose words change, so focus stays on it when it is
+                           pressed; a link's look, because it changes what the table shows
+                           rather than going anywhere. *@
+                        <p class="dashboard-drift__aligned-note" data-testid="dashboard-drift-aligned-note">
+                            @if (!_showAll)
+                            {
+                                @AlignedHidden
+                            }
+                            <AppButton BaseClass="dashboard-drift__show-all"
+                                       Variant="ButtonVariant.None"
+                                       aria-expanded="@(_showAll ? "true" : "false")"
+                                       TestId="dashboard-drift-show-all"
+                                       OnClick="() => _showAll = !_showAll">@(_showAll ? $"Hide the {AlignedInDirection} aligned" : $"Show all {UnitsInDirection.Count}")</AppButton>
+                        </p>
+                    }
+                </section>
+
+                <aside class="dashboard-drift__issues" aria-labelledby="@($"{_id}-issues")" data-testid="dashboard-drift-issues">
+                    <h3 id="@($"{_id}-issues")" class="dashboard-drift__heading">Open drift issues</h3>
+                    @if (Issues.Count == 0)
+                    {
+                        <EmptyState BaseClass="dashboard-drift__issues-empty"
+                                    TitleCssClass="dashboard-drift__issues-empty-text"
+                                    Title="@IssuesEmptyMessage"
+                                    TestId="dashboard-drift-issues-empty" />
+                    }
+                    else
+                    {
+                        <ul class="dashboard-drift__issue-list" aria-label="Open devbook drift issues">
+                            @foreach (var issue in Issues)
+                            {
+                                <li @key="@($"{issue.RepositoryAlias}#{issue.Number}")"
+                                    class="@(issue.SyncFailed ? "dashboard-drift__issue dashboard-drift__issue--failed" : "dashboard-drift__issue")"
+                                    data-testid="dashboard-drift-issue">
+                                    <div class="dashboard-drift__issue-head">
+                                        <IntegrationLink Link="@IssueLink(issue)" TestId="dashboard-drift-issue-link" />
+                                        @if (issue.SyncFailed)
+                                        {
+                                            <Badge Kind="sync-verdict"
+                                                   Slug="conflict"
+                                                   Title="A sweep did not finish it and will not retry until a person clears the label."
+                                                   TestId="dashboard-drift-issue-failed">sync-failed</Badge>
+                                        }
+                                    </div>
+                                    @* What the issue is, in a sentence, and the one thing to do
+                                       about it (board Devbook). Both actions open the issue on
+                                       GitHub (decision Q2): the dashboard writes nothing, so the
+                                       sync-failed label is cleared there. *@
+                                    <p class="dashboard-drift__issue-detail" data-testid="dashboard-drift-issue-detail">@IssueDetail(issue)</p>
+                                    @if (!string.IsNullOrWhiteSpace(issue.Url))
+                                    {
+                                    <a class="dashboard-drift__issue-action"
+                                       href="@issue.Url"
+                                       target="_blank"
+                                       rel="noopener"
+                                       title="@(issue.SyncFailed ? "Opens the issue on GitHub, where the sync-failed label is cleared." : "Opens the issue on GitHub.")"
+                                       data-testid="dashboard-drift-issue-action">@(issue.SyncFailed ? "Clear the label" : "Open issue")</a>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </aside>
+            </div>
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-drift-status" />
+    }
+</PartFrame>
+
+@code {
+    protected override InsightsSources Sources => InsightsSources.Drift;
+
+    /// <summary>
+    /// Told how many devbook-drift issues are open each time that answer changes - null
+    /// while the part is loading, or when the issues could not be read, because a zero
+    /// there would say none are open. The pane's Devbook tab wears the count, so the
+    /// tab can say there is drift without a second read of the same issues.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int?> OpenIssuesCounted { get; set; }
+
+    private bool _countReported;
+    private int? _reportedCount;
+
+    /// <summary>Which direction the unit table shows. Not persisted: a filter on what is
+    /// on screen, like the sessions part's cut.</summary>
+    private DirectionFilter _direction = DirectionFilter.All;
+
+    /// <summary>Whether the aligned units are shown too. Off by default: the table is
+    /// the units that need a look.</summary>
+    private bool _showAll;
+
+    /// <summary>The part's own prefix for the ids its headings carry, so two of it on
+    /// one page do not label each other's lists.</summary>
+    private readonly string _id = $"dashboard-drift-{Guid.NewGuid():N}";
+
+    private enum DirectionFilter
+    {
+        All,
+
+        /// <summary>Code → chapter.</summary>
+        Pull,
+
+        /// <summary>Chapter → code.</summary>
+        Push
+    }
+
+    private sealed record VerdictShare(string Slug, string Name, int Count);
+
+    private int? OpenIssueCount =>
+        Value is null || IssuesUnread ? null : Value.Issues.Count;
+
+    /// <summary>After the render rather than inside the fetch, so the count told is the
+    /// one on screen; compared first, so telling the pane - which renders this part again -
+    /// ends after one round.</summary>
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        var count = OpenIssueCount;
+        if (_countReported && count == _reportedCount) return Task.CompletedTask;
+
+        _countReported = true;
+        _reportedCount = count;
+
+        return OpenIssuesCounted.InvokeAsync(count);
+    }
+
+    private const string Note =
+        "The last verdict the pull, push and verify sweeps reached on each devbook sync unit, then the units "
+        + "that need a look - the aligned ones behind Show all - with what the sweep did; beside them the "
+        + "devbook-drift issues still open, sync-failed first. Code → chapter is the pull direction, Chapter → "
+        + "code the push direction. The repository chips narrow it; the window and the machine filter do not, "
+        + "because a verdict is the latest a sweep left and an issue is open now.";
+
+    private static readonly string[] Vocabulary = ["aligned", "code-ahead", "spec-ahead", "conflict", "unresolved"];
+
+    /// <summary>The clock "Checked" is read against: the host's when it registered one,
+    /// so a test can fix it.</summary>
+    /// <remarks>The local now, so <see cref="InsightsFormat.Ago"/> counts days on the
+    /// person's calendar: a check at 01:30 is "8 h ago" at 10:00 the same day east of
+    /// UTC, not "yesterday" because UTC's date was the day before.</remarks>
+    private DateTimeOffset Now =>
+        (Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System).GetLocalNow();
+
+    private static string Count(int count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{MetricFormat.Compact(count)} {plural}";
+
+    private string IssuesOpenText =>
+        IssuesUnread ? "— drift issues open" : $"{Count(Value!.Issues.Count, "drift issue", "drift issues")} open";
+
+    private string SyncFailedText =>
+        IssuesUnread ? "— sync failed" : $"{MetricFormat.Compact(Value!.SyncFailed.Count)} sync failed";
+
+    /// <summary>
+    /// One sentence on an issue: where it is, and what a person faces — a sweep that will
+    /// not retry for a sync-failed one, else what its unit's last verdict says happened,
+    /// found by the unit the title names.
+    /// </summary>
+    private string IssueDetail(DriftIssue issue)
+    {
+        var where = $"{issue.RepositoryAlias} #{issue.Number}";
+        if (issue.SyncFailed) return $"{where} — a sweep will not retry until the label is cleared.";
+
+        var named = issue.Subject;
+
+        var verdict = AllUnits
+            .Where(unit => string.Equals(unit.RepositoryAlias, issue.RepositoryAlias, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(unit.Unit, named, StringComparison.OrdinalIgnoreCase))
+            .Select(unit => VerdictSlug(unit.Verdict))
+            .FirstOrDefault();
+
+        return verdict switch
+        {
+            "code-ahead" => $"{where} — the code moved on and the chapter has not caught up.",
+            "spec-ahead" => $"{where} — the chapter describes what the code does not do yet.",
+            "conflict" => $"{where} — the chapter and the code both changed.",
+            _ => $"{where} — a sweep found the chapter and the code apart."
+        };
+    }
+
+    private static readonly IReadOnlyList<DataTableColumn> UnitColumns =
+    [
+        new("Unit"),
+        new("Direction"),
+        new("Verdict"),
+        new("Action"),
+        new("Checked")
+    ];
+
+    /// <summary>The window does not narrow a verdict or an open issue, so changing it
+    /// asks nothing new.</summary>
+    protected override bool FollowsWindow => false;
+
+    private IEnumerable<DriftUnit> AllUnits =>
+        IsReady ? Value!.Directions.SelectMany(direction => direction.Units) : [];
+
+    /// <summary>The five verdicts in the vocabulary's order, each with how many units
+    /// it was the last word on; a unit with no verdict, or one outside the vocabulary,
+    /// is counted as "other", only when there is one, so the legend adds up to the
+    /// units.</summary>
+    private IReadOnlyList<VerdictShare> VerdictShares
+    {
+        get
+        {
+            var counts = AllUnits
+                .GroupBy(unit => VerdictSlug(unit.Verdict))
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            List<VerdictShare> shares =
+            [
+                .. Vocabulary.Select(slug => new VerdictShare(slug, slug, counts.GetValueOrDefault(slug)))
+            ];
+
+            if (counts.GetValueOrDefault("unknown") is var other and > 0)
+            {
+                shares.Add(new VerdictShare("unknown", "other", other));
+            }
+
+            return shares;
+        }
+    }
+
+    private IReadOnlyList<DriftUnit> UnitsInDirection =>
+    [
+        .. AllUnits.Where(unit => _direction switch
+        {
+            DirectionFilter.Pull => string.Equals(unit.Direction, "pull", StringComparison.OrdinalIgnoreCase),
+            DirectionFilter.Push => string.Equals(unit.Direction, "push", StringComparison.OrdinalIgnoreCase),
+            _ => true
+        })
+    ];
+
+    private int AlignedInDirection => UnitsInDirection.Count(IsAligned);
+
+    /// <summary>The units that need a look, in the order the sweeps' directions read,
+    /// or every unit once Show all is on.</summary>
+    private IReadOnlyList<DriftUnit> ShownUnits =>
+        _showAll ? UnitsInDirection : [.. UnitsInDirection.Where(unit => !IsAligned(unit))];
+
+    private string AlignedHidden =>
+        AlignedInDirection == 1 ? "1 aligned unit hidden." : $"{AlignedInDirection} aligned units hidden.";
+
+    private string UnitsEmptyMessage =>
+        AllUnits.Any()
+            ? AlignedInDirection > 0
+                ? "Every unit here is aligned with its code."
+                : "No unit a sweep verified goes this way."
+            : "No sweep has verified a unit here yet.";
+
+    private string? UnitsEmptyDescription =>
+        AllUnits.Any() ? null : "The pull, push and verify sweeps record a verdict per unit when they run.";
+
+    /// <summary>Sync-failed first: those are the ones waiting on a person.</summary>
+    private IReadOnlyList<DriftIssue> Issues =>
+        IsReady ? [.. Value!.Issues.OrderByDescending(issue => issue.SyncFailed)] : [];
+
+    private bool ManyRepositories =>
+        AllUnits.Select(unit => unit.RepositoryAlias).Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any();
+
+    /// <summary>A dash rather than a zero when the issues could not be read at all: zero
+    /// would say none are open.</summary>
+    private string IssueCount =>
+        IssuesUnread ? "—" : MetricFormat.Compact(Value!.Issues.Count);
+
+    private string SyncFailedCount =>
+        IssuesUnread ? "—" : MetricFormat.Compact(Value!.SyncFailed.Count);
+
+    private bool IssuesUnread => Value!.Issues.Count == 0 && Value!.IssuesNote is not null;
+
+    /// <summary>The reason itself when nothing could be read, so the list says one thing
+    /// rather than a heading and a note that disagree about how much was read.</summary>
+    private string IssuesEmptyMessage =>
+        IssuesUnread ? Value!.IssuesNote! : "No devbook-drift issue is open.";
+
+    private string Directions =>
+        string.Join(" · ", Value!.Directions.Select(direction => $"{direction.Units.Count} {direction.Direction ?? "unrecorded"}"));
+
+    private static bool IsAligned(DriftUnit unit) => VerdictSlug(unit.Verdict) == "aligned";
+
+    private static string DirectionName(string? direction) => direction?.ToLowerInvariant() switch
+    {
+        "pull" => "Code → chapter",
+        "push" => "Chapter → code",
+        "sync" => "Sync",
+        "report" => "Report",
+        "off" => "Off",
+        null => "—",
+        _ => direction
+    };
+
+    /// <summary>The unit's root chapter without the folder every unit shares.</summary>
+    private static string UnitLabel(DriftUnit unit)
+    {
+        const string prefix = ".devbook/";
+
+        return unit.Unit.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? unit.Unit[prefix.Length..] : unit.Unit;
+    }
+
+    /// <summary>The whole unit id, and its kind, which has no column of its own.</summary>
+    private static string UnitTitle(DriftUnit unit) =>
+        string.IsNullOrWhiteSpace(unit.Kind) ? unit.Unit : $"{unit.Unit} ({unit.Kind})";
+
+    /// <summary>The title the link shows, without the <c>[Devbook drift]</c> prefix and the folder every one of them
+    /// carries.</summary>
+    private static string IssueTitle(DriftIssue issue)
+    {
+        var title = issue.Subject;
+
+        return title.StartsWith(".devbook/", StringComparison.OrdinalIgnoreCase) ? title[".devbook/".Length..] : title;
+    }
+
+    private static IntegrationLinkRef IssueLink(DriftIssue issue) =>
+        IntegrationLinkRef.Issue(
+            $"{issue.RepositoryAlias}#{issue.Number}",
+            $"#{issue.Number}",
+            IntegrationArtifactState.Open,
+            title: IssueTitle(issue),
+            url: issue.Url);
+
+    private static string Action(string? action) =>
+        string.IsNullOrWhiteSpace(action) || action is "none" ? "—" : action;
+
+    private static string VerdictSlug(string? verdict) =>
+        verdict is not null && Vocabulary.Contains(verdict, StringComparer.OrdinalIgnoreCase)
+            ? verdict.ToLowerInvariant()
+            : "unknown";
+
+    private static string VerdictTitle(DriftUnit unit) =>
+        $"Checked {unit.RecordedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
+        + (string.IsNullOrWhiteSpace(unit.DirectionFrom) ? "" : $"; direction from {unit.DirectionFrom}")
+        + (string.IsNullOrWhiteSpace(unit.Link) ? "." : $". Opens {unit.Link}.");
+
+    protected override Task<InsightResult<DriftInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetDriftAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(DriftInsight value) =>
+        value.UnitCount == 0 && value.Issues.Count == 0 && value.IssuesNote is null;
+
+    protected override string EmptyMessage =>
+        "No sweep has verified a devbook unit in the repositories in scope, and no drift issue is open.";
+
+    // The verdicts are read from their file on every call; the issues are kept per
+    // repository focus, so a refresh drops them.
+    protected override void InvalidateSource() => Insights.Invalidate();
+}
