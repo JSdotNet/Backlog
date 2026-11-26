@@ -1,17 +1,17 @@
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
 /// <summary>
-/// The pull requests a task links to, answered out of Repository Management's contract
+/// The pull requests a task links to, answered out of Repositories' contract
 /// (local ADR 0042 §4).
 /// <para>
 /// A cross-context join, beside <see cref="LinkedSessionStates"/> for the same reason:
-/// the task list may not reference Repository Management's published surface, so an
+/// the task list may not reference Repositories' published surface, so an
 /// adapter that may see both answers Tasks' port. It is a mapping and nothing else. The
 /// verdict is the module's (<see cref="PullRequestVerdict.Of(PullRequestStatus)"/>) and
 /// the merge offer its one rule (<see cref="PullRequestMerges.For"/>), so the row says

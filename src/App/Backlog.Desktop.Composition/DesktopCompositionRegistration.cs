@@ -22,7 +22,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.RepositoryManagement;
+using Backlog.Infrastructure.GitHub.Repositories;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -52,8 +52,8 @@ using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Progress.UI.WeeklyReview;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Extensions;
+using Backlog.Modules.Repositories.Abstractions.Services;
+using Backlog.Modules.Repositories.Extensions;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -182,10 +182,10 @@ public static partial class DesktopCompositionRegistration
         // (§10).
         services.AddProgressModule();
 
-        // Repository Management (local ADR 0042): the one contract and cache every
+        // Repositories (local ADR 0042): the one contract and cache every
         // reader of a pull request goes through. GitHub and the settled-fact memory are
         // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
-        services.AddRepositoryManagementModule();
+        services.AddRepositoriesModule();
 
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
@@ -307,7 +307,7 @@ public static partial class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
-        services.AddRepositoryManagementGitHubAdapters();
+        services.AddRepositoriesGitHubAdapters();
         services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);

@@ -1,15 +1,15 @@
 @using Backlog.Modules.Sessions.Abstractions
-@using Backlog.Modules.RepositoryManagement.Abstractions
-@using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects
-@using Backlog.Modules.RepositoryManagement.Abstractions.Services
+@using Backlog.Modules.Repositories.Abstractions
+@using Backlog.Modules.Repositories.Abstractions.DataTransferObjects
+@using Backlog.Modules.Repositories.Abstractions.Services
 @using Backlog.UI.Components.Integrations
 @using Backlog.UI.Components.Progress
 @using Backlog.UI.Components.Goals
-@* The status line component and Repository Management's status share a name; in
+@* The status line component and Repositories' status share a name; in
    code the name is the module's record, and in markup the tag is the component. The
    component library's reference record shares one too, and is not used here. *@
-@using PullRequestStatus = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestStatus
-@using PullRequestReference = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestReference
+@using PullRequestStatus = Backlog.Modules.Repositories.Abstractions.DataTransferObjects.PullRequestStatus
+@using PullRequestReference = Backlog.Modules.Repositories.Abstractions.DataTransferObjects.PullRequestReference
 @* Which task a pull request belongs to is Tasks' answer (local ADR 0042, V8), asked
    in Tasks' own words; the shell hands the question on. *@
 @using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion
@@ -31,12 +31,12 @@
 
     A verdict rather than a row of badges, because a reader acts on one thing at a
     time (.devbook/domain/repositories/features.md#one-verdict-per-pull-request).
-    It is Repository Management's PullRequestVerdict to derive; this pane only draws
+    It is Repositories' PullRequestVerdict to derive; this pane only draws
     it, and its acts are the only ones the banner offers — plus Cancel auto-merge
     wherever GitHub already holds an auto-merge the verdict's acts do not withdraw,
     because that undoes a request rather than making one.
 
-    It is Repository Management's screen (local ADR 0042): the pull requests of every
+    It is Repositories' screen (local ADR 0042): the pull requests of every
     registered repository, drawn from that context's status and verdict, which the
     session card and a task's row read too. It reads and acts only through that
     context's contract, IPullRequests, so the pane, a task's row and Progress share
@@ -536,14 +536,14 @@
         }
     }
 
-    /// <summary>Whether there is anything to read: Repository Management composed, and
+    /// <summary>Whether there is anything to read: Repositories composed, and
     /// at least one repository registered.</summary>
     private bool Configured => _pullRequests is { IsConfigured: true };
 
     protected override async Task OnInitializedAsync()
     {
         // Each one optional, the way the session list resolves its record keeper: a
-        // host without Repository Management is the not-configured state, a host
+        // host without Repositories is the not-configured state, a host
         // without sessions simply links no session, and a host without toasts gets the
         // inline line. The GitHub adapter is still asked for the registry's aliases,
         // colours and label filters, which are no pull request's.
@@ -642,7 +642,7 @@
         if (generation == _pinnedGeneration) _pinned = listing;
     }
 
-    /// <summary>Every pin, read by number through Repository Management's cache, so a
+    /// <summary>Every pin, read by number through Repositories' cache, so a
     /// pin the open list or an act's re-read already answered costs nothing. No pins,
     /// no request.</summary>
     private async Task<PullRequestListing> ReadPinsAsync(PullRequestReadOptions? options)
@@ -718,7 +718,7 @@
     }
 
     /// <summary>The open list, the pins and the focused pull request, read through
-    /// Repository Management's cache: at <see cref="PullRequestReadOptions.Default"/>
+    /// Repositories' cache: at <see cref="PullRequestReadOptions.Default"/>
     /// on open, so a list another reader read within the minute costs nothing, and at
     /// <see cref="PullRequestReadOptions.Fresh"/> on Refresh.</summary>
     private async Task ReadOpenAsync(PullRequestReadOptions options)
@@ -808,7 +808,7 @@
     }
 
     /// <summary>
-    /// Takes one repository's rows, and its pins, again from Repository Management and
+    /// Takes one repository's rows, and its pins, again from Repositories and
     /// puts them in place of the old ones. After an act — the pane's own or one from
     /// elsewhere — because only that repository can have moved because of it, and a
     /// merged pull request leaves the list here, which is the act's own answer. The
@@ -839,7 +839,7 @@
         };
     }
 
-    // Every act is one of Repository Management's commands (local ADR 0042 §3), which
+    // Every act is one of Repositories' commands (local ADR 0042 §3), which
     // acts on the status it keeps for the pull request and reads its repository again.
 
     private Task UpdateBranchAsync(PullRequestStatus pull) =>

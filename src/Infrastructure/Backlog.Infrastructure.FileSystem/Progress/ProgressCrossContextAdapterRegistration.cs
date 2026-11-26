@@ -1,5 +1,5 @@
 using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// sides: the tasks goals and the stand-up name, read through Tasks' published
 /// <see cref="ITaskItems"/> (<see cref="IProgressTaskSource"/>), and the state, merge
 /// day, checks and approvals of the pull requests goals count and tasks link, read through
-/// Repository Management's contract (<see cref="IGoalPullRequestReader"/>, local ADR 0042 §5).
+/// Repositories' contract (<see cref="IGoalPullRequestReader"/>, local ADR 0042 §5).
 /// <para>
 /// Scoped, because <see cref="ITaskItems"/> is: a singleton over a scoped port is a
 /// captive dependency a validating provider refuses. Call after <c>AddTasksModule</c>
@@ -34,7 +34,7 @@ public static class ProgressCrossContextAdapterRegistration
                 () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetService<IRepositoryDirectory>()));
         services.Replace(ServiceDescriptor.Singleton<IGoalPullRequestReader>(sp =>
-            new RepositoryManagementGoalPullRequests(
+            new RepositoriesGoalPullRequests(
                 () => sp.GetService<IPullRequests>(),
                 () => sp.GetService<IRegisteredRepositories>())));
 

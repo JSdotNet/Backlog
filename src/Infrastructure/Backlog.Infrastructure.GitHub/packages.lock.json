@@ -189,7 +189,7 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.repositorymanagement.abstractions": {
+      "backlog.modules.repositories.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

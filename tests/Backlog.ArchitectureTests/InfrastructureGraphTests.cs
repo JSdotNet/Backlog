@@ -57,7 +57,7 @@ public class InfrastructureGraphTests
             "The repository registry and its GitHub client answer each context that asks about a "
             + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "
             + "Devbook folders a repository keeps, the Sessions repository resolver and the Sync replica "
-            + "of the settings, and Repository Management's published surface: GitHubPullRequestSource and "
+            + "of the settings, and Repositories' published surface: GitHubPullRequestSource and "
             + "GitHubRegisteredRepositories answer its pull-request source and registry ports, mapping each "
             + "record to the module's status (local ADR 0042). Splitting it by context would mean one "
             + "registry per context."),

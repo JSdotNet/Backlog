@@ -20,7 +20,7 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// <para>
 /// The pull requests list's key, <c>"pull-requests"</c>, sat here while that list was
 /// this context's second surface. It moved, string unchanged, to
-/// <c>RepositoryManagementFeatures</c> when Repository Management took over pull-request
+/// <c>RepositoriesFeatures</c> when Repositories took over pull-request
 /// state (local ADR 0042).
 /// </para>
 /// </summary>

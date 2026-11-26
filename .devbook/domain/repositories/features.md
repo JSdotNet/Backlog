@@ -244,7 +244,7 @@ The status itself carries more than the marks, and local ADR 0042 lists what ([Â
 type: feature
 feature-flag: .devbook/domain/repositories/context.md#pull-requests
 related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repositories/requirements.md#archiving-a-repository, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestLabelFilterTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestLabelFilterTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
 The pull requests pane is where a reader follows each open pull request of the registered repositories to the point where it merges. Sessions and delivery runs produce many of them, and a person opens others by hand; the pane lists both. It is this context's screen (local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)). The pane's rules live in this context's `.Abstractions` project: the verdict, the stacks, which merge a pull request is offered, and the label filter. Its markup, status lines and subjects stay in the desktop shell, `Backlog.Desktop.UI`, and read that contract.
@@ -284,7 +284,7 @@ The Mine / Everyone's choice stays, because it answers a different question. Min
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestStacksTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestMergesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
+tests: [unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestStacksTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestMergesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionPullRequestStatusesTests]
 ```
 
 Each pull request that is still open gets exactly one readiness verdict. Where several
@@ -345,7 +345,7 @@ Each open pull request from the same repository also carries how many commits it
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestCommandTests.Each_command_acts_once_reads_its_repository_again_once_and_says_what_changed]
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.Repositories.UnitTests.PullRequestCommandTests.Each_command_acts_once_reads_its_repository_again_once_and_says_what_changed]
 ```
 
 ```mermaid

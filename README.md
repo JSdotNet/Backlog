@@ -66,7 +66,7 @@ Primary domains:
 - Monitoring and Dashboard
 - Technology Stack
 - Dev PC Management
-- Repository Management
+- Repositories
 - Sessions
 
 Access channels:
@@ -129,8 +129,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
 | `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
 | `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
-| `src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement` | Repository Management module (local ADR 0042) — the one pull-request cache every reader shares, the open, merged and by-number reads and the merge, auto-merge, update-branch, mark-ready and re-run commands as feature slices behind `IPullRequests` |
-| `src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement.Abstractions` | The Repository Management module's published surface (local ADR 0042) — the pull request status every reader draws, its one verdict, stacks and merge offer as pure rules, the `IPullRequests` contract, the `IPullRequestSource`, `IRegisteredRepositories` and `ISettledPullRequestStore` ports, and `RepositoryManagementFeatures` |
+| `src/Modules/Repositories/Backlog.Modules.Repositories` | Repositories module (local ADR 0042) — the one pull-request cache every reader shares, the open, merged and by-number reads and the merge, auto-merge, update-branch, mark-ready and re-run commands as feature slices behind `IPullRequests` |
+| `src/Modules/Repositories/Backlog.Modules.Repositories.Abstractions` | The Repositories module's published surface (local ADR 0042) — the pull request status every reader draws, its one verdict, stacks and merge offer as pure rules, the `IPullRequests` contract, the `IPullRequestSource`, `IRegisteredRepositories` and `ISettledPullRequestStore` ports, and `RepositoriesFeatures` |
 | `src/Modules/Notifications/Backlog.Modules.Notifications` | Notifications module — the Notification aggregate and its reply rules, the owner's and the viewer's ports, answer delivery and replay, the startup subject probes, and the `INotificationRepository` port |
 | `src/Modules/Notifications/Backlog.Modules.Notifications.Abstractions` | The Notifications module's published surface — `INotifications`, `INotificationReplies`, `INotificationAnswerHandler`, `INotificationSubjectProbe`, the draft and answer records, and `NotificationsFeatures` |
 | `src/Modules/Notifications/Backlog.Modules.Notifications.UI` | Notifications' screens — empty until the notification centre lands |
@@ -191,7 +191,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
 | `tests/Backlog.Modules.Progress.UnitTests` | Unit tests for the Progress module — one per sprint series invariant, the sprint progress reading, and the published ports behind the `progress` switch |
-| `tests/Backlog.Modules.RepositoryManagement.UnitTests` | Unit tests for the Repository Management module — the one verdict per pull request, its stacks, its merge offer, the label filter and the `pull-requests` key, and the `IPullRequests` cache, archived repositories, commands and settled facts |
+| `tests/Backlog.Modules.Repositories.UnitTests` | Unit tests for the Repositories module — the one verdict per pull request, its stacks, its merge offer, the label filter and the `pull-requests` key, and the `IPullRequests` cache, archived repositories, commands and settled facts |
 | `tests/Backlog.Modules.Notifications.UnitTests` | Unit tests for the Notifications module — one or more per notification and reply invariant, answer delivery and replay, and the startup subject probes |
 | `tests/Backlog.Modules.Events.UnitTests` | Unit tests for the Events module — one or more per knowledge event, value object and event series invariant, the restore from storage, and `AddEventsModule` |
 | `tests/Backlog.Modules.Calendar.UnitTests` | Unit tests for the Calendar module — when the Plans and Events layers read, what a failed read leaves, the shelf start, and `AddCalendarModule` |

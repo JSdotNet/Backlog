@@ -265,7 +265,7 @@ The impediments it raised stay. Each holds back its one task, so it reads ready 
 ```meta
 type: feature
 related: [.devbook/domain/goals/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoriesGoalPullRequestsTests]
 ```
 
 Goal rows show the status Repositories publishes. Every pull request row in Goals carries its number and the checks and approvals marks of [Pull request status](../repositories/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repositories/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.

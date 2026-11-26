@@ -70,7 +70,7 @@ context publishes. The desktop shell composes that card, so this context holds o
 the pull request's number and references nothing of Repositories. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
 decides it. The shell composes the pane, which reads Repositories'
-contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests`.
+contract, and its flag is declared as `RepositoriesFeatures.PullRequests`.
 
 ## Sessions area
 

@@ -266,7 +266,7 @@ public sealed class EntryWorkLinksTests
 
     /// <summary>
     /// The task row wears the verdict the Pull requests pane gives the same pull request
-    /// (local ADR 0042, V2): read through the list's port over Repository Management's
+    /// (local ADR 0042, V2): read through the list's port over Repositories'
     /// contract, the verdict's label leads the tooltip — the badge's accessible name —
     /// and its tone is a modifier on the badge, which keeps its own icons and words
     /// rather than becoming a second verdict banner. The words after the label say

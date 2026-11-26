@@ -1,10 +1,10 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.RepositoryManagement;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Extensions;
+using Backlog.Infrastructure.GitHub.Repositories;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
+using Backlog.Modules.Repositories.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
@@ -472,7 +472,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
-    /// <summary>A merge from the pane is Repository Management's command, which reads
+    /// <summary>A merge from the pane is Repositories' command, which reads
     /// the repository again itself; the rows the pane then takes, and the merged pull
     /// request's answer by number, come from that one re-read and send nothing of their
     /// own (local ADR 0042, V10).</summary>
@@ -872,7 +872,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     }
 
     /// <summary>One status, one verdict (local ADR 0042): the row's chip wears the label
-    /// and the tone Repository Management's verdict gives the pull request's status —
+    /// and the tone Repositories' verdict gives the pull request's status —
     /// the same the session card and a task's row wear for it.</summary>
     [Theory]
     [InlineData(false, false, false)]
@@ -883,8 +883,8 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var pull = Pull("JSdotNet/Backlog", 1, draft: draft, behind: behind, mergeReady: !draft && !behind && !failing)
             with { Checks = failing ? GitHubCheckState.Failing : GitHubCheckState.Passing };
-        var verdict = Backlog.Modules.RepositoryManagement.Abstractions.PullRequestVerdict.Of(
-            Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestStatuses.Map(pull))!;
+        var verdict = Backlog.Modules.Repositories.Abstractions.PullRequestVerdict.Of(
+            Backlog.Infrastructure.GitHub.Repositories.GitHubPullRequestStatuses.Map(pull))!;
         using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
 
         var pane = context.Render<PullRequestsPane>();
@@ -2807,12 +2807,12 @@ public sealed class PullRequestsPaneTests : IDisposable
         var clock = new FakeTimeProvider(Noon);
         context.Services.AddSingleton<TimeProvider>(clock);
         context.Services.AddSingleton(new GitHubIntegration(settings, client, new Backlog.Tests.StubProbe(new GitHubConnection(true, "Connected.")), time: clock));
-        // The pane reads and acts through Repository Management's contract, composed the
+        // The pane reads and acts through Repositories' contract, composed the
         // way the hosts compose it: the real module, with GitHub — the stub client here —
         // behind it, so what each test says GitHub holds is still what the pane draws.
         context.Services.AddSingleton(settings);
-        context.Services.AddRepositoryManagementModule();
-        context.Services.AddRepositoryManagementGitHubAdapters();
+        context.Services.AddRepositoriesModule();
+        context.Services.AddRepositoriesGitHubAdapters();
         context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions ?? []));
         if (toasts) TasksTestHost.AddToastChannel(context.Services);
         if (pins is not null) context.Services.AddSingleton(pins);
