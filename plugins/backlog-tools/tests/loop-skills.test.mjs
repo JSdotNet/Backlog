@@ -1,4 +1,5 @@
-// A skill a person starts as `/loop /backlog-tools:<name>` must stay model-invocable: /loop runs
+// A skill a person starts as `/loop /<plugin>:<name>`, in this plugin or a sibling that depends
+// on it, must stay model-invocable: /loop runs
 // its inner command through the Skill tool, which refuses a skill marked
 // `disable-model-invocation: true`, so that start would fail on its first tick.
 //   node --test plugins/backlog-tools/tests/loop-skills.test.mjs
@@ -8,15 +9,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKILLS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "skills");
-const standing = fs.readFileSync(path.join(SKILLS, "..", "resources", "standing-session.md"), "utf8");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PLUGINS = path.join(ROOT, "..");
+const standing = fs.readFileSync(path.join(ROOT, "resources", "standing-session.md"), "utf8");
 
+// Every plugin beside this one in the repository: backlog-desktop's dispatch-sessions is a loop too.
 const loopStarted = fs
-  .readdirSync(SKILLS)
-  .map((name) => ({ name, file: path.join(SKILLS, name, "SKILL.md") }))
+  .readdirSync(PLUGINS)
+  .filter((plugin) => fs.existsSync(path.join(PLUGINS, plugin, "skills")))
+  .flatMap((plugin) => fs.readdirSync(path.join(PLUGINS, plugin, "skills")).map((name) => ({ plugin, name })))
+  .map(({ plugin, name }) => ({ plugin, name, file: path.join(PLUGINS, plugin, "skills", name, "SKILL.md") }))
   .filter(({ file }) => fs.existsSync(file))
-  .map(({ name, file }) => ({ name, text: fs.readFileSync(file, "utf8") }))
-  .filter(({ name, text }) => text.includes(`/loop /backlog-tools:${name}`));
+  .map(({ plugin, name, file }) => ({ plugin, name, text: fs.readFileSync(file, "utf8") }))
+  .filter(({ plugin, name, text }) => text.includes(`/loop /${plugin}:${name}`));
+
+// This plugin's skills name the contract by relative path, a sibling's by this plugin's name.
+const STANDING = String.raw`(?:\.\./\.\./|backlog-tools/)resources/standing-session\.md`;
 
 // standing-session.md's table: one row per loop skill, `| skill | title | kind |`, the kind `—`
 // for a loop that holds nothing back and so never checks in (local ADR 0051 §3).
@@ -61,7 +69,7 @@ for (const { name, text } of loopStarted) {
 
   // A long-running agent marks its session (icon, ALL CAPS title, pinned, Agents section).
   test(`${name} marks its session per standing-session.md, which names its title`, () => {
-    assert.match(text, /\.\.\/\.\.\/resources\/standing-session\.md/);
+    assert.match(text, new RegExp(STANDING));
     const row = rowOf(name);
     assert.ok(row, `standing-session.md has no row for ${name}`);
     const [icon, ...words] = row[1].split(" ");
@@ -83,7 +91,7 @@ for (const { name, text } of loopStarted) {
     const first = steps.match(/^(\d+)\. \*\*([^*]+)\*\*(.*)$/m);
     assert.ok(first, `${name} has no numbered step`);
     assert.equal(first[2].trim().replace(/\.$/, ""), "Check in");
-    assert.match(steps, /\.\.\/\.\.\/resources\/standing-session\.md#check-in/);
+    assert.match(steps, new RegExp(STANDING + "#check-in"));
     // The host substitutes the session's own id, the one check_in keys a loop by.
     assert.match(steps, /\$\{CLAUDE_SESSION_ID\}/);
   });

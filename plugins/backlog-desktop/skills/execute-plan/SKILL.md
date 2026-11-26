@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Execute a Backlog plan
 
-Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
+Open the reply with `backlog-desktop@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled. A `backlog-tools/` path is in the `backlog-tools` plugin this one depends on: `../../../backlog-tools/` in a checkout of this repository, else the newest version folder under `../../../../backlog-tools/` where the host installed it.
 
 This skill is the layer above a flow: it orders the plan and hands out entries, and changes
 no file itself. Every entry is one flow, run by one nested session per `assets/item-brief.md`.
-Read `../import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
+Read `backlog-tools/skills/import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
 `## Entry kinds` and `## Two levels` are what the plan's lines mean — and
 `assets/landing-modes.md`, which defines the modes, the branch names and every merge, and
 `assets/handoff.md`, which names this session and its entry sessions and hands an entry in
@@ -24,7 +24,7 @@ A run is always unattended: it asks the person nothing, from the first step to t
   file, statuses then read per entry with `read_item` when the server is present. Neither
   given → stop and say so. Without the server, an entry's state is its pull request's (open, merged).
 - **Landing**: *branch* (default) or *stacked*, taken from the request
-  (`/backlog-tools:execute-plan +tag stacked`); none given → branch. A leftover `unattended` in
+  (`/backlog-desktop:execute-plan +tag stacked`); none given → branch. A leftover `unattended` in
   the request is ignored; `attended` or *per item* stops the run, saying neither mode exists —
   nobody answers a gate here.
 - **Ticket** (optional): `ticket:<value>`, for a repository whose conventions need one, when the
@@ -97,7 +97,7 @@ A run is always unattended: it asks the person nothing, from the first step to t
    `plan: <tag>`, `target: "web"` — the web link, which opens in Claude Desktop's browser pane, and
    the `backlog://` link, which opens a native window; when the server does not answer it, no links
    and no word of them — and the landed entries' sessions, listed as ready to archive and never archived here (a
-   sub-agent has none). Keep the report's prose to `../../resources/chat-reports.md`. The run ends with a push notification carrying the counts and the links **Manual entries** names.
+   sub-agent has none). Keep the report's prose to `backlog-tools/resources/chat-reports.md`. The run ends with a push notification carrying the counts and the links **Manual entries** names.
 
 ## Never
 

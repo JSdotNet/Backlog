@@ -219,7 +219,7 @@ test('the pane follows an entry session through its flow stages', async ($, on) 
   await $.tool.call({ tool: 'mcp__backlog__list_runs', worktree: 'd:/repos/backlog/.claude/worktrees/entry-b2/' } as never)
 
   // The details on a terminal: the whole plan, a column per stage under its short name.
-  const pane = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
+  const pane = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
   expect(await pane.find({ type: 'Text', text: /1\/3 done/ })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: /^scp$/ })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: /^pv$/ })).toBeDefined()
@@ -228,7 +228,7 @@ test('the pane follows an entry session through its flow stages', async ($, on) 
   await pane.unmount()
 
   // The details where SVG draws: design C as one drawing.
-  const drawn = await $.ui.mount({ plugin: 'backlog-tools', surface: 'desktop', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
+  const drawn = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'desktop', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
   const svg = (await drawn.find({ type: 'Svg' } as never)) as unknown as { props: { source: string; alt: string } } | undefined
   expect(svg?.props.alt).toContain('1/3 done')
   expect(svg?.props.source).toContain('>scp<')
@@ -237,7 +237,7 @@ test('the pane follows an entry session through its flow stages', async ($, on) 
 
   for (const surface of ['terminal', 'desktop'] as const) {
     // The band: only the entry in flow, with the stage it stands at.
-    const band = await $.ui.mount({ plugin: 'backlog-tools', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
+    const band = await $.ui.mount({ plugin: 'backlog-desktop', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
     expect(await band.find({ type: 'Text', text: /execute-plan/ })).toBeDefined()
     expect(await band.find({ type: 'Text', text: /2 Second prompt/ })).toBeDefined()
     expect(await band.find({ type: 'Text', text: /^Implement$/ })).toBeDefined()
@@ -249,7 +249,7 @@ test('the pane follows an entry session through its flow stages', async ($, on) 
 
 test('the band stays away with nothing in flow', async ($, on) => {
   on('ui.render', () => ({ type: 'Box' }) as never)
-  const ui = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } } as never)
+  const ui = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } } as never)
   expect(await ui.find({ type: 'Text', text: /execute-plan/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -302,7 +302,7 @@ test('a brief for another plan starts the pane over', async ($, on) => {
   await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
   await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF.replace('+demo', '+other').replace('(id `b2`)', '(id `z9`)') } as never)
 
-  const ui = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: {} } as never)
+  const ui = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: {} } as never)
   expect(await ui.find({ type: 'Text', text: /\+other/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /0\/1 done/ })).toBeDefined()
   await ui.unmount()
@@ -313,7 +313,7 @@ const PEEK = {
   name: 'peek',
   register: (on: On) => {
     on('command.run', { command: 'peek-workers' }, async $ => {
-      const { value } = await $.state.get({ plugin: 'backlog-tools', key: 'workers' })
+      const { value } = await $.state.get({ plugin: 'backlog-desktop', key: 'workers' })
       return { text: JSON.stringify(value ?? []) }
     })
   },
@@ -385,7 +385,7 @@ test('the session’s events set its return, and a message to it sets it running
   await $.tool.call({ tool: 'mcp__ccd_session__list_events', session_id: SESSION } as never)
   expect((await workerOf($))?.state).toBe('gate')
 
-  const band = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
+  const band = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
   expect(await band.find({ type: 'Text', text: /gate/ })).toBeDefined()
   await band.unmount()
 
@@ -478,7 +478,7 @@ const LEGACY = {
   name: 'legacy',
   register: (on: On) => {
     let seeded = false
-    on('state.set', { plugin: 'backlog-tools', key: 'workers' }, ($, e, next) => {
+    on('state.set', { plugin: 'backlog-desktop', key: 'workers' }, ($, e, next) => {
       if (seeded) return next(e)
       seeded = true
       const value = e.value.map(({ sessionId: _, worktree: __, ...w }) => ({ ...w, agentId: 'agent-1', state: 'gate' }))
@@ -507,7 +507,7 @@ test('a worker an older release stored matches no session and breaks nothing', {
   expect([legacy?.entryId, legacy?.state, legacy?.stages]).toEqual(['b2', 'gate', []])
   expect([fresh?.sessionId, fresh?.entryId, fresh?.state]).toEqual(['local_c3', 'c3', 'running'])
 
-  const pane = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
+  const pane = await $.ui.mount({ plugin: 'backlog-desktop', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
   expect(await pane.find({ type: 'Text', text: /3 Third prompt/ })).toBeDefined()
   await pane.unmount()
 })

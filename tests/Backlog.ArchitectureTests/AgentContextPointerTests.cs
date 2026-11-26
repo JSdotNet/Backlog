@@ -11,24 +11,26 @@ namespace Backlog.ArchitectureTests;
 public partial class AgentContextPointerTests
 {
     /// <summary>
-    /// <c>CLAUDE.md</c> describes each of the backlog-tools plugin's skills and its
-    /// relationship to the gate. A skill added to the plugin and left out of that
+    /// <c>CLAUDE.md</c> describes each skill of the repository's own plugins — backlog-tools,
+    /// backlog-desktop and backlog-herdr — and its relationship to the gate. A skill added to the plugin and left out of that
     /// paragraph leaves a flow guessing whether it routes through the gate.
     /// </summary>
     [Fact]
     public void Claude_md_names_every_backlog_tools_skill()
     {
         var claude = Read("CLAUDE.md");
-        var skills = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "plugins", "backlog-tools", "skills"))
-            .EnumerateDirectories()
+        var skills = new[] { "backlog-tools", "backlog-desktop", "backlog-herdr" }
+            .Select(plugin => new DirectoryInfo(Path.Combine(Repository.Root.FullName, "plugins", plugin, "skills")))
+            .Where(folder => folder.Exists)
+            .SelectMany(folder => folder.EnumerateDirectories())
             .Where(folder => File.Exists(Path.Combine(folder.FullName, "SKILL.md")))
-            .Select(folder => folder.Name)
+            .Select(folder => $"{folder.Parent!.Parent!.Name}/skills/{folder.Name}")
             .ToList();
 
         Assert.NotEmpty(skills);
 
         var missing = skills
-            .Where(skill => !claude.Contains($"plugins/backlog-tools/skills/{skill}/SKILL.md", StringComparison.Ordinal))
+            .Where(skill => !claude.Contains($"plugins/{skill}/SKILL.md", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
             .ToList();
 

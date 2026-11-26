@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// The report tool of local ADR 0051 §1: a scheduled run tells Backlog that it started,
-/// skipped itself, finished or failed. The <c>backlog-tools</c> hook pair posts the same
+/// skipped itself, finished or failed. The <c>backlog-desktop</c> hook pair posts the same
 /// report to <c>POST /schedule-runs</c> on the listener; both go through
 /// <see cref="ScheduleRunReporting"/>, so they record and answer alike.
 /// <para>

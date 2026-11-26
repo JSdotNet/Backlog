@@ -32,7 +32,7 @@ export type Worker = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'backlog-tools': {
+    'backlog-desktop': {
       plan: Plan | null
       workers: Worker[]
     }
