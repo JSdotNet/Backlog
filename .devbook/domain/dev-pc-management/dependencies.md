@@ -12,7 +12,6 @@ type: dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Dev PC Management = customer) | `BaselineRequested` -> `BaselineProvided` sync contract | `.devbook/domain/technology-stack/domain.md#deprecation-management` | Consumes the team tool baseline to compute per-machine compliance. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Emits `MachineStatusChanged` / `ComplianceUpdated` | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Machine status, compliance, and uptime feed dashboards. |
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/tasks/domain.md#task` | Compliance gaps can drive update tasks. |
 | Native package managers (external) | ACL | Command execution on target machine | `.devbook/domain/dev-pc-management/domain.md#remote-update` | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
@@ -22,7 +21,6 @@ type: dependencies
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Technology Stack = customer) | Consumes tool-version reports | `.devbook/domain/dev-pc-management/domain.md#machine-registry` | Machine tool inventories for portfolio adoption metrics. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Subscribes to machine/compliance signals | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Infrastructure dashboard signals from this context. |
 | [Sessions](../sessions/domain.md#session-log) | Customer/Supplier (Dev PC Management = supplier) | Machine-name lookup | `.devbook/domain/dev-pc-management/domain.md#machine-registry` | The registry saying which registered machine an `Environment` corresponds to. |
 
@@ -32,8 +30,9 @@ type: dependencies
 
 ## Notes
 
-- Technology Stack owns the tool baseline. Dev PC Management only consumes it
-  and reports adoption back, so it is never a second baseline authority.
+- Dev PC Management owns the team tool baseline: its
+  [tool catalog](features.md#copilot-tool-catalog) declares it, and no other
+  context defines one (local ADR 0073 §5).
 - Package-manager execution is behind an anti-corruption layer per tool, so
   external command semantics never leak into the `Machine` model.
 - The desktop app is dual-role: an agent that registers and reports, and a client

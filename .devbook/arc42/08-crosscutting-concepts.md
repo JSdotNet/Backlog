@@ -847,7 +847,7 @@ client branches on.
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -864,7 +864,6 @@ boundaries, which makes them an architectural concern:
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
 | **SessionLog** | `.devbook/domain/sessions/domain.md#session-log` |
 | **RepositoryRegistration** | `.devbook/domain/repository-management/domain.md#repository-registry` |
-| **TechBaseline** | `.devbook/domain/technology-stack/domain.md#technology-registry` |
 
 **Effort** (`.devbook/domain/tasks/domain.md#effort`) is the one shared *scalar*
 rather than a shared type. It appears in three places:

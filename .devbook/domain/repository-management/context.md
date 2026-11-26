@@ -22,7 +22,7 @@ It also owns the state of the registered repositories' pull requests:
 
 A pull request is a fact about a registered repository. This context already decides which repositories are read from GitHub, and with which account. Health counts the open pull requests of a repository; readiness says what each one waits on. Both come from the same reads. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#1-repository-management-owns-pull-request-state) widens the subject this way.
 
-It consumes baselines from [Technology Stack](../technology-stack/domain.md#technology-registry). The registry is built; scanning and health scoring are planned.
+It reads each registered repository's technologies, their ratings and approved versions from that repository's devbook `tech/` folder, through [Devbook](../devbook/context.md)'s reader, for [portfolio technology adoption](features.md#portfolio-technology-adoption) (local ADR 0073 §5). The registry is built; scanning, health scoring and that read are planned.
 
 Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
 
@@ -39,7 +39,7 @@ Outside it:
 
 | Concern | Answered by |
 | --- | --- |
-| What a baseline says and which versions are approved | Technology Stack |
+| A technology's rating and its approved version | The repository's own devbook `tech/` folder, read through [Devbook](../devbook/context.md) |
 | The work items a finding turns into, and which task a session or pull request belongs to | [Tasks](../tasks/domain.md#task) |
 | Which session opened a pull request | [Sessions](../sessions/context.md) |
 | The goal a pull request counts toward | [Progress](../progress/context.md) |
