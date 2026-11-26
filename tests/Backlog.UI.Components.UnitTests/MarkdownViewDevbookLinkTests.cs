@@ -53,7 +53,7 @@ public sealed class MarkdownViewDevbookLinkTests
 
     [Theory]
     [InlineData("order")]
-    [InlineData("dotnet build Backlog.sln")]
+    [InlineData("dotnet build Backlog.slnx")]
     [InlineData("MarkdownRender.Inlines")]
     [InlineData("src/Core/Backlog.UI.Components/wwwroot/components.css")]
     [InlineData(".domain/sessions")]

@@ -1,0 +1,163 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/" />
+  <Folder Name="/src/App/">
+    <Project Path="src/App/Backlog.Desktop.Composition/Backlog.Desktop.Composition.csproj" />
+    <Project Path="src/App/Backlog.Desktop.UI/Backlog.Desktop.UI.csproj" />
+    <Project Path="src/App/Backlog.Desktop/Backlog.Desktop.csproj" />
+    <Project Path="src/App/Backlog.Mobile.UI/Backlog.Mobile.UI.csproj" />
+    <Project Path="src/App/Backlog.Mobile/Backlog.Mobile.csproj" />
+  </Folder>
+  <Folder Name="/src/Aspire/">
+    <Project Path="src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj" />
+    <Project Path="src/Aspire/Backlog.Aspire.ServiceDefaults/Backlog.Aspire.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/Backlog.SharedKernel/Backlog.SharedKernel.csproj" />
+    <Project Path="src/Core/Backlog.UI.Components/Backlog.UI.Components.csproj" />
+  </Folder>
+  <Folder Name="/src/Harness/">
+    <Project Path="src/Harness/Backlog.AzureFoundry.TestService/Backlog.AzureFoundry.TestService.csproj" />
+    <Project Path="src/Harness/Backlog.Desktop.WebHarness/Backlog.Desktop.WebHarness.csproj" />
+    <Project Path="src/Harness/Backlog.Mobile.WebHarness/Backlog.Mobile.WebHarness.csproj" />
+    <Project Path="src/Harness/Backlog.UI.Storybook/Backlog.UI.Storybook.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.AzureFoundry/Backlog.Infrastructure.AzureFoundry.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.AzureMaps/Backlog.Infrastructure.AzureMaps.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.BlobStorage/Backlog.Infrastructure.BlobStorage.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Brain/Backlog.Infrastructure.Brain.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Capture/Backlog.Infrastructure.Capture.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Claude/Backlog.Infrastructure.Claude.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Copilot/Backlog.Infrastructure.Copilot.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Cosmos/Backlog.Infrastructure.Cosmos.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Devbook/Backlog.Infrastructure.Devbook.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.DevPc/Backlog.Infrastructure.DevPc.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.FileSystem/Backlog.Infrastructure.FileSystem.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.GitHub/Backlog.Infrastructure.GitHub.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Mcp/Backlog.Infrastructure.Mcp.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.NotificationHubs/Backlog.Infrastructure.NotificationHubs.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Sessions/Backlog.Infrastructure.Sessions.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.SpecManager/Backlog.Infrastructure.SpecManager.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Sqlite/Backlog.Infrastructure.Sqlite.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.Sync/Backlog.Infrastructure.Sync.csproj" />
+    <Project Path="src/Infrastructure/Backlog.Infrastructure.WebPubSub/Backlog.Infrastructure.WebPubSub.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Brain/">
+    <Project Path="src/Modules/Brain/Backlog.Modules.Brain.Abstractions/Backlog.Modules.Brain.Abstractions.csproj" />
+    <Project Path="src/Modules/Brain/Backlog.Modules.Brain.UI/Backlog.Modules.Brain.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Calendar/">
+    <Project Path="src/Modules/Calendar/Backlog.Modules.Calendar.Abstractions/Backlog.Modules.Calendar.Abstractions.csproj" />
+    <Project Path="src/Modules/Calendar/Backlog.Modules.Calendar.UI/Backlog.Modules.Calendar.UI.csproj" />
+    <Project Path="src/Modules/Calendar/Backlog.Modules.Calendar/Backlog.Modules.Calendar.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Capture/">
+    <Project Path="src/Modules/Capture/Backlog.Modules.Capture.Abstractions/Backlog.Modules.Capture.Abstractions.csproj" />
+    <Project Path="src/Modules/Capture/Backlog.Modules.Capture.UI/Backlog.Modules.Capture.UI.csproj" />
+    <Project Path="src/Modules/Capture/Backlog.Modules.Capture/Backlog.Modules.Capture.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Dashboard/">
+    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions/Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/Backlog.Modules.Dashboard.UI.csproj" />
+    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard/Backlog.Modules.Dashboard.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Devbook/">
+    <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions/Backlog.Modules.Devbook.Abstractions.csproj" />
+    <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.UI/Backlog.Modules.Devbook.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/DevPc/">
+    <Project Path="src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions/Backlog.Modules.DevPc.Abstractions.csproj" />
+    <Project Path="src/Modules/DevPc/Backlog.Modules.DevPc.UI/Backlog.Modules.DevPc.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Events/">
+    <Project Path="src/Modules/Events/Backlog.Modules.Events.Abstractions/Backlog.Modules.Events.Abstractions.csproj" />
+    <Project Path="src/Modules/Events/Backlog.Modules.Events.UI/Backlog.Modules.Events.UI.csproj" />
+    <Project Path="src/Modules/Events/Backlog.Modules.Events/Backlog.Modules.Events.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Inbox/">
+    <Project Path="src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions/Backlog.Modules.Inbox.Abstractions.csproj" />
+    <Project Path="src/Modules/Inbox/Backlog.Modules.Inbox.UI/Backlog.Modules.Inbox.UI.csproj" />
+    <Project Path="src/Modules/Inbox/Backlog.Modules.Inbox/Backlog.Modules.Inbox.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Backlog.Modules.Notifications.Abstractions/Backlog.Modules.Notifications.Abstractions.csproj" />
+    <Project Path="src/Modules/Notifications/Backlog.Modules.Notifications.UI/Backlog.Modules.Notifications.UI.csproj" />
+    <Project Path="src/Modules/Notifications/Backlog.Modules.Notifications/Backlog.Modules.Notifications.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Progress/">
+    <Project Path="src/Modules/Progress/Backlog.Modules.Progress.Abstractions/Backlog.Modules.Progress.Abstractions.csproj" />
+    <Project Path="src/Modules/Progress/Backlog.Modules.Progress.UI/Backlog.Modules.Progress.UI.csproj" />
+    <Project Path="src/Modules/Progress/Backlog.Modules.Progress/Backlog.Modules.Progress.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/RepositoryManagement/">
+    <Project Path="src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement.Abstractions/Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+    <Project Path="src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement/Backlog.Modules.RepositoryManagement.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Roadmap/">
+    <Project Path="src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions/Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <Project Path="src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/Backlog.Modules.Roadmap.UI.csproj" />
+    <Project Path="src/Modules/Roadmap/Backlog.Modules.Roadmap/Backlog.Modules.Roadmap.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Sessions/">
+    <Project Path="src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions/Backlog.Modules.Sessions.Abstractions.csproj" />
+    <Project Path="src/Modules/Sessions/Backlog.Modules.Sessions.UI/Backlog.Modules.Sessions.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Sync/">
+    <Project Path="src/Modules/Sync/Backlog.Modules.Sync.Abstractions/Backlog.Modules.Sync.Abstractions.csproj" />
+    <Project Path="src/Modules/Sync/Backlog.Modules.Sync.Api/Backlog.Modules.Sync.Api.csproj" />
+    <Project Path="src/Modules/Sync/Backlog.Modules.Sync.UI/Backlog.Modules.Sync.UI.csproj" />
+    <Project Path="src/Modules/Sync/Backlog.Modules.Sync/Backlog.Modules.Sync.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tasks/">
+    <Project Path="src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions/Backlog.Modules.Tasks.Abstractions.csproj" />
+    <Project Path="src/Modules/Tasks/Backlog.Modules.Tasks.UI/Backlog.Modules.Tasks.UI.csproj" />
+    <Project Path="src/Modules/Tasks/Backlog.Modules.Tasks/Backlog.Modules.Tasks.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Backlog.ArchitectureTests/Backlog.ArchitectureTests.csproj" />
+    <Project Path="tests/Backlog.Aspire.ServiceDefaults.UnitTests/Backlog.Aspire.ServiceDefaults.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Desktop.UI.UnitTests/Backlog.Desktop.UI.UnitTests.csproj" />
+    <Project Path="tests/Backlog.EndToEndTests/Backlog.EndToEndTests.csproj" />
+    <Project Path="tests/Backlog.HostComposition.UnitTests/Backlog.HostComposition.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.AzureFoundry.UnitTests/Backlog.Infrastructure.AzureFoundry.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.AzureMaps.UnitTests/Backlog.Infrastructure.AzureMaps.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.BlobStorage.UnitTests/Backlog.Infrastructure.BlobStorage.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Brain.UnitTests/Backlog.Infrastructure.Brain.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Capture.UnitTests/Backlog.Infrastructure.Capture.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Claude.UnitTests/Backlog.Infrastructure.Claude.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Copilot.UnitTests/Backlog.Infrastructure.Copilot.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Cosmos.UnitTests/Backlog.Infrastructure.Cosmos.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Devbook.UnitTests/Backlog.Infrastructure.Devbook.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.DevPc.UnitTests/Backlog.Infrastructure.DevPc.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.FileSystem.UnitTests/Backlog.Infrastructure.FileSystem.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.GitHub.UnitTests/Backlog.Infrastructure.GitHub.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Mcp.UnitTests/Backlog.Infrastructure.Mcp.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Sessions.UnitTests/Backlog.Infrastructure.Sessions.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.SpecManager.UnitTests/Backlog.Infrastructure.SpecManager.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Sqlite.UnitTests/Backlog.Infrastructure.Sqlite.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Infrastructure.Sync.UnitTests/Backlog.Infrastructure.Sync.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Mobile.UI.UnitTests/Backlog.Mobile.UI.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Calendar.UnitTests/Backlog.Modules.Calendar.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Capture.UnitTests/Backlog.Modules.Capture.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Dashboard.UnitTests/Backlog.Modules.Dashboard.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.DevPc.UnitTests/Backlog.Modules.DevPc.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Events.UnitTests/Backlog.Modules.Events.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Inbox.UnitTests/Backlog.Modules.Inbox.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Notifications.UnitTests/Backlog.Modules.Notifications.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Progress.UnitTests/Backlog.Modules.Progress.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.RepositoryManagement.UnitTests/Backlog.Modules.RepositoryManagement.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Roadmap.UnitTests/Backlog.Modules.Roadmap.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Sessions.UnitTests/Backlog.Modules.Sessions.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Sync.Api.UnitTests/Backlog.Modules.Sync.Api.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Sync.UnitTests/Backlog.Modules.Sync.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Tasks.UnitTests/Backlog.Modules.Tasks.UnitTests.csproj" />
+    <Project Path="tests/Backlog.SharedKernel.UnitTests/Backlog.SharedKernel.UnitTests.csproj" />
+    <Project Path="tests/Backlog.UI.Components.UnitTests/Backlog.UI.Components.UnitTests.csproj" />
+  </Folder>
+</Solution>

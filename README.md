@@ -305,8 +305,8 @@ references one. See [`src/Harness/README.md`](src/Harness/README.md).
 ## Build and test
 
 ```powershell
-dotnet build Backlog.sln
-dotnet test Backlog.sln
+dotnet build Backlog.slnx
+dotnet test Backlog.slnx
 ```
 
 Build the solution rather than a project: only the solution build builds the mobile head,

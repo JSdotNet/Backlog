@@ -89,7 +89,7 @@ public sealed class DomainRepositoryChaptersTests
     private static DirectoryInfo DomainFolder()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Backlog.sln"))) directory = directory.Parent;
-        return new DirectoryInfo(Path.Combine(directory?.FullName ?? throw new InvalidOperationException("No Backlog.sln above the test output."), ".devbook", "domain"));
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Backlog.slnx"))) directory = directory.Parent;
+        return new DirectoryInfo(Path.Combine(directory?.FullName ?? throw new InvalidOperationException("No Backlog.slnx above the test output."), ".devbook", "domain"));
     }
 }

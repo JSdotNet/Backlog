@@ -198,12 +198,12 @@ public sealed partial class BrainModuleBoundaryTests
             "src/Modules/Brain/Backlog.Modules.Brain.UI/Backlog.Modules.Brain.UI.csproj",
         };
 
-        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln")).Replace('\\', '/');
+        var solution = Repository.SolutionProjects().Replace('\\', '/');
         var filter = SolutionFilterProjects();
 
         foreach (var project in brainProjects)
         {
-            Assert.True(solution.Contains($"\"{project}\"", StringComparison.Ordinal), $"{project} is not in Backlog.sln.");
+            Assert.True(solution.Contains($"\"{project}\"", StringComparison.Ordinal), $"{project} is not in Backlog.slnx.");
             Assert.True(filter.Contains(project), $"{project} is not in Backlog.WithoutAppHeads.slnf.");
         }
     }

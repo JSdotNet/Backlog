@@ -37,7 +37,7 @@ The build engine, and the directory-scoped property files that configure it.
 
 | File | Sets | Why there |
 |---|---|---|
-| `Directory.Build.props` | `net11.0`, `LangVersion`, `Nullable`, `ImplicitUsings`, the product identity, `$(MauiVersion)`, and the warning policy: `AnalysisLevel` latest, `EnforceCodeStyleInBuild`, `TreatWarningsAsErrors` in every build, CS8509 an error | Every project needs them; org ADR 0001 puts the warning policy in every build, not only the pull request's. |
+| `Directory.Build.props` | `net11.0`, `Nullable`, `ImplicitUsings`, the product identity, `$(MauiVersion)`, and the warning policy: `AnalysisLevel` latest, `EnforceCodeStyleInBuild`, `TreatWarningsAsErrors` in every build, CS8509 an error | Every project needs them; org ADR 0001 puts the warning policy in every build, not only the pull request's. |
 | `tests/Directory.Build.props` | The shared runner and coverage package set, `OutputType=Exe`, the `Xunit` using, and the linked `tests/Shared/` helpers `RepositoryRoot.cs`, `Polling.cs` and `TemporaryDirectory.cs` | Every test project runs the same way. |
 | `src/Harness/Directory.Build.props` | The non-publishable flags | An accidental `dotnet publish` of a harness fails loudly. |
 
@@ -49,6 +49,13 @@ No analyzer is held back. The .NET 11 move suppressed the new Blazor analyzers B
 like any other warning. A component method bound as a handler leaves rendering to Blazor. Its
 callers from a timer, a script or a service's event run it through `HandlerRendering`, which
 renders the way Blazor renders around a handler.
+
+No project sets `LangVersion`: the C# version is the default of the SDK `global.json` pins
+(org ADR 0001), and `BuildPolicyTests` fails a project file or props that sets one.
+
+The solution is `Backlog.slnx`, the XML solution format (org ADR 0003).
+`Backlog.WithoutAppHeads.slnf` names it and lists every project but the two MAUI heads; the
+pull request and nightly runs restore, build and test that filter.
 
 ## .NET SDK
 
@@ -96,6 +103,14 @@ The package manager for .NET dependencies.
 - **Used for** — restoring the packages `Directory.Packages.props` pins, plus
   the Aspire AppHost SDK.
 - **Why** — the standard .NET package ecosystem.
+- **How** — the root `nuget.config` clears every inherited source and names
+  nuget.org alone, with `minPublishAgeHours="72"` (org ADR 0001).
+  - `dotnet package add` and `dotnet package update` never pick a version
+    younger than 72 hours; restoring a floating version fails with NU1020.
+  - Restore does not check an exact version's age, so the reviewed pin in
+    `Directory.Packages.props` guards the rest.
+  - The pull request and nightly runs restore with `--locked-mode` against the
+    committed `packages.lock.json` files.
 
 ## Central Package Management
 
@@ -112,11 +127,14 @@ One file declaring every package version in the solution.
   reference packages by name only. A project-local `Version` attribute needs a
   justifying comment.
 - **Why** — one place to see and change what the solution resolves.
-- **How** — `CentralPackageTransitivePinningEnabled` is off on purpose.
-  - Turning it on lifted the AppHost's transitive YamlDotNet, OpenTelemetry, and
-    `Microsoft.Extensions.*` packages to the versions declared for those names.
-  - Adopting CPM was meant to change where versions are declared, not which ones
-    resolve. Transitive governance is a separate, reviewed change.
+- **How** — `CentralPackageTransitivePinningEnabled` is on (org ADR 0001).
+  - A package the file declares resolves at that version wherever it appears,
+    transitively too, and each lift shows in the committed lock files.
+  - A declared version below what a dependency asks for fails restore with
+    NU1109; raise the entry rather than turning pinning off. `Polly.Core` went
+    to 8.7.0 for that reason, the version `Aspire.Hosting.AppHost` asks for.
+  - A package the file does not declare, such as `YamlDotNet`, still resolves
+    where the graph lands it.
   - Each package's chapter carries its current version in its `version` field.
 
 ## npm

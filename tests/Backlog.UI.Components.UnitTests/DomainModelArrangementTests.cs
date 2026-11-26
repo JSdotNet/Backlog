@@ -445,7 +445,7 @@ public sealed class DomainModelArrangementTests
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Backlog.sln"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("No Backlog.sln above the test output.");
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Backlog.slnx"))) directory = directory.Parent;
+        return directory?.FullName ?? throw new InvalidOperationException("No Backlog.slnx above the test output.");
     }
 }

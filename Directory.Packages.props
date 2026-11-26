@@ -13,17 +13,14 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 
     <!--
-      Transitive pinning is deliberately OFF. Turning it on rewrites versions the
-      solution never asked for: the AppHost's transitive YamlDotNet 16.3.0,
-      OpenTelemetry 1.15.3 and Microsoft.Extensions.* 10.0.8 each get lifted to
-      whatever this file declares for that name, purely because those names appear
-      below as direct versions. Those targets are not repeated here because they
-      move with every bump of the package; read them from the PackageVersion
-      entries. Adopting CPM was meant to change where versions are declared, not
-      which ones resolve. Enable it as its own reviewed change if transitive
-      governance is wanted.
+      Transitive pinning is on (org ADR 0001): a package this file declares
+      resolves at that version everywhere it appears, directly or transitively,
+      so one project cannot quietly run an older copy than another. A declared
+      version below what a dependency asks for fails restore with NU1109; raise
+      the entry here rather than turning pinning off. Every lift it makes shows
+      up in the committed packages.lock.json files and is reviewed with them.
     -->
-    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -227,9 +224,10 @@
       up — a total timeout, an open circuit. Backlog.Infrastructure.Sync catches
       them where it catches HttpRequestException, so a sync cycle that waited out
       the pipeline is a failed result with a sentence rather than the catch-all.
-      The version is the one Microsoft.Extensions.Http.Resilience above resolves.
+      Pinning applies it to every project, so it is at least what
+      Aspire.Hosting.AppHost asks for.
     -->
-    <PackageVersion Include="Polly.Core" Version="8.6.6" />
+    <PackageVersion Include="Polly.Core" Version="8.7.0" />
     <!--
       The sync service's API reference (org ADR 0004): it renders the OpenAPI
       document in Development, the only environment that maps the document.

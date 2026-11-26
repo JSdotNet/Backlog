@@ -182,6 +182,66 @@ public partial class BuildPolicyTests
 
     /// <summary>Transitive pinning is off, so a version nothing references pins
     /// nothing — it only reads as if it did.</summary>
+    /// <summary>The C# version is the SDK's default (org ADR 0001): a
+    /// <c>LangVersion</c> anywhere in the shared props or a project file would
+    /// pin it past or behind what <c>global.json</c>'s SDK ships.</summary>
+    [Fact]
+    public void No_project_sets_its_own_language_version()
+    {
+        var root = Repository.Root.FullName;
+        var setting = Directory.EnumerateFiles(root, "*.props")
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "src"), "*.*", SearchOption.AllDirectories))
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "tests"), "*.*", SearchOption.AllDirectories))
+            .Where(path => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                        || path.EndsWith(".props", StringComparison.OrdinalIgnoreCase)
+                        || path.EndsWith(".targets", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                        && !path.Contains($"{Path.DirectorySeparatorChar}node_modules{Path.DirectorySeparatorChar}"))
+            .Where(path => File.ReadAllText(path).Contains("<LangVersion>", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(Repository.Root.FullName, path));
+
+        Assert.Empty(setting);
+    }
+
+    /// <summary>A package declared centrally resolves at that version wherever
+    /// it appears, transitively too (org ADR 0001).</summary>
+    [Fact]
+    public void Central_package_management_pins_transitive_versions()
+    {
+        var pinning = XDocument.Load(RepositoryRoot.File("Directory.Packages.props"))
+            .Descendants("CentralPackageTransitivePinningEnabled")
+            .Single();
+
+        Assert.Equal("true", pinning.Value.Trim());
+        Assert.Null(pinning.Attribute("Condition"));
+    }
+
+    /// <summary>nuget.org is the one package source, and it carries the 72-hour
+    /// minimum publish age org ADR 0001 sets. A source added without the
+    /// attribute would drop the age back to zero for whatever it serves.</summary>
+    [Fact]
+    public void The_one_package_source_carries_the_minimum_publish_age()
+    {
+        var sources = XDocument.Load(RepositoryRoot.File("nuget.config")).Root!.Element("packageSources")!;
+
+        Assert.NotNull(sources.Element("clear"));
+        var source = Assert.Single(sources.Elements("add"));
+        Assert.Equal("https://api.nuget.org/v3/index.json", (string?)source.Attribute("value"));
+        Assert.Equal("72", (string?)source.Attribute("minPublishAgeHours"));
+    }
+
+    /// <summary>The solution is the XML <c>Backlog.slnx</c> (org ADR 0003), and
+    /// the filter the pull request restores and builds names it.</summary>
+    [Fact]
+    public void The_solution_is_an_slnx_the_filter_names()
+    {
+        Assert.Empty(Directory.EnumerateFiles(Repository.Root.FullName, "*.sln"));
+
+        using var filter = JsonDocument.Parse(File.ReadAllText(RepositoryRoot.File("Backlog.WithoutAppHeads.slnf")));
+        Assert.Equal("Backlog.slnx", filter.RootElement.GetProperty("solution").GetProperty("path").GetString());
+    }
+
     [Fact]
     public void Central_package_management_declares_no_unreferenced_yaml_version()
     {
@@ -201,10 +261,10 @@ public partial class BuildPolicyTests
         "src/App/Backlog.Mobile/Backlog.Mobile.csproj",
     ];
 
-    /// <summary>Every project <c>Backlog.sln</c> lists, as a forward-slash path
+    /// <summary>Every project <c>Backlog.slnx</c> lists, as a forward-slash path
     /// relative to the root.</summary>
     private static List<string> SolutionProjects() =>
-        SolutionProject().Matches(File.ReadAllText(RepositoryRoot.File("Backlog.sln")))
+        SolutionProject().Matches(Repository.SolutionProjects())
             .Select(match => match.Groups[1].Value.Replace('\\', '/'))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Order(StringComparer.Ordinal)

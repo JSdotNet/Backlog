@@ -548,9 +548,9 @@ Full authoring rules: `.agents/rules/devbook-tech.md`.
 - Mobile's shape has no ADR. `Backlog.Mobile` is .NET MAUI with Blazor Hybrid: its
   `MainPage` hosts a `BlazorWebView` over `Backlog.Mobile.UI`. Desktop's shape is
   in [ADR 0001](../arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md).
-- Transitive package pinning is off on purpose
-  ([Central Package Management](tooling.md#central-package-management)), and
-  nobody has scheduled the reviewed change that turns it on. `YamlDotNet` is the
-  visible symptom: no project references it, it arrives only transitively, and it has no central pin.
+- `YamlDotNet` has no central pin: no project references it, and it arrives
+  only transitively, so transitive pinning
+  ([Central Package Management](tooling.md#central-package-management)) does not
+  reach it.
 - The Visual Studio channel has no project yet, so `Visual Studio Extensibility`
   and `WPF` remain named intentions.

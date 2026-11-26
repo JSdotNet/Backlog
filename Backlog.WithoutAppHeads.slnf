@@ -1,6 +1,6 @@
 {
   "solution": {
-    "path": "Backlog.sln",
+    "path": "Backlog.slnx",
     "projects": [
       "src\\App\\Backlog.Desktop.Composition\\Backlog.Desktop.Composition.csproj",
       "src\\App\\Backlog.Desktop.UI\\Backlog.Desktop.UI.csproj",
