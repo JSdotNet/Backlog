@@ -19,7 +19,7 @@ using Backlog.Modules.Goals.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Work.Tasks.Extensions;
 using ITaskLookupCandidates = Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates;
 using PullRequestTaskQuestion = Backlog.Modules.Work.Abstractions.Tasks.Services.PullRequestTaskQuestion;

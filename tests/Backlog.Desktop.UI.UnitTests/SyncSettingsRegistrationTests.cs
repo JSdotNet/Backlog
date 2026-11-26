@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.UI;
 using Backlog.SharedKernel;

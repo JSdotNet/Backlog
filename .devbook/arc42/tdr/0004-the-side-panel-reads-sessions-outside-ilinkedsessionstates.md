@@ -35,7 +35,7 @@ The badge's read:
 
 - The port is `LinkedSession(State, Archived)` and `ILinkedSessionStates`
   (`src/Modules/Work/Backlog.Modules.Work.Abstractions/Tasks/Services/ILinkedSessionStates.cs:42,54`).
-- `TasksDesktopState` takes it (`src/Modules/Tasks/Backlog.Modules.Tasks.UI/TasksDesktopState.cs:112,287,314`)
+- `TasksDesktopState` takes it (`src/Modules/Work/Backlog.Modules.Work.UI/Tasks/TasksDesktopState.cs:112,287,314`)
   and reads it for every linked session id (`:1294-1305`).
 - `LinkedSessionStates` answers it at timestamps depth, through
   `AgentSessionQuery.Newest.TimestampsOnly()`
@@ -71,7 +71,7 @@ that ADR left it so, naming it as a follow-up.
 | --- | --- |
 | `Backlog.Modules.Work.Abstractions` | Publishes `ILinkedSessionStates`. |
 | `Backlog.Infrastructure.FileSystem/Tasks/LinkedSessionStates.cs` | Answers the port from the session record. |
-| `Backlog.Modules.Tasks.UI/TasksDesktopState.cs` | Reads the port for the task row's badge. |
+| `Backlog.Modules.Work.UI/Tasks/TasksDesktopState.cs` | Reads the port for the task row's badge. |
 | `Backlog.Desktop.UI/ShellGoals/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |
 
 ## Impact

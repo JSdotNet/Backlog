@@ -45,7 +45,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
         // The roadmap's view landmark is its surface's own (local ADR 0043 §1).
-        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
+        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurface.razor"))), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -293,7 +293,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
-        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
+        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
         Assert.Contains("private bool WorkspaceVisible => TakeoverOnScreen is null;", home, StringComparison.Ordinal);
         Assert.Contains(
             "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",
@@ -573,7 +573,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Equal(0, CountOccurrences(home, "<TasksPane "));
         Assert.Equal(0, CountOccurrences(home, "<RoadmapBand "));
         Assert.Equal(0, CountOccurrences(home, "<GoalsHost "));
-        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
+        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurface.razor"))), StringComparison.Ordinal);
         Assert.DoesNotContain("devbook-layout", home, StringComparison.Ordinal);
     }
 
@@ -1418,7 +1418,9 @@ public sealed class GlobalPaneMarkupTests
     // projects under src/Modules; only the shell's own chrome stayed behind.
     private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
-    private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
+    private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "TasksPane.razor");
+
+    private static string FindRoadmapFile(string file) => RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Roadmap", file);
 
     private static string FindModuleFile(string module, string file) =>
         RepositoryRoot.File("src", "Modules", module, $"Backlog.Modules.{module}.UI", file);

@@ -12,12 +12,12 @@ using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Goals.UI.Goals;
 using Backlog.Modules.Goals.UI.WeeklyReview;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Work.UI.Roadmap;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;

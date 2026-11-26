@@ -61,11 +61,11 @@
          composed here the same way: a surface the shell makes room for and
          otherwise knows nothing about. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
+    <!-- Work: the Tasks pane and the Roadmap band, one module UI project. -->
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.UI\Backlog.Modules.Work.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.UI\Backlog.Modules.Insights.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />

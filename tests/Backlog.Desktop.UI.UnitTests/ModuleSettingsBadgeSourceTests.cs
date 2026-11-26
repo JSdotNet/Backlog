@@ -1,6 +1,6 @@
 using System.Net;
 
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.UI;

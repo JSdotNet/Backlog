@@ -1,0 +1,90 @@
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.UI.Roadmap;
+
+using Bunit;
+
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Backlog.Modules.Work.UI.UnitTests;
+
+/// <summary>
+/// The band asks for every item's gathered work once, as the plan loads, and the
+/// bars carry it as a progress fill. The band shows plans rather than their tasks,
+/// so a bar never opens into a row per task.
+/// The rollup is a counting stand-in here, because what is pinned is the band's
+/// side of the port — how often it asks and what it does with the answer. What
+/// the real adapter gathers is pinned beside the adapter.
+/// </summary>
+public sealed class RoadmapBandStepsTests : RoadmapBandHarness
+{
+    private sealed class CountingRollup(RoadmapItemRollupDto answer) : IRoadmapItemRollup
+    {
+        public int PlanReads { get; private set; }
+
+        public int ItemReads { get; private set; }
+
+        public Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default)
+        {
+            ItemReads++;
+            return Task.FromResult(answer);
+        }
+
+        public Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+            RoadmapPlanDto plan,
+            CancellationToken cancellationToken = default)
+        {
+            PlanReads++;
+            return Task.FromResult<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>>(
+                plan.Items.ToDictionary(item => item.Id, _ => answer));
+        }
+    }
+
+    private static readonly RoadmapItemRollupDto Gathered = new(
+        [
+            new RoadmapGatheredLink("b", "Second", 3, RollupOrigin.Tag, RoadmapProgress.InProgress, ["a"]),
+            new RoadmapGatheredLink("a", "First", 1, RollupOrigin.Tag, RoadmapProgress.Done),
+            new RoadmapGatheredLink("c", "Unsized", null, RollupOrigin.Tag, RoadmapProgress.Ready)
+        ],
+        []);
+
+    [Fact]
+    public async Task The_band_gathers_the_whole_plan_once_on_load_and_no_item_on_its_own()
+    {
+        Configure("JSdotNet/Backlog");
+        using var context = Context();
+        var rollup = new CountingRollup(Gathered);
+        context.Services.AddSingleton<IRoadmapItemRollup>(rollup);
+
+        await Planning.AddItemAsync("One", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync("Two", new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 27), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+
+        var band = Drawn(context);
+
+        band.WaitForAssertion(() => Assert.Equal(2, band.FindAll(".roadmap-bar__fill").Count));
+        Assert.Equal(1, rollup.PlanReads);
+        Assert.Equal(0, rollup.ItemReads);
+    }
+
+    [Fact]
+    public async Task An_item_carries_its_gathered_progress_and_never_opens_into_its_tasks()
+    {
+        Configure("JSdotNet/Backlog");
+        using var context = Context();
+        context.Services.AddSingleton<IRoadmapItemRollup>(new CountingRollup(Gathered));
+
+        await Planning.AddItemAsync("Plan", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+
+        var band = Drawn(context);
+
+        band.WaitForAssertion(() => Assert.Single(band.FindAll(".roadmap-bar__fill")));
+
+        // 1 of 4 estimated points done, one unsized.
+        Assert.Contains("width: 25%", band.Find(".roadmap-bar__fill").GetAttribute("style"));
+        Assert.Equal("1 unestimated", band.Find(".roadmap-bar__unestimated").TextContent);
+
+        // The plan, not its tasks: no disclosure, and no step rows.
+        Assert.Empty(band.FindAll(".roadmap-bar__toggle"));
+        Assert.Empty(band.FindAll(".roadmap-step__title"));
+    }
+}

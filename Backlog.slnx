@@ -99,9 +99,6 @@
     <Project Path="src/Modules/Repositories/Backlog.Modules.Repositories.Abstractions/Backlog.Modules.Repositories.Abstractions.csproj" />
     <Project Path="src/Modules/Repositories/Backlog.Modules.Repositories/Backlog.Modules.Repositories.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Roadmap/">
-    <Project Path="src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/Backlog.Modules.Roadmap.UI.csproj" />
-  </Folder>
   <Folder Name="/src/Modules/Sessions/">
     <Project Path="src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions/Backlog.Modules.Sessions.Abstractions.csproj" />
     <Project Path="src/Modules/Sessions/Backlog.Modules.Sessions.UI/Backlog.Modules.Sessions.UI.csproj" />
@@ -112,11 +109,9 @@
     <Project Path="src/Modules/Sync/Backlog.Modules.Sync.UI/Backlog.Modules.Sync.UI.csproj" />
     <Project Path="src/Modules/Sync/Backlog.Modules.Sync/Backlog.Modules.Sync.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Tasks/">
-    <Project Path="src/Modules/Tasks/Backlog.Modules.Tasks.UI/Backlog.Modules.Tasks.UI.csproj" />
-  </Folder>
   <Folder Name="/src/Modules/Work/">
     <Project Path="src/Modules/Work/Backlog.Modules.Work.Abstractions/Backlog.Modules.Work.Abstractions.csproj" />
+    <Project Path="src/Modules/Work/Backlog.Modules.Work.UI/Backlog.Modules.Work.UI.csproj" />
     <Project Path="src/Modules/Work/Backlog.Modules.Work/Backlog.Modules.Work.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.ShellGoals;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Integrations;

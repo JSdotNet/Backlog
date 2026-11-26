@@ -3,8 +3,8 @@
 ```meta
 date: 2026-11-25
 related: [".devbook/domain/work/features.md#search-filter-and-organize", ".devbook/domain/work/features.md#plans-view", ".devbook/domain/work/features.md#my-day", ".devbook/domain/work/domain.md#my-day", ".devbook/domain/work/requirements.md#plans-view", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/work/domain.plan.md#roadmap-item", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
-c4: [backlog.desktop.tasks]
-c4-touches: [backlog.desktop.sessions, backlog.desktop.roadmap, backlog.mobile]
+c4: [backlog.desktop.work]
+c4-touches: [backlog.desktop.sessions, backlog.mobile]
 ```
 
 The Tasks pane opens on **Plans**: a rail of plans beside a column that shows one plan

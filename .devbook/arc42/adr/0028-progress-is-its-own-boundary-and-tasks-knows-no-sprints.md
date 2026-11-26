@@ -3,7 +3,7 @@
 ```meta
 date: 2026-10-13
 related: [".devbook/domain/goals/context.md", ".devbook/domain/context-map.md", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/work/domain.plan.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
-c4: [backlog.desktop.goals, backlog.desktop.tasks]
+c4: [backlog.desktop.goals, backlog.desktop.work]
 ```
 
 Sprints get a bounded context of their own, **Progress**. It names a task by its

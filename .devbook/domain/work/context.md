@@ -12,8 +12,8 @@ and when and in which order it is meant to happen. It is a core context. Tasks a
 Roadmap Planning merged into it under
 [local ADR 0073 §1](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#1-work);
 its code is `Backlog.Modules.Work`, the task under `Backlog.Modules.Work.Tasks` and the
-plan under `Backlog.Modules.Work.Plans`; its screens are still `Backlog.Modules.Tasks.UI`
-and `Backlog.Modules.Roadmap.UI`.
+plan under `Backlog.Modules.Work.Plans`; its screens are `Backlog.Modules.Work.UI`, the
+Tasks pane and the Roadmap view.
 
 Two aggregates, each the boundary of its own rules:
 
