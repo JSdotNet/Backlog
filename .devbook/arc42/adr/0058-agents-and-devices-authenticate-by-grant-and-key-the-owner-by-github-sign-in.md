@@ -1,7 +1,7 @@
 # ADR 0058: Agents and devices authenticate by grant and key, the owner by GitHub sign-in
 
 ```meta
-date: 2026-11-25
+date: 2026-11-26
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/design/settings-pages.md"]
 c4: [backlog.desktop, backlog.cloud]
 c4-touches: [backlog.mobile, github, claude]
@@ -131,7 +131,7 @@ it lives in the CNG Platform Crypto Provider, which keeps it in the TPM. On Andr
 it lives in the Android Keystore. The device signs a `private_key_jwt` assertion
 (RFC 7523) with that key and exchanges it for its 30-minute device token. The
 stored registration credential is retired, so a copied app folder on another
-machine cannot sync.
+machine cannot sync. The VS Code extension is the one deferred exception, below.
 
 A second device still pairs by a single-use code a paired device mints; minting it
 asks for Windows Hello (§6). An answer to an agent's question carries the answering
@@ -145,8 +145,15 @@ otherwise. Keystore signs in DER, and the client turns that into the ES256 signa
 the service checks. A device paired on a stored credential moves onto its key at its
 next token fetch: it sends the credential, the public key and an assertion that key
 signed, and then deletes the credential on the device as the service does. A key that
-exists but will not open is reported as unavailable and never replaced. The phone has
-no screen that shows that state yet.
+exists but will not open is reported as unavailable and never replaced. Since PR #1995
+on 2026-11-25, the phone shows that state as a warning callout with a **Pair again**
+action.
+
+*VS Code extension deferred 2026-11-25.* The extension still redeems a pairing code for
+a registration credential and keeps it in VS Code's SecretStorage. It sends the device
+id and that credential to `/api/sync/devices/token`. The person deferred moving it onto
+a key (plan `zero-trust-auth` entry 29). Until then, a copied VS Code secret store still
+syncs as that device.
 
 *Shared replay store built 2026-11-24 by PR #1971.* The service records each spent
 assertion id in the `assertionReplays` Cosmos container, so neither a restart nor a
@@ -404,14 +411,22 @@ ends, and a Warning alert worded by the cause asks the person to refuse it again
 Settings → Devices. That page lists the paired devices and offers Revoke, through
 Windows Hello, on the rows this desktop paired.
 
-*One confirmation holds for 5 minutes since 2026-11-25.* The person's own acts at the
-desktop — a scope switch, widening the Unauthenticated row (ADR 0059), Allow,
-`agents:grant`, minting a pairing code, Revoke — are answered from a confirmation given
-in the last 5 minutes instead of asking again. `RememberedUserConsent` keeps that window
-around the desktop's `IUserConsent`. An agent's `tasks:admin` call and a Refuse raised
-from the phone ask every time through `VerifyEveryTimeAsync`, and neither opens the
-window. So that a script cannot click through the window, a release build opens no
-WebView2 remote-debugging port; only a Debug build listens on 9222.
+*One confirmation holds for 5 minutes since 2026-11-25, for two acts since 2026-11-26.*
+Minting a pairing code and revoking a device are answered from a confirmation given in
+the last 5 minutes instead of asking again. Both go through `DeviceStepUp.ConfirmAsync`,
+and `RememberedUserConsent` keeps that window around the desktop's `IUserConsent`.
+Every other prompt asks every time through `VerifyEveryTimeAsync` and never opens the
+window:
+
+- Allow, switching `agents:grant` on, in Edit scopes or Add agent, and opening a scope
+  on the Unauthenticated row (ADR 0059). §5 says a script or UI automation cannot pass
+  them, which a remembered confirmation would break. PR #2053 made these ask every time.
+- An agent's `tasks:admin` call, because the person did not start it.
+- Every Refuse. Only the desktop that showed the pairing code answers it, never the
+  phone. A Refuse can be replayed at the next start, when nobody may be at the desk.
+
+So that a script cannot click through a prompt, a release build opens no WebView2
+remote-debugging port; only a Debug build listens on 9222.
 
 ### 7. Devbook decisions are the person's
 
@@ -555,6 +570,7 @@ signing key into Key Vault under a managed identity, with a planned rotation.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §6: the 5-minute window answers only minting a pairing code and revoking a device. Allow, switching `agents:grant` on and opening a scope on the Unauthenticated row ask every time, beside an agent's `tasks:admin` call and every Refuse. A Refuse is answered only on the desktop that showed the pairing code, not from the phone as the 2026-11-25 row said. §2 records the VS Code extension's credential as a deferred exception, and that the phone now shows an unavailable key. | §5 holds those three prompts to one UI automation cannot pass, and a remembered confirmation broke that. PR #2053. The person deferred the extension in plan `zero-trust-auth` entry 29. |
 | 2026-11-25 | §6: a Windows Hello confirmation holds for 5 minutes for the person's own acts at the desktop. An agent's `tasks:admin` call and a Refuse raised from the phone still ask every time. A release build opens no WebView2 remote-debugging port. | Switching several scopes on asked for the PIN at every switch. The person decided the window and its reach in a flow-code run. |
 | 2026-11-25 | §8 records that the authorization server's routes answer RFC 6749 errors, an exception to guideline ADR 0017. | Entry 21 built it that way and no record said so. Plan `zero-trust-auth` entry 27. |
 | 2026-11-24 | Amended by local ADR 0071, proposed: §4 places `list_change_sets` under `tasks:read` and `propose_restore` under `tasks:write`. | Agents can read the change journal and propose a restore the person confirms. |

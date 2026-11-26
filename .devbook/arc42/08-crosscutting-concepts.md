@@ -202,7 +202,9 @@ sequenceDiagram
   [Device assertion](../domain/sync/domain.md#device-assertion) with its own
   non-exportable key and exchanges it for a short-lived JWT. A host with no key
   store holds a registration credential instead; today that is the mobile web
-  harness. `ownerId` is the Cosmos partition key of the replica
+  harness. The VS Code extension still holds one too, a deferred exception
+  ([local ADR 0058 §2](adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key)).
+  `ownerId` is the Cosmos partition key of the replica
   containers. The registry that holds the devices and codes is persisted in
   Cosmos as well, so a pairing survives a restart of the service.
 - **The partition key authorizes nothing.** The service confines a device ([Storage and Sync](#storage-and-sync)), because Cosmos cannot authorize a device-session principal it has never heard of.

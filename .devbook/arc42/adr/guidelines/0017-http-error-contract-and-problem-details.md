@@ -1,7 +1,8 @@
 # ADR 0017: HTTP error contract and Problem Details
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md"]
+date: 2026-11-26
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 ```
 
 Inherited from the organization's ADR 0017 (decided 2026-06-04,
@@ -14,6 +15,9 @@ Details body and no exception-handling middleware, so nothing in the code
 applies this decision yet.
 
 ## Decision
+
+```meta
+```
 
 Every non-success HTTP response uses **RFC 7807 Problem Details**, and `Result`
 outcomes map to status codes consistently at the delivery boundary.
@@ -39,14 +43,27 @@ field. Domain invariants stay enforced in the domain model regardless.
 
 ## How Backlog applies it
 
+```meta
+```
+
 - The rule binds exactly one surface: `Backlog.Modules.Sync.Api`.
+- **The OAuth 2.1 authorization server is the one exception**
+  ([local ADR 0058 §8](../0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#8-a-remote-agent-reaches-backlog-through-oauth-21-on-the-sync-service)).
+  Its endpoints are `/.well-known/oauth-authorization-server`, `/oauth/authorize`,
+  `/oauth/consent` and `/oauth/token`. They are protocol endpoints, so a failure
+  answers RFC 6749's `{error, error_description}` body or an error on the
+  redirect, the shape a connector client reads.
 - `Error.Type` in `Backlog.SharedKernel` already classifies failures — the
   classification a mapping helper needs to turn a `Result` into the right status
   code without the endpoint deciding.
 
 ## Deviations and gaps
 
-- **Implemented for every endpoint on the surface.** `Backlog.Modules.Sync.Api`
+```meta
+```
+
+- **Implemented for every endpoint on the surface but the authorization
+  server's.** `Backlog.Modules.Sync.Api`
   maps its `Result` outcomes to RFC 7807 Problem Details through
   `Endpoints/SyncResults.cs`, with `type` set to
   `https://backlog.jsdotnet.dev/problems/{code}` and a `code` extension per
@@ -92,3 +109,16 @@ field. Domain invariants stay enforced in the domain model regardless.
   it saying nothing in the code applies this decision. Promoting it to `active`
   is a decision rather than a correction, so it is left alone here and named as
   the thing to settle.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-11-26 | Recorded the OAuth 2.1 authorization server's endpoints as the exception: they answer RFC 6749 error bodies. | Local ADR 0058 §8 makes the exception, and this record still said every endpoint. |
+| 2026-09-07 | Applied to every endpoint of `Backlog.Modules.Sync.Api`: codes declared in `SyncErrorCodes`, with central exception handling and status code pages. | The Cosmos task replica added the task sync endpoints and their error codes. |
+| 2026-09-07 | Applied first through `Endpoints/SyncResults.cs`, with a `code` extension per failure. | Device pairing and short-lived device tokens needed a failure contract. |
+| 2026-08-27 | Marked proposed locally. | The sync API returned bare status codes, so nothing applied it yet. |
+| 2026-08-27 | Imported from the organization's ADR 0017, decided 2026-06-04. | The guidelines moved into the repository from the guidelines MCP server. |
