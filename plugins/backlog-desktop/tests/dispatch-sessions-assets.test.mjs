@@ -2,7 +2,7 @@
 // stand-in for the app's /session-requests/wait route, manager-call.mjs against a stand-in /mcp,
 // and the PowerShell capacity probe. They spawn processes, which `claude plugin test`'s sandbox
 // cannot, so they run under
-//   node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs
+//   node --test plugins/backlog-desktop/tests/dispatch-sessions-assets.test.mjs
 // Each runs in a fake app data folder (fake-backlog-app.mjs) whose settings.json records the
 // Manager grant and whose headers helper mints "minted-<grant>".
 

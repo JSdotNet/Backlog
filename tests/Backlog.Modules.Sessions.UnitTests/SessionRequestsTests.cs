@@ -582,7 +582,7 @@ public sealed class SessionRequestsTests
     {
         var request = SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", Noon);
 
-        Assert.Equal("/backlog-tools:execute-plan +session-dispatch branch", SessionRequests.BriefFor(request));
+        Assert.Equal("/backlog-desktop:execute-plan +session-dispatch branch", SessionRequests.BriefFor(request));
     }
 
     /// <summary>A plan tag is text a person typed, so one that is not a tag — a space, a

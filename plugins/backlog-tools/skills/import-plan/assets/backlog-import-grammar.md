@@ -379,7 +379,7 @@ Ticket: <value>
 ```
 
 It is prose, not a token: Backlog stores it as text and knows no tracker. `execute-plan` fills
-`{ticket}` with it, per **Repository conventions** in `../../execute-plan/assets/landing-modes.md`.
+`{ticket}` with it, per `../../../resources/repository-conventions.md`.
 
 ## Entry marker
 

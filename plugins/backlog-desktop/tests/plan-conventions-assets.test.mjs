@@ -2,17 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const read = (path) => readFileSync(new URL(`../skills/${path}`, import.meta.url), 'utf8');
+const read = (path) => readFileSync(new URL(path.startsWith('../') ? `../${path}` : `../skills/${path}`, import.meta.url), 'utf8');
 const executePlan = [
   'execute-plan/SKILL.md',
   'execute-plan/assets/landing-modes.md',
   'execute-plan/assets/item-brief.md',
   'execute-plan/assets/handoff.md',
-  'final-check/SKILL.md',
+  '../backlog-tools/skills/final-check/SKILL.md',
+  '../backlog-tools/resources/repository-conventions.md',
 ];
 
 test('the defaults stay today\'s branch names', () => {
-  const modes = read('execute-plan/assets/landing-modes.md');
+  const modes = read('../backlog-tools/resources/repository-conventions.md');
   assert.match(modes, /`entryBranch` \| `\{slug\}\/\{id\}`/);
   assert.match(modes, /`integrationBranch` \| `plan\/\{slug\}`/);
 });

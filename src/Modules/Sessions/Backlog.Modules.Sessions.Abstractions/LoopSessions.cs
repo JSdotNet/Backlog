@@ -171,7 +171,7 @@ public static class LoopSessions
     /// <summary>The <c>/loop</c> command a person starts the loop with.</summary>
     public static string LoopCommandLine(LoopKind kind) => kind switch
     {
-        LoopKind.Dispatcher => "/loop /backlog-tools:dispatch-sessions",
+        LoopKind.Dispatcher => "/loop /backlog-desktop:dispatch-sessions",
         LoopKind.BrainTender => "/loop /backlog-tools:tend-brain",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A loop kind with no command.")
     };

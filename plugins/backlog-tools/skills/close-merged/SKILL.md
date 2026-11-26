@@ -10,7 +10,7 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 An entry is done when its pull request merges into the default branch, or into its plan's
 integration branch — not when it opens. An integration branch is one starting `plan/`, which older
 runs used, or matching `integrationBranch` in `.devbook/backlog-tools.json` with each `{…}` read as
-a wildcard (`../execute-plan/assets/landing-modes.md`, **Repository conventions**). `run-plan-item` and `execute-plan` move it when
+a wildcard (`../../resources/repository-conventions.md`). `run-plan-item` and `execute-plan` move it when
 they find the merge; this skill catches every merge they did not — one made on GitHub's own
 page, or by auto-merge after the session ended.
 

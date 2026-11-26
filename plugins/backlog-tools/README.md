@@ -1,14 +1,19 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Fourteen skills: one for each direction of a plan,
-one for running a whole plan, one for checking it once it has run, one for bringing a
-long-running session's work level with its base branch, one for closing the entries
-whose pull request merged, one for bringing another tool's items into the Inbox, one for the
-remarks a person leaves while reading, one that dispatches the session requests the app
-queues, one that tends a person's Brain, one that runs the weekly review, one that reports what
-the week's runs cost, one that levels a devbook and its code in the direction Backlog keeps,
-and one that keeps a person's goals current — and a pane that follows a running plan.
+general-purpose or devbook tooling — that works on every host, so it is the plugin both Claude
+Desktop and herdr install. Twelve skills: one for each direction of a plan, one for checking a
+plan once it has run, one for bringing a long-running session's work level with its base branch,
+one for closing the entries whose pull request merged, one for bringing another tool's items into
+the Inbox, one for the remarks a person leaves while reading, one that tends a person's Brain, one
+that runs the weekly review, one that reports what the week's runs cost, one that levels a devbook
+and its code in the direction Backlog keeps, and one that keeps a person's goals current.
+
+What only works in Claude Desktop — `execute-plan`, `dispatch-sessions`, the scheduled-run report
+hooks and the plan-progress pane — is in [`backlog-desktop`](../backlog-desktop/README.md); what only
+works in herdr will be in [`backlog-herdr`](../backlog-herdr/README.md). The parts moved out are
+the ones `grep -rlE "start_session|ccd_|send_message|wake_when_done|local_"` listed here, with what
+they import. **Install** below says which to install where.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -61,44 +66,6 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   it has merged into the default branch or a plan integration branch — every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
-- **`execute-plan`** — runs a whole plan, after the pattern of Matt Pocock's
-  `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
-  (`get_plan_items`) or from a file `import-plan` wrote, builds the graph its `after:`
-  tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
-  goes to its own nested session, started with `start_session` in a worktree the host makes and
-  briefed by `skills/execute-plan/assets/item-brief.md`, which switches it to the entry's
-  branch and runs the entry through `run-plan-item` — so every
-  entry passes the repository's gate and its own Personal Validation. Claude Desktop starts a
-  session only on a turn the person typed or one chained to it by sessions finishing, so a
-  start it refuses — on a wake-up, or in a session another started — runs the same brief as a
-  background sub-agent in its own worktree that parks at its gate. Every check watch runs in the
-  foreground to keep the chain. Entries that wait on
-  nothing run in parallel. It always runs unattended and asks the person nothing. Before it
-  starts anything it opens every entry's `Read first:` references and linked Devbook chapters,
-  and holds each entry that names one it cannot reach — blocked, with a `source not reachable`
-  comment — until a later invocation finds the source again.
-  An entry is done when its pull request merges — into `<integration>` in
-  branch mode, into the base branch otherwise; the orchestrator
-  then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
-  listing what they hold up, starts the application in its own worktree for the first one
-  that validates landed work, and resumes from the plan's state when invoked again. Two
-  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *branch*, the
-  default, each into one integration branch, by default `plan/<tag without its +>`, that the
-  orchestrator merges into, ending in a single pull request to the base branch; and
-  *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
-  anything merges and the person merges bottom-up. Each entry parks at its gate and lands as a
-  draft pull request whose body is the review handoff, so the whole plan runs without anyone
-  present and Personal Validation happens on the drafts — in branch mode on the closing draft
-  to the base branch. A failed entry blocks only what depends on
-  it. It titles its own session `<tag>:execute-plan` and each entry session
-  `<n> - <Title>` — the plan tag is already in the parent's name — and a ready entry in
-  another repository is handed to a new session in that repository's checkout running the same plan, per
-  `skills/execute-plan/assets/handoff.md`. Branch names and pull request titles follow the
-  repository's `.devbook/backlog-tools.json`, with an optional ticket the plan supplies and no
-  tracker dependency (**Repository conventions** in `landing-modes.md`). The app itself moves an
-  entry to Done on a merge only into the default branch or `plan/*` (`PullRequestLanding`); under
-  another integration pattern `execute-plan` and `close-merged` do it. User-invoked only. The `UserPromptSubmit` hook
-  stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`final-check`** — the one check at the end of a plan, run in the session that wrote it
   with `import-plan`, since that session still holds the specification — the artifacts it
   published, a design canvas, the plan text. It brings the checkout
@@ -165,69 +132,6 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   repository, whose devbook is read-only (`list_annotations` answers `archived: true`, local
   ADR 0029 §4), and neither does `run-plan-item`'s short form. `run-plan-item` carries a
   short form of the same procedure for the notes an item it just ran leaves answerable.
-- **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
-  ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
-  A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
-  Desktop session. It works under the app's **Manager** grant (`mcpServer.grants.manager`,
-  local ADR 0058), the only grant holding `sessions:dispatch`: the six request and delivery
-  tools go through `assets/manager-call.mjs`, one JSON-RPC call to the app's `/mcp` each, not
-  through the `backlog` server, whose delivery grant the app refuses them. A Monitor runs
-  `skills/dispatch-sessions/assets/wait-requests.mjs`, which takes a Manager token per call
-  the way the telemetry forwarder takes its own (`hooks/backlog-grant.mjs`), loops on
-  `GET /session-requests/wait` — naming the Manager's own session as `sessionId`, so each wait
-  counts as its loop check-in (local ADR 0051 §3) — and prints each item once — an answer delivery (`delivery`,
-  local ADR 0041) before any session request (`request`) — so the Manager spends no turn
-  while nothing is queued; it never polls the request tools in a loop. It delivers first: for
-  each pending delivery whose session the Claude desktop app holds open it claims it
-  (`claim_delivery`), sends "You asked: <question>. The answer from Backlog: <answer>" to the
-  session with `send_message`, which wakes an idle session, and marks it `delivered`, or
-  `released` when the session no longer exists. Its four limits — fewer than 3 of its own linked
-  sessions working, every plan limit under 80%, average CPU under 80% and at least 4 GB free —
-  are arguments with these defaults, and each check-in sends them to the app as `maxSessions`,
-  `maxUsagePercent`, `maxCpuPercent` and `minFreeMemoryGb`. Before each start it reads room from
-  that check-in's answer: `capacity.hasRoom` against those limits, with a start made since the
-  answer counted as one more working session. Only when the answer carries no `capacity`, or its
-  `capacity` lacks a figure — absent, since the server omits a null property, or `null` — does it
-  measure that figure itself before each start, cheapest first: its own linked sessions
-  through `list_sessions` — a session the `backlog` server's `list_sessions` reads `Waiting` on a
-  question does not count — plan usage through `get_usage`, and CPU over 30 seconds and free
-  memory through the PowerShell probe `assets/capacity.ps1`. A request that does not fit stays
-  Requested. In the order the person set in the session queue, it claims the
-  request (`claim_session_request`), starts a local session in the request's clone folder in
-  its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
-  reports it (`mark_session_request` `started`), or gives the claim back (`released`) when
-  the start fails. Claude Desktop starts a session only on a turn the person typed, and
-  refuses one on a `/loop` line, a Monitor event or a wake-up. On those turns the Manager
-  claims nothing, since a claim's lease is two minutes. It proposes each fitting request as a
-  New task card instead, at most three a turn and never twice, and records the card in a
-  scratch file. When a card's session appears among its linked sessions, it claims the
-  request and reports that session `started`. A card whose request left the queue is
-  dismissed. A turn the person typed claims and starts a carded request by its proposal.
-  Fixers are carded the same way. A new request wakes it through the Monitor and a finished session through
-  `wake_when_done`; the `/loop` tick is the fallback only, 300 seconds while usage, CPU or
-  memory holds the queue and 1800 otherwise. On restart it releases the request and delivery
-  claims its dispatcher still holds. The dispatcher is named for the machine, and the skill runs one Manager per
-  machine. A request released after a failed start is skipped for that turn and comes up again
-  on the next tick or re-armed Monitor. With the queue empty and room left it **mends** (local
-  ADR 0038 §6): for each `mend` clone folder — this session's checkout by default, `off` for none —
-  `assets/red-bot-prs.mjs` lists the open pull requests a bot opened on a branch of the repository
-  itself — never a fork's — whose checks all settled with one or more failed, skipping one an open session is bound to, one a fixer titled
-  `CI fix <owner/name>#<number>` still holds, and one that had two fixers; the Manager starts a
-  fixer for each with the fixed brief the script prints, built from the repository, number and
-  head commit alone, so no pull request text reaches it. The fixer fixes on the pull request's own
-  branch through the gate, binds it with Auto-fix on, pushes and stops at Personal Validation, and
-  never merges. The app counts no fixer, so the Manager adds its running ones to the session count; `mend-logic.mjs` holds the
-  decisions the assets test drives. It writes no brief — the app builds each from the request's kind and id — so
-  the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
-  gate like any pasted entry: it changes no file, is no flow, and adds no execution path beside
-  the gate. It needs the `session-requests` flag on in the app. Started by the person alone,
-  yet model-invocable: `/loop` runs its inner command through the Skill tool, which refuses a
-  `disable-model-invocation` skill, so its description confines invocation to that start and
-  `tests/loop-skills.test.mjs` holds every `/loop`-started skill to it. `tests/dispatch-sessions.test.ts` drives the wait
-  script's decisions under `claude plugin test`; the processes themselves — the wait script,
-  `manager-call.mjs` and the capacity probe — run under
-  `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
-  sandbox spawns nothing.
 - **`tend-brain`** — tends a person's Brain, the personal notes folder of local ADR 0026
   (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). Run
   from that folder as `/loop /backlog-tools:tend-brain` (or pass its path). It brings no
@@ -334,14 +238,13 @@ and one that keeps a person's goals current — and a pane that follows a runnin
   and is no flow. `tests/track-goals-tools.test.mjs` holds every tool it names to a tool the
   server has.
 
-`import-plan`, `import-inbox`, `run-plan-item`, `execute-plan`, `final-check`, `catch-up`,
+`import-plan`, `import-inbox`, `run-plan-item`, `final-check`, `catch-up`,
 `close-merged`, `handle-remarks`, `tend-brain`, `weekly-review` and `track-goals` open what they hand back with
-the `show-me` skill's orientation card when it has one, and read as before without it. `devbook-sweep` and
-`dispatch-sessions` run with nobody present and `weekly-cost-analysis` keeps its fixed shape, so
-those three skip it.
+the `show-me` skill's orientation card when it has one, and read as before without it. `devbook-sweep`
+runs with nobody present and `weekly-cost-analysis` keeps its fixed shape, so those two skip it.
 
 `resources/standing-session.md` is how a skill a person keeps running under `/loop` stands out
-as a long-running agent: on its first turn `dispatch-sessions`, `tend-brain` and `track-goals`
+as a long-running agent: on its first turn `dispatch-sessions` (`backlog-desktop`'s), `tend-brain` and `track-goals`
 title their own Claude Desktop session with an icon and an ALL CAPS name (`📡 SESSION DISPATCHER`,
 `🧠 BRAIN TENDER`, `🎯 GOAL TRACKER`), file it under the `Agents` sidebar section and pin it, skipping any step the
 host lacks. Every tick of `dispatch-sessions` and `tend-brain` then opens with the `backlog` server's `check_in` (local ADR 0051 §3),
@@ -351,12 +254,16 @@ the heartbeat, `resume` carries on, and `stop` ends the loop and says so. A loop
 check in — the `sessions` flag off, the app closed — carries on as before. `tend-brain` checks
 in only under `/loop`, so a one-off tick never reads as a loop. `track-goals` does not check in
 yet: `check_in` accepts no kind for it. `tests/loop-skills.test.mjs`
-holds every `/loop`-started skill to all of it, and to the 40-line body budget.
+holds every `/loop`-started skill of this plugin and its siblings in `plugins/` to all of it, and to the 40-line body budget.
 
-`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Twelve
-skills point to it from their report step — `track-goals` except for its `weekly` report, which a
-stakeholder reads in full sentences; `devbook-sweep` and `dispatch-sessions` run with nobody
-present, so they do not.
+`resources/chat-reports.md` is the one statement of how short a skill's chat report is. Eleven
+skills here and `backlog-desktop`'s `execute-plan` point to it from their report step — `track-goals` except for its `weekly` report, which a
+stakeholder reads in full sentences; `devbook-sweep` and `backlog-desktop`'s `dispatch-sessions`
+run with nobody present, so they do not.
+
+`resources/repository-conventions.md` is the one statement of the branch and pull request names a
+plan lands under — the keys of a repository's `.devbook/backlog-tools.json` — read by
+`final-check`, `close-merged` and `backlog-desktop`'s `execute-plan` alike.
 
 ### The devbook sweep routine
 
@@ -422,86 +329,14 @@ read for, so a session is not paying a process spawn on every `Read` and `Grep`.
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
 any error, so a closed app costs a session nothing but a refused connection.
 
-### Scheduled run reports
+`hooks/backlog-grant.mjs` and `tests/fake-backlog-app.mjs` have a byte-identical copy in
+`backlog-desktop`, since an installed plugin reaches no sibling's files: edit them here and copy
+them there, which `backlog-desktop/tests/shared-copies.test.mjs` holds. Its tests run with
+`node --test plugins/backlog-tools/tests/*.test.mjs`.
 
-`hooks/schedule-run-report.mjs` reports each run a Claude Desktop schedule starts to the app's
-Schedules page (local ADR 0051 §1). Such a run's first prompt opens with
-`<scheduled-task name="<taskId>" …>`, and that task id is the schedule's id in Backlog.
-
-- **SessionStart** (`startup`) reads that first prompt from the transcript — Claude Desktop
-  writes it there before the hook fires — and adds context telling the session, before any other
-  work, to look its entry up once with the scheduler tool (`list_scheduled_tasks`) and call
-  `report_schedule_run` with event `started`, its title, cron and repository, and the session id
-  the hook names. A `UserPromptSubmit` hook does the same for a transcript not yet on disk; the
-  shell lets only a prompt carrying `<scheduled-task` through to Node, and a marker per session
-  in the temp folder keeps the context to once.
-- **Stop** posts the finish to `POST /schedule-runs` on the same port and token as `/telemetry`:
-  `skipped`, with the line, when the final message opens with `Skipped:`, and the session id
-  the line names as `heldBy`; `failed`, with the error after it, when it opens with `Failed:`;
-  else `finished` with the report's bold verdict line (its first line of prose when it has
-  none) and the rows under every *Needs you* heading, each as its cells joined by ` · `. The
-  final message is the Stop payload's `last_assistant_message`, else the transcript's last
-  assistant text.
-- **StopFailure** fires instead of Stop when the turn ends on an API error — a rate limit, an
-  overloaded or failing server, a billing or authentication error — and posts `failed` with the
-  error line the session shows as the verdict.
-
-`delivery-schedule`'s skills write no closing line of their own on failure, and its pickup gate's
-`Skipped:` line names the earlier run only by its start time. So the start context also asks the
-run to end a skip with `(session <session_id>)`, the holding run's id from the scheduler's run
-list, and to end on a `Failed: <the error>` line when an error stops it. A run that does neither
-still reports: a skip without `heldBy`, an error as its finish. The app resolves a `local_` id to
-the session that run reported under.
-
-The posts carry the MCP server's own token from `settings.json`. The question hook's token of its
-own (plan `zero-trust-auth`) has not landed, so the route has no narrower token to take yet.
-
-A session no schedule started reports nothing. Like the forwarder, the script gives up after
-two seconds and exits 0 with nothing printed on any error, so a closed app, the `sessions` flag
-off (`404`) or a refused report never fails or holds up the run. Its decisions live in
-`hooks/schedule-run-logic.mjs`; `node --test plugins/backlog-tools/tests/schedule-run-report.test.mjs`
-drives them and the hook process against a stand-in route.
-
-### The plan-progress pane
-
-`hooks/hooks.json` also names a hooks module, `hooks/register.tsx` — Claude Code's function
-hooks, beside the command hooks above. It draws an `execute-plan` run in two places:
-
-- **The band above the prompt**, while any entry is in flow: the plan's tag and done over
-  total, then one row per entry running, at a gate or blocked — its delivery flow's stages
-  (✓ done, ● in progress, ✗ blocked, ‖ parked, – skipped, ○ pending) and the stage it stands at, tagged
-  `gate` or `blocked`. Entries done or manual fold into one `also:` line. A band another plugin
-  draws there, such as `delivery-run-view`'s flow band, stays under it.
-- **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
-  the whole plan as a matrix — every entry a row, every stage a column under its short name
-  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's run and worktree and each block's reason under it.
-  A surface has no `parked` status, so an unattended entry reports the Personal Validation it
-  moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
-  run stopped at.
-
-The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
-
-It writes nothing and calls nothing: it reads the calls the run already makes, so an entry
-session resumed by message, with no `start_session` in this session, has no row until
-`execute-plan` starts a new one for it.
-
-| What it shows | Read from |
-| --- | --- |
-| The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
-| Which session runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `start_session` call's `prompt`, and the `local_…` session id its answer carries — or, for a fallback sub-agent, the spawn's `prompt` and the agent id it answered — change that line and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry session's worktree | The session's `cwd` in a `list_sessions` or `get_session` answer; a fallback's, the `worktree` its own calls name |
-| Each entry's stages | `list_runs` and `get_run` answers on any delivery surface, matched to the entry session by its worktree |
-| How the entry ended | The first line of the session's final message, in a `list_events` answer, or of a fallback's completed turn: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before`. A `SendMessage` to it puts it back to running |
-
-The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
-checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,
-which drive the hooks against the engine and a scripted run (`tests/demo.ts`), and the
-`dispatch-sessions` wait script's decisions. Once Claude
-Code has loaded the plugin from this checkout it lays its declarations in the ignored
-`.claude-plugin/types/`, and `tsc -p plugins/backlog-tools` type-checks the module. Function hooks
-are early access in Claude Code: a release can change the API, and the pane is what breaks.
-
-The plugin ships one manifest, `.claude-plugin/plugin.json`, for Claude Code.
+The plugin ships both manifests: `.claude-plugin/plugin.json` for Claude Code, and
+`.github/plugin/plugin.json` for GitHub Copilot, which lists the skills only — the hooks are
+Claude Code's.
 
 ## Microsoft To Do export
 
@@ -527,9 +362,21 @@ but not `todoTask`. So a task moved between two exports is imported a second tim
 
 ## Install
 
+Three plugins, one marketplace (`jsdotnet-backlog`, `.claude-plugin/marketplace.json` at the
+repository root). `backlog-tools` is the shared one; each host adds its own beside it:
+
+| Host | Install |
+| --- | --- |
+| Claude Desktop | `backlog-tools` and `backlog-desktop` |
+| herdr | `backlog-tools` and `backlog-herdr` |
+
 **Claude Code**, inside a session started at the repository root:
 
 ```
 /plugin marketplace add .
 /plugin install backlog-tools@jsdotnet-backlog
 ```
+
+then `/plugin install backlog-desktop@jsdotnet-backlog` in Claude Desktop, or
+`/plugin install backlog-herdr@jsdotnet-backlog` under herdr. Both declare `backlog-tools` as a
+dependency.
