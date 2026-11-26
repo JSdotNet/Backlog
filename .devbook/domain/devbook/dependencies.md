@@ -26,7 +26,7 @@ type: dependencies
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Brain](../brain/context.md) | Customer/Supplier (Brain = customer), the devbook convention as Published Language | In-process: this context's reading machinery, pointed at the Brain folder | The devbook convention (local ADR 0016); local ADR 0040 | Reading, indexing, rendering and searching a Brain note as it does a repository chapter. |
+| [Brain](../brain/context.md) | Customer/Supplier (Brain = customer), the devbook convention as Published Language | In-process: this context's reading machinery, pointed at the Brain folder; the pane through `Backlog.Modules.Devbook.Contracts.UI` (local ADR 0073 §9) | The devbook convention (local ADR 0016); local ADR 0040 | Reading, indexing, rendering and searching a Brain note as it does a repository chapter. |
 | [Work](../work/domain.plan.md#plan) | Customer/Supplier (Work = customer) | Read-side gather by `<path>#<slug>` reference and by roadmap tag | `.devbook/domain/devbook/domain.md#shared-value-objects` | Chapters resolvable by reference or tag, and their `effort` and `roadmap` metadata. |
 
 - **Brain:** The Brain also relies on its three fields (`para`, `repos`, `tasks`)

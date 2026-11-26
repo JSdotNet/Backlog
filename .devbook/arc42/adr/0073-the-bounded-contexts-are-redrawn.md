@@ -189,8 +189,13 @@ the Inbox only for triage.
 ```meta
 ```
 
-`Backlog.Modules.Brain.UI` reaches Devbook's viewer through a shared component, not through
-`Backlog.Modules.Devbook.UI` (ADR 0067).
+`Backlog.Modules.Brain.UI` reaches the Devbook pane through `Backlog.Modules.Devbook.Contracts.UI`,
+not through `Backlog.Modules.Devbook.UI` (ADR 0067). The contracts project is what the pane
+publishes to a mode from another context: the pane mode `IDevbookPaneMode`, the atlas and
+Lobes, the scope, and the chapter content, editor and parser. The viewer a note is read with,
+`DevbookMarkdownView`, is in `Backlog.UI.Components`, and the chapter model it draws is in
+`Backlog.SharedKernel.Devbook`. Devbook.UI references the contracts project; Brain.UI and
+Devbook.UI never reference each other.
 
 ### 10. Stored values
 
@@ -256,7 +261,7 @@ behind it is dashed.
 - **Fold Goals into Work.** A goal has its own lifecycle, and Work knows no goals (ADR 0028,
   0035).
 - **Expose Devbook's viewer through `Devbook.Abstractions`.** An Abstractions project holds
-  contracts, not screens; a shared component keeps both UI projects free of each other.
+  contracts, not screens; `Devbook.Contracts.UI` keeps both UI projects free of each other.
 - **Keep a Talk note in the Inbox.** It breaks ADR 0054's one-home rule.
 
 ## History
@@ -266,6 +271,7 @@ behind it is dashed.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §9 names the project: Brain.UI reaches the Devbook pane through `Backlog.Modules.Devbook.Contracts.UI` — the pane mode, the atlas and Lobes, the scope, and the chapter content, editor and parser — with the viewer `DevbookMarkdownView` in `Backlog.UI.Components`, where §9 said only *a shared component*. The context map's Devbook–Brain edge, Devbook's dependency row and the building-block view name the same project. | PR #2077 published a wider surface than one component. |
 | 2026-11-26 | §10 for the names agents hold. Renamed: the MCP grant scopes `tasks:read`, `tasks:write` and `tasks:admin` to `work:read`, `work:write` and `work:admin`, each old name read as its new one wherever a scope arrives — a stored grant, an access request and the Unauthenticated row are read under the new names without a version bump, so no token is retired and no grant asks the person again, a token minted before the rename passes a `work:*` policy, and an agent asking for an old name is given the new one; every Goals error code `progress.*` to `goals.*`, `progress.goal_not_found` and `progress.item_in_other_goal` among them, with no read for the old codes, which are answers and never stored. The `track-goals` skill, the Goals chapters and ADRs 0012, 0058, 0059, 0069 and 0071 name the new values; their History rows keep the names they were written with. | Plan entry `agent-facing-renames`. |
 | 2026-11-26 | §10 for Work. Renamed: the SQLite table `roadmap_plan` to `work_plan` and its stamp owners `roadmap` and `journal:roadmap_plan` to `work_plan` and `journal:work_plan`, the row copied once and the old table kept unread; the change journal kind `roadmap-plan` to `work-plan`, the old kind still restored; the phone's table `roadmap_plan` to `work_plan`, renamed once with its cursor kept; the task feed kind token `roadmap-plan` to `work-plan`, in two steps: both tokens are read on desktop and phone from this build, and `roadmap-plan` is still written until no paired device runs a build without that read, because an older phone would list a `work-plan` document as a task; the notification subject context `tasks` to `work`, the old one read as the new; the MCP tool `get_roadmap` to `get_planned_work`, `get_roadmap` kept as its alias and the `backlog-tools` skills switched. Kept, as names of a thing rather than the context: the `tasks` table and its columns, the `task` kind, `planning-pace`, `task-sync-state.json`, `planning-velocity.json`, `my-day-preferences.json`, the `tasks` and `roadmap` surface ids, and the `roadmap` metadata field. | Plan entry `work-stored-values`. |
 | 2026-11-26 | Proposed: Work, Insights, Repositories and Goals; Technology Stack dissolved; Sync, Notifications and the change journal generic, the Calendar and the shell compositions, MCP a channel; Dev PCs owns the Machine; Talk notes move to the Brain on harvest; Brain.UI off Devbook.UI; every old-name stored value renamed with a migration; supplier-to-consumer arrows, unbuilt edges dashed. | The boundary review the person settled for `+boundary-redesign`. |
