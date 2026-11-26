@@ -138,7 +138,9 @@ public sealed class FlatListTests
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='flat-quick-view']")));
 
         Assert.Equal(
-            ["Everything", "My Day 2", "In the queue 0", "Waiting 0"],
+            // Everything counts the open rows of the Flat pool, as My Day does: the
+            // three unplanned open entries and the plan entry in today's My Day.
+            ["Everything 4", "My Day 2", "In the queue 0", "Waiting 0"],
             pane.FindAll("[data-testid='flat-quick-view']").Select(tab => string.Join(' ', Text(tab).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))));
         Assert.Equal("true", pane.Find("[data-testid='flat-quick-view'][data-view='Everything']").GetAttribute("aria-checked"));
         Assert.Equal(["Open", "Draft", "Ready", "In progress", "Done"], pane.FindAll("[data-testid='flat-status-tab']").Select(Text));

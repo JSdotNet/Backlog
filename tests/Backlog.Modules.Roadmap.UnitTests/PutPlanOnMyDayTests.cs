@@ -140,7 +140,7 @@ public class PutPlanOnMyDayTests
         Assert.Equal(1, _plans.Saves);
     }
 
-        private sealed class InMemoryPlans : IRoadmapPlanRepository
+    private sealed class InMemoryPlans : IRoadmapPlanRepository
     {
         public RoadmapPlan Plan { get; private set; } = RoadmapPlan.Empty();
 

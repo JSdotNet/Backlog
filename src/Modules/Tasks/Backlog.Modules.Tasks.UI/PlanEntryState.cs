@@ -96,6 +96,12 @@ public sealed record PlanEntryState(PlanEntryQueueState State, string? Stage = n
         _ => "Done"
     };
 
+    /// <summary>The words a Flat row or Board card shows: <see cref="Label"/>, and for an
+    /// entry in a plan session the stage its run reported, as Now names it —
+    /// <c>In plan session · Implement</c>.</summary>
+    public string RowLabel =>
+        State is PlanEntryQueueState.InPlanSession && !string.IsNullOrWhiteSpace(Stage) ? $"{Label} · {Stage}" : Label;
+
     /// <summary>The state for <paramref name="row"/>, or null when the row is in no plan.</summary>
     /// <param name="row">The entry.</param>
     /// <param name="waiting">Whether the entry waits on another open entry — the Tasks

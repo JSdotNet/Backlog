@@ -1603,7 +1603,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   a test or an idea does not have it, and the row's right-click menu does not offer it.
 - **A plan is queued only as a whole** (local ADR 0072). On a plan entry, one whose
   plan a roadmap item carries, the entry's queue icon is disabled, and its tooltip says
-  "Queued with its plan — queue the plan as a whole". The plan's own icon queues it, on
+  "Queued with its plan — queue the plan as a whole". Its name names the plan, as in
+  `Queue the +plan-first-tasks plan as a whole — its entries are not queued one by one`.
+  The plan's own icon queues it, on
   its rail row in the [Plans view](../tasks/features.md#plans-view), in its waves view,
   beside the pressed plan chip and in its roadmap item's dialog. A plan session runs
   unattended and asks nothing (local ADR 0038).
@@ -1615,7 +1617,7 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   | Landed | Its pull request merged into the plan branch. |
   | Left for you | A `test` or `task` entry, which the run never does. |
   | Held for you | The entry is blocked: `execute-plan` blocks an entry whose Read-first source it cannot read, so the run holds it. |
-  | In plan session | A plan session runs the entry: the run reports a stage for it, or it is In progress with a linked session. |
+  | In plan session | A plan session runs the entry: the run reports a stage for it, or it is In progress with a linked session. Outside the Plans view it reads `In plan session · <stage>` when the run reports a stage. |
   | Waiting | The entry is not Ready, or it waits on another open entry. |
   | Queued with plan | The plan is queued and the entry is ready. |
   | Ready | The plan is not queued and the entry is ready. |
@@ -1656,9 +1658,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   open request carries a waiting mark inside the chip, and its tooltip and name gain
   the same sentence. On the roadmap, the item's bar that ends last shows a waiting
   mark after its title, and its tooltip gains a line
-  saying which of the three it is. Cancel is offered only while Requested: the
-  queue would also cancel a Claimed request, but a dispatcher is already
-  starting the session by then.
+  saying which of the three it is. The chip offers Cancel only while Requested: it
+  withdraws a request no dispatcher has picked up yet. Once the request is Claimed or
+  Started, Cancel lives in the session queue.
 - **The session queue is a column docked beside the Tasks list** (local ADR 0072). Its
   groups, top to bottom:
   - **Needs you**: a session's question, with **Answer**, and a draft pull request
@@ -1687,8 +1689,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover
   lists the Claimed and Started requests first, then the Requested ones in queue order,
   each with the entry's title or the plan's `+tag`, the repository, its state and how
-  long ago it was asked. Cancel is offered while Requested, and while Started, so a
-  request whose session never called `link_session` can be cleared; Claimed offers none.
+  long ago it was asked. Cancel is offered while Requested, Claimed and Started, so a
+  request whose session never called `link_session`, or a claim that never starts one,
+  can be cleared.
   Following a row opens the entry or presses the plan's chip and closes the popover. An entry outside the loaded
   rows reads "Entry not in this view" and cannot be followed.
 - **Reordering the queue.** A Requested row offers Move up, Move down and Move to top,

@@ -209,7 +209,15 @@ person closed it. Such a request read Started with nothing to end it. The person
 cancel a Started request from the session queue, and it is Cancelled like any other.
 Cancelling stops no session. A `link_session` that comes later links nothing, because
 only a Started request is linked. A Claimed request still offers no Cancel in the app,
-because a dispatcher is starting its session right then. Requests still never expire.
+because a dispatcher is starting its session right then. *(Superseded 2026-11-26 by the
+amendment below: a Claimed request offers Cancel too.)* Requests still never expire.
+
+**Amended 2026-11-26: a Claimed request can be cancelled too.** The person could not take
+back a claim whose session never starts. The session queue, the column docked
+beside the Tasks list and its popover in a narrow window, now offers Cancel on a Claimed
+request, as the state diagram's `Claimed --> Cancelled` already allows. Cancelling stops
+no session already started, and a later `link_session` links nothing. The owner decided
+this on 2026-11-26.
 
 **Amended 2026-11-18: a finished request leaves the queue.** The person can finish the
 work a request names without its session: mark the entry Done in the app, or every entry
@@ -495,6 +503,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §3 amended: the session queue offers Cancel on a Claimed request too, as the state diagram allows. It stops no session already started, and a later `link_session` links nothing. It replaces the 2026-11-18 sentence that a Claimed request offers no Cancel. Built in PR #2089. | The owner wanted a claim whose session never starts to be taken back. |
 | 2026-11-26 | §7 added, §1 amended: the Manager starts, once each, the hand-off line a plan session it started writes in its report, in that repository's known clone folder with the fixed `execute-plan` prompt, and follows the plan's progress read-only. No session request, tool or grant is added. | A plan session another session started cannot start sessions, so its hand-off waited for the person to copy a printed prompt. |
 | 2026-11-26 | Proposed, §4 and §6 amended: the dispatcher is a role that acts on sessions only through a session-host port of five operations — start in a new worktree with the fixed brief, report its id, list, read state (working, waiting, idle), deliver a message — and claims with the Manager grant; a dispatcher is a skill a person starts by hand in a long-running session of the host; host skills ship in `backlog-desktop` and `backlog-herdr` beside `backlog-tools`; the fixer's brief is "watch your pull request's checks and fix them". Queue, lease, pause, order and trust unchanged. The §2 table's stray 2026-11-18 row moved here. | The record named one host, and the person moves dispatch to another; the queue never depended on which (plan `agent-factory`, item `adr-session-host-port`). |
 | 2026-11-23 | §6 added, §1 amended: after the queue, the Manager starts one fixer session per bot-opened pull request on the repository's own branch whose settled checks fail and that no session watches, at most two per pull request, with a fixed brief from repository, number and head commit. | Dependency bumps sat open for days on one red check, and no session owned them. |

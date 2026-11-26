@@ -12,7 +12,7 @@ public class QuietTaskRowStylesheetTests
 {
     [Theory]
     [InlineData(@"\.badge--status-inprogress\) \{", "var(--color-text-secondary)")]
-    [InlineData(@"\.badge--status-ready \{", "var(--color-band-2)")]
+    [InlineData(@"\.badge--status-ready \{", "var(--color-text-secondary)")]
     [InlineData(@"\.badge--status-archived\) \{", "var(--color-text-disabled)")]
     [InlineData(@"\.task-item--blocked-flag[^\n]*\.badge--status \{", "var(--color-error-text)")]
     public void A_quiet_status_is_text_in_its_states_ink(string selectorEnd, string ink)

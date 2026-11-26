@@ -1,4 +1,5 @@
 using Backlog.SharedKernel;
+using Microsoft.AspNetCore.Components;
 
 namespace Backlog.Desktop.UI.Shell;
 
@@ -103,4 +104,13 @@ public static class SurfaceWindowRoute
     /// key given twice keeps its first value. <see cref="SurfaceLink.QueryOf"/> reads
     /// it, as it reads a <c>backlog://window/…</c> link's.</summary>
     public static Dictionary<string, string> QueryOf(string uri) => SurfaceLink.QueryOf(uri);
+
+    /// <summary>Whether <paramref name="navigation"/> stands on this route — a popped-out
+    /// window's page, whether or not its head named the window by a key: the harness and
+    /// the desktop app's served pages render it with none.</summary>
+    public static bool IsCurrent(NavigationManager navigation)
+    {
+        ArgumentNullException.ThrowIfNull(navigation);
+        return navigation.ToBaseRelativePath(navigation.Uri).StartsWith("window/", StringComparison.OrdinalIgnoreCase);
+    }
 }
