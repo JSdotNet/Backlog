@@ -39,6 +39,9 @@ public abstract class EventsPaneFixture
 
     internal FakeEventBrainNotes Brain { get; } = new();
 
+    /// <summary>The Inbox and the Brain a harvest files Talk notes through, shared by both panes.</summary>
+    internal FakeEventTalkNotes TalkNotes { get; } = new();
+
     /// <summary>The geocoder both panes here send an address to; it answers nothing until a
     /// test tells it what a town is.</summary>
     internal FakeAddressGeocoder Geocoder { get; } = new();
@@ -71,7 +74,7 @@ public abstract class EventsPaneFixture
 
     private EventsPane Over(FakeEventTaskTarget tasks, FakeEventBrainNotes brain)
     {
-        var pane = new EventsPane(Store, Series, tasks, brain, new HarvestTaskPolicy(Store, tasks), _clock, Geocoder, Announced);
+        var pane = new EventsPane(Store, Series, tasks, brain, new HarvestTaskPolicy(Store, tasks, saved: Announced, talkNotes: TalkNotes), _clock, Geocoder, Announced);
         _panes.Add(pane);
         return pane;
     }

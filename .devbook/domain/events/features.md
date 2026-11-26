@@ -171,7 +171,9 @@ related: [.devbook/domain/events/domain.md#note-link, .devbook/domain/brain/doma
 
 The person links Brain notes holding the takeaways, and Talk notes taken on the
 phone. Each link opens its note: a Brain note in the Devbook on the Brain side, a
-Talk note in the Inbox, in the list it is filed in. While the Inbox is off, a Talk note shows without the jump. The note picker narrows its
+Talk note in the Inbox, in the list it is filed in. While the Inbox is off, a Talk note shows without the jump. A Talk note
+is linked from the Inbox only until the event is harvested, which files it into the
+Brain ([Harvest task](#harvest-task)). The note picker narrows its
 list to the notes whose title or path holds what is typed. A Brain path names one
 note whatever its case, and with or without `./`, so a note is never linked twice. A
 Brain note no longer at its path shows as missing, and the person can link it again.
@@ -226,13 +228,20 @@ it carries no field, tag or link naming it.
 ```meta
 type: feature
 feature-flag: .devbook/domain/events/context.md#events-area
-related: [.devbook/domain/events/requirements.md#harvest-task, .devbook/domain/events/domain.md#harvest-task-policy, .devbook/domain/events/context.md#desktop-clock]
+related: [.devbook/domain/events/requirements.md#harvest-task, .devbook/domain/events/domain.md#harvest-task-policy, .devbook/domain/events/context.md#desktop-clock, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/brain/domain.md#knowledge-note]
 ```
 
 The day after a Going event ends, a task `Harvest <event title>` appears under the
 Brain scope, linked to the event. It reminds the person to write up the takeaways.
 Marking the event Harvested completes the task. No notification is raised: the
 task is the reminder.
+
+Marking the event Harvested also files its Talk notes into the Brain. Each Talk
+note still open in the Inbox, with no photo or recording attached, becomes a new note in the Brain's inbox with its words
+unchanged, the event links it there by its Brain path, and the Inbox note is
+archived (local ADR 0073 §8). With no Brain set, the Talk notes and their links stay
+as they are, and so does a Talk note with files attached. When `tend-brain` later files a note away, its link shows as missing,
+as any moved Brain note does.
 
 The [Harvest Task Policy](domain.md#harvest-task-policy) does the work. An event the
 person marked Attended before its end day passed gets no harvest task in the first

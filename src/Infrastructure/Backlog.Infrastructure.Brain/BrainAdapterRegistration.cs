@@ -24,7 +24,7 @@ public static class BrainAdapterRegistration
     /// Registers the Brain's adapters: its settings file, its folder source under
     /// the Brain's port and Devbook's personal-source port, the note writer and the
     /// link writer, the backlink and task-link readers, the folder watch, Show hidden, the
-    /// Inbox's To Brain target, and Events' note-link read. Call after the
+    /// Inbox's To Brain target, Events' note-link read and its harvest of Talk notes. Call after the
     /// <see cref="DevbookDatabaseRefresher"/> is registered, which the watch
     /// resolves; each head starts the watch after <c>Build()</c>.
     /// </summary>
@@ -124,6 +124,16 @@ public static class BrainAdapterRegistration
         // reason above: the Events registration leaves an every-note-missing stand-in.
         services.Replace(ServiceDescriptor.Singleton<IEventBrainNotes>(sp =>
             new EventsBrainNotes(sp.GetRequiredService<IBrainFolderSource>())));
+
+        // A harvested event's Talk notes, written into the Brain's inbox through the note
+        // writer above and archived in the Inbox (local ADR 0073 §8). Replace, for the same
+        // reason: the Events registration leaves a stand-in that keeps every note where it is.
+        // Scoped, for the Inbox's scoped port it holds; a host without the Inbox keeps every
+        // note where it is.
+        services.Replace(ServiceDescriptor.Scoped<IEventTalkNotes>(sp => new EventsTalkNotes(
+            sp.GetService<IInboxItems>(),
+            sp.GetRequiredService<IBrainNoteWriter>(),
+            sp.GetService<IInboxChangeSignal>())));
 
         return services;
     }

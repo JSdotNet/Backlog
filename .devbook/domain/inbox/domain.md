@@ -657,7 +657,9 @@ it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
 [To Brain](features.md#route-to-brain) writes a Brain note from it. The
 Capture context's [talk note](../capture/features.md#talk-note) is a note
-written on the phone.
+written on the phone. Its home is the Inbox only until the event it is attached
+to is marked Harvested: Events then writes it into the Brain's inbox and archives
+it here (local ADR 0073 §8). With no Brain set it stays.
 
 A recording added to a note later leaves it a note. Only an item started as a
 meeting is a [Meeting](#meeting).
