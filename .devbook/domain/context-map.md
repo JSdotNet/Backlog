@@ -72,7 +72,7 @@ flowchart LR
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Work
     Inbox -->|OHS + Published Language<br/>ItemTriaged: To Brain| Brain
     Work <-->|Partnership<br/>Task links by id| Brain
-    Devbook -->|"Customer/Supplier<br/>Reader, database builder, viewer, search, remarks<br/>Every registered devbook, read-only"| Brain
+    Devbook -->|"Customer/Supplier<br/>Reader, database builder, viewer, search, remarks<br/>Pane through Devbook.Contracts.UI<br/>Every registered devbook, read-only"| Brain
     Brain -.->|"One-way reference<br/>repo: link to a repository chapter"| Devbook
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Brain
     %% Tasks and Roadmap Planning merged into Work (local ADR 0073 §1): the task

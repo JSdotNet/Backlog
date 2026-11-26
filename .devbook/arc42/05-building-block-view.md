@@ -93,7 +93,7 @@ flowchart TB
   InboxQueue -->|To Brain| BrainSvc
   InboxQueue -->|To Event| EventsSvc
   WorkSvc <-->|task links by id| BrainSvc
-  DevbookSvc -->|reader, viewer, search| BrainSvc
+  DevbookSvc -->|"reader, viewer, search;\npane via Devbook.Contracts.UI"| BrainSvc
   DevbookSvc -->|chapters by tag| WorkSvc
   WorkSvc -->|task by id, plan tag| GoalsSvc
   WorkSvc -->|prep and harvest tasks| EventsSvc
@@ -151,6 +151,8 @@ graph TB
       WorkUI["Backlog.Modules.Work.UI\n(Tasks pane, Roadmap view)"]
       InboxUI["Backlog.Modules.Inbox.UI"]
       DevbookUI["Backlog.Modules.Devbook.UI"]
+      DevbookContractsUI["Backlog.Modules.Devbook.Contracts.UI\n(pane mode, atlas, Lobes, scope,\nchapter content, editor, parser)"]
+      BrainUI["Backlog.Modules.Brain.UI"]
       InsightsUI["Backlog.Modules.Insights.UI"]
       CaptureUI["Backlog.Modules.Capture.UI"]
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
@@ -219,6 +221,8 @@ graph TB
 
   WorkUI --> Copilot & GitHubInfra
   DevbookUI --> DevbookInfra & Copilot & GitHubInfra
+  DevbookUI -->|publishes the pane to a mode| DevbookContractsUI
+  BrainUI -->|IDevbookPaneMode| DevbookContractsUI
 
   Work --> Sqlite
   Inbox --> Sqlite

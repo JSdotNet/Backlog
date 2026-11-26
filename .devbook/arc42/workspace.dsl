@@ -128,7 +128,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         backlog.desktop.work -> backlog.desktop.repositories "Reads linked pull-request state, through an adapter"
         backlog.desktop.goals -> backlog.desktop.repositories "Reads goal pull-request state, through an adapter"
         backlog.desktop.repositories -> backlog.desktop.persistence "Remembers merged pull requests"
-        backlog.desktop.brain -> backlog.desktop.devbook "Is indexed and read by the devbook builder"
+        backlog.desktop.brain -> backlog.desktop.devbook "Is indexed and read by the devbook builder, and opens in its pane through Devbook.Contracts.UI"
         backlog.desktop.events -> backlog.desktop.persistence "Reads and writes knowledge events and series"
         backlog.desktop.events -> backlog.desktop.work "Files prep and harvest tasks, through an adapter"
         backlog.desktop.events -> backlog.desktop.brain "Reads the notes an event links, through an adapter"
