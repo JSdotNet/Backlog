@@ -332,7 +332,7 @@ Rules:
 ## Band Identity Tokens
 
 ```meta
-related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast", ".devbook/domain/roadmap/features.md#repository-scoped-planning"]
+related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast", ".devbook/domain/work/features.md#repository-scoped-planning"]
 ```
 
 A workspace holds several repositories at once. A reader needs to tell one
@@ -708,7 +708,7 @@ at the top of this file shows where each family takes its values from.
 ### Badge and chip tones
 
 ```meta
-related: [".devbook/domain/roadmap/requirements.md#requirement-a-bar-whose-window-ended-with-its-work-open-is-drawn-as-an-alert"]
+related: [".devbook/domain/work/requirements.md#requirement-a-bar-whose-window-ended-with-its-work-open-is-drawn-as-an-alert"]
 ```
 
 A badge is a value with a class on it, and the class is what says which family

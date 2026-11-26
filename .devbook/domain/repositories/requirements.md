@@ -87,7 +87,7 @@ The system SHALL read nothing from GitHub for an archived repository in the Pull
 
 ```meta
 type: requirement
-related: [.devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/domain/tasks/features.md#board-view]
+related: [.devbook/domain/work/features.md#search-filter-and-organize, .devbook/domain/work/features.md#board-view]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.An_archived_repository_has_no_scope_chip_while_show_archived_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.Turning_show_archived_on_offers_the_archived_repository_marked_and_remembers_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksArchivedRepositoryTests]
 ```
 
@@ -143,7 +143,7 @@ The system SHALL remember whether show archived is on for this device, and not c
 
 ```meta
 type: requirement
-related: [.devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/work/features.md#search-filter-and-organize]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_drops_a_repository_archived_since_while_show_archived_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_keeps_an_archived_repository_while_show_archived_is_on]
 ```
 
@@ -165,11 +165,11 @@ The system SHALL drop an archived repository from a remembered scope when the sc
 
 ```meta
 type: requirement
-related: [.devbook/domain/tasks/features.md#linked-tasks, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+related: [.devbook/domain/work/features.md#linked-tasks, .devbook/domain/work/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.LinkedTaskSyncWorkerTests.A_tick_skips_a_target_whose_repository_is_archived_until_it_is_unarchived, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_repository_is_archived_is_paused_with_no_fetch_and_nothing_written]
 ```
 
-The system SHALL not sync a [Connected Target](../tasks/domain.md#connected-target) while the repository it is filed under is archived, and leave the target's settings and its enabled state as they were.
+The system SHALL not sync a [Connected Target](../work/domain.md#connected-target) while the repository it is filed under is archived, and leave the target's settings and its enabled state as they were.
 
 #### Scenario: The sync interval passes
 
@@ -187,7 +187,7 @@ The system SHALL not sync a [Connected Target](../tasks/domain.md#connected-targ
 
 ```meta
 type: requirement
-related: [.devbook/domain/tasks/domain.md#task-status]
+related: [.devbook/domain/work/domain.task.md#task-status]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_asks_about_the_open_tasks_and_moving_them_files_them_under_the_other_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_open_tasks_can_only_move_to_another_active_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_and_dropping_the_open_tasks_drops_them_and_archives, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Keeping_the_open_tasks_archives_and_the_archived_row_offers_the_choice_later, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_refused_move_leaves_the_repository_active_and_says_why, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RefileRepositoryTasksTests]
 ```
 
@@ -203,7 +203,7 @@ The system SHALL offer, on archiving and afterwards from the archived row, to mo
 
 - **Given** `budgetbeheer` has three open tasks
 - **When** the person archives `budgetbeheer` and chooses to drop its open tasks
-- **Then** each of the three takes the `archived` [Task Status](../tasks/domain.md#task-status), stays filed against `budgetbeheer`, and no task is deleted
+- **Then** each of the three takes the `archived` [Task Status](../work/domain.task.md#task-status), stays filed against `budgetbeheer`, and no task is deleted
 
 #### Scenario: Keeping the open tasks
 
@@ -227,7 +227,7 @@ The system SHALL offer, on archiving and afterwards from the archived row, to mo
 
 ```meta
 type: requirement
-related: [.devbook/domain/roadmap/features.md#reading-the-plan-by-repository]
+related: [.devbook/domain/work/features.md#reading-the-plan-by-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_in_the_drawn_window_draws_the_archived_band_marked_archived, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Finished_work_before_the_drawn_window_draws_no_band_until_the_window_reaches_back_to_it]
 ```
 
@@ -250,7 +250,7 @@ The system SHALL draw an archived repository's band, greyed, tagged Archived, wi
 
 ```meta
 type: requirement
-related: [.devbook/domain/roadmap/features.md#reading-the-plan-by-repository]
+related: [.devbook/domain/work/features.md#reading-the-plan-by-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Open_work_of_an_archived_repository_is_drawn_in_no_band_and_not_under_no_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewArchivedTests.Show_archived_draws_the_whole_band_with_its_open_work, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandArchivedTests.Show_archived_on_draws_the_whole_band_greyed_and_tagged_archived]
 ```
 

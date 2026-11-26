@@ -105,7 +105,7 @@ public sealed class TaskItem
 
     /// <summary>The notification whose answer asked for this entry — an Approve +
     /// follow-up answer to a delivery run's Personal Validation question — or null
-    /// when no answer did (<c>.devbook/domain/tasks/domain.md#task</c>). Provenance on
+    /// when no answer did (<c>.devbook/domain/work/domain.task.md#task</c>). Provenance on
     /// <see cref="RecurrenceSourceId"/>'s terms, set once at birth and never edited,
     /// and also the key that keeps a second delivery of the same answer from filing a
     /// second follow-up.</summary>
@@ -251,7 +251,7 @@ public sealed class TaskItem
     /// while it is not marked. Two things in this product are called blocked, and
     /// this is the stored one: the other is the <c>Blocked</c> readiness a
     /// dependency chain derives, which is worked out from the other entries and
-    /// never written down (<c>.devbook/domain/tasks/domain.md#readiness</c>). This
+    /// never written down (<c>.devbook/domain/work/domain.task.md#readiness</c>). This
     /// one is somebody saying that something outside the backlog — a person, a
     /// vendor, an environment — is in the way, which no chain can know. A date
     /// rather than a flag on the same terms as <see cref="CompletedOn"/>, so the
@@ -260,7 +260,7 @@ public sealed class TaskItem
     public DateOnly? BlockedSince { get; private set; }
 
     /// <summary>Who the entry waits on and when to follow up, or null when it waits
-    /// on nobody (<c>.devbook/domain/tasks/domain.md#waiting-for</c>). Not the hand-set
+    /// on nobody (<c>.devbook/domain/work/domain.md#waiting-for</c>). Not the hand-set
     /// <see cref="BlockedSince"/> and not an Impediment: it names a party the person
     /// is waiting to hear from. No lifecycle rule reads it.</summary>
     public WaitingFor? WaitingFor { get; private set; }
@@ -515,7 +515,7 @@ public sealed class TaskItem
     /// agenda time. An entry with no <see cref="InMyDayOn"/> has no day for the
     /// time to fall in, so it holds none — the value is dropped rather than
     /// refused, the way the parser drops what it cannot place
-    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    /// (<c>.devbook/domain/work/domain.task.md#agenda-time</c>).</summary>
     public void SetAgendaTime(AgendaTime? agendaTime)
     {
         AgendaTime = InMyDayOn is null ? null : agendaTime;

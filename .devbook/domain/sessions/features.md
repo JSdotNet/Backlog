@@ -709,7 +709,7 @@ about matches no chapter.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/work/features.md#acceptance-from-scenario-parts]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Update_stage_passes_the_verify_evidence_through_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_verify_stage_keeps_its_scenario_evidence_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenario_evidence_is_read_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_verify_stage_shows_its_scenario_evidence_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_with_no_evidence_draws_no_evidence_list, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenarios_are_read_with_their_screenshots, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_links_are_read_as_recorded, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_link_that_is_not_http_https_or_file_is_left_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_scenarios_list_their_screenshots_in_its_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_links_are_drawn_in_its_panel, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_verify_stage_shows_its_scenario_evidence_and_screenshots]
 ```
 
@@ -1578,7 +1578,7 @@ The area has one switch, because "should this product show me sessions at all" i
 ```meta
 type: feature
 feature-flag: .devbook/domain/sessions/context.md#session-requests
-related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/features.md#plans-view]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/work/features.md#copy-as-a-runnable-paste, .devbook/domain/work/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/work/features.md#plans-view]
 ```
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
@@ -1604,7 +1604,7 @@ decides it, and it sits behind the `session-requests` flag, off by default.
 - **A plan is queued only as a whole** (local ADR 0072). On a plan entry, one whose
   plan a roadmap item carries, the entry's queue icon is disabled, and its tooltip says
   "Queued with its plan — queue the plan as a whole". The plan's own icon queues it, on
-  its rail row in the [Plans view](../tasks/features.md#plans-view), in its waves view,
+  its rail row in the [Plans view](../work/features.md#plans-view), in its waves view,
   beside the pressed plan chip and in its roadmap item's dialog. A plan session runs
   unattended and asks nothing (local ADR 0038).
 - **A plan entry shows the state its plan's run gives it**, as coloured text on its row:
@@ -1636,15 +1636,15 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   disabled. Its tooltip and screen-reader text name the missing clone folder or say no repository is named. An archived repository is not offered.
 - **Queue a session for the plan** is a queue icon in the dialog of a saved roadmap item
   that has a tag. It sits beside the item's
-  [tag copy button](../roadmap/features.md#tagging-planned-work), which copies the tag
-  with its [plan sigil](../roadmap/domain.md#plan-sigil), such as `+plan`. A new item,
+  [tag copy button](../work/features.md#tagging-planned-work), which copies the tag
+  with its [plan sigil](../work/domain.md#plan-sigil), such as `+plan`. A new item,
   or one without a tag, has neither.
 - The plan's icon is named for the tag with its sigil, as in "Queue a session for the
   +plan plan". It asks for the item's tag in the first of the item's repositories that
   has a clone folder, so there is nothing to choose. When none has one, the icon
   is disabled with the same reason.
 - The same plan icon sits beside the copy of the pressed
-  [plan chip on the Tasks filter bar](../tasks/features.md#search-filter-and-organize),
+  [plan chip on the Tasks filter bar](../work/features.md#search-filter-and-organize),
   on the same terms and with the same name. A plan that no roadmap item carries has no
   icon there, because the session starts in the item's repositories.
 - A request that is queued says so in a toast, "Asked for a session in" its repository,

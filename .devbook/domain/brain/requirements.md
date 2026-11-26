@@ -8,7 +8,7 @@ related: [.devbook/domain/brain/features.md]
 > What the Brain's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it. They belong
 > to the plan `+brain`: the roadmap item tagged `brain`, written with its
-> [Plan Sigil](../roadmap/domain.md#plan-sigil). That plan builds local
+> [Plan Sigil](../work/domain.md#plan-sigil). That plan builds local
 > [ADR 0026](../../arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md)
 > and local ADR 0027.
 

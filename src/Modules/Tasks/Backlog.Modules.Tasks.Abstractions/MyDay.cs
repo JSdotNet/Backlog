@@ -2,7 +2,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
 /// Whether a task is in the reader's My Day — the one rule the desktop and the phone
-/// both read (local ADR 0032, §5; <c>.devbook/domain/tasks/domain.md#my-day</c>).
+/// both read (local ADR 0032, §5; <c>.devbook/domain/work/domain.md#my-day</c>).
 /// <para>
 /// A task is in today's My Day while its <c>myday:</c> stamp is today. With Clear My
 /// Day overnight off, a task with an earlier stamp carries over until it is finished:
@@ -35,7 +35,7 @@ public static class MyDay
     /// <summary>
     /// Whether the task was planned for <paramref name="today"/> itself — the stamp is
     /// today, not carried from an earlier day. An agenda slot belongs to the stamp's
-    /// day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>), so only such a task
+    /// day (<c>.devbook/domain/work/domain.task.md#agenda-time</c>), so only such a task
     /// shows one; a carried task is in My Day without a slot.
     /// </summary>
     public static bool IsPlannedFor(DateOnly? stamp, DateOnly today) => stamp == today;

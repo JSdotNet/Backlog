@@ -136,7 +136,7 @@ The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, whic
 ## Task Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/domain.md#ownerid", ".devbook/domain/tasks/domain.md#task"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/domain.md#ownerid", ".devbook/domain/work/domain.task.md#task"]
 ```
 
 Local ADR 0005 settles the direction for the Task aggregate. All of it is built, including the identity model (pairing, tokens and the query-scoping check) and the Cosmos replica with its change feed and reconciliation.
@@ -169,7 +169,7 @@ sequenceDiagram
 
 - **Every task carries `updated_at` and `deleted_at`.** The device stamps the
   first on each mutation. The second marks a tombstone
-  (`.devbook/domain/tasks/domain.md#tombstone`), because a deletion has to
+  (`.devbook/domain/work/domain.md#tombstone`), because a deletion has to
   replicate and a row that is simply gone cannot.
 - **The server orders, the device does not.** Two machines' clocks disagree, and
   last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
@@ -564,7 +564,7 @@ screen can be relied on.
 ## Tagging and Organization
 
 ```meta
-related: [".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/domain/work/domain.md#roadmap-item-gathering"]
 ```
 
 Items carry several `#tags` embedded inside markdown. Project tags, cross-cutting tags and PARA-inspired grouping (Projects, Areas, Resources, Archive) all use them, and a tag index enables search across all domains.
@@ -847,7 +847,7 @@ client branches on.
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/work/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -857,14 +857,14 @@ boundaries, which makes them an architectural concern:
 | Type | Owning aggregate |
 |---|---|
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
-| **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
+| **TaskItem** (ubiquitous term: Task) | `.devbook/domain/work/domain.task.md#task` |
 | **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
 | **SessionLog** | `.devbook/domain/sessions/domain.md#session-log` |
 | **RepositoryRegistration** | `.devbook/domain/repositories/domain.md#repository-registry` |
 
-**Effort** (`.devbook/domain/tasks/domain.md#effort`) is the one shared *scalar*
+**Effort** (`.devbook/domain/work/domain.md#effort`) is the one shared *scalar*
 rather than a shared type. It appears in three places:
 
 - on tasks;

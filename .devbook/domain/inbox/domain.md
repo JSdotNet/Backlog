@@ -401,7 +401,7 @@ and then removes the group, so no list is ever deleted by deleting its group.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/brain/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/features.md#import, .devbook/domain/brain/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand, MergeIntoTaskCommand, InboxMergeRequestDto]
 ```
@@ -716,7 +716,7 @@ side menu.
 ```meta
 type: term
 aliases: [DependencyTier, ProposedDependency, Stated, Inferred]
-related: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
+related: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#batch, .devbook/domain/work/features.md#import]
 ```
 
 How sure the Inbox is of a dependency it proposes before a [batch](#batch)

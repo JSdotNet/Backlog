@@ -375,7 +375,7 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [ownerInstanceId]
-related: [.devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/work/domain.md#device]
 ```
 
 The desktop app instance that published a notification, named by its device

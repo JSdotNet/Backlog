@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The Tasks list's <b>Plans / Flat</b> switch and the Plans view's rail (local ADR 0072
-/// §1, §2; <c>.devbook/domain/tasks/features.md#plans-view</c>).
+/// §1, §2; <c>.devbook/domain/work/features.md#plans-view</c>).
 /// <para>
 /// The switch is the window's view choice: the host remembers it beside the Board's
 /// columns and hands it back as <see cref="ListGrouping"/>, opening on Plans the first

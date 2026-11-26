@@ -14,63 +14,12 @@ its code is still `Backlog.Modules.Dashboard` until that module is renamed
 
 Inside the boundary: the productivity ledger and the summaries read off it, the
 dashboard that reads across the other contexts and points at what needs the person,
-and the choices that shape how a week is read:
+and the choices that shape how a week is read: the weekly reset of the assistant's
+allowance and the monthly spend budget for each assistant, which stay on each device.
+The hour grids outline the reader's [working week](../work/context.md#working-week),
+which [Work](../work/context.md) owns with the rest of capacity (local ADR 0073 §1).
 
-- the reader's working week, which follows them between devices;
-- the weekly reset of the assistant's allowance and the monthly spend budget for each assistant, which stay on each device.
-
-Outside it: task and plan work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task), [Roadmap Planning](../roadmap/domain.md#roadmap-item) and [Repositories](../repositories/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers; drift verdicts, which [Devbook](../devbook/domain.md#sync-verdict) answers. Insights writes into none of them: an item on the dashboard only points at the tab that holds its evidence. Team monitoring and scanning across repositories are not part of it (local ADR 0073 §2). The model is in [domain.md](domain.md).
-
-## Working week
-
-```meta
-type: setting
-key: working-hours.json
-scope: user
-default: Monday to Friday 09:00-17:30; Saturday and Sunday not worked
-related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/features.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
-```
-
-```mermaid
-flowchart LR
-    Week[Working week] -->|outlined, nothing recomputed| Grids[Hour grids]
-    Week -->|counted, days not worked skipped| Roadmap
-    Week --> Hours[Hours worked]
-    Roadmap -->|sets| Override[Day override]
-    Override --> Hours
-```
-
-Which hours the reader meant to be working, as seven independent days. Each day is worked or not, with its own start and end. The setting holds seven days rather than one range plus a set of working days.
-
-- **Why:** a single range cannot say that a reader starts at seven on Fridays.
-
-On the dashboard the working week is presentation only. The hour grids outline the hours the week claims, and nothing else changes: no figure is recomputed and no work is excluded. Agent-active time at eleven at night counts as much as time at eleven in the morning. A grid that quietly dropped out-of-hours work would answer a different question from the one its tile is named for. The outline lets the reader see the difference.
-
-The roadmap does count it ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md), proposed). A plan sized by its effort is counted over the hours this week claims and skips the days not worked. A pace's week is this week's total hours. Day and week columns show their working hours, and days not worked are shaded. See [Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time).
-
-This setting holds the weekly pattern only. A single date that differs from it, a holiday or a worked Saturday, is a [day override](../roadmap/domain.md#day-override). The person sets it on the roadmap, by pressing a day head ([Blocking and unblocking a day](../roadmap/features.md#blocking-and-unblocking-a-day)) or in the Days off dialog ([Setting days off in a list](../roadmap/features.md#setting-days-off-in-a-list)). A day override travels inside the same `workingWeek` key.
-
-The dashboard's hour grids ignore the overrides. Its [Hours worked](features.md#hours-worked) part reads them, because it splits the person's actual hours by their [office hours](domain.md#office-hours), and a blocked date has none.
-
-An hour is outlined when **any part** of it falls inside that day's hours, so a day ending at 17:30 outlines the 17:00 hour. There is no half-marked cell to draw, and leaving the hour out would claim that work at ten past five happened out of hours.
-
-Per value:
-
-- **A day marked not worked** outlines nothing and keeps its hours. Turning it back on restores them, not the defaults.
-- **A day whose end is at or before its start** outlines nothing. The settings screen refuses such a range with a message naming the hours it will not take, so only editing the file by hand reaches this state. A grid that outlined every hour because two times were the wrong way round would be worse than one that outlined none.
-- **No file, or one nobody can read,** is the default week. A day the file does not mention also comes from the default, rather than being read as a day off. Nothing stored means nobody said, and answering "not a working day" for the reader is the assumption this surface exists to avoid.
-
-The person changes it on the settings screen, one day at a time. It is stored in its own file beside the app's other per-device choices. A section of the workspace pointer would be rewritten every time somebody moved Friday's finishing time. Times are written as `HH:mm`, as the reader spells them.
-
-The Working week page's headline says the week in force in one sentence, read from the stored week, so a refused time never reaches it:
-
-- The usual week reads `You work Mon–Fri, 09:00–17:30.`
-- A run of three worked days or more reads as a range and the rest as a list, so `Mon, Tue, Thu, Fri` shows where the gap is.
-- The hours are named only when every worked day shares them. Otherwise the sentence ends `each day at its own hours`.
-- A week with no worked day says `You have no working days set.`
-
-`scope: user` fits: the choice is one person's and follows them. With sync on, the week travels as a `workingWeek` key inside the roadmap's synced `planning-pace` document, newest change winning (ADR 0019). A change here writes `working-hours.json` and that key together. A week pulled from another device replaces this file, so `working-hours.json` stays the device's copy and the dashboard keeps reading it. A pace document without the key leaves the file alone, and the device's next change writes the key.
+Outside it: task and plan work, repository state and completion decisions, which [Work](../work/context.md) and [Repositories](../repositories/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers; drift verdicts, which [Devbook](../devbook/domain.md#sync-verdict) answers. Insights writes into none of them: an item on the dashboard only points at the tab that holds its evidence. Team monitoring and scanning across repositories are not part of it (local ADR 0073 §2). The model is in [domain.md](domain.md).
 
 ## Weekly usage reset
 

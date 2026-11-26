@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-11
-related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md", ".devbook/domain/roadmap/domain.md#knowledge-ref", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/tasks/features.md#acceptance-from-scenario-parts", ".devbook/domain/brain/features.md#mcp-brain-scope"]
+related: [".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md", ".devbook/domain/work/domain.plan.md#knowledge-ref", ".devbook/domain/work/domain.md#roadmap-item-gathering", ".devbook/domain/work/features.md#acceptance-from-scenario-parts", ".devbook/domain/brain/features.md#mcp-brain-scope"]
 ```
 
 A Roadmap Item's Knowledge Ref and a task's Devbook references may name a Brain
@@ -45,7 +45,7 @@ task id or a Roadmap Tag, into the note.
 **Picking up a note leaves the work without the note.** A person turns a Brain
 note into a task or a plan (ADR 0052). The note then names the work through its
 `tasks` and `roadmap` fields. The work cannot name the note back: a
-[Knowledge Ref](../../domain/roadmap/domain.md#knowledge-ref) and a task's
+[Knowledge Ref](../../domain/work/domain.plan.md#knowledge-ref) and a task's
 Devbook references name a chapter in a repository's devbook folders, and a
 Brain note is in none of them.
 
@@ -125,7 +125,7 @@ travels: each device resolves the address from the Brain folder it has.
 ```meta
 ```
 
-[Roadmap Item Gathering](../../domain/roadmap/domain.md#roadmap-item-gathering)
+[Roadmap Item Gathering](../../domain/work/domain.md#roadmap-item-gathering)
 by tag also gathers the Brain notes whose `roadmap` list names the item's Roadmap
 Tag. It does so for the Brain's owner only. A Brain note registers no progress,
 as a devbook chapter does not, so it is never read as finished.

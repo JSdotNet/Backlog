@@ -5,7 +5,7 @@ using Backlog.UI.Components.Feedback;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// A whole plan on My Day (local ADR 0072 §8; <c>.devbook/domain/tasks/features.md#my-day</c>).
+/// A whole plan on My Day (local ADR 0072 §8; <c>.devbook/domain/work/features.md#my-day</c>).
 /// <para>
 /// The date lives on the plan's Roadmap Items in Roadmap Planning and rides the roadmap
 /// plan document on the task feed (ADR 0018); this state only reads it, through its own

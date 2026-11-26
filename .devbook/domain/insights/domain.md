@@ -20,7 +20,7 @@ completion decisions.
 
 ```meta
 type: aggregate
-related: [.devbook/domain/tasks/domain.md#aiworklogged, .devbook/domain/insights/domain.invariants.md#productivity-ledger]
+related: [.devbook/domain/work/domain.md#aiworklogged, .devbook/domain/insights/domain.invariants.md#productivity-ledger]
 aliases: [ProductivityLedger]
 ```
 
@@ -118,7 +118,7 @@ related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, 
 Composes the dashboard from what other contexts already hold, one tab per question:
 
 - shipping, from GitHub pull request and issue activity;
-- planned work, from Tasks and Roadmap Planning;
+- planned work, from Work;
 - agent sessions and hours worked, from Sessions;
 - devbook drift, from Devbook's sync verdicts;
 - spend, from each [spend provider](#spend-provider).
@@ -191,14 +191,14 @@ person's outcomes.
 ```meta
 type: term
 aliases: [office hours, inside office hours, outside office hours]
-related: [.devbook/domain/insights/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/requirements.md#hours-worked]
+related: [.devbook/domain/work/context.md#working-week, .devbook/domain/work/domain.md#working-week, .devbook/domain/work/domain.md#day-override, .devbook/domain/work/domain.md#actual-hours, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/requirements.md#hours-worked]
 ```
 
-The span of time on one date that the person meant to work: that date's start and end in the [working week](context.md#working-week), with the [day overrides](../roadmap/domain.md#day-override) applied. A blocked date has no office hours. An unblocked date has the start and end its weekday stores. A day whose end is not after its start has none either.
+The span of time on one date that the person meant to work: that date's start and end in the [working week](../work/context.md#working-week), with the [day overrides](../work/domain.md#day-override) applied. A blocked date has no office hours. An unblocked date has the start and end its weekday stores. A day whose end is not after its start has none either.
 
-The dashboard's [Hours worked](features.md#hours-worked) part splits the person's [actual hours](../roadmap/domain.md#actual-hours) by it into time **inside office hours** and time **outside office hours**. The split is to the minute, not by the hour grids' rule of outlining a whole hour that office hours only touch. Each chart figure is that time in hours, rounded half to even to the hundredth from the duration itself: 26 minutes 42 seconds is 0.445 hours and reads 0.44.
+The dashboard's [Hours worked](features.md#hours-worked) part splits the person's [actual hours](../work/domain.md#actual-hours) by it into time **inside office hours** and time **outside office hours**. The split is to the minute, not by the hour grids' rule of outlining a whole hour that office hours only touch. Each chart figure is that time in hours, rounded half to even to the hundredth from the duration itself: 26 minutes 42 seconds is 0.445 hours and reads 0.44.
 
-The term exists because the split needs one date's span, overrides applied. *Working hours* is an alias of Roadmap Planning's [Working Week](../roadmap/domain.md#working-week), the weekly pattern and its overrides together, not the hours of one date.
+The term exists because the split needs one date's span, overrides applied. *Working hours* is an alias of Work's [Working Week](../work/domain.md#working-week), the weekly pattern and its overrides together, not the hours of one date.
 
 ### Spend Provider
 

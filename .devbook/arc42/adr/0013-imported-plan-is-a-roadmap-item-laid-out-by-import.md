@@ -1,7 +1,7 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#forecasting-work-in-flight", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/work/domain.plan.md#roadmap-item", ".devbook/domain/work/domain.md#roadmap-item-gathering", ".devbook/domain/work/features.md#laying-out-imported-plans", ".devbook/domain/work/features.md#placing-a-plan-in-time", ".devbook/domain/work/features.md#forecasting-work-in-flight", ".devbook/domain/work/features.md#sequencing-work-into-tracks", ".devbook/domain/work/dependencies.md", ".devbook/domain/work/features.md#import", ".devbook/domain/work/features.md#re-importing-an-updated-plan", ".devbook/domain/work/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 c4: [backlog.desktop.roadmap, backlog.desktop.tasks]
 ```
 
@@ -14,7 +14,7 @@ amendments made when the rulings were confirmed — in
 
 - **A cycle refuses the whole import**, rather than dropping the one edge and
   creating the item anyway. The roadmap already refuses an edit rather than
-  half-applying it (`.devbook/domain/roadmap/features.md#refusing-an-edit-rather-than-half-applying-it`),
+  half-applying it (`.devbook/domain/work/features.md#refusing-an-edit-rather-than-half-applying-it`),
   and an import is one edit.
 - **A tag more than one item carries updates the first of them by creation
   order**, and reports the ambiguity, rather than updating none.
@@ -107,14 +107,14 @@ ADR 0007 settled what a plan *is* inside Tasks: entry text with more than one
 re-imported by clearing what nobody started and writing the new version. It said
 nothing about the roadmap, because at the time there was nothing to say — the
 Roadmap Planning context was modelled later, and its
-[Roadmap Item](../../domain/roadmap/domain.md#roadmap-item) grew the one
+[Roadmap Item](../../domain/work/domain.plan.md#roadmap-item) grew the one
 capability that makes this record possible: it **gathers by tag**. A task filed
 under an item's Roadmap Tag is reached without the item naming it, and the item
 totals the effort those tasks registered
-([Roadmap Item Gathering](../../domain/roadmap/domain.md#roadmap-item-gathering)).
+([Roadmap Item Gathering](../../domain/work/domain.md#roadmap-item-gathering)).
 
 Pull request 484 then changed how a task spells that tag, and documented it in
-`.devbook/domain/tasks/naming.md` and nowhere else. `EntryTextParser` now reads a `+slug`
+`.devbook/domain/work/naming.md` and nowhere else. `EntryTextParser` now reads a `+slug`
 token on the metadata line as a plan tag and stores it **with** the sigil, beside
 the bare `slug` a `#slug` token becomes; `RoadmapPlanTagSource` offers the
 roadmap's tags to the task picker as `+slug`; and `RoadmapItemRollupBuilder.CarriesPlanTag`
@@ -132,7 +132,7 @@ roadmap*. Today a person imports a plan, gets its tasks, and then — if they wa
 to see it in time — creates a Roadmap Item by hand, types its tag to match, and
 guesses a window. The item then gathers the tasks and totals their effort, but
 shows nothing of how the plan is going or which step is where. The
-[tracks idea](../../domain/roadmap/features.md#sequencing-work-into-tracks)
+[tracks idea](../../domain/work/features.md#sequencing-work-into-tracks)
 asked the larger question — whether a roadmap should be dated at all, or ordered
 by chains and sized by effort — and left it open. Two of its open questions are
 answered here, one of its claims is wrong and is corrected here, and the rest
@@ -142,11 +142,11 @@ Three constraints from the material read shape every ruling:
 
 - **Roadmap invents no estimate.** The plan "invents no estimate for anything
   that registered none, and owns none of the values it adds"
-  (`.devbook/domain/roadmap/domain.md#roadmap-plan`). Any length the importer computes
+  (`.devbook/domain/work/domain.plan.md#plan`). Any length the importer computes
   has to come from registered effort and a factor the *person* owns, or it is an
   estimate the plan made up.
 - **Roadmap subscribes to nothing.** "A plan changes because a person changed
-  it" (`.devbook/domain/roadmap/dependencies.md`). Anything that writes to the plan from
+  it" (`.devbook/domain/work/dependencies.md`). Anything that writes to the plan from
   outside has to be a person's own gesture, not a reaction to an event.
 - **Modules do not see each other.** Tasks may not reference Roadmap and Roadmap
   may not reference Tasks (`ModuleBoundaryTests`); every join lives in an
@@ -170,7 +170,7 @@ lifted*:
 |---|---|---|
 | A task's `tags` | `+slug` | What pull request 484 stores; what the picker offers; what tells a plan tag from a `#` general tag on a line a person reads. |
 | `import_plan_id` | `+slug` — **keeps the sigil** | It is the shared tag *as the tasks carry it*, verbatim. ADR 0007 defines it as "populated from that shared tag", and `SharedTag` returns the sigilled value today. One comparison rule inside Tasks — ordinal equality against the task's own tags — and no second spelling to keep in step. |
-| The item's Roadmap Tag | `slug` — bare | The roadmap's tag is a slug other contexts borrow; a sigil is a task-side spelling (`.devbook/domain/tasks/domain.md#roadmap-tag`), and a knowledge chapter's `roadmap` list names the bare slug too. |
+| The item's Roadmap Tag | `slug` — bare | The roadmap's tag is a slug other contexts borrow; a sigil is a task-side spelling (`.devbook/domain/work/domain.plan.md#roadmap-tag`), and a knowledge chapter's `roadmap` list names the bare slug too. |
 
 The sigil is lifted in **one** place: at the boundary into Roadmap.
 `CarriesPlanTag` already does it on the read path; the intake adapter of
@@ -226,12 +226,12 @@ other and is what Import hands across. The mapping:
 | `+slug` | Roadmap Tag, bare | **Required, and exactly one.** A `plan` entry with no `+` tag, or with more than one, is reported in the import result and skipped; it is not created under a guessed tag, because the tag is the one thing that lets a task-level import find the item later. |
 | `id:` | — (resolution only) | Names the entry for siblings' `after:`. **Defaults to the tag** when absent, so a roadmap document need not write both. |
 | `after:` (repeatable) | Dependency | Resolved in two passes exactly as ADR 0007 resolves task ids, against sibling `plan` entries' `id:` first — see below. |
-| `repo:` (repeatable) | Repository Scope | Each value is an alias, held as written (`.devbook/domain/roadmap/domain.md#repository-scope`). The Import dialog's repository matching applies to it as to any `repo:`; an unmatched name is **not** registered — registration is Import's leniency for tasks that need a `repo_id`, and an item never needs one. It reads as unresolved, which is the roadmap's ordinary state for an alias the registry does not hold. |
+| `repo:` (repeatable) | Repository Scope | Each value is an alias, held as written (`.devbook/domain/work/domain.plan.md#repository-scope`). The Import dialog's repository matching applies to it as to any `repo:`; an unmatched name is **not** registered — registration is Import's leniency for tasks that need a `repo_id`, and an item never needs one. It reads as unresolved, which is the roadmap's ordinary state for an alias the registry does not hold. |
 | `*priority` | Planning Priority | The same four words. Absent → `medium`. |
 | `due:` | Planned Window `end` | A day, inclusive, as every window is. |
 | `devbook:` (repeatable) | Knowledge Refs | Set when Import creates the item, in the order written: a repository chapter in the spelling a task stores, or a Brain address `#brain:<path>[#slug]` as written (local ADR 0053). A value naming neither refuses the document (`import.invalid_devbook_reference`) on an entry Import lays out; a skipped entry's tokens are never read. *Amended 2026-11-11.* |
 | body prose, `##` sub-items, checklist lines | `notes` | The body verbatim. A `plan` entry's body is what the plan is about, and the item has a place for prose already. |
-| `effort:` | — | **Not honoured.** The plan owns no estimate (`.devbook/domain/roadmap/domain.md`); an item's size is the effort it gathers. The token is reported once in the import result so a person who wrote it learns why the item shows a gathered total instead. |
+| `effort:` | — | **Not honoured.** The plan owns no estimate (`.devbook/domain/work/domain.md`); an item's size is the effort it gathers. The token is reported once in the import result so a person who wrote it learns why the item shows a gathered total instead. |
 | `!status`, `@area`, `#tag`, `remind:`, `repeat:`, `myday:`, `files:`, `view:` | — | Not honoured; each describes a task. Ignored without a report — they are ordinary tokens the reader may have copied from a task entry, not mistakes worth interrupting for. |
 
 **No new token is added for a start date.** The start is the importer's to place
@@ -307,7 +307,7 @@ and it is rejected on the roadmap's own terms: "Roadmap Planning publishes to
 Monitoring and subscribes to nothing. A plan changes because a person changed
 it." **A person pressing Import is a person changing the plan** — the gesture
 carries the intent, the port carries the gesture, and the plan is written by a
-command in its own module. `.devbook/domain/roadmap/dependencies.md` gains this inbound
+command in its own module. `.devbook/domain/work/dependencies.md` gains this inbound
 edge, and its note is reworded to say that what Roadmap does not do is *react*;
 being *told* by a person's command is how every edit reaches it.
 
@@ -341,7 +341,7 @@ predecessor outside the document contributes the window it has now.
 
 When a `due:` end falls before the computed start, the item is placed as a
 one-day item on its due date: `start = end = due`. The person's date is kept,
-and [Plan Sequencing](../../domain/roadmap/domain.md#plan-sequencing) reports
+and [Plan Sequencing](../../domain/work/domain.md#plan-sequencing) reports
 the contradiction — a successor opening before its predecessor closes — exactly
 as it does for a hand-typed plan. A contradiction is reported, never corrected.
 
@@ -393,7 +393,7 @@ each device. The working week and the measured paces stay per device.
 Amended 2026-10-01 by local ADR 0019: the working week now travels inside the
 `planning-pace` document, because placement reads it. The measured paces still
 stay per device.* So
-`.devbook/domain/roadmap/domain.md`'s invariant stands with one word added to it: the
+`.devbook/domain/work/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
 
@@ -447,7 +447,7 @@ person sees it rather than finding a second item quietly created beside them —
   wait on it, Monitoring has consumed its window, a person may have hand-placed
   it — and a roadmap document is one source of items among several, not the
   authority for which items exist. Taking work off the plan is the person's own
-  gesture ([editing the plan in place](../../domain/roadmap/features.md#editing-the-plan-in-place)).
+  gesture ([editing the plan in place](../../domain/work/features.md#editing-the-plan-in-place)).
 
 **Re-importing the task-level plan under an existing item changes nothing on
 the item** — not its title, scope, priority or dependencies, which the tasks
@@ -535,12 +535,12 @@ repository the item names but that holds none of its tasks draws an empty part
 over the item's window. A part with only unestimated tasks takes one working
 week. The rule places `effort`-placed items. It also forecasts any item whose
 work is in flight, part by part, as
-[Forecasting work in flight](../../domain/roadmap/features.md#forecasting-work-in-flight)
+[Forecasting work in flight](../../domain/work/features.md#forecasting-work-in-flight)
 says. A `due-date` or hand-placed item whose work has not begun draws every
 part over its one stored window. Dragging a part moves the item, which then
 stops being `effort`-placed. Until its work begins, its parts collapse onto the
 stored window. The chapter that states the rule in full is
-[Placing a plan in time](../../domain/roadmap/features.md#placing-a-plan-in-time).
+[Placing a plan in time](../../domain/work/features.md#placing-a-plan-in-time).
 
 **What waits on it follows it, when nothing has started there.** Items are
 projected in dependency order, so an unstarted `effort`-placed item that waits
@@ -548,7 +548,7 @@ on a re-projected one takes its start from the new end by the `not begun` line
 above and keeps its length. An item whose work has begun, or that is
 `due-date`- or hand-placed, never moves for a predecessor: when it now starts
 before its predecessor finishes, [Plan
-Sequencing](../../domain/roadmap/domain.md#plan-sequencing) reports the
+Sequencing](../../domain/work/domain.md#plan-sequencing) reports the
 contradiction as it always has.
 
 A projection that changes nothing writes nothing, so loading the plan twice on
@@ -584,7 +584,7 @@ the drawing needs — status, `depends_on`, creation order — on its
 `RoadmapGatheredLink`, and `RoadmapItemRollupBuilder` keeps owning the
 arithmetic. Roadmap holds no status, no percentage and no order of its own; the
 item still "has no status and no percentage"
-(`.devbook/domain/roadmap/domain.md#roadmap-item`), it draws the tasks'.
+(`.devbook/domain/work/domain.plan.md#roadmap-item`), it draws the tasks'.
 
 **What this answers in the tracks idea.** *Replacement or addition?* — **dates
 stay**; effort sizes the steps inside a dated window, so the Planned Window,
@@ -610,13 +610,13 @@ that implement it know what they are changing:
   both tags, told apart on a line a person reads — and closed against a new kind
   of metadata, which still takes a `name:value` token.
 - `.devbook/design/content-editing.md#scheduling-and-dependency-tokens` lists no
-  `effort:` row although the parser reads it and `.devbook/domain/tasks/domain.md`
+  `effort:` row although the parser reads it and `.devbook/domain/work/domain.md`
   models it. The row is added, because the "not honoured on a `plan` entry" rule
   has to hang on it.
-- `.devbook/domain/roadmap/dependencies.md` says Roadmap subscribes to nothing and lists
+- `.devbook/domain/work/dependencies.md` says Roadmap subscribes to nothing and lists
   no inbound edge from Tasks. It still subscribes to nothing; it gains an
   inbound *command* edge, and the note is reworded.
-- `.devbook/domain/roadmap/features.md#sequencing-work-into-tracks` claims Tasks models
+- `.devbook/domain/work/features.md#sequencing-work-into-tracks` claims Tasks models
   no dependency. It does, `after:`, since ADR 0007; the claim is corrected.
 - ADR 0007 speaks of the shared `#tag`. Its addendum points here for the `+`
   spelling; its decisions are unchanged.

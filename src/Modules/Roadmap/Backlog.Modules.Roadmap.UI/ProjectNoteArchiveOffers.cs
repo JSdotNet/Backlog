@@ -8,7 +8,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// <summary>
 /// Offers, once per plan, to move a finished plan's project note to the Brain's archive
 /// (local ADR 0052 §5,
-/// <c>.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note</c>).
+/// <c>.devbook/domain/work/features.md#archiving-a-finished-plans-project-note</c>).
 /// <para>
 /// It watches the plan and the work it gathers. When a plan becomes finished while the
 /// app is open — its last backlog entry done — and it gathers a project note still in

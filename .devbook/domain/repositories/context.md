@@ -42,7 +42,7 @@ Outside it:
 | Concern | Answered by |
 | --- | --- |
 | A technology's rating and its approved version | The repository's own devbook `tech/` folder, read through [Devbook](../devbook/context.md) |
-| The work items a finding turns into, and which task a session or pull request belongs to | [Tasks](../tasks/domain.md#task) |
+| The work items a finding turns into, and which task a session or pull request belongs to | [Work](../work/domain.task.md#task) |
 | Which session opened a pull request | [Sessions](../sessions/context.md) |
 | Where an agent session ran, which Sessions also calls an [Environment](../sessions/domain.md#environment) | [Sessions](../sessions/context.md) |
 | An environment's credential | The credential store an [Access Hint](domain.md#access-hint) names |

@@ -54,7 +54,7 @@ Inside the boundary:
 
 Outside it: what each document means.
 
-- A task document is [Tasks](../tasks/domain.md#task)'s.
+- A task document is [Work](../work/domain.task.md#task)'s.
 - A session record is [Sessions](../sessions/domain.md#session-log)'.
 - An annotation and a [devbook subject's state](../devbook/domain.md#subject-state)
   are [Devbook](../devbook/context.md)'s.
@@ -71,7 +71,7 @@ not the payload. The owner writes it on the envelope, so Sync can send the
 Android push without opening the document.
 
 The machine itself is the shared
-kernel's [Device](../tasks/domain.md#device). Sync's own
+kernel's [Device](../work/domain.md#device). Sync's own
 [DeviceId](domain.md#deviceid) names that machine's registration with the sync
 service, and is not the same identifier.
 
@@ -123,7 +123,7 @@ open host service. Each downstream context reaches it through an adapter in
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| Shared kernel device identity | Conformist (Sync = conformist) | `IDeviceIdentitySource` in `Backlog.SharedKernel`, read by the desktop sync client (`OwnEnvironment`) | `.devbook/domain/tasks/domain.md#device` | The service stamps session records with its own [DeviceId](domain.md#deviceid), not the installation identity. |
+| Shared kernel device identity | Conformist (Sync = conformist) | `IDeviceIdentitySource` in `Backlog.SharedKernel`, read by the desktop sync client (`OwnEnvironment`) | `.devbook/domain/work/domain.md#device` | The service stamps session records with its own [DeviceId](domain.md#deviceid), not the installation identity. |
 
 - **Shared kernel device identity:** The service issues its DeviceId at registration, and local readers stamp the installation identity. The client maps this machine's records back onto the shared-kernel identity, so one machine never reads as two.
 
@@ -131,7 +131,7 @@ open host service. Each downstream context reaches it through an adapter in
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document | `TaskChange`, `TaskPayload` and `PushTasksRequest`; local ADR 0005 | A task document comes back unchanged, and a push never moves it backwards ([Change Precedence](domain.md#change-precedence)). |
+| [Work](../work/domain.task.md#task) | OHS + Published Language (Sync = supplier) | `TaskSyncWorker` pushes and pulls through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document | `TaskChange`, `TaskPayload` and `PushTasksRequest`; local ADR 0005 | A task document comes back unchanged, and a push never moves it backwards ([Change Precedence](domain.md#change-precedence)). |
 | [Sessions](../sessions/domain.md#session-log) | OHS + Published Language (Sync = supplier) | `SessionSyncSession` pushes this machine's session records through `POST /api/sync/sessions` and pulls the other machines' through `GET` | `SessionRecord` and `SessionRecordEntry`; local ADR 0005 §Session records | A record is keyed by its machine ([Session Record Key](domain.md#session-record-key)), so no machine can overwrite another's. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` pushes and pulls remarks through `POST` and `GET /api/sync/annotations` | `AnnotationChange` and `AnnotationPayload`; local ADR 0011 | A remark replicates on a task's terms, in its own container, under Change Precedence. |
 | [Devbook](../devbook/domain.md#subject-state) | OHS + Published Language (Sync = supplier) | `DevbookSubjectSyncWorker` pushes and pulls through `POST` and `GET /api/sync/devbook-subjects`; `DevbookSubjectReplicaMerge` applies each pulled one | `DevbookSubjectChange` and `DevbookSubjectPayload`; local ADR 0044 | A subject's state is stored whole in `devbookSubjects`, and Change Precedence holds with no tombstone. |

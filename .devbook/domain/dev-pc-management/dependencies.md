@@ -12,7 +12,7 @@ type: dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/tasks/domain.md#task` | Compliance gaps can drive update tasks. |
+| [Work](../work/domain.task.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/work/domain.task.md#task` | Compliance gaps can drive update tasks. |
 | Native package managers (external) | ACL | Command execution on target machine | `.devbook/domain/dev-pc-management/domain.md#remote-update` | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
 | Cloud service (relay/broker) | ACL | Registration, WoL relay, connection brokering | `.devbook/domain/dev-pc-management/domain.md#remote-control` | Provides registry, wake relay, and connection details. |
 

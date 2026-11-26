@@ -1,12 +1,12 @@
-# Roadmap Planning
+# Plan
 
 ```meta
 type: model
-related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
+related: [.devbook/domain/work/domain.plan.md#plan]
 ```
 
 > Structure and relationships of this context's aggregates, entities, and value
-> objects. Keep it in sync with `domain.md`.
+> objects. Keep it in sync with `domain.plan.md`.
 
 ## Model diagram
 
@@ -164,7 +164,7 @@ classDiagram
   aggregate in another context, related by Partnership (see `dependencies.md`).
 - `RoadmapTag` is a **value object held by the item, not a shared registry**,
   because two items may carry the same slug (no `Tag` table). No line runs from `Title` to `Tag`,
-  because [renaming keeps the tag](domain.invariants.md#invariant-renaming-keeps-the-tag).
+  because [renaming keeps the tag](domain.plan.invariants.md#invariant-renaming-keeps-the-tag).
 - `KnowledgeRef` is **an id-shaped reference, not an association**, like
   `TaskLink`. The chapter it names lives in [Devbook](../devbook/model.md). Both
   foreign references may dangle and neither is validated.

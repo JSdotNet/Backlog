@@ -34,7 +34,7 @@ stateDiagram-v2
 
 One edition of something the person attends to learn: a conference, a meetup, a
 webinar, a workshop. It is never called an *event* alone, because that word means
-a domain event, and Tasks has a [Usage Event](../tasks/domain.md#usage-event). The
+a domain event, and Tasks has a [Usage Event](../work/domain.task.md#usage-event). The
 app labels the area *Events*.
 
 The knowledge event is the consistency boundary for its decision and its harvest.
@@ -259,7 +259,7 @@ the same note. A Brain path is compared whatever its case, and is stored without
 ```meta
 type: value-object
 aliases: [EventTaskLink]
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/work/domain.task.md#task]
 ```
 
 A task the event points at, named by its id, with its [Task Purpose](#task-purpose).
@@ -343,7 +343,7 @@ to the event as its Harvest [Event Task Link](#event-task-link). Marking the eve
 completes that task. The policy raises no notification.
 
 Once per event holds across desktops because the task's id is derived from the
-event's id, as [Occurrence Spawning](../tasks/domain.md#occurrence-spawning) derives a
+event's id, as [Occurrence Spawning](../work/domain.md#occurrence-spawning) derives a
 successor's; the rule is the
 [derived id invariant](domain.invariants.md#invariant-an-events-harvest-task-is-filed-under-the-id-derived-from-it).
 Two desktops that both see the end day pass before they sync file the same task.
@@ -412,9 +412,9 @@ calls an event with no address No venue yet, whether or not it has a venue name.
 
 ```meta
 type: term
-related: [.devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/events/domain.md#knowledge-event]
+related: [.devbook/domain/work/domain.task.md#agenda-time, .devbook/domain/events/domain.md#knowledge-event]
 ```
 
 The talks the person means to hear at a knowledge event with parallel tracks. It is
-never an *agenda*, because Tasks has [Agenda Time](../tasks/domain.md#agenda-time).
+never an *agenda*, because Tasks has [Agenda Time](../work/domain.task.md#agenda-time).
 Talk picks are not modelled yet.

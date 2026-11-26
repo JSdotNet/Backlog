@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-25
-related: [".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#plans-view", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/requirements.md#plans-view", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
+related: [".devbook/domain/work/features.md#search-filter-and-organize", ".devbook/domain/work/features.md#plans-view", ".devbook/domain/work/features.md#my-day", ".devbook/domain/work/domain.md#my-day", ".devbook/domain/work/requirements.md#plans-view", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/work/domain.plan.md#roadmap-item", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
 c4: [backlog.desktop.tasks]
 c4-touches: [backlog.desktop.sessions, backlog.desktop.roadmap, backlog.mobile]
 ```
@@ -80,7 +80,7 @@ the Calendar are unchanged.
   - **Later**: one line for the waiting entries, naming what unlocks next, and one line
     for the done ones.
 - The other plans follow, folded to one line each, then the unplanned entries.
-- A plan here is a [Roadmap Tag](../../domain/roadmap/domain.md#roadmap-tag) the
+- A plan here is a [Roadmap Tag](../../domain/work/domain.plan.md#roadmap-tag) the
   entries in view carry. Its run state comes from its session request and its plan
   session: Running, Queued with its place, Blocked, Draft, or how many entries are
   ready.
@@ -158,7 +158,7 @@ A run line names the plan branch the run lands on.
 ```
 
 A plan is put on My Day by a My Day date on its
-[Roadmap Item](../../domain/roadmap/domain.md#roadmap-item). The date rides the roadmap
+[Roadmap Item](../../domain/work/domain.plan.md#roadmap-item). The date rides the roadmap
 plan document that already rides the task feed (ADR 0018), so no new document kind is
 needed. Whether the plan is in today's My Day follows exactly the task rule and the
 existing Clear My Day overnight setting (ADR 0032). Putting a plan tag with no Roadmap

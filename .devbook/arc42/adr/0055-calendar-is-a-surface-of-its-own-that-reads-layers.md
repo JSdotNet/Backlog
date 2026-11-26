@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-18
-related: [".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/tasks/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#1-one-main-view-always", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
+related: [".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/work/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/work/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#1-one-main-view-always", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md"]
 c4: [backlog.desktop.calendar]
 c4-touches: [backlog.desktop.shell, backlog.desktop.tasks, backlog.desktop.roadmap, backlog.desktop.events]
 ```
@@ -166,7 +166,7 @@ so it carries what the Tasks pane carries:
 The filter, the open task and the selection are the window's, so switching between
 Tasks, Board and Calendar keeps them (ADR 0043 §5). The tasks' own behaviour is
 described under Tasks, in
-[Tasks on the Calendar](../../domain/tasks/features.md#tasks-on-the-calendar).
+[Tasks on the Calendar](../../domain/work/features.md#tasks-on-the-calendar).
 
 The **Plans layer** and the **Events layer** are each switched by their layer choice,
 **Show plans** and **Show events**, off by default. Show events is offered only while
@@ -206,8 +206,8 @@ The Calendar's chapters live in `.devbook/domain/calendar/`. The
 [Calendar view](../../domain/calendar/features.md#calendar-view) and
 [Planned hours](../../domain/calendar/features.md#planned-hours) chapters move there
 from Tasks and keep their anchors. Tasks keeps
-[Tasks on the Calendar](../../domain/tasks/features.md#tasks-on-the-calendar), which
-describes the Tasks layer. The [Planned Hours](../../domain/tasks/domain.md#planned-hours)
+[Tasks on the Calendar](../../domain/work/features.md#tasks-on-the-calendar), which
+describes the Tasks layer. The [Planned Hours](../../domain/work/domain.md#planned-hours)
 a task holds stay Tasks' value object.
 
 ### 6. The code is one module trio
