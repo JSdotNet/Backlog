@@ -7,8 +7,8 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// Goal Progress counted per item, exactly as
-/// <c>.devbook/domain/progress/domain.md#goal-progress</c> and <c>#done</c> say — one test per
-/// scenario of <c>.devbook/domain/progress/requirements.md#attaching-work-to-a-goal</c>, and
+/// <c>.devbook/domain/goals/domain.md#goal-progress</c> and <c>#done</c> say — one test per
+/// scenario of <c>.devbook/domain/goals/requirements.md#attaching-work-to-a-goal</c>, and
 /// the open-item states and the window count beside them.
 /// </summary>
 public sealed class GoalCountingTests

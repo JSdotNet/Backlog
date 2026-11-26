@@ -5,7 +5,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// <summary>
 /// What the Goals view maps from that only the window's shell holds — the task list,
 /// the plan tags and the open pull requests — and how it asks the shell to read them
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>). One per window: the
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>). One per window: the
 /// host registers it with the window-state lifetime, and the Goals surface reads the
 /// window's own. A host that composes none draws the view with no candidates.
 /// </summary>

@@ -862,7 +862,7 @@ already used on a task. They are suggestions: what the person types stands.
 ```meta
 type: term
 aliases: [waiting_for, waiting, followup, follow-up date]
-related: [.devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#reminder, .devbook/domain/progress/domain.md#impediment, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#reminder, .devbook/domain/goals/domain.md#impediment, .devbook/domain/inbox/features.md#route-to-tasks, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 ```
 
 Who a task waits on, and when to chase them. It is free text naming a person or
@@ -871,8 +871,8 @@ line as `waiting:<who>` and `followup:<YYYY-MM-DD>`. A follow-up date that has
 passed reads overdue, as a [Reminder](#reminder) does. A waiting task is out of
 the person's next actions until the waiting-for is cleared, which returns it.
 
-It is not an [Impediment](../progress/domain.md#impediment): an Impediment
-holds back a goal and has its own lifecycle in Progress, and a waiting-for
+It is not an [Impediment](../goals/domain.md#impediment): an Impediment
+holds back a goal and has its own lifecycle in Goals, and a waiting-for
 creates none. The Inbox's **Waiting for** decision makes a task with one.
 Decided in local ADR 0054. The task stores it and the Tasks pane's
 [Waiting slice](features.md#waiting-for-someone) lists it. The

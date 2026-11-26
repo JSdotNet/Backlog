@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.Progress;
 
 /// <summary>
 /// The fixed phrases the Goals view and its stand-up print
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c> and
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c> and
 /// <c>#the-stand-up</c>). Pure, so the board, its parts and <see cref="StandUpClipboard"/>
 /// read the same words. Dates are English and culture-independent: "30 Oct", "check Tue".
 /// </summary>

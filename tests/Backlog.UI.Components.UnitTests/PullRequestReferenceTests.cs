@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// What a goal's attach search reads as a pull request
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>): <c>#N</c>, <c>N</c>,
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>): <c>#N</c>, <c>N</c>,
 /// <c>owner/name#N</c> or the pull request's GitHub address. A bare number is read in the one
 /// repository in scope, or in each of the repositories the host hands in.
 /// </summary>

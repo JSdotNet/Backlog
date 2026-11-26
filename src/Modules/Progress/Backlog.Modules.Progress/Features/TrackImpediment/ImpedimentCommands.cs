@@ -9,7 +9,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Progress.Features.TrackImpediment;
 
 /// <summary>Raises a New impediment today
-/// (<c>.devbook/domain/progress/features.md#tracking-an-impediment</c>).</summary>
+/// (<c>.devbook/domain/goals/features.md#tracking-an-impediment</c>).</summary>
 public sealed record RaiseImpedimentCommand(RaiseImpedimentRequest Request);
 
 /// <summary>Moves an impediment to <paramref name="State"/> today, with who it is with.</summary>

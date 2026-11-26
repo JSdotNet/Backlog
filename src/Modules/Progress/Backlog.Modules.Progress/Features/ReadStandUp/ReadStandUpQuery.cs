@@ -11,7 +11,7 @@ namespace Backlog.Modules.Progress.Features.ReadStandUp;
 public sealed record ReadStandUpQuery(DateOnly Today, IterationLength Length);
 
 /// <summary>
-/// The <c>.devbook/domain/progress/domain.md#stand-up-reading</c> on the desktop: it gathers
+/// The <c>.devbook/domain/goals/domain.md#stand-up-reading</c> on the desktop: it gathers
 /// the goals, the impediments, one read of Tasks and one of the pull requests, and hands
 /// them to <see cref="StandUpReading"/>, the rule code the phone reads the stand-up with too
 /// (local ADR 0035 §8). Nothing read is kept.

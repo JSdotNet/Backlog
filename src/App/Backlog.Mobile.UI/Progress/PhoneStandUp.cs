@@ -8,7 +8,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Mobile.UI.Progress;
 
 /// <summary>
-/// The stand-up on the phone (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
+/// The stand-up on the phone (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>):
 /// read from the goals and impediments the phone holds, its synced tasks, and the pull
 /// request statuses, pace and working week a desktop last sent in the stand-up context —
 /// by <see cref="StandUpReading"/>, the rule code the desktop reads it with, so the two never

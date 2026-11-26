@@ -12,7 +12,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
 /// Goals, impediments and the stand-up on the phone (local ADR 0035 §8,
-/// <c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the task feed's goal,
+/// <c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the task feed's goal,
 /// impediment and stand-up context documents folded into their own read model with their
 /// own cursor, the goals' pull requests carrying the statuses a desktop read, the stand-up
 /// read from them and the synced tasks by the desktop's own rules, and the three impediment

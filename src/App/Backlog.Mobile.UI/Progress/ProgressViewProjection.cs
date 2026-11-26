@@ -16,7 +16,7 @@ public sealed record GoalView(GoalDto Goal, DateTimeOffset? CreatedAt, IReadOnly
 
 /// <summary>
 /// The phone's goals and impediments (local ADR 0035 §8,
-/// <c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the task feed's goal,
+/// <c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the task feed's goal,
 /// impediment and stand-up context documents folded into <see cref="IProgressViewStore"/>,
 /// read back as the published Progress DTOs, and the one change the phone makes — an edit to
 /// an impediment's state, check-again date or note — queued through the
@@ -171,7 +171,7 @@ public sealed class ProgressViewProjection : IDisposable
 
     /// <summary>
     /// Whether a desktop has sent the stand-up yet. Goals are always on
-    /// (<c>.devbook/domain/progress/context.md#goals-area</c>), and a desktop writes the
+    /// (<c>.devbook/domain/goals/context.md#goals-area</c>), and a desktop writes the
     /// stand-up context once it has a goal, so the Stand-up tab and its pages show while
     /// the phone holds one, and say there is no stand-up yet while it holds none.
     /// </summary>

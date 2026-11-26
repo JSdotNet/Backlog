@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Tasks pane's side panel and the goal control the host cascades
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>): a stored entry's
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>): a stored entry's
 /// panel draws the slot for that task, by its id, in the panel's Goal line; with no slot
 /// cascaded the panel draws no goal line at all. The pane never sees Progress — it hands
 /// the slot a subject and draws what comes back.

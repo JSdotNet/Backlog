@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// "Attach to goal" with the goal port behind it
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>):
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>):
 /// <see cref="GoalAttach"/> reads which goal holds the work and which goals are open, and
 /// writes every attach through <see cref="IGoals"/> — moving work another goal holds
 /// rather than refusing it, and only after the picker said so. With goals off it draws

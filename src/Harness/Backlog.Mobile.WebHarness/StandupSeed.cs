@@ -16,7 +16,7 @@ namespace Backlog.Mobile.WebHarness;
 /// goals, four impediments — three open and one resolved last week — a stand-up context
 /// with the pull requests' statuses and a pace, and the synced tasks the goals count, all
 /// dated from today so Finished and Planned always have something in them
-/// (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>).
+/// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>).
 /// <para>
 /// Written straight into the phone's Progress and task views, in the shapes a desktop's
 /// documents fold into, and only while the Progress view holds no goal: a real pull later

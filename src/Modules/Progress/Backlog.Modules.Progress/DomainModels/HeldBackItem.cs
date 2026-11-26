@@ -5,7 +5,7 @@ namespace Backlog.Modules.Progress.DomainModels;
 
 /// <summary>
 /// One piece of work an impediment holds back, of one of three kinds
-/// (<c>.devbook/domain/progress/domain.md#holds-back</c>): a task by its id, a pull request
+/// (<c>.devbook/domain/goals/domain.md#holds-back</c>): a task by its id, a pull request
 /// by its repository and number, or a plan by its tag without the <c>+</c> sigil.
 /// <para>
 /// Equality is by kind and identity alone — a repository and a plan tag without regard to

@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Goals view's host against the Progress ports
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): what it reads and when,
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): what it reads and when,
 /// and each write it makes — the iteration, New goal, attach with the other-goal question,
 /// and an impediment's move — with the module's refusals shown where the person acted.
 /// The ports are doubles at the module's boundary; the shell's candidates are handed in.

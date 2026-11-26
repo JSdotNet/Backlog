@@ -44,7 +44,7 @@ public static class PlanTagMatch
     /// with <c>@</c> — so <c>Carries(tag, slug)</c> holds exactly when the slug is here.
     /// <para>
     /// The third reader of the rule: a goal's attached plan counts what the roadmap item
-    /// of that tag gathers (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).
+    /// of that tag gathers (<c>.devbook/domain/goals/domain.md#goal-attachment</c>).
     /// Progress may not reach Tasks, so whoever hands Progress its tasks — the desktop's
     /// task source, the Goals view's candidates, the phone's task fold — names the slugs
     /// with this, and Progress compares slugs alone. While it read only <c>+slug</c>, a

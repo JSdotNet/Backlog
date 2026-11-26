@@ -6,7 +6,7 @@ namespace Backlog.Modules.Progress.Abstractions;
 
 /// <summary>
 /// What an impediment's held-back items say against the current state of the work
-/// (<c>.devbook/domain/progress/domain.md#holds-back</c>, <c>#settled</c>,
+/// (<c>.devbook/domain/goals/domain.md#holds-back</c>, <c>#settled</c>,
 /// <c>#ready-to-resolve</c>): whether each is settled, whether the impediment reads Ready to
 /// resolve, and whether an item is one of a goal's.
 /// <para>

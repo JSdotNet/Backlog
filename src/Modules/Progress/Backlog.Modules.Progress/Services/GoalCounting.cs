@@ -7,7 +7,7 @@ namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
 /// How much of a goal is done, as <c>done/total</c> over its items
-/// (<c>.devbook/domain/progress/domain.md#goal-progress</c>). Equality by value.
+/// (<c>.devbook/domain/goals/domain.md#goal-progress</c>). Equality by value.
 /// </summary>
 /// <param name="DoneInWindow">Items done inside the window the reading asked about.</param>
 public sealed record GoalProgress(int Done, int Total, int Doing, int Blocked, int ToDo, int DoneInWindow)

@@ -429,14 +429,14 @@ The system SHALL carry whether a repository is archived to every paired device w
 
 ```meta
 type: requirements
-related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/progress/requirements.md#pull-request-status]
+related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/goals/requirements.md#pull-request-status]
 ```
 
 > The checks and approvals marks of the [pull request status](domain.md#pull-request-status)
-> this context publishes. They moved here from Progress with the status itself (local
+> this context publishes. They moved here from Goals with the status itself (local
 > [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#2-one-published-contract-for-status-and-verdict)).
-> What Progress promises about its own rows is in
-> [its requirements](../progress/requirements.md#pull-request-status).
+> What Goals promises about its own rows is in
+> [its requirements](../goals/requirements.md#pull-request-status).
 
 ### Requirement: A pull request row shows its checks as passed over total
 

@@ -6,7 +6,7 @@ namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
 /// Attaches an item to a goal, and holds the one rule that spans goals: an item belongs
-/// to at most one goal (<c>.devbook/domain/progress/domain.md#goal-assignment</c>,
+/// to at most one goal (<c>.devbook/domain/goals/domain.md#goal-assignment</c>,
 /// <c>domain.invariants.md#invariant-an-item-belongs-to-at-most-one-goal</c>). A service
 /// because no single goal can see the others.
 /// <para>

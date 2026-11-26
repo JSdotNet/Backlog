@@ -7,7 +7,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The weekly review takeover (<c>.devbook/domain/progress/features.md#the-weekly-review</c>)
+/// The weekly review takeover (<c>.devbook/domain/goals/features.md#the-weekly-review</c>)
 /// against a double of the window's <see cref="IWeeklyReviewSource"/>: one stage at a
 /// time, each line with its action in place, a stage done when it has nothing left, and
 /// a write read again so the line it answered goes.

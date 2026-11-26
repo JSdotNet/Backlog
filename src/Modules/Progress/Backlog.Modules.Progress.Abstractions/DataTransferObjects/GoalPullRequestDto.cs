@@ -5,7 +5,7 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <summary>
 /// What a pull request a goal counts, or a task it holds links, says about itself: its
 /// state, the day it merged, how its checks stand and how its approvals stand against
-/// what its base branch requires (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+/// what its base branch requires (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
 /// <see cref="LinkedPullRequestState.Unknown"/>, no checks and no approvals until
 /// something reads it.
 /// </summary>

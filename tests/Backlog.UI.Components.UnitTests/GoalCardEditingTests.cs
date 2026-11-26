@@ -6,7 +6,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The open goal's own acts on the Goals view
-/// (<c>.devbook/domain/progress/features.md#setting-a-goal</c> and
+/// (<c>.devbook/domain/goals/features.md#setting-a-goal</c> and
 /// <c>#attaching-work-to-a-goal</c>): its title, outcome and due date edited in place with
 /// no Save button, <b>Delete goal…</b> behind a destructive confirm, and a Detach on each row
 /// the goal holds itself. Each act is a callback; without a listener the act is not drawn.

@@ -10,7 +10,7 @@ namespace Backlog.Mobile.UI.Components.Progress;
 
 /// <summary>
 /// What the phone's Stand-up, goal and impediment pages share
-/// (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the Progress module's
+/// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the Progress module's
 /// words mapped onto the component library's, the pull request statuses a desktop last
 /// sent looked up by key, and the few lines the pages print. It decides nothing about the
 /// work — the counts and the windows are the module's rules, read by

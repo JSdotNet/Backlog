@@ -2,7 +2,7 @@
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md]
+related: [.devbook/domain/goals/features.md]
 ```
 
 > What this context's features guarantee, one chapter per feature. Each
@@ -20,7 +20,7 @@ person reads by Week, so the last window is 12 to 16 October and the next is 19 
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#the-goals-view]
+related: [.devbook/domain/goals/features.md#the-goals-view]
 ```
 
 ### Requirement: A goal lands from the done rate of the last four iterations
@@ -165,7 +165,7 @@ The system SHALL list under No goal each task in progress and each open pull req
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#setting-a-goal]
+related: [.devbook/domain/goals/features.md#setting-a-goal]
 ```
 
 ### Requirement: A goal needs a title
@@ -201,7 +201,7 @@ The system SHALL, once the person confirms deleting a goal, remove the goal and 
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal]
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal]
 ```
 
 ### Requirement: An attached plan counts each of its entries
@@ -289,7 +289,7 @@ The system SHALL count an attached session as one item, and SHALL not count agai
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/domain.md#done]
+related: [.devbook/domain/goals/domain.md#done]
 ```
 
 The system SHALL count an attached session as done when the pull request on its branch is merged or it has linked tasks that are all done, and never because the session finished.
@@ -316,7 +316,7 @@ The system SHALL count an attached session as done when the pull request on its 
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal]
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal]
 ```
 
 The system SHALL find a session in a goal's attach search by its session id, whole or its first eight characters, listing it first, then each linked task, then any pull request on its branch.
@@ -343,7 +343,7 @@ The system SHALL find a session in a goal's attach search by its session id, who
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/domain/progress/domain.md#settled]
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal, .devbook/domain/goals/features.md#linking-what-an-impediment-holds-back, .devbook/domain/goals/domain.md#settled]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_matches_every_unfinished_plan_every_open_task_and_every_open_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_leaves_out_a_plan_whose_entries_are_all_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_an_open_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_no_entries]
 ```
 
@@ -477,7 +477,7 @@ The system SHALL leave a plan, task, pull request or session unchanged when it i
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#choosing-the-iteration]
+related: [.devbook/domain/goals/features.md#choosing-the-iteration]
 ```
 
 ### Requirement: A Day window is one working day
@@ -561,7 +561,7 @@ The system SHALL keep the chosen iteration length as the person's setting and op
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#the-stand-up]
+related: [.devbook/domain/goals/features.md#the-stand-up]
 ```
 
 ### Requirement: The stand-up has four blocks
@@ -681,7 +681,7 @@ The system SHALL put the four blocks on the clipboard on the desktop as plain te
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#reading-the-stand-up-as-an-agent]
+related: [.devbook/domain/goals/features.md#reading-the-stand-up-as-an-agent]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_without_a_length_reads_the_persons_own_iteration, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_with_a_length_reads_that_length_as_of_today, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.An_unknown_length_is_refused_and_nothing_is_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_goal_with_its_standing_its_landing_and_what_it_did_in_the_window, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_what_was_finished_and_what_is_planned_grouped_by_goal, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_open_impediment_with_what_it_holds_back_and_whether_it_reads_ready_to_resolve]
 ```
 
@@ -709,7 +709,7 @@ The system SHALL let an agent read the goals and the stand-up through MCP, by th
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#tracking-an-impediment]
+related: [.devbook/domain/goals/features.md#tracking-an-impediment]
 ```
 
 ### Requirement: An impediment moves forward along its states
@@ -770,7 +770,7 @@ The system SHALL record with each move the day it was made and who the impedimen
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#raising-an-impediment]
+related: [.devbook/domain/goals/features.md#raising-an-impediment]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Raise_impediment_raises_it_through_the_module_with_its_first_items_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialog_refuses_a_blank_title_on_the_field_and_hands_nothing_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialogs_blank_title_message_clears_once_a_title_is_typed, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Raising_stores_a_New_impediment_dated_today_with_its_items_and_note]
 ```
 
@@ -798,7 +798,7 @@ The system SHALL let a person raise an impediment from the desktop stand-up's Im
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back]
+related: [.devbook/domain/goals/features.md#linking-what-an-impediment-holds-back]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Link_holds_back_the_picked_item_through_the_module_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_unlink_stays_in_the_row_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Link_opens_the_work_search_without_what_the_row_holds_and_hands_the_pick_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Unlink_hands_the_item_back_named_for_it_and_the_impediment, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_work_search_offers_only_the_kinds_it_is_given, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentsTests.Pull_requests_and_plans_are_linked_once_and_unlinked_leaving_the_history_alone]
 ```
 
@@ -838,7 +838,7 @@ The system SHALL let a person, on the desktop stand-up, link a task, a pull requ
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/features.md#impediments-for-agents]
+related: [.devbook/domain/goals/features.md#impediments-for-agents]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Raise_takes_tasks_pull_requests_and_plan_tags, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_hands_the_one_item_its_selector_names_to_the_port, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_and_unlink_take_exactly_one_whole_selector]
 ```
 
@@ -866,7 +866,7 @@ The system SHALL let an agent, through MCP, raise an impediment holding back tas
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/domain.md#settled]
+related: [.devbook/domain/goals/domain.md#settled]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_is_settled_when_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_task_the_reading_does_not_have_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_is_settled_when_merged_or_closed_and_read_from_a_repository_that_is_not_archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_pull_request_with_no_answer_is_never_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_is_settled_when_every_entry_it_gathers_is_Done_or_Archived, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.A_plan_with_an_open_entry_or_no_entry_is_not_settled, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_line_lists_each_held_back_item_with_whether_it_is_settled]
 ```
 
@@ -912,7 +912,7 @@ The system SHALL count a held-back task as settled when Done or Archived, a pull
 
 ```meta
 type: requirement
-related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+related: [.devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/goals/features.md#seeing-an-impediment-ready-to-resolve]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready, unit:dotnet:Backlog.Modules.Progress.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state]
 ```
 
@@ -1006,14 +1006,14 @@ When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, 
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#pull-request-status, .devbook/domain/repositories/requirements.md#pull-request-status]
+related: [.devbook/domain/goals/features.md#pull-request-status, .devbook/domain/repositories/requirements.md#pull-request-status]
 ```
 
 > What the checks and approvals marks show, and how a screen reader hears them, is
 > [Repositories'](../repositories/requirements.md#pull-request-status),
 > which publishes the status (local
 > [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)).
-> Progress promises only that its rows carry that status.
+> Goals promises only that its rows carry that status.
 
 ### Requirement: A goal's pull request row shows the status Repositories publishes
 
@@ -1022,7 +1022,7 @@ type: requirement
 related: [.devbook/domain/repositories/features.md#pull-request-status]
 ```
 
-The system SHALL draw every pull request row in Progress from the status Repositories publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
+The system SHALL draw every pull request row in Goals from the status Repositories publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
 
 #### Scenario: An open pull request on a goal
 
@@ -1040,7 +1040,7 @@ The system SHALL draw every pull request row in Progress from the status Reposit
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#the-weekly-review]
+related: [.devbook/domain/goals/features.md#the-weekly-review]
 ```
 
 > Today is Wednesday 11 November 2026 in these scenarios. The Brain has the PARA
@@ -1162,7 +1162,7 @@ The system SHALL say on the review when the Brain cannot be read, or no goals ar
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#goals-on-the-phone]
+related: [.devbook/domain/goals/features.md#goals-on-the-phone]
 ```
 
 ### Requirement: The phone reads goals, the stand-up and impediments
@@ -1235,7 +1235,7 @@ The system SHALL let the phone change an impediment's state, check-again date an
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#syncing-goals-and-impediments]
+related: [.devbook/domain/goals/features.md#syncing-goals-and-impediments]
 ```
 
 ### Requirement: Goals and impediments travel as one document each

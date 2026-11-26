@@ -2,7 +2,7 @@
 
 ```meta
 type: model
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#iteration]
+related: [.devbook/domain/goals/domain.md#goal, .devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#iteration]
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,
@@ -98,7 +98,7 @@ classDiagram
 - A held-back item names a task, a pull request or a plan exactly as a Goal
   Attachment does, and it names no session. The two share one search and one way of
   reading each kind.
-- Every arrow out of Progress is a reference by identity. A plan is named by its
+- Every arrow out of Goals is a reference by identity. A plan is named by its
   [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id, a pull request
   by its repository and number, and a session by its agent and session id. None of
   them is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`

@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// <summary>
 /// Goals, impediments and the stand-up reaching the phone, and the phone's impediment edits
 /// reaching the desktop, end to end through this service (local ADR 0035 §8, §9,
-/// <c>.devbook/domain/progress/features.md#goals-on-the-phone</c>).
+/// <c>.devbook/domain/goals/features.md#goals-on-the-phone</c>).
 /// <para>
 /// Every piece is the real one: the desktop's Progress module over its own
 /// <c>backlog.db</c>, its merge and session; the phone's Progress view over its own SQLite

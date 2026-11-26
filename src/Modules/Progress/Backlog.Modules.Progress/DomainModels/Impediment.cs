@@ -5,9 +5,9 @@ namespace Backlog.Modules.Progress.DomainModels;
 
 /// <summary>
 /// Something outside the person's own work that holds it back, tracked until it is
-/// resolved (<c>.devbook/domain/progress/domain.md#impediment</c>, local ADR 0035 §5).
+/// resolved (<c>.devbook/domain/goals/domain.md#impediment</c>, local ADR 0035 §5).
 /// <para>
-/// Its rules are <c>.devbook/domain/progress/domain.invariants.md#impediment</c>, each with
+/// Its rules are <c>.devbook/domain/goals/domain.invariants.md#impediment</c>, each with
 /// a unit test in <c>Backlog.Modules.Progress.UnitTests</c>: a title, a start in New, moves
 /// forward only with Escalated the one state a move may skip, any open state to Resolved,
 /// Resolved for good, every move recorded with days that never go backwards, and each item
@@ -213,6 +213,6 @@ public sealed class Impediment
 }
 
 /// <summary>One step in an impediment's history
-/// (<c>.devbook/domain/progress/domain.md#state-change</c>): the state it moved to, the day
+/// (<c>.devbook/domain/goals/domain.md#state-change</c>): the state it moved to, the day
 /// it moved, and who it was with at that step, or null.</summary>
 public sealed record ImpedimentStateChange(ImpedimentState State, DateOnly On, string? With);

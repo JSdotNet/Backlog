@@ -143,7 +143,7 @@ open host service. Each downstream context reaches it through an adapter in
   - roadmap plans (local ADR 0018);
   - GitHub settings (local ADR 0021);
   - notes (local ADR 0025);
-  - Progress's `goal` and `impediment` documents, with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9);
+  - Goals' `goal` and `impediment` documents, with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9);
   - the phone's `event-attachment-request`, which a desktop hands to Events (local ADR 0050).
 
   A `sprint-series` document an older build pushed is read and dropped, never taken as a task.

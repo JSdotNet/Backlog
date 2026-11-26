@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Progress module's UI (.devbook/domain/progress/features.md): the Goals view
+    The Progress module's UI (.devbook/domain/goals/features.md): the Goals view
     (Goals/GoalsHost), which the desktop shell draws as one of its main views, and
     the attach-to-goal control it offers on tasks and pull requests. The board it draws
     is the shared library's GoalsBoard, so the storybook shows it with no goal behind it.

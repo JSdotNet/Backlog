@@ -13,13 +13,13 @@ namespace Backlog.Infrastructure.Mcp;
 /// The impediment operations a session performs beside <c>set_blocked</c>: raise an
 /// impediment holding back tasks, pull requests and plans, move one along its states, and
 /// link or unlink what it holds back
-/// (<c>.devbook/domain/progress/features.md#impediments-for-agents</c>, local ADR 0035 §5).
+/// (<c>.devbook/domain/goals/features.md#impediments-for-agents</c>, local ADR 0035 §5).
 /// <para>
 /// <b>A class of its own rather than more methods on <see cref="TrackerTools"/>.</b>
 /// Impediments are Progress's, not Tasks', so the tools are constructed from Progress's
 /// port in a group of their own, gated on the same always-on Tasks key
 /// (<see cref="BacklogMcpTools.Impediments"/>). A task's blocked mark is a Tasks-only mark that
-/// raises no impediment (<c>.devbook/domain/progress/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>),
+/// raises no impediment (<c>.devbook/domain/goals/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>),
 /// so a session that finds something outside the backlog in the way raises the impediment itself.
 /// </para>
 /// <para>

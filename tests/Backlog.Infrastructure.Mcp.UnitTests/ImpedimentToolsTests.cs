@@ -9,7 +9,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The impediment tools (<c>.devbook/domain/progress/features.md#impediments-for-agents</c>):
+/// The impediment tools (<c>.devbook/domain/goals/features.md#impediments-for-agents</c>):
 /// <c>raise_impediment</c>, <c>set_impediment_state</c>, <c>link_to_impediment</c> and
 /// <c>unlink_from_impediment</c>. Each hands its arguments to Progress's
 /// <see cref="IImpediments"/> port, answers the impediment with its state as a wire token,

@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// The approvals a branch requires, as one branch's rules are read
 /// (<see cref="GitHubClient.ReadRequiredApprovalsOfRef"/>): from its branch protection rule
 /// and the pull request rules rulesets apply to it, the larger of the two, and none where
-/// no rule requires an approval (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+/// no rule requires an approval (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
 /// The read that asks GitHub for them is <see cref="GitHubRequiredApprovalsTests"/>'.
 /// </summary>
 public sealed class GitHubClientRequiredApprovalCountTests

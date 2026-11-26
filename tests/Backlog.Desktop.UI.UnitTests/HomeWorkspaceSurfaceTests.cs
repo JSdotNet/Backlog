@@ -2049,7 +2049,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The weekly review is offered only behind its own flag, which is off until asked
-    /// for (.devbook/domain/progress/features.md#the-weekly-review).
+    /// for (.devbook/domain/goals/features.md#the-weekly-review).
     /// </summary>
     [Fact]
     public void The_weekly_review_option_is_absent_while_its_flag_is_off()

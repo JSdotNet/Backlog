@@ -396,7 +396,7 @@ public sealed class DomainFlowFiguresTests
                 [*] --> Open
                 Open --> Resolved : resolved
             ```
-            """, ".devbook/domain/progress/domain.md");
+            """, ".devbook/domain/goals/domain.md");
 
         var flow = Assert.Single(DomainFlows.InChapter(file.Chapters[0]));
         Assert.Equal("Impediment State", flow.Title);

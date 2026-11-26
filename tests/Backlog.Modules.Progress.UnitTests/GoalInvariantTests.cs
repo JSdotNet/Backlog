@@ -6,7 +6,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// The rules a goal holds itself and its attachments to
-/// (<c>.devbook/domain/progress/domain.invariants.md#goal</c>), and the one rule across goals
+/// (<c>.devbook/domain/goals/domain.invariants.md#goal</c>), and the one rule across goals
 /// (<c>#goal-assignment</c>), one test or more per invariant.
 /// </summary>
 public sealed class GoalInvariantTests

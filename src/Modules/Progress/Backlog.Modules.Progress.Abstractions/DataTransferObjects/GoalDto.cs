@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// One goal as a caller receives it (<c>.devbook/domain/progress/domain.md#goal</c>): what
+/// One goal as a caller receives it (<c>.devbook/domain/goals/domain.md#goal</c>): what
 /// it is for, the day it should be reached by when it has one, and the work attached to it. A snapshot:
 /// how far the goal has come is <see cref="GoalSummaryDto.Progress"/>, read afresh from
 /// that work on every reading.
@@ -17,7 +17,7 @@ public sealed record GoalDto(
     IReadOnlyList<GoalAttachmentDto> Attachments);
 
 /// <summary>
-/// One piece of work a goal holds (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).
+/// One piece of work a goal holds (<c>.devbook/domain/goals/domain.md#goal-attachment</c>).
 /// Which of its fields is set follows <see cref="Item"/>'s kind.
 /// </summary>
 /// <param name="AttachedOn">The day it was attached.</param>
@@ -48,7 +48,7 @@ public sealed record GoalItemDto(
 }
 
 /// <summary>
-/// How far a goal has come (<c>.devbook/domain/progress/domain.md#goal-progress</c>):
+/// How far a goal has come (<c>.devbook/domain/goals/domain.md#goal-progress</c>):
 /// <c>done/total</c> over its items, each counted once, how the open ones stand, and how
 /// many were done inside the window the reading asked about — the <c>+3</c> beside it.
 /// </summary>
@@ -62,7 +62,7 @@ public sealed record GoalProgressDto(int Done, int Total, int Doing, int Blocked
 public sealed record GoalSummaryDto(GoalDto Goal, GoalProgressDto Progress);
 
 /// <summary>What a person gives a goal when they set it or edit it
-/// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>). An edit replaces all three.</summary>
+/// (<c>.devbook/domain/goals/features.md#setting-a-goal</c>). An edit replaces all three.</summary>
 /// <param name="Outcome">One line, or null or blank for none.</param>
 /// <param name="DueDate">The due date, or null for none; on an edit, null clears it.</param>
 public sealed record SetGoalRequest(string Title, string? Outcome, DateOnly? DueDate);

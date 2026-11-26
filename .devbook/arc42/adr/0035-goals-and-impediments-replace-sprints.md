@@ -1,8 +1,8 @@
 # ADR 0035: Goals and impediments replace sprints
 
 ```meta
-date: 2026-11-12
-related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#holds-back", ".devbook/domain/progress/domain.md#stand-up-reading", ".devbook/domain/progress/domain.invariants.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/requirements.md#tracking-an-impediment", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+date: 2026-11-26
+related: [".devbook/domain/goals/context.md", ".devbook/domain/goals/domain.md#goal", ".devbook/domain/goals/domain.md#goal-forecast", ".devbook/domain/goals/domain.md#impediment", ".devbook/domain/goals/domain.md#holds-back", ".devbook/domain/goals/domain.md#stand-up-reading", ".devbook/domain/goals/domain.invariants.md#impediment", ".devbook/domain/goals/domain.md#iteration", ".devbook/domain/goals/features.md#the-goals-view", ".devbook/domain/goals/features.md#the-stand-up", ".devbook/domain/goals/features.md#tracking-an-impediment", ".devbook/domain/goals/requirements.md#tracking-an-impediment", ".devbook/domain/goals/features.md#pull-request-status", ".devbook/domain/goals/features.md#goals-on-the-phone", ".devbook/domain/goals/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 c4-touches: [backlog.desktop.shell, backlog.desktop.insights, backlog.mobile, backlog.cloud, backlog.taskStore]
 ```
 
@@ -106,10 +106,10 @@ anything in Progress.
 ```meta
 ```
 
-A [Goal](../../domain/progress/domain.md#goal) has a title, an optional outcome
+A [Goal](../../domain/goals/domain.md#goal) has a title, an optional outcome
 line and an optional due date. A goal without a due date is due on the last day
 of the current iteration, the window the domain calls
-[next](../../domain/progress/domain.md#iteration). Progress works that day out
+[next](../../domain/goals/domain.md#iteration). Progress works that day out
 on every reading and never stores it, so At risk below applies to every goal.
 
 It holds attachments of three kinds:
@@ -121,11 +121,11 @@ It holds attachments of three kinds:
 | A pull request | repository and number | 1 |
 
 Progress is shown as `done/total` over those counts
-([Goal Progress](../../domain/progress/domain.md#goal-progress)). An item belongs
+([Goal Progress](../../domain/goals/domain.md#goal-progress)). An item belongs
 to at most one goal.
 
 A goal is **At risk** when either of two things holds
-([Goal Forecast](../../domain/progress/domain.md#goal-forecast)):
+([Goal Forecast](../../domain/goals/domain.md#goal-forecast)):
 
 - the forecast landing date falls after its due date, the forecast being drawn
   from the done rate of the last 4 iterations of the chosen length;
@@ -138,7 +138,7 @@ Otherwise it is **On track**.
 ```meta
 ```
 
-An [Iteration](../../domain/progress/domain.md#iteration) is a window over dates,
+An [Iteration](../../domain/goals/domain.md#iteration) is a window over dates,
 computed when read. Progress stores none.
 
 | Length | Window |
@@ -157,7 +157,7 @@ chosen length is a per-person setting.
 ```meta
 ```
 
-[The stand-up](../../domain/progress/features.md#the-stand-up) shows four
+[The stand-up](../../domain/goals/features.md#the-stand-up) shows four
 blocks:
 
 1. Goal progress.
@@ -190,7 +190,7 @@ stateDiagram-v2
     Resolved --> [*]
 ```
 
-An [Impediment](../../domain/progress/domain.md#impediment) has a title, a state,
+An [Impediment](../../domain/goals/domain.md#impediment) has a title, a state,
 who it was reported or escalated to, who handles it, a check-again date and a
 note. It keeps its state history with dates. Escalated is optional, and any state
 may move to Resolved. Only a person moves it, from the desktop, the phone (§8) or
@@ -198,9 +198,9 @@ the Backlog server's tools.
 
 **It holds back items of three kinds**, named as a goal names its attachments
 (§2), so one picker serves both
-([Holds Back](../../domain/progress/domain.md#holds-back)):
+([Holds Back](../../domain/goals/domain.md#holds-back)):
 
-| Held-back item | Named by | [Settled](../../domain/progress/domain.md#settled) when |
+| Held-back item | Named by | [Settled](../../domain/goals/domain.md#settled) when |
 | --- | --- | --- |
 | A task | its id | it is `done` or `archived` |
 | A pull request | its repository, `owner/name`, and its number | it is merged or closed |
@@ -214,8 +214,8 @@ or a session that links the pull request, or through the plan's entries.
 
 **Ready to resolve is a reading, not a state.** An open impediment that holds back
 at least one item, every one of them settled, reads as
-[ready to resolve](../../domain/progress/domain.md#ready-to-resolve).
-[Stand-up Reading](../../domain/progress/domain.md#stand-up-reading) works it out
+[ready to resolve](../../domain/goals/domain.md#ready-to-resolve).
+[Stand-up Reading](../../domain/goals/domain.md#stand-up-reading) works it out
 on every reading and stores nothing. It moves no state and writes no history step.
 The row says so, and the person resolves the impediment by hand. An impediment that
 holds back nothing never reads as ready. When a held-back item reopens, the reading
@@ -226,7 +226,7 @@ stays At risk (§2).
 **A person raises an impediment and links its items.** The desktop Stand-up panel
 raises one with a title, an optional note and optional first items, and links and
 unlinks items on its row
-([Tracking an impediment](../../domain/progress/features.md#tracking-an-impediment)).
+([Tracking an impediment](../../domain/goals/features.md#tracking-an-impediment)).
 The Backlog server's `raise_impediment` takes items of all three kinds, and it gains
 a tool that links an item and one that unlinks it. The phone raises and links
 nothing (§8).
@@ -253,7 +253,7 @@ change leave the task as it was.
 ```meta
 ```
 
-[Pull request status](../../domain/progress/features.md#pull-request-status)
+[Pull request status](../../domain/goals/features.md#pull-request-status)
 sits on every pull request row as two icons with counts:
 
 - **Checks**, as `passed/total`, with a running and a failing variant.
@@ -278,7 +278,7 @@ The words "checks" and "approvals" appear only as screen-reader labels.
 ```meta
 ```
 
-[On the phone](../../domain/progress/features.md#goals-on-the-phone) a person
+[On the phone](../../domain/goals/features.md#goals-on-the-phone) a person
 reads goals, the stand-up blocks and impediments. The one change it may make is
 to an impediment's state, check-again date and note, through the device outbox.
 Copying the stand-up, attaching work to a goal, raising an impediment and linking
@@ -329,7 +329,7 @@ A goal and an impediment each travel as one document under their own id, of the
 kinds `goal` and `impediment` in the `tasks` container. They are reconciled
 last-write-wins per document on its `updated_at`. That is local ADR 0018's
 arrangement, as the series had, and the two kinds take the place of
-`sprint-series` ([Syncing goals and impediments](../../domain/progress/features.md#syncing-goals-and-impediments)).
+`sprint-series` ([Syncing goals and impediments](../../domain/goals/features.md#syncing-goals-and-impediments)).
 Two more kinds serve the phone (§8): the one `stand-up-context` document under
 a constant id, newest reading wins, and an `impediment-edit` document per edit.
 A desktop never takes either as a task.
@@ -537,6 +537,7 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | Note: the context is named Goals, and its chapters live in `.devbook/domain/goals/` (local [ADR 0073 §4](0073-the-bounded-contexts-are-redrawn.md#4-goals)). This record keeps its title and wording; read Progress as Goals. | The bounded contexts were redrawn, and Progress was renamed for what it owns. |
 | 2026-11-12 | Accepted, as built. | Goals, impediments and the stand-up ship, and the sprint code is gone. |
 | 2026-10-29 | Amended §2, §5, §6, §8, §9 and verification items 3, 5, 7, 9 to 11: an impediment holds back tasks, pull requests and plans, and reads as ready to resolve once all are settled, while resolving stays a person's move. The blocked-task policy is retired, and the `impediment` document moves to version 2. | The policy raised 29 impediments nobody resolved, and the person wants to raise their own and name the work they hold back. |
 | 2026-10-26 | Amended §2 and verification item 3: the due date is optional, and a goal without one is due on the last day of next, derived on every reading and never stored. | A goal already sits in the iteration, so the person should not have to give it a date. |

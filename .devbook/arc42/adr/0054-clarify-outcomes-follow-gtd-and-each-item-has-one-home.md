@@ -58,7 +58,7 @@ area, so a capture already judged worth keeping is sorted again in the Brain.
 inbox area. An assistant asked to "remind me to call Anna" makes a note, not
 something the person decides on.
 
-**Waiting is not an impediment.** An [Impediment](../../domain/progress/domain.md#impediment)
+**Waiting is not an impediment.** An [Impediment](../../domain/goals/domain.md#impediment)
 holds back a goal and has its own lifecycle in Progress. A task waiting on a
 reply from one person needs only a name and a date to chase it.
 

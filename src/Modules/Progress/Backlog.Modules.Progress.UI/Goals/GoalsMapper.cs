@@ -8,7 +8,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
 /// The Goals view's reading turned into the board the library draws
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the stand-up's goals,
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): the stand-up's goals,
 /// counts and forecasts, joined on id with each goal's attachments from
 /// <see cref="Abstractions.Services.IGoals.ListAsync"/>, the pull requests' status from
 /// <see cref="Abstractions.Services.IGoalPullRequestReader"/>, with the title of a pull

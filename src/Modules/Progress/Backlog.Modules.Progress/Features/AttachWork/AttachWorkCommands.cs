@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Progress.Features.AttachWork;
 
 /// <summary>Attaches a plan, a task or a pull request to a goal
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>). One another goal
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>). One another goal
 /// holds is refused unless <paramref name="MoveFromOtherGoal"/> is set.</summary>
 public sealed record AttachToGoalCommand(Guid GoalId, GoalItemDto Item, bool MoveFromOtherGoal = false);
 
