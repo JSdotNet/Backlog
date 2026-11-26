@@ -159,9 +159,12 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>Close by subject| Work
 
     %% Events. Local ADR 0050. Every edge is built. The Brain and Inbox edges are
-    %% dashed because each is a one-way id reference: Brain notes answered by
-    %% EventsBrainNotes over IEventBrainNotes, Talk notes held by their Inbox
-    %% note id. Neither is a contract the Brain or the Inbox offers.
+    %% dashed because each is a one-way reference: Brain notes by path, answered
+    %% by EventsBrainNotes over IEventBrainNotes. Events depends on the Inbox for
+    %% triage only (local ADR 0073 §8): a Talk note is held by its Inbox note id
+    %% until the event is harvested, when EventsTalkNotes (IEventTalkNotes) writes
+    %% it into the Brain's inbox, relinks it by that path and archives it in the
+    %% Inbox. Events then links only into Work and the Brain.
     %% Inbox -> Events is the To Event route; Capture -> Events the event facts
     %% a capture carries, through the Inbox. Work -> Events files, reads and
     %% completes the prep and harvest tasks by id (IEventTaskTarget, answered by
@@ -173,8 +176,8 @@ flowchart LR
     Inbox -->|"OHS + Published Language<br/>ItemTriaged: To Event"| Events
     Capture -->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
     Work -->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Work never shows the event"| Events
-    Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
-    Events -.->|"One-way reference<br/>Talk notes by Inbox note id. Inbox knows no event"| Inbox
+    Events -.->|"One-way reference<br/>Note links by path; harvested Talk notes written into its inbox. Brain knows no event"| Brain
+    Events -.->|"Triage only<br/>A Talk note leaves the Inbox for the Brain on harvest and is archived. Inbox knows no event"| Inbox
     Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
 
     %% Calendar. Local ADRs 0055 and 0056. A composition: it owns its grid,
@@ -354,7 +357,9 @@ flowchart LR
   what it links by these identities:
   - a task by its id;
   - a Brain note by its path from the Brain's root;
-  - a Talk note by its Inbox note id.
+  - a Talk note by its Inbox note id, until the event is harvested. The harvest
+    writes it into the Brain's inbox, links it there by path and archives it in
+    the Inbox (local ADR 0073 §8), so a Talk note has one home.
 
   The links run one way. `Work` and `Brain` know no event, and no task or note
   field, tag or link names one. Its documents ride `Sync` as Notifications' do,

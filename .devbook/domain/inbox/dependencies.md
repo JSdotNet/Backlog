@@ -28,6 +28,7 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
+| [Events](../events/context.md) | One-way reference (Inbox = supplier), triage only | `IEventTalkNotes` in Events' abstractions, answered by `EventsTalkNotes` in `Backlog.Infrastructure.Brain` over `IInboxItems` | `IInboxItems` (`GetSnapshotAsync`, `ArchiveAsync`); local ADR 0073 §8 | An event holds its Talk notes by Inbox note id until it is harvested; then each open one is written into the Brain and archived here. The Inbox knows no event. |
 | [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox, through Sync or through the `IInboxIntake` port | `.devbook/domain/capture/domain.md#itemcaptured` | Normalized items accepted into the incoming queue, keyed by one per-entry id. |
 | [Insights](../insights/features.md#personal-productivity-dashboard) | Customer/Supplier (Insights = customer) | Read-side queue-health feed; not built | `.devbook/domain/inbox/features.md#queue-health` | Queue-health metrics: unprocessed count, oldest age, automation run status. |
 

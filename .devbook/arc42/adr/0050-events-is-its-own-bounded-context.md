@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-18
-related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#add-an-event-over-mcp"]
+related: [".devbook/domain/events/context.md", ".devbook/domain/events/context.md#events-area", ".devbook/domain/events/domain.md#knowledge-event", ".devbook/domain/events/domain.md#event-series", ".devbook/domain/events/domain.md#harvest-task-policy", ".devbook/domain/events/features.md#harvest-task", ".devbook/domain/events/features.md#events-on-the-phone", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/domain/events/features.md#add-an-event-over-mcp", ".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md"]
 c4: [backlog.desktop.events]
 c4-touches: [backlog.desktop.tasks, backlog.desktop.brain, backlog.desktop.inbox, backlog.desktop.calendar, backlog.desktop.sync]
 ```
@@ -140,7 +140,13 @@ tasks by id while Tasks knows nothing of it.
 
 - **A Brain note** is named by its path from the Brain's root, as `ItemTriaged`
   names it. A moved note leaves a broken link, which the pane shows as missing.
-- **A Talk note** is named by its Inbox note id.
+- **A Talk note** is named by its Inbox note id until the event is harvested.
+  Marking the event Harvested writes each open Talk note into the Brain's inbox
+  with its words unchanged, replaces its link with a Brain link to that path, and
+  archives the Inbox note
+  ([ADR 0073 §8](0073-the-bounded-contexts-are-redrawn.md#8-talk-notes)). With no
+  Brain set, the Talk note and its link stay. Events then depends on the Inbox for
+  triage only.
 - **A prep task** is filed under the Brain scope
   ([ADR 0027 §2](0027-the-brain-is-a-scope-beside-the-repositories.md#2-brain-is-the-scope-of-everything-filed-against-no-repository)).
 
@@ -247,7 +253,9 @@ Negative:
   replica container join the system.
 - **An offline edit can be lost.** Two desktops that edit one event apart keep
   only the latest write, as tasks do.
-- **A Brain note link breaks when the note moves.**
+- **A Brain note link breaks when the note moves.** A harvested Talk note's link
+  breaks too once `tend-brain` files it away from the Brain's inbox, and the
+  person relinks it.
 - **Every sibling chapter had to change.** Each now states its side of the contract:
   - Inbox: [Route to Event](../../domain/inbox/features.md#route-to-event);
   - Capture: the [event page monitor](../../domain/capture/features.md#event-page-monitor),
@@ -316,6 +324,7 @@ Look for these in the specification and, once built, in the code:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §3: a Talk note is linked from the Inbox only until the event is harvested; the harvest writes it into the Brain's inbox with its words unchanged, links it there by path and archives the Inbox note. With no Brain set it stays. The record stays proposed. | ADR 0073 §8 gives a Talk note one home (ADR 0054), and Events then links only into Work and the Brain. |
 | 2026-11-18 | §6 and Verification count six gated surfaces: the Events tool `add_knowledge_event` on the app's MCP server joins them, absent while `events` is off. The record stays proposed. | An assistant can now add an event over MCP, and ADR 0012 §7 puts each area's tools behind that area's switch. |
 | 2026-11-18 | The decision diagram draws the built edges solid and the events layer into the Calendar, §2 names the container `knowledgeEvents`, and Consequences lists the sibling chapters as landed. The record stays proposed. | The record still described the context as unbuilt after the `knowledge-events` plan built it and every sibling chapter followed. |
 | 2026-11-18 | A removed knowledge event travels as its document marked removed, the latest write winning as for any other edit; every device hides it. | §2's latest write wins needs a tombstone for a removal to reach the other devices; the person had no way to remove an event added by mistake. |

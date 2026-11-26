@@ -80,7 +80,8 @@ public class InfrastructureGraphTests
             "The Brain's adapter project (local ADR 0040 §1): every join that reads or writes the person's "
             + "notes lives here rather than in folders spread across FileSystem, Devbook and Mcp. Beside the "
             + "Brain's and Devbook's own ports it answers the Inbox's To Brain target, Events' note-link read "
-            + "(IEventBrainNotes, local ADR 0050) and Roadmap's note read (IRoadmapBrainNotes, local ADR 0053), "
+            + "(IEventBrainNotes, local ADR 0050), the Talk notes a harvest files into the Brain over the Inbox's "
+            + "published port (IEventTalkNotes, local ADR 0073 §8) and Roadmap's note read (IRoadmapBrainNotes, local ADR 0053), "
             + "each over the Brain's folder or database. It references abstractions only.")
     ];
 

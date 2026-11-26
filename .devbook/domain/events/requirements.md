@@ -731,6 +731,36 @@ The system SHALL complete an event's harvest task when the event is marked Harve
 - **When** the person marks the event Harvested
 - **Then** the task is unchanged
 
+### Requirement: Harvested files the Talk notes into the Brain
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+tests: [integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.Each_talk_note_is_written_into_the_brains_inbox_with_its_words_unchanged, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.The_talk_link_becomes_a_brain_link_to_that_path_in_its_place, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.The_inbox_note_is_archived_once_the_brain_link_is_saved, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.With_no_brain_set_the_talk_note_and_its_link_stay, integration:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.A_brain_path_filed_away_later_shows_as_missing, integration:dotnet:Backlog.Desktop.UI.UnitTests.EventsTalkNotesOverSqliteTests.A_talk_note_is_written_into_the_brains_inbox_with_its_words_unchanged_and_then_archived, integration:dotnet:Backlog.Desktop.UI.UnitTests.EventsTalkNotesOverSqliteTests.With_no_brain_set_the_talk_note_stays_in_the_inbox, integration:dotnet:Backlog.Desktop.UI.UnitTests.EventsTalkNotesOverSqliteTests.A_talk_note_with_a_photo_stays_in_the_inbox_with_it]
+```
+
+The system SHALL, when an event is marked Harvested, write each open Talk note it links that has no files attached as a new note in the Brain's inbox with its words unchanged, link the event to that note by its Brain path in the Talk note's place, and then archive the Inbox note. With no Brain set, the Talk note and its link SHALL stay as they are.
+
+#### Scenario: The keynote's notes move
+
+- **Given** an Attended event linking the Talk note "Keynote: Aspire in production", and a Brain set
+- **When** the person marks the event Harvested
+- **Then** the Brain's inbox holds a note "Keynote: Aspire in production" with the Talk note's words
+- **And** the event links that note by its Brain path, where the Talk note was
+- **And** the Talk note is archived in the Inbox
+
+#### Scenario: No Brain set
+
+- **Given** an Attended event linking a Talk note, and no Brain set
+- **When** the person marks the event Harvested
+- **Then** the Talk note stays in the Inbox and the event still links it
+
+#### Scenario: Filed away later
+
+- **Given** a harvested event whose Talk note was filed into the Brain's inbox
+- **When** `tend-brain` files that note away to another folder
+- **Then** the pane shows the link as missing, and the person can link it again
+
 ### Requirement: Finishing the task leaves the event
 
 ```meta
