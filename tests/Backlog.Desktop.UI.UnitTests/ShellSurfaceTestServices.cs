@@ -48,7 +48,7 @@ internal static class ShellSurfaceTestServices
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
-        services.AddSingleton<ITasksViewPreferences>(sp => new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        services.AddScoped<ITasksViewPreferences>(sp => new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>(), sp.GetService<CurrentShellWindow>()));
         services.AddSingleton<ICalendarViewPreferences>(sp => new ShellCalendarViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.AddScoped(sp => new ShellGoalsViewSource(sp));
         services.AddScoped<IGoalsViewSource>(sp => sp.GetRequiredService<ShellGoalsViewSource>());

@@ -1588,7 +1588,7 @@
         return @<Badge BaseClass="entry-row__plan-state"
                        Kind=""
                        Slug="@PlanStateSlug(planState.State)"
-                       TestId="row-plan-state">@planState.Label</Badge>;
+                       TestId="row-plan-state">@planState.RowLabel</Badge>;
     }
 
     /// <summary>The badge modifier for a plan state: <c>queued-with-plan</c>.</summary>
@@ -6775,12 +6775,9 @@
                     }
                     else
                     {
-                        @(count is null ? FlatQuickViewLabel(view) : $"{FlatQuickViewLabel(view)} ")
+                        @($"{FlatQuickViewLabel(view)} ")
                     }
-                    @if (count is { } n)
-                    {
-                        <Badge BaseClass="flat-tab__count" Kind="">@n</Badge>
-                    }
+                    <Badge BaseClass="flat-tab__count" Kind="">@count</Badge>
                 </AppButton>
             }
         </div>

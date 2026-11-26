@@ -191,7 +191,7 @@ public sealed class PlanMyDayTests
         Assert.False(host.State.IsPlanOpen("+beta"));
     }
 
-        // ---- The pane -------------------------------------------------------------------
+    // ---- The pane -------------------------------------------------------------------
 
     [Fact]
     public async Task The_expanded_plan_heading_and_its_waves_view_carry_the_sun()

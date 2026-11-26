@@ -129,7 +129,7 @@ public sealed class TodayPlanLineTests
     public void Ready_counts_the_entries_Next_reads_and_not_one_still_waiting_on_another()
     {
         // #1 done; #2 and #3 ready; #4 ready but waiting on #2 and #3; a test #5 ready,
-        // waiting on #4 — left for you, so Next reads it too.
+        // waiting on #4 — left for you, but still waiting, so Later reads it, not Next.
         var first = Entry("+lets-bbq", "done", completedOn: Yesterday);
         var second = Entry("+lets-bbq", "ready", type: "prompt");
         var third = Entry("+lets-bbq", "ready", type: "prompt");
@@ -143,7 +143,24 @@ public sealed class TodayPlanLineTests
             clearsOvernight: true));
 
         Assert.Equal(TodayPlanState.Ready, line.State);
-        Assert.Equal("3 ready", line.StateText);
+        Assert.Equal("2 ready", line.StateText);
+    }
+
+    /// <summary>Readiness is one meaning across the phone, the stand-up and the desktop
+    /// rail (<c>.devbook/domain/tasks/domain.md#readiness</c>): a ready <c>task</c> or
+    /// <c>test</c> still waiting on an open entry is not ready.</summary>
+    [Theory]
+    [InlineData("task")]
+    [InlineData("test")]
+    public void A_ready_task_or_test_still_waiting_on_an_open_entry_is_not_counted_ready(string type)
+    {
+        var open = Entry("+lets-bbq", "in_progress", type: "prompt");
+        var waiting = Entry("+lets-bbq", "ready", type: type, dependsOn: [open.Id.ToString()]);
+        var free = Entry("+lets-bbq", "ready", type: type);
+
+        var line = Assert.Single(TodayPlanLine.For([("lets-bbq", Today)], [open, waiting, free], Today, clearsOvernight: true));
+
+        Assert.Equal(1, line.ReadyCount);
     }
 
     [Fact]
