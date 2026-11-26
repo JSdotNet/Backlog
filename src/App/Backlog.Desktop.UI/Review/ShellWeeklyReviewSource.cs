@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;

@@ -3,7 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
@@ -14,7 +14,7 @@ using Backlog.Modules.Work.Abstractions.Plans;
 using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Work.Plans.Extensions;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Work.UI.Roadmap;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Work.Tasks;
 using Backlog.Modules.Work.Abstractions.Tasks.Services;

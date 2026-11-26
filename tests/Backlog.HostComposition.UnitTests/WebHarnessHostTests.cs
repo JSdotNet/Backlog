@@ -451,7 +451,7 @@ public class WebHarnessHostTests
         using var second = harness.Services.CreateScope();
 
         Assert.Same(
-            first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Tasks.TasksDesktopState>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.UI.Tasks.TasksDesktopState>(),
             first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates>());
 
         var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>();

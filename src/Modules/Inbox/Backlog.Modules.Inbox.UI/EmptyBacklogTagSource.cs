@@ -10,7 +10,7 @@ namespace Backlog.Modules.Inbox.UI;
 /// branches on whether the backlog is reachable — it asks and gets an empty
 /// list. The application hosts register the real adapter with the other inbox
 /// cross-context adapters; a test that does not care about the backlog's words
-/// gets this without composing one. The same shape Tasks.UI's
+/// gets this without composing one. The same shape Work.UI's
 /// <c>EmptyRoadmapTagSource</c> takes.
 /// </para>
 /// </summary>

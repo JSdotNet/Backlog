@@ -57,8 +57,8 @@ public class ModuleStylesheetTests
             ]),
         new(
             "Roadmap",
-            "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css",
-            "_content/Backlog.Modules.Roadmap.UI/roadmap.css",
+            "src/Modules/Work/Backlog.Modules.Work.UI/wwwroot/roadmap.css",
+            "_content/Backlog.Modules.Work.UI/roadmap.css",
             [".roadmap-band", ".roadmap-pace", ".roadmap-editor", ".roadmap-days-off", ".roadmap-hours", ".roadmap-order", ".roadmap-gathered"],
             // The timeline is the library's; these two reach into it only where a
             // band carries the module's pace control.

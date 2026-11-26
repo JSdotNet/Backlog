@@ -1,0 +1,167 @@
+using Backlog.Modules.Work.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.UI.Components.Selects;
+
+using Bunit;
+
+namespace Backlog.Modules.Work.UI.UnitTests;
+
+/// <summary>
+/// The whole point of the roadmap→backlog tag join: every tag the plan uses is
+/// offered in the backlog's tag picker, unioned with the tags the backlog already
+/// uses, de-duplicated and in a stable order — and offered even when no backlog entry
+/// carries it yet, wearing a hint that says where it came from.
+/// <para>
+/// The source hands the picker <c>+slug</c>, the form the backlog stores a plan tag
+/// in, so the stub here speaks the same way: what the port offers is what an entry
+/// will keep.
+/// </para>
+/// </summary>
+[Collection(WorkspaceSettingsCollection.Name)]
+public sealed class TasksRoadmapTagOptionsTests
+{
+    private sealed class StubRoadmapTags(params string[] tags) : IRoadmapTagSource
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(tags);
+    }
+
+    private static IReadOnlyList<SelectorOption> TagOptions(IRenderedComponent<TasksPane> pane) =>
+        pane.FindComponents<TagMultiSelect>()
+            .Single(component => component.Instance.TestId == "entry-tags-input")
+            .Instance.Options;
+
+    [Fact]
+    public async Task Roadmap_tags_are_offered_even_when_no_backlog_entry_uses_them()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            new StubRoadmapTags("+planned-only", "+shared"),
+            []);
+
+        // The backlog uses "+shared" and "backlog-only"; the roadmap uses "+planned-only"
+        // and "+shared". "+planned-only" is used nowhere in the backlog and must still be
+        // offered — that is the feature.
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `+shared` `#backlog-only`\n");
+
+        var pane = host.Render();
+        await host.OpenAsync(row);
+
+        var options = TagOptions(pane);
+
+        // Union, de-duplicated case-insensitively, in a stable (ordinal) order — which
+        // puts the sigilled plan tags before the bare general one.
+        Assert.Equal(
+            ["+planned-only", "+shared", "backlog-only"],
+            options.Select(option => option.Value));
+    }
+
+    [Fact]
+    public async Task Only_a_roadmap_tag_no_backlog_entry_uses_carries_the_hint()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            new StubRoadmapTags("+planned-only", "+shared"),
+            []);
+
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `+shared` `#backlog-only`\n");
+
+        var pane = host.Render();
+        await host.OpenAsync(row);
+
+        var options = TagOptions(pane);
+
+        Assert.Equal("from roadmap", options.Single(option => option.Value == "+planned-only").Hint);
+        Assert.Null(options.Single(option => option.Value == "+shared").Hint);
+        Assert.Null(options.Single(option => option.Value == "backlog-only").Hint);
+    }
+
+    /// <summary>A general tag spelling a roadmap slug is not the plan tag. The
+    /// backlog stores the two differently on purpose, so the picker offers both: the
+    /// bare one because an entry wears it, the sigilled one because the plan does.</summary>
+    [Fact]
+    public async Task A_bare_general_tag_spelling_a_roadmap_slug_is_offered_beside_the_plan_tag()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            new StubRoadmapTags("+shared"),
+            []);
+
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `#shared`\n");
+
+        var pane = host.Render();
+        await host.OpenAsync(row);
+
+        var options = TagOptions(pane);
+
+        Assert.Equal(["+shared", "shared"], options.Select(option => option.Value));
+        Assert.Equal("from roadmap", options.Single(option => option.Value == "+shared").Hint);
+        Assert.Null(options.Single(option => option.Value == "shared").Hint);
+    }
+
+    [Fact]
+    public async Task Without_a_roadmap_source_the_picker_offers_only_the_backlog_tags()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `#alpha`\n");
+
+        var pane = host.Render();
+        await host.OpenAsync(row);
+
+        var options = TagOptions(pane);
+
+        var option = Assert.Single(options);
+        Assert.Equal("alpha", option.Value);
+        Assert.Null(option.Hint);
+    }
+}
+
+/// <summary>
+/// The adapter that answers the backlog's tag port from the roadmap plan, over a real
+/// stored plan. First-appearance order, each tag once, and each wearing the plan
+/// sigil the backlog stores it under.
+/// </summary>
+public sealed class RoadmapPlanTagSourceTests : IDisposable
+{
+    private readonly TemporaryDirectory _temp = new("roadmap-tag-source");
+    private readonly WorkspaceSettingsStore _settings;
+    private readonly RoadmapPlanTagSource _source;
+
+    public RoadmapPlanTagSourceTests()
+    {
+        _settings = new WorkspaceSettingsStore(_temp.Path, _temp.Combine("settings.json"));
+        _source = new RoadmapPlanTagSource(TasksTestHost.PlanningFor(_settings));
+    }
+
+    [Fact]
+    public async Task An_empty_plan_offers_no_tags()
+    {
+        Assert.Empty(await _source.TagsInUseAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Each_tag_is_offered_once_in_first_appearance_order_wearing_the_plan_sigil()
+    {
+        var planning = TasksTestHost.PlanningFor(_settings);
+        var source = new RoadmapPlanTagSource(planning);
+
+        await planning.AddItemAsync("Sync", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), tag: "sync", cancellationToken: TestContext.Current.CancellationToken);
+        await planning.AddItemAsync("Desktop", new DateOnly(2026, 1, 6), new DateOnly(2026, 1, 9), tag: "desktop", cancellationToken: TestContext.Current.CancellationToken);
+        await planning.AddItemAsync("Sync again", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12), tag: "sync", cancellationToken: TestContext.Current.CancellationToken);
+
+        // The plan holds the bare slug; the backlog stores the tag as `+slug`, and
+        // what the port offers is the value the entry will keep.
+        Assert.Equal(["+sync", "+desktop"], await source.TagsInUseAsync(TestContext.Current.CancellationToken));
+    }
+
+    public void Dispose()
+    {
+        TestDatabases.Release(_temp.Path);
+        _temp.Dispose();
+
+        GC.SuppressFinalize(this);
+    }
+}

@@ -110,7 +110,6 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Core/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Core/Backlog.UI.Components` | Shared Razor control library — no domain in it, rendered on its own in the storybook |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter` and `IInboxTriageAdvisor` ports |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
@@ -123,7 +122,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | The Brain's desktop face on the Devbook pane (local ADR 0040) — the note panel, Capture, Show hidden, the From your Brain box and the Brain atlas, handed to the pane through its mode extension point; `AddBrainModule` registers it with the Brain's adapters |
 | `src/Modules/Work/Backlog.Modules.Work` | Work module — the Task (`TaskItem`, sub-items, lifecycle rules, `ITaskRepository`) and the Plan (items, sequencing, `IRoadmapPlanRepository`) aggregates, their vertical-slice features, and the services where the two meet |
 | `src/Modules/Work/Backlog.Modules.Work.Abstractions` | The Work module's published surface — the task and plan DTOs, the entry text format, `ITaskItems`, `IRoadmapPlanning`, and `RoadmapFeatures` |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
+| `src/Modules/Work/Backlog.Modules.Work.UI` | Work's desktop face — the Tasks pane, its state and the GitHub and Copilot CLI projections under `Tasks/`, and the Roadmap band above the panes and its editor under `Roadmap/` |
 | `src/Modules/Goals/Backlog.Modules.Goals` | Goals module — goals, impediments and the stand-up, their use cases, and the `IGoalRepository` and `IImpedimentRepository` ports |
 | `src/Modules/Goals/Backlog.Modules.Goals.Abstractions` | The Goals module's published surface — the goal, impediment and stand-up DTOs, `IGoals`, `IImpediments`, `IStandUp`, the `IGoalsTaskSource` and `IGoalPullRequestReader` ports, and `GoalsFeatures` |
 | `src/Modules/Goals/Backlog.Modules.Goals.UI` | Goals' desktop face — the Goals view, the attach-to-goal control and the weekly review |
@@ -226,10 +225,9 @@ rather than a folder inside the shell. The split follows
 | Project | Bounded context / role |
 |---|---|
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Tasks only through a port its own module publishes |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane and its GitHub and Copilot CLI projections |
+| `src/Modules/Work/Backlog.Modules.Work.UI` | Work — the Tasks pane and its GitHub and Copilot CLI projections, and the Roadmap view: the forward plan, as a band above the panes |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | Brain — the person's own notes, drawn on the Devbook pane through the mode extension point Devbook publishes; references Devbook, never the reverse |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
 | `src/Modules/Goals/Backlog.Modules.Goals.UI` | Goals — goals, impediments and the stand-up over an iteration. Reads tasks only through a port its own module publishes |
 | `src/Modules/Insights/Backlog.Modules.Insights.UI` | Insights — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management — the tools surface: plugins, repository tools, and MCP servers |
@@ -275,21 +273,20 @@ The shell's `_Imports.razor` deliberately imports none of the contexts: each
 module UI project carries its own, so a component can only reach into another
 context by saying so in writing.
 
-The Tasks and Devbook projects keep their original root namespaces —
-`Backlog.Desktop.UI.Tasks` and `.Devbook` — set explicitly in each
-`.csproj` and deliberately not matching the project name. The Razor generator
-emits a component's `@using` directives *inside* the component's namespace and
-without a `global::` prefix, so a namespace carrying a second `Backlog` segment
-shadows the repository root: under `Backlog.Modules.Tasks.UI`, `@using
-Backlog.UI.Components.Markdown` binds to `Backlog.Modules.Tasks` and fails with
-CS0234. The namespace segment is `Tasks`, not `Backlog`, for the same
-reason, and it is also the context's name in the context map — so the constraint
-and the domain language agree. The modules whose code was never in the shell to
-begin with (`Insights`, `Roadmap`, `DevPc`, `Sessions`) use their own
+The Devbook project keeps its original root namespace — `Backlog.Desktop.UI.Devbook`
+— set explicitly in its `.csproj` and deliberately not matching the project name.
+The Razor generator emits a component's `@using` directives *inside* the
+component's namespace and without a `global::` prefix, so a namespace carrying a
+second `Backlog` segment can shadow the repository root: under
+`Backlog.Modules.Tasks.UI`, `@using Backlog.UI.Components.Markdown` bound to
+`Backlog.Modules.Tasks` and failed with CS0234. The modules whose code was never in
+the shell to begin with (`Insights`, `DevPc`, `Sessions`) use their own
 `Backlog.Modules.<Context>.UI` namespaces, because there was no original namespace
-for them to keep. Inbox has moved to `Backlog.Modules.Inbox.UI` and writes every
-`Backlog` import as `@using global::Backlog.…`, which is what makes the matching
-namespace safe; Tasks and Devbook follow (issue #756).
+for them to keep. Inbox moved to `Backlog.Modules.Inbox.UI`, and Work's screens to
+`Backlog.Modules.Work.UI.Tasks` and `.Roadmap` when Tasks and Roadmap merged into
+Work (local ADR 0073 §1); both write every `Backlog` import as
+`@using global::Backlog.…`, which is what makes the matching namespace safe.
+Devbook follows (issue #756).
 
 Everything under `src/Harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire

@@ -1,6 +1,6 @@
 using System.Globalization;
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;

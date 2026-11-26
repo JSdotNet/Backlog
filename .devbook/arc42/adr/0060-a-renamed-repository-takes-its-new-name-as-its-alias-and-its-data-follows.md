@@ -4,7 +4,7 @@
 date: 2026-11-24
 related: [".devbook/domain/repositories/features.md#following-a-repository-rename", ".devbook/domain/repositories/domain.md#repository-alias", ".devbook/domain/repositories/domain.md#rename-record", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 c4: [backlog.desktop.persistence]
-c4-touches: [backlog.desktop.roadmap, backlog.desktop.devbook, backlog.desktop.sessions, backlog.desktop.notifications, backlog.desktop.shell, backlog.mobile, backlog.cloud]
+c4-touches: [backlog.desktop.work, backlog.desktop.devbook, backlog.desktop.sessions, backlog.desktop.notifications, backlog.desktop.shell, backlog.mobile, backlog.cloud]
 ```
 
 A rename relabels the repository when its alias is still its old name, and every

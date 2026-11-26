@@ -2,7 +2,7 @@
 
 ```meta
 related: [".devbook/domain/work/features.md#import", ".devbook/domain/work/domain.task.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-c4: [backlog.desktop.tasks]
+c4: [backlog.desktop.work]
 c4-touches: [backlog.taskStore, backlog.cloud]
 ```
 

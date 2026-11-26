@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Inbox.UI;

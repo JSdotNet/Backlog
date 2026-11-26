@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Calendar.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.Shell;

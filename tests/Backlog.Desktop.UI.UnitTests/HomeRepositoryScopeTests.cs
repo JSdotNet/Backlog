@@ -9,7 +9,7 @@ using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Bunit;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components.Sections;

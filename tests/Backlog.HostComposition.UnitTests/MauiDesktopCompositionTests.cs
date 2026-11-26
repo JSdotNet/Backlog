@@ -20,7 +20,7 @@ using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Work.Abstractions.Tasks.Services;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

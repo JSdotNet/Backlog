@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Menus;
 using Bunit;

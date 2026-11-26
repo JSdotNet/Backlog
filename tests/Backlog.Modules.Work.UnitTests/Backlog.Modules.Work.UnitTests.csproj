@@ -3,10 +3,26 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
+    <!-- The module's screens: the Tasks pane and the Roadmap band, whose bUnit tests
+         sit here with them (local ADR 0067). The tests that compose the shell around
+         them stay in Backlog.Desktop.UI.UnitTests. -->
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work.UI\Backlog.Modules.Work.UI.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The adapters the screens' tests compose for real: the workspace settings,
+         view-preference and pace stores, the SQLite task and plan repositories, and
+         the GitHub and Copilot projections the pane reads. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
+    <!-- The pull request port the pane reads linked work through, composed as the
+         host composes it. -->
+    <ProjectReference Include="..\..\src\Modules\Repositories\Backlog.Modules.Repositories\Backlog.Modules.Repositories.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit" />
     <!-- The write-back's grace and its debounced follow-up sync are driven by a
          clock whose timers fire when the test advances it, and import placement
          starts from a "today" the plan's handler tests pin. -->
@@ -17,11 +33,48 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The namespaces the screens' tests speak, imported once as the desktop tests
+         they came from did: the module's published surface, the two namespaces
+         Work.UI publishes (Tasks/ and Roadmap/ kept theirs through the merge), and
+         the shared kernel, library and workspace stores. -->
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.Services" />
+    <Using Include="Backlog.Modules.Work.Services" />
+    <Using Include="Backlog.Modules.Work.UI.Tasks" />
+    <Using Include="Backlog.Modules.Work.UI.Roadmap" />
+    <Using Include="Backlog.SharedKernel" />
+    <Using Include="Backlog.SharedKernel.Markdown" />
+    <Using Include="Backlog.UI.Components.Markdown" />
+    <Using Include="Backlog.UI.Components.Feedback" />
+    <Using Include="Backlog.Infrastructure.FileSystem" />
+  </ItemGroup>
+
   <!-- The shared test doubles this project uses. Linked per project rather than
        from tests/Directory.Build.props: a double that implements a product
        interface only compiles in a project that references it. -->
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\InMemoryTaskRepository.cs" Link="Shared\TestDoubles\InMemoryTaskRepository.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
+    <Compile Include="..\Shared\RaceSafeTestHelpers.cs" Link="Shared\RaceSafeTestHelpers.cs" />
+  </ItemGroup>
+
+  <!-- The hosts the Work screens' tests render through: the pane host, the band
+       harness, the task and plan state they compose. Shared with
+       Backlog.Desktop.UI.UnitTests, whose shell tests compose the same pane; each
+       project supplies TasksPaneHost's feature catalog for itself. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Work\*.cs" LinkBase="Shared\Work" />
+  </ItemGroup>
+
+  <!-- bUnit's default wait for this process, set before any test runs; the file
+       says why. Linked per project because only the bUnit projects reference bUnit. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
   </ItemGroup>
 
 </Project>

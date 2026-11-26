@@ -2,7 +2,7 @@
 
 ```meta
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/work/domain.plan.md#roadmap-item", ".devbook/domain/work/domain.md#roadmap-item-gathering", ".devbook/domain/work/features.md#laying-out-imported-plans", ".devbook/domain/work/features.md#placing-a-plan-in-time", ".devbook/domain/work/features.md#forecasting-work-in-flight", ".devbook/domain/work/features.md#sequencing-work-into-tracks", ".devbook/domain/work/dependencies.md", ".devbook/domain/work/features.md#import", ".devbook/domain/work/features.md#re-importing-an-updated-plan", ".devbook/domain/work/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
-c4: [backlog.desktop.roadmap, backlog.desktop.tasks]
+c4: [backlog.desktop.work]
 ```
 
 ## Status

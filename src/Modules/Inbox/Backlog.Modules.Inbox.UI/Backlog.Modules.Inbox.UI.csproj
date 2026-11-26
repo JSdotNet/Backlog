@@ -35,7 +35,7 @@
     <!-- For the repository picker: which repositories exist is the settings
          store's answer, the same store the Tasks pane and the Repositories
          screen read, so a repository chosen here is one the backlog can route
-         to. The same adapter Tasks.UI takes for the same reason. -->
+         to. The same adapter Work.UI takes for the same reason. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 

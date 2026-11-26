@@ -3,8 +3,8 @@
 ```meta
 date: 2026-10-15
 related: [".devbook/domain/work/domain.task.md#source-ref", ".devbook/domain/work/domain.md#linked-task", ".devbook/domain/work/domain.md#task-connector", ".devbook/domain/work/domain.md#source-state", ".devbook/domain/work/domain.md#connected-target", ".devbook/domain/work/domain.task.md#projection-ref", ".devbook/domain/work/domain.md#tombstone", ".devbook/domain/work/features.md#linked-tasks", ".devbook/domain/work/requirements.md#linked-tasks", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/work/domain.plan.md#roadmap-tag", ".devbook/domain/work/domain.md#source-label", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
-c4: [backlog.desktop.tasks, github]
-c4-touches: [backlog.desktop.roadmap, backlog.cloud]
+c4: [backlog.desktop.work, github]
+c4-touches: [backlog.cloud]
 ```
 
 Every open item in a connected GitHub repository or spec-manager product

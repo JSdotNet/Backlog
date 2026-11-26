@@ -4,7 +4,7 @@
 date: 2026-11-19
 related: [".devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md", ".devbook/domain/calendar/context.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/domain/calendar/features.md#planned-hours", ".devbook/domain/work/features.md#tasks-on-the-calendar", ".devbook/domain/events/features.md#events-on-the-calendar", ".devbook/domain/work/features.md#laying-out-a-plan-whose-tasks-arrived-first", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#2-the-view-switch-holds-the-task-views-in-progress-sits-with-the-work-in-progress", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md#7-the-code-is-one-module-trio", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/design/interaction-guidelines.md#shell-header"]
 c4: [backlog.desktop.calendar]
-c4-touches: [backlog.desktop.shell, backlog.desktop.tasks, backlog.desktop.roadmap, backlog.desktop.events]
+c4-touches: [backlog.desktop.shell, backlog.desktop.work, backlog.desktop.events]
 ```
 
 The Calendar draws its own grid. Tasks reaches it the way Plans and Events do: through

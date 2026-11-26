@@ -5,10 +5,10 @@ public sealed class SelectorMarkupTests
     // The backlog context left Backlog.Desktop.UI for its own project under
     // src/Modules; the namespace came with it, so only the folder moved.
     private static string BacklogUi =>
-        RepositoryRoot.Directory("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI");
+        RepositoryRoot.Directory("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks");
 
     private static string FindTasksPane() =>
-        RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
+        RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "TasksPane.razor");
 
     /// <summary>
     /// A status badge looks the same whether it is on a backlog entry or an
@@ -82,7 +82,7 @@ public sealed class SelectorMarkupTests
                     || markup.Contains("RenderDevbookMetadata=\"true\"", StringComparison.Ordinal),
                 $"{panel} draws its status through neither the shared selector nor the shared file view.");
 
-            Assert.DoesNotContain("Backlog.Desktop.UI.Tasks", markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Backlog.Modules.Work.UI.Tasks", markup, StringComparison.Ordinal);
         }
     }
 
