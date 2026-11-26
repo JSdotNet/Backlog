@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </summary>
 /// <param name="TaskId">The task's id.</param>
 /// <param name="References">Its Devbook references as written —
-/// <c>.devbook/domain/tasks/features.md#planning</c>.</param>
+/// <c>.devbook/domain/work/features.md#planning</c>.</param>
 public sealed record DevbookTaskReferences(string TaskId, IReadOnlyList<string> References);
 
 /// <summary>

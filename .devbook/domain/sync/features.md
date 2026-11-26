@@ -9,7 +9,7 @@ type: features
 ```meta
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
-related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md, .devbook/domain/sync/domain.md#device, .devbook/domain/sync/domain.md#pairing-code, .devbook/domain/sync/requirements.md#pairing-a-device, .devbook/domain/work/domain.md#device]
 ```
 
 ```mermaid
@@ -64,7 +64,7 @@ confirmed within 2 minutes keeps the device and raises an alert.
 ```meta
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
-related: [.devbook/domain/sync/requirements.md#syncing-between-devices, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync]
+related: [.devbook/domain/sync/requirements.md#syncing-between-devices, .devbook/domain/work/features.md#multi-device-sync, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/arc42/08-crosscutting-concepts.md#task-sync, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync]
 depends-on: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
@@ -81,7 +81,7 @@ canonical copy. The replica between them is a courier, and working offline costs
 only how soon the other devices find out.
 
 What syncing means for each kind of document is its owner's to say. For tasks it
-is [Multi-device sync](../tasks/features.md#multi-device-sync), and for session
+is [Multi-device sync](../work/features.md#multi-device-sync), and for session
 records [Sessions from another machine](../sessions/features.md#sessions-from-another-machine).
 Sync guarantees the same for all of them. A push never moves a document
 backwards ([Change Precedence](domain.md#change-precedence)), and a device only

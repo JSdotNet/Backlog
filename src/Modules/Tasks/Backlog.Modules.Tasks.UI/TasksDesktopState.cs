@@ -656,7 +656,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     /// <summary>
     /// True while the view is narrowed to the tasks waiting on someone: the
-    /// <b>Waiting</b> slice (<c>.devbook/domain/tasks/domain.md#waiting-for</c>,
+    /// <b>Waiting</b> slice (<c>.devbook/domain/work/domain.md#waiting-for</c>,
     /// local ADR 0054 §4).
     /// <para>
     /// A task with a <c>waiting:</c> token, open — a ticked-off row is out, whatever
@@ -680,7 +680,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     /// <summary>
     /// True while the view is narrowed to the person's next actions: the <b>Next
-    /// actions</b> slice (<c>.devbook/domain/tasks/features.md#next-actions</c>, local
+    /// actions</b> slice (<c>.devbook/domain/work/features.md#next-actions</c>, local
     /// ADR 0054 §4 and §5).
     /// <para>
     /// The open tasks that can be picked up now (<see cref="IsNextAction"/>), grouped
@@ -717,7 +717,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
         && !row.IsPreviewBlocked;
 
     /// <summary>The contexts a row carries: its tags starting <c>@</c>
-    /// (<c>.devbook/domain/tasks/domain.md#context</c>), in name order.</summary>
+    /// (<c>.devbook/domain/work/domain.md#context</c>), in name order.</summary>
     public static IReadOnlyList<string> ContextsOf(EntryRow row) =>
         [.. row.PreviewTags
             .Where(tag => tag.StartsWith('@') && tag.Length > 1)
@@ -805,7 +805,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     }
 
     /// <summary>
-    /// What the open task's Area picker suggests (<c>.devbook/domain/tasks/domain.md#area</c>):
+    /// What the open task's Area picker suggests (<c>.devbook/domain/work/domain.md#area</c>):
     /// the Brain's area names first, in its tab order, then the areas already used on
     /// a task, in name order — each once, without regard to case. Suggestions only:
     /// an area is whatever the person types.
@@ -1034,7 +1034,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// The date the My Day scope is narrowing to, or null while the scope is off.
     /// <para>
     /// A date rather than a flag, and one this class is told rather than one it
-    /// works out. <c>.devbook/domain/tasks/features.md#feature-my-day</c> makes My Day
+    /// works out. <c>.devbook/domain/work/features.md#feature-my-day</c> makes My Day
     /// membership arithmetic against "the reader's current local date", and the
     /// clock that answers that belongs to the pane — one place reads it, so there
     /// is one answer. Holding the date the reader turned the scope on with keeps
@@ -1939,7 +1939,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     /// <summary>
     /// The day the <b>Flat</b> view's scope is read against, or null while the list is
-    /// not Flat (local ADR 0072 §3; <c>.devbook/domain/tasks/features.md#plans-view</c>).
+    /// not Flat (local ADR 0072 §3; <c>.devbook/domain/work/features.md#plans-view</c>).
     /// While set the list keeps the entries in no plan, plus a plan entry in that day's
     /// My Day — see <see cref="InFlatScope"/>. Applied after the repository scope, so
     /// <see cref="ScopedRows"/> stays the whole pool the plan rail counts.
@@ -2075,7 +2075,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// a roadmap item's "Open in Tasks" asks for.
     /// <para>
     /// Gathered by the roadmap's own rule
-    /// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>): the task the
+    /// (<c>.devbook/domain/work/domain.md#roadmap-item-gathering</c>): the task the
     /// item links, <paramref name="linkedTaskId"/>, and every entry wearing the plan's
     /// tag with or without its <c>+</c> (<see cref="PlanTagMatch.Carries"/>). The chip
     /// alone asks only for <c>+slug</c>, so while the list kept that narrower rule an
@@ -3261,7 +3261,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// Ticks the entry off on <paramref name="today"/>, or unticks it.
     /// <para>
     /// Ticking an entry whose status is not yet an end state also moves it to
-    /// Done, in the same save (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>): a
+    /// Done, in the same save (<c>.devbook/domain/work/flow.md#task-lifecycle</c>): a
     /// person who ticks something off has finished the work, and a row that read
     /// "In progress" under Completed was the list contradicting itself. It goes
     /// through the status picker's own rewrite, so the steps follow the same way.
@@ -3339,7 +3339,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// <see cref="RepositoryFor"/> for why those are different facts.
     /// <para>
     /// Only the target the picker is showing changes. An entry may name several
-    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>) while the control
+    /// (<c>.devbook/domain/work/features.md#multi-repo-targeting</c>) while the control
     /// speaks about one, so the rest are left exactly as the text wrote them: a
     /// single-choice control is not a reason to silently drop the second
     /// repository somebody typed.
@@ -3416,7 +3416,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// time with null. Written the way <see cref="ChangeMyDayAsync"/> is — the
     /// metadata line, then the save — and only meaningful beside a <c>myday:</c>
     /// date: <see cref="EntryTextParser.WithAgendaTime"/> writes nothing for an
-    /// entry without one (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    /// entry without one (<c>.devbook/domain/work/domain.task.md#agenda-time</c>).</summary>
     public async Task ChangeAgendaTimeAsync(EntryRow row, AgendaTime? agendaTime) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithAgendaTime(row.RawText, agendaTime));
 
@@ -4087,9 +4087,9 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// <para>
     /// The entry's <c>`@area`</c> is deliberately not consulted. An area is "a
     /// self-chosen grouping the person files an entry under — the taxonomy belongs
-    /// to the person, not the product" (<c>.devbook/domain/tasks/domain.md#area</c>), and
+    /// to the person, not the product" (<c>.devbook/domain/work/domain.md#area</c>), and
     /// <c>repo_ids</c> is the field that targets repositories
-    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>). Reading the area
+    /// (<c>.devbook/domain/work/features.md#multi-repo-targeting</c>). Reading the area
     /// instead is what made every imported entry read "No repo": a plan files its
     /// entries under a pile such as <c>@repos</c> and names the repository in
     /// <c>repo:</c>, exactly as the grammar says to.
@@ -4888,7 +4888,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     // PushSubItemToGitHubAsync used to sit here, filing one step as an issue of its
     // own. It is gone with the two buttons that reached it, and deliberately this
-    // time: `.devbook/domain/tasks/domain.md` gives ProjectionRef to TaskItem and says
+    // time: `.devbook/domain/work/domain.md` gives ProjectionRef to TaskItem and says
     // a Sub-Item "may project to GitHub issue task-list checkboxes" — checkboxes
     // inside the entry's issue. A step that was its own issue had nowhere to record
     // the link, so nothing could tell that it had already been pushed. The method

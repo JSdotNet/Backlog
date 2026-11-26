@@ -6,7 +6,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// Where a task sits in its My Day: a <see cref="Start"/>, a local wall-clock time
 /// of day, and a <see cref="DurationMinutes"/> in whole minutes. 10:45 for 45
 /// minutes is one block that runs from 10:45 to 11:30
-/// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).
+/// (<c>.devbook/domain/work/domain.task.md#agenda-time</c>).
 /// <para>
 /// It has no date of its own and no zone: the date is the task's My Day date, and
 /// the time is read on the reader's clock, the same as a reminder. That is why the

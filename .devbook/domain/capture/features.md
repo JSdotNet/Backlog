@@ -46,7 +46,7 @@ prompt and the one save button follow the choice:
 | --- | --- | --- | --- | --- |
 | **Inbox** (the default) | `Add to inbox` | `Added to inbox — capture another` | both | An ordinary capture, the same one a share from another app sends. |
 | **Note** | `Save note` | `Note saved — capture another` | both | A note the phone keeps and edits (see [Notes on the phone](../inbox/features.md#notes-on-the-phone)). |
-| **Today** | `Add to today` | `Added to today — capture another` | text only | A task picked for today, as My Day's add does (see [My Day](../tasks/features.md#my-day)). |
+| **Today** | `Add to today` | `Added to today — capture another` | text only | A task picked for today, as My Day's add does (see [My Day](../work/features.md#my-day)). |
 
 A save leaves the sheet open and cleared, with the line from the table, so
 several thoughts in a row need no reopening. Opened from Focus, a save goes back

@@ -6,7 +6,7 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// <summary>
 /// The finished plans whose project note still sits in the Brain's projects area, and
 /// the press that moves such a note to the archive (local ADR 0052 §5,
-/// <c>.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note</c>).
+/// <c>.devbook/domain/work/features.md#archiving-a-finished-plans-project-note</c>).
 /// <para>
 /// A plan is finished when every backlog entry it gathers is done
 /// (<see cref="RoadmapItemRollupDto.IsFinished"/>). Its project notes are the resolved

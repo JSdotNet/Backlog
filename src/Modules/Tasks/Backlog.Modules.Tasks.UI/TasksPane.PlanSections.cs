@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The Plans view's main column while a plan is selected on the rail (local ADR 0072 §3;
-/// <c>.devbook/domain/tasks/features.md#plans-view</c>): the plan read as Now, Next and
+/// <c>.devbook/domain/work/features.md#plans-view</c>): the plan read as Now, Next and
 /// Later by <see cref="PlanSections"/>, the other plans folded, then Unplanned.
 /// </summary>
 public partial class TasksPane

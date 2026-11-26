@@ -2,7 +2,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
 /// Who a task waits on, and when to chase them: its waiting-for
-/// (<c>.devbook/domain/tasks/domain.md#waiting-for</c>, local ADR 0054 §4).
+/// (<c>.devbook/domain/work/domain.md#waiting-for</c>, local ADR 0054 §4).
 /// <para>
 /// <see cref="Who"/> is free text naming a person or a party, and
 /// <see cref="FollowUpOn"/> an optional calendar day. Entry text writes them as

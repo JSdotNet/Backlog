@@ -293,7 +293,7 @@ The system SHALL store nothing for the Calendar but its range and its layer choi
 
 ```meta
 type: requirements
-related: [.devbook/domain/calendar/features.md#planned-hours, .devbook/domain/tasks/domain.md#planned-hours]
+related: [.devbook/domain/calendar/features.md#planned-hours, .devbook/domain/work/domain.md#planned-hours]
 ```
 
 > What the person gets when they set hours aside for a task on a day.

@@ -12,7 +12,7 @@ type: domain
 ```meta
 type: aggregate
 aliases: [device registration, registered device]
-related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#requirement-a-key-bound-device-is-taken-only-on-an-assertion-its-key-signed, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/sync/domain.invariants.md#device, .devbook/domain/sync/features.md#pairing-a-device, .devbook/domain/sync/requirements.md#requirement-a-key-bound-device-is-taken-only-on-an-assertion-its-key-signed, .devbook/domain/work/domain.md#device]
 ```
 
 One machine's registration with the sync service. It holds:
@@ -40,7 +40,7 @@ drops its credential hash. Its credential path is closed from then on (local
 [ADR 0058 §2](../../arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key)).
 
 It is not the machine. The machine is the shared kernel's
-[Device](../tasks/domain.md#device), which every context shares. This aggregate is
+[Device](../work/domain.md#device), which every context shares. This aggregate is
 that machine as the sync service knows it, under an id the service issued.
 
 ## Pairing Code
@@ -141,7 +141,7 @@ again is a replay, and the whole family is revoked.
 ```meta
 type: domain-service
 aliases: [TaskChangePrecedence, AnnotationChangePrecedence, DevbookSubjectChangePrecedence, last-write-wins]
-related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/tasks/requirements.md#requirement-the-later-edit-wins-whole]
+related: [.devbook/domain/sync/domain.invariants.md#change-precedence, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/work/requirements.md#requirement-the-later-edit-wins-whole]
 ```
 
 Decides whether a pushed copy of a document may replace the copy the replica

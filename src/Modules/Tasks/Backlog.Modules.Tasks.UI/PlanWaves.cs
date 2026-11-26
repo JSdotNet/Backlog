@@ -102,7 +102,7 @@ public sealed record PlanWave(int Number, IReadOnlyList<PlanWaveEntry> Entries, 
 
 /// <summary>
 /// One plan's waves (local ADR 0072 §7;
-/// <c>.devbook/domain/tasks/requirements.md#requirement-a-plans-waves-follow-its-dependencies</c>):
+/// <c>.devbook/domain/work/requirements.md#requirement-a-plans-waves-follow-its-dependencies</c>):
 /// its entries in columns by dependency depth. Wave n holds the entries whose longest
 /// chain of <c>after:</c> links inside the plan is n − 1 long, so an entry sits one
 /// wave after the latest of the plan entries it waits on, however many waves back the

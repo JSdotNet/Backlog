@@ -70,10 +70,10 @@ A detected technology that the repository's own devbook `tech/` rates `hold` or 
 ```meta
 type: value-object
 aliases: [alias, repository alias]
-related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repositories/features.md#repository-registry-configuration, .devbook/domain/repositories/features.md#following-a-repository-rename, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+related: [.devbook/domain/work/domain.plan.md#repository-scope, .devbook/domain/repositories/features.md#repository-registry-configuration, .devbook/domain/repositories/features.md#following-a-repository-rename, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 ```
 
-The short name a person and the rest of the product use for a registered repository, such as `app`. A task files itself against a repository by naming its alias, and a Roadmap [Repository Scope](../roadmap/domain.md#repository-scope) holds aliases as opaque strings. Equality is by value: an alias is stored trimmed and in lower case. A repository registered without an alias takes its name as its alias.
+The short name a person and the rest of the product use for a registered repository, such as `app`. A task files itself against a repository by naming its alias, and a Roadmap [Repository Scope](../work/domain.plan.md#repository-scope) holds aliases as opaque strings. Equality is by value: an alias is stored trimmed and in lower case. A repository registered without an alias takes its name as its alias.
 
 Aliases are unique in the registry, because every consumer keys on them: the filters, the colours and the settings subpages. Relabelling an alias changes nothing about which repository is meant.
 
@@ -348,7 +348,7 @@ It is a service because it composes the environment with the repository's clone 
 
 ```meta
 type: domain-service
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/work/domain.task.md#task]
 ```
 
 Coordinates portfolio-wide actions:
@@ -389,7 +389,7 @@ related: [.devbook/domain/repositories/domain.md#repository, .devbook/domain/rep
 
 A registered [Repository](#repository) a person has set aside as no longer active work. It keeps its `RepositoryId`, alias and every setting, and a task filed against it keeps naming it. Backlog reads nothing from GitHub for it and opens its devbook for reading only. The scope and the pickers leave it out unless [show archived](#show-archived) is on. To **archive** a repository is the registry edit that sets it aside; to **unarchive** it makes it active again. Both are a person's choice, never inferred from GitHub.
 
-It is not the `archived` [Task Status](../tasks/domain.md#task-status) of a task, nor a devbook note in its archive area. Those are archived things inside a repository; this is the repository itself.
+It is not the `archived` [Task Status](../work/domain.task.md#task-status) of a task, nor a devbook note in its archive area. Those are archived things inside a repository; this is the repository itself.
 
 ### Active repository
 

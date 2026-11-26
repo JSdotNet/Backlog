@@ -99,10 +99,10 @@ classDiagram
   Attachment does, and it names no session. The two share one search and one way of
   reading each kind.
 - Every arrow out of Goals is a reference by identity. A plan is named by its
-  [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id, a pull request
+  [Roadmap Tag](../work/domain.plan.md#roadmap-tag), a task by its id, a pull request
   by its repository and number, and a session by its agent and session id. None of
   them is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`
-  Roadmap Planning's, `PullRequest` GitHub's and `AgentSession` Sessions'.
+  Work's, `PullRequest` GitHub's and `AgentSession` Sessions'.
 - [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
   are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes
   them over an [Iteration](domain.md#iteration), which is a window and holds no

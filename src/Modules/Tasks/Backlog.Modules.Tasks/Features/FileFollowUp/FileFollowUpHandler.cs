@@ -7,7 +7,7 @@ namespace Backlog.Modules.Tasks.Features.FileFollowUp;
 
 /// <summary>
 /// Files the one prompt an Approve + follow-up answer asks for, after the gated entry
-/// (<c>.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry</c>).
+/// (<c>.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry</c>).
 /// <para>
 /// The aggregate is built directly, the way Import builds one, rather than by splicing
 /// the words into entry text and parsing it: the words are the body and nothing else,

@@ -551,7 +551,7 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(15, layout.Cards.Count);
+        Assert.Equal(14, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
         // The Calendar is drawn as a composition beside the shell, not a context (local ADR 0073 §6).
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Calendar");
@@ -582,8 +582,8 @@ public sealed class ContextMapTests
 
         // Every contract reads by its short name, and every rule is a card.
         Assert.Equal(
-            ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "AIWorkLogged", "RoadmapItemScheduled",
-             "Roadmap Item", "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
+            ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "RoadmapItemScheduled", "AIWorkLogged",
+             "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
              "The devbook database of each registered repository, read through Devbook's reader (local ADR 0015)",
              "MachineStatusChanged", "ComplianceUpdated",
              "The pull request contract",

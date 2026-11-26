@@ -239,7 +239,7 @@ actionable, and the backlog holds every commitment.
 | Defer | **d** | The tickler: back on its review date |
 | Someday | **s** | A note in the Brain's `someday` area |
 | Done now | **n** | A task created already ticked |
-| Waiting for | **w** | A task with a [waiting-for](../tasks/domain.md#waiting-for) |
+| Waiting for | **w** | A task with a [waiting-for](../work/domain.md#waiting-for) |
 | Move to backlog | **r** | A task, optionally with a due date or in My Day |
 | Create plan | — | A plan |
 | Merge | — | A comment on a task already tracked |
@@ -259,12 +259,12 @@ item is waiting for.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#bulk-editing, .devbook/domain/inbox/requirements.md#act-on-several-at-once, .devbook/domain/inbox/features.md#filter-by-content-kind]
+related: [.devbook/domain/work/features.md#bulk-editing, .devbook/domain/inbox/requirements.md#act-on-several-at-once, .devbook/domain/inbox/features.md#filter-by-content-kind]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
-Acting on several items mirrors [bulk editing](../tasks/features.md#bulk-editing) in the Tasks pane.
+Acting on several items mirrors [bulk editing](../work/features.md#bulk-editing) in the Tasks pane.
 Captures that belong in the same place are handled at once instead of item by
 item, and the two panes pick things the same way:
 
@@ -456,7 +456,7 @@ When Foundry is not configured or the call fails, no card is shown.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
-related: [.devbook/domain/inbox/requirements.md#merge-into-a-task, .devbook/domain/inbox/features.md#archive, .devbook/domain/tasks/features.md#task-creation]
+related: [.devbook/domain/inbox/requirements.md#merge-into-a-task, .devbook/domain/inbox/features.md#archive, .devbook/domain/work/features.md#task-creation]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
@@ -715,7 +715,7 @@ the AI cards.
 ```meta
 type: feature
 depends-on: [.devbook/domain/inbox/features.md#triage-workflow]
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/brain/features.md#knowledge-capture]
+related: [.devbook/domain/work/features.md#task-creation, .devbook/domain/brain/features.md#knowledge-capture]
 ```
 
 **Merge and To Brain**
@@ -778,7 +778,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/tasks/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
+related: [.devbook/domain/work/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks, .devbook/domain/work/domain.md#waiting-for, .devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxSomedayDoneNowTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxWaitingForTests]
 ```
 
@@ -799,9 +799,9 @@ each of its items the same way.
 
 Beside **Move to backlog**, in the item's detail and in triage mode, two optional
 choices go with the route. **Due** gives every task it makes a
-[due date](../tasks/domain.md#due-date): today, tomorrow, next week (seven days
+[due date](../work/domain.md#due-date): today, tomorrow, next week (seven days
 on) or a date typed in. **Add to My Day** puts every task in today's
-[My Day](../tasks/domain.md#my-day), dated by the reader's own calendar when the
+[My Day](../work/domain.md#my-day), dated by the reader's own calendar when the
 route runs. The choice is held per item until it routes, so **r** takes it too.
 Without either, the route makes exactly the tasks it always did. A
 [batch route](#route-a-batch-to-tasks) offers neither.
@@ -818,7 +818,7 @@ and a failure on the Tasks side leaves it open:
   required, and an optional follow-up date. The item then routes as Move to
   backlog routes it, with the repositories, due date and My Day chosen beside
   it, and every task it makes carries that
-  [waiting-for](../tasks/domain.md#waiting-for) as `waiting:` and
+  [waiting-for](../work/domain.md#waiting-for) as `waiting:` and
   `followup:`. A name holding a backtick, which a token cannot carry, keeps
   the dialog's button off.
 
@@ -867,7 +867,7 @@ detail, and **e** takes it.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks]
-related: [.devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/roadmap/domain.md#knowledge-ref]
+related: [.devbook/domain/work/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/work/domain.plan.md#knowledge-ref]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanProjectNoteTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests.A_project_note_lands_in_the_projects_area_naming_the_plan_s_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Create_plan_starts_a_project_note_only_when_the_option_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Also_start_a_project_note_is_disabled_with_the_brain_s_reason_when_there_is_no_brain]
 ```
 
@@ -887,9 +887,9 @@ area through the one Brain writer
 ([Capture into the Brain](../brain/features.md#capture-into-the-brain)). The note
 is titled as the plan, and its body is the item's notes with the source link as
 the last line. Its `roadmap` field names the plan's tag, the
-[Roadmap Tag](../tasks/domain.md#roadmap-tag) the import gives the plan. The plan
+[Roadmap Tag](../work/domain.plan.md#roadmap-tag) the import gives the plan. The plan
 gains a `plan` entry with that tag, the item's repositories, and the note's
-address as a [Knowledge Ref](../roadmap/domain.md#knowledge-ref). The note is
+address as a [Knowledge Ref](../work/domain.plan.md#knowledge-ref). The note is
 written only once the drafter has answered with a plan. If the import then
 refuses, the note stays in the Brain and the refusal is shown. With no Brain set
 the option is disabled, and hovering it gives the Brain's own reason.
@@ -899,7 +899,7 @@ the option is disabled, and hovering it gives the Brain's own reason.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#act-on-several-at-once]
-related: [.devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/requirements.md#route-a-batch-to-tasks, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+related: [.devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/requirements.md#route-a-batch-to-tasks, .devbook/domain/work/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
@@ -942,7 +942,7 @@ duplicate them.
 ```meta
 type: sub-feature
 depends-on: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks]
-related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
+related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/domain.md#batch, .devbook/domain/work/features.md#import]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ProposeBatchTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DependencyProposalTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxBatchOrderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBatchDependencyImportTests]
 ```

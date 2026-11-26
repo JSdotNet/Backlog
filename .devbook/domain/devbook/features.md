@@ -42,7 +42,7 @@ header's scope and the task filter alone.
 
 ```meta
 type: feature
-related: [.devbook/domain/repositories/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/repositories/features.md#repository-devbook-folder-settings, .devbook/domain/work/features.md#search-filter-and-organize]
 ```
 
 Read the devbook a repository already carries alongside its code, next to the
@@ -96,7 +96,7 @@ empty tab strip.
 ```meta
 type: sub-feature
 feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
-related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/work/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
 
 Present each area's documents as readable content, not raw files: headings and
@@ -1239,7 +1239,7 @@ A figure with none is not shown.
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/work/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Find the chapter that answers a question across every area and every note at once.

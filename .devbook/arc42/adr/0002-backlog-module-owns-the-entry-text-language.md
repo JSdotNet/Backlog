@@ -1,7 +1,7 @@
 # ADR 0002: The Backlog module owns the entry text language
 
 ```meta
-related: [".devbook/domain/tasks/domain.md", ".devbook/domain/context-map.md", ".devbook/arc42/05-building-block-view.md"]
+related: [".devbook/domain/work/domain.md", ".devbook/domain/context-map.md", ".devbook/arc42/05-building-block-view.md"]
 c4: [backlog.desktop.tasks]
 c4-touches: [backlog.desktop.devbook]
 ```

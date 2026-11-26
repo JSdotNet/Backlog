@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-13
-related: [".devbook/domain/goals/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+related: [".devbook/domain/goals/context.md", ".devbook/domain/context-map.md", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/work/domain.plan.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 c4: [backlog.desktop.progress, backlog.desktop.tasks]
 ```
 

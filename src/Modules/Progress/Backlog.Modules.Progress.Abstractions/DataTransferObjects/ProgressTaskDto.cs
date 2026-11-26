@@ -24,7 +24,7 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="Order">The task's place in the backlog's order — a plan's order among its entries.</param>
 /// <param name="WaitsOnOpenWork">Whether one of the task's <c>after:</c> dependencies, resolved
 /// against the whole backlog, names a task that is not done or names no live task — so the
-/// task is not ready yet (<c>.devbook/domain/tasks/domain.md#readiness</c>).</param>
+/// task is not ready yet (<c>.devbook/domain/work/domain.task.md#readiness</c>).</param>
 public sealed record ProgressTaskDto(
     Guid Id,
     string Title,
