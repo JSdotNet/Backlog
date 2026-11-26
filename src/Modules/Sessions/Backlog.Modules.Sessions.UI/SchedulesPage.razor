@@ -516,7 +516,7 @@
     }
 
     private string EmptyDescription => ScopeLabel is null
-        ? "A schedule shows here once one of its runs reports to Backlog, which the backlog-tools plugin's hooks do for every scheduled run."
+        ? "A schedule shows here once one of its runs reports to Backlog, which the backlog-desktop plugin's hooks do for every scheduled run."
         : $"No schedule in {ScopeLabel} has reported. A schedule shows here once one of its runs reports to Backlog.";
 
     private string LastRun(ScheduleReadingResult schedule)

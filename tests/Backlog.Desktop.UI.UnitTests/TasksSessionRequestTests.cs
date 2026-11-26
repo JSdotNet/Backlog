@@ -1354,7 +1354,7 @@ public sealed class TasksSessionRequestTests
         Assert.Contains("Long-running agents", group.TextContent, StringComparison.Ordinal);
         var rows = group.QuerySelectorAll("[data-testid='session-queue-agent']");
         Assert.Equal(
-            ["/loop /backlog-tools:dispatch-sessions", "/loop /backlog-tools:tend-brain", "/loop /backlog-tools:track-goals"],
+            ["/loop /backlog-desktop:dispatch-sessions", "/loop /backlog-tools:tend-brain", "/loop /backlog-tools:track-goals"],
             rows.Select(row => row.QuerySelector("code")!.TextContent));
 
         var copies = pane.FindComponents<CopyButton>()

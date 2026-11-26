@@ -31,8 +31,8 @@ import { GLYPH, KIND, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentSta
 // refused runs as a background sub-agent instead, keyed by its agent id, whose own calls and
 // return do pass here. Nothing here writes.
 const PANE = 'plan-progress'
-const plan = atom({ plugin: 'backlog-tools', key: 'plan' } as const, null)
-const workers = atom({ plugin: 'backlog-tools', key: 'workers' } as const, [])
+const plan = atom({ plugin: 'backlog-desktop', key: 'plan' } as const, null)
+const workers = atom({ plugin: 'backlog-desktop', key: 'workers' } as const, [])
 
 /**
  * A worker's session id and worktree. The session's state outlives a reload of this code, so a
@@ -239,7 +239,7 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           <Text dimColor>No plan running yet.</Text>
-          <Text dimColor>Run /backlog-tools:execute-plan +tag to start one.</Text>
+          <Text dimColor>Run /backlog-desktop:execute-plan +tag to start one.</Text>
         </Box>
       )
     }

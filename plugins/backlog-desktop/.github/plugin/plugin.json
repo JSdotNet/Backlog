@@ -1,0 +1,17 @@
+{
+  "name": "backlog-desktop",
+  "description": "The Claude Desktop half of the Backlog tooling, installed beside backlog-tools in Claude Desktop only: execute-plan, which runs a whole Backlog plan through nested Claude Desktop sessions with one worktree and pull request per entry; dispatch-sessions, the Manager session that turns each session request the app queues into a Claude Desktop session and hands each accepted answer back to the session waiting on it; a hook that reports each Claude Desktop scheduled run's start and finish to the app's Schedules page; and a function-hook module that shows a running plan's progress, with each entry's delivery-flow stages, in a band above the prompt and a pane. Depends on backlog-tools.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Job Schepers"
+  },
+  "license": "MIT",
+  "keywords": [
+    "backlog",
+    "claude-desktop",
+    "execute-plan",
+    "dispatch-sessions",
+    "plan-progress"
+  ],
+  "skills": "skills/"
+}

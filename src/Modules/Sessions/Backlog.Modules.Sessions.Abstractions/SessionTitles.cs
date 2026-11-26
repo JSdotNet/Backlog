@@ -83,7 +83,7 @@ public sealed record SessionTitleReading(
 /// <para>
 /// Prefixes are uppercase only, so a sentence that happens to open "Plan: …" stays
 /// Other. The skill-written shapes are the ones
-/// <c>plugins/backlog-tools/skills/execute-plan/assets/handoff.md</c> and
+/// <c>plugins/backlog-desktop/skills/execute-plan/assets/handoff.md</c> and
 /// <c>import-plan/assets/backlog-import-grammar.md#step-numbers</c> own; an unnumbered
 /// <c>tag - title</c> is indistinguishable from an ordinary title and is not read.
 /// </para>
