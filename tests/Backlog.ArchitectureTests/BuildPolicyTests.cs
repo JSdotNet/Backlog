@@ -180,8 +180,6 @@ public partial class BuildPolicyTests
             "TreatWarningsAsErrors is set once in the root Directory.Build.props; remove it from: " + string.Join(", ", optedOut));
     }
 
-    /// <summary>Transitive pinning is off, so a version nothing references pins
-    /// nothing — it only reads as if it did.</summary>
     /// <summary>The C# version is the SDK's default (org ADR 0001): a
     /// <c>LangVersion</c> anywhere in the shared props or a project file would
     /// pin it past or behind what <c>global.json</c>'s SDK ships.</summary>

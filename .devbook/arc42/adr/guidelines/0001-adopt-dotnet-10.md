@@ -29,5 +29,6 @@ compatibility fallback. That preference does not change the framework baseline.
 
 ## Deviations and gaps
 
-- The solution is `Backlog.sln`, not `Backlog.slnx`. The `.sln` fallback the
-  decision allows; converting is a mechanical change nobody has needed yet.
+- None on the solution format: the solution is `Backlog.slnx`, the format the
+  organization prefers, with `Backlog.WithoutAppHeads.slnf` filtering out the
+  MAUI heads.
