@@ -46,20 +46,20 @@ public static class TaskFold
     /// <see cref="CaptureType"/> is.</summary>
     public const string SprintSeriesType = "sprint-series";
 
-    /// <summary>The kind token of a goal — Progress's whole goal, synced between desktops
+    /// <summary>The kind token of a goal — Goals' whole goal, synced between desktops
     /// (.devbook/arc42/adr/0035). Never a task row; the phone's goal pages read it from
     /// their own read model once they exist. A literal duplicated for the reason
     /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
     public const string GoalType = "goal";
 
-    /// <summary>The kind token of an impediment — Progress's whole impediment, synced
+    /// <summary>The kind token of an impediment — Goals' whole impediment, synced
     /// between desktops (.devbook/arc42/adr/0035). Never a task row, for the reason
     /// <see cref="GoalType"/> gives; persisted on every replica, so never to be renamed.</summary>
     public const string ImpedimentType = "impediment";
 
     /// <summary>The kind token of the stand-up context — what a desktop writes for the phone
     /// to read the stand-up by: pull request statuses, the pace and the working week (local
-    /// ADR 0035 §8). Never a task row; <see cref="Progress.ProgressFold"/> keeps it. A literal
+    /// ADR 0035 §8). Never a task row; <see cref="Goals.GoalsFold"/> keeps it. A literal
     /// duplicated for the reason <see cref="CaptureType"/> is; persisted, so never renamed.</summary>
     public const string StandUpContextType = "stand-up-context";
 

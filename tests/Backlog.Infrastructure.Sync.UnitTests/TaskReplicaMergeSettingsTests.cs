@@ -1,4 +1,4 @@
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Replication;

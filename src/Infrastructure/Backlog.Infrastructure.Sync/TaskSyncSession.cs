@@ -1,6 +1,6 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -93,11 +93,11 @@ public sealed class TaskSyncSession
     /// (local ADR 0032), or null on a head that keeps none. Optional for the same
     /// reason.</param>
     /// <param name="goals">Where every goal is read from for the push (local ADR 0035),
-    /// or null on a head without Progress. Optional for the same reason.</param>
+    /// or null on a head without Goals. Optional for the same reason.</param>
     /// <param name="impediments">Where every impediment is read from for the push (local
-    /// ADR 0035), or null on a head without Progress. Optional for the same reason.</param>
+    /// ADR 0035), or null on a head without Goals. Optional for the same reason.</param>
     /// <param name="standUpContext">Where the stand-up context the phone reads is read from
-    /// for the push (local ADR 0035 §8), or null on a head without Progress.</param>
+    /// for the push (local ADR 0035 §8), or null on a head without Goals.</param>
     /// <param name="retirements">The tombstones of the impediment edits the merge dealt
     /// with, sent by the push, or null on a head that applies none.</param>
     /// <param name="iteration">Where the iteration settings are read from for the push

@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
 
-using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Goals;
 using Backlog.Mobile.UI.Tasks;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
@@ -18,8 +18,8 @@ namespace Backlog.Mobile.WebHarness;
 /// dated from today so Finished and Planned always have something in them
 /// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>).
 /// <para>
-/// Written straight into the phone's Progress and task views, in the shapes a desktop's
-/// documents fold into, and only while the Progress view holds no goal: a real pull later
+/// Written straight into the phone's Goals and task views, in the shapes a desktop's
+/// documents fold into, and only while the Goals view holds no goal: a real pull later
 /// folds over the rows by the usual last-write-wins, and a harness that already has goals is
 /// left alone. Harness only, and only while <c>Harness:SeedStandup</c> is on. It writes
 /// before anything reads the views, because both projections read their rows once.
@@ -31,12 +31,12 @@ internal static class StandupSeed
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Seeds the views when the harness's configuration asks for it and the Progress
+    /// <summary>Seeds the views when the harness's configuration asks for it and the Goals
     /// view holds no goal yet.</summary>
     public static async Task SeedAsync(IServiceProvider services, TimeProvider clock, CancellationToken cancellationToken = default)
     {
-        var progress = services.GetRequiredService<IProgressViewStore>();
-        if (progress.ReadRows().Any(row => row.Kind == ProgressFold.GoalType)) return;
+        var progress = services.GetRequiredService<IGoalsViewStore>();
+        if (progress.ReadRows().Any(row => row.Kind == GoalsFold.GoalType)) return;
 
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
@@ -104,47 +104,47 @@ internal static class StandupSeed
         var capture = Guid.CreateVersion7(now);
         var setOn = lastMonday.AddDays(-14);
 
-        var rows = new List<ProgressViewRow>
+        var rows = new List<GoalsViewRow>
         {
-            Row(paid, ProgressFold.GoalType, now, Goal(paid, "Customers get paid faster", today.AddDays(11), now.AddDays(-30), setOn,
+            Row(paid, GoalsFold.GoalType, now, Goal(paid, "Customers get paid faster", today.AddDays(11), now.AddDays(-30), setOn,
                 new { kind = "Plan", plan = "bank-integration" },
                 new { kind = "Task", taskId = invoices },
                 new { kind = "Task", taskId = reminders },
                 new { kind = "Task", taskId = recurring },
                 new { kind = "PullRequest", repository = Repository, number = 1352 },
                 new { kind = "PullRequest", repository = Repository, number = 1355 })),
-            Row(search, ProgressFold.GoalType, now, Goal(search, "Devbook search ships", today.AddDays(4), now.AddDays(-29), setOn,
+            Row(search, GoalsFold.GoalType, now, Goal(search, "Devbook search ships", today.AddDays(4), now.AddDays(-29), setOn,
                 new { kind = "Plan", plan = "devbook-search" })),
-            Row(capture, ProgressFold.GoalType, now, Goal(capture, "Phone capture in daily use", today.AddDays(42), now.AddDays(-28), setOn,
+            Row(capture, GoalsFold.GoalType, now, Goal(capture, "Phone capture in daily use", today.AddDays(42), now.AddDays(-28), setOn,
                 new { kind = "Plan", plan = "phone-capture" })),
         };
 
         var bank = Guid.CreateVersion7(now);
-        rows.Add(Row(bank, ProgressFold.ImpedimentType, now, Impediment(bank, "Bank sample files missing", now.AddDays(-5),
+        rows.Add(Row(bank, GoalsFold.ImpedimentType, now, Impediment(bank, "Bank sample files missing", now.AddDays(-5),
             reportedTo: "account manager", handledBy: null, checkAgain: today.AddDays(1),
             note: "Support silent for 2 days; emailed the account manager.",
             [("New", today.AddDays(-5), null), ("Reported", today.AddDays(-4), "bank support"), ("Escalated", today.AddDays(-3), "account manager")],
             [mapping, matching, review])));
 
         var runner = Guid.CreateVersion7(now);
-        rows.Add(Row(runner, ProgressFold.ImpedimentType, now, Impediment(runner, "Android build runner flaky", now.AddDays(-4),
+        rows.Add(Row(runner, GoalsFold.ImpedimentType, now, Impediment(runner, "Android build runner flaky", now.AddDays(-4),
             reportedTo: "platform team", handledBy: "Platform team", checkAgain: today.AddDays(2), note: null,
             [("New", today.AddDays(-4), null), ("Reported", today.AddDays(-4), "platform team"), ("BeingHandled", today.AddDays(-2), "Platform team")],
             [recurring])));
 
         var credit = Guid.CreateVersion7(now);
-        rows.Add(Row(credit, ProgressFold.ImpedimentType, now, Impediment(credit, "Credit note numbering unclear", now.AddDays(-1),
+        rows.Add(Row(credit, GoalsFold.ImpedimentType, now, Impediment(credit, "Credit note numbering unclear", now.AddDays(-1),
             reportedTo: null, handledBy: null, checkAgain: null, note: null,
             [("New", today.AddDays(-1), null)],
             [iban])));
 
         var vpn = Guid.CreateVersion7(now);
-        rows.Add(Row(vpn, ProgressFold.ImpedimentType, now, Impediment(vpn, "Staging VPN certificate expired", now.AddDays(-10),
+        rows.Add(Row(vpn, GoalsFold.ImpedimentType, now, Impediment(vpn, "Staging VPN certificate expired", now.AddDays(-10),
             reportedTo: "ops", handledBy: "Ops", checkAgain: null, note: null,
             [("New", WeeksAgo(1, 2), null), ("Reported", WeeksAgo(1, 2), "ops"), ("Resolved", LastWeek(1), "Ops")],
             [])));
 
-        rows.Add(Row(ProgressViewProjection.StandUpContextId, ProgressFold.StandUpContextType, now, ProgressDocuments.WriteContext(new StandUpContextDto(
+        rows.Add(Row(GoalsViewProjection.StandUpContextId, GoalsFold.StandUpContextType, now, GoalsDocuments.WriteContext(new StandUpContextDto(
             now,
             [
                 Pull(1341, LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2)),
@@ -167,7 +167,7 @@ internal static class StandupSeed
     private static GoalPullRequestDto Pull(int number, LinkedPullRequestState state, DateOnly? mergedOn, GoalPullRequestChecksDto checks, GoalPullRequestApprovalsDto approvals) =>
         new(Repository, number.ToString(CultureInfo.InvariantCulture), state, mergedOn, checks, approvals);
 
-    private static ProgressViewRow Row(Guid id, string kind, DateTimeOffset at, string content) => new(id, kind, at, null, 0, content);
+    private static GoalsViewRow Row(Guid id, string kind, DateTimeOffset at, string content) => new(id, kind, at, null, 0, content);
 
     /// <summary>A <c>goal</c> document in the shape the desktop's store writes one.</summary>
     private static string Goal(Guid id, string title, DateOnly due, DateTimeOffset createdAt, DateOnly attachedOn, params object[] attachments) =>

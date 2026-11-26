@@ -1,9 +1,9 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.UI.Goals;
 using Backlog.SharedKernel.Results;
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Backlog.SharedKernel;
@@ -12,7 +12,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Goals view's host against the Progress ports
+/// The Goals view's host against the Goals ports
 /// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): what it reads and when,
 /// and each write it makes — the iteration, New goal, attach with the other-goal question,
 /// and an impediment's move — with the module's refusals shown where the person acted.
@@ -560,7 +560,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_note_shows_above_the_board()
     {
-        _impediments.Failure = ProgressErrors.ImpedimentNotFound(BankId);
+        _impediments.Failure = GoalsErrors.ImpedimentNotFound(BankId);
         var host = Render();
         var row = $"goals-board-stand-up-impediment-{BankId}";
         host.WaitForAssertion(() => host.Find($"[data-testid='{row}-note-edit']"));
@@ -569,7 +569,7 @@ public sealed class GoalsHostTests : IDisposable
         host.Find($"[data-testid='{row}-note-editor'] textarea").Input("Call the bank");
         host.Find(".impediment-row__note-editor").FocusOut();
 
-        host.WaitForAssertion(() => Assert.Contains(ProgressErrors.ImpedimentNotFound(BankId).Message, host.Markup, StringComparison.Ordinal));
+        host.WaitForAssertion(() => Assert.Contains(GoalsErrors.ImpedimentNotFound(BankId).Message, host.Markup, StringComparison.Ordinal));
         Assert.Empty(host.FindAll($"[data-testid='{row}-note']"));
     }
 
@@ -686,7 +686,7 @@ public sealed class GoalsHostTests : IDisposable
         {
             Impediments = [_standUp.Reading.Impediments[0] with { HoldsBack = [new StandUpHeldBackItemDto(Bank, "+bank-integration", false)] }]
         };
-        _impediments.Failure = ProgressErrors.ImpedimentNotFound(BankId);
+        _impediments.Failure = GoalsErrors.ImpedimentNotFound(BankId);
         var host = Render();
         var row = $"goals-board-stand-up-impediment-{BankId}";
         host.WaitForAssertion(() => host.Find($"[data-testid='{row}-unlink-plan:bank-integration']"));
@@ -697,13 +697,13 @@ public sealed class GoalsHostTests : IDisposable
         host.WaitForAssertion(() =>
         {
             Assert.Equal([(BankId, Bank)], _impediments.Releases);
-            Assert.Equal(ProgressErrors.ImpedimentNotFound(BankId).Message, host.Find($"[data-testid='{row}-link-error']").TextContent.Trim());
+            Assert.Equal(GoalsErrors.ImpedimentNotFound(BankId).Message, host.Find($"[data-testid='{row}-link-error']").TextContent.Trim());
         });
         Assert.Equal(before, _standUp.Reads);
         Assert.Empty(host.FindAll("[data-testid='goals-board-error']"));
     }
 
-    // ---- Doubles at the Progress module's boundary ------------------------------------
+    // ---- Doubles at the Goals module's boundary ------------------------------------
 
     private static string PaidField(string part) => $"[data-testid='goals-board-goal-{PaidId}-{part}'] input";
 
@@ -764,7 +764,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_edit_shows_the_modules_words_in_the_goal_and_reads_nothing()
     {
-        _goals.EditFailure = ProgressErrors.GoalWithoutTitle();
+        _goals.EditFailure = GoalsErrors.GoalWithoutTitle();
         var host = Render();
         host.WaitForAssertion(() => host.Find(PaidField("title")));
         var before = _standUp.Reads;
@@ -1358,7 +1358,7 @@ public sealed class GoalsHostTests : IDisposable
             if (AttachFailure is { } refused) return Result.Failure<GoalDto>(refused);
 
             return HeldBy is { } other && !moveFromOtherGoal
-                ? Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(other))
+                ? Result.Failure<GoalDto>(GoalsErrors.ItemInOtherGoal(other))
                 : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [new GoalAttachmentDto(item, Oct(19))]));
         }
 

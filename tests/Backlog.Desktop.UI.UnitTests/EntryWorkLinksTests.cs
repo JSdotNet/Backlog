@@ -58,7 +58,7 @@ public sealed class EntryWorkLinksTests
 
     /// <summary>The stored projections reach another module as stored: what
     /// <see cref="EntryLinks.PullRequests"/> cannot draw stays in, and only a pull request's
-    /// exact target type counts, as <c>ProgressTaskSource</c> reads it.</summary>
+    /// exact target type counts, as <c>GoalsTaskSource</c> reads it.</summary>
     [Fact]
     public void Pull_request_projections_are_read_as_stored_once_each()
     {

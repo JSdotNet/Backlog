@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Replication;
 using Backlog.SharedKernel.Results;
@@ -11,7 +11,7 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
-/// <summary>Progress's impediment replication port, holding what the test set and
+/// <summary>Goals' impediment replication port, holding what the test set and
 /// answering whatever the test said — the shape of <see cref="RecordingGoalReplication"/>.</summary>
 internal sealed class RecordingImpedimentReplication : IImpedimentReplication
 {
@@ -36,7 +36,7 @@ internal sealed class RecordingImpedimentReplication : IImpedimentReplication
 }
 
 /// <summary>
-/// An <c>impediment</c> document is not a task (local ADR 0035 §9): it goes to Progress's
+/// An <c>impediment</c> document is not a task (local ADR 0035 §9): it goes to Goals'
 /// impediment port whole on the pull, and leaves the machine whole on the push with a mark
 /// per impediment
 /// (<c>.devbook/domain/goals/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).

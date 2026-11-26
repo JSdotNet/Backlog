@@ -180,7 +180,7 @@ Without a length, the agent reads by the person's own [Iteration length](context
 ```meta
 type: feature
 related: [.devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/domain.md#impediment-state, .devbook/domain/goals/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.ImpedimentMovesTests]
 ```
 
 ```mermaid

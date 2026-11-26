@@ -23,7 +23,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// (<see cref="PullRequestStacks.PlaceAmong"/>): a read by number carries no parent, and a
 /// stacked pull request merged now would land on its parent's branch. One based on the
 /// default branch waits on nothing; any other takes its parent from its repository's open
-/// list — a cache hit whenever the pane, Progress or an earlier check listed the
+/// list — a cache hit whenever the pane, Goals or an earlier check listed the
 /// repository within the minute — and waits on nothing where that list holds no parent
 /// for it. Only one whose repository's list could not be read, based off the default
 /// branch, has no verdict and no merge offer.

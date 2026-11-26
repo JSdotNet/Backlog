@@ -1,10 +1,10 @@
 @page "/standup"
-@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Goals
 @using Backlog.Mobile.UI.Tasks
-@using Backlog.Modules.Progress.Abstractions
-@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
-@using Backlog.UI.Components.Progress
-@inject ProgressViewProjection Progress
+@using Backlog.Modules.Goals.Abstractions
+@using Backlog.Modules.Goals.Abstractions.DataTransferObjects
+@using Backlog.UI.Components.Goals
+@inject GoalsViewProjection GoalsView
 @inject PhoneStandUp StandUp
 @inject TaskViewProjection Tasks
 @inject DeviceOutbox Outbox
@@ -25,7 +25,7 @@
     the stand-up and attaching work are the desktop's.
 
     Shown once a desktop has sent the stand-up, which the phone reads as holding a
-    stand-up context (ProgressViewProjection.HoldsStandUp).
+    stand-up context (GoalsViewProjection.HoldsStandUp).
 *@
 
 <PageTitle>Stand-up</PageTitle>
@@ -33,9 +33,9 @@
 @* The tab bar names the page on screen; the heading is kept for screen readers.
    Refresh sits beside the iteration switch once there is a stand-up, and up here
    on a row of its own until then. *@
-<header class="@(Progress.HoldsStandUp ? "standup-heading" : "standup-heading standup-heading--refresh")">
+<header class="@(GoalsView.HoldsStandUp ? "standup-heading" : "standup-heading standup-heading--refresh")">
     <h1 class="sr-only">Stand-up</h1>
-    @if (!Progress.HoldsStandUp)
+    @if (!GoalsView.HoldsStandUp)
     {
         @Refresh
     }
@@ -46,7 +46,7 @@
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="standup-pull-notice" />
 }
 
-@if (!Progress.HoldsStandUp)
+@if (!GoalsView.HoldsStandUp)
 {
     @if (_looked)
     {
@@ -58,7 +58,7 @@
 else
 {
     var reading = StandUp.Read(Length);
-    var context = Progress.Context();
+    var context = GoalsView.Context();
     var statuses = StandupText.Statuses(context);
     var work = Work();
 
@@ -264,13 +264,13 @@ else
 
     /// <summary>The length this visit reads by: the one the person switched to, else the
     /// one a desktop last read by, else Week.</summary>
-    private IterationLength Length => _length ?? Progress.Context()?.Length ?? IterationLength.Week;
+    private IterationLength Length => _length ?? GoalsView.Context()?.Length ?? IterationLength.Week;
 
     /// <summary>Drawn at once from what the phone holds; the pull runs behind it, so a slow
     /// network never holds the first render.</summary>
     protected override void OnInitialized()
     {
-        Progress.Changed += OnChanged;
+        GoalsView.Changed += OnChanged;
         Tasks.Changed += OnChanged;
         Outbox.Changed += OnChanged;
         Lifecycle.Resumed += OnResumed;
@@ -281,7 +281,7 @@ else
     public void Dispose()
     {
         _disposed = true;
-        Progress.Changed -= OnChanged;
+        GoalsView.Changed -= OnChanged;
         Tasks.Changed -= OnChanged;
         Outbox.Changed -= OnChanged;
         Lifecycle.Resumed -= OnResumed;
@@ -299,7 +299,7 @@ else
     });
 
     /// <summary>
-    /// Pulls Progress and the tasks the stand-up counts. A failure keeps the stand-up as
+    /// Pulls Goals and the tasks the stand-up counts. A failure keeps the stand-up as
     /// the phone last saw it and says why in one line, as Today does.
     /// </summary>
     private async Task RefreshAsync()
@@ -309,7 +309,7 @@ else
 
         try
         {
-            await Progress.PullAsync();
+            await GoalsView.PullAsync();
             await Tasks.PullAsync();
             _pullNotice = null;
             Status.RecordSynced();
@@ -328,9 +328,9 @@ else
         }
     }
 
-    private Dictionary<Guid, ProgressTaskDto> Work()
+    private Dictionary<Guid, GoalsTaskDto> Work()
     {
-        var work = new Dictionary<Guid, ProgressTaskDto>();
+        var work = new Dictionary<Guid, GoalsTaskDto>();
         foreach (var task in PhoneStandUp.Work(Tasks.Live())) work.TryAdd(task.Id, task);
         return work;
     }
@@ -366,7 +366,7 @@ else
     /// <summary>What a block item is called: a task by its title, a pull request attached
     /// straight to a goal by the title of a task that links it, else "Pull request" — its
     /// number is on the chip beside it.</summary>
-    private static string ItemTitle(StandUpItemDto item, IReadOnlyDictionary<Guid, ProgressTaskDto> work) =>
+    private static string ItemTitle(StandUpItemDto item, IReadOnlyDictionary<Guid, GoalsTaskDto> work) =>
         item.Kind == GoalAttachmentKind.PullRequest && StandupText.PullRequestOf(item, work) is { } pull
             ? StandupText.PullRequestTitle(pull, work.Values) ?? "Pull request"
             : item.Title;
@@ -375,7 +375,7 @@ else
     /// <see cref="StandUpDto.ResolvedInLast"/> counts, by the same rule.</summary>
     private List<ImpedimentDto> Resolved(StandUpDto reading) =>
     [
-        .. Progress.Impediments().Where(impediment =>
+        .. GoalsView.Impediments().Where(impediment =>
             impediment.ResolvedOn is { } on && on >= reading.Last.First && on <= reading.Last.Last)
     ];
 }

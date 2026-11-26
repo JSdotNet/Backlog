@@ -59,7 +59,7 @@ public partial class TasksPane
 
     /// <summary>
     /// What names the open impediment holding a Blocked plan back, as the host cascades it
-    /// (local ADR 0035 §5): an impediment is Progress's, and this pane may not reach it
+    /// (local ADR 0035 §5): an impediment is Goals', and this pane may not reach it
     /// (§6). With none cascaded a Blocked plan reads plain Blocked.
     /// </summary>
     [CascadingParameter]

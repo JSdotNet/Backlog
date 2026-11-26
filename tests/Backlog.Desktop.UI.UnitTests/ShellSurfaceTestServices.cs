@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.Changes;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Calendar.UI;
@@ -15,8 +15,8 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Progress.UI.Goals;
-using Backlog.Modules.Progress.UI.WeeklyReview;
+using Backlog.Modules.Goals.UI.Goals;
+using Backlog.Modules.Goals.UI.WeeklyReview;
 using Backlog.Modules.Roadmap.UI;
 using Microsoft.Extensions.DependencyInjection;
 

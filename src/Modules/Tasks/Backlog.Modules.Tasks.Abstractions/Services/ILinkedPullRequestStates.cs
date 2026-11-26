@@ -211,7 +211,7 @@ public sealed record LinkedPullRequestRead(
 /// A port on Tasks' surface answered by an adapter over Repositories'
 /// contract (local ADR 0042 §4), the shape <see cref="ILinkedSessionStates"/> takes for
 /// the same reason. Through it the task list shares the contract's one cache with the
-/// Pull requests pane, Progress and the side panel: a read one of them made within the
+/// Pull requests pane, Goals and the side panel: a read one of them made within the
 /// minute answers the others, and a merge from the row is what the pane reads next. A
 /// host that composes no Repositories answers nothing, and a badge with no
 /// state draws as it did before it had one.

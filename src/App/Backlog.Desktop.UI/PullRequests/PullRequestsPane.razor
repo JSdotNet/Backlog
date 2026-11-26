@@ -3,7 +3,6 @@
 @using Backlog.Modules.Repositories.Abstractions.DataTransferObjects
 @using Backlog.Modules.Repositories.Abstractions.Services
 @using Backlog.UI.Components.Integrations
-@using Backlog.UI.Components.Progress
 @using Backlog.UI.Components.Goals
 @* The status line component and Repositories' status share a name; in
    code the name is the module's record, and in markup the tag is the component. The
@@ -39,7 +38,7 @@
     It is Repositories' screen (local ADR 0042): the pull requests of every
     registered repository, drawn from that context's status and verdict, which the
     session card and a task's row read too. It reads and acts only through that
-    context's contract, IPullRequests, so the pane, a task's row and Progress share
+    context's contract, IPullRequests, so the pane, a task's row and Goals share
     one read of each pull request. It lives in the shell project for now because that
     context has no UI project yet; the GitHub adapter is still asked for the
     registry's aliases, colours and label filters, which are no pull request's.

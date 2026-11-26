@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// <summary>
 /// Every goal leaves the machine on the push as one whole <c>goal</c> document whenever its
 /// stamp is later than the one this device last had accepted for it — a mark per goal —
-/// and comes back on the pull to Progress whole
+/// and comes back on the pull to Goals whole
 /// (<c>.devbook/domain/goals/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).
 /// </summary>
 public sealed class TaskSyncSessionGoalTests
