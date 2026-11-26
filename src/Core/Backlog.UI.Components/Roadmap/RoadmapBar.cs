@@ -66,6 +66,18 @@ namespace Backlog.UI.Components.Roadmap;
 /// states say it in <paramref name="Detail"/> too, because the glyph is hidden from a
 /// screen reader — straight after any overdue line, so the tooltip puts it ahead of the
 /// progress figures with the warning.</param>
+/// <param name="PartOf">What the bar is one part of, when the caller draws one thing as
+/// several bars — one per band it is filed in, say. An opaque key the caller chooses:
+/// bars sharing it are siblings, and the timeline marks a bar's siblings while it is
+/// traced, so the other parts of one piece of work can be found in bands the reader has
+/// not reached. Never read for anything else, so the library holds no grammar of the
+/// caller's ids. Null for a bar that is the whole of its work.</param>
+/// <param name="PartIndex">Which part this is, counting from 1, in the order the caller
+/// numbers them. Read only while <paramref name="PartCount"/> is more than one.</param>
+/// <param name="PartCount">How many parts the work is drawn as, the ones not drawn
+/// included. More than one draws a small "N/M" chip after the title; the chip is hidden
+/// from a screen reader, so as with the other states say it in
+/// <paramref name="Detail"/> too.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -82,8 +94,21 @@ public sealed record RoadmapBar(
     bool Overdue = false,
     bool Done = false,
     RoadmapBarAction? Action = null,
-    bool Waiting = false)
+    bool Waiting = false,
+    string? PartOf = null,
+    int PartIndex = 1,
+    int PartCount = 1)
 {
+    /// <summary>Whether the bar is one of several parts of one piece of work, so it
+    /// carries the part chip.</summary>
+    public bool IsPart => PartCount > 1;
+
+    /// <summary>The chip's text, "N/M", with the index held inside the count so a
+    /// caller's slip never draws "3/2".</summary>
+    public string PartLabel => string.Create(
+        System.Globalization.CultureInfo.InvariantCulture,
+        $"{Math.Clamp(PartIndex, 1, Math.Max(1, PartCount))}/{PartCount}");
+
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 
     public IReadOnlyList<RoadmapStep> StepList => Steps ?? [];

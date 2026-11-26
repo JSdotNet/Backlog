@@ -161,7 +161,6 @@ public class StylesheetDuplicateSelectorTests
             new(".metric-stacked-area__canvas-wrap", 2, PlotPlacement),
             new(".metric-stacked-area__axis", 2, PlotPlacement),
             new(".roadmap-bar__title", 2, SharedWithSiblings),
-            new(".roadmap-bar__badge", 2, SharedWithSiblings),
             new(".roadmap-bar__unestimated", 2, SharedWithSiblings),
             new(".integration-link__auto-merge", 2, SharedWithSiblings),
             new(".graph-atlas-index__status", 2, SharedWithSiblings),
