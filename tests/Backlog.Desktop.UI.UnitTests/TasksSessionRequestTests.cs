@@ -374,6 +374,25 @@ public sealed class TasksSessionRequestTests
         Assert.Equal("In plan session", RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']")?.TextContent.Trim());
     }
 
+    /// <summary>A plan entry whose plan session reports a stage names it on its row, as
+    /// Now does.</summary>
+    [Fact]
+    public async Task A_plan_entry_in_a_plan_session_names_the_stage_its_run_reports_on_its_row()
+    {
+        var (host, _, _) = await HostAsync(roadmapTags: new PlannedTags("+plan-first-tasks"));
+        using var _host = host;
+        var row = await host.WriteEntryAsync("# Derive the states\n`prompt` `!in-progress` `+plan-first-tasks` `repo:JSdotNet/Backlog`\n\nBuild it.\n");
+        await host.State.SelectAsync(null);
+        var stages = new PlanSectionsTests.FakePlanEntryStages { Answer = new Dictionary<Guid, string> { [row.Id!.Value] = "Implement" } };
+        host.Context.Services.AddSingleton<IPlanEntryStages>(stages);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "In plan session · Implement",
+            RowOf(pane, row).QuerySelector("[data-testid='row-plan-state']")?.TextContent.Trim()));
+    }
+
     [Fact]
     public void A_plan_entry_s_offer_is_refused_even_with_a_clone_folder()
     {
@@ -821,10 +840,10 @@ public sealed class TasksSessionRequestTests
         Assert.Equal(2, rows.Count);
 
         // The Claimed one first, though younger — a dispatcher already has it: the entry
-        // in view, by its title; Claimed offers no Cancel.
+        // in view, by its title; Claimed offers Cancel too.
         Assert.Equal("Add the Start session action", rows[0].QuerySelector("[data-testid='session-queue-jump']")!.TextContent.Trim());
         Assert.Equal($"{Backlog} · Claimed · 4 min ago", Normalise(rows[0].QuerySelector("[data-testid='session-queue-meta']")!.TextContent));
-        Assert.Null(rows[0].QuerySelector("[data-testid='session-queue-cancel']"));
+        Assert.NotNull(rows[0].QuerySelector("[data-testid='session-queue-cancel']"));
 
         // Then the Requested one: an entry the loaded rows do not hold, named neutrally and not followable.
         Assert.Equal(SessionQueue.NotInView, rows[1].QuerySelector("[data-testid='session-queue-name']")!.TextContent);
@@ -1025,6 +1044,24 @@ public sealed class TasksSessionRequestTests
             Assert.NotNull(pane.Find("[data-testid='session-queue-none']"));
             Assert.Equal("Session queue, empty", QueueTrigger(pane).GetAttribute("aria-label"));
         });
+    }
+
+    [Fact]
+    public async Task Cancel_in_the_panel_withdraws_a_Claimed_request()
+    {
+        var (host, queue, clock) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var id = Guid.NewGuid();
+        queue.Open[row.Id!.Value] = new EntrySessionRequest(id, EntrySessionRequestState.Claimed, Backlog, clock.GetUtcNow().AddMinutes(-1));
+
+        var pane = host.Render();
+        pane.WaitForAssertion(() => Assert.Equal("Session queue, 1 waiting", QueueTrigger(pane).GetAttribute("aria-label")));
+        OpenQueue(pane);
+
+        pane.Find("[data-testid='session-queue-cancel']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(id, Assert.Single(queue.Cancelled)));
     }
 
     [Fact]
@@ -1449,7 +1486,7 @@ public sealed class TasksSessionRequestTests
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
         {
             var held = Open.FirstOrDefault(pair => pair.Value.Id == requestId);
-            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started }) return Task.FromResult(false);
+            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Claimed or EntrySessionRequestState.Started }) return Task.FromResult(false);
 
             Cancelled.Add(requestId);
             Open.Remove(held.Key);

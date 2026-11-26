@@ -21,10 +21,11 @@ public sealed record SessionQueueRow(
     string Name,
     bool InView)
 {
-    /// <summary>Whether the row offers Cancel: while Requested, and while Started so a
-    /// request whose session never called <c>link_session</c> can be cleared. Never while
-    /// Claimed: a dispatcher is starting the session right then.</summary>
-    public bool CanCancel => Request.State is EntrySessionRequestState.Requested or EntrySessionRequestState.Started;
+    /// <summary>Whether the row offers Cancel: in every open state the request service
+    /// accepts — Requested; Claimed, so a claim that never starts its session can be taken
+    /// back; and Started, so a request whose session never called <c>link_session</c> can
+    /// be cleared.</summary>
+    public bool CanCancel => Request.State is EntrySessionRequestState.Requested or EntrySessionRequestState.Claimed or EntrySessionRequestState.Started;
 
     /// <summary>Whether the row can move in the queue: only while Requested, a lapsed
     /// claim included — a Claimed or Started request already has its dispatcher.</summary>

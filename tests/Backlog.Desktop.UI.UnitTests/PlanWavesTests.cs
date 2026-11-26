@@ -160,6 +160,15 @@ public sealed class PlanWavesTests
         Assert.Equal("Landed", card.StateText);
     }
 
+    [Theory]
+    [InlineData("1 - Token model +zero-trust-auth", "+zero-trust-auth", "Token model")]
+    [InlineData("1 - Token model +Zero-Trust-Auth", "+zero-trust-auth", "Token model")]
+    [InlineData("1 - Token model +zero-trust-auth-v2", "+zero-trust-auth", "Token model +zero-trust-auth-v2")]
+    [InlineData("1 - Token model +beta", "+zero-trust-auth", "Token model +beta")]
+    [InlineData("Token model", null, "Token model")]
+    public void A_card_title_drops_the_step_number_and_the_plan_s_own_tag(string title, string? planTag, string expected) =>
+        Assert.Equal(expected, PlanWaves.TitleOf(title, planTag));
+
     [Fact]
     public void An_unnumbered_entry_is_named_by_its_place_in_the_plan()
     {
@@ -215,11 +224,26 @@ public sealed class PlanWavesTests
         Assert.Equal(["1", "2", "3"], waves.Select(wave => wave.GetAttribute("data-wave")));
         Assert.Equal(["false", "true", "false"], waves.Select(wave => wave.GetAttribute("data-current")));
         Assert.Equal(
-            ["Token model +zero-trust-auth", "Device claim +zero-trust-auth", "Device-bound tokens +zero-trust-auth"],
+            ["Token model", "Device claim", "Device-bound tokens"],
             waves.Select(wave => Text(wave.QuerySelector("[data-testid='plan-wave-card-title']")!)));
         Assert.Contains("plan-waves__card--waiting", waves[2].QuerySelector("[data-testid='plan-wave-card']")!.ClassName);
         Assert.Equal("Lands on plan/zero-trust-auth · Unattended, asks nothing", Text(pane.Find("[data-testid='plan-focus-run-line']")));
         Assert.NotNull(pane.Find("[data-testid='plan-focus-copy-button']"));
+    }
+
+    [Fact]
+    public async Task The_run_line_carries_the_plan_s_queue_toggle_and_pressing_it_queues_the_plan()
+    {
+        using var host = await HostAsync();
+        host.GitHub.Settings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+        var queue = (TasksPlanSessionRequestTests.FakePlanTagSessionRequests)host.Context.Services.GetRequiredService<IPlanTagSessionRequests>();
+        queue.Repositories["zero-trust-auth"] = ["backlog"];
+        var pane = OpenPlan(host);
+
+        var toggle = pane.WaitForElement("[data-testid='plan-focus-run'] [data-testid='tag-filter-queue-plan']");
+        toggle.Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("zero-trust-auth", Assert.Single(queue.Asked).Tag));
     }
 
     [Fact]

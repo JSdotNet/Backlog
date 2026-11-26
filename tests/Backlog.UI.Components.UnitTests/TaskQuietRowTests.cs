@@ -204,6 +204,43 @@ public sealed class TaskQuietRowTests
         Assert.False(button.HasAttribute("disabled"));
     }
 
+    /// <summary>The quiet status is text, but still the host's <see cref="StatusSelector"/>:
+    /// a press opens its list (<c>.devbook/design/interaction-guidelines.md#quiet-rows</c>).
+    /// bUnit cannot open a native select, so this holds the select, its name, and that a
+    /// change reaches the host.</summary>
+    [Fact]
+    public void The_quiet_status_text_is_still_the_status_selector_and_a_change_reaches_the_host()
+    {
+        using var context = Context();
+        string? chosen = null;
+        var changed = EventCallback.Factory.Create<string>(new object(), value => chosen = value);
+        RenderFragment<TaskRow> selector = _ => builder =>
+        {
+            builder.OpenComponent<StatusSelector>(0);
+            builder.AddAttribute(1, nameof(StatusSelector.CurrentValue), "Ready");
+            builder.AddAttribute(2, nameof(StatusSelector.Options), (IReadOnlyList<SelectorOption>)[new("Ready", "Ready"), new("Done", "Done")]);
+            builder.AddAttribute(3, nameof(StatusSelector.Label), "Change status of Write it down");
+            builder.AddAttribute(4, nameof(StatusSelector.TestId), "row-status-badge");
+            builder.AddAttribute(5, nameof(StatusSelector.OnChanged), changed);
+            builder.CloseComponent();
+        };
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down", Status: "Ready"))
+            .Add(t => t.Quiet, true)
+            .Add(t => t.Actions, selector)
+            .Add(t => t.TestId, "row"));
+
+        var select = view.Find(".task-item__actions [data-testid='row-status-badge'] select");
+        Assert.Equal("SELECT", select.TagName);
+        Assert.Equal("Change status of Write it down", select.GetAttribute("aria-label"));
+        Assert.False(select.HasAttribute("disabled"));
+
+        select.Change("Done");
+
+        Assert.Equal("Done", chosen);
+    }
+
     private static RenderFragment<TaskRow> Fragment(string markup) =>
         _ => builder => builder.AddMarkupContent(0, markup);
 }
