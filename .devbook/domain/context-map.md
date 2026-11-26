@@ -2,7 +2,7 @@
 
 ```meta
 type: context-map
-related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md, .devbook/arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md]
 ```
 
 > Strategic view of the Backlog domain: context roles, subdomain classification, and the relationships that carry work, knowledge, standards, and signals. System context: `.devbook/arc42/03-context-and-scope.md`. Containers: `.devbook/arc42/05-building-block-view.md#container-view`.
@@ -25,10 +25,10 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
 | Sessions | Supporting | It records what the AI coding agents do on each environment, and owns nothing those sessions touch. |
-| Notifications | Supporting | It lets any context tell the person something or ask a question, and hands the answer back. |
 | Events | Supporting | It keeps the knowledge events a person attends to learn something, from spotting one to its harvest. |
-| Calendar | Supporting | It lays what Tasks, Roadmap Planning and Events own out on a month or a week, owning no data of its own. |
-| Sync | Supporting | It keeps one person's data the same across their devices by carrying other contexts' documents. |
+| Notifications | Generic | It lets any context tell the person something or ask a question, and hands the answer back. |
+| Sync | Generic | It keeps one person's data the same across their devices by carrying other contexts' documents. |
+| Change journal | Generic | It records who changed what across tasks, plans, goals, inbox triage, events and devbook state, and restores a change (local ADR 0071). |
 
 - **Roadmap Planning:** The plan says what is intended, when, and in what order. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns.
 - **Devbook:** It reads the devbook a repository carries beside its code in place.
@@ -39,8 +39,17 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
 - **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, the Calendar's events layer over the read contract, the harvest task, sync and the phone are built.
 - **Sync:** It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model. It is still not what makes the product different.
+- **Change journal:** Two tables beside the store, filled by triggers, shared across contexts the way Sync is. Its MCP tool group belongs to the channel.
+
+Three parts of the product are drawn on the map and are not contexts (local ADR 0073 §6):
+
+- **Desktop shell** — a composition. It composes the cards and owns no state.
+- **Calendar** — a composition beside the shell. It owns its grid, reads one layer each from Tasks, Roadmap Planning and Events, and owns no data (local ADRs 0055, 0056).
+- **MCP server** — a channel beside the shell. Agents enter through it; each tool group passes a call to one context's Abstractions (local ADR 0012). The agent grants and scopes are its own (local ADRs 0058, 0059, 0069).
 
 ## Context map
+
+Arrows point from supplier to consumer. Dashed lines are one-way references or not built (local ADR 0073 §11).
 
 ```mermaid
 flowchart LR
@@ -61,7 +70,6 @@ flowchart LR
     Sync[Sync]
     Notify[Notifications]
     Events[Events]
-    Calendar[Calendar]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -78,28 +86,32 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Tasks
     Devbook -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
-    Roadmap -->|OHS + Published Language<br/>RoadmapItemScheduled| Monitor
+    %% Monitoring & Dashboard, Technology Stack and Environment have no code
+    %% (local ADR 0073), so every edge to or from them is dashed. So are the
+    %% FollowUpCaptured, ProductivityRecorded, MachineStatusChanged and
+    %% ComplianceUpdated events: none has a reference in src/.
+    Roadmap -.->|"OHS + Published Language (not built)<br/>RoadmapItemScheduled"| Monitor
 
-    Tasks -->|OHS + Published Language<br/>StatusChanged / TaskProjected / TaskCompleted| Monitor
-    Inbox -->|Customer/Supplier<br/>Queue-health feed| Monitor
-    Repo -->|Customer/Supplier<br/>Health and scan feed| Monitor
-    DevPC -->|OHS + Published Language<br/>MachineStatusChanged / ComplianceUpdated| Monitor
-    Productivity -->|OHS + Published Language<br/>ProductivityRecorded| Monitor
-    Monitor -->|Customer/Supplier<br/>Health and availability signals| Environment
-    Monitor -->|OHS + Published Language<br/>FollowUpCaptured| Inbox
+    Tasks -.->|"OHS + Published Language (not built)<br/>StatusChanged / TaskProjected / TaskCompleted"| Monitor
+    Inbox -.->|"Customer/Supplier (not built)<br/>Queue-health feed"| Monitor
+    Repo -.->|"Customer/Supplier (not built)<br/>Health and scan feed"| Monitor
+    DevPC -.->|"OHS + Published Language (not built)<br/>MachineStatusChanged / ComplianceUpdated"| Monitor
+    Productivity -.->|"OHS + Published Language (not built)<br/>ProductivityRecorded"| Monitor
+    Monitor -.->|"Customer/Supplier (not built)<br/>Health and availability signals"| Environment
+    Monitor -.->|"OHS + Published Language (not built)<br/>FollowUpCaptured"| Inbox
 
-    Tech -->|Customer/Supplier<br/>Technology baselines| Repo
-    Tech -->|Customer/Supplier<br/>Team tools baseline| DevPC
-    Repo -->|Customer/Supplier<br/>Adoption and technology scans| Tech
-    DevPC -->|Customer/Supplier<br/>Tool-version reports| Tech
+    Tech -.->|"Customer/Supplier (not built)<br/>Technology baselines"| Repo
+    Tech -.->|"Customer/Supplier (not built)<br/>Team tools baseline"| DevPC
+    Repo -.->|"Customer/Supplier (not built)<br/>Adoption and technology scans"| Tech
+    DevPC -.->|"Customer/Supplier (not built)<br/>Tool-version reports"| Tech
 
     Tasks -->|OHS + Published Language<br/>AIWorkLogged| Productivity
-    Monitor -->|OHS + Published Language<br/>CopilotSession signal| Productivity
+    Monitor -.->|"OHS + Published Language (not built)<br/>CopilotSession signal"| Productivity
     Productivity -->|Customer/Supplier<br/>Productivity summaries| Tasks
 
-    Repo -->|Customer/Supplier<br/>Repository/environment registry lookup| Environment
-    Environment -->|Customer/Supplier<br/>Launchable environment links| Tasks
-    Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
+    Repo -.->|"Customer/Supplier (not built)<br/>Repository/environment registry lookup"| Environment
+    Environment -.->|"Customer/Supplier (not built)<br/>Launchable environment links"| Tasks
+    Environment -.->|"Customer/Supplier (not built)<br/>Environment shortcuts"| DevPC
 
     %% Sessions. The Sessions -> Productivity and Sessions -> Tasks edges are
     %% built, each through an infrastructure adapter rather than a published
@@ -127,7 +139,12 @@ flowchart LR
     %% answer their own ports. The shell is the composition root, not a context:
     %% it composes the cards and asks Tasks which task a session or a pull
     %% request belongs to, so Repository Management holds no edge to Tasks.
+    %% The Calendar is a composition beside it, and the MCP server a channel
+    %% beside it, through which agents reach each context's Abstractions
+    %% (local ADR 0073 §6). Neither is a context.
     Shell(["Desktop shell<br/>(composition root, not a context)"])
+    Calendar(["Calendar<br/>(composition, not a context)"])
+    Mcp(["MCP server<br/>(channel, not a context)"])
     Repo -->|"Customer/Supplier<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
     Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Progress
     Repo -->|"Customer/Supplier<br/>Verdict on the session card, through the shell"| Sessions
@@ -150,9 +167,10 @@ flowchart LR
     Notify -->|OHS + Published Language<br/>INotifications| Devbook
     Notify -->|OHS + Published Language<br/>Close by subject| Tasks
 
-    %% Events. Local ADR 0050. Every edge is built. The Brain edge is dashed
-    %% because it is a one-way id reference, answered by EventsBrainNotes over
-    %% IEventBrainNotes, not a contract the Brain offers.
+    %% Events. Local ADR 0050. Every edge is built. The Brain and Inbox edges are
+    %% dashed because each is a one-way id reference: Brain notes answered by
+    %% EventsBrainNotes over IEventBrainNotes, Talk notes held by their Inbox
+    %% note id. Neither is a contract the Brain or the Inbox offers.
     %% Inbox -> Events is the To Event route; Capture -> Events the event facts
     %% a capture carries, through the Inbox. Tasks -> Events files, reads and
     %% completes the prep and harvest tasks by id (IEventTaskTarget, answered by
@@ -165,10 +183,11 @@ flowchart LR
     Capture -->|"OHS + Published Language<br/>Event facts on the capture, through the Inbox. Watched pages stay Capture's targets"| Events
     Tasks -->|"Customer/Supplier<br/>File and complete tasks under the Brain scope, task by id. Tasks never shows the event"| Events
     Events -.->|"One-way reference<br/>Note links by id. Brain knows no event"| Brain
+    Events -.->|"One-way reference<br/>Talk notes by Inbox note id. Inbox knows no event"| Inbox
     Sync -->|"Conformist<br/>Knowledge event replica, and attachment requests on the task feed"| Events
 
-    %% Calendar. Local ADRs 0055 and 0056. It owns its grid, reads layers and
-    %% owns no data. Adapters under Infrastructure.FileSystem/Calendar/ answer
+    %% Calendar. Local ADRs 0055 and 0056. A composition: it owns its grid,
+    %% reads layers and owns no data. Adapters under Infrastructure.FileSystem/Calendar/ answer
     %% the Calendar's own ports over Tasks' published contract, Roadmap's
     %% abstractions and Events' read contract. All three layers are built.
     %% A write goes back through its source. See the dependency table in
@@ -350,7 +369,7 @@ flowchart LR
   on a replica container of their own that Sync never reads. The Calendar's Events
   layer reads Events' read contract through a port the Calendar owns. Events publishes no
   domain event.
-- `Calendar` owns its grid, reads layers and owns no data
+- The Calendar is a composition, not a context (local ADR 0073 §6). It owns its grid, reads layers and owns no data
   (`.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md` and
   `.devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md`).
   `Tasks`, `Roadmap Planning` and `Events` each answer a layer port of the
