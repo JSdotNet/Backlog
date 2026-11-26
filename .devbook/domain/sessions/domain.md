@@ -1933,7 +1933,7 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [environment, machine_name, environment_id]
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/environment/domain.md#environment, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/repositories/domain.md#environment, .devbook/domain/tasks/domain.md#device]
 ```
 
 Where an agent ran. Today that is a development PC, named as that machine names
@@ -1945,9 +1945,8 @@ product-wide device identity issued by the shared kernel
 name can change without changing the environment, so grouping keys
 on the id.
 
-**This is not the Environment context's Environment.** That one is a launchable
-destination, such as a local harness, a staging app or a cloud dashboard, and belongs
-to a person's shortcuts. This one is the place a session happened. The words collide and the concepts do not. The `related` link above leads a reader from either to the other.
+**This is not a repository's Environment.** That one is a launchable
+destination of a [registered repository](../repositories/domain.md#environment), such as its local harness, a staging app or a cloud dashboard. This one is the place a session happened. The words collide and the concepts do not. The `related` link above leads a reader from either to the other.
 
 It is also not Dev PC Management's **Machine**, though today every environment is
 one. A Machine is a registered, wakeable, compliance-tracked box. An environment is

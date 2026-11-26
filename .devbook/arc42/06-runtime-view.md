@@ -468,7 +468,7 @@ related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc4
 ```mermaid
 sequenceDiagram
     participant Scheduler as Desktop Scheduler
-    participant RepoMgmt as Repository Management
+    participant RepoMgmt as Repositories
     participant RepoRegistry as Repository Registry
     participant Pkg as Package Registries
     participant Devbook as Devbook reader

@@ -306,7 +306,7 @@ rule applied again, not a person's date overruled.
 ```meta
 type: feature
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
-related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repository-management/features.md#repository-registration]
+related: [.devbook/domain/roadmap/domain.md#repository-scope, .devbook/domain/repositories/features.md#repository-registration]
 ```
 
 Relate planned work to the repositories it happens in, by the repository identity
@@ -317,7 +317,7 @@ project at a time.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 **Reading the plan by repository**
@@ -358,21 +358,21 @@ called "No repository". The chart always draws it, with one empty "Planned" lane
 when nothing is filed there. There the person plans the next project before it has
 a repository, by double-clicking or dragging on it.
 
-An [archived repository](../repository-management/domain.md#archived-repository)
+An [archived repository](../repositories/domain.md#archived-repository)
 is still configured, so its work never falls into that last band. How its own
 band is drawn is set by
-[its requirements](../repository-management/requirements.md#archiving-a-repository).
+[its requirements](../repositories/requirements.md#archiving-a-repository).
 
 ### Surviving a repository that is no longer configured
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/roadmap/domain.md#repository-scope-resolution, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 The alias an item named is kept as written and reads as unresolved; nothing the
 person typed is deleted because a registry changed. An
-[archived repository](../repository-management/domain.md#archived-repository) is
+[archived repository](../repositories/domain.md#archived-repository) is
 not this case, because the registry still holds it.
 
 ## Reading and rescheduling on a timeline
@@ -658,7 +658,7 @@ its parts make ([Placing a plan in time](#placing-a-plan-in-time)).
 
 ```meta
 type: sub-feature
-related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/repository-management/features.md#repository-identity-colour]
+related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/repositories/features.md#repository-identity-colour]
 ```
 
 Draw each repository's band in that repository's own colour, so a plan spanning a

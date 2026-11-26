@@ -1,4 +1,4 @@
-# Repository Management
+# Repositories
 
 ```meta
 index: root
@@ -6,7 +6,7 @@ type: context
 related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
-Repository Management maintains a [registry](domain.md#repository-registry) of development repositories and tracks their health across the portfolio, so outdated or at-risk repositories surface without manual investigation. Health covers:
+Repositories maintains a [registry](domain.md#repository-registry) of development repositories and tracks their health across the portfolio, so outdated or at-risk repositories surface without manual investigation. Health covers:
 
 - package versions and dependencies;
 - the technology stack;
@@ -24,7 +24,9 @@ A pull request is a fact about a registered repository. This context already dec
 
 It reads each registered repository's technologies, their ratings and approved versions from that repository's devbook `tech/` folder, through [Devbook](../devbook/context.md)'s reader, for [portfolio technology adoption](features.md#portfolio-technology-adoption) (local ADR 0073 §5). The registry is built; scanning, health scoring and that read are planned.
 
-Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`. Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
+It holds each repository's named [environments](domain.md#environment) — its local harness, development, staging and production, its dashboards — each with a launch link, and a [no-repository group](domain.md#no-repository-group) for a destination no repository owns ([Environment quick access](features.md#environment-quick-access)). Environment folded into this context, which was renamed Repositories from Repository Management (local [ADR 0073 §3](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories)). Environments are planned and not built. This context stores no credential for one, only where it is kept.
+
+Pull request state is built in this context's module, `Backlog.Modules.RepositoryManagement`, which becomes `Backlog.Modules.Repositories` (local ADR 0073 §3). Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
 
 - the readiness verdict;
 - the stacks;
@@ -42,6 +44,8 @@ Outside it:
 | A technology's rating and its approved version | The repository's own devbook `tech/` folder, read through [Devbook](../devbook/context.md) |
 | The work items a finding turns into, and which task a session or pull request belongs to | [Tasks](../tasks/domain.md#task) |
 | Which session opened a pull request | [Sessions](../sessions/context.md) |
+| Where an agent session ran, which Sessions also calls an [Environment](../sessions/domain.md#environment) | [Sessions](../sessions/context.md) |
+| An environment's credential | The credential store an [Access Hint](domain.md#access-hint) names |
 | The goal a pull request counts toward | [Progress](../progress/context.md) |
 | The history of merged work the dashboard counts | [Productivity](../productivity/features.md#personal-productivity-dashboard), which reads it on its own |
 
@@ -50,7 +54,7 @@ Outside it:
 ```meta
 type: feature-flag
 key: pull-requests
-related: [".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+related: [".devbook/domain/repositories/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 tests: [unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.RepositoryManagementFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
 ```
 

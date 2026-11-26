@@ -1006,33 +1006,33 @@ When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, 
 
 ```meta
 type: requirements
-related: [.devbook/domain/progress/features.md#pull-request-status, .devbook/domain/repository-management/requirements.md#pull-request-status]
+related: [.devbook/domain/progress/features.md#pull-request-status, .devbook/domain/repositories/requirements.md#pull-request-status]
 ```
 
 > What the checks and approvals marks show, and how a screen reader hears them, is
-> [Repository Management's](../repository-management/requirements.md#pull-request-status),
+> [Repositories'](../repositories/requirements.md#pull-request-status),
 > which publishes the status (local
 > [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)).
 > Progress promises only that its rows carry that status.
 
-### Requirement: A goal's pull request row shows the status Repository Management publishes
+### Requirement: A goal's pull request row shows the status Repositories publishes
 
 ```meta
 type: requirement
-related: [.devbook/domain/repository-management/features.md#pull-request-status]
+related: [.devbook/domain/repositories/features.md#pull-request-status]
 ```
 
-The system SHALL draw every pull request row in Progress from the status Repository Management publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
+The system SHALL draw every pull request row in Progress from the status Repositories publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
 
 #### Scenario: An open pull request on a goal
 
-- **Given** #1341 is attached to "Customers get paid faster", and Repository Management reads it with 14 of 14 checks passed and one of two approvals
+- **Given** #1341 is attached to "Customers get paid faster", and Repositories reads it with 14 of 14 checks passed and one of two approvals
 - **When** the Goals view draws its row
 - **Then** it shows `14/14` and `1/2`, as the pull requests pane's row of #1341 does
 
 #### Scenario: A merged pull request on a goal
 
-- **Given** #1344 is attached to "Customers get paid faster", and Repository Management reads it as merged
+- **Given** #1344 is attached to "Customers get paid faster", and Repositories reads it as merged
 - **When** the Goals view draws its row
 - **Then** it reads "merged" instead of both marks
 

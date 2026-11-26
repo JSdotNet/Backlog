@@ -12,7 +12,7 @@ Inside the boundary: the productivity ledger and the summaries read off it, and 
 - the reader's working week, which follows them between devices;
 - the weekly reset of the assistant's allowance and the monthly spend budget for each assistant, which stay on each device.
 
-Outside it: task work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task) and [Repository Management](../repository-management/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers. The model is in [domain.md](domain.md).
+Outside it: task work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task) and [Repositories](../repositories/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers. The model is in [domain.md](domain.md).
 
 ## Working week
 

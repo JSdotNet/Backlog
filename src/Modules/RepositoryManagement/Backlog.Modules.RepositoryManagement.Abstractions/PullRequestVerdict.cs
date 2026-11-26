@@ -112,7 +112,7 @@ public enum PullRequestAct
 /// with at most one more — that fits it.
 /// <para>
 /// One verdict rather than a row of badges, because a reader acts on one thing at a time
-/// (<c>.devbook/domain/repository-management/features.md#one-verdict-per-pull-request</c>).
+/// (<c>.devbook/domain/repositories/features.md#one-verdict-per-pull-request</c>).
 /// Derived from nothing but the status Repository Management reports, and published with
 /// it as a pure rule (local ADR 0042), so the same pull request reads the same on the
 /// pull requests pane, the session card and a task's row.

@@ -48,8 +48,8 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.
   - Review required
   - Ready
 
-  One function computes it from the pull request's status, and the pull requests pane, session card and task row all show it. Repository Management owns the term: see
-  [One verdict per pull request](../domain/repository-management/features.md#one-verdict-per-pull-request)
+  One function computes it from the pull request's status, and the pull requests pane, session card and task row all show it. Repositories owns the term: see
+  [One verdict per pull request](../domain/repositories/features.md#one-verdict-per-pull-request)
   and `.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`.
 - **Sanitization boundary:** the record is a whitelist of fields. The transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them.
 - **Settled-fact cache:** for example a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.

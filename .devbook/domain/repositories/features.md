@@ -1,4 +1,4 @@
-# Repository Management
+# Repositories
 
 ```meta
 type: features
@@ -43,7 +43,7 @@ Everything decided about one repository is edited under its own row, one at a ti
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/domain.md#repository, .devbook/domain/repository-management/domain.md#repository-alias, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+related: [.devbook/domain/repositories/domain.md#repository, .devbook/domain/repositories/domain.md#repository-alias, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 ```
 
 A registered repository is identified by its owner and name, and every entry and inbox item filed against it records that coordinate too. Without a rename, a change of name on GitHub would read as a second repository. Everything filed against the old name would then point at a coordinate nobody is configured for.
@@ -96,7 +96,7 @@ An entry that still names the old repository must therefore not read as naming a
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/repository-management/domain.md#archived-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+related: [.devbook/domain/repositories/requirements.md#archiving-a-repository, .devbook/domain/repositories/domain.md#archived-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
 ```
 
 Quiet a repository that is no longer worked on, without forgetting it. An [archived repository](domain.md#archived-repository) stays in the registry with its identity, settings and the tasks filed against it. Backlog stops treating it as active work: it reads nothing from GitHub for it and leaves it out of the scope and the pickers. Unarchive brings all of it back.
@@ -150,7 +150,7 @@ Decide, per repository, which devbook folders the product may read and where the
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
+depends-on: [.devbook/domain/repositories/features.md#repository-registration]
 ```
 
 Keep track of each repository's dependencies:
@@ -164,8 +164,8 @@ Keep track of each repository's dependencies:
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
-related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption]
+depends-on: [.devbook/domain/repositories/features.md#repository-registration]
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption]
 ```
 
 Detect for each repository:
@@ -208,10 +208,10 @@ Reach GitHub through whichever credential the machine already has. A signed-in G
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/requirements.md#pull-request-status, .devbook/domain/repository-management/features.md#pull-request-readiness, .devbook/domain/progress/features.md#pull-request-status, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/repositories/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/domain/progress/features.md#pull-request-status, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
-See whether a pull request can merge without opening it. Repository Management publishes one [pull request status](domain.md#pull-request-status) for each pull request it reads, and every screen that shows a pull request draws from it:
+See whether a pull request can merge without opening it. Repositories publishes one [pull request status](domain.md#pull-request-status) for each pull request it reads, and every screen that shows a pull request draws from it:
 
 - each row of the [pull requests pane](#pull-request-readiness);
 - each pull request row of a goal in [Progress](../progress/features.md#pull-request-status);
@@ -242,8 +242,8 @@ The status itself carries more than the marks, and local ADR 0042 lists what ([�
 
 ```meta
 type: feature
-feature-flag: .devbook/domain/repository-management/context.md#pull-requests
-related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+feature-flag: .devbook/domain/repositories/context.md#pull-requests
+related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repositories/requirements.md#archiving-a-repository, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.PullRequestLabelFilterTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
@@ -270,7 +270,7 @@ The pane has no storybook page, because the storybook references only `Backlog.U
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request]
+related: [.devbook/domain/repositories/features.md#one-verdict-per-pull-request]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests]
 ```
 
@@ -369,7 +369,7 @@ There is no act that hands a pull request off to an agent. Starting a session is
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/repository-management/features.md#package-and-dependency-tracking, .devbook/domain/repository-management/features.md#github-integration]
+depends-on: [.devbook/domain/repositories/features.md#package-and-dependency-tracking, .devbook/domain/repositories/features.md#github-integration]
 related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
 ```
 
@@ -394,7 +394,7 @@ Compute a health score from package freshness, the GitHub issue and pull request
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption]
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption]
 ```
 
 Aggregate package versions across repositories to see platform-wide adoption. The analysis surfaces deprecated technology still in use, recommends upgrades, and tracks how new libraries and frameworks are adopted.
@@ -403,7 +403,7 @@ Aggregate package versions across repositories to see platform-wide adoption. Th
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
+depends-on: [.devbook/domain/repositories/features.md#repository-registration]
 related: [.devbook/domain/devbook/features.md#technology-view, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md]
 ```
 
@@ -420,11 +420,44 @@ Each repository's ratings and versions stay in its own `tech/` folder: this
 feature writes none and keeps no baseline of its own (local ADR 0073 §5). It is
 planned and not built.
 
+## Environment quick access
+
+```meta
+type: feature
+related: [.devbook/domain/repositories/domain.md#environment, .devbook/domain/repositories/domain.md#environment-launch, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories]
+```
+
+Open the places a repository runs — its local harness, development, staging and production, its cloud dashboards — from the repository itself, without digging through portals, terminal history or documentation. Environment folded into this context, so these are a registered repository's own [environments](domain.md#environment) (local ADR 0073 §3). It is planned and not built.
+
+### A repository's environments
+
+```meta
+type: sub-feature
+```
+
+Each registered repository lists its named environments, each with its launch link. Pinned ones come first, hidden ones stay out of the list until asked for.
+
+### The no-repository group
+
+```meta
+type: sub-feature
+```
+
+A destination no repository owns, such as a cloud portal, sits in the [no-repository group](domain.md#no-repository-group) and is launched the same way.
+
+### Safe access hints
+
+```meta
+type: sub-feature
+```
+
+An environment shows non-secret reminders of how to reach it — a tenant, a VPN, a profile, the credential store — and never stores a password or token.
+
 ## Bulk operations
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/repository-management/features.md#repository-health-scoring]
+depends-on: [.devbook/domain/repositories/features.md#repository-health-scoring]
 related: [.devbook/domain/tasks/features.md#task-creation]
 ```
 

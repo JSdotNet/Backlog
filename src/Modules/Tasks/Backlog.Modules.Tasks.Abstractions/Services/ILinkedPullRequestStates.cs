@@ -27,7 +27,7 @@ public enum LinkedPullRequestState
 }
 
 /// <summary>The tone of a pull request's verdict, as Repository Management words it
-/// (<c>.devbook/domain/repository-management/features.md#one-verdict-per-pull-request</c>):
+/// (<c>.devbook/domain/repositories/features.md#one-verdict-per-pull-request</c>):
 /// the ink the task row's badge wears beside the same verdict the Pull requests pane
 /// draws.</summary>
 public enum LinkedPullRequestTone

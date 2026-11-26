@@ -234,7 +234,7 @@ The plan tag files the entry under a roadmap item and is stored with its sigil (
 ## Scheduling and Dependency Tokens
 
 ```meta
-related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
+related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -378,7 +378,7 @@ although neither is saved yet and so neither has a real `task_id`:
   (`.devbook/domain/tasks/features.md#multi-repo-targeting`).
 - **A repo name is resolved, never invented:**
   - The registry is
-    `.devbook/domain/repository-management/domain.md#repository-registry`, and
+    `.devbook/domain/repositories/domain.md#repository-registry`, and
     nothing hand-typed can know the `repo_id`.
   - A name the registry does not recognize is unresolved, as with an
     unrecognized sigil value. This token never registers a repository on its own.

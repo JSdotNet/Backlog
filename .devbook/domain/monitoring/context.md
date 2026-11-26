@@ -14,7 +14,7 @@ team service. It aggregates Progress Signals from:
 - GitHub;
 - Application Insights;
 - [Dev PC Management](../dev-pc-management/domain.md#machine-registry);
-- [Repository Management](../repository-management/domain.md#repository-registry);
+- [Repositories](../repositories/domain.md#repository-registry);
 - [Sessions](../sessions/domain.md#session-log).
 
 Outside it: every piece of state it shows, which stays with the context that

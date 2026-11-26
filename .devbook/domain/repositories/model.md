@@ -1,4 +1,4 @@
-# Repository Management
+# Repositories
 
 ```meta
 type: model
@@ -36,6 +36,38 @@ classDiagram
         +Timestamp last_scanned
         +Timestamp last_commit
         +Integer health_score
+    }
+    class Environment {
+        <<entity>>
+        +Id environment_id
+        +String name
+        +EnvironmentType type
+        +Boolean pinned
+        +Boolean hidden
+        +Integer order
+    }
+    class NoRepositoryGroup {
+        <<entity>>
+    }
+    class LaunchLink {
+        <<value object>>
+        +String kind
+        +String value
+    }
+    class AccessHint {
+        <<value object>>
+        +String label
+        +String value
+    }
+    class EnvironmentType {
+        <<enumeration>>
+        local
+        development
+        test
+        staging
+        production
+        cloud
+        tooling
     }
     class PackageManifest {
         <<entity>>
@@ -104,6 +136,12 @@ classDiagram
     Repository "1" *-- "0..*" HealthScoreSnapshot : records daily
     Repository --> RepositoryType : classified as
     PackageManifest "1" *-- "0..*" Package : contains
+    RepositoryRegistry "1" *-- "1" NoRepositoryGroup : keeps
+    Repository "1" *-- "0..*" Environment : runs as
+    NoRepositoryGroup "1" *-- "0..*" Environment : holds
+    Environment "1" *-- "1" LaunchLink : opens
+    Environment "1" *-- "0..*" AccessHint : describes access
+    Environment --> EnvironmentType : classified as
     SecurityAlert --> Severity : rated
 ```
 
@@ -117,6 +155,9 @@ classDiagram
   `PortfolioAnalytics`; only the root writes them.
 - `TechBaselines` is read from each registered devbook's `tech/` folder.
   Repositories are validated against it without holding the devbook.
+- `Environment` is owned by its `Repository`, or by the `NoRepositoryGroup` when no
+  repository owns the destination (local ADR 0073 §3). `LaunchLink` and
+  `AccessHint` are value objects.
 - `RenameRecord` and `RemovalRecord` belong to the registry rather than to a
   repository, because each names a repository the registry no longer holds.
 - An [alias move](domain.md#repository-alias) belongs to the registry for the

@@ -60,16 +60,16 @@ and that context models no sessions.
 
 Pull requests are outside it too. A session or a delivery run often opens one, but
 whether it is ready, the stack it sits in and the commands that merge it are
-[Repository Management](../repository-management/context.md)'s. That includes the
-[pull requests pane](../repository-management/features.md#pull-request-readiness)
+[Repositories](../repositories/context.md)'s. That includes the
+[pull requests pane](../repositories/features.md#pull-request-readiness)
 and its merge and re-run acts.
 
 A session's detail panel shows, on each pull request the session produced, the
-[readiness verdict](../repository-management/domain.md#readiness-verdict) that
+[readiness verdict](../repositories/domain.md#readiness-verdict) that
 context publishes. The desktop shell composes that card, so this context holds only
-the pull request's number and references nothing of Repository Management. Local
+the pull request's number and references nothing of Repositories. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
-decides it. The shell composes the pane, which reads Repository Management's
+decides it. The shell composes the pane, which reads Repositories'
 contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests`.
 
 ## Sessions area

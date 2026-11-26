@@ -558,7 +558,7 @@ source link and capture timestamp.
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/features.md#github-access-resolution]
+related: [.devbook/domain/repositories/features.md#github-access-resolution]
 ```
 
 Report a problem from inside the app, at the moment it happens.

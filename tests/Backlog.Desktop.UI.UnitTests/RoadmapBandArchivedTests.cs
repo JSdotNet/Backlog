@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The band over a registry with an archived repository (local ADR 0029,
-/// <c>repository-management/requirements.md#the-roadmap-hides-an-archived-repositorys-open-work</c>):
+/// <c>repositories/requirements.md#the-roadmap-hides-an-archived-repositorys-open-work</c>):
 /// its open work drawn in no band and never under No repository while show archived is
 /// off; with show archived on — read from this device's port, as the header's switch
 /// sets it — its whole band, greyed and tagged Archived. Which finished work an archived

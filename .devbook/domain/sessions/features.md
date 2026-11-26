@@ -884,7 +884,7 @@ A row with no prefix the reading recognises shows its title whole and no badge.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repository-management/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repository-management/features.md#one-verdict-per-pull-request]
+related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repositories/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repositories/features.md#one-verdict-per-pull-request]
 ```
 
 Picking a row opens a detail panel beside the list, because the reader is usually
@@ -913,8 +913,8 @@ The panel holds these, in this order:
   [Under the session that drove it](#under-the-session-that-drove-it) says. A session with no run says so in its place.
 - **What it produced**: a pull request card for each pull request, and the task card
   for the Backlog entry it was worked for. Each pull request card wears the readiness
-  verdict Repository Management publishes for it, by
-  [One verdict per pull request](../repository-management/features.md#one-verdict-per-pull-request).
+  verdict Repositories publishes for it, by
+  [One verdict per pull request](../repositories/features.md#one-verdict-per-pull-request).
   A pull request whose verdict could not be read wears no chip rather than a guess.
 
 ## How each stage of a run ran
@@ -1459,7 +1459,7 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
 

@@ -75,7 +75,7 @@ turned into a review note.
 ```meta
 type: aggregate
 aliases: [DevbookSubjectState, IDevbookSubjectStateStore, subject state]
-related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repositories/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
 ```
 
 The workflow state of one [Devbook Subject](#devbook-subject) in one repository,
@@ -129,7 +129,7 @@ a state is stored.
 
 A state lives with the app, so a reader can set a debt record's state on a branch
 snapshot nobody can write to. An archived repository's states are read and never
-set ([Repository Management](../repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook)).
+set ([Repositories](../repositories/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook)).
 The panels show a state per
 [the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
 A subject state holds no chapter text and is not a [Remark](#remark).
@@ -205,7 +205,7 @@ it.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
+related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repositories/features.md#repository-devbook-folder-settings]
 ```
 
 Reviews the agent-facing instruction documents a repository carries, the
@@ -218,7 +218,7 @@ records the intended design and no type enforces a rule below.
 
 It is a service because the documents belong to the repository. They are read
 through the devbook-folder settings
-[Repository Management](../repository-management/features.md#repository-devbook-folder-settings)
+[Repositories](../repositories/features.md#repository-devbook-folder-settings)
 owns, and several tools' sets are examined as one subject. An aggregate holding
 their content would be a second, staler copy.
 

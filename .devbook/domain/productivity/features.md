@@ -130,7 +130,7 @@ This is kept as an idea rather than a plan. It measures only work that flows thr
 ```meta
 type: feature
 setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
-related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards, .devbook/domain/productivity/requirements.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 Expose productivity trends as personal insight rather than team performance reporting. The view shows patterns and evidence and leaves interpretation to the user.

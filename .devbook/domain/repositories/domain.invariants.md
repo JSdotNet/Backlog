@@ -10,7 +10,7 @@ What each aggregate and domain service on [`domain.md`](domain.md) enforces: eac
 
 ```meta
 type: invariants
-related: [.devbook/domain/repository-management/domain.md#repository-registry]
+related: [.devbook/domain/repositories/domain.md#repository-registry]
 ```
 
 > The rules the Repository Registry holds every registry edit to, and the rules it will hold its health scoring to. Scanning and health scoring are planned and not built.
@@ -74,11 +74,51 @@ Health metrics are calculated only for a registered repository.
 
 Enforced at: open
 
+### Invariant: An environment has one home
+
+```meta
+type: invariant
+```
+
+Each [Environment](domain.md#environment) belongs to exactly one repository or to the [No-repository Group](domain.md#no-repository-group).
+
+Enforced at: open
+
+### Invariant: An environment keeps its name and says how to reach it
+
+```meta
+type: invariant
+```
+
+Each [Environment](domain.md#environment) keeps its name for its whole life and has a type and exactly one [Launch Link](domain.md#launch-link).
+
+Enforced at: open
+
+### Invariant: Arranging an environment leaves its launch link alone
+
+```meta
+type: invariant
+```
+
+Pinning, hiding or reordering an [Environment](domain.md#environment) never changes its launch link.
+
+Enforced at: open
+
+### Invariant: The registry holds no environment secret
+
+```meta
+type: invariant
+```
+
+An [Access Hint](domain.md#access-hint) names where a credential is kept and never holds the credential.
+
+Enforced at: open
+
 ## Repository Scan
 
 ```meta
 type: invariants
-related: [.devbook/domain/repository-management/domain.md#repository-scan]
+related: [.devbook/domain/repositories/domain.md#repository-scan]
 ```
 
 > The rules every Repository Scan will keep, whoever starts it.

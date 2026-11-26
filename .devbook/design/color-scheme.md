@@ -839,7 +839,7 @@ Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On trac
 ### Pull request status marks
 
 ```meta
-related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/repository-management/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
+related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/repositories/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
 ```
 
 Every pull request row carries two [status marks](../domain/progress/features.md#pull-request-status):

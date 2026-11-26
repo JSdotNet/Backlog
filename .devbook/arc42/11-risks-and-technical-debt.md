@@ -13,7 +13,7 @@ related: [".devbook/arc42/03-context-and-scope.md#business-context"]
 
 | # | Question / gap | Risk if unresolved |
 |---|---|---|
-| R1 | Event and sync contracts between Dev PC Management, Repository Management, and Monitoring are undefined. | Domains drift apart; ad-hoc integrations become hard to evolve. |
+| R1 | Event and sync contracts between Dev PC Management, Repositories, and Monitoring are undefined. | Domains drift apart; ad-hoc integrations become hard to evolve. |
 | R2 | Data-ownership boundaries for the machine registry and repository registry (desktop vs. optional cloud mirror) are unspecified. | Ambiguous source of truth; sync conflicts on registry data. |
 | R3 | MVP scope per domain and per access channel is not yet defined. | Scope creep; unclear what "done" means for the first release. |
 | R4 | Capture and Inbox are kept as one coupled pipeline. | A future need to own capture tooling independently forces a later, costly split. |
