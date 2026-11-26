@@ -50,7 +50,7 @@ A single software repository, identified by `RepositoryId`: its owner and name o
 - the account it is worked as, and optionally a personal access token;
 - its [devbook folder settings](features.md#repository-devbook-folder-settings);
 - whether it is [archived](#archived-repository);
-- its named [environments](#environment), planned.
+- its named [environments](#environment), kept per device.
 
 The registry is ordered, and the first repository that is not archived serves as the default. While [Additional repositories](context.md#additional-repositories) is off, every entry belongs to it. A devbook read that names no repository also falls back to it.
 
@@ -252,7 +252,7 @@ A named destination of a [Repository](#repository) the person wants quick access
 - any number of [Access Hints](#access-hint);
 - whether it is pinned or hidden, and its order among its repository's environments.
 
-It is not the [Sessions Environment](../sessions/domain.md#environment), which is only where an agent session ran (local ADR 0073 §3). Environments are not built.
+It is not the [Sessions Environment](../sessions/domain.md#environment), which is only where an agent session ran (local ADR 0073 §3). The code names it `RepositoryEnvironment`. Environments are kept per device, in `environments.json` beside the registry's `github.json`, keyed on the repository's owner and name and read through its [renames](#rename-record).
 
 ### No-repository Group
 
@@ -342,7 +342,7 @@ related: [.devbook/domain/repositories/domain.md#environment, .devbook/domain/re
 
 Turns an [Environment](#environment)'s [Launch Link](#launch-link) into the action the screen offers: open a URL, run a command, focus a workspace, or open a cloud dashboard. A workspace path is resolved against its repository's clone directory, so a repository with no clone on this device offers no workspace launch.
 
-It is a service because it composes the environment with the repository's clone directory on this device. Invocation semantics: query, when an environment is shown or launched. It is planned and not built.
+It is a service because it composes the environment with the repository's clone directory on this device. Invocation semantics: query, when an environment is shown or launched. It is built as `EnvironmentLaunch`: a command runs in a console window of its own, a workspace opens in the code editor, and an Azure resource id opens its portal blade.
 
 ## Bulk Operations
 
