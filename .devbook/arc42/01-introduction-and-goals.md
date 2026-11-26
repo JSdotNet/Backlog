@@ -26,13 +26,19 @@ The system is split into independent functional domains, each designed, built an
 |---|---|
 | **Capture** | All input sources: mobile, automations (YouTube, website, email), web clipper, IDE, manual |
 | **Inbox** | Triage, classification, and routing of captured items (independent of capture sources) |
-| **Tasks** | Refine, prioritize, and route backlog items with sub-items (multi-repo entries) |
-| **Roadmap Planning** | Plan what happens when across repositories, with its own priorities and the dependencies between planned work |
-| **Devbook** | Organize project knowledge and cross-project context (PARA structure) |
+| **Work** | Refine, prioritize, and route tasks with sub-items across repositories, and plan what happens when, in what order and at what pace |
+| **Devbook** | Read, build, render, and search the devbook each repository carries beside its code |
+| **Brain** | Keep the person's own notes, linked to their work by id and into a repository's devbook |
 | **Insights** | Turn the work the person and their agents do into personal insight on the dashboard |
-| **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
-| **Sessions** | Record what the AI coding agents have been doing on each environment |
 | **Repositories** | Track repositories, package versions, issues, and health scoring, and launch each repository's named environments |
+| **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
+| **Goals** | Keep the person's goals and impediments, and read both over an iteration as a stand-up |
+| **Sessions** | Record what the AI coding agents have been doing on each environment |
+| **Events** | Keep the knowledge events the person attends, from spotting one to its harvest |
+| **Notifications** | Let any domain tell the person something or ask a question, and hand the answer back |
+| **Sync** | Keep one person's data the same across their devices |
+
+The change journal is generic too, shared across these domains the way Sync is. The Calendar and the desktop shell are compositions and the MCP server is a channel; none of them is a domain (local ADR 0073 §6).
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue; Inbox does not know how items were captured. See `.devbook/arc42/03-context-and-scope.md#business-context` for the boundaries and `.devbook/arc42/05-building-block-view.md` for the container mapping.
 

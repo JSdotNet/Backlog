@@ -36,10 +36,12 @@ flowchart TB
 
     subgraph "Desktop App (standalone or connected)"
       InboxQueue["Inbox Queue\n(triage, route)"]
-      BacklogSvc["Tasks\n(refine, prioritize)"]
-      RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
-      DevbookSvc["Devbook\n(PARA, links)"]
-      MonitoringSvc["Monitoring\n(dashboards, signals)"]
+      WorkSvc["Work\n(tasks, plan, sequence, pace)"]
+      DevbookSvc["Devbook\n(reader, viewer, search)"]
+      BrainSvc["Brain\n(personal notes)"]
+      GoalsSvc["Goals\n(goals, impediments)"]
+      EventsSvc["Events\n(knowledge events)"]
+      InsightsSvc["Insights\n(dashboard)"]
       DevPCSvc["Dev PC Management\n(registry, compliance)"]
       SessionsSvc["Sessions\n(agent session record)"]
       RepoMgmtSvc["Repositories\n(repo registry, health)"]
@@ -60,6 +62,7 @@ flowchart TB
       LocalDB["SQLite backlog.db\n(canonical)"]
       RepoMD["Repository markdown\n(devbook, canonical)"]
       JsonSettings["JSON\n(registry, per-device settings)"]
+      BrainMD["Brain folder\n(personal notes, canonical)"]
     end
 
     subgraph "External Services"
@@ -86,34 +89,43 @@ flowchart TB
   WebWorker -->|poll| Websites
   EmailWorker -->|IMAP| Email
 
-  InboxQueue -->|route| BacklogSvc
-  InboxQueue -->|route| DevbookSvc
-  BacklogSvc <-->|embed| DevbookSvc
-  BacklogSvc -->|signals| MonitoringSvc
+  InboxQueue -->|route| WorkSvc
+  InboxQueue -->|To Brain| BrainSvc
+  InboxQueue -->|To Event| EventsSvc
+  WorkSvc <-->|task links by id| BrainSvc
+  DevbookSvc -->|reader, viewer, search| BrainSvc
+  DevbookSvc -->|chapters by tag| WorkSvc
+  WorkSvc -->|task by id, plan tag| GoalsSvc
+  WorkSvc -->|prep and harvest tasks| EventsSvc
+  EventsSvc -.->|harvested Talk notes| BrainSvc
+  WorkSvc -->|plan progress, pace| InsightsSvc
+  SessionsSvc -->|session facts| InsightsSvc
+  RepoMgmtSvc -->|registered repositories| InsightsSvc
+  DevPCSvc -->|machine registry| InsightsSvc
   DevbookSvc -.->|tech/ ratings| RepoMgmtSvc
-  RepoMgmtSvc --> MonitoringSvc
-  DevPCSvc --> MonitoringSvc
 
-  IDEBrowse -->|read| BacklogSvc
+  IDEBrowse -->|read| WorkSvc
   IDEBrowse -->|read| DevbookSvc
 
-  BacklogSvc -->|sync issues| GitHub
+  WorkSvc -->|sync issues| GitHub
   RepoMgmtSvc -->|repo metadata| GitHub
   RepoMgmtSvc -->|dependency scan| PackageRegs
   CopilotSessions --> SessionsSvc
   GitHub -.->|webhooks| GitHubWebhooks
   GitHubWebhooks -.->|forward| SyncAPI
 
-  BacklogSvc --> LocalDB
-  RoadmapSvc --> LocalDB
+  WorkSvc --> LocalDB
   InboxQueue --> LocalDB
+  GoalsSvc --> LocalDB
+  EventsSvc --> LocalDB
   DevbookSvc --> RepoMD
+  BrainSvc --> BrainMD
   RepoMgmtSvc --> JsonSettings
   DevPCSvc --> JsonSettings
 
   SyncAPI -.->|nudge| Notifications
   Notifications -.->|push| Mobile
-  MonitoringSvc --> AppInsights
+  InsightsSvc -.->|telemetry, not built| AppInsights
 
   PCRegistry -.->|WoL relay| SyncAPI
 ```

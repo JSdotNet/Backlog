@@ -456,14 +456,15 @@ sequenceDiagram
     Note over Copilot,API: Local-first path only, no credential forwarding through Cloud Service
 ```
 
-## Repository Baseline Scan and Health Signal
+## Repository Baseline Scan and Health Read
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
+related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/repositories/domain.md#repository-scan", ".devbook/domain/insights/features.md#what-needs-you"]
 ```
 
-> Not built. No scheduler, package-registry scan or `ProgressSignal` exists in the
-> code; the diagram is the intended flow.
+> Not built. No scheduler, package-registry scan or health score exists in the
+> code; the diagram is the intended flow. Repositories publishes no signal:
+> Insights reads the health it records (local ADR 0073 §2).
 
 ```mermaid
 sequenceDiagram
@@ -484,9 +485,10 @@ sequenceDiagram
     RepoMgmt->>Devbook: Read the repository's tech/ ratings and versions
     Devbook-->>RepoMgmt: Ratings and approved versions
     RepoMgmt->>RepoMgmt: Flag drift and hold or retired technology
-    RepoMgmt->>Index: Persist repository health snapshot
-    RepoMgmt->>Insights: Emit ProgressSignal(s)
-    Insights-->>Scheduler: What needs you updated
+    RepoMgmt->>Index: Persist Health Score Snapshot
+    Insights->>RepoMgmt: Read each registered repository's health, archived skipped
+    RepoMgmt-->>Insights: Health score and breakdown
+    Insights->>Insights: Raise low-health repositories under What needs you
 ```
 
 ## Remote PC Wake and Status Update

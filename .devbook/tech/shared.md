@@ -357,12 +357,14 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB", "Azure Cosmos D
 
 The embedded database that is the canonical local store for tasks.
 
-- **Used for** — `backlog.db`. Three modules share it but not a schema:
-  - Tasks keeps one `tasks` table: scalar columns for the scalar fields, JSON
+- **Used for** — `backlog.db`. Its modules share it but not a schema:
+  - Work keeps one `tasks` table: scalar columns for the scalar fields, JSON
     text columns for the six owned collections, and a column for the entry's
     markdown.
-  - Roadmap Planning keeps the `roadmap_plan` table, one document row per
-    workspace.
+  - Work keeps the plan in the `work_plan` table, one document row per
+    workspace. It was `roadmap_plan` before Tasks and Roadmap Planning merged
+    into Work; an older file has its row copied over on first open (local
+    ADR 0073 §10).
   - The Inbox keeps `inbox_items`, `inbox_lists` and `inbox_groups`.
 
   The phone keeps its outbox and task view in its own SQLite file, and the

@@ -326,7 +326,7 @@ A security alert's severity: `critical`, `high`, `medium` or `low`.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repositories/domain.invariants.md#repository-scan]
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-read, .devbook/domain/repositories/domain.invariants.md#repository-scan]
 ```
 
 Runs scheduled or on-demand scans of a repository. A scan parses dependency manifests, detects the technology stack, and fetches GitHub metadata and security alerts. It then recomputes the health score from package freshness, GitHub backlog, coverage and security.
