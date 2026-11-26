@@ -1,7 +1,6 @@
 using Backlog.Modules.Insights.Abstractions.Insights;
 using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Insights.UI;
-using Backlog.Modules.Insights.UI.Adapters;
 using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Ai;
@@ -22,19 +21,19 @@ public sealed class InsightsUiRegistrationTests
     private static readonly string[] TakenPageIds = ["features", "ai", "storage", "accounts", "repositories", "devices", "inbox"];
 
     [Fact]
-    public void The_pane_registers_the_machine_directory_and_the_ask_ai_pair_with_their_lifetimes()
+    public void The_pane_registers_the_ask_ai_pair_with_its_lifetimes_and_no_machine_directory_of_its_own()
     {
         var services = new ServiceCollection();
         services.AddInsightsUi();
 
-        var machines = Assert.Single(services, d => d.ServiceType == typeof(IMachineDirectory));
-        Assert.Equal(typeof(DeviceMachineDirectory), machines.ImplementationType);
-        Assert.Equal(ServiceLifetime.Singleton, machines.Lifetime);
+        // Dev PCs owns the Machine (local ADR 0073 §7): the filter reads its registry,
+        // which infrastructure registers, so the pane registers nothing for it.
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(Backlog.Modules.DevPc.Abstractions.IMachineRegistry));
 
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services, d => d.ServiceType == typeof(InsightsScopeInView)).Lifetime);
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services, d => d.ServiceType == typeof(IAiContentSource)).Lifetime);
         Assert.Equal(2, services.Count(d => d.ServiceType == typeof(SettingsSection)));
-        Assert.Equal(5, services.Count);
+        Assert.Equal(4, services.Count);
     }
 
     /// <summary>The Ask AI source is composed from the insights the container holds —

@@ -249,7 +249,7 @@ public class WebHarnessHostTests
     /// <summary>
     /// Every Dashboard port the pane and Ask AI read is still answered, with the
     /// lifetime it had when one UI-side call registered them all: the provider
-    /// adapters and the machine directory once per app, the scope mirror and the
+    /// adapters and Dev PCs' machine registry once per app, the scope mirror and the
     /// Ask AI source once per reader. The adapters now come from the infrastructure
     /// they wrap, so this is what says the swap in the composition root left none
     /// of them behind.
@@ -260,7 +260,9 @@ public class WebHarnessHostTests
         using var harness = new Harness<DesktopHarness::Program>();
 
         AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IRepositoryDirectory>(harness.Services);
-        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IMachineDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.DevPc.Abstractions.IMachineRegistry>(harness.Services);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.DevPc.SessionMachineRegistry>(
+            harness.Services.GetRequiredService<Backlog.Modules.DevPc.Abstractions.IMachineRegistry>());
         AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivitySource>(harness.Services);
         AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivityBaselineSource>(harness.Services);
         AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IClaudeSpendSource>(harness.Services);

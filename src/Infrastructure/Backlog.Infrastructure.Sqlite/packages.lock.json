@@ -69,6 +69,19 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.goals": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.goals.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.inbox": {
         "type": "Project",
         "dependencies": {
@@ -90,19 +103,6 @@
         }
       },
       "backlog.modules.notifications.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.goals": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

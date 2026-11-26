@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Dashboard context's UI: the full-screen surface, its eight parts, the Ask AI
-    source over what the pane shows, and the one adapter that wraps no provider -
-    the machine directory, which reads this device's identity.
+    The Insights context's UI: the full-screen surface, its eight parts and the Ask
+    AI source over what the pane shows. The machine filter reads Dev PCs' machine
+    registry, whose adapter lives in infrastructure.
 
     The provider adapters are not here. Each lives in the infrastructure project it
     maps from - Backlog.Infrastructure.GitHub, .Claude and .AzureFoundry - and
@@ -14,9 +14,8 @@
     the adapter answering that port is in Backlog.Infrastructure.FileSystem, which
     is the only place allowed to see the Sessions context as well as this one.
 
-    No infrastructure reference at all, then, and no sibling module's surface
-    either, which is why the absent context-map entry for a Dashboard context
-    constrains nothing yet.
+    No infrastructure reference at all, then, and one sibling module's surface:
+    Dev PCs' Abstractions, for the Machine the filter offers.
 
     The surface's own rules ship here too, in wwwroot/dashboard.css, served at
     _content/Backlog.Modules.Insights.UI/dashboard.css; every host that renders the
@@ -31,8 +30,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The machine directory's union of this device and the machines the records
-         name is worth testing directly rather than only through the pane. -->
+    <!-- The machine filter's labels are worth testing directly rather than only
+         through the pane. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
@@ -44,6 +43,10 @@
          derivations stay behind that line — the host wires them up, the parts do
          not see them. -->
     <ProjectReference Include="..\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
+    <!-- Dev PCs' published surface, for the Machine alone: Dev PCs owns it and
+         Insights reads it (Customer/Supplier, local ADR 0073 §7; .devbook/domain/context-map.md).
+         The registry's adapter is in Backlog.Infrastructure.FileSystem. -->
+    <ProjectReference Include="..\..\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
