@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Inbox.DomainModels;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// moves the lists out and then removes the group, because no FK enforces the
 /// relationship and none should — SQLite leaves FK enforcement off by default.
 /// </summary>
-public sealed class InboxGroup
+public sealed class InboxGroup : IAggregateRoot
 {
     public static InboxGroup Create(string name, int order, DateTimeOffset now) =>
         new(Guid.CreateVersion7(), name, order, createdAt: now);

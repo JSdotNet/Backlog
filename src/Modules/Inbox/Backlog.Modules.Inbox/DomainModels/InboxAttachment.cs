@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Inbox.DomainModels;
 
@@ -19,7 +20,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// <see cref="InboxItem.MarkAttachmentFailed"/>.
 /// </para>
 /// </summary>
-public sealed record InboxAttachment
+public sealed record InboxAttachment : IValueObject
 {
     private InboxAttachment(
         Guid id,

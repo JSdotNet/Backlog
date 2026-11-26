@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sessions.Abstractions;
 
@@ -79,7 +80,7 @@ public sealed record DeliveryRun(
     DeliveryRunTokenUsage? TokenUsage,
     DeliveryRunContext? Context,
     IReadOnlyList<DeliveryRunInsightGroup> InsightsByCategory,
-    IReadOnlyList<DeliveryRunInsightGroup> InsightsByServer)
+    IReadOnlyList<DeliveryRunInsightGroup> InsightsByServer) : IEntity
 {
     /// <summary>Whether the dashboard still considered this run under way when it last
     /// wrote the file. The one status question a surface asks often enough to deserve
@@ -273,7 +274,7 @@ public sealed record DeliveryRunReference(
     string? Url,
     string? Repository,
     string? Plan = null,
-    Guid? EntryId = null);
+    Guid? EntryId = null) : IValueObject;
 
 /// <summary>
 /// One stage of a run.
@@ -466,7 +467,7 @@ public sealed record DeliveryRunInsightGroup(string Name, int Count, long Durati
 /// rather than a few thousand, and most of them join rows the list already has rather
 /// than adding rows.</param>
 /// <param name="Unreadable">The dashboards whose folder could not be read, by name.</param>
-public sealed record DeliveryRunCatalog(IReadOnlyList<DeliveryRun> Runs, IReadOnlyList<string> Unreadable)
+public sealed record DeliveryRunCatalog(IReadOnlyList<DeliveryRun> Runs, IReadOnlyList<string> Unreadable) : IValueObject
 {
     public static DeliveryRunCatalog Empty { get; } = new([], []);
 }
@@ -571,7 +572,7 @@ public static partial class DeliveryRunWorktrees
 /// <param name="Runs">The runs, most recently updated first. Exactly one on a row with
 /// no session, unless a schedule fired them — then every session-less run of that
 /// schedule in that repository; any number on a session's row.</param>
-public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun> Runs)
+public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun> Runs) : IValueObject
 {
     /// <summary>A row for a session with no runs on it.</summary>
     public static SessionRow Of(AgentSession session) => new(session, []);

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Tasks.Abstractions;
 
@@ -18,7 +19,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// the aggregate holds one.
 /// </para>
 /// </summary>
-public sealed record AgendaTime
+public sealed record AgendaTime : IValueObject
 {
     /// <summary>What a start written without a duration means.</summary>
     public const int DefaultDurationMinutes = 30;

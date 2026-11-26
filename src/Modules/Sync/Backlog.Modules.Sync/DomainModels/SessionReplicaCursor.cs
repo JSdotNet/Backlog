@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sync.DomainModels;
 
@@ -20,7 +21,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// one would give the check a bypass, and the bypass would be the shorter call.
 /// </para>
 /// </summary>
-public readonly record struct SessionReplicaCursor(OwnerId Owner, string Continuation)
+public readonly record struct SessionReplicaCursor(OwnerId Owner, string Continuation) : IValueObject
 {
     /// <summary>The only way to get one from something a client sent: through a
     /// <see cref="SyncCursor"/>, which the codec produces and which cannot be

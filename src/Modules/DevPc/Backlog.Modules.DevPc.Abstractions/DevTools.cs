@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.DevPc.Abstractions;
 
@@ -224,7 +225,7 @@ public sealed record DevToolApplication(
     string Id,
     string Name,
     DevToolProvider Provider,
-    bool Enabled)
+    bool Enabled) : IValueObject
 {
     /// <summary>How the row is addressed, minted the same way every other kind's
     /// key is.</summary>
@@ -344,7 +345,7 @@ public sealed record DevToolMcpServer(
     string Id,
     string IdName,
     DevToolMcpMechanism Mechanism,
-    bool Enabled)
+    bool Enabled) : IValueObject
 {
     /// <summary>How the row is addressed, minted the same way every other kind's
     /// key is — and from <see cref="Id"/>, so a key carries whichever identity

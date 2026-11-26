@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>How a session asked (<c>.devbook/domain/sessions/domain.md#waiting-question</c>).</summary>
@@ -173,7 +175,7 @@ public sealed record WaitingQuestion(
     DateTimeOffset? HookPolledAt,
     AnswerDeliveryState? Delivery,
     WaitingQuestionCloseReason? CloseReason,
-    DateTimeOffset? EndedAt)
+    DateTimeOffset? EndedAt) : IEntity
 {
     /// <summary>The dispatcher that last claimed its delivery — the holder while Claimed,
     /// the sender once Delivered; null while none has, and after a release.</summary>

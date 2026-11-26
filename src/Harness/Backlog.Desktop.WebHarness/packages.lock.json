@@ -633,7 +633,10 @@
         }
       },
       "backlog.modules.devpc.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.devpc.ui": {
         "type": "Project",
@@ -762,7 +765,10 @@
         }
       },
       "backlog.modules.sessions.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
       },
       "backlog.modules.sessions.ui": {
         "type": "Project",

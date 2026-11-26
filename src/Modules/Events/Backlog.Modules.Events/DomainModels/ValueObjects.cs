@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.DomainModels;
@@ -9,7 +10,7 @@ namespace Backlog.Modules.Events.DomainModels;
 /// has dates only; a meetup from 16:30 in Nieuwegein has a time and the offset <c>+01:00</c>.
 /// Equality is by value.
 /// </summary>
-public sealed record EventDate
+public sealed record EventDate : IValueObject
 {
     private EventDate(DateOnly date, TimeOnly? time, TimeSpan? utcOffset)
     {
@@ -40,7 +41,7 @@ public sealed record EventDate
 /// address holds its <see cref="AddressLookup"/>, and its <see cref="MapPoint"/> when that lookup
 /// placed it. Equality is by value.
 /// </summary>
-public sealed record Place
+public sealed record Place : IValueObject
 {
     private Place(string? venue, bool isOnline, Address? address, AddressLookup? lookup, MapPoint? point)
     {
@@ -118,7 +119,7 @@ public sealed record Place
 /// country — each kept trimmed (<c>.devbook/domain/events/domain.md#address</c>). Equality is by
 /// value, part by part.
 /// </summary>
-public sealed record Address
+public sealed record Address : IValueObject
 {
     private Address(string? street, string? postcode, string? town, string? country)
     {
@@ -155,7 +156,7 @@ public sealed record Address
 /// (<c>.devbook/domain/events/domain.md#map-point</c>). Only a lookup that placed the address sets
 /// it. Equality is by value.
 /// </summary>
-public sealed record MapPoint
+public sealed record MapPoint : IValueObject
 {
     private MapPoint(double latitude, double longitude)
     {
@@ -181,7 +182,7 @@ public sealed record MapPoint
 /// call for speakers closes (<c>.devbook/domain/events/domain.md#key-date</c>). A date only, with
 /// no time. Equality is by value.
 /// </summary>
-public sealed record KeyDate
+public sealed record KeyDate : IValueObject
 {
     private KeyDate(DateOnly date, string label)
     {
@@ -208,7 +209,7 @@ public sealed record KeyDate
 /// (<c>.devbook/domain/events/domain.md#cost</c>). Nothing totals or reports it. Equality is by
 /// value.
 /// </summary>
-public sealed record Cost
+public sealed record Cost : IValueObject
 {
     private Cost(decimal amount, string currency)
     {
@@ -238,7 +239,7 @@ public sealed record Cost
 /// (<c>.devbook/domain/events/domain.md#skip-reason</c>). Plain text, never empty. Equality is by
 /// value. Only the aggregate makes one, from <see cref="KnowledgeEvent.Skip"/> or a restore.
 /// </summary>
-public sealed record SkipReason
+public sealed record SkipReason : IValueObject
 {
     internal SkipReason(string text) => Text = text;
 
@@ -250,7 +251,7 @@ public sealed record SkipReason
 /// (<c>.devbook/domain/events/domain.md#verdict</c>). Equality is by value. Only the aggregate
 /// makes one, from <see cref="KnowledgeEvent.SetVerdict"/> or a restore.
 /// </summary>
-public sealed record Verdict
+public sealed record Verdict : IValueObject
 {
     internal Verdict(string text) => Text = text;
 
@@ -263,7 +264,7 @@ public sealed record Verdict
 /// as it read when linked. Two links are equal when they name the same note — the same kind and
 /// reference — whatever their titles.
 /// </summary>
-public sealed record NoteLink
+public sealed record NoteLink : IValueObject
 {
     private NoteLink(NoteLinkKind kind, string reference, string title)
     {
@@ -318,7 +319,7 @@ public sealed record NoteLink
 /// (<c>.devbook/domain/events/domain.md#event-task-link</c>). The task never names the event
 /// back. Two links are equal when they name the same task, whatever their purposes.
 /// </summary>
-public sealed record EventTaskLink
+public sealed record EventTaskLink : IValueObject
 {
     private EventTaskLink(string taskId, TaskPurpose purpose)
     {

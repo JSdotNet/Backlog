@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>
@@ -229,7 +231,7 @@ public sealed record AgentSession(
     DateTimeOffset LastActivityAt,
     AgentSessionState State,
     int? TurnCount,
-    AgentSessionOrigin Origin)
+    AgentSessionOrigin Origin) : IEntity
 {
     /// <summary>
     /// The repository this product places the session in — <c>owner/name</c>, from
@@ -519,7 +521,7 @@ public enum AgentSessionDetail
 public sealed record AgentSessionCatalog(
     IReadOnlyList<AgentSession> Sessions,
     IReadOnlyList<string> Unreadable,
-    int Discovered)
+    int Discovered) : IValueObject
 {
     public static AgentSessionCatalog Empty { get; } = new([], [], 0);
 

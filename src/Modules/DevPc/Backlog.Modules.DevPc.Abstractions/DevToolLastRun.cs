@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.DevPc.Abstractions;
 
@@ -40,7 +41,7 @@ public sealed record DevToolRunStep(
     string? FromVersion,
     string? ToVersion,
     DevToolRunOutcome Outcome,
-    TimeSpan Duration)
+    TimeSpan Duration) : IValueObject
 {
     /// <summary>The step a row's Update or Install was, read off the row as it
     /// stood before the run.</summary>
@@ -76,7 +77,7 @@ public sealed record DevToolLastRun(
     DateTimeOffset FinishedAt,
     DevToolRunOutcome Outcome,
     IReadOnlyList<DevToolRunStep> Steps,
-    string Transcript)
+    string Transcript) : IValueObject
 {
     /// <summary>Elapsed time from start to finish.</summary>
     public TimeSpan Duration => FinishedAt - StartedAt;

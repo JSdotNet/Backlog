@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>What a <see cref="SessionRequest"/> asks a session to run (local ADR 0038 §2).</summary>
@@ -71,7 +73,7 @@ public sealed record SessionRequest(
     DateTimeOffset? LeaseEndsAt,
     string? SessionId,
     DateTimeOffset CreatedAt,
-    int? Rank = null)
+    int? Rank = null) : IEntity
 {
     /// <summary>The state the request reads as at <paramref name="now"/>: a claim whose
     /// lease has ended reads as Requested.</summary>

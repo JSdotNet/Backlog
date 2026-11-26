@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Tasks.DomainModels;
 
@@ -8,7 +9,7 @@ namespace Backlog.Modules.Tasks.DomainModels;
 /// projections, and usage history. All mutations to owned collections and the
 /// lifecycle status go through this root.
 /// </summary>
-public sealed class TaskItem
+public sealed class TaskItem : IAggregateRoot
 {
     private readonly List<SubItem> _subItems = new();
     private readonly List<UsageEvent> _usageEvents = new();

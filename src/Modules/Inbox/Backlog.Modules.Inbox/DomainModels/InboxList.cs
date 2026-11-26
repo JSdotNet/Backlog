@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Inbox.DomainModels;
 
 /// <summary>
@@ -11,7 +13,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// row behind.
 /// </para>
 /// </summary>
-public sealed class InboxList
+public sealed class InboxList : IAggregateRoot
 {
     public static InboxList Create(string name, Guid? groupId, int order, DateTimeOffset now) =>
         new(Guid.CreateVersion7(), name, groupId, order, createdAt: now);

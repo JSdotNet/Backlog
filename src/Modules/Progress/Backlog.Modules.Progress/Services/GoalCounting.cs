@@ -2,6 +2,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.DomainModels;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Progress.Services;
 
@@ -10,7 +11,7 @@ namespace Backlog.Modules.Progress.Services;
 /// (<c>.devbook/domain/progress/domain.md#goal-progress</c>). Equality by value.
 /// </summary>
 /// <param name="DoneInWindow">Items done inside the window the reading asked about.</param>
-public sealed record GoalProgress(int Done, int Total, int Doing, int Blocked, int ToDo, int DoneInWindow)
+public sealed record GoalProgress(int Done, int Total, int Doing, int Blocked, int ToDo, int DoneInWindow) : IValueObject
 {
     public static readonly GoalProgress Nothing = new(0, 0, 0, 0, 0, 0);
 }

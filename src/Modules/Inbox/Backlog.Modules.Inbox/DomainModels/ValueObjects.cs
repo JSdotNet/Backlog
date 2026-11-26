@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Inbox.DomainModels;
 
@@ -8,7 +9,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// <c>@</c>, the same way a person tag is stored in Tasks — the sigil is what
 /// says "a person" and stripping it would need putting back at every reader.
 /// </summary>
-public sealed record InboxSource(string Channel, string? Person);
+public sealed record InboxSource(string Channel, string? Person) : IValueObject;
 
 /// <summary>
 /// One tag on an item, stored bare (no <c>#</c>) and compared by name without
@@ -36,7 +37,7 @@ public sealed record RoutingTarget(
     IReadOnlyList<string> RepoIds,
     IReadOnlyList<Guid> TaskIds,
     DateTimeOffset RoutedAt,
-    Guid? EventId = null);
+    Guid? EventId = null) : IValueObject;
 
 /// <summary>One end of an edition as the capture wrote it: the day, and a time
 /// with its UTC offset only when the source gave them. Equality is by value.</summary>

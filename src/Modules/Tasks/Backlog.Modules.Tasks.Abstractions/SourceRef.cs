@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Tasks.Abstractions;
 
@@ -33,7 +34,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// the connector contract beside it is written in the same vocabulary.
 /// </para>
 /// </summary>
-public sealed record SourceRef
+public sealed record SourceRef : IValueObject
 {
     private readonly IReadOnlyList<string> _flags = [];
     private readonly IReadOnlyList<string> _waitsOn = [];
