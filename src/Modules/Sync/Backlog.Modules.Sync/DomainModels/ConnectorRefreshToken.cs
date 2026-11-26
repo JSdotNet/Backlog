@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -27,7 +29,7 @@ public sealed record ConnectorRefreshToken(
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
     string? ReplacedByHash = null,
-    bool Revoked = false)
+    bool Revoked = false) : IAggregateRoot
 {
     /// <summary>Whether it has already been rotated or revoked, so presenting it is a replay.</summary>
     public bool IsSpent => ReplacedByHash is not null || Revoked;

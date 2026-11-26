@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sessions.Abstractions;
 
@@ -100,7 +101,7 @@ public sealed record LoopCheckIn(
     LoopActivity Activity,
     int HeartbeatMinutes,
     LoopHeldWork Held,
-    DateTimeOffset At)
+    DateTimeOffset At) : IValueObject
 {
     /// <summary>The limits the loop sent, each one it left out at its default (local ADR
     /// 0051 §3, §4).</summary>

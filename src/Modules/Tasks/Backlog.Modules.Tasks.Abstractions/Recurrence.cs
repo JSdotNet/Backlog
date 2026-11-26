@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
@@ -17,7 +19,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// object all three have to name is part of the published language.
 /// </para>
 /// </summary>
-public sealed record Recurrence(int Interval, RecurrenceUnit Unit, IReadOnlyList<DayOfWeek>? Weekdays = null)
+public sealed record Recurrence(int Interval, RecurrenceUnit Unit, IReadOnlyList<DayOfWeek>? Weekdays = null) : IValueObject
 {
     /// <summary>
     /// Two repeats of the same shape are the same repeat. The compiler-generated

@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>Which step of a connector authorization a record stands for.</summary>
@@ -45,7 +47,7 @@ public sealed record ConnectorAuthorization(
     Guid FamilyId,
     DateTimeOffset ExpiresAt,
     OwnerId? Owner = null,
-    bool Redeemed = false)
+    bool Redeemed = false) : IAggregateRoot
 {
     /// <summary>Whether the window has closed at <paramref name="now"/>.</summary>
     public bool HasExpired(DateTimeOffset now) => now >= ExpiresAt;

@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sync.DomainModels;
 
@@ -14,7 +15,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// wrong local variable — see <see cref="SyncCursor"/>.
 /// </para>
 /// </summary>
-public readonly record struct AnnotationReplicaCursor(OwnerId Owner, string Continuation)
+public readonly record struct AnnotationReplicaCursor(OwnerId Owner, string Continuation) : IValueObject
 {
     /// <summary>The only way to get one from something a client sent: through a
     /// <see cref="SyncCursor"/>, which the codec produces and which cannot be

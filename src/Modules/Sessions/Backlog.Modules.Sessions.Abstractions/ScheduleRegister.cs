@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>What a scheduled run reported (local ADR 0051 §1).</summary>
@@ -95,7 +97,7 @@ public sealed record ScheduledRun(
     IReadOnlyList<string> NeedsYou,
     bool Failed,
     bool Skipped,
-    string? HeldBy)
+    string? HeldBy) : IEntity
 {
     /// <summary>Structural equality over <see cref="NeedsYou"/>, so a run read back from a store equals the one written.</summary>
     public bool Equals(ScheduledRun? other) =>

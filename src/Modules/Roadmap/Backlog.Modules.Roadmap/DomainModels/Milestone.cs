@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Roadmap.DomainModels;
 
@@ -18,7 +19,7 @@ namespace Backlog.Modules.Roadmap.DomainModels;
 /// a boundary, not two.
 /// </para>
 /// </summary>
-public sealed class Milestone
+public sealed class Milestone : IEntity
 {
     public Milestone(
         Guid id,

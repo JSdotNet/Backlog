@@ -1,4 +1,5 @@
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Notifications.Abstractions;
 
@@ -8,7 +9,7 @@ namespace Backlog.Modules.Notifications.Abstractions;
 /// The accepted answer goes back to the <see cref="INotificationAnswerHandler"/> registered
 /// for <see cref="Context"/>.
 /// </summary>
-public sealed record NotificationSource(string Context, string Key);
+public sealed record NotificationSource(string Context, string Key) : IValueObject;
 
 /// <summary>
 /// Where a notification came from, in words a person reads
@@ -33,7 +34,7 @@ public sealed record NotificationOrigin(
     string? Place = null,
     string? AskedBy = null,
     string? Via = null,
-    string? OpenLink = null)
+    string? OpenLink = null) : IValueObject
 {
     /// <summary>The most characters <see cref="System"/> holds.</summary>
     public const int MaxSystemLength = 40;
@@ -145,7 +146,7 @@ public static class NotificationOrigins
 /// (<c>.devbook/domain/notifications/domain.md#subject</c>). Two subjects are the same when
 /// all three parts are equal, compared ordinally.
 /// </summary>
-public sealed record NotificationSubject(string Context, string Type, string Id);
+public sealed record NotificationSubject(string Context, string Type, string Id) : IValueObject;
 
 /// <summary>One set answer a question offers: its id, the label a person reads, how it is
 /// drawn, and whether picking it also takes the person's words
@@ -209,7 +210,7 @@ public sealed record AnswerSpec(
     int? MinChoices = null,
     int? MaxChoices = null,
     AnswerOn AnswerOn = AnswerOn.AnyInstance,
-    OpenAnswer? Note = null);
+    OpenAnswer? Note = null) : IValueObject;
 
 /// <summary>
 /// What a source hands <see cref="INotifications.PublishAsync"/>
@@ -262,7 +263,7 @@ public sealed record NotificationDraft(
 /// </summary>
 /// <param name="Label">One line of plain text, at most <see cref="MaxLabelLength"/> characters.</param>
 /// <param name="Link">A <c>backlog://window/…</c> link <see cref="SurfaceLink.Parse"/> reads.</param>
-public sealed record NotificationAction(string Label, string Link)
+public sealed record NotificationAction(string Label, string Link) : IValueObject
 {
     /// <summary>The most actions one alert carries.</summary>
     public const int MaxActions = 3;
@@ -326,4 +327,4 @@ public sealed record NotificationAnswer(
     IReadOnlyList<string> ChoiceIds,
     string? Text,
     DateTimeOffset AnsweredAt,
-    string? Note = null);
+    string? Note = null) : IValueObject;

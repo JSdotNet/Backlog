@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -12,7 +14,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// mistake in this module the compiler should be made to catch.
 /// </para>
 /// </summary>
-public readonly record struct OwnerId(Guid Value)
+public readonly record struct OwnerId(Guid Value) : IValueObject
 {
     public static OwnerId New() => new(Guid.CreateVersion7());
 
@@ -21,7 +23,7 @@ public readonly record struct OwnerId(Guid Value)
 
 /// <summary>One machine belonging to an owner. Identifies the caller; it grants
 /// nothing on its own.</summary>
-public readonly record struct DeviceId(Guid Value)
+public readonly record struct DeviceId(Guid Value) : IValueObject
 {
     public static DeviceId New() => new(Guid.CreateVersion7());
 

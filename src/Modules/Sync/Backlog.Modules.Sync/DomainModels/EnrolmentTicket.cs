@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>Which half of an owner sign-in a ticket stands for.</summary>
@@ -32,7 +34,7 @@ public sealed record EnrolmentTicket(
     Uri RedirectUri,
     string ClientState,
     DateTimeOffset ExpiresAt,
-    bool Redeemed = false)
+    bool Redeemed = false) : IAggregateRoot
 {
     /// <summary>Whether the window has closed at <paramref name="now"/>.</summary>
     public bool HasExpired(DateTimeOffset now) => now >= ExpiresAt;

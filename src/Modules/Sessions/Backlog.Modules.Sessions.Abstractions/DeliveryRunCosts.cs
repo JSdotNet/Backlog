@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>Where a cost figure came from.</summary>
@@ -95,7 +97,7 @@ public sealed record ModelPrice(
 /// cost for. Empty until somebody fills it in: this product ships no price list, because
 /// one it shipped would be out of date the day a price changed.
 /// </summary>
-public sealed record ModelPriceTable(IReadOnlyList<ModelPrice> Prices)
+public sealed record ModelPriceTable(IReadOnlyList<ModelPrice> Prices) : IValueObject
 {
     /// <summary>The table nobody has filled in.</summary>
     public static ModelPriceTable Empty { get; } = new([]);

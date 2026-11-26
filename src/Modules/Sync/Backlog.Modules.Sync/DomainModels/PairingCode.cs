@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -21,7 +23,7 @@ public sealed record PairingCode(
     OwnerId OwnerId,
     DeviceId IssuedBy,
     DateTimeOffset ExpiresAt,
-    bool Redeemed = false)
+    bool Redeemed = false) : IAggregateRoot
 {
     /// <summary>Whether the window has closed at <paramref name="now"/>.</summary>
     public bool HasExpired(DateTimeOffset now) => now >= ExpiresAt;

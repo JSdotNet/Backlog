@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>One of the four limits a <see cref="CapacityReading"/> is held against, in the
@@ -76,7 +78,7 @@ public sealed record CapacityReading(
     double? PlanUsagePercent,
     double? CpuPercent,
     double? FreeMemoryGb,
-    CapacityLimits Limits)
+    CapacityLimits Limits) : IValueObject
 {
     /// <summary>Whether no limit is reached.</summary>
     public bool HasRoom => HeldBy().Count == 0;

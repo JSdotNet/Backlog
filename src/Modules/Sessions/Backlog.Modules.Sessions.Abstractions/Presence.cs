@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sessions.Abstractions;
 
@@ -129,7 +130,7 @@ public sealed class SessionPrompts
 /// read counts as at the keyboard, so a session asks where it always did and the
 /// "notify after" delay still publishes a question nobody answers.
 /// </summary>
-public sealed class Presence : IPresence
+public sealed class Presence : IPresence, IValueObject
 {
     private readonly IInputActivity _input;
     private readonly SessionPrompts _prompts;
