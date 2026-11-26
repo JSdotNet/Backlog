@@ -20,8 +20,8 @@ namespace Backlog.ArchitectureTests;
 /// First, that the split is still the shape of the repository — a project per
 /// context and a Shell that is not one, and nothing quietly moved back inside
 /// another. Second, the finer grain: a reference is coarse, and the
-/// moment <c>Backlog.Modules.Tasks.UI</c> takes its one allowed reference on
-/// the Inbox the compiler will accept any Backlog-Management file naming any
+/// moment <c>Backlog.Modules.Work.UI</c> took a reference on the Inbox's
+/// published surface the compiler would accept any Work file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
 /// eventually need. They read namespaces, which for Devbook still says

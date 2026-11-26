@@ -13,11 +13,9 @@ optionally connects to that sync service for multi-device sync.
 
 The desktop app is released as a signed MSIX and the Android app as a signed APK — see
 [Installing the desktop app](#installing-the-desktop-app) and
-[Installing the Android app](#installing-the-android-app). Of the primary domains below,
-Capture, Inbox, Tasks, Roadmap Planning, Devbook, Insights, Dev PC
-Management and Sessions each have a module under `src/Modules/`; the others are described
-in the devbook and have no module yet. The [project table](#solution-structure) lists
-every project on `main`.
+[Installing the Android app](#installing-the-android-app). Each of the thirteen bounded
+contexts below has a module under `src/Modules/`, and so does the Calendar composition.
+The [project table](#solution-structure) lists every project on `main`.
 
 ## Why
 
@@ -33,9 +31,9 @@ Get ideas and work items in quickly from any context — mobile speech shortcuts
 
 All captured items land in a shared inbox. Triage classifies, enriches, and routes each item to the right destination: active backlog, project knowledge, or archive. Nothing is lost; everything is intentional.
 
-### Backlog management
+### Work: tasks and the plan
 
-Refine and prioritize work items linked to projects and GitHub repositories. Items can carry AI context — the prompt that created them, the session they belong to, decisions made along the way.
+Refine and prioritize tasks linked to projects and GitHub repositories, and sequence the forward plan across them against your capacity. Items can carry AI context — the prompt that created them, the session they belong to, decisions made along the way.
 
 ### Prompt library
 
@@ -45,34 +43,30 @@ Prompts are stored, versioned, and linked to the project and work item they belo
 
 Project knowledge, cross-project notes, and reference material are organized in a PARA-aligned structure. AI sessions and decisions are stored alongside the work they informed.
 
-### Monitoring and dashboards
+### Goals and insights
 
-Progress signals pulled from GitHub, Application Insights, and queue stats give a live view of what is moving and what is blocked — per project and across the portfolio.
+Goals keep what your work is attached to and the impediments holding it back, read over an iteration as a stand-up. Insights turns what you and your agents did — the work, the sessions, the pull requests and the spend — into personal insight on the dashboard, and owns no work of its own.
 
-### Technology and operations
+### Repositories, machines and sessions
 
-The system also tracks technology stack baselines, repository health, and development machine compliance so planning and execution stay connected to operational reality.
+The system also tracks repository health, pull requests and each repository's named environments, development machine compliance, and what the AI coding agents did on each machine, so planning and execution stay connected to operational reality. A repository's technologies and their ratings live in its devbook `tech/` folder.
 
 ## Domains and channels
 
-Primary domains:
-- Capture
-- Inbox
-- Tasks
-- Roadmap Planning
-- Devbook
-- Productivity
-- Environment
-- Insights
-- Technology Stack
-- Dev PC Management
-- Repositories
-- Sessions
+Bounded contexts ([local ADR 0073](.devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md)):
+- Core: Capture, Inbox, Work, Devbook, Brain
+- Supporting: Goals, Sessions, Insights, Repositories, Dev PC Management, Events
+- Generic: Sync, Notifications
+
+Compositions, which read the contexts and own no state:
+- Desktop shell
+- Calendar
 
 Access channels:
 - Desktop client
 - IDE extensions (VS Code, Visual Studio)
 - Phone app
+- MCP server — where agents enter; each tool group passes a call to one context
 
 See [`.devbook/domain/context-map.md`](.devbook/domain/context-map.md) for functional boundaries and
 [`.devbook/arc42/`](.devbook/arc42/) for technical design.
@@ -225,7 +219,7 @@ rather than a folder inside the shell. The split follows
 
 | Project | Bounded context / role |
 |---|---|
-| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Tasks only through a port its own module publishes |
+| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Work only through a port its own module publishes |
 | `src/Modules/Work/Backlog.Modules.Work.UI` | Work — the Tasks pane and its GitHub and Copilot CLI projections, and the Roadmap view: the forward plan, as a band above the panes |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | Brain — the person's own notes, drawn on the Devbook pane through the mode extension point Devbook publishes; references Devbook, never the reverse |
@@ -236,7 +230,7 @@ rather than a folder inside the shell. The split follows
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
-the Inbox, Tasks and Devbook each reference only their own module's
+the Inbox, Work and Devbook each reference only their own module's
 Abstractions, Insights references its own Abstractions plus the two adapters
 it reads providers through and no sibling context at all, and no context
 references another. Where two contexts have to meet — the Inbox routing an item
@@ -249,9 +243,9 @@ There used to be a `Backlog.Desktop.Workspace` project underneath the contexts
 holding where the backlog lives, which repositories are configured and which
 features are on. Being readable by everyone made it the place two contexts could
 meet without either publishing anything: Devbook read the backlog root and
-Tasks read the knowledge-folder resolver, which is not the
+the task screens read the knowledge-folder resolver, which is not the
 Partnership `.devbook/domain/context-map.md` describes. Those four types are now module
-ports — `ITaskStore` in Tasks's Abstractions,
+ports — `ITaskStore` in Work's Abstractions,
 `IDevbookFolderSource` in Devbook's, `IAppFeatureSettings` in the shared
 kernel — with the adapters that answer them in
 `Backlog.Infrastructure.FileSystem` and, for tasks themselves,
@@ -279,12 +273,12 @@ The Devbook project keeps its original root namespace — `Backlog.Desktop.UI.De
 The Razor generator emits a component's `@using` directives *inside* the
 component's namespace and without a `global::` prefix, so a namespace carrying a
 second `Backlog` segment can shadow the repository root: under
-`Backlog.Modules.Tasks.UI`, `@using Backlog.UI.Components.Markdown` bound to
-`Backlog.Modules.Tasks` and failed with CS0234. The modules whose code was never in
+`Backlog.Modules.Work.UI`, a bare `@using Backlog.UI.Components.Markdown` would bind to
+`Backlog.Modules.Work` and fail with CS0234. The modules whose code was never in
 the shell to begin with (`Insights`, `DevPc`, `Sessions`) use their own
 `Backlog.Modules.<Context>.UI` namespaces, because there was no original namespace
 for them to keep. Inbox moved to `Backlog.Modules.Inbox.UI`, and Work's screens to
-`Backlog.Modules.Work.UI.Tasks` and `.Roadmap` when Tasks and Roadmap merged into
+`Backlog.Modules.Work.UI.Tasks` and `.Roadmap` when the task and plan screens merged into
 Work (local ADR 0073 §1); both write every `Backlog` import as
 `@using global::Backlog.…`, which is what makes the matching namespace safe.
 Devbook follows (issue #756).

@@ -1063,13 +1063,10 @@ public class ModuleBoundaryTests
     /// <summary>
     /// <c>Backlog.Modules.Work.Abstractions</c> and friends belong to the same
     /// module as <c>Backlog.Modules.Work</c>; only the first three segments identify it.
-    /// The Tasks and Roadmap screens are Work's (local ADR 0073 §1): their projects keep
-    /// the old names until they merge into <c>Backlog.Modules.Work.UI</c>.
     /// </summary>
     private static string OwningModuleOf(string projectName)
     {
         var parts = projectName.Split('.');
-        var module = parts.Length >= 3 ? string.Join('.', parts[..3]) : projectName;
-        return module is "Backlog.Modules.Tasks" or "Backlog.Modules.Roadmap" ? "Backlog.Modules.Work" : module;
+        return parts.Length >= 3 ? string.Join('.', parts[..3]) : projectName;
     }
 }

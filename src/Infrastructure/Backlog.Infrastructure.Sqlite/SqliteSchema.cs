@@ -158,8 +158,10 @@ internal static class SqliteSchema
 
     /// <summary>Copies the rows of a table a build before a rename wrote into the table
     /// under its new name, when the file still has the old one (local ADR 0073 §10). A row
-    /// the new table already holds is kept as it is, so the copy is idempotent and a row an
-    /// older build wrote after the first copy still arrives on the next setup. The old table
+    /// the new table already holds is kept as it is, so the copy is idempotent. It runs only
+    /// inside a setup, and a setup runs only while the owner's stamp is missing or stale, so
+    /// the copy happens once: a row an older build writes into the old table afterwards is
+    /// not carried over and stays where it was written. The old table
     /// stays in the file, unread: local ADR 0006 adds and never drops.</summary>
     private static async Task CopyRenamedAsync(
         SqliteConnection connection,
