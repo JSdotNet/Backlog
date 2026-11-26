@@ -427,7 +427,7 @@ type: feature
 related: [.devbook/domain/repositories/domain.md#environment, .devbook/domain/repositories/domain.md#environment-launch, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories]
 ```
 
-Open the places a repository runs — its local harness, development, staging and production, its cloud dashboards — from the repository itself, without digging through portals, terminal history or documentation. Environment folded into this context, so these are a registered repository's own [environments](domain.md#environment) (local ADR 0073 §3). It is planned and not built.
+Open the places a repository runs — its local harness, development, staging and production, its cloud dashboards — from the repository itself, without digging through portals, terminal history or documentation. Environment folded into this context, so these are a registered repository's own [environments](domain.md#environment) (local ADR 0073 §3). It is built on the repository's card in Settings → Repositories.
 
 ### A repository's environments
 

@@ -1,0 +1,357 @@
+@*
+    One home's named environments (local ADR 0073 §3, domain/repositories): a
+    registered repository's own, on its card, or the no-repository group's, on a
+    card of its own. The place the person sees them, opens them, and arranges them.
+
+    Drawn only where the host composed IEnvironments, read off the service
+    provider the way the page reads its optional collaborators. Everything is
+    saved as it is done - the house rule of no save button.
+
+    Pinned ones come first and hidden ones stay out until "Show hidden" is
+    pressed; that order is IEnvironments.For's, never re-derived here. What Open
+    does is EnvironmentLaunch's: a URL or a cloud resource opens in the browser,
+    a command runs in a console window, a workspace path opens in the editor.
+    An environment keeps its name, type and launch link for life, so there is no
+    edit; one that changed is removed and added again.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits ComponentBase
+@using Backlog.SharedKernel
+@using Backlog.Modules.Repositories.Abstractions.Environments
+@using Backlog.Modules.Repositories.Abstractions.Services
+@using Backlog.UI.Components.Selects
+@inject IServiceProvider Services
+@implements IDisposable
+
+@if (_environments is not null)
+{
+    var shown = _environments.For(Home, _showHidden);
+    var hidden = _environments.HiddenCount(Home);
+
+    <div class="repo-card__section environments" data-testid="@TestId">
+        <h4 class="devbook-folders__title">Environments</h4>
+        <p class="setting__note">@Note</p>
+
+        @if (shown.Count == 0)
+        {
+            <p class="setting__status" data-testid="environments-empty">
+                @(hidden > 0 ? "Every environment here is hidden." : "No environments yet.")
+            </p>
+        }
+        else
+        {
+            <ul class="environment-list" aria-label="@($"Environments of {Label}")">
+                @for (var position = 0; position < shown.Count; position++)
+                {
+                    var current = shown[position];
+                    var first = position == 0 || shown[position - 1].Pinned != current.Pinned;
+                    var last = position == shown.Count - 1 || shown[position + 1].Pinned != current.Pinned;
+                    var launch = EnvironmentLaunch.Resolve(current.Link, CloneDirectory);
+
+                    <li class="environment" data-testid="environment" @key="current.Id">
+                        <div class="environment__summary">
+                            <span class="environment__name" data-testid="environment-name">@current.Name</span>
+                            <Badge Kind="environment-type" Slug="@TypeSlug(current.Type)" TestId="environment-type">@TypeLabel(current.Type)</Badge>
+                            @if (current.Pinned)
+                            {
+                                <Badge Kind="environment-flag" Slug="pinned" TestId="environment-pinned">Pinned</Badge>
+                            }
+                            @if (current.Hidden)
+                            {
+                                <Badge Kind="environment-flag" Slug="hidden" TestId="environment-hidden">Hidden</Badge>
+                            }
+                        </div>
+                        <p class="environment__link">
+                            <span>@KindLabel(current.Link.Kind)</span>
+                            <code data-testid="environment-link">@current.Link.Value</code>
+                        </p>
+                        @if (current.AccessHints.Count > 0)
+                        {
+                            <p class="environment__hints" data-testid="environment-hints">
+                                Access: @string.Join(" · ", current.AccessHints.Select(hint => hint.Text))
+                            </p>
+                        }
+                        @if (launch.Kind == LaunchActionKind.Unavailable)
+                        {
+                            <p class="setting__status" data-testid="environment-unavailable">@launch.Reason</p>
+                        }
+
+                        <div class="setting__actions">
+                            @if (launch.Kind == LaunchActionKind.OpenUri)
+                            {
+                                <AppButton Href="@launch.Target"
+                                           Variant="ButtonVariant.Primary"
+                                           Size="ButtonSize.Small"
+                                           TestId="environment-open">
+                                    Open
+                                </AppButton>
+                            }
+                            else
+                            {
+                                <AppButton Variant="ButtonVariant.Primary"
+                                           Size="ButtonSize.Small"
+                                           TestId="environment-open"
+                                           Disabled="@(launch.Kind == LaunchActionKind.Unavailable)"
+                                           OnClick="() => LaunchAsync(current, launch)">
+                                    @(launch.Kind == LaunchActionKind.RunCommand ? "Run" : "Open")
+                                </AppButton>
+                            }
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       TestId="environment-pin"
+                                       aria-pressed="@(current.Pinned ? "true" : "false")"
+                                       OnClick="() => Report(_environments.SetPinned(Home, current.Id, !current.Pinned))">
+                                @(current.Pinned ? "Unpin" : "Pin")
+                            </AppButton>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       TestId="environment-hide"
+                                       OnClick="() => Report(_environments.SetHidden(Home, current.Id, !current.Hidden))">
+                                @(current.Hidden ? "Show" : "Hide")
+                            </AppButton>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       TestId="environment-move-up"
+                                       aria-label="@($"Move {current.Name} up")"
+                                       Disabled="@first"
+                                       OnClick="() => Report(_environments.Move(Home, current.Id, -1))">
+                                Up
+                            </AppButton>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       TestId="environment-move-down"
+                                       aria-label="@($"Move {current.Name} down")"
+                                       Disabled="@last"
+                                       OnClick="() => Report(_environments.Move(Home, current.Id, 1))">
+                                Down
+                            </AppButton>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       TestId="environment-remove"
+                                       OnClick="() => Report(_environments.Remove(Home, current.Id))">
+                                Remove
+                            </AppButton>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (hidden > 0)
+        {
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="environments-show-hidden"
+                           aria-pressed="@(_showHidden ? "true" : "false")"
+                           OnClick="() => _showHidden = !_showHidden">
+                    @(_showHidden ? "Leave hidden ones out" : $"Show hidden ({hidden})")
+                </AppButton>
+            </div>
+        }
+
+        <p class="setting__status" data-testid="environments-status" role="status">
+            @if (_error is not null)
+            {
+                <span class="setting__status--error">@_error</span>
+            }
+        </p>
+
+        <fieldset class="environment-form" data-testid="environment-add">
+            <legend class="setting__label">Add an environment</legend>
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Name"
+                       Id="@($"{IdPrefix}-name")"
+                       data-testid="environment-name-input"
+                       autocomplete="off"
+                       Placeholder="Staging"
+                       Value="@_name"
+                       ValueChanged="value => _name = value" />
+            <SelectField Form="true"
+                         Label="Type"
+                         Id="@($"{IdPrefix}-type")"
+                         TestId="environment-type-select"
+                         LabelCssClass="setting__label"
+                         SelectCssClass="setting__input"
+                         CurrentValue="@_type.ToString()"
+                         Options="@TypeOptions"
+                         OnChanged="value => _type = Enum.TryParse<EnvironmentType>(value, out var type) ? type : _type" />
+            <SelectField Form="true"
+                         Label="Opens with"
+                         Id="@($"{IdPrefix}-kind")"
+                         TestId="environment-kind-select"
+                         LabelCssClass="setting__label"
+                         SelectCssClass="setting__input"
+                         CurrentValue="@_kind.ToString()"
+                         Options="@KindOptions"
+                         OnChanged="value => _kind = Enum.TryParse<LaunchLinkKind>(value, out var kind) ? kind : _kind" />
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Launch link"
+                       Id="@($"{IdPrefix}-link")"
+                       data-testid="environment-link-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       Placeholder="@KindPlaceholder(_kind)"
+                       Value="@_link"
+                       ValueChanged="value => _link = value" />
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="setting__input"
+                       Label="Access hints"
+                       Id="@($"{IdPrefix}-hints")"
+                       data-testid="environment-hints-input"
+                       autocomplete="off"
+                       Placeholder="Key Vault kv-app, VPN required"
+                       HelpText="Comma-separated reminders of how to reach it: the credential store, a tenant, a VPN, a profile. Never a password or token."
+                       Value="@_hints"
+                       ValueChanged="value => _hints = value" />
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           TestId="environment-add-button"
+                           OnClick="Add">
+                    Add environment
+                </AppButton>
+            </div>
+        </fieldset>
+    </div>
+}
+
+@code {
+    private static readonly IReadOnlyList<SelectorOption> TypeOptions =
+        [.. Enum.GetValues<EnvironmentType>().Select(type => new SelectorOption(type.ToString(), TypeLabel(type)))];
+
+    private static readonly IReadOnlyList<SelectorOption> KindOptions =
+        [.. Enum.GetValues<LaunchLinkKind>().Select(kind => new SelectorOption(kind.ToString(), KindLabel(kind)))];
+
+    private IEnvironments? _environments;
+    private IEnvironmentCommandRunner? _commands;
+    private IFolderEditorLauncher? _folders;
+    private bool _showHidden;
+    private string? _error;
+    private string? _name;
+    private string? _link;
+    private string? _hints;
+    private EnvironmentType _type = EnvironmentType.Staging;
+    private LaunchLinkKind _kind = LaunchLinkKind.Url;
+
+    /// <summary>Whose environments these are.</summary>
+    [Parameter, EditorRequired]
+    public EnvironmentHome Home { get; set; }
+
+    /// <summary>The home repository's clone directory on this device, which a workspace
+    /// path and a command resolve against; null when it has none.</summary>
+    [Parameter]
+    public string? CloneDirectory { get; set; }
+
+    /// <summary>What the list is of, as a screen reader names it: the repository's
+    /// <c>owner/name</c>, or "no repository".</summary>
+    [Parameter]
+    public string Label { get; set; } = "no repository";
+
+    [Parameter]
+    public string Note { get; set; } =
+        "The places this repository runs - its local harness, development, staging and production, its dashboards. Kept on this device.";
+
+    [Parameter]
+    public string TestId { get; set; } = "repo-environments";
+
+    private string IdPrefix => "environment-" + (Home.RepositoryId ?? "no-repository").Replace('/', '-');
+
+    protected override void OnInitialized()
+    {
+        _environments = Services.GetService<IEnvironments>();
+        _commands = Services.GetService<IEnvironmentCommandRunner>();
+        _folders = Services.GetService<IFolderEditorLauncher>();
+
+        if (_environments is not null) _environments.Changed += OnChanged;
+    }
+
+    private void Add()
+    {
+        var hints = (_hints ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var error = _environments!.Add(Home, _name ?? string.Empty, _type, new LaunchLink(_kind, _link ?? string.Empty), hints);
+
+        _error = error;
+
+        // Added - saved, or kept for this session only - so the form is cleared and a
+        // second press cannot add it twice.
+        if (error is null or IEnvironments.KeptNotSaved)
+        {
+            _name = null;
+            _link = null;
+            _hints = null;
+        }
+    }
+
+    private void Report(string? error) => _error = error;
+
+    private async Task LaunchAsync(RepositoryEnvironment environment, LaunchAction launch)
+    {
+        _error = null;
+
+        switch (launch.Kind)
+        {
+            case LaunchActionKind.RunCommand:
+                _error = _commands is null ? "Running a command isn't available here." : _commands.Run(launch.Target!, launch.WorkingDirectory);
+                break;
+
+            case LaunchActionKind.OpenWorkspace:
+                if (_folders is null)
+                {
+                    _error = "Opening a workspace isn't available here.";
+                    break;
+                }
+
+                try
+                {
+                    await _folders.OpenFolderAsync(launch.Target!);
+                }
+                catch (FolderEditorLaunchException ex)
+                {
+                    _error = $"{environment.Name} couldn't be opened: {ex.Message}";
+                }
+
+                break;
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (_environments is not null) _environments.Changed -= OnChanged;
+    }
+
+    private static string TypeLabel(EnvironmentType type) => type switch
+    {
+        EnvironmentType.Local => "Local",
+        EnvironmentType.Development => "Development",
+        EnvironmentType.Test => "Test",
+        EnvironmentType.Staging => "Staging",
+        EnvironmentType.Production => "Production",
+        EnvironmentType.Cloud => "Cloud",
+        _ => "Tooling"
+    };
+
+    private static string TypeSlug(EnvironmentType type) => type.ToString().ToLowerInvariant();
+
+    private static string KindLabel(LaunchLinkKind kind) => kind switch
+    {
+        LaunchLinkKind.Url => "URL",
+        LaunchLinkKind.Command => "Command",
+        LaunchLinkKind.WorkspacePath => "Workspace path",
+        _ => "Resource id"
+    };
+
+    private static string KindPlaceholder(LaunchLinkKind kind) => kind switch
+    {
+        LaunchLinkKind.Url => "https://staging.example.com",
+        LaunchLinkKind.Command => "aspire start --isolated",
+        LaunchLinkKind.WorkspacePath => "src/web",
+        _ => "/subscriptions/…/resourceGroups/rg-app"
+    };
+}

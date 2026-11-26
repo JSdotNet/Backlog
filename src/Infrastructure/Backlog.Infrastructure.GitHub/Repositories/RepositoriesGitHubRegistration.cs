@@ -27,6 +27,10 @@ public static class RepositoriesGitHubRegistration
             new GitHubPullRequestSource(sp.GetRequiredService<GitHubIntegration>())));
         services.Replace(ServiceDescriptor.Singleton<IRegisteredRepositories>(sp =>
             new GitHubRegisteredRepositories(sp.GetRequiredService<GitHubSettingsStore>())));
+        // The registry's named environments, on this device beside github.json and
+        // following its renames (local ADR 0073 §3).
+        services.Replace(ServiceDescriptor.Singleton<IEnvironmentStore>(sp =>
+            new EnvironmentsFileStore(sp.GetRequiredService<GitHubSettingsStore>())));
 
         return services;
     }

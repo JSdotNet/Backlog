@@ -191,6 +191,9 @@ public static partial class DesktopCompositionRegistration
         // reader of a pull request goes through. GitHub and the settled-fact memory are
         // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
         services.AddRepositoriesModule();
+        // An environment's command runs in a console window of its own on this machine,
+        // in place of the module's refusal (local ADR 0073 §3).
+        services.Replace(ServiceDescriptor.Singleton<IEnvironmentCommandRunner, ConsoleEnvironmentCommandRunner>());
 
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds

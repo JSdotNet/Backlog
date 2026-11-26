@@ -23,6 +23,11 @@
       RepositoriesFeatures
                             the pull-requests feature key, moved here from
                             SessionFeatures with its string unchanged
+      Environments/         a repository's named environments and the
+                            no-repository group's (local ADR 0073 §3), and
+                            EnvironmentLaunch, the one rule for opening one;
+                            IEnvironments, IEnvironmentStore and
+                            IEnvironmentCommandRunner sit under Services/
     Nothing here may reference the module's implementation, or anything else in
     the solution beyond the shared kernel.
   -->

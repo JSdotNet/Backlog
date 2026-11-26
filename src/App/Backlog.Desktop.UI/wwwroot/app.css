@@ -4766,6 +4766,62 @@ h1, h2, h3 {
     margin: 0;
 }
 
+/* --- Settings · a repository's environments (local ADR 0073 §3) ------------ */
+
+/* One row per environment: its name and marks, the link it opens, the hints
+   that say how to reach it, then its acts. A list rather than a table: an
+   environment is read as a sentence, and the acts wrap under it at a narrow
+   width rather than pushing a column off the card. */
+.environment-list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+    padding: 0;
+    list-style: none;
+}
+
+.environment {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.environment__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.environment__name {
+    font-weight: 600;
+}
+
+.environment__link,
+.environment__hints {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.environment__link code {
+    margin-left: var(--spacing-xs);
+    font-family: var(--font-family-mono);
+}
+
+/* The add form: the fields in a column that fills the card, their own labels
+   above them, as every other field on the page. */
+.environment-form {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+    border: none;
+}
+
 .devbook-folder {
     display: grid;
     grid-template-columns: minmax(11rem, 0.6fr) minmax(0, 1fr);

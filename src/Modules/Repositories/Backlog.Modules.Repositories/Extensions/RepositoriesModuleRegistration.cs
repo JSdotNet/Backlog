@@ -35,6 +35,13 @@ public static class RepositoriesModuleRegistration
             sp.GetRequiredService<TimeProvider>(),
             sp.GetService<ILogger<PullRequests>>()));
 
+        // The registry's named environments (local ADR 0073 §3): the rules here, over a
+        // store a host with a per-device file replaces, and a command runner a host that
+        // can start a process replaces.
+        services.TryAddSingleton<IEnvironmentStore, InMemoryEnvironmentStore>();
+        services.TryAddSingleton<IEnvironmentCommandRunner, NoEnvironmentCommandRunner>();
+        services.TryAddSingleton<IEnvironments>(sp => new Environments(sp.GetRequiredService<IEnvironmentStore>()));
+
         return services;
     }
 }
