@@ -133,6 +133,12 @@ starts on a new day, it triggers the
 [Harvest Task Policy](domain.md#harvest-task-policy). The model records nothing of
 it: the policy reads the date and files the task.
 
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `EventTools`: `add_knowledge_event`, behind the [`events`](#events-area) flag.
+
 ## Dependencies
 
 Events is downstream of Inbox, Tasks and Sync, and upstream of the Calendar for its

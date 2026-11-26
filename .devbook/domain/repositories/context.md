@@ -61,3 +61,7 @@ tests: [unit:dotnet:Backlog.Modules.Repositories.UnitTests.RepositoriesFeaturesT
 With the `pull-requests` flag on, the shell offers the pull requests pane, with its lanes, detail panel and acts. Off, the pane is not offered, and a task's side panel names only sessions under its linked work.
 
 The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's mark for a feature still under construction ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). A person's choice is kept in `features.json` beside the app's other per-device choices. The key is declared as `RepositoriesFeatures.PullRequests` in this context's `.Abstractions` project. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key) moved the declaration here from `SessionFeatures` and kept the key, so a stored choice still applies. It is retired when the pane leaves `DEV`.
+
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). A tool's `repository` argument is resolved against the registered repositories and never registers one (local ADR 0012 §4).

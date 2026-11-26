@@ -112,6 +112,10 @@ The key is `SyncFeatures.Sync` in `Backlog.Modules.Sync.Abstractions`. The setti
 screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice
 is kept in `features.json`. The flag is retired when sync leaves `BETA`.
 
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). The sync service runs a `/mcp` endpoint of its own for the claude.ai connector, apart from this channel: its one tool, `capture_to_inbox`, files a capture on the replica, and the desktop picks it up at its next sync (local ADR 0058 §8).
+
 ## Dependencies
 
 Sync is upstream of the contexts whose documents it carries. It publishes the

@@ -226,6 +226,14 @@ published, pushed to the phone, answered with the answer and its device
 (or acknowledged, for the alert), and closed. **Clear test** closes the test, as does sending a new one. The push row reads *not reported*, because the phone push
 carries no delivery receipt.
 
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `NotificationTools`: `notify`, `ask`, `get_answer` and `close`, behind the `notifications` flag.
+
+The channel's own `ChangeTools` publishes its restore proposal through this context's port, as any other source does.
+
 ## Dependencies
 
 Notifications is downstream of Sync and upstream of every context that publishes.

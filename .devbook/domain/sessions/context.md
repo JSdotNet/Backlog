@@ -121,3 +121,16 @@ It is off by default while the dispatchers are built
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The repository owner decides when it turns on. It is retired once the Manager skill
 has shipped and the feature leaves `DEV`.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `SessionTools`: `list_sessions`.
+- `SurfaceTools`: the delivery surface, `start_run`, `update_stage`, `set_run_context`, `record_prompt`, `get_run`, `list_runs`, `finish_run` and `open_dashboard`.
+- `UsageTools`: `list_run_usage`. [Insights](../insights/context.md#over-mcp) reads run usage; Sessions owns it.
+- `ScheduleTools`: `report_schedule_run` (local ADR 0051).
+- `LoopTools`: `check_in`.
+- `SessionRequestTools`: `claim_session_request`, `mark_session_request`, `list_session_requests`, `claim_delivery`, `mark_delivery` and `list_deliveries`, behind the [`session-requests`](#session-requests) flag (local ADRs 0038, 0041).
+
+Every group but `SessionRequestTools` is behind the [`sessions`](#sessions-area) flag. `TrackerTools`, a [Work](../work/context.md#over-mcp) group, composes the two contexts: its `link_session` tells this context's request queue that a session picked an entry up.

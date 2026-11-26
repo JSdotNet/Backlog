@@ -83,3 +83,9 @@ The whole set is refused when one line does not read, and the message names that
 line. So the rules in use are always the last set that read. They are the
 reader's own, kept in `inbox-routing-rules.json` next to the app's other
 per-user settings, and never synced.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `InboxTools`: `list_inbox_items`, `read_inbox_item`, `archive_inbox_item` and `capture_to_inbox`, behind the [`inbox-pane`](#inbox-pane) flag.

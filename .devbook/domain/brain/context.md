@@ -68,6 +68,10 @@ With the `atlas-lobes` flag on, the Devbook pane's **Atlas** button opens the [L
 
 It ships off, marked in development, while the Lobes atlas is finished. The key is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the settings screen lists it with the other switches. A person's choice is kept in `features.json`.
 
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). The Brain is a scope on Devbook's groups instead: `repository: "#brain"` reads, captures into and lists the review dates of the Brain through [`DevbookTools`](../devbook/context.md#over-mcp). `DecisionTools` and `SyncDirectionTools` refuse the scope, since the Brain keeps no workflow state and no sync direction.
+
 ## Dependencies
 
 The Brain is downstream of Devbook, whose reading machinery it uses, and of the Inbox, which routes items **To Brain**. It is a partner of Tasks.

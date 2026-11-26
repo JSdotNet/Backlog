@@ -167,3 +167,13 @@ page's Glossary lists the context's terms and model chapters A to Z.
 
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `DevbookTools`: `list_knowledge_contexts`, `read_knowledge_chapter`, `list_annotations`, `resolve_annotation`, `capture_note` and `list_brain_reviews`. The [Brain](../brain/context.md#over-mcp) is a scope on it, `#brain`, not a second group.
+- `DecisionTools`: `devbook_get_state`, `devbook_set_state`, `devbook_list_notes`, `devbook_post_note` and `devbook_resolve_note`: a subject's workflow state and its review notes (local ADR 0044).
+- `SyncDirectionTools`: `list_sync_directions`.
+
+All three are always listed. `DecisionTools` and `SyncDirectionTools` compose two contexts: the state, notes and directions are Devbook's, and the `repository` a call names resolves through [Work](../work/context.md#over-mcp)'s `IRepositoryDirectory`. They only combine calls; no rule of either context lives in them.
