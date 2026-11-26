@@ -4,7 +4,7 @@ namespace Backlog.Modules.Tasks.Features.FileFollowUp;
 
 /// <summary>
 /// The person's words as a follow-up's body: kept as plain text, never read back as
-/// structure (<c>.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry</c>).
+/// structure (<c>.devbook/domain/work/requirements.md#filing-a-follow-up-after-an-entry</c>).
 /// <para>
 /// Escaped, never refused: the words are an answer the person already sent from a
 /// phone or a notification card, and there is nobody to tell that a line of it looked

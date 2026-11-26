@@ -31,11 +31,11 @@ the registry holds are in [its invariants](domain.invariants.md#machine-registry
 ```meta
 type: entity
 aliases: [machine_id, MachineId, IMachineRegistry]
-related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/dev-pc-management/domain.invariants.md#machine-registry, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/work/domain.md#device]
 ```
 
 A single development PC. This context owns it (local ADR 0073 §7). It is built
-over Sync's device identity, the [Device](../tasks/domain.md#device) the shared
+over Sync's device identity, the [Device](../work/domain.md#device) the shared
 kernel mints once per installation:
 
 - `MachineId` is that identity, a GUID that survives a rename;

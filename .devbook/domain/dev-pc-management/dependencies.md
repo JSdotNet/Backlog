@@ -12,8 +12,8 @@ type: dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/tasks/domain.md#task` | Compliance gaps can drive update tasks. |
-| Shared kernel device identity | Shared Kernel | `IDeviceIdentitySource` | `.devbook/domain/tasks/domain.md#device` | The [Machine](domain.md#machine) is built over it (local ADR 0073 §7). |
+| [Work](../work/domain.task.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/work/domain.task.md#task` | Compliance gaps can drive update tasks. |
+| Shared kernel device identity | Shared Kernel | `IDeviceIdentitySource` | `.devbook/domain/work/domain.md#device` | The [Machine](domain.md#machine) is built over it (local ADR 0073 §7). |
 | [Sessions](../sessions/domain.md#session-log) | Customer/Supplier (Dev PC Management = customer) | Infrastructure adapter `SessionMachineRegistry` over `IAgentSessionSource` | `.devbook/domain/sessions/domain.md#session-log` | The machines other than this one are the ones whose replicated session records name them. |
 | Native package managers (external) | ACL | Command execution on target machine | `.devbook/domain/dev-pc-management/domain.md#remote-update` | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
 | Cloud service (relay/broker) | ACL | Registration, WoL relay, connection brokering | `.devbook/domain/dev-pc-management/domain.md#remote-control` | Provides registry, wake relay, and connection details. |

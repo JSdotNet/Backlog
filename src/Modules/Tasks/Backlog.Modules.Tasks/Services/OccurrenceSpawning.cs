@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Changes;
 namespace Backlog.Modules.Tasks.Services;
 
 /// <summary>
-/// Occurrence Spawning (<c>.devbook/domain/tasks/domain.md#occurrence-spawning</c>):
+/// Occurrence Spawning (<c>.devbook/domain/work/domain.md#occurrence-spawning</c>):
 /// the one place a ticked repeating task gets its next occurrence, whichever
 /// machine saw the tick.
 /// <para>

@@ -57,9 +57,9 @@ which does not see the Brain (ADR 0026). Talk notes are taken on the phone
 event.
 
 **The plain word is taken.** "Event" already means a domain event in every
-context, and Tasks has a [Usage Event](../../domain/tasks/domain.md#usage-event).
+context, and Tasks has a [Usage Event](../../domain/work/domain.task.md#usage-event).
 "Session" names the Sessions context, and "agenda" sits close to Tasks'
-[Agenda Time](../../domain/tasks/domain.md#agenda-time). The new language has to
+[Agenda Time](../../domain/work/domain.task.md#agenda-time). The new language has to
 avoid all three.
 
 **Notifications set the precedent.** ADR 0039 gave notifications a document kind
@@ -284,7 +284,7 @@ Neutral:
   ([ADR 0022 §1](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#1-one-main-view-always)).
   A view owns nothing, so it has nowhere to keep why the person goes or whether it
   was worth it. Events shows on it as a layer instead.
-- **A task type.** [Task Type](../../domain/tasks/domain.md#task-type) classifies
+- **A task type.** [Task Type](../../domain/work/domain.task.md#task-type) classifies
   work to do. An event is not work: it has dates, a place, a ticket and a
   lifecycle of its own, which would sit beside every task's status. Its prep and
   harvest are tasks, linked by id.

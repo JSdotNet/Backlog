@@ -55,7 +55,7 @@ public static class EntryTextParser
     private static readonly Regex TokenRegex = new(@"`([^`]+)`", RegexOptions.Compiled);
     /// <summary>A general tag in the body's prose, or a context: <c>#@pc</c> is the
     /// tag <c>@pc</c> (local ADR 0054 §5,
-    /// <c>.devbook/domain/tasks/domain.md#context</c>). The <c>@</c> stays in the
+    /// <c>.devbook/domain/work/domain.md#context</c>). The <c>@</c> stays in the
     /// captured name, so a context is stored the way a title's person tag is.</summary>
     private static readonly Regex TagRegex = new(@"(?<!\S)#(@?[A-Za-z][\w-]*)", RegexOptions.Compiled);
     /// <summary>The entry title's own tag grammar, which is the body's plus two
@@ -484,7 +484,7 @@ public static class EntryTextParser
                     case "at":
                         // The agenda start, a local 24-hour time with no date and
                         // no zone: the date is the `myday:` beside it and the
-                        // clock is the reader's (.devbook/domain/tasks/domain.md#agenda-time).
+                        // clock is the reader's (.devbook/domain/work/domain.task.md#agenda-time).
                         if (AgendaTime.TryParseStart(value, out var start)) agendaStart = start;
                         else unreadable.Add(new UnreadableToken("at", value));
                         break;
@@ -526,7 +526,7 @@ public static class EntryTextParser
                         // marked. Deliberately not a status, and not the Blocked
                         // readiness a chain of `after:` tokens derives — that one
                         // is worked out from the other entries and never stored
-                        // (.devbook/domain/tasks/domain.md#readiness), where this
+                        // (.devbook/domain/work/domain.task.md#readiness), where this
                         // is a person's own statement that something outside the
                         // backlog is in the way, so it is written down.
                         if (TryParseDateToken(value, out var blockedOn)) blockedSince = blockedOn;
@@ -536,7 +536,7 @@ public static class EntryTextParser
                     case "waiting":
                         // Who the task waits on, free text: whatever is between the
                         // colon and the closing backtick, spaces and all
-                        // (.devbook/domain/tasks/domain.md#waiting-for). Last one
+                        // (.devbook/domain/work/domain.md#waiting-for). Last one
                         // wins like `due:`, because a task waits on one party.
                         // Empty is the one malformed value: absent means absent.
                         if (value.Length == 0) unreadable.Add(new UnreadableToken("waiting", value));
@@ -1897,7 +1897,7 @@ public static class EntryTextParser
     /// <summary>Ticks the entry off on a day, or unticks it by clearing the
     /// token. Writes nothing else: in particular it leaves the status token
     /// alone, because the tick and the lifecycle are two facts
-    /// (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>).</summary>
+    /// (<c>.devbook/domain/work/flow.md#task-lifecycle</c>).</summary>
     public static string WithCompletedOn(string raw, DateOnly? completedOn) =>
         RewriteMetaLine(raw, completedOn: completedOn, updateCompletedOn: true);
 
@@ -1905,7 +1905,7 @@ public static class EntryTextParser
     /// the token. Writes nothing else: the mark is neither a status nor the tick,
     /// so an entry comes unblocked exactly as it was before — and it is not the
     /// Blocked readiness a dependency chain derives either, which is never written
-    /// down at all (<c>.devbook/domain/tasks/domain.md#readiness</c>).</summary>
+    /// down at all (<c>.devbook/domain/work/domain.task.md#readiness</c>).</summary>
     public static string WithBlocked(string raw, DateOnly? blockedSince) =>
         RewriteMetaLine(raw, blockedSince: blockedSince, updateBlocked: true);
 
@@ -1935,11 +1935,11 @@ public static class EntryTextParser
 
     /// <summary>Rewrites the whole set of <c>repo:</c> tokens. A set rather than a
     /// value because an entry may target several repositories at once
-    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>), and an empty list
+    /// (<c>.devbook/domain/work/features.md#multi-repo-targeting</c>), and an empty list
     /// clears them: an entry that targets nothing carries no token rather than an
     /// empty one, the rule every other named field here follows. Deliberately
     /// unrelated to <c>@area</c> — the area is the person's own pile and says
-    /// nothing about repositories (<c>.devbook/domain/tasks/domain.md#area</c>).</summary>
+    /// nothing about repositories (<c>.devbook/domain/work/domain.md#area</c>).</summary>
     public static string WithRepoIds(string raw, IEnumerable<string>? repoIds) =>
         RewriteMetaLine(raw, repoIds: NormalizeRepoIds(repoIds), updateRepoIds: true);
 

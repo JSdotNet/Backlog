@@ -11,7 +11,7 @@ type: domain
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-What Goals owns and what it leaves to Tasks and Roadmap Planning is in [context.md](context.md). The model holds no copy of a task, plan, pull request or session. A goal names each by its identity and asks its owner for its state on every reading.
+What Goals owns and what it leaves to Work is in [context.md](context.md). The model holds no copy of a task, plan, pull request or session. A goal names each by its identity and asks its owner for its state on every reading.
 
 ## Goal
 
@@ -42,21 +42,21 @@ Deleting a goal removes it and its attachments. The work it held is unchanged an
 ```meta
 type: value-object
 aliases: [attached item, GoalAttachment]
-related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+related: [.devbook/domain/work/domain.plan.md#roadmap-tag, .devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.task.md#projection-ref, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
 
 One piece of work attached to a goal, of one of four kinds:
 
 | Kind | Named by | Brings in |
 |---|---|---|
-| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every entry its roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), in any repository, finished or not, including entries filed later |
+| Plan | its [plan tag](../work/domain.plan.md#roadmap-tag), without the `+` sigil | every entry its roadmap item [gathers by tag](../work/domain.md#roadmap-item-gathering), in any repository, finished or not, including entries filed later |
 | Task | its task id | the task, and the pull requests it links |
 | Pull request | its repository and number | the pull request alone |
 | Session | its agent and session id | the session, the tasks linked to it, and the pull request on its branch |
 
 A plan counts exactly the entries its roadmap item's bar gathers by tag. These are the entries filed under `+tag` and those carrying the bare tag, as an entry filed before the sigil or tagged `#tag` is stored. A person tag spelled like the plan is not one of them. Tasks owns that rule, and whoever hands Goals its tasks names each task's slugs by it, so a goal and the roadmap never count a plan differently.
 
-A session is named by its [Session Identity](../sessions/domain.md#session-identity): the agent and the full id the agent gave it, because a session id is unique only within its agent. The short id the screens show, "Session abcd1234", only finds a session and is never stored. Its **linked tasks** are the tasks whose `session` [Projection Ref](../tasks/domain.md#projection-ref) names its session id. Its **branch pull request** is the newest one whose head is the session's branch, in its resolved repository; a session with no branch or resolved repository has none. Sessions owns the session, Tasks the link and GitHub the pull request, and all three are read on every reading (local
+A session is named by its [Session Identity](../sessions/domain.md#session-identity): the agent and the full id the agent gave it, because a session id is unique only within its agent. The short id the screens show, "Session abcd1234", only finds a session and is never stored. Its **linked tasks** are the tasks whose `session` [Projection Ref](../work/domain.task.md#projection-ref) names its session id. Its **branch pull request** is the newest one whose head is the session's branch, in its resolved repository; a session with no branch or resolved repository has none. Sessions owns the session, Tasks the link and GitHub the pull request, and all three are read on every reading (local
 [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)).
 
 Equality is by kind and identity. The attachment also stores the day it was made.
@@ -126,9 +126,9 @@ Something outside the person's own work that holds it back, tracked until resolv
 - its history of [State Changes](#state-change);
 - the tasks, pull requests and plans it [Holds Back](#holds-back), and through them the goals it holds back.
 
-A person raises an impediment and links the work it holds back. Nothing raises one for them: a task's [blocked mark](../tasks/features.md#marking-a-task-blocked) raises nothing here (local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
+A person raises an impediment and links the work it holds back. Nothing raises one for them: a task's [blocked mark](../work/features.md#marking-a-task-blocked) raises nothing here (local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)).
 
-An impediment is open until a person resolves it. Once every item it holds back is [settled](#settled), it reads [Ready to resolve](#ready-to-resolve), which changes nothing on it. Its age is the working days since it was raised, counted in the person's [working week](../roadmap/domain.md#working-week). Its rules are in [its invariants](domain.invariants.md#impediment).
+An impediment is open until a person resolves it. Once every item it holds back is [settled](#settled), it reads [Ready to resolve](#ready-to-resolve), which changes nothing on it. Its age is the working days since it was raised, counted in the person's [working week](../work/domain.md#working-week). Its rules are in [its invariants](domain.invariants.md#impediment).
 
 ### Impediment State
 
@@ -172,7 +172,7 @@ One step in an impediment's history: the state it moved to, the day, and who it 
 ```meta
 type: value-object
 aliases: [holds back, held-back item, blocks, HoldsBack]
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals/domain.invariants.md#impediment]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.task.md#projection-ref, .devbook/domain/work/domain.plan.md#roadmap-tag, .devbook/domain/work/domain.md#roadmap-item-gathering, .devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals/domain.invariants.md#impediment]
 ```
 
 A link from an impediment to one piece of work it holds back, of three kinds, each named as a [Goal Attachment](#goal-attachment) names it:
@@ -181,7 +181,7 @@ A link from an impediment to one piece of work it holds back, of three kinds, ea
 |---|---|---|
 | Task | its task id | the goal that counts the task |
 | Pull request | its repository and number | the goal that counts the pull request |
-| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every goal that counts an entry the plan's roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), later entries included |
+| Plan | its [plan tag](../work/domain.plan.md#roadmap-tag), without the `+` sigil | every goal that counts an entry the plan's roadmap item [gathers by tag](../work/domain.md#roadmap-item-gathering), later entries included |
 
 A goal counts a pull request attached directly, linked by a task the goal counts, or
 on the branch of a session the goal counts.
@@ -194,7 +194,7 @@ Equality is by kind and identity. Linking or unlinking an item changes nothing o
 
 ```meta
 type: domain-service
-related: [.devbook/domain/goals/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/work/domain.task.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 aliases: [BlockedTaskPolicy]
 ```
 
@@ -208,7 +208,7 @@ Invocation semantics: it was event-triggered, run by an adapter that heard every
 
 ```meta
 type: domain-service
-related: [.devbook/domain/goals/domain.invariants.md#stand-up-reading, .devbook/domain/goals/features.md#the-stand-up, .devbook/domain/goals/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
+related: [.devbook/domain/goals/domain.invariants.md#stand-up-reading, .devbook/domain/goals/features.md#the-stand-up, .devbook/domain/goals/features.md#the-goals-view, .devbook/domain/work/domain.task.md#task-status, .devbook/domain/work/domain.task.md#readiness]
 aliases: [StandUpReading]
 ```
 
@@ -239,7 +239,7 @@ A viewing window over the calendar that nobody creates or closes, shared by the 
 
 | Length | One window |
 |---|---|
-| Day | one working day of the person's [working week](../roadmap/domain.md#working-week) |
+| Day | one working day of the person's [working week](../work/domain.md#working-week) |
 | Week | Monday to Friday |
 | Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it |
 | Month | one calendar month, from its first day to its last |
@@ -260,10 +260,10 @@ type: ubiquitous-language
 
 ```meta
 type: term
-related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed, .devbook/domain/sessions/domain.md#session-state]
+related: [.devbook/domain/work/domain.task.md#task-status, .devbook/domain/work/domain.md#completed, .devbook/domain/sessions/domain.md#session-state]
 ```
 
-A task is done when its status is Done, or when every pull request it links is merged; either is enough. A task with no linked pull request is done only by its status. A pull request is done when merged. A plan's entry is a task, done the same way. An item was done on the day its task was [completed](../tasks/domain.md#completed), or its last pull request merged.
+A task is done when its status is Done, or when every pull request it links is merged; either is enough. A task with no linked pull request is done only by its status. A pull request is done when merged. A plan's entry is a task, done the same way. An item was done on the day its task was [completed](../work/domain.md#completed), or its last pull request merged.
 
 A session is done when the pull request on its branch is merged, or when it has linked tasks and every one is done. Its [state](../sessions/domain.md#session-state) never makes it done: a finished session may have shipped nothing. It was done on the earlier of the day that pull request merged and the day its last linked task was done.
 
@@ -272,7 +272,7 @@ A session is done when the pull request on its branch is merged, or when it has 
 ```meta
 type: term
 aliases: [settled]
-related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/work/domain.task.md#task-status, .devbook/domain/work/domain.md#roadmap-item-gathering]
 ```
 
 A [held-back item](#holds-back) is settled when the work it names is over, one way or
@@ -314,21 +314,21 @@ The short reading a person gives of their work, in four blocks: goal progress, w
 
 ```meta
 type: term
-related: [.devbook/domain/goals/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
+related: [.devbook/domain/goals/features.md#the-stand-up, .devbook/domain/work/domain.task.md#readiness]
 ```
 
 The work a stand-up expects in the next iteration. Nobody picks it; it is derived from three sources, each item listed once:
 
 - the items goals hold that are in progress and not blocked;
 - the items due inside the next window, under No goal when no goal holds them;
-- for each attached plan, its first [ready](../tasks/domain.md#readiness) entry in the
+- for each attached plan, its first [ready](../work/domain.task.md#readiness) entry in the
   plan's order that is not in progress, marked blocked or archived yet.
 
 ### Pace
 
 ```meta
 type: term
-related: [.devbook/domain/roadmap/context.md#story-points-a-week]
+related: [.devbook/domain/work/context.md#story-points-a-week]
 ```
 
-The story points a person gets done in a working week, as the Roadmap measures it or the person typed it ([Story points a week](../roadmap/context.md#story-points-a-week)). A stand-up scales it to the next window: pace times the window's working days, divided by a working week's, rounded to whole points.
+The story points a person gets done in a working week, as the Roadmap measures it or the person typed it ([Story points a week](../work/context.md#story-points-a-week)). A stand-up scales it to the next window: pace times the window's working days, divided by a working week's, rounded to whole points.

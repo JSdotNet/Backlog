@@ -24,7 +24,7 @@ Register the repositories the product works with:
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
+related: [.devbook/domain/work/features.md#multi-repo-targeting, .devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
 Maintain the [registry](domain.md#repository-registry) of repositories the app acts on. Each registered repository carries a short [alias](domain.md#repository-alias), its owner and name, and an optional local clone directory. The alias is the name the rest of the product uses: a task files itself against a repository by naming that alias.
@@ -43,7 +43,7 @@ Everything decided about one repository is edited under its own row, one at a ti
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repositories/domain.md#repository, .devbook/domain/repositories/domain.md#repository-alias, .devbook/domain/tasks/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+related: [.devbook/domain/repositories/domain.md#repository, .devbook/domain/repositories/domain.md#repository-alias, .devbook/domain/work/features.md#multi-repo-targeting, .devbook/domain/inbox/features.md#per-item-triage-actions, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 ```
 
 A registered repository is identified by its owner and name, and every entry and inbox item filed against it records that coordinate too. Without a rename, a change of name on GitHub would read as a second repository. Everything filed against the old name would then point at a coordinate nobody is configured for.
@@ -121,7 +121,7 @@ Archiving asks what becomes of the repository's open tasks: move them to another
 
 ```meta
 type: sub-feature
-related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/roadmap/features.md#telling-one-project-from-another-at-a-glance]
+related: [.devbook/design/color-scheme.md#band-identity-tokens, .devbook/domain/work/features.md#telling-one-project-from-another-at-a-glance]
 ```
 
 Give each registered repository one colour, so a workspace holding several can be read one project at a time. The colour belongs to the repository, not to any screen showing it, so the same project is the same colour:
@@ -199,7 +199,7 @@ The open pull requests counted here for health are those whose [status](#pull-re
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/tasks/features.md#projection]
+related: [.devbook/domain/work/features.md#projection]
 ```
 
 Reach GitHub through whichever credential the machine already has. A signed-in GitHub CLI is preferred, so no credential has to be stored in the product. A per-repository personal access token is the fallback for machines without it. Access can be checked on demand, and the check says in plain language which route is in use and whether it works. Tokens are kept outside the backlog folder, so the backlog stays safe to sync or commit.
@@ -458,7 +458,7 @@ An environment shows non-secret reminders of how to reach it — a tenant, a VPN
 ```meta
 type: feature
 depends-on: [.devbook/domain/repositories/features.md#repository-health-scoring]
-related: [.devbook/domain/tasks/features.md#task-creation]
+related: [.devbook/domain/work/features.md#task-creation]
 ```
 
 Act on many repositories at once:
