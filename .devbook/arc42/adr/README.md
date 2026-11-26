@@ -101,7 +101,7 @@ between inherited ADRs 0005 and 0009.
 - **[0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md)** *(proposed, not yet built; changes 0038's queue popover into a docked column, extends 0032's My Day rule to plans)*
 - **[0073 — The bounded contexts are redrawn](0073-the-bounded-contexts-are-redrawn.md)** *(proposed, not yet built; Work, Insights, Repositories and Goals, Technology Stack dissolved; amends 0050 and 0072)*
 - **[0074 — Infrastructure is organised by technology, never by bounded context](0074-infrastructure-is-organised-by-technology-never-by-context.md)** *(proposed, not yet built; one `.Adapters` project per context; amends 0064 §1)*
-- **[0075 — Goals stay their own context, and the Roadmap draws them](0075-goals-stay-their-own-context-and-the-roadmap-draws-them.md)** *(proposed, not yet built; keeps 0073 §4, adds a Goals band to the Roadmap through a composition hook)*
+- **[0075 — Goals merge into Work, and the Roadmap draws them](0075-goals-merge-into-work-and-the-roadmap-draws-them.md)** *(proposed, not yet built; Goal and Impediment become Work aggregates, the Roadmap gains a Goals band; reverses 0073 §4)*
 
 ## Inherited decisions
 
