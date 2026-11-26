@@ -51,6 +51,16 @@ public class ContinuousIntegrationWorkflowTests
         ["deploy-all.yml"] = 60,
     };
 
+    /// <summary>
+    /// The jobs whose timeout differs from their workflow's row: the pull request
+    /// run's serial .NET build and test takes up to 28 minutes when green, so 30
+    /// cancelled passing runs in their post-steps.
+    /// </summary>
+    private static readonly Dictionary<(string Workflow, string Job), int> ExpectedJobTimeoutMinutes = new()
+    {
+        [(PullRequestWorkflow, "dotnet")] = 45,
+    };
+
     /// <summary>The one release of both apps, whose Latest badge is the App Installer update channel.</summary>
     private const string ReleaseWorkflow = "release-all.yml";
 
@@ -99,6 +109,7 @@ public class ContinuousIntegrationWorkflowTests
             foreach (var job in Jobs(File.ReadAllLines(file)))
             {
                 var timeout = JobKey(job, "timeout-minutes");
+                var jobExpected = ExpectedJobTimeoutMinutes.GetValueOrDefault((name, job.Name), expected);
 
                 if (JobKey(job, "uses") is not null)
                 {
@@ -115,9 +126,9 @@ public class ContinuousIntegrationWorkflowTests
                     continue;
                 }
 
-                if (timeout != expected.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                if (timeout != jobExpected.ToString(System.Globalization.CultureInfo.InvariantCulture))
                 {
-                    problems.Add($"{name}: '{job.Name}' has timeout-minutes '{timeout ?? "(none)"}', expected {expected}.");
+                    problems.Add($"{name}: '{job.Name}' has timeout-minutes '{timeout ?? "(none)"}', expected {jobExpected}.");
                 }
             }
         }
