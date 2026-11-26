@@ -40,7 +40,6 @@ flowchart TB
       RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
       DevbookSvc["Devbook\n(PARA, links)"]
       MonitoringSvc["Monitoring\n(dashboards, signals)"]
-      TechStackSvc["Technology Stack\n(baselines, adoption)"]
       DevPCSvc["Dev PC Management\n(registry, compliance)"]
       SessionsSvc["Sessions\n(agent session record)"]
       RepoMgmtSvc["Repository Management\n(repo registry, health)"]
@@ -91,8 +90,7 @@ flowchart TB
   InboxQueue -->|route| DevbookSvc
   BacklogSvc <-->|embed| DevbookSvc
   BacklogSvc -->|signals| MonitoringSvc
-  TechStackSvc --> DevPCSvc
-  TechStackSvc --> RepoMgmtSvc
+  DevbookSvc -.->|tech/ ratings| RepoMgmtSvc
   RepoMgmtSvc --> MonitoringSvc
   DevPCSvc --> MonitoringSvc
 

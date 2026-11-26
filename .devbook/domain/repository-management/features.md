@@ -165,7 +165,7 @@ Keep track of each repository's dependencies:
 ```meta
 type: feature
 depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
-related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
+related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption]
 ```
 
 Detect for each repository:
@@ -394,10 +394,31 @@ Compute a health score from package freshness, the GitHub issue and pull request
 
 ```meta
 type: feature
-related: [.devbook/domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
+related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption]
 ```
 
 Aggregate package versions across repositories to see platform-wide adoption. The analysis surfaces deprecated technology still in use, recommends upgrades, and tracks how new libraries and frameworks are adopted.
+
+## Portfolio technology adoption
+
+```meta
+type: feature
+depends-on: [.devbook/domain/repository-management/features.md#repository-registration]
+related: [.devbook/domain/devbook/features.md#technology-view, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md]
+```
+
+Read the technology graph of every registered repository's devbook through
+Devbook's reader, read-only, the way the Brain's Lobes atlas reads it. Across the
+portfolio, see:
+
+- which repositories use each technology, and at which version;
+- a technology rated differently, or pinned to another version, from one
+  repository to the next;
+- each repository still on a technology its own `tech/` rates `hold` or `retired`.
+
+Each repository's ratings and versions stay in its own `tech/` folder: this
+feature writes none and keeps no baseline of its own (local ADR 0073 §5). It is
+planned and not built.
 
 ## Bulk operations
 

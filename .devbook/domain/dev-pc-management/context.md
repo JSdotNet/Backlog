@@ -12,8 +12,8 @@ Dev PC Management supports multiple development PCs from a single interface:
 - register machines;
 - wake them remotely;
 - start remote desktop sessions;
-- monitor tool versions and compliance against the [Technology
-  Stack](../technology-stack/domain.md#technology-registry) baseline;
+- monitor tool versions and compliance against the team tool baseline its
+  [tool catalog](features.md#copilot-tool-catalog) declares;
 - trigger remote updates.
 
 Outside it: which agent ran on a machine, where, and for how long. That is

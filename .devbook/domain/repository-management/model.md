@@ -115,8 +115,8 @@ classDiagram
 - Daily history value objects (`PackageFreshnessMetric`, `HealthScoreSnapshot`,
   `GitHubHealthMetric`, `TechnologySnapshot`, see `domain.md`) roll up into
   `PortfolioAnalytics`; only the root writes them.
-- `TechBaselines` is a local copy consumed from Technology Stack. Repositories
-  are validated against it without holding the foreign aggregate.
+- `TechBaselines` is read from each registered devbook's `tech/` folder.
+  Repositories are validated against it without holding the devbook.
 - `RenameRecord` and `RemovalRecord` belong to the registry rather than to a
   repository, because each names a repository the registry no longer holds.
 - An [alias move](domain.md#repository-alias) belongs to the registry for the

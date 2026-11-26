@@ -471,7 +471,7 @@ sequenceDiagram
     participant RepoMgmt as Repository Management
     participant RepoRegistry as Repository Registry
     participant Pkg as Package Registries
-    participant TechStack as Technology Stack
+    participant Devbook as Devbook reader
     participant Index as Local JSON Index
     participant Monitoring as Monitoring Service
 
@@ -481,8 +481,9 @@ sequenceDiagram
         RepoMgmt->>Pkg: Query latest package metadata
         Pkg-->>RepoMgmt: Current versions / advisories
     end
-    RepoMgmt->>TechStack: Compare discovered versions to baselines
-    TechStack-->>RepoMgmt: Drift and policy evaluation
+    RepoMgmt->>Devbook: Read the repository's tech/ ratings and versions
+    Devbook-->>RepoMgmt: Ratings and approved versions
+    RepoMgmt->>RepoMgmt: Flag drift and hold or retired technology
     RepoMgmt->>Index: Persist repository health snapshot
     RepoMgmt->>Monitoring: Emit ProgressSignal(s)
     Monitoring-->>Scheduler: Dashboard/alert state updated

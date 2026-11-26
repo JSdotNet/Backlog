@@ -32,7 +32,6 @@ The system is split into independent functional domains, each designed, built an
 | **Productivity** | Turn AI-assisted work activity into personal productivity insight |
 | **Environment** | Give quick access to named local, cloud, and project environments |
 | **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
-| **Technology Stack** | Define baselines, version requirements, and adoption signals |
 | **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
 | **Sessions** | Record what the AI coding agents have been doing on each environment |
 | **Repository Management** | Track repositories, package versions, issues, and health scoring |

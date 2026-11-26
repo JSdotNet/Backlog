@@ -15,7 +15,7 @@ type: domain
 
 ```meta
 type: aggregate
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/dev-pc-management/domain.invariants.md#machine-registry]
 aliases: [MachineRegistry]
 ```
 
@@ -194,8 +194,9 @@ aliases: [TeamToolsBaseline]
 ```
 
 The team's required versions for all tracked tools: `tools`
-(name → Tool Baseline), `last_updated`, `updated_by`. Consumed from the
-Technology Stack domain (see `dependencies.md`).
+(name → Tool Baseline), `last_updated`, `updated_by`. The
+[tool catalog](features.md#copilot-tool-catalog) declares it, and this context
+owns it (local ADR 0073 §5).
 
 ### Fleet Health Snapshot
 
@@ -266,7 +267,7 @@ brokering, and the target OS, not one machine's stored state. A command invokes 
 
 ```meta
 type: domain-service
-related: [.devbook/domain/technology-stack/domain.md#technology-registry]
+related: [.devbook/domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
 
 Queues and executes tool updates across machines, singly, targeted or in bulk.
@@ -324,7 +325,6 @@ team tools baseline.
 ### Consumers
 
 - Monitoring & Dashboard, which shows compliance health.
-- Technology Stack, which can correlate adoption lag against approved baselines.
 
 ### Published language rules
 

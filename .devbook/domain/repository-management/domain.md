@@ -16,7 +16,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 
 ```meta
 type: aggregate
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repository-management/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
 aliases: [RepositoryRegistry]
 ```
 
@@ -62,7 +62,7 @@ The scan, when built, adds:
 - ADR links and tags;
 - daily freshness, health, GitHub and tech-adoption history.
 
-A detected technology that the portfolio's technology baseline does not allow will then trigger a deprecation warning.
+A detected technology that the repository's own devbook `tech/` rates `hold` or `retired` will then trigger a deprecation warning.
 
 ### Repository Alias
 
@@ -224,7 +224,7 @@ type: value-object
 aliases: [TechBaselines]
 ```
 
-Portfolio technology and dependency baselines (language, framework, dependency, plus `deprecated_tech`), consumed from Technology Stack (see `dependencies.md`).
+Portfolio technology and dependency baselines (language, framework, dependency, plus `deprecated_tech`), read from each registered devbook's `tech/` ratings and versions through Devbook's reader (see `dependencies.md`).
 
 ### Portfolio Analytics
 
@@ -259,7 +259,7 @@ A security alert's severity: `critical`, `high`, `medium` or `low`.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/technology-stack/domain.md#technology-registry, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repository-management/domain.invariants.md#repository-scan]
+related: [.devbook/domain/repository-management/features.md#portfolio-technology-adoption, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repository-management/domain.invariants.md#repository-scan]
 ```
 
 Runs scheduled or on-demand scans of a repository. A scan parses dependency manifests, detects the technology stack, and fetches GitHub metadata and security alerts. It then recomputes the health score from package freshness, GitHub backlog, coverage and security.

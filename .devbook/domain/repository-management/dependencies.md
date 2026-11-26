@@ -13,7 +13,7 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Repository Management = customer) | Baseline consumption (sync/read) | `.devbook/domain/technology-stack/domain.md#technology-registry` | Tech and dependency baselines, to flag deprecated tech and enforce versions. |
+| [Devbook](../devbook/context.md) | Customer/Supplier (Repository Management = customer) | Devbook's reader over every registered repository's devbook database, read-only (local ADR 0015); not built | `.devbook/domain/devbook/features.md#technology-view` | Each repository's `tech/` ratings and versions, for [portfolio technology adoption](features.md#portfolio-technology-adoption) and to flag a technology rated `hold` or `retired`. |
 | GitHub (external) | ACL | REST API | `.devbook/domain/repository-management/domain.md#repository-scan` | Repository metadata, issues, pull requests, branch protection, and security alerts. |
 | GitHub (external), for pull request state | ACL | `Backlog.Infrastructure.GitHub`, under the account each repository resolves to (local ADR 0031) | `.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#merge-command` | Reads each open pull request with its checks, reviews and base branch rules; sends merge commands. |
 | Package registries (NuGet, npm, PyPI, etc.) | ACL | Polling | `.devbook/domain/repository-management/domain.md#repository-scan` | Latest package versions used to detect outdated dependencies. |
@@ -25,7 +25,6 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Repository Management = supplier) | Consumes tech-stack scans | `.devbook/domain/repository-management/domain.md#repository-scan` | Relies on per-repository technology snapshots for portfolio adoption. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Repository Management = supplier) | Subscribes to health/freshness feed | `.devbook/domain/repository-management/domain.md#repository-registry` | Relies on health scores, package freshness, and issue backlog for dashboards. |
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Repository Management = supplier) | A recommendation creates a task | `.devbook/domain/repository-management/domain.md#repository-registry` | Low-health repositories generate tasks for updates/cleanup. |
 | [Dev PC Management](../dev-pc-management/domain.md#machine-registry) | Customer/Supplier (Repository Management = supplier) | Shared repository registry (`config/repos.json`) | `.devbook/domain/repository-management/domain.md#repository` | Aligns registered repositories with local clone paths for developer workflows. |
@@ -45,7 +44,7 @@ related: [.devbook/domain/context-map.md, .devbook/arc42/adr/0042-repository-man
 
 - The repository registry aligns with the workspace `config/repos.json` registry so `repo_id` resolves consistently across Tasks, Dev PC Management and Repository Management.
 - GitHub and package-registry access sit behind anti-corruption adapters, so external schemas never leak into the `Repository` model.
-- Technology baseline authority stays with Technology Stack; this context only consumes baselines and reports adoption back.
+- No context owns a technology baseline (local ADR 0073 §5). A repository's ratings and approved versions are its own devbook `tech/` folder; this context reads them and writes none.
 - Pull request state has one owner, this context, and one contract every reader goes through (local ADR 0042). Tasks and Progress never reference it: an adapter under `src/Infrastructure/` answers each one's own port, as `ILinkedSessionStates` does for Sessions.
 - This context depends on no other context for pull request state. The pane's Mine view and the task card in its detail panel need the task a pull request belongs to. The desktop shell asks Tasks' lookup for it and composes the card, so Tasks' edge to this context stays one-way.
 - The history of pull request activity the dashboard and Productivity read answers what merged and when, not whether an open pull request is ready. ADR 0042 leaves it there.

@@ -85,18 +85,18 @@ Each row offers quick actions: wake, connect, and optionally shut down.
 
 ```meta
 type: feature
-related: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
 Report installed tool versions on startup and on demand, store version snapshots,
-compare them against the team baseline, and alert when a tool is outdated or
-incompatible.
+compare them against the team tool baseline the
+[tool catalog](#copilot-tool-catalog) declares, and alert when a tool is outdated
+or incompatible.
 
 ### Copilot tool catalog
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/technology-stack/features.md#technology-baseline-definition]
+related: [.devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/dev-pc-management/domain.md#team-tools-baseline]
 ```
 
 Track the tooling a development machine is expected to run, as a catalog the
@@ -122,6 +122,11 @@ choices record what the PC has enabled and which version is installed.
 Each tool reports its installed version against the available one, so "behind",
 "up to date" and "not installed" stay distinct. A manual check has nothing to
 detect, so it carries this machine's acknowledgement instead.
+
+The catalog is the team tool baseline (local ADR 0073 §5): the tools every
+development machine must have, and the version each must reach. No other context
+defines one. A repository's own technologies and their ratings are its devbook
+`tech/` folder, not this catalog.
 
 ### Catalog authoring
 

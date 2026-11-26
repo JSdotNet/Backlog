@@ -20,7 +20,6 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight, owning no work items or tools. |
 | Environment | Supporting | It provides quick access to named environments, owning no repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions, owning no work. |
-| Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health and dependency visibility, and owns the state of pull requests. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
@@ -62,7 +61,6 @@ flowchart LR
     Productivity[Productivity]
     Environment[Environment]
     Monitor["Monitoring & Dashboard"]
-    Tech[Technology Stack]
     Repo[Repository Management]
     DevPC[Dev PC Management]
     Sessions[Sessions]
@@ -86,7 +84,7 @@ flowchart LR
     Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Tasks
     Devbook -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
-    %% Monitoring & Dashboard, Technology Stack and Environment have no code
+    %% Monitoring & Dashboard and Environment have no code
     %% (local ADR 0073), so every edge to or from them is dashed. So are the
     %% FollowUpCaptured, ProductivityRecorded, MachineStatusChanged and
     %% ComplianceUpdated events: none has a reference in src/.
@@ -100,10 +98,9 @@ flowchart LR
     Monitor -.->|"Customer/Supplier (not built)<br/>Health and availability signals"| Environment
     Monitor -.->|"OHS + Published Language (not built)<br/>FollowUpCaptured"| Inbox
 
-    Tech -.->|"Customer/Supplier (not built)<br/>Technology baselines"| Repo
-    Tech -.->|"Customer/Supplier (not built)<br/>Team tools baseline"| DevPC
-    Repo -.->|"Customer/Supplier (not built)<br/>Adoption and technology scans"| Tech
-    DevPC -.->|"Customer/Supplier (not built)<br/>Tool-version reports"| Tech
+    %% Technology Stack is dissolved (local ADR 0073 §5): a repository's
+    %% technologies, ratings and approved versions are its devbook tech/ folder.
+    Devbook -.->|"Customer/Supplier (not built)<br/>Every registered devbook's tech/, read-only, for portfolio adoption"| Repo
 
     Tasks -->|OHS + Published Language<br/>AIWorkLogged| Productivity
     Monitor -.->|"OHS + Published Language (not built)<br/>CopilotSession signal"| Productivity
@@ -209,12 +206,11 @@ flowchart LR
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-item` | Tasks |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
-| Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas) |
+| Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas); Repository Management, read-only, for [portfolio technology adoption](repository-management/features.md#portfolio-technology-adoption) (not built) |
 | Monitoring & Dashboard | `.devbook/domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
-| Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
 | Repository Management | The pull request contract (`.devbook/domain/repository-management/domain.md#pull-request-status`, `.devbook/domain/repository-management/domain.md#readiness-verdict`, `.devbook/domain/repository-management/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.RepositoryManagement.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
@@ -258,8 +254,10 @@ flowchart LR
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
   its picker and a devbook chapter names in its `roadmap` list. Roadmap gathers
   tasks and chapters by tag and by direct reference and adds up their effort. It registers no effort and defines no tag.
-- `Technology Stack` supplies standards to `Repository Management`
-  and `Dev PC Management`. They may cache baselines but never define what one means.
+- No context owns a technology baseline (local ADR 0073 §5). A repository's
+  technologies, their ratings and approved versions are its devbook `tech/` folder;
+  `Repository Management` reads them across the portfolio through Devbook's reader,
+  and the tools a machine must have are `Dev PC Management`'s tool catalog.
 - `Monitoring & Dashboard` is an observer context. Its only write-back is `FollowUpCaptured` into `Inbox`.
 - `Productivity` measures personal and AI-assisted work from published activity
   signals. It never changes backlog status, agent sessions (`Sessions`), or repository state.

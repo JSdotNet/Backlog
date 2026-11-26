@@ -551,10 +551,10 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(18, layout.Cards.Count);
+        Assert.Equal(17, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
-        Assert.Contains(map.Contexts, c => c.Id == "Calendar");
-        Assert.Equal(3, map.LinesTouching("Calendar"));
+        // The Calendar is drawn as a composition beside the shell, not a context (local ADR 0073 §6).
+        Assert.DoesNotContain(map.Contexts, c => c.Id == "Calendar");
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
@@ -586,7 +586,7 @@ public sealed class ContextMapTests
              "Roadmap Item", "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
              "The devbook database of each registered repository, read through Devbook's reader (local ADR 0015)",
              "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
-             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
+             "Environment Shortcut Resolution", "The pull request contract",
              "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
              "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions",
              "ITaskItems", "ITaskStore", "ITaskChangeSignal", "Backlog.Modules.Tasks.Abstractions",
