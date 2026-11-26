@@ -71,6 +71,16 @@
 
         <span class="roadmap-bar__title">@Placement.Title</span>
 
+        @* Which part of its work this bar is, straight after the title and never
+           shrunk, so a clipped title still says "one of several". aria-hidden: the
+           caller says the part in words in the detail, which the tooltip and the
+           accessible name already carry, and a bare "1/2" heard mid-name is a
+           fraction, not a part. *@
+        @if (Bar.IsPart)
+        {
+            <span class="roadmap-bar__part" aria-hidden="true" data-testid="@Suffix("part")">@Bar.PartLabel</span>
+        }
+
         @* The warning marker, straight after the title so it is the first thing read
            off a late bar however much of the title is clipped. aria-hidden: the caller
            says it in words in the detail, which the tooltip and the accessible name
@@ -103,16 +113,34 @@
             <span class="roadmap-bar__unestimated" aria-hidden="true" data-testid="@Suffix("unestimated")">@Bar.UnestimatedCount unestimated</span>
         }
 
-        @* The badge is the dependency count the screenshot puts on the bar. It
-           is aria-hidden and said again in words below, because a screen reader
-           announcing a bare "2" in the middle of a title says nothing. *@
-        @if (DependencyCount > 0)
-        {
-            <span class="roadmap-bar__badge" aria-hidden="true">@DependencyCount</span>
-        }
-
         <span class="sr-only">@AccessibleDetail</span>
     </button>
+
+    @* The badge: the dependency count the screenshot puts on the bar, and the
+       pointer's way to pin the trace on it. A toggle of its own beside the body
+       rather than inside it — a button cannot hold another — so a press never
+       reaches the body's click and opens nothing, and it carries no grip, so
+       components.js never starts a drag from it. Out of the tab order: the
+       keyboard pins the same trace with T on the bar, and a stop per bar would put
+       hundreds between a reader and the row below. Its name is the act and stays
+       the same pinned or not — aria-pressed says which; the count is said in words
+       in the bar's own name too.
+
+       Left off a bar too short to hold it beside a strip of body to click: laid
+       over the end of a sliver, it would take every press meant to open the bar,
+       and spill onto the grips and the bar before. The count and T still reach the
+       same trace there. *@
+    @if (ShowsBadge)
+    {
+        <ToggleButton BaseClass="roadmap-bar__badge"
+                      PressedCssClass="roadmap-bar__badge--pressed"
+                      Pressed="@Pinned"
+                      AriaLabel="@PinLabel"
+                      Title="@PinLabel"
+                      TestId="@Suffix("badge")"
+                      OnClick="() => OnPin.InvokeAsync(Bar.Id)"
+                      tabindex="-1">@DependencyCount</ToggleButton>
+    }
 
     @* The bar's one in-place action, at its end. A sibling of the body rather than
        inside it — a button cannot hold another — so a press on it never reaches the
@@ -190,9 +218,11 @@
     [Parameter]
     public RoadmapChange? Preview { get; set; }
 
-    /// <summary>How many dependencies point at this bar. The number in the
-    /// badge, and nothing else — which dependencies they are is the timeline's,
-    /// because a bar cannot see the arrows drawn to it.</summary>
+    /// <summary>How many drawn arrows touch this bar, arriving or leaving. The
+    /// number in the badge, and nothing else — which dependencies they are is the
+    /// timeline's, because a bar cannot see the arrows drawn to it. Counted both
+    /// ways so the first thing in a chain, which nothing points at, can still be
+    /// pinned from its badge.</summary>
     [Parameter]
     public int DependencyCount { get; set; }
 
@@ -201,6 +231,42 @@
     /// can be found without following the line.</summary>
     [Parameter]
     public bool Related { get; set; }
+
+    /// <summary>Whether this bar is another part of the same work as whatever the
+    /// reader is pointing at or has focused (<see cref="RoadmapBar.PartOf"/>), so the
+    /// rest of a split plan can be found in the other bands.</summary>
+    [Parameter]
+    public bool Sibling { get; set; }
+
+    /// <summary>Whether a trace is in effect that this bar is not part of, so it
+    /// recedes and the chain reads on its own.</summary>
+    [Parameter]
+    public bool Dimmed { get; set; }
+
+    /// <summary>Whether the reader pinned the trace on this bar.</summary>
+    [Parameter]
+    public bool Pinned { get; set; }
+
+    /// <summary>The badge was pressed: pin the trace on this bar, or clear it. The
+    /// timeline's to decide, because only it knows what else is pinned.</summary>
+    [Parameter]
+    public EventCallback<string> OnPin { get; set; }
+
+    private string PinLabel => DependencyCount == 1
+        ? $"Trace 1 dependency of {Bar.Title}"
+        : $"Trace {DependencyCount} dependencies of {Bar.Title}";
+
+    /// <summary>How wide a bar has to be for the badge to sit at its end and still
+    /// leave a strip of body to click: the badge's hit area and its inset from the
+    /// end (about 1.9rem), then as much again for the body. Wider again while the
+    /// bar's action shows beside it, which pushes the badge 1.5rem further in.</summary>
+    public const double BadgeRoomRem = 4;
+
+    /// <summary>The room the badge needs beside the bar's action.</summary>
+    public const double BadgeRoomWithActionRem = 5.5;
+
+    private bool ShowsBadge => DependencyCount > 0
+        && Width >= (ShowAction && Bar.Action is not null ? BadgeRoomWithActionRem : BadgeRoomRem);
 
     /// <summary>The pointer or focus arrived on the bar; the timeline traces its
     /// arrows, because a bar cannot see them.</summary>
@@ -356,6 +422,10 @@
         $"roadmap-bar--shade-{Placement.ShadeStep}",
         Selected ? "roadmap-bar--selected" : null,
         Related ? "roadmap-bar--related" : null,
+        Sibling ? "roadmap-bar--sibling" : null,
+        Dimmed ? "roadmap-bar--dimmed" : null,
+        Pinned ? "roadmap-bar--pinned" : null,
+        ShowsBadge ? "roadmap-bar--has-badge" : null,
         Grabbed ? "roadmap-bar--grabbed" : null,
         Dragging ? "roadmap-bar--dragging" : null,
         Invalid ? "roadmap-bar--invalid" : null,
@@ -419,6 +489,7 @@
             _ => $"{DependencyCount} dependencies"
         },
         FixedNote,
+        Pinned ? "Dependencies traced" : null,
         Grabbed ? "Grabbed" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
 

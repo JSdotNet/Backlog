@@ -759,21 +759,121 @@ public sealed class RoadmapTimelineTests
         Assert.Empty(view.FindAll(".roadmap-timeline__links--tracing"));
     }
 
+    /// <summary>Alpha and beta are the two parts of one piece of work, in two rows;
+    /// gamma is the whole of its own. The key is deliberately unlike either bar id, so
+    /// a timeline that read meaning into ids would fail here.</summary>
+    private static readonly IReadOnlyList<RoadmapBar> SplitWork =
+    [
+        Work[0] with { PartOf = "shared work", PartIndex = 1, PartCount = 2 },
+        Work[1] with { PartOf = "shared work", PartIndex = 2, PartCount = 2 },
+        Work[2]
+    ];
+
+    [Fact]
+    public void A_bar_that_is_one_of_several_parts_carries_a_chip_saying_which_and_a_whole_bar_none()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, bars: SplitWork);
+
+        var chip = view.Find("[data-testid='rm-bar-alpha-part']");
+        Assert.Equal("1/2", chip.TextContent);
+        Assert.Equal("2/2", view.Find("[data-testid='rm-bar-beta-part']").TextContent);
+
+        // Hidden from a screen reader: the host says the part in words in the detail.
+        Assert.Equal("true", chip.GetAttribute("aria-hidden"));
+
+        // Inside the bar, straight after the title, so a clipped title still has it.
+        Assert.Equal("roadmap-bar__title", chip.PreviousElementSibling?.ClassName);
+
+        Assert.Empty(view.FindAll("[data-testid='rm-bar-gamma-part']"));
+    }
+
+    [Fact]
+    public void A_part_count_of_one_draws_no_chip_even_with_a_key()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, bars: [Work[0] with { PartOf = "alone" }, Work[1], Work[2]]);
+
+        Assert.Empty(view.FindAll(".roadmap-bar__part"));
+    }
+
+    [Fact]
+    public void Pointing_at_one_part_marks_its_siblings_and_nothing_else()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, bars: SplitWork);
+
+        Assert.Empty(view.FindAll(".roadmap-bar--sibling"));
+
+        view.Find("[data-testid='rm-bar-alpha']").PointerEnter();
+
+        // The other part, in its own row; never the traced part itself, and never a
+        // bar that only happens to sit near it.
+        Assert.Contains("roadmap-bar--sibling", view.Find("[data-testid='rm-bar-beta']").ClassName, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-bar--sibling", view.Find("[data-testid='rm-bar-alpha']").ClassName, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-bar--sibling", view.Find("[data-testid='rm-bar-gamma']").ClassName, StringComparison.Ordinal);
+
+        // A sibling is not an arrow's far end: with no links, nothing is related.
+        Assert.Empty(view.FindAll(".roadmap-bar--related"));
+
+        view.Find("[data-testid='rm-bar-alpha']").PointerLeave();
+
+        Assert.Empty(view.FindAll(".roadmap-bar--sibling"));
+    }
+
+    [Fact]
+    public void Focusing_one_part_marks_its_siblings_the_way_a_pointer_does()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, bars: SplitWork);
+
+        view.Find("[data-testid='rm-bar-beta']").FocusIn();
+
+        Assert.Contains("roadmap-bar--sibling", view.Find("[data-testid='rm-bar-alpha']").ClassName, StringComparison.Ordinal);
+
+        view.Find("[data-testid='rm-bar-beta']").FocusOut();
+
+        Assert.Empty(view.FindAll(".roadmap-bar--sibling"));
+    }
+
+    [Fact]
+    public void Pointing_at_a_whole_bar_marks_no_siblings()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, bars: SplitWork);
+
+        view.Find("[data-testid='rm-bar-gamma']").PointerEnter();
+
+        Assert.Empty(view.FindAll(".roadmap-bar--sibling"));
+    }
+
     [Fact]
     public void The_badge_on_a_bar_counts_the_arrows_that_were_actually_drawn()
     {
         using var context = new BunitContext();
 
-        var view = Chart(context, extra: parameters => parameters.Add(
-            timeline => timeline.Links,
-            new RoadmapLink[] { new("alpha", "beta"), new("gamma", "beta"), new("ghost", "beta") }));
+        // Zoomed in far enough that each bar holds its badge (RoadmapTimelineBar.BadgeRoomRem).
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.QuarterWidth, 64)
+            .Add(timeline => timeline.Links,
+                new RoadmapLink[] { new("alpha", "beta"), new("gamma", "beta"), new("ghost", "beta"), new("beta", "phantom") }));
 
-        // Three links point at beta and one of them names nothing. The badge and
-        // the arrows on screen are the same count, because a reader who sees "3"
-        // and can find two lines has been told the chart is missing one.
+        // Four links touch beta and two of them name nothing. The badge and the
+        // arrows on screen are the same count, because a reader who sees "4" and
+        // can find two lines has been told the chart is missing two.
         Assert.Equal(2, view.FindAll(".roadmap-timeline__link").Count);
         Assert.Equal("2", view.Find("[data-testid='rm-bar-beta'] .roadmap-bar__badge").TextContent);
         Assert.Contains("2 dependencies", view.Find("[data-testid='rm-bar-beta']").TextContent, StringComparison.Ordinal);
+
+        // Arrows leaving a bar count as well as arriving ones: alpha, which waits on
+        // nothing, still has the one it starts.
+        Assert.Equal("1", view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__badge").TextContent);
+        Assert.Contains("1 dependency", view.Find("[data-testid='rm-bar-alpha']").TextContent, StringComparison.Ordinal);
     }
 
     [Theory]

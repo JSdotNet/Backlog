@@ -207,6 +207,29 @@ public class RoadmapPlanViewHandOverTests
         Assert.Contains("handed over between repositories", bars[1].Detail, StringComparison.Ordinal);
     }
 
+    /// <summary>Each phase says which it is, in phase order, and names the other band —
+    /// once, though two phases sit in it, and never its own.</summary>
+    [Fact]
+    public void EachHandOverPhase_SaysWhichPartItIs_AndWhereTheOthersAre()
+    {
+        var item = Item();
+
+        var view = Draw(
+            item,
+            Task("a", 8, "JSdotNet/Backlog"),
+            Task("b", 4, "JSdotNet/Fincent", "a"),
+            Task("c", 8, "JSdotNet/Backlog", "b"));
+
+        var bars = view.Bars.OrderBy(bar => bar.Start).ToList();
+        Assert.Equal([1, 2, 3], bars.Select(bar => bar.PartIndex));
+        Assert.All(bars, bar => Assert.Equal(3, bar.PartCount));
+        Assert.All(bars, bar => Assert.Equal(item.Id.ToString(), bar.PartOf));
+
+        Assert.Contains("Part 1 of 3 · handed over between repositories · also in fincent", bars[0].Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 2 of 3 · handed over between repositories · also in backlog", bars[1].Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 3 of 3 · handed over between repositories · also in fincent", bars[2].Detail, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void OnlyTheWaitsThatCrossARepository_BecomeArrows()
     {
