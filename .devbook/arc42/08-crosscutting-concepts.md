@@ -715,7 +715,7 @@ Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that r
 | --- | --- |
 | Before the first test | `aspire start --isolated`, detached, then `aspire wait` until `cosmos`, `storage`, `sync` and the three frontends are healthy, then until `sync` answers from Cosmos rather than 503 |
 | Each test | reads a frontend's URL from `aspire describe`; no port is written down |
-| After the last test | fails on any `aspire otel logs --severity Error` entry of any resource that no test declared, then `aspire stop` |
+| After the last test | fails on any `aspire otel logs --severity Error` entry of any resource, and on any error line in `aspire logs <frontend>-browser-logs` of the three frontends, that no test declared, then `aspire stop` |
 
 - **Isolated:** Aspire picks the ports and keeps the user secrets apart, so two worktrees
   can run the suite at once.
@@ -725,8 +725,9 @@ Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that r
   harnesses' retries on the 503 `sync` answers before Cosmos is ready.
 - **Gated:** nothing starts without `BACKLOG_E2E=1`. With `BACKLOG_E2E_ATTACH=1` the suite
   uses this worktree's running AppHost, counts only new errors, and leaves it running.
-- **Not yet:** the browser logs that `.WithBrowserLogs()` sends are not checked. The suite
-  is C# `Microsoft.Playwright` under xUnit, not `@playwright/test`.
+- **Not yet:** only the tracked browser that a `-browser-logs` child opens writes to its
+  stream, and the suite drives its own Chromium, so the browser-log check reads empty
+  streams. The suite is C# `Microsoft.Playwright` under xUnit, not `@playwright/test`.
 
 ## Observability
 

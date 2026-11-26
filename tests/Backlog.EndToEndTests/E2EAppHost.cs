@@ -13,7 +13,8 @@ namespace Backlog.EndToEndTests;
 /// the repository's own <c>guidelines/0010</c>): before the first test
 /// it runs this worktree's AppHost with <c>aspire start --isolated</c>, detached,
 /// and waits for the resources the tests drive; after the last it fails the run on
-/// any Error log of any resource, then stops the AppHost again.
+/// any Error log of any resource and on any error line in a frontend's
+/// <c>-browser-logs</c> stream, then stops the AppHost again.
 ///
 /// <para>Isolated, so Aspire assigns every port and the tests read each frontend's
 /// URL from <c>aspire describe</c> (<see cref="AspireAppHost.UrlAsync"/>); no port
@@ -38,6 +39,10 @@ public sealed class E2EAppHost : IAsyncLifetime
     private static readonly TimeSpan Healthy = TimeSpan.FromMinutes(10);
 
     private static readonly ConcurrentBag<ExpectedErrors> Expected = [];
+
+    private static readonly ConcurrentBag<ExpectedBrowserErrors> ExpectedInBrowser = [];
+
+    private readonly Dictionary<string, int> _browserLinesAfter = [];
 
     private AspireAppHost _appHost = null!;
     private bool _started;
@@ -64,6 +69,15 @@ public sealed class E2EAppHost : IAsyncLifetime
             .Where(log => log.Id > afterId && !Expected.Any(expected => expected.Covers(log)))
             .ToList();
 
+    /// <summary>
+    /// Declares the browser-log errors a test causes on purpose in
+    /// <paramref name="frontend"/>'s <c>-browser-logs</c> stream, so the run's check
+    /// does not count them: those <paramref name="matches"/> accepts.
+    /// <paramref name="reason"/> goes into the evidence beside them.
+    /// </summary>
+    internal static void ExpectInBrowser(string frontend, Func<AspireAppHost.BrowserLogEntry, bool> matches, string reason) =>
+        ExpectedInBrowser.Add(new ExpectedBrowserErrors(AspireAppHost.BrowserLogsResource(frontend), matches, reason));
+
     public async ValueTask InitializeAsync()
     {
         if (!Enabled) return;
@@ -82,6 +96,12 @@ public sealed class E2EAppHost : IAsyncLifetime
             }
 
             _errorsAfter = AspireAppHost.LogIds(await _appHost.LogsJsonAsync(null, "Error", cancellationToken)).DefaultIfEmpty(0).Max();
+
+            // A console stream has no ids; it only grows, so its length is the mark.
+            foreach (var frontend in Frontends)
+            {
+                _browserLinesAfter[frontend] = AspireAppHost.BrowserLogLines(await _appHost.BrowserLogsJsonAsync(frontend, cancellationToken)).Count;
+            }
         }
         else
         {
@@ -199,11 +219,26 @@ public sealed class E2EAppHost : IAsyncLifetime
 
             await evidence.WriteAsync("errors.log", report.ToString());
 
+            var unexpectedInBrowser = await CheckBrowserLogsAsync(evidence, cancellationToken);
+
+            var failures = new List<string>();
             if (unexpected.Count > 0)
             {
-                throw new InvalidOperationException(
+                failures.Add(
                     $"The run logged {unexpected.Count} Error log(s) no test expected; see {Path.Combine(evidence.Folder, "errors.log")}:{Environment.NewLine}"
                     + string.Join(Environment.NewLine, unexpected.Take(20)));
+            }
+
+            if (unexpectedInBrowser.Count > 0)
+            {
+                failures.Add(
+                    $"The browsers logged {unexpectedInBrowser.Count} error(s) no test expected; see {Path.Combine(evidence.Folder, "browser-errors.log")}:{Environment.NewLine}"
+                    + string.Join(Environment.NewLine, unexpectedInBrowser.Take(20)));
+            }
+
+            if (failures.Count > 0)
+            {
+                throw new InvalidOperationException(string.Join(Environment.NewLine + Environment.NewLine, failures));
             }
         }
         finally
@@ -213,9 +248,65 @@ public sealed class E2EAppHost : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Reads each frontend's <c>-browser-logs</c> console stream (org ADR 0010 Testing,
+    /// E2E step 3), keeps it as <c>browser-logs.&lt;frontend&gt;.json</c> beside
+    /// <c>errors.json</c>, writes <c>browser-errors.log</c>, and answers the error
+    /// lines no test declared. Only a tracked browser — the child's own command —
+    /// writes to that stream; the Chromium Playwright drives is not one, so an empty
+    /// stream is reported as such rather than read as a clean run.
+    /// </summary>
+    private async Task<IReadOnlyList<AspireAppHost.BrowserLogEntry>> CheckBrowserLogsAsync(Evidence evidence, CancellationToken cancellationToken)
+    {
+        var report = new StringBuilder();
+        var unexpected = new List<AspireAppHost.BrowserLogEntry>();
+
+        foreach (var frontend in Frontends)
+        {
+            var logs = await _appHost.BrowserLogsJsonAsync(frontend, cancellationToken);
+            await evidence.WriteAsync($"browser-logs.{frontend}.json", logs);
+
+            var lines = AspireAppHost.BrowserLogLines(logs).Count - _browserLinesAfter.GetValueOrDefault(frontend);
+            var errors = AspireAppHost.BrowserErrors(logs, _browserLinesAfter.GetValueOrDefault(frontend));
+            var undeclared = UnexpectedBrowserErrors(errors, ExpectedInBrowser);
+            unexpected.AddRange(undeclared);
+
+            report.AppendLine($"{AspireAppHost.BrowserLogsResource(frontend)}: {lines} line(s) during the run{(lines == 0 ? " (no tracked browser wrote to it)" : "")}");
+            report.AppendLine($"  Unexpected errors: {undeclared.Count}");
+            foreach (var error in undeclared) report.AppendLine($"    {error}");
+            var expected = errors.Except(undeclared).ToList();
+            report.AppendLine($"  Expected errors: {expected.Count}");
+            foreach (var error in expected)
+            {
+                report.AppendLine($"    {error}  [{ExpectedInBrowser.First(declared => declared.Covers(error)).Reason}]");
+            }
+        }
+
+        await evidence.WriteAsync("browser-errors.log", report.ToString());
+        return unexpected;
+    }
+
+    /// <summary>The browser-log <paramref name="errors"/> no declaration in
+    /// <paramref name="declared"/> covers, in their order.</summary>
+    internal static IReadOnlyList<AspireAppHost.BrowserLogEntry> UnexpectedBrowserErrors(
+        IReadOnlyList<AspireAppHost.BrowserLogEntry> errors, IEnumerable<ExpectedBrowserErrors> declared)
+    {
+        var declarations = declared.ToList();
+        return errors.Where(error => !declarations.Any(expected => expected.Covers(error))).ToList();
+    }
+
     private sealed record ExpectedErrors(string Resource, long AfterId, long UntilId, Func<AspireAppHost.LogEntry, bool> Matches, string Reason)
     {
         public bool Covers(AspireAppHost.LogEntry log) =>
             log.Resource == Resource && log.Id > AfterId && log.Id <= UntilId && Matches(log);
     }
+}
+
+/// <summary>Browser-log errors a test causes on purpose, of one
+/// <c>&lt;frontend&gt;-browser-logs</c> resource, that <see cref="Matches"/> accepts.
+/// A console log has no ids, so there is no window; <see cref="Reason"/> goes into
+/// the evidence beside them.</summary>
+internal sealed record ExpectedBrowserErrors(string Resource, Func<AspireAppHost.BrowserLogEntry, bool> Matches, string Reason)
+{
+    public bool Covers(AspireAppHost.BrowserLogEntry entry) => entry.Resource == Resource && Matches(entry);
 }

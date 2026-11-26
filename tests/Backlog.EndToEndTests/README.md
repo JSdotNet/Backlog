@@ -13,15 +13,24 @@ fixture, is the global setup:
 | resource URLs | `aspire describe <resource> --format Json`; no port is hard-coded |
 | take `sync` away and back | `aspire resource sync stop` / `start`, then `aspire wait` |
 | the order the phone sent things in | `aspire otel spans mobile-web-harness` |
-| after the last test | `aspire otel logs --severity Error` for **every** resource fails the run on any error no test declared, then `aspire stop` |
+| after the last test | `aspire otel logs --severity Error` for **every** resource, and `aspire logs <frontend>-browser-logs --format Json` for the three frontends, fail the run on any error no test declared, then `aspire stop` |
 
 A test that causes errors on purpose declares them with `E2EAppHost.Expect` — the resource,
 the window of log ids and a message test. ConferenceDay declares the phone's timed-out calls
 while `sync` is stopped; the setup declares the harnesses' Polly retries on a 503 from `sync`
-logged before it was ready.
+logged before it was ready. A browser-log error is declared with `E2EAppHost.ExpectInBrowser`
+— the frontend and a line test; the stream has no ids, so there is no window.
+
+The browser-log check counts a `[console.error]`, `[console.assert]`, `[exception]` or
+`[log.error]` line, a `[network.…]` request that `failed:` and was not `canceled`, and any
+line the resource logged at Error. The run's evidence keeps each stream as
+`browser-logs.<frontend>.json` and the verdict as `browser-errors.log`, beside `errors.json`.
+Only the tracked browser a `-browser-logs` child opens writes to its stream — the Chromium
+Playwright drives does not — so in a run the streams are empty unless one was opened.
 
 Every test **skips unless `BACKLOG_E2E=1`**, and the setup then starts nothing, so the
-solution-wide `dotnet test` and CI build this project and run nothing.
+solution-wide `dotnet test` and CI build this project and run nothing. `BrowserLogErrorsTests`
+is the exception: it parses text, starts nothing, and always runs.
 
 ## Tests
 

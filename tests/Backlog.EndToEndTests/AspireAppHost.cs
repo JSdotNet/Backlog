@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Backlog.EndToEndTests;
 
@@ -20,7 +21,7 @@ namespace Backlog.EndToEndTests;
 /// worktrees run one each on a developer machine, and a CLI left to pick one
 /// answers about whichever it found first.</para>
 /// </summary>
-internal sealed class AspireAppHost
+internal sealed partial class AspireAppHost
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(2);
 
@@ -157,6 +158,56 @@ internal sealed class AspireAppHost
             .ToList();
     }
 
+    /// <summary>The console log of a frontend's <c>&lt;frontend&gt;-browser-logs</c>
+    /// child, which <c>.WithBrowserLogs()</c> adds: what a tracked browser's console,
+    /// exceptions and network failures wrote, as the raw JSON the CLI answered. It is a
+    /// console stream, not structured logs, so <c>aspire otel logs</c> never sees it.</summary>
+    public Task<string> BrowserLogsJsonAsync(string frontend, CancellationToken cancellationToken) =>
+        RunAsync(["logs", BrowserLogsResource(frontend), "--format", "Json"], cancellationToken);
+
+    /// <summary>The child resource <c>.WithBrowserLogs()</c> adds to a frontend.</summary>
+    public static string BrowserLogsResource(string frontend) => $"{frontend}-browser-logs";
+
+    /// <summary>
+    /// The error lines of a browser-logs console stream after line
+    /// <paramref name="afterLine"/>, oldest first. The stream has no severity field,
+    /// so an error is a line the resource logged at Error (<c>isError</c>), or one whose
+    /// marker says so: <c>[console.error]</c>, <c>[console.assert]</c>,
+    /// <c>[exception]</c>, <c>[log.error]</c>, or a <c>[network.…]</c> request that
+    /// <c>failed:</c> — unless it was <c>canceled</c>, which a navigation does to the
+    /// requests of the page it leaves.
+    /// </summary>
+    public static IReadOnlyList<BrowserLogEntry> BrowserErrors(string logsJson, int afterLine = 0) =>
+        BrowserLogLines(logsJson).Where(line => line.Line > afterLine && IsBrowserError(line)).ToList();
+
+    /// <summary>Every line of a console stream the CLI answered.</summary>
+    public static IReadOnlyList<BrowserLogEntry> BrowserLogLines(string logsJson)
+    {
+        using var logs = JsonDocument.Parse(logsJson);
+        return logs.RootElement.GetProperty("logs").EnumerateArray()
+            .Select((log, index) => new BrowserLogEntry(
+                log.TryGetProperty("resourceName", out var resource) ? resource.GetString() ?? "" : "",
+                index + 1,
+                log.TryGetProperty("content", out var content) ? content.GetString() ?? "" : "",
+                log.TryGetProperty("isError", out var isError) && isError.ValueKind == JsonValueKind.True))
+            .ToList();
+    }
+
+    private static bool IsBrowserError(BrowserLogEntry line) =>
+        line.IsError
+        || BrowserErrorMarker().IsMatch(line.Content)
+        || (FailedRequest().IsMatch(line.Content) && !CanceledRequest().IsMatch(line.Content));
+
+    [GeneratedRegex(@"\[(?:console\.(?:error|assert)|exception|log\.error)\]")]
+    private static partial Regex BrowserErrorMarker();
+
+    [GeneratedRegex(@"\[network\.[^\]]+\] \S+ \S+ failed: ")]
+    private static partial Regex FailedRequest();
+
+    // The details close the line: "(12 ms, canceled)" or "(canceled, blocked=…)".
+    [GeneratedRegex(@"\((?:[^()]*, )?canceled(?:, [^()]*)?\)$")]
+    private static partial Regex CanceledRequest();
+
     /// <summary>The newest log id of any resource at any severity — the mark a
     /// window of expected logs starts or ends at.</summary>
     public async Task<long> LastLogIdAsync(CancellationToken cancellationToken) =>
@@ -209,6 +260,13 @@ internal sealed class AspireAppHost
         }
 
         return text;
+    }
+
+    /// <summary>One line of a resource's console log, numbered from 1 in the order
+    /// the CLI answered it.</summary>
+    internal sealed record BrowserLogEntry(string Resource, int Line, string Content, bool IsError)
+    {
+        public override string ToString() => $"{Resource}:{Line} {Content}";
     }
 
     /// <summary>One structured log, as much of it as a check reads.</summary>
