@@ -1,7 +1,7 @@
 // The schedule-run report hooks (local ADR 0051 §1): what they decide, and the hook process run
 // for real against a stand-in for the app's /schedule-runs route. They spawn processes, which
 // `claude plugin test`'s sandbox cannot, so they run under
-//   node --test plugins/backlog-tools/tests/schedule-run-report.test.mjs
+//   node --test plugins/backlog-desktop/tests/schedule-run-report.test.mjs
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";

@@ -1,6 +1,8 @@
 // How the plugin's scripts reach the Backlog desktop app under a grant of their own (local ADR
 // 0058, Phase 1): the telemetry forwarder under the "Telemetry" grant, dispatch-sessions under
-// the "Manager" grant. Shared by hooks/telemetry-forwarder.mjs and the dispatch-sessions assets.
+// the "Manager" grant. Used by backlog-tools' telemetry forwarder and by backlog-desktop's
+// dispatch-sessions assets and schedule run report; each plugin ships this same file, byte for byte
+// (backlog-desktop/tests/shared-copies.test.mjs), since an installed plugin reaches no sibling's.
 //
 // The app records each grant's id in its settings.json under mcpServer.grants (`telemetry`,
 // `manager`, …) — an id is a label, not a password — and holds no token there. A token is asked

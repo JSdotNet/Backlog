@@ -1,0 +1,38 @@
+{
+  "modules": ["./register.tsx"],
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "i=$(cat); case \"$i\" in *'<scheduled-task'*) printf '%s' \"$i\" | node \"${CLAUDE_PLUGIN_ROOT}/hooks/schedule-run-report.mjs\" ;; esac; true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/schedule-run-report.mjs\"", "timeout": 5 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/schedule-run-report.mjs\"", "timeout": 5 }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/schedule-run-report.mjs\"", "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}

@@ -6,7 +6,7 @@ public enum SessionRequestKind
     /// <summary>One prompt entry, briefed as <c>/backlog-tools:run-plan-item entry `&lt;id&gt;`:</c>.</summary>
     Entry,
 
-    /// <summary>A whole plan, briefed as <c>/backlog-tools:execute-plan +&lt;tag&gt; branch</c>.</summary>
+    /// <summary>A whole plan, briefed as <c>/backlog-desktop:execute-plan +&lt;tag&gt; branch</c>.</summary>
     Plan
 }
 
@@ -175,7 +175,7 @@ public static class SessionRequests
             SessionRequestKind.Entry when request.EntryId is { } entryId && entryId != Guid.Empty =>
                 $"/backlog-tools:run-plan-item entry `{entryId:D}`:",
             SessionRequestKind.Plan when IsPlanTag(request.PlanTag) =>
-                $"/backlog-tools:execute-plan +{request.PlanTag} branch",
+                $"/backlog-desktop:execute-plan +{request.PlanTag} branch",
             _ => throw new InvalidOperationException(
                 $"Session request {request.Id:D} has no well-formed target for a {request.Kind} brief.")
         };

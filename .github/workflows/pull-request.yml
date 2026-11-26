@@ -30,7 +30,7 @@ concurrency:
 # A pull request that changes only .devbook/ chapters builds nothing here: the
 # devbook-meta and devbook-metadata workflows check those, and the .NET tests that
 # read .devbook/ catch up on the next pull request that touches code. One that
-# changes only the backlog-tools plugin -- plugins/, .claude-plugin/, CLAUDE.md,
+# changes only the repository's own plugins -- plugins/, .claude-plugin/, CLAUDE.md,
 # with or without .devbook/ -- builds neither the heads nor the extension, and
 # the .NET job runs just the two architecture test classes that read those
 # files (FoundryPlanPromptTests, AgentContextPointerTests). The skip is

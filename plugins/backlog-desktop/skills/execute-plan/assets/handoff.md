@@ -34,7 +34,7 @@ which runs this skill for the same plan.
   whose `origin` remote is `<owner>/<repo>` — the owner from the entry's repository when the
   plan gives it, else this repository's owner — is the checkout. None or several → ask
   nothing: Stop and Report list it as waiting on the person, with the candidates found.
-- **What.** One prompt: `/backlog-tools:execute-plan <tag> <landing>`, with the
+- **What.** One prompt: `/backlog-desktop:execute-plan <tag> <landing>`, with the
   parallelism when the person named one. It resumes from the plan's state like any invocation.
 - **How.** Start the session in that folder through the host's way of starting one elsewhere —
   one the person opens with a click counts. Without one, print the prompt in a fenced block

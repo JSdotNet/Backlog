@@ -10,7 +10,8 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 
 It runs in the session that wrote the plan, which still holds the specification. Read
 `../import-plan/assets/backlog-import-grammar.md` (`## Entry kinds`, `## Read-first line`)
-and `../execute-plan/assets/landing-modes.md`.
+and `../../resources/repository-conventions.md`; for a plan `execute-plan` ran, also the installed
+`backlog-desktop` plugin's `skills/execute-plan/assets/landing-modes.md`.
 
 ## Workflow
 
@@ -18,7 +19,7 @@ and `../execute-plan/assets/landing-modes.md`.
    `get_plan_items` on the `backlog` MCP server, or the plan text in this session without it.
    Per step: type, status, and its pull request
    (`gh pr list --head <entry-branch> --state all --json number,state,baseRefName,mergedAt,url`,
-   the name resolved per **Repository conventions** in `landing-modes.md`).
+   the name resolved per `repository-conventions.md`).
    The specification is what this session agreed the plan from: the artifacts it published
    (read each back, the latest version), a design canvas, the plan text.
 2. **Update.** `git fetch origin`. The tip is `origin/<base>`, except while work is still

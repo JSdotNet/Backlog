@@ -1,0 +1,13 @@
+{
+  "name": "backlog-herdr",
+  "description": "The herdr half of the Backlog tooling, installed beside backlog-tools in herdr only. Empty for now: it holds no skill or hook yet, and is the home the herdr session host's own parts land in.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Job Schepers"
+  },
+  "license": "MIT",
+  "keywords": [
+    "backlog",
+    "herdr"
+  ]
+}

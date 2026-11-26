@@ -305,7 +305,7 @@ public sealed class SessionsPaneAgentsTests
         pane.WaitForAssertion(() =>
         {
             var card = pane.Find("[data-testid='sessions-detail'] [data-testid='sessions-loop']");
-            Assert.Equal("/loop /backlog-tools:dispatch-sessions", card.QuerySelector("[data-testid='sessions-loop-command']")!.TextContent.Trim());
+            Assert.Equal("/loop /backlog-desktop:dispatch-sessions", card.QuerySelector("[data-testid='sessions-loop-command']")!.TextContent.Trim());
             Assert.Equal("Listening", card.QuerySelector("[data-testid='sessions-loop-state']")!.TextContent.Trim());
             Assert.StartsWith("Last check-in 40 s ago · every 30 minutes", card.QuerySelector("[data-testid='sessions-loop-check-in']")!.TextContent.Trim(), StringComparison.Ordinal);
             Assert.Equal(
