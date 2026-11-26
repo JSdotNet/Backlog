@@ -1,5 +1,5 @@
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;

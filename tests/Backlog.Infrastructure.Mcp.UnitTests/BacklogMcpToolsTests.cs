@@ -4,9 +4,9 @@ using System.Reflection;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Work.Abstractions.Plans;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 using ModelContextProtocol.Server;
 

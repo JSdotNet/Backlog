@@ -27,12 +27,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- Roadmap Planning's IRoadmapPlanRepository, answered under Roadmap/ by one
          document row in the same database the tasks use. An adapter referencing a
          module implementation is the normal direction; the module never sees this
          project. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <!-- Progress's IGoalRepository and IImpedimentRepository, answered under Progress/
          by the progress_goals and progress_impediments tables in the same database.
          Same direction. -->

@@ -14,7 +14,7 @@ using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 

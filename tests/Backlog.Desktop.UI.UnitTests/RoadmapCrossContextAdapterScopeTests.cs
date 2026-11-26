@@ -1,16 +1,17 @@
+using Backlog.Modules.Work.Extensions;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.Extensions;
-using Backlog.Modules.Roadmap.Features.ImportPlanItems;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Plans.Extensions;
+using Backlog.Modules.Work.Plans.Features.ImportPlanItems;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,6 +75,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         services.AddTasksAdapters();
         services.AddTasksModule();
         services.AddRoadmapModule();
+        services.AddWorkJoins();
         services.AddRoadmapCrossContextAdapters();
 
         // ValidateOnBuild turns a captive dependency into a build-time throw for the

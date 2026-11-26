@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The write-back's grace and its debounced follow-up sync are driven by a
+         clock whose timers fire when the test advances it, and import placement
+         starts from a "today" the plan's handler tests pin. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+
+    <!-- The published port is built as the host builds it, from the module's own
+         registration, so the stale-write mapping is proved where callers meet it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemoryTaskRepository.cs" Link="Shared\TestDoubles\InMemoryTaskRepository.cs" />
+  </ItemGroup>
+
+</Project>

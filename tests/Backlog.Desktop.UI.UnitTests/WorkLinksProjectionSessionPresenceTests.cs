@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.Goals;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Integrations;
 
 namespace Backlog.Desktop.UI.UnitTests;

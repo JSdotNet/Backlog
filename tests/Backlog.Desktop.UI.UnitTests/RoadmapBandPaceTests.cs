@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;

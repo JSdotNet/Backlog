@@ -6,7 +6,7 @@ using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Tasks;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -131,13 +131,13 @@ public class SyncClientRegistrationTests
         services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
         services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
         services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
-        services.AddSingleton<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>(myDay);
+        services.AddSingleton<Backlog.Modules.Work.Abstractions.Tasks.Services.IMyDayPreferencesReplication>(myDay);
         services.AddSyncClient(SyncAddress);
         services.AddTaskSyncClient(SyncAddress);
 
         using var provider = Build(services);
 
-        var sent = new Backlog.Modules.Tasks.Abstractions.DataTransferObjects.MyDayPreferencesCopyDto(
+        var sent = new Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.MyDayPreferencesCopyDto(
             """{"clearsOvernight":false}""", new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero));
 
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(

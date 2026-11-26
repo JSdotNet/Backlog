@@ -961,7 +961,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             label ?? "Open",
             Row(pane, "JSdotNet/Backlog#9").QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim()));
         var row = (await new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(contract)
-            .StatesOfAsync([new Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
+            .StatesOfAsync([new Backlog.Modules.Work.Abstractions.Tasks.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
             .States.Single().Value;
         var card = await SessionPullRequestStatuses.ReadAsync(
             contract,
@@ -999,9 +999,9 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal(["Cancel auto-merge"], banner.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
         });
         var row = (await new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(context.Services.GetRequiredService<IPullRequests>())
-            .StatesOfAsync([new Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
+            .StatesOfAsync([new Backlog.Modules.Work.Abstractions.Tasks.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
             .States.Single().Value;
-        Assert.Equal(Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestMerge.CancelAutoMerge, row.MergeOffer);
+        Assert.Equal(Backlog.Modules.Work.Abstractions.Tasks.Services.LinkedPullRequestMerge.CancelAutoMerge, row.MergeOffer);
     }
 
     /// <summary>Before the first open list has landed the pane draws no board — no row,

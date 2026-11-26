@@ -2,8 +2,8 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;

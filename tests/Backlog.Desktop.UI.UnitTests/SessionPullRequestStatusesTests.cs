@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.Tests;
 
 namespace Backlog.Desktop.UI.UnitTests;

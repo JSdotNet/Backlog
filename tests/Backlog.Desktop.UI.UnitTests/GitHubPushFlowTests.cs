@@ -1,10 +1,10 @@
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Repositories.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -618,7 +618,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var saving = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         calls.Before = name =>
         {
-            if (name == nameof(Backlog.Modules.Tasks.Abstractions.Services.ITaskItems.SaveFromTextAsync)) saving.TrySetResult();
+            if (name == nameof(Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskItems.SaveFromTextAsync)) saving.TrySetResult();
         };
         var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         calls.HoldSaves = hold;
@@ -2047,7 +2047,7 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     /// <summary>Types <paramref name="prose"/> as the entry's body through the detail
     /// pane's markdown block and lets its debounced save land.</summary>
-    private static async Task TypeBodyAndLetItSaveAsync(Harness harness, FakeTimeProvider clock, Backlog.Modules.Tasks.Abstractions.Services.ITaskItems entries, Guid id, string prose)
+    private static async Task TypeBodyAndLetItSaveAsync(Harness harness, FakeTimeProvider clock, Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskItems entries, Guid id, string prose)
     {
         var row = harness.State.Rows.Single(r => r.Id == id);
         harness.State.ChangeBody(row, $"Do it. {prose}\n\n## Step one\n`task` `!in-progress`\n");

@@ -1,7 +1,7 @@
 using System.Globalization;
 
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 namespace Backlog.Mobile.UI.Tasks;
 

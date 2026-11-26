@@ -8,9 +8,9 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.KnowledgeEvents;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Bunit;
 

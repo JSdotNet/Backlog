@@ -240,5 +240,5 @@ public sealed class TaskEntryRewriteTests
     }
 
     private static IReadOnlyList<bool> Steps(string contentMd) =>
-        [.. Backlog.Modules.Tasks.Abstractions.EntryTextParser.Parse("# t\n`!ready`\n\n" + contentMd).SubItems.Select(step => step.Done)];
+        [.. Backlog.Modules.Work.Abstractions.Tasks.EntryTextParser.Parse("# t\n`!ready`\n\n" + contentMd).SubItems.Select(step => step.Done)];
 }

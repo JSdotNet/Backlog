@@ -1484,7 +1484,7 @@ task's side panel: linking, unlinking and the reads of a linked pull request.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
 ```
 
 Every linked session and pull request in a task's side panel has an "Unlink" beside

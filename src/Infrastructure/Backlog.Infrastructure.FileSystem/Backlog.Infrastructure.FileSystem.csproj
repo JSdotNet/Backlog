@@ -27,14 +27,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
-    <!-- The cross-context joins under Roadmap/ - the plan's tags offered to the
-         task tag picker, and a roadmap item's rollup of the entries and knowledge
-         chapters it gathers. Storage is no longer among them: the plan itself
-         moved to Backlog.Infrastructure.Sqlite. An adapter referencing a module
-         implementation is the normal direction; the module never sees this
+    <!-- Work, for the joins with the world outside it under Roadmap/ - a roadmap
+         item's rollup of the entries, knowledge chapters and Brain notes it gathers,
+         the pace file and the actual hours. Where the task and the plan meet is no
+         longer here: both are Work, and the module composes those joins itself
+         (AddWorkJoins, local ADR 0073 §1). Storage is not among them either: the
+         plan itself moved to Backlog.Infrastructure.Sqlite. An adapter referencing a
+         module implementation is the normal direction; the module never sees this
          project. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- The cross-context join under Progress/ - the tasks goals name, read
          through Tasks' published ITaskItems to answer Progress's IProgressTaskSource.
          The published surface only on the Progress side (local ADR 0028). -->

@@ -55,7 +55,7 @@ public sealed class EntryStartedBadgeTests
         var pane = host.Render();
         Assert.Empty(pane.FindAll("[data-testid='entry-started-badge']"));
 
-        await host.State.ChangeStatusAsync(row, Backlog.Modules.Tasks.Abstractions.EntryStatus.InProgress);
+        await host.State.ChangeStatusAsync(row, Backlog.Modules.Work.Abstractions.Tasks.EntryStatus.InProgress);
         pane.Render();
 
         pane.WaitForAssertion(() =>

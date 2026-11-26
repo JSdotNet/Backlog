@@ -1,7 +1,7 @@
 using System.Globalization;
 
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Selects;
 using Backlog.UI.Components.Tasks;

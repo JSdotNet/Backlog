@@ -1,10 +1,10 @@
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 

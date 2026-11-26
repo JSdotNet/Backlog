@@ -402,7 +402,7 @@
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
@@ -422,7 +422,7 @@
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.CodeAnalysis.CSharp": "[5.12.0, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )"
@@ -443,9 +443,8 @@
           "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Logging": "[11.0.0, )",
           "System.Security.Cryptography.ProtectedData": "[11.0.0, )"
@@ -459,7 +458,7 @@
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
@@ -475,9 +474,8 @@
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "ModelContextProtocol.Core": "[2.4.0, )"
         }
@@ -489,9 +487,8 @@
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
           "Backlog.Modules.Progress": "[1.0.0, )",
-          "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )"
         }
       },
@@ -503,10 +500,10 @@
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
@@ -680,24 +677,11 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.roadmap": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.roadmap.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
       "backlog.modules.roadmap.ui": {
         "type": "Project",
         "dependencies": {
           "Backlog.Infrastructure.GitHub": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )",
@@ -733,29 +717,29 @@
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )"
         }
       },
-      "backlog.modules.tasks": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.tasks.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
       "backlog.modules.tasks.ui": {
         "type": "Project",
         "dependencies": {
           "Backlog.Infrastructure.Copilot": "[1.0.0, )",
           "Backlog.Infrastructure.GitHub": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )"
+        }
+      },
+      "backlog.modules.work": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.work.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
       "backlog.sharedkernel": {

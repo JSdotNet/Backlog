@@ -1,5 +1,5 @@
 using System.Globalization;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;

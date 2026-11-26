@@ -110,8 +110,6 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Core/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Core/Backlog.UI.Components` | Shared Razor control library — no domain in it, rendered on its own in the storybook |
-| `src/Modules/Tasks/Backlog.Modules.Tasks` | Tasks module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions` | The Tasks module's published surface — DTOs, the entry text format, and `ITaskItems` |
 | `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter` and `IInboxTriageAdvisor` ports |
@@ -123,8 +121,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook's desktop face — the Devbook menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Brain/Backlog.Modules.Brain.Abstractions` | The Brain's published surface (local ADR 0040) — `IBrainFolderSource`, `BrainConventions`, the Brain folder setting, Show hidden, the note writer, and the backlink and task-link ports |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | The Brain's desktop face on the Devbook pane (local ADR 0040) — the note panel, Capture, Show hidden, the From your Brain box and the Brain atlas, handed to the pane through its mode extension point; `AddBrainModule` registers it with the Brain's adapters |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
+| `src/Modules/Work/Backlog.Modules.Work` | Work module — the Task (`TaskItem`, sub-items, lifecycle rules, `ITaskRepository`) and the Plan (items, sequencing, `IRoadmapPlanRepository`) aggregates, their vertical-slice features, and the services where the two meet |
+| `src/Modules/Work/Backlog.Modules.Work.Abstractions` | The Work module's published surface — the task and plan DTOs, the entry text format, `ITaskItems`, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
 | `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
 | `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
@@ -183,13 +181,12 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.SharedKernel.UnitTests` | Unit tests for the shared kernel — the AI content budget |
 | `tests/Backlog.Aspire.ServiceDefaults.UnitTests` | Unit tests for the service defaults — how a clone, a worktree and a detached head are told apart |
 | `tests/Backlog.HostComposition.UnitTests` | Unit tests for how the hosts compose — the MCP server, the MCP and telemetry endpoint gates, and the web harness host |
-| `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Inbox.UnitTests` | Unit tests for the Inbox module — the item and organizer aggregates, capture and intake, attachments, triage, and routing to the backlog |
 | `tests/Backlog.Modules.Capture.UnitTests` | Unit tests for the Capture module — the capture run, the capture ids, and the source kinds |
 | `tests/Backlog.Modules.Sync.UnitTests` | Unit tests for the Sync module — device pairing, the attachment store handler, and change precedence in the in-memory replicas |
 | `tests/Backlog.Modules.Sync.Api.UnitTests` | Unit tests for the sync service's endpoints — tasks, sessions, annotations, attachments, captures, device pairing, and authentication |
 | `tests/Backlog.Modules.Insights.UnitTests` | Unit tests for the Insights module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
-| `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
+| `tests/Backlog.Modules.Work.UnitTests` | Unit tests for the Work module — the task domain, plan items, sequencing, the scheduling rules, and where the task and the plan meet |
 | `tests/Backlog.Modules.Progress.UnitTests` | Unit tests for the Progress module — one per sprint series invariant, the sprint progress reading, and the published ports behind the `progress` switch |
 | `tests/Backlog.Modules.Repositories.UnitTests` | Unit tests for the Repositories module — the one verdict per pull request, its stacks, its merge offer, the label filter and the `pull-requests` key, and the `IPullRequests` cache, archived repositories, commands and settled facts |
 | `tests/Backlog.Modules.Notifications.UnitTests` | Unit tests for the Notifications module — one or more per notification and reply invariant, answer delivery and replay, and the startup subject probes |
@@ -266,7 +263,7 @@ a screen is not.
 is what keeps it that way.
 
 The client is a client: it dispatches use cases and holds DTOs. Deciding what a
-task is belongs to `Backlog.Modules.Tasks`, which the UI reaches only
+task is belongs to `Backlog.Modules.Work`, which the UI reaches only
 through its Abstractions project — see
 [ADR 0002](.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
 Anything the contexts genuinely share — the status, priority and repository

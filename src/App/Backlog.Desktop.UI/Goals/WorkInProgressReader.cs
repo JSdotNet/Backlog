@@ -1,7 +1,7 @@
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 namespace Backlog.Desktop.UI.Goals;
 

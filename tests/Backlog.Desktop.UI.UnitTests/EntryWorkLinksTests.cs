@@ -1,5 +1,5 @@
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Integrations;
 using Bunit;

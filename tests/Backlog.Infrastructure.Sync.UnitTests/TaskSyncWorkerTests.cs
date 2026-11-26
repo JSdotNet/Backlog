@@ -2,15 +2,15 @@ using System.Net;
 using System.Text.Json;
 
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Services;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Microsoft.Extensions.Time.Testing;
 

@@ -71,8 +71,8 @@ public sealed class LinkedWorkSectionTests
         using var host = await TasksPaneHost.CreateAsync(Repository);
         var row = await host.WriteEntryAsync(Entry);
 
-        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "abc", Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType));
-        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "ABC", Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType));
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "abc", Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType));
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "ABC", Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType));
 
         Assert.Equal(["abc"], row.SessionLinks.Select(link => link.SessionId));
     }
@@ -167,9 +167,9 @@ public sealed class LinkedWorkSectionTests
         });
     }
 
-    private const string SessionTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType;
+    private const string SessionTarget = Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType;
 
-    private const string PullRequestTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.PullRequestTargetType;
+    private const string PullRequestTarget = Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.PullRequestTargetType;
 
     /// <summary>The reader over the host's GitHub and the given sessions, with the
     /// clock the cards measure "45 min ago" against registered beside it.</summary>

@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Modules.Insights.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 

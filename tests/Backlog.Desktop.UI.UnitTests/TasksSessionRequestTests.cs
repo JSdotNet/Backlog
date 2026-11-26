@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Buttons;
 using Backlog.UI.Components.Overlays;
 

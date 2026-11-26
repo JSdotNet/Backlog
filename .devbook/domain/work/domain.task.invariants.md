@@ -26,7 +26,7 @@ related: [.devbook/domain/work/domain.task.md#task]
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.ManuallyCreatedEntry_DefaultsToDraft_WithNoSourceInbox
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemLifecycleTests.ManuallyCreatedEntry_DefaultsToDraft_WithNoSourceInbox
 ```
 
 A task created by hand starts at `draft` with no `source_inbox_id`.
@@ -37,7 +37,7 @@ Enforced at: constructor
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.InvalidTransitions_Throw, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.ValidTransitions_AreAllowed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryStatusFlowTests.The_graph_is_the_one_the_domain_folder_draws]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemLifecycleTests.InvalidTransitions_Throw, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemLifecycleTests.ValidTransitions_AreAllowed, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.EntryStatusFlowTests.The_graph_is_the_one_the_domain_folder_draws]
 ```
 
 A status change through `ChangeStatus()` moves only along the [Task lifecycle](domain.task.md#task).
@@ -48,7 +48,7 @@ Enforced at: `ChangeStatus()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Moving_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Setting_the_status_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStartedOnTests.Leaving_in_progress_and_coming_back_on_a_later_day_keeps_the_first_day]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStartedOnTests.Moving_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStartedOnTests.Setting_the_status_to_in_progress_stamps_the_day_it_is_given, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStartedOnTests.Leaving_in_progress_and_coming_back_on_a_later_day_keeps_the_first_day]
 ```
 
 A status change that puts a task in `in_progress` stamps `started_on` with the caller's local date when the task has none, and never moves a date it already holds.
@@ -60,7 +60,7 @@ Enforced at: `ChangeStatus()` and `SetStatus()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.An_edit_moves_the_stamp, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.Every_public_mutator_is_on_one_of_the_two_lists, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.An_edit_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStampTests.An_edit_moves_the_stamp, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStampTests.Every_public_mutator_is_on_one_of_the_two_lists, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemEffortTests.An_edit_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward]
 ```
 
 Every edit to a task moves its `updated_at` later than it was, even past a stamp from a machine whose clock runs ahead. Recording a usage event and storage replaying a stored task do not move it.
@@ -72,7 +72,7 @@ Enforced at: all mutations (each calls `Touch()`); `RecordUsage()`, `LoadSubItem
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_is_live_again_and_stamped_after_its_tombstone, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_deleted_again_is_a_tombstone_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_is_live_again_and_stamped_after_its_tombstone, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemLifecycleTests.A_restored_task_deleted_again_is_a_tombstone_again, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemStampTests.A_non_edit_leaves_the_stamp_alone]
 ```
 
 Restoring a deleted task clears its `deleted_at` and moves its `updated_at` later than the tombstone's, and restoring a task that is not deleted changes nothing.
@@ -146,7 +146,7 @@ related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_task_holds_no_agenda_time_outside_my_day
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_task_holds_no_agenda_time_outside_my_day
 ```
 
 A task with no `in_my_day_on` holds no [Agenda Time](domain.task.md#agenda-time); one given to it is dropped rather than refused.
@@ -158,7 +158,7 @@ Enforced at: `SetAgendaTime()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Moving_the_task_to_another_day_drops_its_slot, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Taking_the_task_out_of_my_day_drops_its_slot, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.Setting_the_same_day_again_keeps_the_slot]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.Moving_the_task_to_another_day_drops_its_slot, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.Taking_the_task_out_of_my_day_drops_its_slot, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.Setting_the_same_day_again_keeps_the_slot]
 ```
 
 Changing or clearing a task's `in_my_day_on` drops its agenda time, and setting the same date again keeps it.
@@ -170,7 +170,7 @@ Enforced at: `SetInMyDayOn()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_drops_the_slot_carried_along_unedited, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_and_types_a_new_slot_keeps_the_new_slot]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_drops_the_slot_carried_along_unedited, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_save_that_changes_the_day_and_types_a_new_slot_keeps_the_new_slot]
 ```
 
 A text save that changes `myday:` drops the `at:` and `for:` left on the line unchanged, and keeps a slot typed or changed in the same save.
@@ -182,7 +182,7 @@ Enforced at: `TaskEntryFields.ApplyToExisting()`, which every text save of an ex
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_duration_must_be_positive
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_duration_must_be_positive
 ```
 
 An agenda time's duration is a whole number of minutes greater than zero; zero or less is refused.
@@ -193,7 +193,7 @@ Enforced at: constructor (`AgendaTime`)
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_start_without_a_duration_means_thirty_minutes, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_start_alone_reads_as_thirty_minutes]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_start_without_a_duration_means_thirty_minutes, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_start_alone_reads_as_thirty_minutes]
 ```
 
 An agenda time given a start and no duration runs for 30 minutes.
@@ -204,7 +204,7 @@ Enforced at: constructor (`AgendaTime`, `DefaultDurationMinutes`), and `EntryTex
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_duration_without_a_start_is_refused_as_malformed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_save_of_a_lone_duration_sets_no_slot]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_duration_without_a_start_is_refused_as_malformed, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.AgendaTimeTests.A_save_of_a_lone_duration_sets_no_slot]
 ```
 
 A duration given without a start is no agenda time: the parser refuses a lone `for:`, and the task is left with no slot.
@@ -233,7 +233,7 @@ Enforced at: all mutations (`SubItem`'s constructor and setters are internal)
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemSubItemTests.ParentProgress_ReflectsSubItemCompletion, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemSubItemTests.Progress_IsZero_WhenNoSubItems]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemSubItemTests.ParentProgress_ReflectsSubItemCompletion, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemSubItemTests.Progress_IsZero_WhenNoSubItems]
 ```
 
 A task's progress is the share of its sub-items that are done, and zero when it has none.
@@ -281,7 +281,7 @@ related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_figure_out_of_range_is_refused_and_nothing_is_written
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SetPlannedHoursTests.A_figure_out_of_range_is_refused_and_nothing_is_written
 ```
 
 A [Planned Hours](domain.md#planned-hours) figure is more than zero and at most 24 hours; a figure outside that range is refused and the task's figures stay as they were.
@@ -292,7 +292,7 @@ Enforced at: `PlannedHoursBlock.Create()` and `TryCreate()`; `TaskItem` holds on
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_figure_is_kept_in_quarters_of_an_hour
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SetPlannedHoursTests.A_figure_is_kept_in_quarters_of_an_hour
 ```
 
 A planned-hours figure is rounded to the nearest quarter of an hour, so a typed 2.4 is kept as 2.5.
@@ -304,7 +304,7 @@ Enforced at: `PlannedHoursBlock.TryCreate()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.SetPlannedHoursTests.A_day_holds_one_block_and_the_last_figure_wins
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SetPlannedHoursTests.A_day_holds_one_block_and_the_last_figure_wins
 ```
 
 A task holds at most one planned-hours figure for a day, the last one given winning, and keeps its figures in date order.
@@ -322,7 +322,7 @@ related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_a_session_takes_it_off_under_every_repository]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_a_session_takes_it_off_under_every_repository]
 ```
 
 Unlinking removes every [Projection Ref](domain.task.md#projection-ref) with the named repository, external id and target type, compared without regard to case, and no other. A session is matched under any repository.
@@ -334,7 +334,7 @@ Enforced at: `RemoveProjectionRef()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories
 ```
 
 Unlinking a Projection Ref leaves the task's `repo_ids` unchanged.
@@ -346,7 +346,7 @@ Enforced at: `RemoveProjectionRef()`, which changes only `ProjectionRefs`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_what_the_entry_does_not_hold_leaves_its_stamp
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_what_the_entry_does_not_hold_leaves_its_stamp
 ```
 
 Unlinking a Projection Ref the task does not hold is not a failure, and leaves the task and its `updated_at` as they were.
@@ -374,7 +374,7 @@ Enforced at: `SetArea()`, which every path that writes an area goes through
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_Negative_IsRefusedAndLeavesTheValueUnchanged, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemEffortTests.SetEffort_HoldsAnyNonNegativeValue]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemEffortTests.SetEffort_Negative_IsRefusedAndLeavesTheValueUnchanged, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.TaskItemEffortTests.SetEffort_HoldsAnyNonNegativeValue]
 ```
 
 A task's Effort is absent or a whole number of zero or more; a negative estimate is refused and leaves the effort as it was.
@@ -385,7 +385,7 @@ Enforced at: `SetEffort()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanTests.The_shared_plan_tag_is_the_sigilled_one_whatever_else_is_shared
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.ImportPlanTests.The_shared_plan_tag_is_the_sigilled_one_whatever_else_is_shared
 ```
 
 A task's `import_plan_id` holds the plan's tag as written, sigil included, and matching tasks by plan compares it exactly, so `#slug` and `+slug` are two plans.

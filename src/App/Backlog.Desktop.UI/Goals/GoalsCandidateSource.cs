@@ -3,7 +3,7 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.UI.Goals;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Progress;
 

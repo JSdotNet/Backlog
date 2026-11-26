@@ -208,7 +208,7 @@ public sealed class SpecManagerQuestionSyncTests
     public async Task A_whole_pull_never_closes_the_alert_of_another_spec_manager_notification()
     {
         using var scenario = new QuestionScenario();
-        scenario.Connector.Targets.Save(new Backlog.Modules.Tasks.Abstractions.Connectors.ConnectedTarget(SpecManagerConnector.ConnectorId, "notification"));
+        scenario.Connector.Targets.Save(new Backlog.Modules.Work.Abstractions.Tasks.Connectors.ConnectedTarget(SpecManagerConnector.ConnectorId, "notification"));
         scenario.Connector.Server.Route(HttpMethod.Get, "/api/products/notification/backlog-questions", (_, _) => StubSpecManager.Respond(System.Net.HttpStatusCode.OK, "[]"));
         var alert = SpecManagerNotificationMapper.ToDraft(NotificationScenario.Fixture(NotificationScenario.Reply), scenario.Root, false, null);
         var id = Assert.IsType<Ok<Guid>>((await scenario.Ledger.PublishAsync(alert, Token)).Value).Value;

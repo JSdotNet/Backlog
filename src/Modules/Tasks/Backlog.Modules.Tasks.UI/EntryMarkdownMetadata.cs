@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Tasks;

@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;

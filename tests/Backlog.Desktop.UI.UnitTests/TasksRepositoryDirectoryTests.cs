@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.UnitTests;

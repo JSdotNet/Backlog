@@ -35,6 +35,7 @@ using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Insights.Extensions;
+using Backlog.Modules.Work.Extensions;
 using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Brain.UI.Extensions;
@@ -54,14 +55,14 @@ using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Progress.UI.WeeklyReview;
 using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Repositories.Extensions;
-using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Work.Plans.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
@@ -174,6 +175,9 @@ public static partial class DesktopCompositionRegistration
             configuration: options.Configuration?.GetSection(SpecManagerOptions.SectionName));
 
         services.AddRoadmapModule();
+        // Where the task and the plan meet inside Work (local ADR 0073 §1), after both
+        // halves of the module so the scoped ports the joins capture exist.
+        services.AddWorkJoins();
         // The plan behind the shell's Ask AI port, after the module so the scoped
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();

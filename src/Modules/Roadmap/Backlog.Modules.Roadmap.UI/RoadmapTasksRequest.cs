@@ -1,4 +1,4 @@
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 
 namespace Backlog.Modules.Roadmap.UI;
 

@@ -7,9 +7,9 @@ using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Progress.UI.WeeklyReview;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 

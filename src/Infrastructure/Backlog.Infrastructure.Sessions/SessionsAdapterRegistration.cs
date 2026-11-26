@@ -1,7 +1,7 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;

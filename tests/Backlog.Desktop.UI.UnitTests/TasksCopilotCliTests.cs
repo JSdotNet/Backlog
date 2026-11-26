@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

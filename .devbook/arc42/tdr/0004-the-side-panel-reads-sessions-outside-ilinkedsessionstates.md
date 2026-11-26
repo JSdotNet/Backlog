@@ -34,7 +34,7 @@ panel read one pull request through one contract, `IPullRequests`, and one cache
 The badge's read:
 
 - The port is `LinkedSession(State, Archived)` and `ILinkedSessionStates`
-  (`src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions/Services/ILinkedSessionStates.cs:42,54`).
+  (`src/Modules/Work/Backlog.Modules.Work.Abstractions/Tasks/Services/ILinkedSessionStates.cs:42,54`).
 - `TasksDesktopState` takes it (`src/Modules/Tasks/Backlog.Modules.Tasks.UI/TasksDesktopState.cs:112,287,314`)
   and reads it for every linked session id (`:1294-1305`).
 - `LinkedSessionStates` answers it at timestamps depth, through
@@ -69,7 +69,7 @@ that ADR left it so, naming it as a follow-up.
 
 | Component | Role |
 | --- | --- |
-| `Backlog.Modules.Tasks.Abstractions` | Publishes `ILinkedSessionStates`. |
+| `Backlog.Modules.Work.Abstractions` | Publishes `ILinkedSessionStates`. |
 | `Backlog.Infrastructure.FileSystem/Tasks/LinkedSessionStates.cs` | Answers the port from the session record. |
 | `Backlog.Modules.Tasks.UI/TasksDesktopState.cs` | Reads the port for the task row's badge. |
 | `Backlog.Desktop.UI/Goals/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |

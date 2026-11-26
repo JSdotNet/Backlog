@@ -1,6 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.Tests;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;

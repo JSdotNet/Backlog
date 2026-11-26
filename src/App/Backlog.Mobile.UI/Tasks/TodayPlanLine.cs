@@ -1,7 +1,7 @@
 using Backlog.Mobile.UI.Progress;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
-using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
+using MyDayRule = Backlog.Modules.Work.Abstractions.Tasks.MyDay;
 
 namespace Backlog.Mobile.UI.Tasks;
 

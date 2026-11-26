@@ -44,8 +44,8 @@ public static class InsightsCrossContextAdapterRegistration
         services.AddScoped<ICompletedTaskSource, TaskItemsCompletedTaskSource>();
 
         // Scoped for the same reason: the roadmap's planning, rollup and pace ports are
-        // scoped, so this needs AddRoadmapModule() and AddRoadmapCrossContextAdapters()
-        // registered first.
+        // scoped, so this needs AddRoadmapModule(), AddWorkJoins() and
+        // AddRoadmapCrossContextAdapters() registered first.
         services.AddScoped<IPlanProgressSource, RoadmapPlanProgressSource>();
 
         // The hours worked, split by office hours (local ADR 0019, §7): a singleton over

@@ -38,7 +38,7 @@ public sealed record CaptureOutcome(InboxItem Item, bool Created);
 /// <para>
 /// The three tokens below are wire spellings duplicated here as constants
 /// rather than referenced. The Sync module has no reference to
-/// Backlog.Modules.Tasks and must not grow one: the replica is a relay between
+/// Backlog.Modules.Work.Tasks and must not grow one: the replica is a relay between
 /// devices, and a service that imported the task domain to name a status would
 /// have to be redeployed whenever that domain gained one. What the two sides
 /// share is three literals, and a device that reads this document parses them

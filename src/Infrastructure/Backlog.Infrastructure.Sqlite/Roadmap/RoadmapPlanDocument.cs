@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Plans.DomainModels;
 
 namespace Backlog.Infrastructure.Sqlite.Roadmap;
 

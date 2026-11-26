@@ -56,8 +56,8 @@ public partial class ClockReadTests
         "src/Modules/Sessions/Backlog.Modules.Sessions.UI/SessionsPane.razor",
         "src/Modules/Sync/Backlog.Modules.Sync.Api/Security/HmacSyncCursorCodec.cs",
         "src/Modules/Sync/Backlog.Modules.Sync.UI/Settings/DevicesSettings.razor",
-        "src/Modules/Tasks/Backlog.Modules.Tasks/DomainModels/TaskItem.cs",
-        "src/Modules/Tasks/Backlog.Modules.Tasks/Services/RecurrencePolicy.cs",
+        "src/Modules/Work/Backlog.Modules.Work/Tasks/DomainModels/TaskItem.cs",
+        "src/Modules/Work/Backlog.Modules.Work/Tasks/Services/RecurrencePolicy.cs",
     ];
 
     [Fact]

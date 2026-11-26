@@ -1,5 +1,5 @@
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Badges;
 
 namespace Backlog.Desktop.UI.Tasks;

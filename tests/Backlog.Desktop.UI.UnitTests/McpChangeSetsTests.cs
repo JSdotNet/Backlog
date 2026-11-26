@@ -1,7 +1,7 @@
 using System.Text.Json;
 
 using Backlog.Desktop.UI.Mcp;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
 using Backlog.Tests;

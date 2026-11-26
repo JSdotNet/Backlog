@@ -1,10 +1,10 @@
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.DomainModels;
-using Backlog.Modules.Tasks.Extensions;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Extensions;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;

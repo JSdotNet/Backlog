@@ -30,7 +30,7 @@ namespace Backlog.Desktop.UI.Extensions;
 /// hosts". This project is the only one both of them already reference that
 /// nothing on the <c>net11.0-android</c> path does: the mobile head reaches
 /// <c>ServiceDefaults</c>, <c>Backlog.Mobile.UI</c>,
-/// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Tasks</c>, and
+/// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Work.Tasks</c>, and
 /// none of those reaches back here.
 /// </para>
 /// <para>

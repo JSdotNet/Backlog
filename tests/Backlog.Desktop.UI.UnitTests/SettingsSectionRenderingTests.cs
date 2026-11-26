@@ -492,6 +492,7 @@ public sealed class SettingsSectionRenderingTests
         Backlog.Modules.Sessions.UI.Extensions.SessionsSettingsRegistration.AddSessionsSettings(services);
         Backlog.Modules.Sync.UI.SyncSettingsRegistration.AddSyncSettings(services);
         Backlog.Modules.Insights.UI.Extensions.InsightsSettingsRegistration.AddInsightsSettings(services);
+        Backlog.Modules.Roadmap.UI.RoadmapSettingsRegistration.AddRoadmapSettings(services);
         var registered = services.Select(descriptor => descriptor.ImplementationInstance).OfType<SettingsSection>();
 
         var pages = SettingsPages.InMenuOrder(SettingsPages.BuiltIn, registered);

@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel.Ai;
 
 namespace Backlog.Desktop.UI.Tasks;

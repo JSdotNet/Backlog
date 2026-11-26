@@ -3,7 +3,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.Mcp;

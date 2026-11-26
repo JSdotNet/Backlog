@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 namespace Backlog.Desktop.UI.Tasks;
 

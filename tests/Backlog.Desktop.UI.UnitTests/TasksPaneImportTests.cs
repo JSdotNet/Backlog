@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// opens, and where the sentence the module hands back is shown.
 /// <para>
 /// The handler's own behaviour is covered where it lives
-/// (<c>Backlog.Modules.Tasks.UnitTests.ImportPlanTests</c>). What is under test
+/// (<c>Backlog.Modules.Work.Tasks.UnitTests.ImportPlanTests</c>). What is under test
 /// here is only the routing <c>TasksPane.OnImportAsync</c> performs — a result
 /// closes the dialog and moves to the pane, a refusal stays under the paste box
 /// with the text that caused it — because that decision is the pane's alone and

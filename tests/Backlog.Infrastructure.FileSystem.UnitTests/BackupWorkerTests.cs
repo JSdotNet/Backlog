@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;

@@ -1,5 +1,5 @@
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.Tasks;

@@ -1,9 +1,9 @@
 using System.Globalization;
 
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Roadmap.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 

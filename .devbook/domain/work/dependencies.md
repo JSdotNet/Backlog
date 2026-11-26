@@ -59,7 +59,7 @@ meet.
     sessions: the earliest start and the latest last activity.
   - It joins by the session ids the task carries and never writes a date back.
 - **Sessions, actual hours (ADR 0019):**
-  - A port in `Backlog.Modules.Roadmap.Abstractions` serves them, answered by an
+  - A port in `Backlog.Modules.Work.Abstractions` serves them, answered by an
     `Infrastructure.FileSystem` adapter over Sessions' agent-activity source and
     its cache, shaped like `RoadmapItemRollupService`.
   - Human turns and runs come from this machine and from the replicated records of
@@ -86,7 +86,7 @@ meet.
 | [Insights](../insights/features.md#personal-productivity-dashboard) | OHS + Published Language (Work = supplier) | Intended subscription to status, projection and scheduling events; Work emits none yet | `.devbook/domain/work/domain.md#statuschanged`, `.devbook/domain/work/domain.md#taskprojected`, `.devbook/domain/work/domain.md#taskcompleted`, `.devbook/domain/work/domain.md#occurrencespawned`, `.devbook/domain/work/domain.md#roadmapitemscheduled` | Work-state and projection-state changes, occurrence provenance, and planned windows with the previous window carried, to compare intent against delivery. |
 | [Insights](../insights/domain.md#productivity-ledger) | OHS + Published Language (Work = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/work/domain.md#aiworklogged` | AI-assisted activity evidence linked to a task. |
 | [Insights](../insights/features.md#hours-worked) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [working week](context.md#working-week) and the [day overrides](domain.md#day-override) inside it; reads Sessions itself for the stretches | `.devbook/domain/work/context.md#working-week`, `.devbook/domain/work/domain.md#day-override`, `.devbook/domain/work/domain.md#working-stretch` | The dashboard's hour grids outline the working week, and its Hours worked part applies the overrides and counts actual hours from working stretches. |
-| [Sessions](../sessions/context.md) | Customer/Supplier (Work = supplier) | Calls a capability Work publishes in `Backlog.Modules.Tasks.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/work/requirements.md#filing-a-follow-up-after-an-entry` | Work filing exactly one `ready` prompt after the gated entry per notification id. |
+| [Sessions](../sessions/context.md) | Customer/Supplier (Work = supplier) | Calls a capability Work publishes in `Backlog.Modules.Work.Abstractions`, from `SessionValidationAnswers` in `Backlog.Infrastructure.Sessions`, in process | `.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry`, `.devbook/domain/work/requirements.md#filing-a-follow-up-after-an-entry` | Work filing exactly one `ready` prompt after the gated entry per notification id. |
 | [Events](../events/context.md) | Customer/Supplier (Work = supplier) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal`, in process | `.devbook/domain/events/domain.md#harvest-task-policy`; local [ADR 0050](../../arc42/adr/0050-events-is-its-own-bounded-context.md) §3 | Work filing a task from its text, under a caller's id only if no task holds it, live or deleted; reading a task by id; and ticking one off. |
 | [Calendar](../calendar/context.md) | Customer/Supplier (Work = supplier) | `ICalendarTasks` and `ICalendarPlans` in the Calendar's abstractions, answered in `Backlog.Infrastructure.FileSystem/Calendar/`: `TasksCalendarTasks` over `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`, and `RoadmapCalendarPlans` over the plan, in process; `NoCalendarTasks` in a host without the task module | Work's published contracts; local [ADR 0056](../../arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md) §2 | The Tasks layer: the tasks with a due date in a window, their planned hours and the change signal; setting a task's due date, and its hours on a day. The Plans layer: the plans, the shelf and the working week. |
 | [Goals](../goals/context.md) | Customer/Supplier (Work = supplier) | Reads a task by id and a plan by its tag, through Goals' own ports | `.devbook/domain/work/domain.task.md#task`, `.devbook/domain/work/domain.plan.md#roadmap-tag` | A task's status, due date, effort, blocked mark and linked pull requests; the plan tag vocabulary, the plan order and the pace. Work knows no goals. |
@@ -121,10 +121,10 @@ meet.
 
 ## Notes
 
-- **The task and the plan meet inside Work** (local ADR 0073 §1). Until the modules
-  merge into `Backlog.Modules.Work`, their meeting points are adapters in
-  `Backlog.Infrastructure.FileSystem` between `Backlog.Modules.Tasks` and
-  `Backlog.Modules.Roadmap`, and they fold into the module when it merges:
+- **The task and the plan meet inside Work** (local ADR 0073 §1). Their meeting
+  points are services in `Backlog.Modules.Work` itself, under
+  `Backlog.Modules.Work.Services`, composed by `AddWorkJoins`; they were adapters in
+  `Backlog.Infrastructure.FileSystem` while the two sat in separate modules:
   - **Task link by id.** A Roadmap Item may name a task by one optional
     foreign id, held on the item. The plan never writes a task's status or priority,
     and a link made once keeps pointing at the same planned work: `roadmap_item_id`

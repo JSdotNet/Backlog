@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Feedback;
 

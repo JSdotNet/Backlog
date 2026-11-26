@@ -1,3 +1,4 @@
+using Backlog.Modules.Work.Extensions;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Calendar;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -5,15 +6,15 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Calendar.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Plans.Extensions;
 using Backlog.SharedKernel.Results;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +58,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         services.AddTasksAdapters();
         services.AddTasksModule();
         services.AddRoadmapModule();
+        services.AddWorkJoins();
         services.AddRoadmapCrossContextAdapters();
         services.AddCalendarCrossContextAdapters();
 

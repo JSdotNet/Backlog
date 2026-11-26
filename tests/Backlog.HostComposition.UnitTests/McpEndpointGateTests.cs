@@ -11,7 +11,7 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
