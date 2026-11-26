@@ -105,9 +105,10 @@ the plan tag, the repository as `owner/name`, that repository's clone folder on 
 machine, and nothing else. No title, body or note of the entry is copied into it.
 
 Only a click in the app creates one. No MCP tool, import, sync or capture creates a
-request, so nothing that writes entry text can start a session. The one session a
-dispatcher starts without a request is a fixer for a bot's red pull request (§6), whose
-brief no text from the pull request reaches.
+request, so nothing that writes entry text can start a session. A dispatcher starts two
+kinds of session without a request. One is a fixer for a bot's red pull request (§6),
+whose brief no text from the pull request reaches. The other is the cross-repository
+hand-off of a plan session it started itself (§7), whose prompt has one fixed shape.
 
 **No entry text ever becomes a brief.** The dispatcher builds the brief from the
 request's kind and id alone (§2). The new session reads the entry through
@@ -350,6 +351,61 @@ is for a request. The app counts no fixer among the dispatched sessions, so the 
 its running fixers to the count itself. Merging stays with the repository's own rules,
 such as an auto-merge workflow for a green dependency bump.
 
+### 7. The Manager starts the hand-off of a plan session it started
+
+```meta
+```
+
+```mermaid
+sequenceDiagram
+  participant Mgr as Manager session
+  participant CD as Claude Desktop
+  participant A as Plan session, repository A
+  participant B as Plan session, repository B
+  Mgr->>CD: start_session(plan request's brief)
+  CD->>A: starts
+  A->>CD: start_session in B's main checkout
+  CD-->>A: refused
+  A-->>Mgr: report with one handoff line
+  Mgr->>Mgr: check the line
+  Mgr->>CD: start_session(B's clone folder, the line's prompt)
+  CD->>B: starts
+  Mgr->>Mgr: read the plan's items, report progress
+```
+
+**Added 2026-11-26.** A plan session (`execute-plan`) hands each entry of another
+repository to a session there, which runs the same plan
+([execute-plan's handoff](../../../plugins/backlog-tools/skills/execute-plan/assets/handoff.md)).
+It tries `start_session` in that repository's main checkout first. Claude Desktop refuses
+every session start on the turns of a session another session started, so a plan session
+the Manager started is always refused. It then writes one fixed line in its report:
+
+```text
+handoff <owner/repo> <absolute clone folder> /backlog-tools:execute-plan +<tag> <landing>
+```
+
+The Manager reads the reports of the plan sessions it started itself, and of no other
+session. It starts each hand-off line once, on its next turn that the host lets start a
+session. The start is `user_asked`, in the line's folder, in its own worktree, with the
+line's prompt verbatim. The Manager refuses a line when:
+
+- its prompt does not have the fixed `execute-plan` shape;
+- its `+<tag>` is not the plan the Manager started that session for — a plan session reads
+  untrusted entry text, so a well-formed line for another plan is refused;
+- its folder is not a known clone of that repository on this machine: a main checkout whose
+  `origin` remote is `<owner/repo>`;
+- it already started that line.
+
+The hand-off creates no session request, adds no MCP tool and needs no new grant: the
+app's queue and local ADR 0058 are unchanged. The Manager then follows the plan across
+its repositories read-only, through `get_plan_items`, and reports each repository's
+progress. A paused queue starts no hand-off, and the Manager adds its hand-off sessions
+to the dispatched count itself, as it does its fixers.
+
+The accepted trust is that the Manager built the plan session's brief from a click (§2),
+and the hand-off's prompt is that same fixed brief for another repository. No entry text
+reaches it beyond the plan tag and the landing mode.
+
 ## Consequences
 
 ```meta
@@ -364,6 +420,8 @@ Positive:
 - **A request survives a missing dispatcher.** The app can show it on the entry as
   waiting, with a Cancel action, until a dispatcher runs.
 - **Any MCP-capable agent can dispatch.** The route and the tools name no agent.
+- **A plan crosses repositories without the person copying a prompt.** The Manager starts
+  the other repository's plan session and reports the plan's progress in each repository.
 
 Negative:
 
@@ -388,6 +446,12 @@ Negative:
 - **The two-fixer limit reads session names.** A fixer the person renames, or one the
   port's List no longer returns, no longer counts, so a pull request red for long can
   get a third.
+- **A hand-off waits for a turn that may start a session.** Claude Desktop refuses
+  `start_session` on any turn a Monitor event or a wake-up drives. Only a turn the person
+  typed, or a `<side-sessions-event>` turn right after one, may start a session. A
+  hand-off reported while the Manager only waits therefore starts at the person's next
+  turn there. Lifting that limit needs a dispatcher that launches a CLI session, which
+  [Rejected](#rejected) keeps for later.
 
 Neutral:
 
@@ -419,6 +483,10 @@ Neutral:
   changed. A dispatcher may still keep one as a slow heartbeat.
 - **Requests that expire.** A request made while no dispatcher runs would be lost
   without the person knowing. Cancelling is explicit.
+- **A plan session queues its hand-off as a session request.** It needs an MCP tool
+  that creates a request, against §1, and a new scope in the delivery grant of local
+  ADR 0058. The Manager already started the plan session, so it can read the hand-off
+  from that session's report instead.
 
 ## History
 
@@ -427,6 +495,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §7 added, §1 amended: the Manager starts, once each, the hand-off line a plan session it started writes in its report, in that repository's known clone folder with the fixed `execute-plan` prompt, and follows the plan's progress read-only. No session request, tool or grant is added. | A plan session another session started cannot start sessions, so its hand-off waited for the person to copy a printed prompt. |
 | 2026-11-26 | Proposed, §4 and §6 amended: the dispatcher is a role that acts on sessions only through a session-host port of five operations — start in a new worktree with the fixed brief, report its id, list, read state (working, waiting, idle), deliver a message — and claims with the Manager grant; a dispatcher is a skill a person starts by hand in a long-running session of the host; host skills ship in `backlog-desktop` and `backlog-herdr` beside `backlog-tools`; the fixer's brief is "watch your pull request's checks and fix them". Queue, lease, pause, order and trust unchanged. The §2 table's stray 2026-11-18 row moved here. | The record named one host, and the person moves dispatch to another; the queue never depended on which (plan `agent-factory`, item `adr-session-host-port`). |
 | 2026-11-23 | §6 added, §1 amended: after the queue, the Manager starts one fixer session per bot-opened pull request on the repository's own branch whose settled checks fail and that no session watches, at most two per pull request, with a fixed brief from repository, number and head commit. | Dependency bumps sat open for days on one red check, and no session owned them. |
 | 2026-11-18 | §3 amended: the app closes a Requested or Started request once its entry, or every entry of its plan, is Done or Archived, at start and after every task write; `link_session` matches a request under the session's desktop id as well as its transcript id, and `execute-plan` links its own session to one entry of its plan. | No request had ever reached Linked: the dispatcher reports the desktop id and a session links by its transcript id, and a plan's `execute-plan` session never linked at all. Plans the person had finished stayed in the session queue as Started. |
