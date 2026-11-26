@@ -32,7 +32,9 @@ namespace Backlog.Desktop.UI.Mcp;
 /// already has.
 /// </para>
 /// <para>
-/// <b>Allow asks for Windows Hello</b> through <see cref="IUserConsent"/> before it writes. A host
+/// <b>Allow asks for Windows Hello</b> through <see cref="IUserConsent.VerifyEveryTimeAsync"/> before
+/// it writes, every time: a confirmation the person gave a moment ago does not answer it, so UI
+/// automation cannot pass it (local ADR 0058 §5). A host
 /// whose consent answers not available — the web harness — refuses every Allow.
 /// </para>
 /// <para>
@@ -307,7 +309,7 @@ public sealed partial class McpAccessDesk : IAgentAccessRequests
             return Refuse(McpAccessRefusals.Delegated, $"{request.Name} was granted by another agent, which sets its scopes. Revoke it and allow it yourself, or trim its granter.");
         }
 
-        var consent = await _consent.VerifyAsync(ConsentMessage(request, chosen), cancellationToken).ConfigureAwait(false);
+        var consent = await _consent.VerifyEveryTimeAsync(ConsentMessage(request, chosen), cancellationToken).ConfigureAwait(false);
 
         switch (consent)
         {

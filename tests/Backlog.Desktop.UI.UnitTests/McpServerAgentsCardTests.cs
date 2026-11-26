@@ -241,6 +241,27 @@ public sealed class McpServerAgentsCardTests
         Assert.Single(consent.Asked);
     }
 
+    /// <summary><c>agents:grant</c> must be a prompt UI automation cannot pass (local ADR 0058
+    /// §5), so a confirmation the person gave a moment ago does not answer it.</summary>
+    [Fact]
+    public async Task Switching_agents_grant_on_asks_Windows_Hello_even_within_a_remembered_confirmation()
+    {
+        var grants = new FakeGrantStore();
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read"], McpAgents.CreatedInSettings);
+        var consent = new FakeConsent();
+        var remembered = new RememberedUserConsent(consent);
+        Assert.Equal(UserConsentOutcome.Verified, await remembered.VerifyAsync("A setting a moment ago", TestContext.Current.CancellationToken));
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
+        context.Services.AddSingleton<IUserConsent>(remembered);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-agent-scopes", "agents:grant").Click();
+
+        Assert.Equal(["A setting a moment ago", McpAgents.GranterConsent("Manager session")], consent.Asked);
+        Assert.Contains(McpScopes.AgentsGrant, grants.Find(manager.Id)!.Scopes);
+    }
+
     [Fact]
     public void Creating_an_agent_with_agents_grant_asks_Windows_Hello_and_a_decline_creates_nothing()
     {
@@ -537,6 +558,28 @@ public sealed class McpServerAgentsCardTests
 
         Assert.Single(consent.Asked);
         Assert.DoesNotContain(McpScopes.TasksRead, workspace.McpServerUnauthenticatedScopes);
+    }
+
+    /// <summary>Widening the Unauthenticated row must be a prompt UI automation cannot pass
+    /// (local ADR 0058 §5), so a confirmation the person gave a moment ago does not answer it.</summary>
+    [Fact]
+    public async Task Opening_an_unauthenticated_scope_asks_Windows_Hello_even_within_a_remembered_confirmation()
+    {
+        using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
+        var workspace = Workspace(temp);
+        var consent = new FakeConsent();
+        var remembered = new RememberedUserConsent(consent);
+        Assert.Equal(UserConsentOutcome.Verified, await remembered.VerifyAsync("A setting a moment ago", TestContext.Current.CancellationToken));
+        using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
+        context.Services.AddSingleton(workspace);
+        context.Services.AddSingleton<IUserConsent>(remembered);
+        var page = context.Render<McpServerSettingsPage>();
+        page.Find("[data-testid='mcp-server-agent-unauthenticated'] [data-testid='agent-row-edit']").Click();
+
+        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.DevbookRead).Click();
+
+        Assert.Equal(["A setting a moment ago", McpAgents.UnauthenticatedConsent(McpScopes.DevbookRead)], consent.Asked);
+        Assert.Contains(McpScopes.DevbookRead, workspace.McpServerUnauthenticatedScopes);
     }
 
     /// <summary>inbox:capture opens like any offered scope: Windows Hello first, then stored.</summary>
