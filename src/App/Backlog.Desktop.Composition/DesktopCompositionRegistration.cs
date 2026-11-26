@@ -479,11 +479,18 @@ public static partial class DesktopCompositionRegistration
         // Which window a scope belongs to, for a head service that stands over the
         // window a request came from.
         services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
-        // What the views read beside the list: the Board's columns, and the Calendar's
-        // range, Show plans and Show events, from the shell's navigation file, and the Goals view's
-        // candidates from the window's own task list and reader of pull requests.
-        services.AddSingleton<ITasksViewPreferences>(sp =>
-            new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        // What the views read beside the list: the Board's columns, per device, and the
+        // list's Plans / Flat, per window (local ADR 0072 §1) — a popped-out window opens on
+        // the main window's remembered choice and never writes it back — from the shell's
+        // navigation file; the Calendar's range, Show plans and Show events; and the Goals
+        // view's candidates from the window's own task list and reader of pull requests.
+        services.Add(new ServiceDescriptor(
+            typeof(ITasksViewPreferences),
+            sp => new ShellTasksViewPreferences(
+                sp.GetRequiredService<ShellNavigationStore>(),
+                sp.GetRequiredService<CurrentShellWindow>(),
+                sp.GetService<global::Microsoft.AspNetCore.Components.NavigationManager>()),
+            options.WindowStateLifetime));
         // The Calendar's own view choices (local ADR 0055 §1, §4) — its range, Show plans
         // and Show events — in the same per-device file, under the names they always had.
         services.AddSingleton<ICalendarViewPreferences>(sp =>

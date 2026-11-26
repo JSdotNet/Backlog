@@ -51,7 +51,10 @@ public sealed class SessionQueueColumnTests
         await host.WriteEntryAsync("# 1 - Start it +alpha\n`prompt` `!ready`\n");
         await host.State.SelectAsync(null);
 
+        // Today is the local date (DateTime.Now); a FakeTimeProvider reads local time in
+        // UTC unless told otherwise, which moves the pane's today across midnight.
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        clock.SetLocalTimeZone(TimeZoneInfo.Local);
         var queue = new TasksSessionRequestTests.FakeEntrySessionRequests
         {
             DispatcherContact = new DispatcherContactReading(clock.GetUtcNow(), IsSilent: false)
@@ -205,10 +208,10 @@ public sealed class SessionQueueColumnTests
         Assert.Equal($"https://github.com/{Backlog}/pull/232", draft.QuerySelector("[data-testid='session-queue-validate']")!.GetAttribute("href"));
         Assert.NotNull(draft.QuerySelector("[data-testid='session-queue-dismiss']"));
 
-        // Running: the Claimed one, offering no Cancel and no move.
+        // Running: the Claimed one, offering Cancel and no move.
         var running = pane.Find("[data-testid='session-queue-running']").QuerySelectorAll("[data-testid='session-queue-row']");
         Assert.Equal("Fix the report", Assert.Single(running).QuerySelector("[data-testid='session-queue-jump']")!.TextContent.Trim());
-        Assert.Null(running[0].QuerySelector("[data-testid='session-queue-cancel']"));
+        Assert.NotNull(running[0].QuerySelector("[data-testid='session-queue-cancel']"));
         Assert.Null(running[0].QuerySelector("[data-testid='session-queue-order']"));
 
         // Up next, in queue order, numbered, each with its moves and Cancel.
@@ -233,6 +236,22 @@ public sealed class SessionQueueColumnTests
         var pane = Render(seeded.Host, TaskListGrouping.Plans);
         var cancel = pane.WaitForElement("[data-testid='session-queue-running'] [data-testid='session-queue-cancel']");
         Assert.NotNull(cancel.Closest(".session-queue-column__row"));
+
+        cancel.Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(requestId, Assert.Single(seeded.Queue.Cancelled)));
+    }
+
+    [Fact]
+    public async Task A_claimed_request_runs_with_its_Cancel_and_Cancel_withdraws_it()
+    {
+        var seeded = await SeedAsync();
+        using var _host = seeded.Host;
+        var requestId = Guid.NewGuid();
+        seeded.Queue.Open[seeded.Report.Id!.Value] = new EntrySessionRequest(requestId, EntrySessionRequestState.Claimed, Backlog, seeded.Clock.GetUtcNow().AddMinutes(-1));
+
+        var pane = Render(seeded.Host, TaskListGrouping.Plans);
+        var cancel = pane.WaitForElement("[data-testid='session-queue-running'] [data-testid='session-queue-cancel']");
 
         cancel.Click();
 

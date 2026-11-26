@@ -48,7 +48,11 @@ public sealed class PlanRailTests
         queue.Open["beta"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog, DateTimeOffset.UnixEpoch, QueuePosition: 0);
         queue.Open["epsilon"] = new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Started, Backlog, DateTimeOffset.UnixEpoch);
         host.Context.Services.AddSingleton<IPlanTagSessionRequests>(queue);
-        host.Context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow));
+        // The pane's today must be the local date the myday: stamps below are written
+        // for; a FakeTimeProvider reads local time in UTC unless told otherwise.
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        clock.SetLocalTimeZone(TimeZoneInfo.Local);
+        host.Context.Services.AddSingleton<TimeProvider>(clock);
 
         return (host, queue);
     }

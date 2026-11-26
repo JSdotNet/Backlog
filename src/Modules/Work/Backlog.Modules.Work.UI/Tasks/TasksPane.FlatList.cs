@@ -102,14 +102,14 @@ public partial class TasksPane
         _ => "Everything",
     };
 
-    /// <summary>A quick view's count off the Flat pool, or null for Everything, which
-    /// carries none.</summary>
-    private int? FlatQuickViewCount(FlatQuickView view) => view switch
+    /// <summary>A quick view's count off the Flat pool. Everything counts the pool's open
+    /// rows, by the rule My Day's count uses, so the four numbers read alike.</summary>
+    private int FlatQuickViewCount(FlatQuickView view) => view switch
     {
         FlatQuickView.MyDay => FlatPool().Count(row => !row.IsPreviewCompleted && IsInMyDay(row)),
         FlatQuickView.InTheQueue => FlatPool().Count(IsQueuedForSession),
         FlatQuickView.Waiting => FlatPool().Count(State.IsWaitingForSomeone),
-        _ => null,
+        _ => FlatPool().Count(row => !row.IsPreviewCompleted),
     };
 
     /// <summary>One quick view at a time: picking one lets go of the other two.</summary>
