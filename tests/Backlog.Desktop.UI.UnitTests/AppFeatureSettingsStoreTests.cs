@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -9,7 +9,7 @@ public sealed class AppFeatureSettingsStoreTests
 {
     /// <summary>
     /// A choice stored under <c>"pull-requests"</c> before the key moved from Sessions to
-    /// Repository Management (local ADR 0042) still decides the pull requests pane after
+    /// Repositories (local ADR 0042) still decides the pull requests pane after
     /// it: the string is the persisted value, and the move kept it.
     /// </summary>
     [Theory]
@@ -28,7 +28,7 @@ public sealed class AppFeatureSettingsStoreTests
 
         var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-        Assert.Equal(enabled, store.IsEnabled(RepositoryManagementFeatures.PullRequests));
+        Assert.Equal(enabled, store.IsEnabled(RepositoriesFeatures.PullRequests));
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.Status,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
-                RepositoryManagementFeatures.PullRequests,
+                RepositoriesFeatures.PullRequests,
                 SessionFeatures.SessionRequests,
                 SyncFeatures.Sync,
                 Backlog.Modules.Notifications.Abstractions.NotificationsFeatures.Notifications,

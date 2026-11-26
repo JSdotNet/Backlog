@@ -405,7 +405,7 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
-    /// Every reader of a pull request goes through Repository Management's one contract
+    /// Every reader of a pull request goes through Repositories' one contract
     /// (local ADR 0042): the harness composes the module, one instance for the process,
     /// with GitHub behind it rather than the module's not-configured fallbacks, and the
     /// settled-fact memory on disk rather than in memory.
@@ -415,18 +415,18 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>();
+        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequests>();
 
-        Assert.Equal("Backlog.Modules.RepositoryManagement", pullRequests.GetType().Assembly.GetName().Name);
-        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>());
-        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestSource>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequestSource>());
-        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubRegisteredRepositories>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IRegisteredRepositories>());
+        Assert.Equal("Backlog.Modules.Repositories", pullRequests.GetType().Assembly.GetName().Name);
+        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequests>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.Repositories.GitHubPullRequestSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequestSource>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.Repositories.GitHubRegisteredRepositories>(
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IRegisteredRepositories>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.ISettledPullRequestStore>());
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.ISettledPullRequestStore>());
         // Progress reads pull requests through the same contract (V6).
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoryManagementGoalPullRequests>(
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoriesGoalPullRequests>(
             harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
         // And so does the task row, through Tasks' own port (V5, V10); which entries a
         // merge's finish is settled for stays Tasks' fact, in the folder it always had.

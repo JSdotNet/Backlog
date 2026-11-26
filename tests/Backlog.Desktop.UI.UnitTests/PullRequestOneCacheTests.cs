@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// One cache for every reader of a pull request (local ADR 0042 §3, V3): a task's side
-/// panel and the Goals view read the same pull request through Repository Management's
+/// panel and the Goals view read the same pull request through Repositories'
 /// contract, composed as the hosts compose it over one GitHub client that counts what it
 /// is sent — and within the minute GitHub is asked about it once.
 /// </summary>
@@ -28,9 +28,9 @@ public sealed class PullRequestOneCacheTests
         host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var contract = RepositoriesChain.For(host.GitHub, clock);
         var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656), new(Repository, 700)]);
-        var goals = new RepositoryManagementGoalPullRequests(() => contract);
+        var goals = new RepositoriesGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
         await sidePanel.LinkedRead;
@@ -53,9 +53,9 @@ public sealed class PullRequestOneCacheTests
         host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var contract = RepositoriesChain.For(host.GitHub, clock);
         var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656)]);
-        var goals = new RepositoryManagementGoalPullRequests(() => contract);
+        var goals = new RepositoriesGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
         await sidePanel.LinkedRead;

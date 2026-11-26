@@ -95,9 +95,9 @@
     <Project Path="src/Modules/Progress/Backlog.Modules.Progress.UI/Backlog.Modules.Progress.UI.csproj" />
     <Project Path="src/Modules/Progress/Backlog.Modules.Progress/Backlog.Modules.Progress.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/RepositoryManagement/">
-    <Project Path="src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement.Abstractions/Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
-    <Project Path="src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement/Backlog.Modules.RepositoryManagement.csproj" />
+  <Folder Name="/src/Modules/Repositories/">
+    <Project Path="src/Modules/Repositories/Backlog.Modules.Repositories.Abstractions/Backlog.Modules.Repositories.Abstractions.csproj" />
+    <Project Path="src/Modules/Repositories/Backlog.Modules.Repositories/Backlog.Modules.Repositories.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Roadmap/">
     <Project Path="src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions/Backlog.Modules.Roadmap.Abstractions.csproj" />
@@ -151,7 +151,7 @@
     <Project Path="tests/Backlog.Modules.Inbox.UnitTests/Backlog.Modules.Inbox.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Notifications.UnitTests/Backlog.Modules.Notifications.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Progress.UnitTests/Backlog.Modules.Progress.UnitTests.csproj" />
-    <Project Path="tests/Backlog.Modules.RepositoryManagement.UnitTests/Backlog.Modules.RepositoryManagement.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Repositories.UnitTests/Backlog.Modules.Repositories.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Roadmap.UnitTests/Backlog.Modules.Roadmap.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Sessions.UnitTests/Backlog.Modules.Sessions.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Sync.Api.UnitTests/Backlog.Modules.Sync.Api.UnitTests.csproj" />

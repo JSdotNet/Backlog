@@ -8,7 +8,7 @@
 @inject IServiceProvider Services
 
 @*
-    The open pull requests — Repository Management's screen (local ADR 0042), beside
+    The open pull requests — Repositories' screen (local ADR 0042), beside
     the sessions that opened them — as a shell surface (local ADR 0043 §1, §3, §6): a
     takeover, in the main window in place of the main view or in a window of
     its own. `pullRequest=<owner/name#number>` opens it on that pull request, its row
@@ -17,7 +17,7 @@
     Drawn from the host rather than from a module, because the list still asks the
     host's GitHub integration for the registry's aliases, colours and label filters,
     which no module UI project may reference; its pull requests it reads through
-    Repository Management's contract. It reads the window's own task list and repository scope, and its jumps — to the
+    Repositories' contract. It reads the window's own task list and repository scope, and its jumps — to the
     entry a pull request belongs to, to the session it came from — go through the
     window's navigator, so they land in the window they were pressed in.
 *@

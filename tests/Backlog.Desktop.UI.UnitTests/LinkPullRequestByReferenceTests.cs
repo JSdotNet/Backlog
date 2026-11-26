@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Goals;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -238,7 +238,7 @@ public sealed class LinkPullRequestByReferenceTests
         var clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(), clock);
+        return new(RepositoriesChain.For(host.GitHub, clock), new StubSessionSource(), clock);
     }
 
     private static PullRequestByNumber Linked(int number, GitHubItemState state, DateTimeOffset? mergedAt = null, string repository = Repository) =>

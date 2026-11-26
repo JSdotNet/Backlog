@@ -5178,7 +5178,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// Reads the pull requests <paramref name="wanted"/> picks out of the list, and
     /// writes each answer onto every row that records it.
     /// <para>
-    /// One read of them all through Repository Management's contract
+    /// One read of them all through Repositories' contract
     /// (<see cref="ILinkedPullRequestStates"/>, local ADR 0042 §4), which asks GitHub
     /// once per repository, side by side, for the state, the checks, the review, the
     /// auto-merge request and where a merge went — never one read per pull request in
@@ -5512,7 +5512,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
     /// Once per entry and pull request in a run, so a person who takes the entry back
     /// to In progress keeps it there. Across a restart, which entries a merge is
     /// settled for is what is kept (<see cref="SettleMerge"/>): a merge restored from
-    /// Repository Management's settled facts (<see cref="RestoreRememberedOutcomes"/>),
+    /// Repositories' settled facts (<see cref="RestoreRememberedOutcomes"/>),
     /// or read again, moves only an entry that is not settled for it. Only one this
     /// device never settled — no finish memory in the host, or the memory lost — moves
     /// its entry again on its first read.
@@ -5719,7 +5719,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
         ActOnPullRequestAsync(row, pr, (states, key) => states.MergeNowAsync(key), "Couldn't merge the pull request.");
 
     /// <summary>
-    /// One merge act, through Repository Management's contract (local ADR 0042 §3), and
+    /// One merge act, through Repositories' contract (local ADR 0042 §3), and
     /// the read that follows it.
     /// <para>
     /// A refusal is a toast and nothing else: it names the entry and, where GitHub's
@@ -6580,7 +6580,7 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
     /// <summary>
     /// Draws a recorded pull request's merge on a row that has no read of it yet, from
-    /// what Repository Management keeps — its settled facts after a restart, or another
+    /// what Repositories keeps — its settled facts after a restart, or another
     /// reader's read in this run (local ADR 0042 §3) — so the list opens with its merged
     /// links coloured before GitHub is asked, and offline too.
     /// <para>
@@ -7478,7 +7478,7 @@ public sealed class EntryRow
     /// <summary>Last known state of each recorded pull request in
     /// <see cref="PullRequestLinks"/>; one that was never read, or could not be,
     /// is absent. Never in the entry's text or its replica, for the reason
-    /// <see cref="Snapshot"/> is not. A merge is Repository Management's settled fact,
+    /// <see cref="Snapshot"/> is not. A merge is Repositories' settled fact,
     /// kept on this device in app storage, so a restart draws it before GitHub is asked
     /// (<see cref="ILinkedPullRequestStates.Kept"/>, local ADR 0042 §3); any other state
     /// is read again each launch.</summary>
@@ -7487,7 +7487,7 @@ public sealed class EntryRow
 
     /// <summary>
     /// Last known status of each recorded pull request, in Tasks' words — the verdict
-    /// Repository Management gives it, its checks, its review, whether GitHub is
+    /// Repositories gives it, its checks, its review, whether GitHub is
     /// holding it for auto-merge, and the merge the row may offer. Read in the same
     /// answer as <see cref="PullRequestStates"/>, so the two always agree. Not
     /// persisted by Tasks anywhere: the contract's one cache is what a later read

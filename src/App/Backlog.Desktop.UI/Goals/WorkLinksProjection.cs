@@ -1,8 +1,8 @@
 using System.Globalization;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// What a task's "Sessions and pull requests" section is asked to draw, worked out from
-/// the task list, the session record and the pull requests Repository Management's
+/// the task list, the session record and the pull requests Repositories'
 /// contract answered (local ADR 0042).
 /// <para>
 /// Apart from any rendering so the rules have one home: which session and pull request

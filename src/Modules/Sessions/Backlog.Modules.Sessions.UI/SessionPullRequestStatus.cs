@@ -8,7 +8,7 @@ namespace Backlog.Modules.Sessions.UI;
 /// one-sentence reason behind the verdict.
 /// <para>
 /// Handed in by the host rather than read here, for the reason the task opener is:
-/// asking GitHub is Repository Management's business, and the verdict is that
+/// asking GitHub is Repositories' business, and the verdict is that
 /// context's one rule (<c>PullRequestVerdict</c>, local ADR 0042), so a pull request
 /// reads the same on this screen as on the pull requests pane and a task's row. This
 /// pane only draws what it is given.

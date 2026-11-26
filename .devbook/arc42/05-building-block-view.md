@@ -155,7 +155,7 @@ graph TB
       Roadmap["Backlog.Modules.Roadmap"]
       Insights["Backlog.Modules.Insights"]
       Capture["Backlog.Modules.Capture"]
-      RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
+      RepoMgmt["Backlog.Modules.Repositories\n(pull-request contract, one cache)"]
       Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
       Calendar["Backlog.Modules.Calendar\n(Tasks, Plans and Events layer policies,\nno data of its own)"]
     end
@@ -249,7 +249,7 @@ Capture sources and background workers run inside the desktop process, so extern
 
 Module UI projects reference adapters directly where a pane needs one: Tasks.UI and Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
 
-**Repositories** is `Backlog.Modules.RepositoryManagement` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
+**Repositories** is `Backlog.Modules.Repositories` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
 
 **Events** is `Backlog.Modules.Events`, with its `.Abstractions` and `.UI` (local ADR 0050). Its stores are the `events_knowledge_events` and `events_series` tables in `backlog.db`. Its pane is a takeover behind the `events` feature, and its `HarvestTaskWorker` runs the harvest task filing after start-up and at each day turn. No other module sees it and it sees none, so three adapters carry its joins:
 
