@@ -1,8 +1,9 @@
-// The dispatch-sessions skill's asset processes, run for real: the wait script against a
+// The shared dispatch assets' processes (resources/dispatch/assets), run for real: the wait script against a
 // stand-in for the app's /session-requests/wait route, manager-call.mjs against a stand-in /mcp,
 // and the PowerShell capacity probe. They spawn processes, which `claude plugin test`'s sandbox
 // cannot, so they run under
-//   node --test plugins/backlog-desktop/tests/dispatch-sessions-assets.test.mjs
+//   node --test plugins/backlog-tools/tests/dispatch-assets.test.mjs
+// backlog-desktop's dispatch-sessions runs byte-identical copies of them (its shared-copies test).
 // Each runs in a fake app data folder (fake-backlog-app.mjs) whose settings.json records the
 // Manager grant and whose headers helper mints "minted-<grant>".
 
@@ -14,11 +15,11 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { checkState, fixBrief, fixTitle, redBotPullRequests, skipReason } from "../skills/dispatch-sessions/assets/mend-logic.mjs";
-import { dispatcherName } from "../skills/dispatch-sessions/assets/wait-logic.mjs";
+import { checkState, fixBrief, fixTitle, redBotPullRequests, skipReason } from "../resources/dispatch/assets/mend-logic.mjs";
+import { dispatcherName } from "../resources/dispatch/assets/wait-logic.mjs";
 import { fakeBacklogApp } from "./fake-backlog-app.mjs";
 
-const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "skills", "dispatch-sessions", "assets");
+const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "resources", "dispatch", "assets");
 const request = (id) => ({ kind: "request", id, requestKind: "entry", repository: "JSdotNet/Backlog", brief: "/backlog-tools:run-plan-item entry `x`:" });
 const delivery = (id) => ({ kind: "delivery", id, sessionId: "cli-1", desktopSessionId: "local_1", question: "Which database?", answer: "Postgres" });
 const grants = { delivery: "g_delivery", questionHook: "g_hook", telemetry: "g_telemetry", manager: "g_manager" };
@@ -335,6 +336,11 @@ test("a pull request a session watches, a fixer still holds, or two fixers tried
     assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: false }]), "fixing");
     assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: true }]), null);
     assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ title, isArchived: true }, { title, isArchived: true }]), "gave-up");
+});
+
+test("a Claude Desktop row is matched by its title, not a linked session's short name", () => {
+    const title = fixTitle("JSdotNet/Backlog", 1938);
+    assert.equal(skipReason("JSdotNet/Backlog", 1938, [{ name: "ci-fix-backlog", title, isArchived: false }]), "fixing");
 });
 
 test("the fixer's brief names only the repository, the number and the commit", () => {
