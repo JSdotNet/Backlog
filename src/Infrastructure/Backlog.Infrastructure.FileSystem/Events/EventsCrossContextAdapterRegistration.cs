@@ -9,7 +9,8 @@ namespace Backlog.Infrastructure.FileSystem.Events;
 /// The cross-context joins Events takes part in, answered by adapters that may see both sides
 /// (local ADR 0050 §3, §7): its prep tasks are filed and its task chips read through
 /// <see cref="IEventTaskTarget"/> over Tasks' <see cref="ITaskItems"/>, and its note links
-/// read through <see cref="IEventBrainNotes"/>. The Calendar's Events layer, which reads
+/// read through <see cref="IEventBrainNotes"/>; a harvested event's Talk notes move through
+/// <see cref="IEventTalkNotes"/>. The Calendar's Events layer, which reads
 /// Events' read contract, is the Calendar's to register (local ADR 0055 §2).
 /// <para>
 /// The task target captures a service the Tasks module registers as <c>Scoped</c>, so it is
@@ -34,6 +35,11 @@ public static class EventsCrossContextAdapterRegistration
         // Backlog.Infrastructure.Brain's registration then replaces this with the reader
         // over the Brain's folder and database.
         services.TryAddSingleton<IEventBrainNotes, NoEventBrainNotes>();
+
+        // Every Talk note stays in the Inbox on harvest until a host composes the Brain —
+        // Backlog.Infrastructure.Brain's registration then replaces this with the writer that
+        // files it into the Brain's inbox and archives it (local ADR 0073 §8).
+        services.TryAddSingleton<IEventTalkNotes, NoEventTalkNotes>();
 
         return services;
     }

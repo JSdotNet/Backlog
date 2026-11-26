@@ -13,7 +13,8 @@ namespace Backlog.Modules.Events.Services;
 /// <summary>
 /// The Harvest Task Policy (<c>.devbook/domain/events/domain.md#harvest-task-policy</c>): files
 /// one task <c>Harvest &lt;event title&gt;</c> under the Brain scope the day after a Going event
-/// ends, and completes it when the event is marked Harvested. Its rules are
+/// ends, and completes it when the event is marked Harvested. On that move it also files each
+/// linked Talk note into the Brain's inbox and links it there (local ADR 0073 §8). Its rules are
 /// <c>domain.invariants.md#harvest-task-policy</c>, enforced at <see cref="FileDueAsync"/> and
 /// <see cref="OnHarvestedAsync"/>.
 /// <para>
@@ -24,16 +25,24 @@ namespace Backlog.Modules.Events.Services;
 /// so nothing in Tasks names the event (local ADR 0050 §3).
 /// </para>
 /// <para>
-/// A service and not a rule of the event, because it spans the event and a task in Tasks. It
-/// never changes an event's state, and it raises no notification: the task is the reminder.
-/// Scoped, for the task target it holds.
+/// <b>A Talk note moves to the Brain on harvest.</b> Each Talk note the event links is written as
+/// a new note in the Brain's inbox through <see cref="IEventTalkNotes"/>, its link is replaced
+/// in place by a Brain link to that path, and only then is the Inbox note archived, so a fault
+/// part-way leaves the words in the Brain or the Inbox and never in neither. With no Brain set the
+/// note and its link stay as they are.
+/// </para>
+/// <para>
+/// A service and not a rule of the event, because it spans the event, a task in Tasks and the
+/// notes. It never changes an event's state, and it raises no notification: the task is the
+/// reminder. Scoped, for the task target it holds.
 /// </para>
 /// </summary>
 internal sealed partial class HarvestTaskPolicy(
     IKnowledgeEventRepository events,
     IEventTaskTarget tasks,
     ILogger<HarvestTaskPolicy>? log = null,
-    KnowledgeEventSaved? saved = null)
+    KnowledgeEventSaved? saved = null,
+    IEventTalkNotes? talkNotes = null)
 {
     private const string TitlePrefix = "Harvest ";
 
@@ -92,14 +101,22 @@ internal sealed partial class HarvestTaskPolicy(
     /// <summary>
     /// Completes the task the Harvest link of <paramref name="harvested"/> names, and no other: a
     /// prep or linked task is never touched. Whether that task is still open is the task
-    /// target's to decide — one already Done or Archived is left as it is. Best effort: the move
-    /// into Harvested is saved before this runs, so a completion Tasks refuses, or one that
-    /// throws, leaves the event Harvested; the answer says whether it held.
+    /// target's to decide — one already Done or Archived is left as it is. Then files each Talk
+    /// note the event links into the Brain (<see cref="FileTalkNotesAsync"/>). Best effort: the
+    /// move into Harvested is saved before this runs, so a completion Tasks refuses, or one that
+    /// throws, leaves the event Harvested; the answer says whether the completion held.
     /// </summary>
     public async Task<Result> OnHarvestedAsync(KnowledgeEvent harvested, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(harvested);
 
+        var completed = await CompleteHarvestTaskAsync(harvested, cancellationToken).ConfigureAwait(false);
+        await FileTalkNotesAsync(harvested, cancellationToken).ConfigureAwait(false);
+        return completed;
+    }
+
+    private async Task<Result> CompleteHarvestTaskAsync(KnowledgeEvent harvested, CancellationToken cancellationToken)
+    {
         if (harvested.Tasks.FirstOrDefault(task => task.Purpose == TaskPurpose.Harvest) is not { } link) return Result.Success();
 
         try
@@ -110,6 +127,83 @@ internal sealed partial class HarvestTaskPolicy(
         {
             LogCompletionThrew(_log, ex, link.TaskId, harvested.Id);
             return Result.Failure(CompletionThrew);
+        }
+    }
+
+    /// <summary>
+    /// Writes each Talk note <paramref name="harvested"/> links as a new note in the Brain's
+    /// inbox, words unchanged, replaces its link in place with a Brain link to that path, saves
+    /// the event once, and then archives each Inbox note that moved (local ADR 0073 §8). A note
+    /// the Brain does not take — no Brain set, a refusal, a note the Inbox no longer holds —
+    /// keeps its Talk link and stays in the Inbox. Every fault is logged and none is the
+    /// move's: the event is already Harvested.
+    /// </summary>
+    private async Task FileTalkNotesAsync(KnowledgeEvent harvested, CancellationToken cancellationToken)
+    {
+        if (talkNotes is null) return;
+
+        var moved = new List<(Guid NoteId, NoteLink Talk, NoteLink Brain)>();
+        foreach (var talk in harvested.Notes.Where(note => note.Kind == NoteLinkKind.Talk).ToList())
+        {
+            if (!Guid.TryParse(talk.Reference, out var noteId)) continue;
+
+            // Once a note is in the Brain the rest of the pass runs to its end: a cancel then
+            // would leave that note in both homes, with nothing to retry a final state.
+            var token = moved.Count == 0 ? cancellationToken : CancellationToken.None;
+            if (token.IsCancellationRequested) break;
+
+            try
+            {
+                if (await talkNotes.FileIntoBrainAsync(noteId, token).ConfigureAwait(false) is not { } filed) continue;
+
+                var brain = NoteLink.Create(NoteLinkKind.Brain, filed.Path, filed.Title);
+                if (harvested.ReplaceNoteLink(talk, brain) is Error) continue;
+                moved.Add((noteId, talk, brain));
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                break;
+            }
+#pragma warning disable CA1031 // One note's fault is no reason for the next to stay in the Inbox.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogTalkNoteNotFiled(_log, ex, noteId, harvested.Id);
+            }
+        }
+
+        if (moved.Count == 0) return;
+
+        try
+        {
+            await events.SaveAsync(harvested, CancellationToken.None).ConfigureAwait(false);
+            saved?.Raise();
+        }
+#pragma warning disable CA1031 // Best effort: the event is already Harvested, and a fault here is logged.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // The notes are in the Brain and still in the Inbox: nothing is lost. The event, in
+            // the store and as the pane reads it now, keeps its Talk links, and the person can
+            // link the Brain copies by hand.
+            foreach (var (_, talk, brain) in moved) _ = harvested.ReplaceNoteLink(brain, talk);
+            LogTalkLinksNotSaved(_log, ex, harvested.Id);
+            return;
+        }
+
+        foreach (var (noteId, _, _) in moved)
+        {
+            try
+            {
+                if (await talkNotes.ArchiveAsync(noteId, CancellationToken.None).ConfigureAwait(false) is Error)
+                    LogTalkNoteNotArchived(_log, null, noteId, harvested.Id);
+            }
+#pragma warning disable CA1031 // Best effort: the note is in the Brain and linked there; a fault leaves it in the Inbox too.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogTalkNoteNotArchived(_log, ex, noteId, harvested.Id);
+            }
         }
     }
 
@@ -155,6 +249,15 @@ internal sealed partial class HarvestTaskPolicy(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Completing harvest task {TaskId} of event {EventId} threw; the event stays Harvested.")]
     private static partial void LogCompletionThrew(ILogger logger, Exception exception, string taskId, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Talk note {NoteId} of event {EventId} was not filed into the Brain; it stays in the Inbox.")]
+    private static partial void LogTalkNoteNotFiled(ILogger logger, Exception exception, Guid noteId, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The Brain links of harvested event {EventId} were not saved; its Talk notes stay in the Inbox.")]
+    private static partial void LogTalkLinksNotSaved(ILogger logger, Exception exception, Guid eventId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Talk note {NoteId} of event {EventId} is in the Brain but was not archived in the Inbox.")]
+    private static partial void LogTalkNoteNotArchived(ILogger logger, Exception? exception, Guid noteId, Guid eventId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Harvest task {TaskId} is held but event {EventId} changed meanwhile, so it was not linked.")]
     private static partial void LogNotLinked(ILogger logger, string taskId, Guid eventId);

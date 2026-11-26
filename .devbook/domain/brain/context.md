@@ -4,7 +4,7 @@
 index: root
 type: context
 deployment: module
-related: [.devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/context-map.md]
+related: [.devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/context-map.md]
 ```
 
 The Brain is one person's own notes: one devbook-shaped folder per user, outside every repository (local ADR 0026). It is also the scope of everything that person files against no repository (local ADR 0027). Its notes are [Knowledge Notes](domain.md#knowledge-note), organized under [areas](domain.md#para-category), linked to [Work](../work/domain.task.md#task) by id and, one way, into a repository's devbook. It is its own bounded context (local ADR 0040): the person and their agent own its structure, as a repository owns its devbook.
@@ -93,5 +93,6 @@ The Brain is downstream of Devbook, whose reading machinery it uses, and of the 
 |---|---|---|---|---|
 | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route), answered by `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` | The Brain writes a Knowledge Note into its inbox area for each item routed **To Brain**. |
 | [Work](../work/domain.task.md#task) | Partnership | Reference read model plus bi-directional link | `.devbook/domain/brain/domain.md#cross-linking` | The notes that name a task stay countable without sharing aggregates. |
+| [Events](../events/context.md) | One-way reference (Brain = supplier) | `IEventTalkNotes`, answered by `EventsTalkNotes` in `Backlog.Infrastructure.Brain` over `IBrainNoteWriter`; `IEventBrainNotes` reads the notes an event links | `IBrainNoteWriter`; a note's path from the Brain's root; local ADR 0073 §8 | The Brain writes a Knowledge Note into its inbox area for each Talk note of an event marked Harvested. The note never names the event. |
 
-An item routed **To Brain** from the Inbox may be a capture or an Inbox note; the Brain treats them alike.
+An item routed **To Brain** from the Inbox may be a capture or an Inbox note; the Brain treats them alike. A harvested Talk note arrives the same way, source `inbox`, its words unchanged. When `tend-brain` files it away from the inbox area, the event's link to its old path reads as missing, as any moved note's does.

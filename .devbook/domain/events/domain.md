@@ -243,7 +243,9 @@ A note the event points at, of one of two kinds:
 
 - **Brain**: a [Knowledge Note](../brain/domain.md#knowledge-note), named by
   its path from the Brain's root, as `ItemTriaged.note_path` names it.
-- **Talk**: an Inbox [note](../inbox/domain.md#note), named by its id.
+- **Talk**: an Inbox [note](../inbox/domain.md#note), named by its id, until the
+  event is harvested. The [Harvest Task Policy](#harvest-task-policy) then writes
+  it into the Brain and puts a Brain link in its place (local ADR 0073 §8).
 
 The link also keeps the note's title as it read when linked, or none when it had none. The phone shows a
 Brain note by that title only, because it cannot see the Brain. A Brain note moved
@@ -321,7 +323,7 @@ request untouched until the flag is on.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/events/domain.invariants.md#harvest-task-policy, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/requirements.md#harvest-task]
+related: [.devbook/domain/events/domain.invariants.md#harvest-task-policy, .devbook/domain/events/features.md#harvest-task, .devbook/domain/events/requirements.md#harvest-task, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/brain/domain.md#knowledge-note]
 ```
 
 ```mermaid
@@ -331,9 +333,14 @@ flowchart TD
     Due -->|yes, no harvest task yet| Held{"A task under the event's harvest id held here?"}
     Held -->|no| File["File 'Harvest &lt;title&gt;' under that id, under the Brain, link it"]
     Held -->|"yes, live or deleted"| Link["File nothing, link that id"]
-    Mark["The person marks it Harvested"] --> Open{"Harvest task still open?"}
+    Mark["The person marks it Harvested"] --> Open{"A harvest task linked and still open?"}
     Open -->|yes| Complete["Complete the task"]
-    Open -->|no| Nothing
+    Open -->|no| Talks
+    Complete --> Talks{"A Talk note still open in the Inbox, with no files, and a Brain set?"}
+    Talks -->|no| Stay["The Talk note and its link stay"]
+    Talks -->|yes| Write["Write it into the Brain's inbox, words unchanged"]
+    Write --> Relink["Link the event to that Brain path, in the Talk note's place"]
+    Relink --> Archive["Archive the Inbox note"]
 ```
 
 The policy closes the loop after an event, because the harvest is the step a
@@ -341,6 +348,21 @@ person forgets. A removed event is never due. It files one task `Harvest <event 
 lands under the [Brain scope](../brain/features.md#brain-scope). It links that task
 to the event as its Harvest [Event Task Link](#event-task-link). Marking the event Harvested
 completes that task. The policy raises no notification.
+
+Marking the event Harvested also gives each Talk note one home, the Brain (local
+ADR 0073 §8, ADR 0054). Each Talk note the event links that is still open in the
+Inbox, Unprocessed or Deferred, with no files attached, is written as a new note in
+the Brain's inbox through the Brain's note writer, with its title and body
+unchanged, as To Brain writes one. Its
+[Note Link](#note-link) becomes a Brain link to that path, in the same place among
+the links, and the event is saved. Only then is the Inbox note archived, so a fault
+part-way leaves the words in the Brain or the Inbox, never in neither. A Talk note
+already routed or archived, one the Inbox no longer holds, or one with a photo or a
+recording attached keeps its link, because a Brain note would carry its words and
+lose its files. With
+no Brain set, every Talk note and its link stay as they are. A note that
+`tend-brain` later files away from the Brain's inbox shows as missing, as any moved
+Brain note does, and the person links it again.
 
 Once per event holds across desktops because the task's id is derived from the
 event's id, as [Occurrence Spawning](../work/domain.md#occurrence-spawning) derives a
@@ -356,8 +378,8 @@ Two windows are accepted. A desktop that files after the person deleted the task
 another, before the deletion reached it, brings the task back. A harvest task filed
 before its id was derived carries a random id, and a duplicate made then stays.
 
-It spans the event and a task in Tasks, which is why it is a service and not a rule
-of the event. Tasks knows no event, so completing the task there leaves the event
+It spans the event, a task in Tasks and the notes, which is why it is a service and
+not a rule of the event. Tasks knows no event, so completing the task there leaves the event
 as it was.
 
 Invocation semantics: scheduled by the [Desktop clock](context.md#desktop-clock)

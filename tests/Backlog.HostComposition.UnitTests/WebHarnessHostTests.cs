@@ -533,7 +533,8 @@ public class WebHarnessHostTests
     /// The Events pane's port resolves in a window's scope over the two cross-context
     /// adapters: the task target over Tasks' published port, and the Brain's own note
     /// reader, which replaced the every-note-missing stand-in because the desktop composes
-    /// the Brain.
+    /// the Brain; and the Brain's Talk-note filer, which replaced the keep-every-note stand-in
+    /// for the same reason (local ADR 0073 §8).
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_the_events_pane_over_its_task_and_brain_adapters()
@@ -547,6 +548,8 @@ public class WebHarnessHostTests
             scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTaskTarget>().GetType().Name);
         Assert.IsType<Backlog.Infrastructure.Brain.EventsBrainNotes>(
             scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventBrainNotes>());
+        Assert.IsType<Backlog.Infrastructure.Brain.EventsTalkNotes>(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTalkNotes>());
     }
 
     /// <summary>
