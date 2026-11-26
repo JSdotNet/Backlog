@@ -60,7 +60,7 @@ public static class DevbookAreaCatalog
         var end = trimmed.IndexOf('/');
         if (end <= 0) return null;
 
-        var areaKey = DevbookMenu.AreaKey(trimmed[..end]);
+        var areaKey = DevbookTabKeys.AreaKey(trimmed[..end]);
         return Areas.Any(area => string.Equals(area.Key, areaKey, StringComparison.Ordinal)) ? areaKey : null;
     }
 

@@ -69,6 +69,7 @@
   </Folder>
   <Folder Name="/src/Modules/Devbook/">
     <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions/Backlog.Modules.Devbook.Abstractions.csproj" />
+    <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.Contracts.UI/Backlog.Modules.Devbook.Contracts.UI.csproj" />
     <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.UI/Backlog.Modules.Devbook.UI.csproj" />
   </Folder>
   <Folder Name="/src/Modules/DevPc/">

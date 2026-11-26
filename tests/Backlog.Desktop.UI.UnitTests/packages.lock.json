@@ -1041,7 +1041,7 @@
           "Backlog.Infrastructure.Devbook": "[1.0.0, )",
           "Backlog.Modules.Brain.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Devbook.UI": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Contracts.UI": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )"
@@ -1117,6 +1117,17 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.devbook.contracts.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Infrastructure.Devbook": "[1.0.0, )",
+          "Backlog.Infrastructure.GitHub": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Backlog.UI.Components": "[1.0.0, )",
+          "Microsoft.AspNetCore.Components.Web": "[11.0.0, )"
+        }
+      },
       "backlog.modules.devbook.ui": {
         "type": "Project",
         "dependencies": {
@@ -1124,6 +1135,7 @@
           "Backlog.Infrastructure.Devbook": "[1.0.0, )",
           "Backlog.Infrastructure.GitHub": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Devbook.Contracts.UI": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Backlog.UI.Components": "[1.0.0, )",
           "Microsoft.AspNetCore.Components.Web": "[11.0.0, )",

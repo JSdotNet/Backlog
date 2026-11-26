@@ -22,6 +22,9 @@ database tables and the Brain's use of the same builder.
 
 - **The Devbook pane:** `DevbookPane`, which the shell offers. Its architecture
   section is always the C4 zoom surface.
+- **The pane mode:** `IDevbookPaneMode` in `Backlog.Modules.Devbook.Contracts.UI`,
+  the one extension point the Brain's screens conform to. The viewer they read a
+  note with is the shared `DevbookMarkdownView` in `Backlog.UI.Components`.
 - **The ports:** `IDevbookFolderSource`, `IDevbookSubjectStateStore` and the other
   interfaces in `Backlog.Modules.Devbook.Abstractions`, with the switch keys in
   `DevbookFeatures`.
@@ -39,6 +42,7 @@ database tables and the Brain's use of the same builder.
 | --- | --- |
 | `Backlog.Modules.Devbook.Abstractions` | The ports, and the reading rules the builder and the pane share |
 | `Backlog.Modules.Devbook.UI` | The pane and its panels, the C4 surface among them |
+| `Backlog.Modules.Devbook.Contracts.UI` | What the pane publishes to a mode from another context: `IDevbookPaneMode`, the atlas and Lobes, the scope, and the chapter content, editor and parser (local ADR 0073 §9) |
 | `Backlog.Infrastructure.Devbook` | The database builder and reader, search, and the C# code reader |
 
 `code` names `Backlog.Infrastructure.Devbook` alone, so the Code level of this

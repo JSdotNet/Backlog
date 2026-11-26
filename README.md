@@ -120,6 +120,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Capture/Backlog.Modules.Capture.Abstractions` | The Capture module's published surface — the source settings, the run result and run log DTOs, `ICaptureRunner`, `ICaptureRunLog` and `ICaptureSourceSettings` |
 | `src/Modules/Capture/Backlog.Modules.Capture.UI` | Capture's desktop face — the sources panel behind the Inbox's Capture button |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions` | Devbook's published surface — `IDevbookFolderSource`, the configured-folder format, and the location a folder resolves to |
+| `src/Modules/Devbook/Backlog.Modules.Devbook.Contracts.UI` | What the Devbook pane publishes to a mode from another context — the mode extension point, the atlas and Lobes, the scope, and the chapter content, editor and parser |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook's desktop face — the Devbook menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Brain/Backlog.Modules.Brain.Abstractions` | The Brain's published surface (local ADR 0040) — `IBrainFolderSource`, `BrainConventions`, the Brain folder setting, Show hidden, the note writer, and the backlink and task-link ports |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | The Brain's desktop face on the Devbook pane (local ADR 0040) — the note panel, Capture, Show hidden, the From your Brain box and the Brain atlas, handed to the pane through its mode extension point; `AddBrainModule` registers it with the Brain's adapters |

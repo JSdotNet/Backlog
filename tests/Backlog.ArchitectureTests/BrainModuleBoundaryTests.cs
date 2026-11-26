@@ -30,9 +30,10 @@ public sealed partial class BrainModuleBoundaryTests
     private const string BrainAdapter = "src/Infrastructure/Backlog.Infrastructure.Brain";
     private const string DevbookAbstractions = "src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions";
     private const string DevbookUi = "src/Modules/Devbook/Backlog.Modules.Devbook.UI";
+    private const string DevbookContractsUi = "src/Modules/Devbook/Backlog.Modules.Devbook.Contracts.UI";
     private const string DevbookAdapter = "src/Infrastructure/Backlog.Infrastructure.Devbook";
 
-    private static readonly string[] DevbookProjects = [DevbookAbstractions, DevbookUi, DevbookAdapter];
+    private static readonly string[] DevbookProjects = [DevbookAbstractions, DevbookUi, DevbookContractsUi, DevbookAdapter];
 
     /// <summary>
     /// Where "capture" means a screenshot a scenario run took, not the Brain's
@@ -59,10 +60,10 @@ public sealed partial class BrainModuleBoundaryTests
         { "ShowsBrainChanged", $"{DevbookUi}/DevbookPane.razor" },
         { "BrainMode", $"{DevbookUi}/DevbookPane.razor" },
         { "OnOpenRepositoryChapter", $"{DevbookUi}/DevbookPane.razor" },
-        { "BrainOffered", $"{DevbookUi}/DevbookScope.cs" },
-        { "IsBrain", $"{DevbookUi}/DevbookAtlas.cs" },
+        { "BrainOffered", $"{DevbookContractsUi}/DevbookScope.cs" },
+        { "IsBrain", $"{DevbookContractsUi}/DevbookAtlas.cs" },
         { "IsBrain", $"{DevbookUi}/DevbookSearchMerge.cs" },
-        { "ForBrainNote", $"{DevbookUi}/DevbookChapterLink.cs" },
+        { "ForBrainNote", $"{DevbookContractsUi}/DevbookChapterLink.cs" },
         { "LoadBrainAsync", $"{DevbookUi}/DevbookMenu.cs" },
         { "devbook-stack--brain", $"{DevbookUi}/DevbookPane.razor" },
         { "devbook-stack__brain-", $"{DevbookUi}/DevbookPane.razor" },

@@ -41,15 +41,15 @@ public sealed class C4DevbookStore : IDisposable
 {
     /// <summary>The one workspace, beside the chapters. devbook's contract 33 makes it
     /// the only place an architecture element or view is defined.</summary>
-    public const string WorkspaceFile = "workspace.dsl";
+    public const string WorkspaceFile = DevbookC4Paths.WorkspaceFile;
 
     /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
-    public const string IncludeDirectory = DevbookC4Includes.Folder;
+    public const string IncludeDirectory = DevbookC4Paths.IncludeDirectory;
 
     /// <summary>The folder that held the workspaces before contract 33 and still holds
     /// <see cref="ReferenceFile"/>. Named to sit next to <c>_meta</c>, which is what
     /// puts it out of the way of the chapter listing.</summary>
-    public const string ReferenceDirectory = "_c4";
+    public const string ReferenceDirectory = DevbookC4Paths.ReferenceDirectory;
 
     /// <summary>
     /// The authored map from view key to the chapters that view documents, from before
