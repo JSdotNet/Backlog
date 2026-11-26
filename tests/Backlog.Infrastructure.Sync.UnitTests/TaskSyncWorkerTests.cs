@@ -1084,7 +1084,7 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
         using var fixture = Fixture.Create(
             featureOn: true,
             paired: true,
-            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.PlanType, Noon),
+            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType, Noon),
             roadmap: roadmap);
 
         var caughtUp = fixture.NextCycle();

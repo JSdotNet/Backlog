@@ -30,7 +30,7 @@ public sealed class TaskSubjectClosureTests : IDisposable
         await repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         var closed = Assert.Single(_notifications.Closed);
-        Assert.Equal(new NotificationSubject("tasks", "task", task.Id.ToString("D")), closed.Subject);
+        Assert.Equal(new NotificationSubject("work", "task", task.Id.ToString("D")), closed.Subject);
         Assert.Equal("Task done", closed.Reason);
     }
 
@@ -110,12 +110,12 @@ public sealed class TaskSubjectClosureTests : IDisposable
         await repository.SaveManyAsync([done, deleted], TestContext.Current.CancellationToken);
         var probe = new TaskSubjectProbe(repository);
 
-        Assert.Equal("tasks", probe.Context);
+        Assert.Equal("work", probe.Context);
         Assert.True(await probe.IsLiveAsync(Subject(open.Id), TestContext.Current.CancellationToken));
         Assert.False(await probe.IsLiveAsync(Subject(done.Id), TestContext.Current.CancellationToken));
         Assert.False(await probe.IsLiveAsync(Subject(deleted.Id), TestContext.Current.CancellationToken));
         Assert.False(await probe.IsLiveAsync(Subject(Guid.NewGuid()), TestContext.Current.CancellationToken));
-        Assert.True(await probe.IsLiveAsync(new NotificationSubject("tasks", "task", "not-a-guid"), TestContext.Current.CancellationToken));
+        Assert.True(await probe.IsLiveAsync(new NotificationSubject("work", "task", "not-a-guid"), TestContext.Current.CancellationToken));
         Assert.True(await probe.IsLiveAsync(new NotificationSubject("tasks", "goal", open.Id.ToString("D")), TestContext.Current.CancellationToken));
     }
 
@@ -128,7 +128,7 @@ public sealed class TaskSubjectClosureTests : IDisposable
         return task;
     }
 
-    private static NotificationSubject Subject(Guid id) => new("tasks", "task", id.ToString("D"));
+    private static NotificationSubject Subject(Guid id) => new("work", "task", id.ToString("D"));
 
     public void Dispose()
     {

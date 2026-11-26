@@ -877,7 +877,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         await connection.OpenAsync(TestContext.Current.CancellationToken);
 
         await using var read = connection.CreateCommand();
-        read.CommandText = "SELECT document, updated_at FROM roadmap_plan WHERE id = $id;";
+        read.CommandText = "SELECT document, updated_at FROM work_plan WHERE id = $id;";
         read.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
 
         await using var row = await read.ExecuteReaderAsync(TestContext.Current.CancellationToken);

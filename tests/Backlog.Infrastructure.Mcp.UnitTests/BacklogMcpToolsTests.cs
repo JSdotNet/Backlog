@@ -45,6 +45,10 @@ public class BacklogMcpToolsTests
                 // tracker's: read the change sets, propose a restore the person confirms.
                 "list_change_sets",
                 "propose_restore",
+
+                // The planned work, and get_roadmap, its name before Tasks and Roadmap
+                // Planning merged into Work, kept as an alias (local ADR 0073 §10).
+                "get_planned_work",
                 "get_roadmap",
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",

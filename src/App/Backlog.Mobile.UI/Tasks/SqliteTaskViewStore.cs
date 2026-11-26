@@ -44,6 +44,12 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
                 payload)
             : null);
 
+    /// <summary>The table the plan document is kept in.</summary>
+    internal const string PlanTable = "work_plan";
+
+    /// <summary>The plan's table before the rename (local ADR 0073 §10).</summary>
+    internal const string LegacyPlanTable = "roadmap_plan";
+
     private readonly SqliteViewStore<TaskViewRow> _view;
 
     public SqliteTaskViewStore(string databasePath)
@@ -54,7 +60,20 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         using var transaction = connection.BeginTransaction();
 
         var hadPreferences = HasTable(connection, transaction, "my_day_preferences");
-        var hadRoadmapPlan = HasTable(connection, transaction, "roadmap_plan");
+        var hadPlan = HasTable(connection, transaction, PlanTable);
+
+        // The plan's table was roadmap_plan before Tasks and Roadmap Planning merged into
+        // Work (local ADR 0073 §10). A file that still has it renames it once, so the plan
+        // a build before the rename kept is read on, and the cursor beside it stays where
+        // it was. Nothing else reads the old table, so it is renamed, not copied.
+        if (!hadPlan && HasTable(connection, transaction, LegacyPlanTable))
+        {
+            using var rename = connection.CreateCommand();
+            rename.Transaction = transaction;
+            rename.CommandText = $"ALTER TABLE {LegacyPlanTable} RENAME TO {PlanTable}";
+            rename.ExecuteNonQuery();
+            hadPlan = true;
+        }
 
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -68,7 +87,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
                 server_ts   INTEGER NOT NULL,
                 payload     TEXT    NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS roadmap_plan (
+            CREATE TABLE IF NOT EXISTS work_plan (
                 id          INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
                 updated_at  TEXT    NOT NULL,
                 server_ts   INTEGER NOT NULL,
@@ -83,7 +102,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         // the start. The rows stay — a full pull folds over them to the same result.
         // The roadmap plan document takes the same replay (local ADR 0072 §8): every
         // build before its table folded it away too.
-        if (!hadPreferences || !hadRoadmapPlan)
+        if (!hadPreferences || !hadPlan)
         {
             using var reset = connection.CreateCommand();
             reset.Transaction = transaction;
@@ -102,7 +121,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         ReadDocument("my_day_preferences", (updatedAt, serverTs, payload) => new MyDayPreferencesDocument(updatedAt, serverTs, payload));
 
     public RoadmapPlanCopy? ReadRoadmapPlan() =>
-        ReadDocument("roadmap_plan", (updatedAt, serverTs, payload) => new RoadmapPlanCopy(updatedAt, serverTs, payload));
+        ReadDocument(PlanTable, (updatedAt, serverTs, payload) => new RoadmapPlanCopy(updatedAt, serverTs, payload));
 
     private T? ReadDocument<T>(string table, Func<DateTimeOffset, long, string, T> create)
         where T : class
@@ -145,7 +164,7 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
 
                     if (roadmapPlan is not null)
                     {
-                        await SaveDocumentAsync(connection, transaction, "roadmap_plan", roadmapPlan.UpdatedAt, roadmapPlan.ServerTimestamp, roadmapPlan.Content, ct);
+                        await SaveDocumentAsync(connection, transaction, PlanTable, roadmapPlan.UpdatedAt, roadmapPlan.ServerTimestamp, roadmapPlan.Content, ct);
                     }
                 },
             cancellationToken);

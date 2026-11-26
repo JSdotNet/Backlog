@@ -165,7 +165,7 @@ public sealed class SpecManagerQuestionSyncTests
         await scenario.Sync.PullAsync(whole: false, Token);
 
         var draft = scenario.Ledger.Draft(scenario.IdOf(QuestionScenario.AssignedToMe));
-        Assert.Equal(new NotificationSubject("tasks", "task", task.ToString("D")), draft.Subject);
+        Assert.Equal(new NotificationSubject("work", "task", task.ToString("D")), draft.Subject);
         Assert.Equal("Agent session · Rounding fix", draft.Origin!.Via);
     }
 

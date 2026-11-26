@@ -16,7 +16,7 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   in the same database. JSON files hold the workspace settings and feature flags,
   which are per-device.
 
-  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. Three owners share the file and not the schema: Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`).
+  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. Three owners share the file and not the schema: Work (`tasks` and `work_plan`, which was `roadmap_plan` before local ADR 0073 §10) and the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`).
 - **The Devbook is the other way round.** A repository's devbook folders stay markdown-canonical, and only the layer derived from them is a database. The app owns a task; the repository owns a devbook chapter, edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Repository paths are configurable.** A repo registry in `config/repos.json` holds them.
@@ -28,7 +28,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | Task aggregate | a task document in the `tasks` container | [last-write-wins](12-glossary.md#terms), whole document ([Task Sync](#task-sync)) | local ADR 0005 |
 | Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone; a tombstone beats a live copy whatever the stamps | local ADR 0009 |
 | Note | kind `note` in `tasks` | the later edit wins, in both directions | local ADR 0025 |
-| Roadmap plan | kind `roadmap-plan` in `tasks` | last-write-wins on `roadmap_plan.updated_at` | local ADR 0018 |
+| Roadmap plan | kind `roadmap-plan` in `tasks`; `work-plan`, its name since local ADR 0073 §10, is read too and written once no paired device lacks that read | last-write-wins on `work_plan.updated_at` | local ADRs 0018 and 0073 |
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
 | Repository registry | kind `repository-registry` in `tasks` | last-write-wins | local ADR 0021 |
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |

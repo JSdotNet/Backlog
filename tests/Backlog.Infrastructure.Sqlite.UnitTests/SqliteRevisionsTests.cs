@@ -84,7 +84,7 @@ public sealed class SqliteRevisionsTests : IDisposable
 
         Assert.All(revisions, revision => Assert.Equal(change.Id.ToString(), revision.ChangeSetId));
         Assert.Equal(
-            ["goal", "impediment", "roadmap-plan"],
+            ["goal", "impediment", "work-plan"],
             revisions.Select(revision => revision.DocumentKind).Order());
         Assert.All(revisions, revision => Assert.Null(revision.Before));
     }

@@ -213,7 +213,7 @@ public abstract class RoadmapBandHarness : IDisposable
         await connection.OpenAsync();
 
         await using var read = connection.CreateCommand();
-        read.CommandText = "SELECT document FROM roadmap_plan WHERE id = $id;";
+        read.CommandText = "SELECT document FROM work_plan WHERE id = $id;";
         read.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
 
         // A plan must already have been saved: every caller adds an item first, and a
@@ -225,7 +225,7 @@ public abstract class RoadmapBandHarness : IDisposable
         document["bands"] = new JsonObject { [alias] = colour };
 
         await using var write = connection.CreateCommand();
-        write.CommandText = "UPDATE roadmap_plan SET document = $document, updated_at = $updated_at WHERE id = $id;";
+        write.CommandText = "UPDATE work_plan SET document = $document, updated_at = $updated_at WHERE id = $id;";
         write.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
         write.Parameters.AddWithValue("$document", document.ToJsonString());
         // The column is NOT NULL and means an instant, so a hand-written row owes it a

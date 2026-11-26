@@ -267,7 +267,7 @@ decides which grant may call a tool that is listed. The names are a starting cut
 
 | Scope | Tools | Default grant |
 | --- | --- | --- |
-| `tasks:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_roadmap`, `list_goals`, `list_change_sets` | every agent |
+| `tasks:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_planned_work` (and `get_roadmap`, its alias since ADR 0073 §10), `list_goals`, `list_change_sets` | every agent |
 | `tasks:write` | `create_item`, `comment`, `transition`, `set_blocked`, goal attach and detach, `capture_note`, `propose_restore` | coding agents |
 | `tasks:admin` | `delete_goal`, any bulk change | none |
 | `devbook:read` | `read_knowledge_chapter`, `list_annotations`, `devbook_get_state`, `devbook_list_notes`, `list_sync_directions` | every agent |

@@ -16,8 +16,28 @@ namespace Backlog.Infrastructure.Sync;
 /// </summary>
 public static class RoadmapReplicaDocuments
 {
-    /// <summary>The kind token the plan document carries.</summary>
-    public const string PlanType = "roadmap-plan";
+    /// <summary>
+    /// The plan document's kind token since Tasks and Roadmap Planning merged into Work
+    /// (local ADR 0073 §10). Read from this build on; not yet written — see
+    /// <see cref="WrittenPlanType"/>.
+    /// </summary>
+    public const string PlanType = "work-plan";
+
+    /// <summary>
+    /// The kind token the plan document carried before the rename. Read, because a paired
+    /// device on an older build keeps pushing it and the replica keeps what was pushed.
+    /// </summary>
+    public const string LegacyPlanType = "roadmap-plan";
+
+    /// <summary>
+    /// The token a push writes, still <see cref="LegacyPlanType"/>. A build before the
+    /// rename knows no <see cref="PlanType"/>: its phone would list the plan as a task and
+    /// its desktop would not take it as the plan. So the rename lands in two steps — this
+    /// build reads both tokens, and a later build, once no paired device can run a build
+    /// without that read, switches this constant to <see cref="PlanType"/>. The push mark
+    /// is keyed by the written token, so the switch sends the plan once under the new one.
+    /// </summary>
+    public const string WrittenPlanType = LegacyPlanType;
 
     /// <summary>The kind token the pace document carries.</summary>
     public const string PaceType = "planning-pace";
@@ -43,14 +63,14 @@ public static class RoadmapReplicaDocuments
     /// Ordinal, as every other token on the feed is compared.</summary>
     public static RoadmapReplicaDocument? KindOf(string? type) => type switch
     {
-        PlanType => RoadmapReplicaDocument.Plan,
+        PlanType or LegacyPlanType => RoadmapReplicaDocument.Plan,
         PaceType => RoadmapReplicaDocument.Pace,
         _ => null,
     };
 
     public static string TypeOf(RoadmapReplicaDocument document) => document switch
     {
-        RoadmapReplicaDocument.Plan => PlanType,
+        RoadmapReplicaDocument.Plan => WrittenPlanType,
         RoadmapReplicaDocument.Pace => PaceType,
         _ => throw new ArgumentOutOfRangeException(nameof(document)),
     };

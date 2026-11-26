@@ -38,7 +38,7 @@ public sealed class RoadmapBandChangeSetTests : RoadmapBandHarness
 
         var rows = (await ReadAsync()).Where(row => row.Sequence > before).ToList();
         var row = Assert.Single(rows);
-        Assert.Equal("roadmap-plan", row.DocumentKind);
+        Assert.Equal("work-plan", row.DocumentKind);
         Assert.Equal("person", row.Actor);
         Assert.Equal("moving a roadmap item", row.Label);
     }
