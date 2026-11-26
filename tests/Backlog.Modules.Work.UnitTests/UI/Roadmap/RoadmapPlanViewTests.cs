@@ -213,7 +213,40 @@ public class RoadmapPlanViewTests
         // Each part is found under its own repository only.
         Assert.Equal([new RoadmapFacet("Repository", "JSdotNet/Backlog")], backlog.FacetList.Where(facet => facet.Name == "Repository"));
         Assert.Equal([new RoadmapFacet("Repository", "JSdotNet/Fincent")], fincent.FacetList.Where(facet => facet.Name == "Repository"));
-        Assert.Contains("one of 2 repository parts", backlog.Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 1 of 2 · also in fincent", backlog.Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 2 of 2 · also in backlog", fincent.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EachRepositorysPart_CarriesWhichPartItIs_UnderAKeyItsSiblingsShare()
+    {
+        var item = Item("Spans both", repositories: ["backlog", "fincent"]);
+        var view = RoadmapPlanView.From(Plan([item]), Configured);
+
+        var backlog = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+
+        // Numbered in band order, out of every part the item has.
+        Assert.Equal((1, 2), (backlog.PartIndex, backlog.PartCount));
+        Assert.Equal((2, 2), (fincent.PartIndex, fincent.PartCount));
+
+        // One opaque key for both, which is not either bar's own id: the timeline
+        // compares it and never parses it.
+        Assert.Equal(item.Id.ToString(), backlog.PartOf);
+        Assert.Equal(backlog.PartOf, fincent.PartOf);
+        Assert.True(backlog.IsPart);
+    }
+
+    [Fact]
+    public void WorkInThreeRepositories_NamesBothOtherBandsAsAlsoIn()
+    {
+        List<PlannedRepository> three = [.. Configured, new("site", "JSdotNet/Site", 3)];
+        var item = Item("Everywhere", repositories: ["backlog", "fincent", "site"]);
+
+        var view = RoadmapPlanView.From(Plan([item]), three);
+
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.Contains("Part 2 of 3 · also in backlog, site", fincent.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -224,7 +257,12 @@ public class RoadmapPlanViewTests
         var bar = Assert.Single(RoadmapPlanView.From(Plan([item]), Configured).Bars);
 
         Assert.Equal(item.Id.ToString(), bar.Id);
-        Assert.DoesNotContain("repository parts", bar.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Part ", bar.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("also in", bar.Detail, StringComparison.Ordinal);
+
+        // A bar that is the whole of its work is no part: no key, no chip.
+        Assert.Null(bar.PartOf);
+        Assert.False(bar.IsPart);
     }
 
     [Fact]

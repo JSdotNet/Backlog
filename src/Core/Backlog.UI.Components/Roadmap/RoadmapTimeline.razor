@@ -84,6 +84,9 @@
         its end, Shift with Left or Right changes that end date alone.
         A bar with steps has a button beside it that shows or hides them, one row each.
         A step is drawn by its share of the effort, not by date.
+        Press T on a bar or a milestone to keep its dependencies traced, the whole chain of them,
+        while you look elsewhere; the count beside a bar's title does the same with a pointer.
+        Press T again, or Escape, to stop.
         @if (OnLinkCreated.HasDelegate)
         {
             <text>With a pointer, drag the dot past a bar's end onto another bar or a date to make that one wait for it.</text>
@@ -233,7 +236,10 @@
                         }
                     </div>
 
-                    <div class="roadmap-timeline__body" style="height: @Rem(TrackHeight)">
+                    @* Escape on anything drawn here, the badges included, clears a pinned
+                       trace. Here and not on the whole timeline, so the axis heads keep
+                       no handler on their path that could stop the browser pressing them. *@
+                    <div class="roadmap-timeline__body" style="height: @Rem(TrackHeight)" @onkeydown="TimelineKey">
 
                         <div class="roadmap-timeline__grid" aria-hidden="true">
                             @* This week, shaded down the whole chart behind the bars, so
@@ -411,6 +417,10 @@
                                                         DependencyCount="@DependencyCount(bar.Id)"
                                                         Selected="@Is(SelectedId, bar.Id)"
                                                         Related="@Related(bar.Id)"
+                                                        Sibling="@Sibling(bar)"
+                                                        Dimmed="@Dimmed(bar.Id, bar)"
+                                                        Pinned="@Pinned(bar.Id)"
+                                                        OnPin="TogglePin"
                                                         OnTrace="Trace"
                                                         OnUntrace="Untrace"
                                                         Grabbed="@Is(_grabbedId, bar.Id)"
@@ -438,7 +448,7 @@
                                 @foreach (var milestone in MilestonesOn(placed.Row.Id))
                                 {
                                     <span @key="milestone.Id"
-                                          class="@(Related(milestone.Id) ? MilestoneClass(milestone) + " roadmap-milestone--related" : MilestoneClass(milestone))"
+                                          class="@MilestoneClasses(milestone)"
                                           style="left: @Rem(Geometry.XFor(milestone.On))"
                                           data-roadmap-node="@milestone.Id"
                                           @onpointerenter="() => Trace(milestone.Id)"
@@ -450,7 +460,8 @@
                                                 aria-current="@(Is(SelectedId, milestone.Id) ? "true" : null)"
                                                 title="@Tooltip(milestone)"
                                                 data-testid="@Suffix($"milestone-{Slug(milestone.Id)}")"
-                                                @onclick="() => Activate(milestone.Id)">
+                                                @onclick="() => Activate(milestone.Id)"
+                                                @onkeydown="args => MilestoneKey(milestone.Id, args)">
                                             <span class="roadmap-milestone__glyph" aria-hidden="true">@Glyph(milestone.Marker)</span>
                                             <span class="sr-only">@Spoken(milestone, placed)</span>
                                         </button>
@@ -1297,6 +1308,23 @@
         _foldedRows = null;
         _span = null;
         _stretch = null;
+
+        DropStaleTrace();
+    }
+
+    /// <summary>A trace on something no longer drawn — filtered out, removed from the
+    /// plan, or moved off the chart — is let go. A pin left behind would keep winning
+    /// over every hover with nothing to show for it, and nothing on the chart would
+    /// be left to press to clear it. The pin is announced by the title it was pinned
+    /// with, because the thing is gone and its id means nothing to a reader.</summary>
+    private void DropStaleTrace()
+    {
+        if (_traceId is { } hovered && LeftAnchor(hovered) is null) _traceId = null;
+
+        if (_pinnedId is not { } pinned || LeftAnchor(pinned) is not null) return;
+
+        _pinnedId = null;
+        Announce($"Stopped tracing {_pinnedTitle ?? pinned}: it is no longer on the chart.");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1588,10 +1616,16 @@
             return;
         }
 
-        if (_grabbedId is null) return;
+        if (_grabbedId is null)
+        {
+            if (IsTraceKey(args)) TogglePin(bar.Id);
+            return;
+        }
 
         if (args.Key == "Escape")
         {
+            _escapeUsed = true;
+
             // Cancelling puts the bar back on the row it came from, which is
             // another new button if the arrows had carried it off that row.
             if (!Is(EffectiveRow(bar), bar.RowId)) _refocusId = bar.Id;
@@ -1995,8 +2029,11 @@
     /// claim about a relationship the reader has no way to check.
     /// </para>
     /// </summary>
-    private IReadOnlyList<RoadmapArrow> Arrows => _arrows ??=
-        [.. LinkList
+    private IReadOnlyList<RoadmapArrow> Arrows => _arrows ??= BuildArrows();
+
+    private List<RoadmapArrow> BuildArrows()
+    {
+        var resolved = LinkList
             // The same dependency stated twice is one dependency. Left in, it
             // would draw one arrow exactly on top of another and count two
             // against the badge, which is a number the reader cannot reconcile
@@ -2004,25 +2041,82 @@
             .Distinct()
             .Select(link => (link, from: RightAnchor(link.FromId), to: LeftAnchor(link.ToId)))
             .Where(candidate => candidate.from is not null && candidate.to is not null)
-            .Select(candidate => new RoadmapArrow(
+            .ToList();
+
+        // All at once rather than one by one, so arrows that would share a corridor
+        // are drawn apart (RoadmapGeometry.LinkPaths).
+        var paths = Geometry.LinkPaths(
+        [
+            .. resolved.Select(candidate => new RoadmapLinkEnds(
+                candidate.from!.Value.X,
+                candidate.from!.Value.Y,
+                candidate.to!.Value.X,
+                candidate.to!.Value.Y))
+        ]);
+
+        return
+        [
+            .. resolved.Select((candidate, index) => new RoadmapArrow(
                 candidate.link.FromId,
                 candidate.link.ToId,
-                Geometry.LinkPath(
-                    candidate.from!.Value.X,
-                    candidate.from!.Value.Y,
-                    candidate.to!.Value.X,
-                    candidate.to!.Value.Y),
-                $"{Name(candidate.link.FromId)} before {Name(candidate.link.ToId)}"))];
+                paths[index],
+                $"{Name(candidate.link.FromId)} before {Name(candidate.link.ToId)}"))
+        ];
+    }
 
-    /// <summary>How many dependencies point at something. The badge on the bar,
-    /// counted from the links that survived resolution so the number and the
-    /// arrows on screen always agree.</summary>
-    private int DependencyCount(string id) => Arrows.Count(arrow => Is(arrow.ToId, id));
+    /// <summary>How many drawn arrows touch something, arriving or leaving. The
+    /// badge on the bar, counted from the links that survived resolution so the
+    /// number and the arrows on screen always agree.</summary>
+    private int DependencyCount(string id) => Arrows.Count(arrow => Is(arrow.ToId, id) || Is(arrow.FromId, id));
 
     /// <summary>What the pointer is over, or focus is on, whose arrows are
     /// drawn out from the rest. A dashed line crossing six others is only
     /// traceable by eye when the ones it is not are out of the way.</summary>
     private string? _traceId;
+
+    /// <summary>What the reader pinned the trace on, with the badge or T, so it stays
+    /// drawn out while the pointer or focus goes elsewhere to follow it. Wins over
+    /// <see cref="_traceId"/> until it is cleared.</summary>
+    private string? _pinnedId;
+
+    /// <summary>The trace in effect: the pinned one, else whatever is hovered or
+    /// focused.</summary>
+    private string? TraceId => _pinnedId ?? _traceId;
+
+    /// <summary>What the pinned thing was called when it was pinned, for saying it was
+    /// let go after it has left the chart.</summary>
+    private string? _pinnedTitle;
+
+    private RoadmapChain? _chain;
+    private string? _chainId;
+    private IReadOnlyList<RoadmapArrow>? _chainArrows;
+    private string? _tracedPartOf;
+
+    /// <summary>The chain through the traced thing, worked out once per trace and per
+    /// set of arrows rather than once per bar drawn, and with it the part key of the
+    /// traced bar, for <see cref="Sibling"/>.</summary>
+    private RoadmapChain? CurrentChain
+    {
+        get
+        {
+            var id = TraceId;
+            if (id is null) return null;
+
+            if (_chain is null || !Is(_chainId, id) || !ReferenceEquals(_chainArrows, Arrows))
+            {
+                _chainId = id;
+                _chainArrows = Arrows;
+                _chain = RoadmapGeometry.Chain(id, Arrows.Select(arrow => new RoadmapLink(arrow.FromId, arrow.ToId)));
+                _tracedPartOf = Bar(id) is { IsPart: true, PartOf: { } key } ? key : null;
+            }
+
+            return _chain;
+        }
+    }
+
+    /// <summary>Whether a trace with something to show is in effect. The chart dims
+    /// only then, so crossing a bar with no dependencies leaves it as it was.</summary>
+    private bool Tracing => CurrentChain is { HasLinks: true };
 
     private void Trace(string id)
     {
@@ -2036,19 +2130,95 @@
         if (Is(_traceId, id)) _traceId = null;
     }
 
+    /// <summary>Whether an arrow is on the traced chain: any path through the traced
+    /// thing, upstream or downstream, however many links long.</summary>
     private bool Traced(RoadmapArrow arrow) =>
-        _traceId is { } id && (Is(arrow.FromId, id) || Is(arrow.ToId, id));
+        CurrentChain is { } chain && chain.Links.Contains(new RoadmapLink(arrow.FromId, arrow.ToId));
 
-    /// <summary>Whether <paramref name="id"/> is at the far end of a traced
-    /// arrow. The traced thing itself is not: it already has the pointer.</summary>
+    /// <summary>Whether <paramref name="id"/> is on the traced chain. The traced
+    /// thing itself is not: it already has the pointer, or the pin.</summary>
     private bool Related(string id) =>
-        _traceId is { } traced && !Is(traced, id)
-        && Arrows.Any(arrow => (Is(arrow.FromId, traced) && Is(arrow.ToId, id))
-                            || (Is(arrow.ToId, traced) && Is(arrow.FromId, id)));
+        TraceId is { } traced && !Is(traced, id) && CurrentChain!.Nodes.Contains(id);
+
+    /// <summary>Whether <paramref name="bar"/> is another part of the work being
+    /// traced: it shares the traced bar's <see cref="RoadmapBar.PartOf"/>. The key is
+    /// compared and never read, so the caller's id grammar stays the caller's.</summary>
+    private bool Sibling(RoadmapBar bar) =>
+        bar.IsPart && bar.PartOf is { } key
+        && TraceId is { } traced && !Is(traced, bar.Id)
+        && CurrentChain is not null && _tracedPartOf is { } tracedKey && Is(tracedKey, key);
+
+    /// <summary>Whether <paramref name="id"/> recedes: a trace with arrows is in
+    /// effect and it is neither the traced thing, on its chain, nor another part of
+    /// it, so the chain reads without counting crossings.</summary>
+    private bool Dimmed(string id, RoadmapBar? bar = null) =>
+        Tracing && !Is(TraceId, id) && !CurrentChain!.Nodes.Contains(id) && !(bar is not null && Sibling(bar));
+
+    private bool Pinned(string id) => Is(_pinnedId, id);
+
+    /// <summary>Pins the trace on <paramref name="id"/>, moves the pin there from
+    /// wherever it was, or, on the pinned thing, clears it.</summary>
+    private void TogglePin(string id)
+    {
+        if (Is(_pinnedId, id))
+        {
+            _pinnedId = null;
+            Announce($"Stopped tracing {Name(id)}.");
+            return;
+        }
+
+        _pinnedId = id;
+        _pinnedTitle = Name(id);
+        var chain = CurrentChain!;
+        Announce(chain.HasLinks
+            ? $"Tracing {Name(id)}: {Connected(chain.Nodes.Count - 1)}. Press T or Escape to stop."
+            : $"Tracing {Name(id)}: it waits for nothing and nothing waits for it. Press T or Escape to stop.");
+    }
+
+    private static string Connected(int count) => count == 1 ? "1 connected item" : $"{count} connected items";
+
+    /// <summary>Set when a bar's own Escape cancelled its grab, so the same key
+    /// bubbling on to the timeline does not clear the pin as well.</summary>
+    private bool _escapeUsed;
+
+    /// <summary>Escape anywhere on the chart clears a pinned trace, but only once
+    /// nothing else has used the key: a grab or a pointer drag is cancelled first, and
+    /// the pin stays.</summary>
+    private void TimelineKey(KeyboardEventArgs args)
+    {
+        if (args.Key != "Escape") return;
+
+        if (_escapeUsed)
+        {
+            _escapeUsed = false;
+            return;
+        }
+
+        if (_pinnedId is not { } id || _grabbedId is not null || _dragId is not null) return;
+
+        _pinnedId = null;
+        Announce($"Stopped tracing {Name(id)}.");
+    }
+
+    private static bool IsTraceKey(KeyboardEventArgs args) =>
+        args.Key is "t" or "T" && !args.CtrlKey && !args.AltKey && !args.MetaKey;
+
+    private void MilestoneKey(string id, KeyboardEventArgs args)
+    {
+        if (IsTraceKey(args)) TogglePin(id);
+    }
+
+    private string MilestoneClasses(RoadmapMilestone milestone) => string.Join(' ', new[]
+    {
+        MilestoneClass(milestone),
+        Related(milestone.Id) ? "roadmap-milestone--related" : null,
+        Dimmed(milestone.Id) ? "roadmap-milestone--dimmed" : null,
+        Pinned(milestone.Id) ? "roadmap-milestone--pinned" : null
+    }.Where(part => part is not null));
 
     /// <summary>Only dims the other arrows when there is something to trace, so
     /// crossing a bar with no dependencies leaves the chart as it was.</summary>
-    private string LinksClass => Arrows.Any(Traced)
+    private string LinksClass => Tracing
         ? "roadmap-timeline__links roadmap-timeline__links--tracing"
         : "roadmap-timeline__links";
 

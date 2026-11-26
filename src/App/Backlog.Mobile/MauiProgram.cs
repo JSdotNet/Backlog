@@ -41,7 +41,8 @@ public static partial class MauiProgram
 			SyncServiceBuildDefaults.Url,
 			EmulatorHostFallback).Address;
 
-		// The device half of cloud sync: the registration credential, kept in
+		// The device half of cloud sync: the phone's registration (owner, device
+		// and name, and a credential only from before its Keystore key), kept in
 		// Android's Keystore-backed secure storage so a force-stop does not
 		// un-pair the phone. DPAPI is Windows; this is the platform's own answer.
 		// ISecureStorage is registered explicitly because MAUI does not put its

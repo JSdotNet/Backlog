@@ -13,9 +13,12 @@ using Polly;
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
-/// Turns the long-lived registration credential into the short-lived access
-/// token every other sync call carries, and holds on to it until just before it
-/// expires.
+/// Turns the device's proof into the short-lived access token every other sync
+/// call carries, and holds on to it until just before it expires. A key-bound
+/// device proves itself with a fresh assertion its device key signs (local ADR
+/// 0058 §2). A device paired before its key sends its long-lived registration
+/// credential once more, beside the key; a device without a key store, or whose
+/// key will not sign, still sends the credential alone.
 /// <para>
 /// It calls the token endpoint through a named client of its own,
 /// <see cref="HttpClientName"/>, which deliberately has no

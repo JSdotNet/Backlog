@@ -241,9 +241,20 @@ public static class RoadmapPlanView
         var groups = BuildGroups(items, stacked.Rows, milestones.Count > 0, configured);
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
+        // The bands an item's other drawn parts sit in, so each part can say where the
+        // rest of it is. Read from what is drawn: a part taken off the chart is counted
+        // in the hidden-archived note instead, never named as somewhere to look.
+        var drawnBandsOf = items
+            .Where(part => part.PartCount > 1 && drawn.Contains(stacked.RowOf[part.BarId]))
+            .GroupBy(part => part.Item.Id)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(part => part.PartIndex).Select(part => part.GroupId).ToList());
+
         var bars = items
             .Select(part => Bar(
                 part,
+                AlsoIn(part, drawnBandsOf),
                 stacked.RowOf[part.BarId],
                 contradicting,
                 configured,
@@ -631,8 +642,9 @@ public static class RoadmapPlanView
                     ? $"{item.Id}{PartSeparator}{GroupOf(part)}{SegmentSeparator}{part.Phase + 1}"
                     : $"{item.Id}{PartSeparator}{GroupOf(part)}";
 
-        foreach (var part in parts)
+        for (var index = 0; index < parts.Count; index++)
         {
+            var part = parts[index];
             var waitsFor = part.WaitsOn
                 .Select(index => parts[index])
                 .Where(before => !string.Equals(GroupOf(before), GroupOf(part), StringComparison.OrdinalIgnoreCase))
@@ -646,6 +658,7 @@ public static class RoadmapPlanView
                 GroupOf(part),
                 part.Aliases,
                 Steps(part.Links),
+                index + 1,
                 parts.Count,
                 part.Start,
                 part.End,
@@ -744,6 +757,7 @@ public static class RoadmapPlanView
         string GroupId,
         IReadOnlyList<string> Aliases,
         IReadOnlyList<RoadmapStep> Steps,
+        int PartIndex,
         int PartCount,
         DateOnly Start,
         DateOnly End,
@@ -959,6 +973,7 @@ public static class RoadmapPlanView
     /// </summary>
     private static RoadmapBar Bar(
         ItemPart part,
+        IReadOnlyList<string> alsoIn,
         string rowId,
         HashSet<Guid> contradicting,
         List<PlannedRepository> configured,
@@ -972,7 +987,7 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask, overdue ? part.End : null, part.HiddenParts),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, part.DrawnFrom, noTask, overdue ? part.End : null, part.HiddenParts, part.PartIndex, alsoIn),
             Locked: part.DrawnFrom is not null,
             Steps: part.Steps,
             // Work in flight has a start that is a fact and an end that is a forecast, so
@@ -984,7 +999,23 @@ public static class RoadmapPlanView
             Overdue: overdue,
             // Only a whole item that is over: a part that ran inside work still in flight
             // is history, but the item it belongs to is not done.
-            Done: part.DrawnFrom is { Finished: true });
+            Done: part.DrawnFrom is { Finished: true },
+            // The item's id is the key its parts share: the timeline compares it and
+            // never parses it, so the bar-id grammar stays this view's.
+            PartOf: part.PartCount > 1 ? part.Item.Id.ToString() : null,
+            PartIndex: part.PartIndex,
+            PartCount: part.PartCount);
+
+    /// <summary>The bands, other than its own, that <paramref name="part"/>'s item has
+    /// other drawn parts in, in part order and once each, by the name the band is
+    /// headed with.</summary>
+    private static List<string> AlsoIn(ItemPart part, Dictionary<Guid, List<string>> drawnBandsOf) =>
+        drawnBandsOf.TryGetValue(part.Item.Id, out var bands)
+            ? [.. bands
+                .Where(band => !string.Equals(band, part.GroupId, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(band => band == NoRepositoryGroupId ? NoRepositoryGroupTitle : band)]
+            : [];
 
     /// <summary>
     /// Whether a part's drawn window has passed with its work still open: it ended before
@@ -1179,7 +1210,9 @@ public static class RoadmapPlanView
         DrawnFrom? drawnFrom = null,
         bool noTask = false,
         DateOnly? overdueSince = null,
-        int hiddenParts = 0)
+        int hiddenParts = 0,
+        int partIndex = 1,
+        IReadOnlyList<string>? alsoIn = null)
     {
         var parts = new List<string>();
 
@@ -1227,12 +1260,18 @@ public static class RoadmapPlanView
         // Said in words, because the other parts sit in bands a reader may not reach.
         if (partCount > 1)
         {
-            // Said, because a part in an archived repository is taken off the chart while
-            // show archived is off, and nothing else says where it went.
-            var notDrawn = hiddenParts > 0 ? $", {hiddenParts} in an archived repository and not drawn" : null;
-            parts.Add(segment
-                ? $"one of {partCount} parts, handed over between repositories{notDrawn}"
-                : $"one of {partCount} repository parts{notDrawn}");
+            // Which part, and where the others are — the chip on the bar says the first
+            // half to the eye alone. A part in an archived repository is taken off the
+            // chart while show archived is off, so it is counted rather than named: nothing
+            // else says where it went, and naming it would send the reader to a band that
+            // is not drawn.
+            parts.Add(string.Join(" · ", new[]
+            {
+                string.Create(CultureInfo.InvariantCulture, $"Part {partIndex} of {partCount}"),
+                segment ? "handed over between repositories" : null,
+                alsoIn is { Count: > 0 } ? $"also in {string.Join(", ", alsoIn)}" : null,
+                hiddenParts > 0 ? $"{hiddenParts} in an archived repository and not drawn" : null
+            }.OfType<string>()));
         }
 
         if (item.DependsOn.Count > 0)

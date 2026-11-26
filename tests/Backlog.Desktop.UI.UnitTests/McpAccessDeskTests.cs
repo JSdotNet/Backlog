@@ -183,6 +183,22 @@ public sealed class McpAccessDeskTests : IDisposable
         Assert.True(_requests.Find(registered.Request.Id)!.IsOpen);
     }
 
+    /// <summary>Allow must be a prompt UI automation cannot pass (local ADR 0058 §5), so a
+    /// confirmation the person gave a moment ago does not answer it.</summary>
+    [Fact]
+    public async Task Allow_asks_Hello_even_within_a_remembered_confirmation()
+    {
+        var remembered = new RememberedUserConsent(_consent, _clock);
+        var desk = new McpAccessDesk(_grants, _requests, remembered, _clock);
+        var registered = await desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        Assert.Equal(UserConsentOutcome.Verified, await remembered.VerifyAsync("A setting a moment ago", Cancel));
+
+        var allowed = await desk.AllowAsync(registered.Request!.Id, ["tasks:read"], Cancel);
+
+        Assert.False(allowed.Refused, allowed.Message);
+        Assert.Equal(2, _consent.Asked);
+    }
+
     [Fact]
     public async Task Allow_refuses_a_scope_not_asked_for_and_none_at_all_before_asking_for_Hello()
     {

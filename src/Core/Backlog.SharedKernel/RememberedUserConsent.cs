@@ -3,13 +3,15 @@ namespace Backlog.SharedKernel;
 /// <summary>
 /// <see cref="IUserConsent"/> that lets one confirmation hold for a while (local ADR 0058 §6):
 /// after a <see cref="UserConsentOutcome.Verified"/> answer, a <see cref="VerifyAsync"/> within
-/// <see cref="DefaultWindow"/> answers Verified without asking again, so the person checking
-/// several scopes, a grant and a revocation in a row confirms once.
+/// <see cref="DefaultWindow"/> answers Verified without asking again, so the person minting a
+/// pairing code and revoking a device in a row confirms once.
 /// <para>
 /// <b>The person's own acts only.</b> <see cref="VerifyEveryTimeAsync"/> always asks the inner
-/// consent and never opens the window: an agent's <c>tasks:admin</c> call and a Refuse answered on
-/// the phone are not started by the person at the desk, so a confirmation from a moment ago does
-/// not stand in for theirs. A Declined or unavailable answer is never remembered.
+/// consent and never opens the window. An agent's <c>tasks:admin</c> call and a Refuse replayed at
+/// the next start are not started by the person at the desk, and Allow, <c>agents:grant</c> and
+/// widening the Unauthenticated row must be prompts UI automation cannot pass (local ADR 0058 §5),
+/// so a confirmation from a moment ago stands in for none of them. A Declined or unavailable
+/// answer is never remembered.
 /// </para>
 /// </summary>
 /// <param name="inner">What asks: Windows Hello on the desktop head.</param>

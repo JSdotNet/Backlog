@@ -225,7 +225,25 @@ public class RoadmapPlanViewArchivedTests
 
         var bar = Assert.Single(Draw([both]).Bars);
 
-        Assert.Contains("one of 2 repository parts, 1 in an archived repository and not drawn", bar.Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 1 of 2 · 1 in an archived repository and not drawn", bar.Detail, StringComparison.Ordinal);
+
+        // The hidden part is counted, never named as somewhere to look.
+        Assert.DoesNotContain("also in", bar.Detail, StringComparison.Ordinal);
+        Assert.Equal((1, 2), (bar.PartIndex, bar.PartCount));
+    }
+
+    [Fact]
+    public void With_show_archived_on_the_archived_part_is_named_as_also_in()
+    {
+        var both = Item("Shared rollout", new DateOnly(2026, 10, 19), new DateOnly(2026, 11, 13), "backlog", "budget");
+
+        var view = Draw([both], showArchived: true);
+
+        var backlog = Assert.Single(view.Bars, bar => bar.Id.Contains("@backlog", StringComparison.Ordinal));
+        var budget = Assert.Single(view.Bars, bar => bar.Id.Contains("@budget", StringComparison.Ordinal));
+        Assert.Contains("Part 1 of 2 · also in budget", backlog.Detail, StringComparison.Ordinal);
+        Assert.Contains("Part 2 of 2 · also in backlog", budget.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("not drawn", backlog.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
