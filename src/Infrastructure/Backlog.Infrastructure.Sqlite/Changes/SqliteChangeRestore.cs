@@ -86,7 +86,11 @@ public sealed class SqliteChangeRestore : IChangeRestore
     {
         ["goal"] = new("goals_goals", SqliteGoalRepository.Schema, SqliteGoalRepository.JournalSchema, HasCreatedAt: true, CanTombstone: true),
         ["impediment"] = new("goals_impediments", SqliteImpedimentRepository.Schema, SqliteImpedimentRepository.JournalSchema, HasCreatedAt: true, CanTombstone: false),
-        ["roadmap-plan"] = new("roadmap_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
+        [SqliteRoadmapPlanRepository.JournalKind] = new("work_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
+
+        // A plan revision journalled before Tasks and Roadmap Planning merged into Work
+        // (local ADR 0073 §10) keeps its old kind, and restores into the renamed table.
+        [SqliteRoadmapPlanRepository.LegacyJournalKind] = new("work_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
     };
 
     public async Task<RestorePlan?> PlanAsync(Guid changeSetId, CancellationToken cancellationToken = default)
@@ -227,7 +231,7 @@ public sealed class SqliteChangeRestore : IChangeRestore
             : priorDocument is not null ? RestoreAction.Revert : RestoreAction.Unsupported;
 
         var title = TitleOf(heldDocument) ?? TitleOf(priorDocument)
-            ?? (revision.Key.Kind == "roadmap-plan" ? "Roadmap plan" : revision.Key.Id);
+            ?? (revision.Key.Kind is SqliteRoadmapPlanRepository.JournalKind or SqliteRoadmapPlanRepository.LegacyJournalKind ? "Roadmap plan" : revision.Key.Id);
 
         return new RestoreStep(revision.Key, title, documentAction, conflict);
     }

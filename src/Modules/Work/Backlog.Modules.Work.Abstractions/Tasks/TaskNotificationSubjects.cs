@@ -12,8 +12,20 @@ namespace Backlog.Modules.Work.Abstractions.Tasks;
 /// </summary>
 public static class TaskNotificationSubjects
 {
-    /// <summary>The subject context a task is named under.</summary>
-    public const string Context = "tasks";
+    /// <summary>The subject context a task is named under: the Work context, which Tasks
+    /// and Roadmap Planning merged into (local ADR 0073 §1).</summary>
+    public const string Context = "work";
+
+    /// <summary>The subject context a task was named under before the merge (local ADR 0073
+    /// §10). Never written; a notification stored by an older build still carries it, and
+    /// <see cref="IsLegacy"/> lets the store read it as <see cref="Context"/>.</summary>
+    public const string LegacyContext = "tasks";
+
+    /// <summary>Whether a subject of <paramref name="context"/> and <paramref name="type"/>
+    /// names a task under the context it carried before the rename.</summary>
+    public static bool IsLegacy(string? context, string? type) =>
+        string.Equals(context, LegacyContext, StringComparison.Ordinal)
+        && string.Equals(type, Task, StringComparison.Ordinal);
 
     /// <summary>A task, by its id in the <c>D</c> format.</summary>
     public const string Task = "task";

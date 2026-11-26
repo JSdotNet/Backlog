@@ -103,12 +103,14 @@ public static class BacklogMcpTools
             TrackerTools.ListDevbookReferences
         ]);
 
-    /// <summary>The roadmap tool. Always listed: the roadmap is not switchable. Its
-    /// own group because Roadmap Planning is its own bounded context.</summary>
+    /// <summary>The planned-work tool, and <c>get_roadmap</c>, the name it had before
+    /// Tasks and Roadmap Planning merged into Work (local ADR 0073 §10), kept as its
+    /// alias. Always listed: the roadmap is not switchable. Its own group because a group
+    /// is a tool class, and this class holds the plan's port alone.</summary>
     public static McpToolGroup Roadmap { get; } = new(
         FeatureKey: null,
         typeof(RoadmapTools),
-        [RoadmapTools.GetRoadmap]);
+        [RoadmapTools.GetPlannedWork, RoadmapTools.GetRoadmap]);
 
     /// <summary>The devbook tools. Always listed: the Devbook is not switchable.</summary>
     public static McpToolGroup Devbook { get; } = new(

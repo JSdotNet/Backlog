@@ -47,7 +47,7 @@ public sealed class ImportPlanChangeSetTests
         var changeSet = Assert.Single(rows.Select(row => row.ChangeSetId).Distinct());
         Assert.All(rows, row => Assert.Equal("Import of +journalplan", row.Label));
         Assert.Equal(2, rows.Count(row => row.DocumentKind == "task"));
-        Assert.Single(rows, row => row.DocumentKind == "roadmap-plan");
+        Assert.Single(rows, row => row.DocumentKind == "work-plan");
         Assert.All(rows.Where(row => row.DocumentKind == "task"), row => Assert.Null(row.Before));
         Assert.NotEmpty(changeSet);
     }

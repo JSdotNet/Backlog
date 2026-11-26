@@ -38,6 +38,7 @@ public sealed class McpToolScopesTests
     [Theory]
     [InlineData("find_item", McpScopes.TasksRead)]
     [InlineData("list_entries", McpScopes.TasksRead)]
+    [InlineData("get_planned_work", McpScopes.TasksRead)]
     [InlineData("get_roadmap", McpScopes.TasksRead)]
     [InlineData("list_goals", McpScopes.TasksRead)]
     [InlineData("create_item", McpScopes.TasksWrite)]

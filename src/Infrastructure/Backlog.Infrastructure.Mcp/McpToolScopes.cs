@@ -60,7 +60,7 @@ public static class McpToolScopes
             TrackerTools.FindItem, TrackerTools.ReadItem, TrackerTools.ListDevbookReferences,
             ChangeTools.ListChangeSets,
             WorkTools.ListEntries, WorkTools.GetPlanItems,
-            RoadmapTools.GetRoadmap,
+            RoadmapTools.GetPlannedWork, RoadmapTools.GetRoadmap,
             GoalTools.ListGoals, GoalTools.ReadIterations,
             InboxTools.ListInboxItems, InboxTools.ReadInboxItem);
 

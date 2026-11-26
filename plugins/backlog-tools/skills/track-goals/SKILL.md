@@ -20,7 +20,7 @@ worked days, `failing` [1] day of failed checks. **Attended** is a run the perso
    `id`. Repositories: this remote's and each a held item names.
 2. **Candidates**, per repository: tasks in progress (`list_entries`); pull requests (`gh pr list --repo <owner/name> --state all --search
    "updated:>=<last.first>" --json number,headRefName,body,state,statusCheckRollup`), each standing for the entry `find_item` (`repoId` its
-   `owner/name`, `externalId` its number) finds; `get_roadmap` tags with an open entry. Held, directly or by its plan's `+tag` → skip:
+   `owner/name`, `externalId` its number) finds; `get_planned_work` tags with an open entry. Held, directly or by its plan's `+tag` → skip:
    attaching a task past its plan moves its count. A pull request with no entry whose branch or body names a held entry id or `+tag` is that
    work, never attached: propose `link_change` (`id` the entry, `repository`, `externalId`); a tag alone → *needs you*.
 3. **Attach** a task or plan with `dependsOn` items, one goal holding them all: `attach_to_goal` (`taskId` or `planTag`). Weak: no

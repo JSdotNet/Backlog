@@ -49,6 +49,7 @@ public class McpToolCreationTests
         TrackerTools.ReadItem,
         TrackerTools.ListDevbookReferences,
         ChangeTools.ListChangeSets,
+        RoadmapTools.GetPlannedWork,
         RoadmapTools.GetRoadmap,
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
@@ -275,6 +276,7 @@ public class McpToolCreationTests
         // rule out the other two.
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "find_item")));
 
+        Assert.Equal(["repository"], schemas["get_planned_work"]);
         Assert.Equal(["repository"], schemas["get_roadmap"]);
         Assert.Equal(["repository"], schemas["list_knowledge_contexts"]);
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);

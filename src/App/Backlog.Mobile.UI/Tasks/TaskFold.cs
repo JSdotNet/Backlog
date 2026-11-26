@@ -26,7 +26,19 @@ public static class TaskFold
     /// the plan document whole beside the rows, as <see cref="RoadmapPlanCopy"/>, for the
     /// plans on My Day (local ADR 0072 §8), and keeps no pace. Literals duplicated from
     /// the desktop's sync client, for the reason <see cref="CaptureType"/> is.</summary>
-    public const string RoadmapPlanType = "roadmap-plan";
+    public const string RoadmapPlanType = "work-plan";
+
+    /// <summary>The kind token the plan document carried before Tasks and Roadmap
+    /// Planning merged into Work (local ADR 0073 §10). Read like
+    /// <see cref="RoadmapPlanType"/>: desktops keep writing it until no paired phone runs a
+    /// build without this read, and the replica keeps what they sent.</summary>
+    public const string LegacyRoadmapPlanType = "roadmap-plan";
+
+    /// <summary>Whether <paramref name="type"/> names the plan document, under its
+    /// current kind token or the one before the rename.</summary>
+    public static bool IsRoadmapPlan(string? type) =>
+        string.Equals(type, RoadmapPlanType, StringComparison.Ordinal)
+        || string.Equals(type, LegacyRoadmapPlanType, StringComparison.Ordinal);
 
     /// <inheritdoc cref="RoadmapPlanType"/>
     public const string PlanningPaceType = "planning-pace";
@@ -93,6 +105,7 @@ public static class TaskFold
         CaptureType,
         Notes.NoteFold.NoteType,
         RoadmapPlanType,
+        LegacyRoadmapPlanType,
         PlanningPaceType,
         RepositoryRegistryType,
         GitHubAccountsType,

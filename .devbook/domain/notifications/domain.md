@@ -175,11 +175,13 @@ The subjects a notification can be about, and when each ends:
 | `sessions` / `session` / session id | Sessions | archived or deleted in the Claude desktop app | "Session archived" |
 | `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, no run file holds it any more, or it ends while still in progress | "Run finished", or "Pull request merged" or "Pull request closed" |
 | `sessions` / `pull-request` / `owner/name#number` | Sessions | merged, or closed without merging | "Pull request merged", or "Pull request closed" |
-| `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
+| `work` / `task` / task id | Work | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered | "Pairing finished" |
 | `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
 
+- **`work` / `task`.** A notification stored before local ADR 0073 §10 names the task
+  under `tasks` / `task`, and reads as `work` / `task`.
 - **`sync` / `pairing`.** A pairing from an earlier run stays live.
 - **`sessions` / `run`.** A run still in progress ends when every pull request it
   linked on a stage merged or closed, or when every session it names is archived.
@@ -191,7 +193,7 @@ The subjects a notification can be about, and when each ends:
   notification.
 
 A spec-manager question whose item is a linked task is about that task instead,
-`tasks` / `task` / the task's id, and closes when the item is finished or archived.
+`work` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
 about each subject at startup for the ends it missed. A run's pull request ends

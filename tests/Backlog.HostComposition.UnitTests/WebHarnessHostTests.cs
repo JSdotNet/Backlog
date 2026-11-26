@@ -344,7 +344,7 @@ public class WebHarnessHostTests
 
         var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
 
-        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "work"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
         Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
         Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(

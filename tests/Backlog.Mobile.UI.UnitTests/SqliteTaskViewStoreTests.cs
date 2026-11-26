@@ -167,7 +167,7 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         var task = TestTasks.Task("Book the train", T0);
         var preferences = new MyDayPreferencesDocument(T0, 1, """{"clearsOvernight":false}""");
         await new SqliteTaskViewStore(_path).SaveAsync([new TaskViewRow(task.Id, task.UpdatedAt, null, 1, task.Task)], "pos:40", preferences, TestContext.Current.CancellationToken);
-        DropTable("roadmap_plan");
+        DropTable("work_plan");
 
         var upgraded = new SqliteTaskViewStore(_path);
 
@@ -178,6 +178,32 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         await upgraded.SaveAsync([], "pos:41", TestContext.Current.CancellationToken);
 
         Assert.Equal("pos:41", new SqliteTaskViewStore(_path).ReadCursor());
+    }
+
+    /// <summary>Local ADR 0073 §10: a phone upgraded from a build that kept the plan in
+    /// <c>roadmap_plan</c> reads it on from <c>work_plan</c>, and keeps its cursor — the
+    /// plan was never folded away, so there is nothing to pull again.</summary>
+    [Fact]
+    public async Task A_plan_a_build_before_the_rename_kept_in_roadmap_plan_is_read_on_and_the_cursor_stays()
+    {
+        var plan = new RoadmapPlanCopy(T0, 4, """{"version":1,"items":[{"tag":"lets-bbq","myDayOn":"2026-09-25"}]}""");
+        await new SqliteTaskViewStore(_path).SaveAsync([], "pos:4", null, plan, TestContext.Current.CancellationToken);
+        RenameTable("work_plan", "roadmap_plan");
+
+        var upgraded = new SqliteTaskViewStore(_path);
+
+        Assert.Equal(plan, upgraded.ReadRoadmapPlan());
+        Assert.Equal("pos:4", upgraded.ReadCursor());
+        Assert.Equal(plan, new SqliteTaskViewStore(_path).ReadRoadmapPlan());
+    }
+
+    private void RenameTable(string from, string to)
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"ALTER TABLE {from} RENAME TO {to}";
+        command.ExecuteNonQuery();
     }
 
     /// <summary>Takes the file back to the shape a build before ADR 0032 left it in.</summary>

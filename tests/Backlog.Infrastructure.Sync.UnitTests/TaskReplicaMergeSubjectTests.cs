@@ -37,7 +37,7 @@ public sealed class TaskReplicaMergeSubjectTests : IDisposable
             TestContext.Current.CancellationToken);
 
         var closed = Assert.Single(_notifications.Closed);
-        Assert.Equal(new NotificationSubject("tasks", "task", local.Id.ToString("D")), closed.Subject);
+        Assert.Equal(new NotificationSubject("work", "task", local.Id.ToString("D")), closed.Subject);
         Assert.Equal("Task done", closed.Reason);
     }
 
