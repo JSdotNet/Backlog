@@ -1,6 +1,6 @@
 using Backlog.Desktop.Composition;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Tests;
 

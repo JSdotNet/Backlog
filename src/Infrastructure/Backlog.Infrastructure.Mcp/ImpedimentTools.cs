@@ -1,8 +1,8 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol.Server;
@@ -16,7 +16,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// (<c>.devbook/domain/goals/features.md#impediments-for-agents</c>, local ADR 0035 §5).
 /// <para>
 /// <b>A class of its own rather than more methods on <see cref="TrackerTools"/>.</b>
-/// Impediments are Progress's, not Tasks', so the tools are constructed from Progress's
+/// Impediments are Goals', not Tasks', so the tools are constructed from Goals'
 /// port in a group of their own, gated on the same always-on Tasks key
 /// (<see cref="BacklogMcpTools.Impediments"/>). A task's blocked mark is a Tasks-only mark that
 /// raises no impediment (<c>.devbook/domain/goals/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>),
@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// <see cref="IImpediments"/> is scoped.
 /// </para>
 /// </summary>
-/// <param name="impediments">Progress's impediment port. Every call here goes through it.</param>
+/// <param name="impediments">Goals' impediment port. Every call here goes through it.</param>
 /// <param name="repositories">The repository registry a pull request's repository is
 /// resolved through, never registered in (see <see cref="ItemSelector"/>).</param>
 [McpServerToolType]

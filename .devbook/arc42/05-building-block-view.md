@@ -147,6 +147,7 @@ graph TB
       SyncUI["Backlog.Modules.Sync.UI\n(Devices settings)"]
       EventsUI["Backlog.Modules.Events.UI"]
       CalendarUI["Backlog.Modules.Calendar.UI"]
+      GoalsUI["Backlog.Modules.Goals.UI\n(Goals view, weekly review)"]
     end
 
     subgraph "Modules"
@@ -157,6 +158,7 @@ graph TB
       RepoMgmt["Backlog.Modules.Repositories\n(pull-request contract, one cache)"]
       Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
       Calendar["Backlog.Modules.Calendar\n(Tasks, Plans and Events layer policies,\nno data of its own)"]
+      Goals["Backlog.Modules.Goals\n(goals, impediments, stand-up)"]
     end
 
     subgraph "Background workers"
@@ -166,7 +168,7 @@ graph TB
     end
 
     subgraph "Adapters (Backlog.Infrastructure.*)"
-      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ngoals_goals, goals_impediments,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
       FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, InboxEventTarget,\nEventsTaskTarget, EventsCalendarEvents,\nRoadmapCalendarPlans, TasksCalendarTasks,\nbackups)"]
       BrainInfra["Infrastructure.Brain\n(EventsBrainNotes)"]
       DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
@@ -187,7 +189,7 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & InsightsUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & InsightsUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI & GoalsUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
   TasksUI -->|Abstractions| Work
@@ -200,6 +202,9 @@ graph TB
   SyncUI -->|pairing, sync loops| SyncClient
   EventsUI -->|Abstractions| Events
   CalendarUI -->|Abstractions| Calendar
+  GoalsUI -->|Abstractions| Goals
+  Goals --> Sqlite
+  FileSystem -->|"IGoalsTaskSource, IGoalPullRequestReader"| Goals
   Shell -->|IPullRequests| RepoMgmt
 
   TasksUI --> Copilot & GitHubInfra
@@ -213,7 +218,7 @@ graph TB
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Insights.Abstractions| Insights
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
-  FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
+  FileSystem -->|"IPullRequests for Tasks and Goals, ISettledPullRequestStore"| RepoMgmt
 
   Events --> Sqlite
   Events -->|IEventTaskTarget| FileSystem
@@ -249,7 +254,9 @@ Capture sources and background workers run inside the desktop process, so extern
 
 Module UI projects reference adapters directly where a pane needs one: Tasks.UI and Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
 
-**Repositories** is `Backlog.Modules.Repositories` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
+**Repositories** is `Backlog.Modules.Repositories` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Goals (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
+
+**Goals** is `Backlog.Modules.Goals`, with its `.Abstractions` and `.UI` (local ADRs 0035, 0073 §4): goals, impediments and the stand-up. Its stores are the `goals_goals` and `goals_impediments` tables in `backlog.db`; a file from before the rename has its `progress_goals` and `progress_impediments` rows copied over on first open (local ADR 0073 §10). Its `.UI` draws the Goals view and the weekly review. It reads tasks through `GoalsTaskSource` and pull requests through `RepositoriesGoalPullRequests`, both in `Backlog.Infrastructure.FileSystem/Goals/`, and never sees Tasks.
 
 **Events** is `Backlog.Modules.Events`, with its `.Abstractions` and `.UI` (local ADR 0050). Its stores are the `events_knowledge_events` and `events_series` tables in `backlog.db`. Its pane is a takeover behind the `events` feature, and its `HarvestTaskWorker` runs the harvest task filing after start-up and at each day turn. No other module sees it and it sees none, so three adapters carry its joins:
 

@@ -1,13 +1,13 @@
 using System.Net.Http.Json;
 
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Infrastructure.Sync;
-using Backlog.Modules.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.Extensions;
+using Backlog.Modules.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.Extensions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
@@ -18,7 +18,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// Two desktops paired through one real sync service, each the real Progress module over
+/// Two desktops paired through one real sync service, each the real Goals module over
 /// its own <c>backlog.db</c>, the real merge and session between it and the API — what
 /// <see cref="GoalSyncBetweenDevicesTests"/> and <see cref="ImpedimentSyncBetweenDevicesTests"/>
 /// both run on (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
@@ -69,7 +69,7 @@ internal sealed class PairedDesktops : IDisposable
         _temp.Dispose();
     }
 
-    /// <summary>One desktop: its own <c>backlog.db</c> and sync state, the Progress module
+    /// <summary>One desktop: its own <c>backlog.db</c> and sync state, the Goals module
     /// and the SQLite stores composed through the registrations a host calls.</summary>
     internal sealed class Desktop : IDisposable
     {
@@ -86,9 +86,9 @@ internal sealed class PairedDesktops : IDisposable
 
             var services = new ServiceCollection();
             services.AddSingleton<TimeProvider>(new FakeTimeProvider(Morning));
-            services.AddSingleton<IProgressTaskSource, NoTasks>();
+            services.AddSingleton<IGoalsTaskSource, NoTasks>();
             services.AddSqlite(_ => root);
-            services.AddProgressModule();
+            services.AddGoalsModule();
 
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
             _screen = _provider.CreateScope();
@@ -165,9 +165,9 @@ internal sealed class PairedDesktops : IDisposable
         }
     }
 
-    private sealed class NoTasks : IProgressTaskSource
+    private sealed class NoTasks : IGoalsTaskSource
     {
-        public Task<IReadOnlyList<ProgressTaskDto>> ReadAsync(ProgressTaskQuery query, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ProgressTaskDto>>([]);
+        public Task<IReadOnlyList<GoalsTaskDto>> ReadAsync(GoalsTaskQuery query, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GoalsTaskDto>>([]);
     }
 }

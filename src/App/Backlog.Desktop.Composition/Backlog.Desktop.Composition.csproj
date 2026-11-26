@@ -24,7 +24,7 @@
     <!-- The modules the heads compose: picking the adapter behind each and calling
          its Add*Module() means seeing both sides of it. -->
     <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
-    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
+    <ProjectReference Include="..\..\Modules\Goals\Backlog.Modules.Goals\Backlog.Modules.Goals.csproj" />
     <ProjectReference Include="..\..\Modules\Repositories\Backlog.Modules.Repositories\Backlog.Modules.Repositories.csproj" />
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />

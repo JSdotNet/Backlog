@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.Outbox;
 
 /// <summary>
 /// An impediment edit asked for on the phone, as an outbox entry: the <c>impediment-edit</c>
-/// document <see cref="Progress.ProgressViewProjection"/> builds, pushed to
+/// document <see cref="Goals.GoalsViewProjection"/> builds, pushed to
 /// <c>POST /api/sync/tasks</c> beside the tasks (local ADR 0035 §8). A desktop applies it on
 /// its next pull and retires it.
 /// <para>

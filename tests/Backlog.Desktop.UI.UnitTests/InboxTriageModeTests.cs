@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InboxTriageModeTests
 {
-    // --- Progress -------------------------------------------------------------
+    // --- Goals -------------------------------------------------------------
 
     [Fact]
     public async Task The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step()

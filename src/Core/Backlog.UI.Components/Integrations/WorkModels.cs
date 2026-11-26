@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 
 namespace Backlog.UI.Components.Integrations;
 

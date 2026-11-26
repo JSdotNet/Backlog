@@ -166,13 +166,13 @@ public class SyncClientRegistrationTests
         services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
         services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
         services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
-        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>(iteration);
+        services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication>(iteration);
         services.AddSyncClient(SyncAddress);
         services.AddTaskSyncClient(SyncAddress);
 
         using var provider = Build(services);
 
-        var sent = new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+        var sent = new Backlog.Modules.Goals.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
             """{"length":"two-weeks","twoWeekStart":"2026-10-19"}""", new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero));
 
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(

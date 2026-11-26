@@ -1,6 +1,6 @@
-using Backlog.Infrastructure.FileSystem.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Infrastructure.FileSystem.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Repositories.Abstractions.Services;
@@ -9,7 +9,7 @@ using Backlog.Tests;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// Progress's pull request reader, answered through Repositories' contract
+/// Goals' pull request reader, answered through Repositories' contract
 /// (<see cref="RepositoriesGoalPullRequests"/>, local ADR 0042 §5, V6): state,
 /// merge day, the check counts and failing check names, and the approvals against what
 /// the base branch requires (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
@@ -130,7 +130,7 @@ public sealed class RepositoriesGoalPullRequestsTests
         Assert.Empty(unconfigured.Calls);
     }
 
-    /// <summary>A reading that throws is Progress's unknown, not a failed reading: what
+    /// <summary>A reading that throws is Goals' unknown, not a failed reading: what
     /// was not read is asked again next time.</summary>
     [Fact]
     public async Task A_read_that_throws_reads_unknown()

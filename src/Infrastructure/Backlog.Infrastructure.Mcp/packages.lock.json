@@ -46,7 +46,7 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.progress.abstractions": {
+      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

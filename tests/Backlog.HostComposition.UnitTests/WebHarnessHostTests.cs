@@ -425,9 +425,9 @@ public class WebHarnessHostTests
             harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IRegisteredRepositories>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.ISettledPullRequestStore>());
-        // Progress reads pull requests through the same contract (V6).
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoriesGoalPullRequests>(
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
+        // Goals reads pull requests through the same contract (V6).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Goals.RepositoriesGoalPullRequests>(
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IGoalPullRequestReader>());
         // And so does the task row, through Tasks' own port (V5, V10); which entries a
         // merge's finish is settled for stays Tasks' fact, in the folder it always had.
         Assert.IsType<Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates>(
@@ -715,13 +715,13 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var store = harness.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.IterationSettingsStore>();
+        var store = harness.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Goals.IterationSettingsStore>();
 
         Assert.Same(
             store,
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.IterationSettings>(
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>());
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Goals.IterationSettings>(
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>());
         Assert.StartsWith(HarnessIsolation.Root, Path.GetFullPath(store.SettingsPath), StringComparison.OrdinalIgnoreCase);
     }
 

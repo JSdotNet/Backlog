@@ -56,7 +56,7 @@ public sealed class PullRequestCommandTests
         Assert.Equal([Ref(4)], changed.PullRequests);
     }
 
-    /// <summary>The pane lists the repository and reads its pins, and Progress reads the
+    /// <summary>The pane lists the repository and reads its pins, and Goals reads the
     /// pull request by number, after a merge from a task's row: GitHub is asked nothing
     /// beyond the command's own re-read, and every one of them reads it merged.</summary>
     [Fact]

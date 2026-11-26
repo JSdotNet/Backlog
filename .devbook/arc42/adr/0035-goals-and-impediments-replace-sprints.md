@@ -496,7 +496,7 @@ and tag, read on every reading (§2's rule). Tasks knowing nothing of Progress
 ## Verification
 
 ```meta
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_is_offered_without_sessions_or_pull_requests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_is_offered_without_sessions_or_pull_requests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests]
 ```
 
 Look for tests that show these behaviours:

@@ -1,6 +1,6 @@
 extern alias DesktopHarness;
 
-using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;

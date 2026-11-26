@@ -1,5 +1,5 @@
 using Backlog.Modules.Repositories.Abstractions;
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 
 using PullRequestStatus = Backlog.Modules.Repositories.Abstractions.DataTransferObjects.PullRequestStatus;
 

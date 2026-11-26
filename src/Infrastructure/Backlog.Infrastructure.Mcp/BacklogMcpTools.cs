@@ -207,8 +207,8 @@ public static class BacklogMcpTools
 
     /// <summary>
     /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
-    /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
-    /// Always listed: Progress has no switch of its own — goals, impediments and the
+    /// an impediment holds back: Goals' own, so their own group (local ADR 0035 §5).
+    /// Always listed: Goals has no switch of its own — goals, impediments and the
     /// stand-up are always on (§10).
     /// </summary>
     public static McpToolGroup Impediments { get; } = new(
@@ -250,9 +250,9 @@ public static class BacklogMcpTools
     /// <summary>
     /// The goal tools: read the goals and the iterations they are read over, set, edit and
     /// delete one, attach and detach its work.
-    /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
+    /// Goals' own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Always listed, for the
-    /// reason the impediment tools give: Progress has no switch of its own (local ADR 0035 §10).
+    /// reason the impediment tools give: Goals has no switch of its own (local ADR 0035 §10).
     /// </summary>
     public static McpToolGroup Goals { get; } = new(
         FeatureKey: null,

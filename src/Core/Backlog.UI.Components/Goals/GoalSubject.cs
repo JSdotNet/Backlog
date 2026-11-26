@@ -13,9 +13,9 @@ public enum GoalSubjectKind
 /// identity alone, in plain values
 /// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>).
 /// <para>
-/// The library's own record rather than the Progress module's item, because the screens
+/// The library's own record rather than the Goals module's item, because the screens
 /// that draw a goal control — the task panel, the plan shelf, the work cards — live
-/// here and in contexts that may not see Progress. The host that does see it maps one
+/// here and in contexts that may not see Goals. The host that does see it maps one
 /// to the other.
 /// </para>
 /// </summary>

@@ -1,5 +1,4 @@
 using Backlog.UI.Components.Goals;
-using Backlog.UI.Components.Progress;
 
 namespace Backlog.UI.Components.UnitTests;
 

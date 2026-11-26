@@ -90,10 +90,10 @@
     <Project Path="src/Modules/Notifications/Backlog.Modules.Notifications.UI/Backlog.Modules.Notifications.UI.csproj" />
     <Project Path="src/Modules/Notifications/Backlog.Modules.Notifications/Backlog.Modules.Notifications.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Progress/">
-    <Project Path="src/Modules/Progress/Backlog.Modules.Progress.Abstractions/Backlog.Modules.Progress.Abstractions.csproj" />
-    <Project Path="src/Modules/Progress/Backlog.Modules.Progress.UI/Backlog.Modules.Progress.UI.csproj" />
-    <Project Path="src/Modules/Progress/Backlog.Modules.Progress/Backlog.Modules.Progress.csproj" />
+  <Folder Name="/src/Modules/Goals/">
+    <Project Path="src/Modules/Goals/Backlog.Modules.Goals.Abstractions/Backlog.Modules.Goals.Abstractions.csproj" />
+    <Project Path="src/Modules/Goals/Backlog.Modules.Goals.UI/Backlog.Modules.Goals.UI.csproj" />
+    <Project Path="src/Modules/Goals/Backlog.Modules.Goals/Backlog.Modules.Goals.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Repositories/">
     <Project Path="src/Modules/Repositories/Backlog.Modules.Repositories.Abstractions/Backlog.Modules.Repositories.Abstractions.csproj" />
@@ -150,7 +150,7 @@
     <Project Path="tests/Backlog.Modules.Events.UnitTests/Backlog.Modules.Events.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Inbox.UnitTests/Backlog.Modules.Inbox.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Notifications.UnitTests/Backlog.Modules.Notifications.UnitTests.csproj" />
-    <Project Path="tests/Backlog.Modules.Progress.UnitTests/Backlog.Modules.Progress.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Goals.UnitTests/Backlog.Modules.Goals.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Repositories.UnitTests/Backlog.Modules.Repositories.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Sessions.UnitTests/Backlog.Modules.Sessions.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Sync.Api.UnitTests/Backlog.Modules.Sync.Api.UnitTests.csproj" />

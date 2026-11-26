@@ -5,7 +5,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
-using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Goals;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.Modules.Events.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -148,7 +148,7 @@ public sealed class EventAttachmentOutboxTests
 
         Assert.Empty(TaskFold.Apply(tasks, [record]));
         Assert.Empty(NoteFold.Apply(notes, [record]));
-        Assert.False(ProgressFold.Keeps(change.Task.Type));
+        Assert.False(GoalsFold.Keeps(change.Task.Type));
         Assert.Empty(tasks);
         Assert.Empty(notes);
     }

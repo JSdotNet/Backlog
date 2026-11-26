@@ -1,5 +1,5 @@
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Sync;
@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync;
 /// How a goal is written on the task feed: a whole document under the goal's own id with
 /// the kind token <c>goal</c> (local ADR 0035 §9), on the terms the roadmap's plan travels
 /// on (local ADR 0018). The wire half only — what a goal says, and which
-/// copy wins, is Progress's, behind <see cref="IGoalReplication"/>.
+/// copy wins, is Goals', behind <see cref="IGoalReplication"/>.
 /// <para>
 /// The kind token is a literal duplicated where it is read, for the reason
 /// <see cref="RoadmapReplicaDocuments"/> gives: the phone's <c>TaskFold</c> skips the same
@@ -42,7 +42,7 @@ public static class GoalReplicaDocuments
         return Kind.ToChange(copy.Id, copy.Title, copy.Content, copy.UpdatedAt);
     }
 
-    /// <summary>The copy a pulled document carries, as Progress takes it.</summary>
+    /// <summary>The copy a pulled document carries, as Goals takes it.</summary>
     public static GoalReplicaCopyDto ToCopy(TaskChange change)
     {
         ArgumentNullException.ThrowIfNull(change);

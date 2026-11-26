@@ -54,7 +54,7 @@ public static class EntryLinks
     }
 
     /// <summary>The pull request projections as stored, each once, unparsed and untrimmed.
-    /// Read the way <c>ProgressTaskSource</c> publishes them to Progress, the exact target type
+    /// Read the way <c>GoalsTaskSource</c> publishes them to Progress, the exact target type
     /// included, so the Goals view's rows read what the goal's bar reads.</summary>
     public static IReadOnlyList<EntryPullRequestProjection> PullRequestProjections(TaskItemDto entry)
     {

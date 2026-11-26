@@ -5,7 +5,7 @@ using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;

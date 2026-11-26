@@ -7,7 +7,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Repositories.Abstractions;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.Goals.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -71,7 +71,7 @@ public static class AppFeatures
         // --- Domain: an area of the product ---------------------------------
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(
-            ProgressFeatures.WeeklyReview,
+            GoalsFeatures.WeeklyReview,
             "Weekly review",
             "Offer the Weekly review beside the Inbox in the Home shell: the GTD review over the Inbox, the Brain and the backlog, one stage at a time, each finding with its action in place.",
             EnabledByDefault: false,

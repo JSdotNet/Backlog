@@ -59,7 +59,7 @@ public sealed class AppFeatureSettingsStoreTests
             [
                 // Product areas
                 AppFeatures.InboxPane,
-                Backlog.Modules.Progress.Abstractions.ProgressFeatures.WeeklyReview,
+                Backlog.Modules.Goals.Abstractions.GoalsFeatures.WeeklyReview,
                 DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,

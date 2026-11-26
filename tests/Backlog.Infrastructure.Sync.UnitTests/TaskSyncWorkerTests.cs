@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sync.Abstractions;
@@ -1395,11 +1395,11 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
         /// merge, the session and the worker alike.</summary>
         public RecordingIterationSettingsReplication? Iteration { get; }
 
-        /// <summary>Progress's goal replication port, where a test composed one, handed to
+        /// <summary>Goals' goal replication port, where a test composed one, handed to
         /// the merge, the session and the worker alike.</summary>
         public RecordingGoalReplication? Goals { get; }
 
-        /// <summary>Progress's impediment replication port, where a test composed one, on
+        /// <summary>Goals' impediment replication port, where a test composed one, on
         /// the goals' terms.</summary>
         public RecordingImpedimentReplication? Impediments { get; }
 

@@ -1,7 +1,7 @@
-using Backlog.Infrastructure.FileSystem.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Infrastructure.FileSystem.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.SharedKernel.Replication;

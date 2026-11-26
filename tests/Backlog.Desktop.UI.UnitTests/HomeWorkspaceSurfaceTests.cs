@@ -14,8 +14,8 @@ using Backlog.Modules.Insights.Abstractions.Insights;
 using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Insights.UI;
 using Backlog.Modules.DevPc.UI;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.UI;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
@@ -2062,7 +2062,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']"));
             Assert.Empty(component.FindAll("[data-testid='weekly-review-option']"));
         });
-        Assert.False(AppFeatures.All.Single(feature => feature.Key == ProgressFeatures.WeeklyReview).EnabledByDefault);
+        Assert.False(AppFeatures.All.Single(feature => feature.Key == GoalsFeatures.WeeklyReview).EnabledByDefault);
     }
 
     /// <summary>
@@ -2075,7 +2075,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(features =>
         {
             features.SetEnabled(AppFeatures.InboxPane, true);
-            features.SetEnabled(ProgressFeatures.WeeklyReview, true);
+            features.SetEnabled(GoalsFeatures.WeeklyReview, true);
         });
         var component = Render(harness);
 
@@ -2099,7 +2099,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        using var harness = CreateHarness(features => features.SetEnabled(GoalsFeatures.WeeklyReview, true));
         var component = Render(harness);
 
         OpenTheRoadmap(component);
@@ -2126,7 +2126,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public async Task Escape_heard_at_the_document_closes_the_weekly_review()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        using var harness = CreateHarness(features => features.SetEnabled(GoalsFeatures.WeeklyReview, true));
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-option']")));
@@ -2927,7 +2927,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Goals view in the shell draws the board from the Progress ports over the
+    /// The Goals view in the shell draws the board from the Goals ports over the
     /// shell's own task list: the goals and the stand-up aside, and the task in progress
     /// that no goal holds under No goal. Without the ports — every other test here —
     /// the view says the module is not set up rather than drawing nothing.
@@ -2939,11 +2939,11 @@ public sealed class HomeWorkspaceSurfaceTests
             seed: InProgressEntryText,
             configureServices: services =>
             {
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
             });
         var component = Render(harness);
 
@@ -3009,7 +3009,7 @@ public sealed class HomeWorkspaceSurfaceTests
             features => features.SetEnabled(AppFeatures.AiAssistant, true),
             configureServices: services =>
             {
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
                 services.AddGoalsAiContentSource();
             });
         var component = Render(harness);

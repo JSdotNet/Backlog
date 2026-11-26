@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Sqlite.Changes;
-using Backlog.Infrastructure.Sqlite.Progress;
-using Backlog.Modules.Progress.DomainModels;
+using Backlog.Infrastructure.Sqlite.Goals;
+using Backlog.Modules.Goals.DomainModels;
 using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
