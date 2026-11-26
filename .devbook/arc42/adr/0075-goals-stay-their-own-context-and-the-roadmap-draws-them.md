@@ -1,8 +1,8 @@
-# ADR 0074: Goals stay their own context, and the Roadmap draws them
+# ADR 0075: Goals stay their own context, and the Roadmap draws them
 
 ```meta
 date: 2026-11-27
-related: [".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0067-each-module-ships-its-own-ui-project-and-the-apps-compose-them.md", ".devbook/domain/context-map.md", ".devbook/domain/goals/context.md", ".devbook/domain/goals/domain.md#goal", ".devbook/domain/goals/domain.md#goal-forecast", ".devbook/domain/goals/domain.md#holds-back", ".devbook/domain/work/context.md", ".devbook/domain/work/domain.plan.md#plan", ".devbook/domain/work/domain.md#band"]
+related: [".devbook/arc42/adr/0074-infrastructure-is-organised-by-technology-never-by-context.md", ".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0067-each-module-ships-its-own-ui-project-and-the-apps-compose-them.md", ".devbook/domain/context-map.md", ".devbook/domain/goals/context.md", ".devbook/domain/goals/domain.md#goal", ".devbook/domain/goals/domain.md#goal-forecast", ".devbook/domain/goals/domain.md#holds-back", ".devbook/domain/work/context.md", ".devbook/domain/work/domain.plan.md#plan", ".devbook/domain/work/domain.md#band"]
 c4: [backlog.desktop.goals, backlog.desktop.work]
 c4-touches: [backlog.desktop.shell]
 ```
@@ -37,7 +37,8 @@ runtime checks.
 **Work's merge had a seam to remove; Goals has none.** ADR 0073 §1 merged Tasks and
 Roadmap Planning on evidence of one context split in two: ids crossing both ways, eight
 adapters between them in both directions, and the My Day rule split across them. Goals'
-adapters in `Infrastructure.FileSystem/Goals/` are four — `GoalsTaskSource`,
+adapters in `Infrastructure.FileSystem/Goals/`, which local ADR 0074 moves to
+`Backlog.Modules.Goals.Adapters`, are four — `GoalsTaskSource`,
 `PlanningVelocityStandUpPace`, `RepositoriesGoalPullRequests` and the iteration
 settings store — and every one reads *into* Goals. Work answers no Goals port and
 stores no goal or impediment id (ADR 0035 §6).
