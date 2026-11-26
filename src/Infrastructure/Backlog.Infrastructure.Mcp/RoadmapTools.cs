@@ -1,8 +1,8 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol.Server;
 

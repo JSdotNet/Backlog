@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.UI.Components.Goals;
 
 namespace Backlog.Desktop.UI.UnitTests;

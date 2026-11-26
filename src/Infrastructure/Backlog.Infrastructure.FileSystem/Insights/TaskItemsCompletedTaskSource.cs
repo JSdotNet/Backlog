@@ -1,7 +1,7 @@
 using Backlog.Modules.Insights.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using TasksRepositoryDirectory = Backlog.Modules.Tasks.Abstractions.Services.IRepositoryDirectory;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using TasksRepositoryDirectory = Backlog.Modules.Work.Abstractions.Tasks.Services.IRepositoryDirectory;
 
 namespace Backlog.Infrastructure.FileSystem.Insights;
 

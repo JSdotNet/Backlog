@@ -1,5 +1,5 @@
 using System.Globalization;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 

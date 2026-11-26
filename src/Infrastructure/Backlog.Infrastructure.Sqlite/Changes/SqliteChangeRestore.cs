@@ -4,7 +4,7 @@ using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Tasks;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 
@@ -24,9 +24,9 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 /// <b>Otherwise the prior document comes back, stamped now.</b> A task is rebuilt from
 /// its before-image and saved through <see cref="ITaskRepository"/> — the store the app
 /// writes through, so the pane and the sync hear it — after
-/// <see cref="Modules.Tasks.DomainModels.TaskItem.Supersede"/> stamps it later than the
+/// <see cref="Modules.Work.Tasks.DomainModels.TaskItem.Supersede"/> stamps it later than the
 /// version it replaces; a tombstoned task comes back through
-/// <see cref="Modules.Tasks.DomainModels.TaskItem.Restore"/>. A goal, an impediment or
+/// <see cref="Modules.Work.Tasks.DomainModels.TaskItem.Restore"/>. A goal, an impediment or
 /// the roadmap plan gets its prior stored document back verbatim, stamped past the one
 /// held. A document the change set created is tombstoned: a task, or a goal. An
 /// impediment and the roadmap plan have no tombstone, so one the change set created

@@ -6,7 +6,7 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Capture.Ports;
 using Backlog.Modules.Inbox.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;

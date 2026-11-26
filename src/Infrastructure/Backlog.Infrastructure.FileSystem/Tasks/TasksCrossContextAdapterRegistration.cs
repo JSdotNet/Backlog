@@ -1,8 +1,8 @@
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;

@@ -151,9 +151,8 @@ graph TB
     end
 
     subgraph "Modules"
-      Tasks["Backlog.Modules.Tasks"]
+      Work["Backlog.Modules.Work\n(Task and Plan, and where they meet)"]
       Inbox["Backlog.Modules.Inbox"]
-      Roadmap["Backlog.Modules.Roadmap"]
       Insights["Backlog.Modules.Insights"]
       Capture["Backlog.Modules.Capture"]
       RepoMgmt["Backlog.Modules.Repositories\n(pull-request contract, one cache)"]
@@ -193,9 +192,9 @@ graph TB
   Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & InsightsUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI & GoalsUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
-  TasksUI -->|Abstractions| Tasks
+  TasksUI -->|Abstractions| Work
   InboxUI -->|Abstractions| Inbox
-  RoadmapUI -->|Abstractions| Roadmap
+  RoadmapUI -->|Abstractions| Work
   InsightsUI -->|Abstractions| Insights
   CaptureUI -->|Abstractions| Capture
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
@@ -212,11 +211,10 @@ graph TB
   RoadmapUI --> GitHubInfra
   DevbookUI --> DevbookInfra & Copilot & GitHubInfra
 
-  Tasks --> Sqlite
-  Roadmap --> Sqlite
+  Work --> Sqlite
   Inbox --> Sqlite
   Inbox -->|IInboxBacklogTarget| FileSystem
-  FileSystem -->|ITaskItems| Tasks
+  FileSystem -->|ITaskItems| Work
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Insights.Abstractions| Insights
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
@@ -228,7 +226,7 @@ graph TB
   Inbox -->|IInboxEventTarget| FileSystem
   FileSystem -->|IKnowledgeEvents, IKnowledgeEventReader| Events
   Calendar -->|ICalendarTasks, ICalendarEvents, ICalendarPlans| FileSystem
-  FileSystem -->|Roadmap ports| Roadmap
+  FileSystem -->|"rollup, pace, actual hours"| Work
 
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
@@ -242,7 +240,7 @@ graph TB
 
   McpCallers -->|HTTP on 127.0.0.1 / ::1| Mcp
   McpWorker --> Mcp
-  Mcp --> Tasks & Roadmap & DevbookInfra & SessionsInfra
+  Mcp --> Work & DevbookInfra & SessionsInfra
 
   GitHubInfra --> GitHub
   Foundry --> FoundryApi
@@ -250,7 +248,9 @@ graph TB
 
 Capture sources and background workers run inside the desktop process, so external credentials stay on the machine. `MauiProgram` starts the sync, backup and MCP workers at launch.
 
-**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach Tasks, Roadmap, Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach Work, Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+
+**Work** is `Backlog.Modules.Work` and its `.Abstractions` (local ADR 0073 §1): the Task under `Backlog.Modules.Work.Tasks` and the Plan under `Backlog.Modules.Work.Plans`, each with its own slices and port. Where the two meet is the module's own, under `Backlog.Modules.Work.Services` and composed by `AddWorkJoins`: the plan's tags in the task picker, Import's plan entries laid out on the plan, the shelf of imported plans, the finished work a measured pace counts, the task writes the plan hears, and the plan filter chip's queue. Its screens are still `Backlog.Modules.Tasks.UI` and `Backlog.Modules.Roadmap.UI`; the Roadmap UI also carries the working week's settings page. `Backlog.Infrastructure.FileSystem` keeps the joins with the world outside Work: a plan item's rollup of devbook chapters and Brain notes, a finished plan's project note, the pace file and its replica store, the roadmap's view choices, and the actual hours.
 
 Module UI projects reference adapters directly where a pane needs one: Tasks.UI and Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
 
@@ -270,7 +270,7 @@ The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKno
 
 - `TasksCalendarTasks` answers `ICalendarTasks` over Tasks' `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`. In a host with no Tasks module, `NoCalendarTasks` answers it, and the Calendar draws plans and events alone.
 
-- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Roadmap's ports.
+- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Work's plan ports. They stay adapters: their other end is the Calendar, not Work.
 - `EventsCalendarEvents` answers `ICalendarEvents` over Events' `IKnowledgeEventReader`. With the `events` area off it reads nothing, and the Calendar offers no events.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the C# builder that indexes a repository's devbook folders and the read-only reader over the result. It indexes:

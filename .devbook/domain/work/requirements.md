@@ -321,7 +321,7 @@ The system SHALL read a plan as in today's My Day from its Roadmap Item's My Day
 ```meta
 type: requirement
 related: [.devbook/domain/work/domain.plan.md#roadmap-item]
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PutPlanOnMyDayTests.A_plan_tag_no_item_carries_gets_its_item_on_that_day, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapCrossContextAdapterScopeTests.Putting_a_new_plan_tag_on_My_Day_creates_its_roadmap_item_and_reads_the_date_back]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PutPlanOnMyDayTests.A_plan_tag_no_item_carries_gets_its_item_on_that_day, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapCrossContextAdapterScopeTests.Putting_a_new_plan_tag_on_My_Day_creates_its_roadmap_item_and_reads_the_date_back]
 ```
 
 The system SHALL create a Roadmap Item carrying the tag and today's My Day date when the person puts a plan tag that no Roadmap Item carries on My Day.
@@ -554,7 +554,7 @@ The sync SHALL leave a linked task the person finished here Done, flagging it do
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_deleted_linked_task_is_never_made_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.A_task_brought_back_and_then_deleted_on_its_own_stays_deleted]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_deleted_linked_task_is_never_made_again, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.A_task_brought_back_and_then_deleted_on_its_own_stays_deleted]
 ```
 
 A sync SHALL NOT create again a linked task the person deleted on its own.
@@ -575,7 +575,7 @@ A sync SHALL NOT create again a linked task the person deleted on its own.
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.Connecting_the_source_again_brings_the_deleted_tasks_back, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_and_follows_the_source_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_past_the_first_sync_cutoff]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.DeleteDisconnectedLinkedTasksTests.Connecting_the_source_again_brings_the_deleted_tasks_back, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_and_follows_the_source_again, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_linked_task_deleted_with_its_source_is_restored_past_the_first_sync_cutoff]
 ```
 
 A sync of a connected target SHALL restore each task that Delete tasks deleted with that target and whose item it fetches, and SHALL update it from the item.
@@ -596,7 +596,7 @@ A sync of a connected target SHALL restore each task that Delete tasks deleted w
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.RestoreDeletedLinkedTasksTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Confirming_restores_the_tasks_says_how_many_and_takes_the_offer_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Cancelling_the_restore_confirmation_restores_nothing]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.RestoreDeletedLinkedTasksTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Confirming_restores_the_tasks_says_how_many_and_takes_the_offer_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.TaskConnectorSettingsTests.Cancelling_the_restore_confirmation_restores_nothing]
 ```
 
 After the person confirms, Restore deleted tasks SHALL restore every deleted linked task of one connected target, the tasks deleted one by one included, and no other task.
@@ -623,7 +623,7 @@ After the person confirms, Restore deleted tasks SHALL restore every deleted lin
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee
 ```
 
 Each sync SHALL set a linked task's assignee to the one the source names.
@@ -638,7 +638,7 @@ Each sync SHALL set a linked task's assignee to the one the source names.
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_title_renamed_locally_survives_a_changed_source_title, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_title_does_not_follow_the_source_keeps_the_local_title]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_source_overwrites_the_title_the_state_and_the_assignee, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_title_renamed_locally_survives_a_changed_source_title, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_title_does_not_follow_the_source_keeps_the_local_title]
 ```
 
 Each sync SHALL set a linked task's title to the source's, unless the person renamed the task or its Connected Target is set to keep the local title.
@@ -659,7 +659,7 @@ Each sync SHALL set a linked task's title to the source's, unless the person ren
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_state_change_at_the_source_moves_a_task_the_person_had_moved, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_task_the_person_started_stays_started_while_the_source_still_says_open]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_state_change_at_the_source_moves_a_task_the_person_had_moved, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_task_the_person_started_stays_started_while_the_source_still_says_open]
 ```
 
 A sync SHALL move a linked task's status to the one its item's source status gives, through its target's status map or else the fixed map of its [Source State](domain.md#source-state), when the item moved at the source since the last sync, and otherwise leave the status where the person put it.
@@ -680,7 +680,7 @@ A sync SHALL move a linked task's status to the one its item's source status giv
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_walk_is_the_shortest_path_along_the_lifecycle, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_closed_item_walks_its_ready_task_to_done_and_ticks_it_without_a_start]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_walk_is_the_shortest_path_along_the_lifecycle, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_closed_item_walks_its_ready_task_to_done_and_ticks_it_without_a_start]
 ```
 
 A sync SHALL reach a linked task's new status along the shortest path of the [Task lifecycle](domain.task.md#task)'s own edges, without stamping a start for a status it only passes through.
@@ -695,7 +695,7 @@ A sync SHALL reach a linked task's new status along the shortest path of the [Ta
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_body_labels_effort_and_due_date_are_copied_once
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_body_labels_effort_and_due_date_are_copied_once
 ```
 
 The system SHALL copy an item's body, labels, effort and due date onto its linked task when the task is created, and SHALL NOT change them on later syncs.
@@ -710,7 +710,7 @@ The system SHALL copy an item's body, labels, effort and due date onto its linke
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Two_devices_syncing_the_same_items_make_the_same_tasks, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.LinkedTaskIdsTests.The_same_item_always_gives_the_same_id]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Two_devices_syncing_the_same_items_make_the_same_tasks, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.LinkedTaskIdsTests.The_same_item_always_gives_the_same_id]
 ```
 
 The system SHALL give the linked task for one item the same id on every device that syncs the item, so the person's devices hold one task for it.
@@ -725,7 +725,7 @@ The system SHALL give the linked task for one item the same id on every device t
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_vanished_item_archives_and_flags_its_task_and_does_not_delete_it
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_vanished_item_archives_and_flags_its_task_and_does_not_delete_it
 ```
 
 A sync SHALL archive and flag the linked task of an item the source no longer returns, and SHALL NOT delete it.
@@ -741,7 +741,7 @@ A sync SHALL archive and flag the linked task of an item the source no longer re
 ```meta
 type: requirement
 related: [.devbook/domain/work/domain.md#source-label]
-tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Only_the_first_plan_label_becomes_the_plan_tag_and_the_task_is_flagged
+tests: unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Only_the_first_plan_label_becomes_the_plan_tag_and_the_task_is_flagged
 ```
 
 A sync SHALL make only an item's first `+` label the linked task's plan tag, and SHALL flag the task when the item carries more than one.
@@ -757,7 +757,7 @@ A sync SHALL make only an item's first `+` label the linked task's plan tag, and
 ```meta
 type: requirement
 related: [.devbook/domain/work/domain.plan.md#roadmap-tag]
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_sync_is_given_nothing_that_can_create_a_roadmap_item, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_plan_label_files_the_task_under_its_plan_and_a_task_without_one_under_none]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.The_sync_is_given_nothing_that_can_create_a_roadmap_item, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_plan_label_files_the_task_under_its_plan_and_a_task_without_one_under_none]
 ```
 
 A sync SHALL file a linked task under the plan its plan label names, and SHALL NOT create a Roadmap Item for that plan.
@@ -862,7 +862,7 @@ related: [.devbook/domain/work/features.md#recurring-tasks, .devbook/domain/work
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecurrenceSuccessorInListTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked, unit:dotnet:Backlog.Desktop.UI.UnitTests.RecurrenceSuccessorInListTests.Reaching_Done_spawns_nothing_until_the_entry_is_ticked]
 ```
 
 The system SHALL create the next occurrence of a repeating task when a save ticks it off, and not when its status reaches `done`.
@@ -883,7 +883,7 @@ The system SHALL create the next occurrence of a repeating task when a save tick
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_successor_carries_the_repeat_and_leaves_the_occurrence_behind, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_successor_points_at_the_same_devbook_chapters, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.A_completed_repeat_with_no_due_date_spawns_an_undated_successor]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.A_successor_carries_the_repeat_and_leaves_the_occurrence_behind, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.A_successor_points_at_the_same_devbook_chapters, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.A_completed_repeat_with_no_due_date_spawns_an_undated_successor]
 ```
 
 The system SHALL give the next occurrence what [Occurrence Spawning](domain.md#occurrence-spawning) lists as what the repeat is of, and start it at `ready` with what was about the finished occurrence left empty.
@@ -904,7 +904,7 @@ The system SHALL give the next occurrence what [Occurrence Spawning](domain.md#o
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.An_entry_typed_in_as_already_done_spawns_nothing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_task_that_arrives_already_ticked_spawns_nothing]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.An_entry_typed_in_as_already_done_spawns_nothing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_task_that_arrives_already_ticked_spawns_nothing]
 ```
 
 The system SHALL create no next occurrence for a repeating task that is created already ticked, or that a pull brings to a device for the first time already ticked.
@@ -919,7 +919,7 @@ The system SHALL create no next occurrence for a repeating task that is created 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Completing_a_repeating_entry_creates_exactly_one_successor, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_successor_already_pulled_is_not_spawned_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_replayed_page_spawns_nothing_more]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.Completing_a_repeating_entry_creates_exactly_one_successor, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_successor_already_pulled_is_not_spawned_again, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.A_replayed_page_spawns_nothing_more]
 ```
 
 The system SHALL give each occurrence of a repeating task at most one successor, whichever device and however many ticks spawn it.
@@ -954,7 +954,7 @@ The system SHALL create no next occurrence for a ticked occurrence whose success
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.An_untick_after_the_spawn_leaves_the_successor_in_place, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeRecurrenceTests.An_untick_after_the_spawn_leaves_the_successor_in_place, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RecurringTaskTests.Unticking_and_ticking_again_keeps_the_one_successor]
 ```
 
 The system SHALL keep the next occurrence of a repeating task when the occurrence it followed is unticked, on the desktop or through a pull.
@@ -1108,7 +1108,7 @@ related: [.devbook/domain/work/features.md#import, .devbook/domain/work/domain.m
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.A_plan_entry_is_refused_rather_than_saved_as_a_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.An_update_is_refused_on_the_same_terms, unit:dotnet:Backlog.Modules.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.The_refusal_names_import_as_the_way_in]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.A_plan_entry_is_refused_rather_than_saved_as_a_task, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.An_update_is_refused_on_the_same_terms, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.SaveTaskFromTextPlanEntryTests.The_refusal_names_import_as_the_way_in]
 ```
 
 The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#entry-kind) as a task, whether creating or updating one, and SHALL name Import as the way to bring a plan in.
@@ -1130,7 +1130,7 @@ related: [.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry, .d
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_in_a_plan_is_a_ready_prompt_after_the_gated_entry_with_its_plan_tag_and_repository, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_named_by_its_plan_and_item_is_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_outside_any_plan_gets_a_follow_up_with_no_plan_tag, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_of_a_follow_up_stays_in_the_plan, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_same_answer_handed_over_again_files_no_second_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_deleted_since_is_not_filed_again_by_the_same_answer, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_that_is_gone_is_not_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_plan_imported_again_keeps_the_follow_up, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.The_notification_a_follow_up_was_filed_from_comes_back, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskEditsTests.A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_follow_up_in_a_plan_is_a_ready_prompt_after_the_gated_entry_with_its_plan_tag_and_repository, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_named_by_its_plan_and_item_is_found, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_outside_any_plan_gets_a_follow_up_with_no_plan_tag, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_follow_up_of_a_follow_up_stays_in_the_plan, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.The_same_answer_handed_over_again_files_no_second_task, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_follow_up_deleted_since_is_not_filed_again_by_the_same_answer, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_that_is_gone_is_not_found, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.The_plan_imported_again_keeps_the_follow_up, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.The_notification_a_follow_up_was_filed_from_comes_back, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskEditsTests.A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from]
 ```
 
 The system SHALL file exactly one task per accepted Approve + follow-up answer, of type `prompt` and status `ready`, waiting on the gated entry, carrying the gated entry's plan tag and repository and no `import_plan_id`, with the person's words as its body and the answer's notification id as its provenance.
@@ -1163,7 +1163,7 @@ The system SHALL file exactly one task per accepted Approve + follow-up answer, 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Words_that_look_like_a_step_stay_one_line_of_body_text, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_words_never_parse_as_structure_or_tags, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_read_view_shows_the_words_as_typed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Ordinary_prose_is_kept_exactly_as_typed, unit:dotnet:Backlog.SharedKernel.UnitTests.MarkdownPreviewEscapeTests]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.Words_that_look_like_a_step_stay_one_line_of_body_text, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.The_words_never_parse_as_structure_or_tags, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.The_read_view_shows_the_words_as_typed, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.FileFollowUpTests.Ordinary_prose_is_kept_exactly_as_typed, unit:dotnet:Backlog.SharedKernel.UnitTests.MarkdownPreviewEscapeTests]
 ```
 
 The system SHALL write the words of a follow-up answer into the follow-up's body as plain text, so that no line of them becomes a sub-item, a heading or a fence.
@@ -1276,7 +1276,7 @@ related: [.devbook/domain/work/features.md#refinement-and-prioritization, .devbo
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.The_first_of_two_saves_from_one_read_lands_and_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.Of_two_concurrent_saves_from_one_read_exactly_one_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.A_batch_with_one_stale_task_writes_none_of_it, unit:dotnet:Backlog.Modules.Tasks.UnitTests.StaleWriteRefusalTests.A_text_save_the_store_refuses_answers_stale_write, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_stale_write_is_refused_with_read_again_and_retry, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSaveStateBandTests.A_save_refused_as_stale_reloads_the_entry_and_says_so, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Read_item_answers_the_version_it_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_built_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_on_the_current_version_lands_pinned_to_it, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_no_op_on_an_outdated_read_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Of_two_comments_on_one_read_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_save_landing_inside_the_call_refuses_the_rebuilt_text, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Without_versions_a_write_is_unpinned_as_before, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_version_is_the_stamp_the_store_holds_and_moves_on_every_save, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_save_on_the_version_read_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_second_save_on_one_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_link_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.Devbook_references_on_an_outdated_read_are_refused_and_write_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_comment_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.SelfAttributedTaskItemsTests.A_pinned_save_and_its_version_are_forwarded_and_marked_as_the_panes_write]
+tests: [unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.The_first_of_two_saves_from_one_read_lands_and_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.Of_two_concurrent_saves_from_one_read_exactly_one_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskStaleWriteTests.A_batch_with_one_stale_task_writes_none_of_it, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.StaleWriteRefusalTests.A_text_save_the_store_refuses_answers_stale_write, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_stale_write_is_refused_with_read_again_and_retry, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSaveStateBandTests.A_save_refused_as_stale_reloads_the_entry_and_says_so, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Read_item_answers_the_version_it_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_built_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_write_on_the_current_version_lands_pinned_to_it, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_no_op_on_an_outdated_read_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Of_two_comments_on_one_read_the_second_is_refused, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.A_save_landing_inside_the_call_refuses_the_rebuilt_text, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Without_versions_a_write_is_unpinned_as_before, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_version_is_the_stamp_the_store_holds_and_moves_on_every_save, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_save_on_the_version_read_lands, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.The_second_save_on_one_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_link_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.Devbook_references_on_an_outdated_read_are_refused_and_write_nothing, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskPinnedWriteTests.A_comment_on_an_outdated_read_is_refused_and_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.SelfAttributedTaskItemsTests.A_pinned_save_and_its_version_are_forwarded_and_marked_as_the_panes_write]
 ```
 
 When a task was saved by another writer after a save read it, the system SHALL refuse that save as `tasks.stale_write` and write nothing, so the earlier save stands.
@@ -1402,7 +1402,7 @@ The system SHALL draw a plan completed by hand over its planned window, locked a
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.TheKeepUpProjection_LeavesAnItemCompletedByHandWhereItWasPlanned
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.TheKeepUpProjection_LeavesAnItemCompletedByHandWhereItWasPlanned
 ```
 
 The system SHALL leave the window of a plan completed by hand as it is stored, even when the plan is sized by its effort.
@@ -1417,7 +1417,7 @@ The system SHALL leave the window of a plan completed by hand as it is stored, e
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhatWaitsOnAnItemCompletedByHand_IsReleasedWhenItWasCompleted_NotWhenItsWindowEnds
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.WhatWaitsOnAnItemCompletedByHand_IsReleasedWhenItWasCompleted_NotWhenItsWindowEnds
 ```
 
 The system SHALL end the wait of every item that depends on a plan completed by hand on the plan's completion date rather than on its planned end.
@@ -2014,7 +2014,7 @@ related: [.devbook/domain/work/features.md#archiving-a-finished-plans-project-no
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_that_finishes_while_the_app_is_open_is_offered_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_already_finished_when_the_app_opens_is_left_to_the_weekly_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_Brain_with_no_archive_area_is_never_offered_the_move, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.An_old_plan_is_not_offered_when_the_archive_area_appears_later, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.FinishedProjectNoteTests.Only_a_finished_plans_resolved_project_notes_are_selected, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.Only_a_note_in_the_projects_area_can_be_archived, unit:dotnet:Backlog.UI.Components.UnitTests.ToastTrayTests.An_offer_draws_its_button_runs_it_on_the_press_and_goes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_that_finishes_while_the_app_is_open_is_offered_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_plan_already_finished_when_the_app_opens_is_left_to_the_weekly_review, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_Brain_with_no_archive_area_is_never_offered_the_move, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.An_old_plan_is_not_offered_when_the_archive_area_appears_later, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.FinishedProjectNoteTests.Only_a_finished_plans_resolved_project_notes_are_selected, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.Only_a_note_in_the_projects_area_can_be_archived, unit:dotnet:Backlog.UI.Components.UnitTests.ToastTrayTests.An_offer_draws_its_button_runs_it_on_the_press_and_goes]
 ```
 
 The system SHALL, when a plan whose project note sits in the projects area of a Brain with an archive area becomes finished while the app is open, raise one toast offering **Move the project note to the archive**, and SHALL offer each plan once per device.
@@ -2029,7 +2029,7 @@ The system SHALL, when a plan whose project note sits in the projects area of a 
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.The_press_moves_the_file_unchanged_and_the_Knowledge_Ref_follows, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.Pressing_the_offer_archives_the_note_and_says_where_it_went, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_refused_move_leaves_the_plan_as_it_was, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.FinishedProjectNoteTests.Every_ref_naming_the_moved_note_follows_it_with_its_heading_kept, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.The_move_answers_the_new_path_and_keeps_the_bytes]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.The_press_moves_the_file_unchanged_and_the_Knowledge_Ref_follows, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.Pressing_the_offer_archives_the_note_and_says_where_it_went, unit:dotnet:Backlog.Desktop.UI.UnitTests.ProjectNoteArchiveTests.A_refused_move_leaves_the_plan_as_it_was, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.FinishedProjectNoteTests.Every_ref_naming_the_moved_note_follows_it_with_its_heading_kept, unit:dotnet:Backlog.Infrastructure.Brain.UnitTests.BrainRoadmapProjectNotesTests.The_move_answers_the_new_path_and_keeps_the_bytes]
 ```
 
 The system SHALL, on the press, move the note's file byte for byte into the Brain's archive area through the link writer, and SHALL point every Knowledge Ref of the plan that named the note at the new path, keeping the heading it named. A refused move SHALL leave the plan unchanged.
@@ -2120,7 +2120,7 @@ related: [.devbook/domain/work/features.md#placing-a-plan-in-time]
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanAcrossRoadmapTests.A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemPartsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanAcrossRoadmapTests.A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemPartsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork]
 ```
 
 The system SHALL lay out a plan sized by its effort as one part per repository, each counting its own tasks and the shared tasks it carries at its repository's pace from the day after what it waits on ends, and SHALL end the plan's window on the latest part end.
@@ -2232,7 +2232,7 @@ The system SHALL measure a pace as the points finished in its measuring period, 
 
 ```meta
 type: requirement
-tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.Opening_the_roadmap_stores_the_window_the_work_makes_from_today_and_draws_it, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.A_task_marked_done_stores_the_shorter_window, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnEffortPlacedItemLeftBehind_IsStoredFromToday_StillPlacedByEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.ATaskMarkedDone_PullsTheEndIn_ToWhatIsLeft, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByItsDueDate_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.KeepUpWithWorkTests.AnItemPlacedByHand_IsNeverWritten, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.ADueDateOrAHandPlacedWindow_IsReadAsStored]
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.Opening_the_roadmap_stores_the_window_the_work_makes_from_today_and_draws_it, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.A_task_marked_done_stores_the_shorter_window, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.KeepUpWithWorkTests.AnEffortPlacedItemLeftBehind_IsStoredFromToday_StillPlacedByEffort, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.KeepUpWithWorkTests.ATaskMarkedDone_PullsTheEndIn_ToWhatIsLeft, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.KeepUpWithWorkTests.AnItemPlacedByItsDueDate_IsNeverWritten, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.KeepUpWithWorkTests.AnItemPlacedByHand_IsNeverWritten, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.EffortWindowTests.ADueDateOrAHandPlacedWindow_IsReadAsStored]
 ```
 
 The system SHALL lay out again, every time the roadmap is read, each plan whose window is still sized by its effort and whose work is unfinished, from today over the effort not yet done.
@@ -2267,7 +2267,7 @@ The scenarios use a pace of 7 points a week, and nothing in the plans has begun.
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.EffortWindowTests.AWindowIsNeverShorterThanItsStartDay
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.EffortWindowTests.AWindowIsNeverShorterThanItsStartDay
 ```
 
 The system SHALL give a plan sized by its effort, and each of its parts, a window of at least the day it starts, however little effort it gathered.
@@ -2282,7 +2282,7 @@ The system SHALL give a plan sized by its effort, and each of its parts, a windo
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportedPlanPlacementTests.ADueDateEndsTheWindow_WhateverTheEffort, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.ADueDateEndsTheWindow]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.ImportedPlanPlacementTests.ADueDateEndsTheWindow_WhateverTheEffort, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.ImportPlanItemsTests.ADueDateEndsTheWindow]
 ```
 
 The system SHALL end a plan that states a due date on that date, without consulting the pace or the effort its tasks registered.

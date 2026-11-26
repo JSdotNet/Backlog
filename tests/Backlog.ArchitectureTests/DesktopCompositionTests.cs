@@ -32,6 +32,7 @@ public sealed partial class DesktopCompositionTests
     [
         "AddTasksModule",
         "AddRoadmapModule",
+        "AddWorkJoins",
         "AddInboxModule",
         "AddNotificationsModule",
         "AddEventsModule",

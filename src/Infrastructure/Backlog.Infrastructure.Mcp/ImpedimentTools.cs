@@ -3,7 +3,7 @@ using System.ComponentModel;
 using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Goals.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol.Server;
 

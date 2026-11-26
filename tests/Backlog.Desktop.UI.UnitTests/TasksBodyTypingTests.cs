@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.UI.Components.Menus;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;

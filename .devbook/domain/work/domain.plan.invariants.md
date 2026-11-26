@@ -27,7 +27,7 @@ related: [.devbook/domain/work/domain.plan.md#plan]
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.EmptyPlan_IsAValidPlan
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.EmptyPlan_IsAValidPlan
 ```
 
 A plan with no items and no milestones is a valid plan.
@@ -39,7 +39,7 @@ Enforced at: `RoadmapPlan.Empty()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADirectCycleIsRefused_AndThePlanIsLeftAsItWas, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.AnIndirectCycleIsRefused_HoweverManyStepsAway, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ACycleThroughAMilestoneIsRefusedToo]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.ADirectCycleIsRefused_AndThePlanIsLeftAsItWas, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.AnIndirectCycleIsRefused_HoweverManyStepsAway, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.ACycleThroughAMilestoneIsRefusedToo]
 ```
 
 A dependency that would close a cycle, directly or through any number of nodes, is refused and leaves the plan as it was (`roadmap.cyclic_dependency`).
@@ -51,7 +51,7 @@ Enforced at: `AddDependency()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ADependencyOnSomethingNotInThePlan_IsRefused, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RehydrationTests.ADanglingDependencyIsDroppedRatherThanFailingTheLoad, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.RemovingAnItem_AlsoForgetsEveryDependencyOnIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.RemovingAMilestone_AlsoForgetsEveryDependencyOnIt]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.ADependencyOnSomethingNotInThePlan_IsRefused, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RehydrationTests.ADanglingDependencyIsDroppedRatherThanFailingTheLoad, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.RemovingAnItem_AlsoForgetsEveryDependencyOnIt, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.RemovingAMilestone_AlsoForgetsEveryDependencyOnIt]
 ```
 
 A dependency names an item or milestone in this plan; an edge to an unknown id is refused (`roadmap.node_not_found`).
@@ -63,7 +63,7 @@ Enforced at: `AddDependency()`; `Rehydrate()` drops a dangling edge, and `Remove
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.NothingCanWaitForItself
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.NothingCanWaitForItself
 ```
 
 A dependency of a node on itself is refused (`roadmap.self_dependency`).
@@ -74,7 +74,7 @@ Enforced at: `AddDependency()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.DeclaringTheSameDependencyTwice_ChangesNothingAndSucceeds
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.DeclaringTheSameDependencyTwice_ChangesNothingAndSucceeds
 ```
 
 Declaring a dependency the plan already holds changes nothing and succeeds, so a node never waits twice on the same node.
@@ -85,7 +85,7 @@ Enforced at: `AddDependency()`; `Dependencies.Of()` collapses duplicates when a 
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlannedWindowTests.AWindowThatEndsBeforeItStarts_IsRefusedRatherThanThrown
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlannedWindowTests.AWindowThatEndsBeforeItStarts_IsRefusedRatherThanThrown
 ```
 
 A Planned Window ends on or after the day it starts; two dates that do not make one are refused (`roadmap.invalid_window`).
@@ -96,7 +96,7 @@ Enforced at: constructor (`PlannedWindow`): `Create()` refuses, and `Of()` clamp
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlannedWindowTests.BothEndsAreInclusive_SoASingleDayIsOneDayLong
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlannedWindowTests.BothEndsAreInclusive_SoASingleDayIsOneDayLong
 ```
 
 Both days of a Planned Window are inclusive, so a single-day window is one day long rather than none.
@@ -107,7 +107,7 @@ Enforced at: `PlannedWindow.Days`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.AMilestoneIsADay_NotAOneDayItem
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.AMilestoneIsADay_NotAOneDayItem
 ```
 
 A Milestone falls on exactly one day and has no duration, which is why it is not a one-day item.
@@ -118,7 +118,7 @@ Enforced at: constructor (`Milestone`, which holds a single `On` date and no win
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
 ```
 
 Setting an item's Planning Priority never writes to its linked Task.
@@ -140,7 +140,7 @@ Enforced at: all mutations (`RoadmapItem.Prioritise()` is internal, and none of 
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RehydrationTests.AnAliasThatNoLongerResolves_IsKeptRatherThanDeleted
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RehydrationTests.AnAliasThatNoLongerResolves_IsKeptRatherThanDeleted
 ```
 
 A Repository Scope alias the Repository Registry no longer resolves is kept, and reads as unresolved.
@@ -152,7 +152,7 @@ Enforced at: constructor (`RepositoryScope`): `Of()` normalizes the aliases and 
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AliasesAreNormalizedTheWayTheSettingsStoreWritesThem, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.DuplicatesCollapse_AndTypingOrderDoesNotAffectEquality]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RepositoryScopeTests.AliasesAreNormalizedTheWayTheSettingsStoreWritesThem, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RepositoryScopeTests.DuplicatesCollapse_AndTypingOrderDoesNotAffectEquality]
 ```
 
 A Repository Scope holds each alias once, trimmed and in lower case, and two scopes naming the same aliases are equal whatever order they were typed in.
@@ -164,7 +164,7 @@ Enforced at: constructor (`RepositoryScope`): `Of()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RepositoryScopeTests.AnEmptyScopeIsUnfiled_NotAnError
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RepositoryScopeTests.AnEmptyScopeIsUnfiled_NotAnError
 ```
 
 A Repository Scope with no alias, or only blank ones, is valid and means the work is under no repository.
@@ -176,7 +176,7 @@ Enforced at: constructor (`RepositoryScope`): `Of()` returns `Unfiled`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.BlankIsTheDefaultLane, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningLaneTests.ALaneIsWhateverThePersonCalledIt]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningLaneTests.BlankIsTheDefaultLane, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningLaneTests.ALaneIsWhateverThePersonCalledIt]
 ```
 
 A blank Planning Lane is the default lane, and any other name is kept as the person wrote it, trimmed.
@@ -187,7 +187,7 @@ Enforced at: constructor (`PlanningLane`): `Of()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapPlanTests.PlanningPriority_IsThePlansOwn_AndDoesNotTouchTheLinkedEntry
 ```
 
 A Task Link is a foreign id, and the plan never reads through it to decide anything about itself.
@@ -198,7 +198,7 @@ Enforced at: constructor (`RoadmapItem.TaskId` is a bare `Guid?`, set by `LinkTo
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.AnItemAddedWithoutATag_GetsOneDerivedFromItsTitle
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanTaggingTests.AnItemAddedWithoutATag_GetsOneDerivedFromItsTitle
 ```
 
 Every Roadmap Item has exactly one Roadmap Tag, derived from its title when none is given.
@@ -209,7 +209,7 @@ Enforced at: constructor (`RoadmapItem`)
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.RenamingTheTitle_LeavesTheTagAlone, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.UpdatingWithNoTag_RederivesFromTheTitle_BecauseTheFieldWasCleared]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanTaggingTests.RenamingTheTitle_LeavesTheTagAlone, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanTaggingTests.UpdatingWithNoTag_RederivesFromTheTitle_BecauseTheFieldWasCleared]
 ```
 
 Renaming an item's title never changes its tag.
@@ -221,7 +221,7 @@ Enforced at: `Rename()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.EveryProducedTagMatchesTheAgreedShape, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.AnExplicitValueIsNormalizedThroughTheSameRules, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.DiacriticsAreFoldedRatherThanDropped]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningTagTests.EveryProducedTagMatchesTheAgreedShape, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningTagTests.AnExplicitValueIsNormalizedThroughTheSameRules, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningTagTests.DiacriticsAreFoldedRatherThanDropped]
 ```
 
 A Roadmap Tag is lowercase kebab-case, whether it was derived from a title or typed by the person.
@@ -233,7 +233,7 @@ Enforced at: constructor (`PlanningTag`): `From()` and `Of()` slugify every valu
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanningTagTests.ATitleThatSlugifiesToNothing_FallsBackToAStableValue
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanningTagTests.ATitleThatSlugifiesToNothing_FallsBackToAStableValue
 ```
 
 A title the slug rule reduces to nothing gets the tag `item`.
@@ -245,7 +245,7 @@ Enforced at: constructor (`PlanningTag`): `From()` and `Of()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.TwoItemsMayShareATag_AndBothAreFound, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanTaggingTests.TheDistinctTagsInUseAreReported_OnceEach]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanTaggingTests.TwoItemsMayShareATag_AndBothAreFound, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanTaggingTests.TheDistinctTagsInUseAreReported_OnceEach]
 ```
 
 A Roadmap Tag already carried by another item is accepted, and asking for that tag returns every item that carries it.
@@ -287,7 +287,7 @@ Enforced at: all mutations (every mutator on `RoadmapItem`, `Milestone` and `Dep
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDoesNotTouchDependencies, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanEditingTests.EditingDoesNotTouchDependencies, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong]
 ```
 
 Moving or editing an item changes neither its own dependencies nor the window of anything that waits on it.
@@ -299,7 +299,7 @@ Enforced at: `Reschedule()` and `UpdateItem()`, which change the one item's wind
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.Rescheduling_ClearsIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.ALaneOnlyDrop_KeepsIt_BecauseNoDateWasOverruled, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.EditingTheWindow_ClearsTheImportProvenance, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PinItemEndTests.PinEnd_ToTheDateTheImporterPlaced_StillHandsTheWindowToThePerson, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.The_editor_offers_no_update_from_tasks_and_a_save_that_leaves_the_dates_keeps_the_placement]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanImportProvenanceTests.Rescheduling_ClearsIt, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanImportProvenanceTests.ALaneOnlyDrop_KeepsIt_BecauseNoDateWasOverruled, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.ImportPlanItemsTests.EditingTheWindow_ClearsTheImportProvenance, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PinItemEndTests.PinEnd_ToTheDateTheImporterPlaced_StillHandsTheWindowToThePerson, integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandKeepUpTests.The_editor_offers_no_update_from_tasks_and_a_save_that_leaves_the_dates_keeps_the_placement]
 ```
 
 A change to an item's dates clears its `placed_by_import`, and a change that leaves both dates as they were keeps it.
@@ -311,7 +311,7 @@ Enforced at: `RoadmapItem.MoveTo()`, which clears the value only when the window
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.TheImporterMayNotMoveAWindowAPersonPlaced, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanImportProvenanceTests.TheImporterMayReplaceItsOwnWindow, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.ImportPlanItemsTests.AReimport_KeepsAWindowMovedByHand_AndStillRevisesTheRest]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanImportProvenanceTests.TheImporterMayNotMoveAWindowAPersonPlaced, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanImportProvenanceTests.TheImporterMayReplaceItsOwnWindow, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.ImportPlanItemsTests.AReimport_KeepsAWindowMovedByHand_AndStillRevisesTheRest]
 ```
 
 An import may place again only a window that still carries `placed_by_import`, and is refused for any other (`roadmap.placed_by_hand`).
@@ -323,7 +323,7 @@ Enforced at: `PlaceByImport()`; `AddImportedItem()` is the only other operation 
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheirProgressWins_OverTheHandSetDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.WhenTasksCarryTheItemAndAreAllDone_ItEndsWhenTheLastTaskWasTickedOff, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheLayoutFollowsTheTasks_NotTheHandSetDay]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheirProgressWins_OverTheHandSetDay, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.WhenTasksCarryTheItemAndAreAllDone_ItEndsWhenTheLastTaskWasTickedOff, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.OnceTasksCarryTheItem_TheLayoutFollowsTheTasks_NotTheHandSetDay]
 ```
 
 While an item gathers at least one task, it is finished only when every gathered task is done, and its `completed_on` is kept but not read.
@@ -335,7 +335,7 @@ Enforced at: `RoadmapItemCompletion.IsFinished()`, `IsCompletedByHand()` and `Fi
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AKnowledgeChapter_IsNoTask_SoTheHandSetDayStillCounts, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AnItemWhoseWorkWasNotRead_ReadsAsHavingGatheredNothing]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.AKnowledgeChapter_IsNoTask_SoTheHandSetDayStillCounts, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemCompletionTests.AnItemWhoseWorkWasNotRead_ReadsAsHavingGatheredNothing]
 ```
 
 An item that gathered only devbook chapters is an item no task carries, so its completion by hand counts.
@@ -347,7 +347,7 @@ Enforced at: `RoadmapItemCompletion.HasTasks()`, which counts gathered backlog e
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_RefusesADayAfterToday_AndSavesNothing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.TheCompleteCommand_TakesToday]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.TheCompleteCommand_RefusesADayAfterToday_AndSavesNothing, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.TheCompleteCommand_TakesToday]
 ```
 
 Completing an item on a day after today is refused and leaves the item as it was (`roadmap.completed_in_future`).
@@ -359,7 +359,7 @@ Enforced at: `CompleteItemCommandHandler`, against today on its clock
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_AgainOnAnotherDay_MovesTheDay
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.CompleteItem_AgainOnAnotherDay_MovesTheDay
 ```
 
 Completing an item that is already completed keeps only the newest day.
@@ -370,7 +370,7 @@ Enforced at: `RoadmapPlan.CompleteItem()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_ClearsTheDay, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.ReopenItem_OnAnOpenItem_LeavesItOpen]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.ReopenItem_ClearsTheDay, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.ReopenItem_OnAnOpenItem_LeavesItOpen]
 ```
 
 Reopening an item clears its `completed_on`, and reopening an open item changes nothing.
@@ -381,7 +381,7 @@ Enforced at: `RoadmapPlan.ReopenItem()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.CompleteItem_RecordsTheDay_AndLeavesTheWindowWhereItWasPlanned
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.CompleteItem_RecordsTheDay_AndLeavesTheWindowWhereItWasPlanned
 ```
 
 Completing or reopening an item changes its `completed_on` and nothing else, its Planned Window included.
@@ -392,7 +392,7 @@ Enforced at: `RoadmapPlan.CompleteItem()` and `ReopenItem()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.CompleteItemTests.MovingOrEditingACompletedItem_KeepsItCompleted
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.CompleteItemTests.MovingOrEditingACompletedItem_KeepsItCompleted
 ```
 
 A reschedule, a pinned or unpinned end, a new priority or an edit of a completed item leaves its `completed_on` as it was.

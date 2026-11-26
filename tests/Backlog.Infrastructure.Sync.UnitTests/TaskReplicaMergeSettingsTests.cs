@@ -1,6 +1,6 @@
 using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;

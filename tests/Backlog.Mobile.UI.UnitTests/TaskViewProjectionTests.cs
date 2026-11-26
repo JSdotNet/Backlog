@@ -1,6 +1,6 @@
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 using Microsoft.Extensions.Time.Testing;
 

@@ -5,7 +5,7 @@ using Backlog.Modules.Inbox.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
-using Backlog.Modules.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.AspNetCore.Components;

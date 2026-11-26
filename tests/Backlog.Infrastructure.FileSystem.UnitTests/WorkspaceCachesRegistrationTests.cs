@@ -3,7 +3,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;

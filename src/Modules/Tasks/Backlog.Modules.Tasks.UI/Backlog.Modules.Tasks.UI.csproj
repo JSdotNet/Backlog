@@ -40,7 +40,7 @@
          the ITaskItems port. The aggregate, its repository and the use-case
          handlers stay behind that line — the host wires them up, the UI does not
          see them. -->
-    <ProjectReference Include="..\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>

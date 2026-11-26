@@ -46,7 +46,7 @@
     <!-- Roadmap's IRoadmapBrainNotes port, answered over the Brain's database: a
          roadmap item's #brain: refs and its tag reach the owner's notes (local ADR
          0053). -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <!-- Devbook's builder and registry, for the corpus profile, the database
          location and the readers over the Brain's database. -->
     <ProjectReference Include="..\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />

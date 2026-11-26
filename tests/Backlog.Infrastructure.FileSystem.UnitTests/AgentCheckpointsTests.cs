@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.Tests;
 
 using Microsoft.Data.Sqlite;

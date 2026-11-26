@@ -17,9 +17,9 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Inbox.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,9 +77,9 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
         Assert.NotNull(provider.GetRequiredService<TaskSyncWorker>());
-        Assert.NotNull(provider.GetRequiredService<Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker>());
+        Assert.NotNull(provider.GetRequiredService<Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker>());
         Assert.Contains(
-            provider.GetServices<Backlog.Modules.Tasks.Abstractions.Connectors.ITaskConnector>(),
+            provider.GetServices<Backlog.Modules.Work.Abstractions.Tasks.Connectors.ITaskConnector>(),
             connector => connector is Backlog.Infrastructure.GitHub.GitHubConnector);
     }
 
@@ -118,7 +118,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker),
             typeof(Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener),
             typeof(BackupWorker),
-            typeof(Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
+            typeof(Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker),
             typeof(Backlog.Modules.Notifications.Services.NotificationsStartup),
             typeof(RepositoryAliasFollower),
             typeof(Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher),
@@ -250,13 +250,13 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.NotSame(tasks, second.ServiceProvider.GetRequiredService<TasksDesktopState>());
         // Which task a session or a pull request belongs to is Tasks' answer over that
         // window's one state (local ADR 0042, V8): one lookup per window, as its rows are.
-        Assert.Same(tasks, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+        Assert.Same(tasks, first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates>());
         Assert.Same(
-            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>(),
-            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
         Assert.NotSame(
-            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>(),
-            second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
         Assert.NotSame(
             first.ServiceProvider.GetRequiredService<InboxDesktopState>(),
             second.ServiceProvider.GetRequiredService<InboxDesktopState>());
@@ -413,7 +413,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Equal(0, merged.Applied);
         Assert.Equal(0, merged.Skipped);
         Assert.Null(await provider
-            .GetRequiredService<Backlog.Modules.Tasks.ITaskRepository>()
+            .GetRequiredService<Backlog.Modules.Work.Tasks.ITaskRepository>()
             .GetIncludingDeletedAsync(id, TestContext.Current.CancellationToken));
     }
 
@@ -438,7 +438,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         var stamp = new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero);
         var change = MyDayReplicaDocuments.ToChange(
-            new Backlog.Modules.Tasks.Abstractions.DataTransferObjects.MyDayPreferencesCopyDto(
+            new Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.MyDayPreferencesCopyDto(
                 """{"updatedAt":"2026-10-15T08:00:00Z","clearsOvernight":false}""", stamp));
 
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(

@@ -1,4 +1,4 @@
-﻿using Backlog.Modules.Tasks.Abstractions;
+﻿using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;

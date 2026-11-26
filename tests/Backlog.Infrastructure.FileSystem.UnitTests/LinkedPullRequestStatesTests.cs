@@ -2,7 +2,7 @@ using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Repositories.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;
 using Microsoft.Extensions.DependencyInjection;

@@ -433,9 +433,9 @@ public class WebHarnessHostTests
         // And so does the task row, through Tasks' own port (V5, V10); which entries a
         // merge's finish is settled for stays Tasks' fact, in the folder it always had.
         Assert.IsType<Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates>(
-            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ILinkedPullRequestStates>());
+            harness.Services.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ILinkedPullRequestStates>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.PullRequestFinishMemory>(
-            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IPullRequestFinishMemory>());
+            harness.Services.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IPullRequestFinishMemory>());
     }
 
     /// <summary>
@@ -452,12 +452,12 @@ public class WebHarnessHostTests
 
         Assert.Same(
             first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Tasks.TasksDesktopState>(),
-            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates>());
 
-        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>();
-        Assert.Equal("Backlog.Modules.Tasks", lookup.GetType().Assembly.GetName().Name);
-        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
-        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>();
+        Assert.Equal("Backlog.Modules.Work", lookup.GetType().Assembly.GetName().Name);
+        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
+        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
     }
 
     /// <summary>
@@ -703,8 +703,8 @@ public class WebHarnessHostTests
         Assert.Equal("Tasks", tasks.Title);
         Assert.Equal(["My Day"], tasks.CardTitles!);
         Assert.Same(
-            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferences>(),
-            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>());
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IMyDayPreferences>(),
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IMyDayPreferencesReplication>());
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 using System.Globalization;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Microsoft.AspNetCore.Components;
 
 namespace Backlog.Desktop.UI.Tasks;

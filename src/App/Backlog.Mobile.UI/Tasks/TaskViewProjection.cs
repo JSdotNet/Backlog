@@ -2,9 +2,9 @@ using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
-using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
+using MyDayRule = Backlog.Modules.Work.Abstractions.Tasks.MyDay;
 
 namespace Backlog.Mobile.UI.Tasks;
 

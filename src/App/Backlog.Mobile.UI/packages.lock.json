@@ -309,10 +309,10 @@
           "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
@@ -350,12 +350,6 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.roadmap.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
       "backlog.modules.sessions.abstractions": {
         "type": "Project"
       },
@@ -365,14 +359,14 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.tasks": {
+      "backlog.modules.work": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.tasks.abstractions": {
+      "backlog.modules.work.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

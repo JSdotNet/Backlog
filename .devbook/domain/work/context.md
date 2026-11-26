@@ -11,8 +11,9 @@ Work holds the person's work across projects and repositories: what there is to 
 and when and in which order it is meant to happen. It is a core context. Tasks and
 Roadmap Planning merged into it under
 [local ADR 0073 §1](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#1-work);
-its code is still `Backlog.Modules.Tasks` and `Backlog.Modules.Roadmap` until those
-modules merge into `Backlog.Modules.Work`.
+its code is `Backlog.Modules.Work`, the task under `Backlog.Modules.Work.Tasks` and the
+plan under `Backlog.Modules.Work.Plans`; its screens are still `Backlog.Modules.Tasks.UI`
+and `Backlog.Modules.Roadmap.UI`.
 
 Two aggregates, each the boundary of its own rules:
 

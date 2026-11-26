@@ -3,7 +3,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.UI.Components.Integrations;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;

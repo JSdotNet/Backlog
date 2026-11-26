@@ -1,5 +1,5 @@
 using AngleSharp.Dom;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.UI.Components.Tasks;
 using Bunit;
 

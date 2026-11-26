@@ -1,6 +1,6 @@
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

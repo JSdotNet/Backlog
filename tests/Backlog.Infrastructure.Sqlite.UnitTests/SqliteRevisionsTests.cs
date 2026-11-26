@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
-using Backlog.Modules.Tasks.Features.RecordTaskUsage;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Features.RecordTaskUsage;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 
@@ -74,7 +74,7 @@ public sealed class SqliteRevisionsTests : IDisposable
         var change = ChangeSet.Start(ChangeActor.Person, "planning");
         using (ChangeContext.Enter(change))
         {
-            await roadmap.SaveAsync(Backlog.Modules.Roadmap.DomainModels.RoadmapPlan.Empty(), Token);
+            await roadmap.SaveAsync(Backlog.Modules.Work.Plans.DomainModels.RoadmapPlan.Empty(), Token);
             await goals.SaveAsync(goal, Token);
             await impediments.SaveAsync(impediment, Token);
             await goals.DeleteAsync(goal.Id, Token);

@@ -1,0 +1,921 @@
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
+
+/// <summary>
+/// Brings one connected target's items in as linked tasks: creates the task an
+/// item has not become yet, updates the fields the source owns on the ones it
+/// has, and archives the task of an item that is gone.
+/// <para>
+/// The title and the assignee follow the source on every sync. The status follows
+/// the source's <em>state moves</em>: it is walked to the map's answer when the
+/// normalised state differs from the one the last sync recorded, or the status the
+/// target's own status map reads it as does, and otherwise left where the person
+/// put it (ADR 0020 §4, as amended at implementation). The task's
+/// blocked mark follows the source's blocked moves on the same terms, and the
+/// item's devbook references are added to the task's on every sync and never taken
+/// away. What the item waits on becomes the task's <c>after:</c> dependencies when
+/// both ends are linked tasks, and follows the source from then on.
+/// </para>
+/// <para>
+/// A <c>+</c> label gives the task its plan tag and files it under that plan, so the
+/// plan shows on the roadmap's shelf. The sync reaches no Roadmap port and never
+/// creates a Roadmap Item (ADR 0020, §6; ADR 0013, ruling 3).
+/// </para>
+/// <para>
+/// A target with a <see cref="ConnectedTarget.RepositoryId"/> files each of its
+/// tasks under that repository while the task is filed under none; one without
+/// files them under the target itself when its connector says its targets are
+/// repositories (<see cref="TaskConnectorCapabilities.TargetIsRepository"/>).
+/// </para>
+/// <para>
+/// <c>.devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md</c> is the
+/// design, §2 to §6 and §9. The handler names no connector: it finds the one whose
+/// descriptor carries <see cref="ConnectorId"/> among those the host registered.
+/// </para>
+/// </summary>
+public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
+
+/// <summary>What one sync did, counted per task.</summary>
+/// <param name="Fetched">Items the source answered, whatever the sync then did
+/// with each.</param>
+/// <param name="Created">Items that became a task.</param>
+/// <param name="Restored">Tasks deleted with their source
+/// (<see cref="LinkedTaskFlags.DeletedWithSource"/>) that the sync brought back
+/// because their item was fetched again; counted here and not as updated.</param>
+/// <param name="Updated">Tasks a source field, the status, the blocked mark, a
+/// devbook reference, a dependency, the plan, the repository or a flag changed
+/// on.</param>
+/// <param name="Unchanged">Tasks the sync read and left alone.</param>
+/// <param name="SkippedTombstoned">Items whose task the person deleted on its own;
+/// never made again.</param>
+/// <param name="SkippedUntouched">Items older than the target's first-sync cut-off,
+/// with no task yet.</param>
+/// <param name="Vanished">Tasks archived because their item was gone.</param>
+public sealed record LinkedTaskSyncSummary(
+    int Fetched,
+    int Created,
+    int Restored,
+    int Updated,
+    int Unchanged,
+    int SkippedTombstoned,
+    int SkippedUntouched,
+    int Vanished);
+
+public sealed partial class SyncLinkedTasksCommandHandler(
+    IEnumerable<ITaskConnector> connectors,
+    ITaskRepository tasks,
+    IConnectedTargets targets,
+    TimeProvider time,
+    IRepositoryDirectory? repositories = null,
+    ILogger<SyncLinkedTasksCommandHandler>? log = null)
+    : ICommandHandler<SyncLinkedTasksCommand, Result<LinkedTaskSyncSummary>>
+{
+    public static readonly Error ConnectorNotFound = Error.NotFound(
+        "linked_tasks.connector_not_found",
+        "That source is not available in this app.");
+
+    public static readonly Error TargetNotFound = Error.NotFound(
+        "linked_tasks.target_not_found",
+        "That repository or product is not connected.");
+
+    public static readonly Error TargetDisabled = Error.Validation(
+        "linked_tasks.target_disabled",
+        "Syncing is switched off for that repository or product.");
+
+    /// <summary>The target files its tasks under a repository the person archived.
+    /// The pause is derived from the registry on every run and never written to the
+    /// target, so Unarchive resumes the sync with nothing to undo (local ADR 0029
+    /// §5).</summary>
+    public static readonly Error RepositoryArchived = Error.Validation(
+        "linked_tasks.repository_archived",
+        "Syncing is paused while its repository is archived.");
+
+    private readonly ILogger _log = log ?? NullLogger<SyncLinkedTasksCommandHandler>.Instance;
+
+    public async Task<Result<LinkedTaskSyncSummary>> Handle(
+        SyncLinkedTasksCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var connector = connectors.FirstOrDefault(candidate =>
+            string.Equals(candidate.Descriptor.Id, command.ConnectorId, StringComparison.Ordinal));
+        if (connector is null) return ConnectorNotFound;
+
+        var target = targets.Get(command.ConnectorId, command.Target);
+        if (target is null) return TargetNotFound;
+        if (!target.Enabled) return TargetDisabled;
+
+        // Before the fetch and with no RecordFailure: a pause is not a failure, and
+        // the target is left exactly as it was so Unarchive has nothing to undo.
+        if (IsPaused(connector, target, repositories)) return RepositoryArchived;
+
+        // Read before the fetch, so the next fetch's "closed since" overlaps this
+        // one rather than leaving a gap for an item that closed while it ran.
+        var fetchStartedAt = time.GetUtcNow();
+
+        // Fixed at the first sync and kept: a window that slid with every run would
+        // drop an item the day it turned old, which is not what the setting asks.
+        // Derived at the first sync only — a target that has synced before has no
+        // first sync left, so an age set afterwards skips nothing.
+        var cutoff = target.IgnoreUntouchedBefore
+            ?? (target.LastSyncedAt is null && target.SkipUntouchedOlderThan is { } age ? fetchStartedAt - age : null);
+
+        IReadOnlyList<SourceItem> items;
+        try
+        {
+            items = await connector.FetchAsync(target.Target, target.LastSyncedAt, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nothing is written on a failed fetch, and nothing is archived as
+            // vanished: an answer from a source that could not be reached is not an
+            // empty source. Only the failure itself is kept, on the target, so its
+            // card can say why it is not syncing.
+            LogFetchFailed(_log, ex, connector.Descriptor.Id, target.Target);
+            var error = FetchFailed(connector, target, ex);
+            RecordFailure(target, error.Message);
+            return error;
+        }
+
+        var connectorId = connector.Descriptor.Id;
+        var repositoryId = RepositoryIdOf(connector, target);
+        var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+        var seen = new HashSet<Guid>();
+        var synced = new List<Synced>();
+        int created = 0, restored = 0, updated = 0, unchanged = 0, tombstoned = 0, untouched = 0, vanished = 0;
+
+        foreach (var item in items)
+        {
+            if (string.IsNullOrWhiteSpace(item.ExternalId)) continue;
+
+            var id = LinkedTaskIds.For(connectorId, item.ExternalId);
+            if (!seen.Add(id)) continue;
+
+            var existing = await tasks.GetIncludingDeletedAsync(id, cancellationToken);
+
+            // A linked task the person deleted stays deleted. The tombstone is what
+            // says so, and the sync never makes the id again — unless it went with
+            // the rest of its source's tasks (ADR 0020, §5). That one is restored and
+            // then updated from the item like any other, past the first-sync cut-off,
+            // which only decides what is new enough to make: this task existed.
+            if (existing?.DeletedAt is not null)
+            {
+                if (existing.SourceRef is not { } deletedWith || !deletedWith.HasFlag(LinkedTaskFlags.DeletedWithSource))
+                {
+                    tombstoned++;
+                    continue;
+                }
+
+                existing.Restore();
+                existing.SetSourceRef(deletedWith.WithFlag(LinkedTaskFlags.DeletedWithSource, set: false));
+                Update(existing, connectorId, target, item, today, FinishedOn(item, today));
+                FileUnder(existing, repositoryId);
+                synced.Add(new Synced(existing, deletedWith.WaitsOn, IsNew: false, Changed: true, IsRestored: true));
+                continue;
+            }
+
+            if (existing is null)
+            {
+                if (cutoff is { } before && item.UpdatedAt < before)
+                {
+                    untouched++;
+                    continue;
+                }
+
+                var made = Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today));
+                FileUnder(made, repositoryId);
+                synced.Add(new Synced(made, [], IsNew: true, Changed: true, IsRestored: false));
+                continue;
+            }
+
+            var heldWaitsOn = existing.SourceRef?.WaitsOn ?? [];
+            var changed = Update(existing, connectorId, target, item, today, FinishedOn(item, today));
+            changed |= FileUnder(existing, repositoryId);
+            synced.Add(new Synced(existing, heldWaitsOn, IsNew: false, changed, IsRestored: false));
+        }
+
+        // Dependencies after every item has its task, so an item that waits on one
+        // later in the same fetch still finds it linked.
+        var linkedHere = synced.Select(entry => entry.Task.Id).ToHashSet();
+
+        foreach (var entry in synced)
+        {
+            var dependenciesChanged = await FollowWaitsOnAsync(entry, connectorId, linkedHere, cancellationToken);
+
+            // A quiet sync stays quiet: a task nothing changed on is not saved, so its
+            // UpdatedAt does not move and an idle machine never wins last-write-wins
+            // over a real edit made elsewhere (ADR 0020, §5).
+            if (entry.IsNew)
+            {
+                await tasks.SaveAsync(entry.Task, cancellationToken);
+                created++;
+            }
+            else if (entry.IsRestored)
+            {
+                await tasks.SaveAsync(entry.Task, cancellationToken);
+                restored++;
+            }
+            else if (entry.Changed || dependenciesChanged)
+            {
+                await tasks.SaveAsync(entry.Task, cancellationToken);
+                updated++;
+            }
+            else
+            {
+                unchanged++;
+            }
+        }
+
+        // The fetch is every open item plus what closed since the last sync, so it
+        // can only say "gone" about an item it would otherwise have returned. A first
+        // sync — no last sync — answers the open items only, and a task that reached
+        // this device through the replica with its item closed meanwhile is simply
+        // not in it; nothing is archived on that answer.
+        var vanishable = target.LastSyncedAt is null
+            ? []
+            : await tasks.ListAsync(cancellationToken);
+
+        foreach (var task in vanishable)
+        {
+            if (!HasVanished(task, connectorId, target, seen)) continue;
+
+            WalkTo(task, EntryStatus.Archived, today);
+            // The refusal goes with the Done it explained: the task is archived now.
+            task.SetSourceRef(task.SourceRef!.WithFlag(LinkedTaskFlags.Vanished, set: true) with { WriteBackRefusal = null });
+            await tasks.SaveAsync(task, cancellationToken);
+            vanished++;
+        }
+
+        RecordSync(target, fetchStartedAt, cutoff);
+
+        return new LinkedTaskSyncSummary(items.Count, created, restored, updated, unchanged, tombstoned, untouched, vanished);
+    }
+
+    // --- The status map -----------------------------------------------------
+
+    /// <summary>
+    /// The task status an item in <paramref name="state"/>, under the source status
+    /// named <paramref name="stateName"/>, becomes for <paramref name="target"/>: the
+    /// target's <see cref="ConnectedTarget.StatusMap"/> entry for the name when it
+    /// has one, and the fixed map — <see cref="NormalisedSourceStates.DefaultTaskStatus"/>,
+    /// the same for every connector — otherwise (ADR 0020, §4 and §9).
+    /// <para>
+    /// A Dropped item is never mapped. Its state is the archive's or the close's,
+    /// not its status's — an archived spec-manager item keeps the name of the status
+    /// it was archived from — so mapping that name would bring a closed item back as
+    /// open work.
+    /// </para>
+    /// </summary>
+    internal static EntryStatus StatusFor(ConnectedTarget target, NormalisedSourceState state, string? stateName) =>
+        state != NormalisedSourceState.Dropped && target.MappedStatusOf(stateName) is { } mapped
+            ? mapped
+            : NormalisedSourceStates.DefaultTaskStatus(state);
+
+    /// <summary>
+    /// The shortest way from one status to another along the lifecycle graph's
+    /// edges, excluding the start: Ready to Done is In progress then Done, because
+    /// the graph has no edge from Ready to Done and the sync never sets a status
+    /// past it. Empty when the two are the same.
+    /// <para>
+    /// A breadth-first search over <see cref="EntryStatusFlow.NextFrom"/> rather than
+    /// a table of paths, so the walk follows the graph if the graph ever changes.
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<EntryStatus> PathBetween(EntryStatus from, EntryStatus to)
+    {
+        if (from == to) return [];
+
+        var cameFrom = new Dictionary<EntryStatus, EntryStatus>();
+        var queue = new Queue<EntryStatus>([from]);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            foreach (var next in EntryStatusFlow.NextFrom(current))
+            {
+                if (next == from || !cameFrom.TryAdd(next, current)) continue;
+                if (next == to) return Unwind(cameFrom, from, to);
+                queue.Enqueue(next);
+            }
+        }
+
+        throw new InvalidOperationException($"The lifecycle has no path from {from} to {to}.");
+
+        static IReadOnlyList<EntryStatus> Unwind(Dictionary<EntryStatus, EntryStatus> cameFrom, EntryStatus from, EntryStatus to)
+        {
+            var path = new List<EntryStatus>();
+            for (var step = to; step != from; step = cameFrom[step]) path.Add(step);
+            path.Reverse();
+            return path;
+        }
+    }
+
+    /// <summary>
+    /// Moves the task to <paramref name="target"/> one permitted edge at a time, and
+    /// keeps its two day stamps true to where it ends up rather than to the edges it
+    /// crossed. Answers whether it moved.
+    /// <para>
+    /// <b>The start.</b> <see cref="TaskItem.ChangeStatus"/> stamps
+    /// <see cref="TaskItem.StartedOn"/> the first time a task enters In progress, and
+    /// a walk from Ready to Done crosses In progress only because the graph has no
+    /// shorter edge. Nobody started that work today, so a start stamped in transit is
+    /// taken back; it stays when In progress is where the walk lands.
+    /// </para>
+    /// <para>
+    /// <b>The tick.</b> An item the source finished is work that is over, which is what
+    /// the tick says in the app: ticking an entry off moves it to Done. So a walk that
+    /// lands on Done ticks the task off on <paramref name="finishedOn"/> — the local
+    /// day the source says the item was finished, or today when it does not say —
+    /// unless it already was, and a walk that takes a task out of Done or Archived
+    /// back into open work unticks it, so a reopened item does not sit under
+    /// Completed. Sub-items are not cascaded: <see cref="TaskItem.ChangeStatus"/> does
+    /// not cascade them either.
+    /// </para>
+    /// </summary>
+    private static bool WalkTo(TaskItem task, EntryStatus target, DateOnly today, DateOnly? finishedOn = null)
+    {
+        var from = task.Status;
+        if (from == target) return false;
+
+        var startedBefore = task.StartedOn;
+        foreach (var step in PathBetween(from, target)) task.ChangeStatus(step, today);
+
+        if (target != EntryStatus.InProgress && task.StartedOn != startedBefore) task.SetStartedOn(startedBefore);
+
+        if (target == EntryStatus.Done && task.CompletedOn is null)
+        {
+            task.SetCompletedOn(finishedOn ?? today);
+        }
+        else if (from is EntryStatus.Done or EntryStatus.Archived
+            && target is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress
+            && task.CompletedOn is not null)
+        {
+            task.SetCompletedOn(null);
+        }
+
+        return true;
+    }
+
+    // --- Creating and updating ------------------------------------------------
+
+    private static TaskItem Create(
+        Guid id,
+        string connectorId,
+        ConnectedTarget target,
+        SourceItem item,
+        DateTimeOffset createdAt,
+        DateOnly today,
+        DateOnly finishedOn)
+    {
+        var (tags, multiplePlanTags) = TagsFrom(item.Labels ?? []);
+
+        var task = new TaskItem(
+            id,
+            TitleOf(item),
+            // Stored as prose: the source's text is not this grammar, and a heading,
+            // checklist line or open fence in it would otherwise become the entry's
+            // structure — see EntryTextParser.AsProse.
+            EntryTextParser.AsProse(item.Body),
+            EntryType.Task,
+            EntryStatus.Draft,
+            Priority.Medium,
+            repoIds: null,
+            tags,
+            sourceInboxId: null,
+            createdAt);
+
+        // Filed under its plan tag, which is what the roadmap's shelf groups by: the
+        // plan shows there with no step in Roadmap.
+        task.SetImportPlanId(PlanTagOf(tags));
+
+        // Copied once, here, and never again: the person owns the body, the tags,
+        // the effort and the due date from now on (ADR 0020, §4).
+        if (item.Effort is >= 0) task.SetEffort(item.Effort);
+        if (item.DueOn is { } dueOn) task.SetDueOn(dueOn);
+
+        WalkTo(task, StatusFor(target, item.State, item.SourceStateName), today, finishedOn);
+
+        // Followed rather than copied: the source goes on owning these, the blocked
+        // mark by its moves and the references as a union (see Update).
+        if (item.IsBlocked) task.SetBlockedSince(today);
+        AddSourceReferences(task, item.References);
+
+        var flags = multiplePlanTags ? new[] { LinkedTaskFlags.MultiplePlanTags } : [];
+        task.SetSourceRef(ReferenceTo(connectorId, target.Target, item, flags));
+
+        return task;
+    }
+
+    /// <summary>
+    /// Writes what the source owns onto a task the item already became: the title,
+    /// the reference with its assignee and state, and the status — the status only
+    /// when the source's state moved (ADR 0020 §4, as amended at implementation).
+    /// <para>
+    /// The title follows the source only while the person has not renamed the task
+    /// (ADR 0020 §9): it is overwritten when the target's title follows the source and
+    /// the task's title still equals the source title the last sync recorded. A
+    /// title that differs was renamed here and stops following; the reference still
+    /// records the source's new title. A reference that recorded none — an older one —
+    /// follows, once.
+    /// </para>
+    /// <para>
+    /// The source owns the state, not the status a person gives the task between
+    /// two of its moves. So a task the person started, or archived, while the source
+    /// still says Open keeps that status on every sync until the source's normalised
+    /// state changes; then the status is walked to the map's answer. "Moved" means
+    /// the state differs from the one the held reference recorded, or the reference
+    /// recorded none — an older one, walked once and recorded — or the task carries
+    /// <see cref="LinkedTaskFlags.Vanished"/>, because the sync archived it and its
+    /// item's return is a move however the state reads.
+    /// </para>
+    /// <para>
+    /// With a status map on the target, a move between two source statuses of one
+    /// normalised state is a move too when the map takes them to different task
+    /// statuses: the held status name and the new one are each read through the
+    /// target's map as it is now. Without a map two names of one state read the
+    /// same, and nothing changes. A Done the map gives is the source's, like a Done
+    /// the source finished: it is not done locally, and the source moving the item
+    /// on moves the task out of it. A Done the person gave first stays theirs: while
+    /// the held reference carries <see cref="LinkedTaskFlags.DoneLocally"/>, a Done
+    /// mapping added since takes nothing over and reopens nothing.
+    /// </para>
+    /// <para>
+    /// The blocked mark is owned the same way. When the source's blocked-ness differs
+    /// from the one the held reference recorded — none counts as not blocked — the
+    /// task is marked blocked today if it was not already, or unmarked; otherwise the
+    /// mark is left where the person put it. The reference records the source's
+    /// blocked-ness and its reason on every sync.
+    /// </para>
+    /// <para>
+    /// A write-back refusal the reference held is kept only while the task is done
+    /// here and the item still open at the source — the one state it explains.
+    /// </para>
+    /// <para>
+    /// The item's devbook references are added to the task's when it does not hold
+    /// them yet, and none is ever removed: the person may have added their own, and
+    /// one the source dropped still says what the task was about. A reference the
+    /// person removed comes back while the source still names it.
+    /// </para>
+    /// <para>
+    /// Each mutator is called only when its value differs, so a task the source
+    /// said nothing new about comes out of here untouched. Answers whether anything
+    /// changed.
+    /// </para>
+    /// </summary>
+    private static bool Update(TaskItem task, string connectorId, ConnectedTarget target, SourceItem item, DateOnly today, DateOnly finishedOn)
+    {
+        var changed = false;
+        var held = task.SourceRef;
+
+        var title = TitleOf(item);
+        var renamedLocally = held?.SourceTitle is { } lastSourceTitle
+            && !string.Equals(task.Title, lastSourceTitle, StringComparison.Ordinal);
+        if (target.TitleFollowsSource && !renamedLocally && !string.Equals(task.Title, title, StringComparison.Ordinal))
+        {
+            task.Rename(title);
+            changed = true;
+        }
+
+        var wasVanished = held?.HasFlag(LinkedTaskFlags.Vanished) == true;
+        var wasDoneLocally = held?.HasFlag(LinkedTaskFlags.DoneLocally) == true;
+        var sourceOpen = item.State is NormalisedSourceState.Open or NormalisedSourceState.Active;
+        var sourceStatus = StatusFor(target, item.State, item.SourceStateName);
+        var heldStatus = held?.NormalisedState is { } heldState ? StatusFor(target, heldState, held.SourceState) : (EntryStatus?)null;
+        var stateMoved = held?.NormalisedState is not { } last || last != item.State || heldStatus != sourceStatus || wasVanished;
+
+        if (stateMoved)
+        {
+            // A local Done is never reopened. The person's finish is information the
+            // source does not have yet, so the task stays Done — and a task that
+            // vanished while it was in that state comes back to it. A Done the source
+            // itself brought (the last sync's state read as Done, through the
+            // target's map) is not local: the source reopening the item reopens
+            // the task. A Done the reference flagged as the person's stays theirs,
+            // so a Done mapping added after they finished it reopens nothing.
+            var localDone = task.Status == EntryStatus.Done && (heldStatus != EntryStatus.Done || wasDoneLocally);
+            var keepDone = sourceOpen && (localDone || (wasVanished && wasDoneLocally));
+            var status = keepDone ? EntryStatus.Done : sourceStatus;
+
+            // Archived is past Done on the closing side: a task the person archived
+            // is not walked back out to Done when its item closes. A vanished task is
+            // the exception, because the sync archived it, not the person.
+            if (status == EntryStatus.Done && task.Status == EntryStatus.Archived && !wasVanished) status = EntryStatus.Archived;
+
+            changed |= WalkTo(task, status, today, finishedOn);
+        }
+
+        var blockedMoved = item.IsBlocked != (held?.Blocked == true);
+        if (blockedMoved && item.IsBlocked != task.IsBlocked)
+        {
+            task.SetBlockedSince(item.IsBlocked ? today : null);
+            changed = true;
+        }
+
+        changed |= AddSourceReferences(task, item.References);
+
+        // A task linked before the sync filed tasks under their plan is filed once,
+        // while it still carries the plan tag its labels gave it. The tags are the
+        // person's after creation, so a tag they took off files nothing.
+        if (task.ImportPlanId is null
+            && PlanTagOf(TagsFrom(item.Labels ?? []).Tags) is { } planTag
+            && task.Tags.Contains(planTag, StringComparer.Ordinal))
+        {
+            task.SetImportPlanId(planTag);
+            changed = true;
+        }
+
+        // Decided from where the task is now on every sync, moved or not, so the
+        // mismatch is flagged the sync after the person finishes a task the source
+        // still holds open, and cleared once either side catches up. A Done the
+        // target's map gives the source's status is no mismatch — unless the
+        // person's finish came first, which a later mapping does not take over.
+        var doneLocally = sourceOpen && task.Status == EntryStatus.Done && (sourceStatus != EntryStatus.Done || wasDoneLocally);
+
+        // Every flag the task carried survives except the two this sync decides
+        // afresh — including one a newer build set that this one has no name for.
+        var flags = (held?.Flags ?? [])
+            .Where(flag => flag is not (LinkedTaskFlags.Vanished or LinkedTaskFlags.DoneLocally))
+            .ToList();
+        if (doneLocally) flags.Add(LinkedTaskFlags.DoneLocally);
+
+        // The spelling the task was linked under is kept when the settings name the
+        // same target in another case: it is the same target (ConnectedTarget.Is
+        // compares it that way), and rewriting the spelling would restamp every
+        // task for no change.
+        var targetSpelling = held is not null && string.Equals(held.Target, target.Target, StringComparison.OrdinalIgnoreCase)
+            ? held.Target
+            : target.Target;
+        var reference = ReferenceTo(connectorId, targetSpelling, item, flags);
+
+        // A refusal to finish the item at the source is Backlog's, not the source's,
+        // so the reference built from the item has none. It is carried over while it
+        // still explains something — the task is done here and the item open there —
+        // and dropped once either side moves: the source finished or dropped the
+        // item, or the task is no longer Done.
+        if (doneLocally && held?.WriteBackRefusal is { } refusal)
+        {
+            reference = reference with { WriteBackRefusal = refusal };
+        }
+
+        if (!Equals(reference, held))
+        {
+            task.SetSourceRef(reference);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Whether a live task is one this target's fetch would have returned had its
+    /// item still been there, and is open enough that archiving it means something.
+    /// <para>
+    /// The fetch is every open item plus what closed since the last sync, so only an
+    /// item the last sync saw <em>open</em> is one the fetch must return. The held
+    /// normalised state is what says so: Open or Active, and the task is vanished if
+    /// it is still open work here or carries <see cref="LinkedTaskFlags.DoneLocally"/>.
+    /// Done or Dropped, and its absence is the fetch leaving out an item that closed
+    /// earlier — never vanishing, whatever the person did to the task since. A
+    /// reference too old to record a state is vanished only while the task itself is
+    /// open work.
+    /// </para>
+    /// </summary>
+    private static bool HasVanished(TaskItem task, string connectorId, ConnectedTarget target, HashSet<Guid> seen)
+    {
+        if (task.SourceRef is not { } source) return false;
+        if (!string.Equals(source.ConnectorId, connectorId, StringComparison.Ordinal)) return false;
+        if (!string.Equals(source.Target, target.Target, StringComparison.OrdinalIgnoreCase)) return false;
+        if (seen.Contains(task.Id) || source.HasFlag(LinkedTaskFlags.Vanished)) return false;
+
+        var openWork = task.Status is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress;
+
+        return source.NormalisedState switch
+        {
+            NormalisedSourceState.Open or NormalisedSourceState.Active => openWork || source.HasFlag(LinkedTaskFlags.DoneLocally),
+            null => openWork,
+            _ => false,
+        };
+    }
+
+    private static SourceRef ReferenceTo(string connectorId, string target, SourceItem item, IEnumerable<string> flags) =>
+        new(
+            connectorId,
+            target,
+            item.ExternalId,
+            item.Url,
+            item.DisplayKey,
+            item.Assignee,
+            item.SourceStateName,
+            item.UpdatedAt,
+            flags,
+            item.State,
+            TitleOf(item))
+        {
+            Blocked = item.IsBlocked,
+            // A reason for a block the source does not report explains nothing.
+            BlockedReason = item.IsBlocked ? item.BlockedReason : null,
+            WaitsOn = item.WaitsOn ?? [],
+        };
+
+    /// <summary>The local day <paramref name="item"/> was finished on, by this
+    /// machine's calendar, when the source says when; <paramref name="today"/>
+    /// otherwise.</summary>
+    private DateOnly FinishedOn(SourceItem item, DateOnly today) =>
+        item.CompletedAt is { } completedAt
+            ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(completedAt, time.LocalTimeZone).DateTime)
+            : today;
+
+    /// <summary>
+    /// Adds each of the item's devbook references the task does not hold yet, after
+    /// the task's own end, and answers whether it added any.
+    /// <para>
+    /// Compared in the normalised spelling <see cref="TaskDevbookReference"/> stores,
+    /// so a reference written another way is no change and a quiet sync stays quiet.
+    /// One that names no page is skipped rather than refusing the rest.
+    /// </para>
+    /// </summary>
+    private static bool AddSourceReferences(TaskItem task, IReadOnlyList<string>? references)
+    {
+        if (references is null || references.Count == 0) return false;
+
+        var held = task.DevbookReferences;
+        var added = references
+            .Select(reference => TaskDevbookReference.TryParse(reference, out var parsed) ? parsed.Value : null)
+            .OfType<string>()
+            .Where(value => !held.Contains(value, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (added.Count == 0) return false;
+
+        task.SetDevbookReferences([.. held, .. added]);
+        return true;
+    }
+
+    /// <summary>The title a task is given. An item with none is named by its key, so
+    /// it still has a row a person can read.</summary>
+    private static string TitleOf(SourceItem item) =>
+        !string.IsNullOrWhiteSpace(item.Title) ? item.Title.Trim()
+        : !string.IsNullOrWhiteSpace(item.DisplayKey) ? item.DisplayKey.Trim()
+        : item.ExternalId;
+
+    // --- Waits-on ---------------------------------------------------------------
+
+    /// <summary>A task the sync read this run, with what its reference said the
+    /// item waited on before this sync, and whether this sync made it or brought
+    /// it back.</summary>
+    private sealed record Synced(TaskItem Task, IReadOnlyList<string> HeldWaitsOn, bool IsNew, bool Changed, bool IsRestored);
+
+    /// <summary>
+    /// Turns what the item waits on into the task's <c>after:</c> dependencies, and
+    /// answers whether the list changed.
+    /// <para>
+    /// A waited-on item becomes a dependency only when both ends are linked tasks:
+    /// it has a task this sync read, or one already on this device the person has
+    /// not deleted. The source owns the dependencies its waits-on give — every one
+    /// it named last sync or names now is taken off and the linked ones put back —
+    /// and nothing else: a dependency the person added in Backlog stays.
+    /// </para>
+    /// </summary>
+    private async Task<bool> FollowWaitsOnAsync(Synced entry, string connectorId, HashSet<Guid> linkedHere, CancellationToken cancellationToken)
+    {
+        var task = entry.Task;
+        var named = entry.HeldWaitsOn
+            .Concat(task.SourceRef?.WaitsOn ?? [])
+            .Select(externalId => LinkedTaskIds.For(connectorId, externalId))
+            .Where(id => id != task.Id)
+            .ToHashSet();
+        if (named.Count == 0) return false;
+
+        var linked = new List<Guid>();
+        foreach (var externalId in task.SourceRef?.WaitsOn ?? [])
+        {
+            var id = LinkedTaskIds.For(connectorId, externalId);
+            if (id == task.Id) continue;
+            if (linkedHere.Contains(id)
+                || await tasks.GetIncludingDeletedAsync(id, cancellationToken) is { DeletedAt: null })
+            {
+                linked.Add(id);
+            }
+        }
+
+        // Compared as Guids, the way dependency resolution matches them, so an id
+        // written in another case is still the one the source gave. What stays keeps
+        // its place, so a list the person reordered is no change.
+        var held = task.DependsOn
+            .Select(dependency => Guid.TryParse(dependency, out var id) ? id : (Guid?)null)
+            .ToList();
+        var next = task.DependsOn
+            .Where((_, index) => held[index] is not { } id || !named.Contains(id) || linked.Contains(id))
+            .Concat(linked.Where(id => !held.Contains(id)).Select(id => id.ToString()))
+            .ToList();
+        if (next.SequenceEqual(task.DependsOn, StringComparer.Ordinal)) return false;
+
+        task.SetDependsOn(next);
+        return true;
+    }
+
+    // --- Labels ---------------------------------------------------------------
+
+    /// <summary>
+    /// Labels as tags, by Backlog's own sigil rule (ADR 0020, §6): a label starting
+    /// with <c>+</c> is the plan tag of that name, stored <c>+slug</c>; any other is
+    /// a general tag, stored bare. Only the first plan label becomes the plan tag, so
+    /// no task counts in two plans; answers whether there were more.
+    /// </summary>
+    internal static (IReadOnlyList<string> Tags, bool MultiplePlanTags) TagsFrom(IEnumerable<string> labels)
+    {
+        var tags = new List<string>();
+        var plans = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var label in labels)
+        {
+            var trimmed = (label ?? string.Empty).Trim();
+            var isPlan = trimmed.StartsWith('+');
+            if (Slug(isPlan ? trimmed[1..] : trimmed) is not { } slug) continue;
+
+            if (isPlan)
+            {
+                if (plans.Add(slug) && plans.Count == 1) tags.Add("+" + slug);
+            }
+            else if (!tags.Contains(slug, StringComparer.Ordinal))
+            {
+                tags.Add(slug);
+            }
+        }
+
+        return (tags, plans.Count > 1);
+    }
+
+    /// <summary>The plan tag among <paramref name="tags"/>, <c>+slug</c>, or null.</summary>
+    private static string? PlanTagOf(IEnumerable<string> tags) =>
+        tags.FirstOrDefault(tag => tag.StartsWith('+'));
+
+    /// <summary>
+    /// A label's name as a tag: lower case, each run of spaces a hyphen, anything a
+    /// tag cannot hold dropped. Null when nothing tag-shaped is left — the tag
+    /// grammar wants a letter first, and a tag the next save would discard is
+    /// better not written.
+    /// </summary>
+    internal static string? Slug(string name)
+    {
+        var builder = new System.Text.StringBuilder(name.Length);
+        var pendingHyphen = false;
+
+        foreach (var character in name.Trim().ToLowerInvariant())
+        {
+            if (char.IsWhiteSpace(character) || character == '-')
+            {
+                pendingHyphen = builder.Length > 0;
+                continue;
+            }
+
+            if (!char.IsLetterOrDigit(character) && character != '_') continue;
+
+            if (pendingHyphen) builder.Append('-');
+            pendingHyphen = false;
+            builder.Append(character);
+        }
+
+        return builder.Length > 0 && char.IsAsciiLetter(builder[0]) ? builder.ToString() : null;
+    }
+
+    // --- The repository a task is filed under -------------------------------------
+
+    /// <summary>
+    /// The repository id this target's tasks are filed under: the target's own
+    /// <see cref="ConnectedTarget.RepositoryId"/> when the person set one, whatever
+    /// the connector; otherwise the target itself when its connector's targets are
+    /// repositories, and null when they are not.
+    /// <para>
+    /// The default is read off the capability, never off the connector's name: Tasks
+    /// names no connector. The registry's spelling when it knows the repository, so
+    /// the row shows the repository's own chip; the spelling given otherwise, which
+    /// is still the <c>owner/name</c> the registry would store, and reads as the
+    /// repository the day it is configured.
+    /// </para>
+    /// </summary>
+    private string? RepositoryIdOf(ITaskConnector connector, ConnectedTarget target)
+    {
+        var typed = target.FilesUnder(connector.Capabilities.TargetIsRepository);
+        if (typed is null) return null;
+
+        return repositories?.Resolve(typed)?.Id ?? typed;
+    }
+
+    /// <summary>
+    /// Whether the target is paused because the repository its tasks are filed
+    /// under is archived — <see cref="ConnectedTarget.ArchivedRepository"/>, the one
+    /// rule the sync, <see cref="LinkedTaskSyncWorker"/> and the target's card all
+    /// read. A repository the registry does not know is not archived, and with no
+    /// registry nothing is.
+    /// </summary>
+    internal static bool IsPaused(ITaskConnector connector, ConnectedTarget target, IRepositoryDirectory? repositories) =>
+        target.ArchivedRepository(connector.Capabilities.TargetIsRepository, repositories) is not null;
+
+    /// <summary>Files the task under <paramref name="repositoryId"/> while it is
+    /// filed under none, and answers whether it did. A list it already has — the
+    /// person's, or an earlier sync's — is theirs and never overwritten, so a sync
+    /// with nothing else to say stays quiet.</summary>
+    private static bool FileUnder(TaskItem task, string? repositoryId)
+    {
+        if (repositoryId is null || task.RepoIds.Count > 0) return false;
+
+        task.SetRepoIds([repositoryId]);
+        return true;
+    }
+
+    // --- Failure ---------------------------------------------------------------
+
+    /// <summary>
+    /// The error a failed fetch is reported as. A failure the connector recognised
+    /// is reported in its own words, under a code of its kind, because the person
+    /// can act on it — pick another account, correct the product's slug, sign in.
+    /// Anything else, and a source that did not answer, reads as the source not
+    /// being reached.
+    /// </summary>
+    private static Error FetchFailed(ITaskConnector connector, ConnectedTarget target, Exception failure)
+    {
+        if (failure is TaskConnectorFetchException { Kind: not TaskConnectorFetchFailure.Unreachable } recognised
+            && !string.IsNullOrWhiteSpace(recognised.Message))
+        {
+            return recognised.Kind switch
+            {
+                TaskConnectorFetchFailure.NotFound => Error.NotFound("linked_tasks.fetch_not_found", recognised.Message),
+                TaskConnectorFetchFailure.NoAccess => Error.Validation("linked_tasks.fetch_no_access", recognised.Message),
+                TaskConnectorFetchFailure.NotConfigured => Error.Validation("linked_tasks.fetch_not_configured", recognised.Message),
+                TaskConnectorFetchFailure.SignInRequired => Error.Validation("linked_tasks.fetch_sign_in_required", recognised.Message),
+                _ => Unreached(),
+            };
+        }
+
+        return Unreached();
+
+        Error Unreached() => Error.Unexpected(
+            "linked_tasks.fetch_failed",
+            $"{connector.Descriptor.DisplayName} could not be reached for {target.Target}.");
+    }
+
+    /// <summary>Keeps a failed sync's sentence on the target, through
+    /// <see cref="IConnectedTargets.Update"/> for the reason <see cref="RecordSync"/>
+    /// gives. Where the next fetch asks from and the first-sync cut-off are the last
+    /// success's, and stay where they are.</summary>
+    private void RecordFailure(ConnectedTarget target, string message)
+    {
+        var failedAt = time.GetUtcNow();
+        var error = targets.Update(target.ConnectorId, target.Target, latest => latest with
+        {
+            LastSyncError = message,
+            LastSyncFailedAt = failedAt,
+        });
+
+        if (error is not null)
+        {
+            LogFailureNotRecorded(_log, target.ConnectorId, target.Target, error);
+        }
+    }
+
+    // --- Bookkeeping ----------------------------------------------------------
+
+    /// <summary>Records where this sync got to through
+    /// <see cref="IConnectedTargets.Update"/>, which applies the two bookkeeping
+    /// values to whatever the store holds at that moment, under its own lock — so a
+    /// setting the person changed during the fetch, or while this ran, is never
+    /// written back over, and a target removed meanwhile stays removed. A failure an
+    /// earlier sync recorded is cleared: it no longer says anything true.</summary>
+    private void RecordSync(ConnectedTarget target, DateTimeOffset fetchStartedAt, DateTimeOffset? cutoff)
+    {
+        var error = targets.Update(target.ConnectorId, target.Target, latest => latest with
+        {
+            LastSyncedAt = fetchStartedAt,
+            IgnoreUntouchedBefore = latest.IgnoreUntouchedBefore ?? cutoff,
+            LastSyncError = null,
+            LastSyncFailedAt = null,
+        });
+
+        // The tasks are written either way. A sync whose bookkeeping did not stick
+        // fetches more next time than it had to, which costs time and loses nothing.
+        if (error is not null)
+        {
+            LogProgressNotRecorded(_log, target.ConnectorId, target.Target, error);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Fetching {Connector} items for {Target} failed.")]
+    private static partial void LogFetchFailed(ILogger logger, Exception exception, string connector, string target);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The failed sync of {Connector} {Target} could not be recorded: {Error}")]
+    private static partial void LogFailureNotRecorded(ILogger logger, string connector, string target, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The sync of {Connector} {Target} could not record its progress: {Error}")]
+    private static partial void LogProgressNotRecorded(ILogger logger, string connector, string target, string error);
+}

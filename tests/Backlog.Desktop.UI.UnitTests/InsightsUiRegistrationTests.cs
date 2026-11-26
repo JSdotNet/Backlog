@@ -32,8 +32,8 @@ public sealed class InsightsUiRegistrationTests
 
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services, d => d.ServiceType == typeof(InsightsScopeInView)).Lifetime);
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services, d => d.ServiceType == typeof(IAiContentSource)).Lifetime);
-        Assert.Equal(2, services.Count(d => d.ServiceType == typeof(SettingsSection)));
-        Assert.Equal(4, services.Count);
+        Assert.Equal(1, services.Count(d => d.ServiceType == typeof(SettingsSection)));
+        Assert.Equal(3, services.Count);
     }
 
     /// <summary>The Ask AI source is composed from the insights the container holds —
@@ -73,14 +73,22 @@ public sealed class InsightsUiRegistrationTests
         Assert.Null(section.FeatureKey);
     }
 
-    /// <summary>The working week is read by the roadmap as well as the dashboard
-    /// (ADR 0019), so its page is offered whether or not the dashboard is on, after
-    /// the dashboard's own page.</summary>
+    /// <summary>The working week is Work's capacity (local ADR 0073 §1), read by the
+    /// roadmap as well as the dashboard (ADR 0019), so the roadmap registers its page,
+    /// with no switch, after the dashboard's own page — and the dashboard no longer
+    /// does.</summary>
     [Fact]
-    public void The_pane_registers_the_working_week_page_with_no_switch()
+    public void The_roadmap_registers_the_working_week_page_with_no_switch()
     {
+        var dashboardOnly = new ServiceCollection();
+        dashboardOnly.AddInsightsUi();
+        using (var dashboard = dashboardOnly.BuildServiceProvider())
+        {
+            Assert.DoesNotContain(dashboard.GetServices<SettingsSection>(), s => s.Id == "working-week");
+        }
+
         var services = new ServiceCollection();
-        services.AddInsightsUi();
+        services.AddRoadmapSurface();
 
         using var provider = services.BuildServiceProvider();
         var section = Assert.Single(provider.GetServices<SettingsSection>(), s => s.Id == "working-week");

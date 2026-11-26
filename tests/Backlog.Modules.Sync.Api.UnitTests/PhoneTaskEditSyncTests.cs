@@ -7,9 +7,9 @@ using Backlog.Mobile.UI.Services;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
-using Backlog.Modules.Tasks.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;

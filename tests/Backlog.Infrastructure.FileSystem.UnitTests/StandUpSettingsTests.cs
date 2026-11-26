@@ -2,8 +2,8 @@ using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Goals.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;

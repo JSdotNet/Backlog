@@ -1,7 +1,7 @@
 using System.Text.Json;
 
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 using Backlog.SharedKernel.Storage;
 
 namespace Backlog.Infrastructure.FileSystem;

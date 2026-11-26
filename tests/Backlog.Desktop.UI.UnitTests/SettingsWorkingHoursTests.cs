@@ -4,7 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Insights.UI.Extensions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using Bunit;
 
@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The working-week editor, on the page the Dashboard registers for it.
+/// The working-week editor, on the page the roadmap registers for it.
 /// <para>
 /// Asserted against the store rather than against what the rows are showing,
 /// because the store is what the dashboard reads: a row that took a time and
@@ -246,7 +246,7 @@ public sealed class SettingsWorkingHoursTests
     [Fact]
     public void The_card_on_the_page_is_the_one_its_section_declares()
     {
-        var section = new ServiceCollection().AddInsightsSettings()
+        var section = new ServiceCollection().AddRoadmapSettings()
             .Select(descriptor => descriptor.ImplementationInstance)
             .OfType<SettingsSection>()
             .Single(registered => registered.Id == "working-week");
@@ -358,6 +358,7 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddInsightsSettings();
+        context.Services.AddRoadmapSettings();
 
         return new SettingsRenderContext(temp, context, context.Render<Settings>(), workingWeek);
     }

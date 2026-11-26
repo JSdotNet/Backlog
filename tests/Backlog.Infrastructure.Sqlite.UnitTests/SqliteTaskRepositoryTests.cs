@@ -1,7 +1,7 @@
 ﻿using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -295,7 +295,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var source = new SourceRef(
             "github", "JSdotNet/Backlog", "I_kwDO42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
             "Job", "open", sourceUpdatedAt, [LinkedTaskFlags.Vanished, LinkedTaskFlags.MultiplePlanTags],
-            Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active,
+            Backlog.Modules.Work.Abstractions.Tasks.Connectors.NormalisedSourceState.Active,
             "The title at the source");
 
         var task = new TaskItem("Linked", "The body.", EntryType.Task);
@@ -308,7 +308,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.NotNull(loaded);
         Assert.Equal(source, loaded.SourceRef);
         Assert.Equal(sourceUpdatedAt, loaded.SourceRef!.SourceUpdatedAt);
-        Assert.Equal(Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active, loaded.SourceRef.NormalisedState);
+        Assert.Equal(Backlog.Modules.Work.Abstractions.Tasks.Connectors.NormalisedSourceState.Active, loaded.SourceRef.NormalisedState);
         Assert.Equal("The title at the source", loaded.SourceRef.SourceTitle);
         Assert.Equal(Noon, loaded.UpdatedAt);
 

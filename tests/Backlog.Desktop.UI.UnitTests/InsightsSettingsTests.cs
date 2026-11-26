@@ -438,6 +438,7 @@ public sealed class InsightsSettingsTests
             new InboxRoutingRulesStore(Path.Combine(root, "inbox", "inbox-routing-rules.json")));
         context.Services.AddInboxSettings();
         context.Services.AddInsightsSettings();
+        context.Services.AddRoadmapSettings();
 
         return new SettingsRenderContext(temp, context, context.Render<Settings>(parameters => parameters.Add(settings => settings.PageId, pageId)), usageReset);
     }

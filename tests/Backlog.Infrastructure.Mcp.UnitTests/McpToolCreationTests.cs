@@ -3,9 +3,9 @@ using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;

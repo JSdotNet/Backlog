@@ -55,7 +55,7 @@
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
     <!-- TaskItem, its full constructor, LoadStamps and ITaskRepository. See the
          header for why the implementation and not only its Abstractions. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- The Inbox's two sync-facing ports and the capture shape they are phrased
          in: the merge hands a capture document to IInboxIntake, and the session
          drains IInboxCaptureOutbox into tombstones on the push. The published
@@ -68,7 +68,7 @@
          both from it on the push; the loop answers IRoadmapCatchUp. The published
          surface only, taken as optional like the Inbox's, so this project routes by
          kind and holds no roadmap logic. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <!-- Goals' replication ports, on the roadmap's terms: the merge hands a goal
          or an impediment document to IGoalReplication or IImpedimentReplication, and
          the session reads every one from them on the push. The published surface
@@ -100,7 +100,6 @@
          device issues is a subject a notification can be about, and the pairing client
          that issues it is here, so this is where the pairing's end reaches
          INotifications (.devbook/domain/notifications/context.md). Never the module. -->
-    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- Events' published surface (local ADR 0050 §2): the knowledge event exchange reads
          events and series through IKnowledgeEventReplication and hands other desktops'
          copies back through it, and the wire shape it serializes, KnowledgeEventReplicaDto,

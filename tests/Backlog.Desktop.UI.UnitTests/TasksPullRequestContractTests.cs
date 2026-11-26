@@ -6,9 +6,9 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Repositories.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 

@@ -588,9 +588,9 @@ public sealed class ContextMapTests
              "Machine", "MachineId", "IMachineRegistry", "Backlog.Modules.DevPc.Abstractions",
              "MachineStatusChanged", "ComplianceUpdated",
              "The pull request contract",
-             "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
+             "ITaskLookup", "Backlog.Modules.Work.Abstractions",
              "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions",
-             "ITaskItems", "ITaskStore", "ITaskChangeSignal", "Backlog.Modules.Tasks.Abstractions",
+             "ITaskItems", "ITaskStore", "ITaskChangeSignal", "Backlog.Modules.Work.Abstractions",
              "The events read contract", "IKnowledgeEventReplication", "IEventAttachmentRequests", "Backlog.Modules.Events.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);

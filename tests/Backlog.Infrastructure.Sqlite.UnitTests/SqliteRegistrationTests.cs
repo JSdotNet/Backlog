@@ -5,8 +5,8 @@ using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Events;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Goals;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;

@@ -32,6 +32,8 @@ public static class RoadmapSurfaceRegistration
             null,
             RoadmapSurfaceQuery.Keys));
 
+        services.AddRoadmapSettings();
+
         return services;
     }
 }

@@ -7,7 +7,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
     <!-- The Brain's ports and its adapters (local ADR 0040): the Brain adapter
          suites were written here and stayed when the adapters moved. -->

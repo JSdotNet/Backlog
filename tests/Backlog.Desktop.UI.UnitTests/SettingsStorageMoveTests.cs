@@ -3,8 +3,8 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Bunit;
 

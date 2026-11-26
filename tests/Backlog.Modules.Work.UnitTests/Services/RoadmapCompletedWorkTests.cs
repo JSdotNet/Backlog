@@ -1,0 +1,140 @@
+using Backlog.Modules.Work.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.UnitTests.Services;
+
+/// <summary>
+/// What a measured pace is counted from: the backlog entries finished on or after a
+/// day, with the estimate each carried and the repositories it was filed under. An
+/// entry with no estimate, or one of zero, has nothing to add to a pace and is left
+/// out.
+/// </summary>
+public class RoadmapCompletedWorkTests
+{
+    private static readonly DateOnly Since = new(2026, 9, 1);
+
+    private static readonly TasksRepositoryRef[] Configured =
+    [
+        new("backlog", "JSdotNet", "Backlog"),
+        new("site", "JSdotNet", "Site")
+    ];
+
+    [Fact]
+    public void Only_estimated_work_finished_since_the_day_is_counted()
+    {
+        TaskItemDto[] backlog =
+        [
+            Entry("before", completedOn: Since.AddDays(-1), effort: 5),
+            Entry("on the day", completedOn: Since, effort: 3),
+            Entry("after", completedOn: Since.AddDays(4), effort: 2),
+            Entry("no estimate", completedOn: Since.AddDays(1), effort: null),
+            Entry("estimated at nothing", completedOn: Since.AddDays(1), effort: 0),
+            Entry("still open", completedOn: null, effort: 8)
+        ];
+
+        var completed = RoadmapCompletedWork.Completed(backlog, Since, Configured);
+
+        Assert.Equal(
+            [(Since, 3), (Since.AddDays(4), 2)],
+            completed.Select(entry => (entry.CompletedOn, entry.Effort)));
+        Assert.All(completed, entry => Assert.Empty(entry.RepositoryAliases));
+    }
+
+    /// <summary>A task stores the <c>owner/name</c> id Import resolved, and a pace is
+    /// kept under the alias — so each id is turned back into one, matched without
+    /// regard to case as GitHub matches it. An id nobody configured is kept as written.</summary>
+    [Fact]
+    public void Each_entry_carries_the_aliases_of_the_repositories_it_was_filed_under()
+    {
+        TaskItemDto[] backlog =
+        [
+            Entry("one", Since, 3, "JSdotNet/Backlog"),
+            Entry("two", Since, 5, "jsdotnet/backlog", "JSdotNet/Site", "JSdotNet/Backlog"),
+            Entry("unknown", Since, 2, "someone/else")
+        ];
+
+        var completed = RoadmapCompletedWork.Completed(backlog, Since, Configured);
+
+        Assert.Equal(["backlog"], completed[0].RepositoryAliases);
+        Assert.Equal(["backlog", "site"], completed[1].RepositoryAliases);
+        Assert.Equal(["someone/else"], completed[2].RepositoryAliases);
+    }
+
+    [Fact]
+    public void The_configured_repositories_are_offered_by_alias()
+    {
+        var work = new RoadmapCompletedWork(
+            () => throw new InvalidOperationException("The backlog is not read for this."),
+            () => new FixedDirectory(Configured));
+
+        Assert.Equal(["backlog", "site"], work.Repositories);
+    }
+
+    /// <summary>A gathered task names its repositories by the <c>owner/name</c> id, so
+    /// the roadmap is handed the way from each configured id to the alias its pace is kept
+    /// under — matched without regard to case, as GitHub matches it.</summary>
+    [Fact]
+    public void Each_configured_repository_id_leads_to_its_alias()
+    {
+        var work = new RoadmapCompletedWork(
+            () => throw new InvalidOperationException("The backlog is not read for this."),
+            () => new FixedDirectory(Configured));
+
+        Assert.Equal("backlog", work.AliasesById["jsdotnet/backlog"]);
+        Assert.Equal("site", work.AliasesById["JSdotNet/Site"]);
+        Assert.Equal(2, work.AliasesById.Count);
+    }
+
+    /// <summary>Finished work of an archived repository still counts toward history and
+    /// pace (local ADR 0029; <c>repositories/requirements.md#finished-work-of-an-archived-repository-still-counts</c>):
+    /// archiving a repository changes neither what is counted over a past range nor the
+    /// alias it is counted under, and the repository is still offered for its own pace.</summary>
+    [Fact]
+    public void Archiving_a_repository_leaves_the_work_counted_over_a_past_range_unchanged()
+    {
+        TaskItemDto[] backlog =
+        [
+            Entry("backlog work", Since.AddDays(2), 3, "JSdotNet/Backlog"),
+            Entry("site work", Since.AddDays(5), 5, "JSdotNet/Site"),
+            Entry("both", Since.AddDays(9), 2, "JSdotNet/Site", "JSdotNet/Backlog")
+        ];
+        TasksRepositoryRef[] archived = [Configured[0], Configured[1] with { IsArchived = true }];
+
+        var before = RoadmapCompletedWork.Completed(backlog, Since, Configured);
+        var after = RoadmapCompletedWork.Completed(backlog, Since, archived);
+
+        Assert.Equal(
+            before.Select(entry => (entry.CompletedOn, entry.Effort, string.Join(',', entry.RepositoryAliases))),
+            after.Select(entry => (entry.CompletedOn, entry.Effort, string.Join(',', entry.RepositoryAliases))));
+        Assert.Equal(["site", "backlog"], after[2].RepositoryAliases);
+
+        var work = new RoadmapCompletedWork(
+            () => throw new InvalidOperationException("The backlog is not read for this."),
+            () => new FixedDirectory(archived));
+        Assert.Equal(["backlog", "site"], work.Repositories);
+        Assert.Equal("site", work.AliasesById["JSdotNet/Site"]);
+    }
+
+    private static TaskItemDto Entry(string title, DateOnly? completedOn, int? effort, params string[] repoIds) =>
+        new(Guid.NewGuid(), title, string.Empty, EntryType.Task, Priority.Medium,
+            completedOn is null ? EntryStatus.Ready : EntryStatus.Done,
+            null, [], 0, 0, 0, [],
+            CompletedOn: completedOn,
+            Effort: effort)
+        {
+            RepoIds = repoIds
+        };
+
+    private sealed class FixedDirectory(IReadOnlyList<TasksRepositoryRef> repositories) : IRepositoryDirectory
+    {
+        public IReadOnlyList<TasksRepositoryRef> Repositories => repositories;
+
+        public TasksRepositoryRef? Resolve(string name) => null;
+
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
+    }
+}

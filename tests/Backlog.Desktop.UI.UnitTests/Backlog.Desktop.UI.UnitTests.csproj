@@ -25,8 +25,8 @@
          lines are unchanged: each module UI project keeps publishing the
          namespace it always did. Tests sit outside that boundary and check all
          of it, so the namespaces are imported once here instead of per file. -->
-    <Using Include="Backlog.Modules.Tasks.Abstractions" />
-    <Using Include="Backlog.Modules.Tasks.Abstractions.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects" />
     <!-- Dev PC Management publishes the Copilot tool port, the DTOs behind it and
          the .tools catalog format. Unlike the contexts above it never had a
          folder in Backlog.Desktop.UI to keep a namespace from, so its types say
@@ -62,10 +62,11 @@
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto
          the shared timeline. -->
-    <Using Include="Backlog.Modules.Roadmap.Abstractions" />
-    <Using Include="Backlog.Modules.Roadmap.Abstractions.DataTransferObjects" />
-    <Using Include="Backlog.Modules.Roadmap.Abstractions.Services" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.Services" />
     <Using Include="Backlog.Modules.Roadmap.UI" />
+    <Using Include="Backlog.Modules.Work.Services" />
     <!-- The Dashboard does have one, so its feature key comes from there and its
          pane from the .UI project beside it. -->
     <Using Include="Backlog.Modules.Insights.Abstractions" />
@@ -96,7 +97,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <!-- The desktop web harness. Referencing a harness from a test project is
          allowed; only shipping projects under src/ may not

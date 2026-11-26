@@ -19,7 +19,7 @@ related: [.devbook/domain/work/domain.md#plan-sequencing]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.OverlappingDatesAcrossADependency_AreReportedNotRefused, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PlanEditingTests.EditingDatesIntoAContradiction_IsAllowedAndReported]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.OverlappingDatesAcrossADependency_AreReportedNotRefused, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanDependencyTests.ReschedulingDoesNotDragTheDependentWorkAlong, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PlanEditingTests.EditingDatesIntoAContradiction_IsAllowedAndReported]
 ```
 
 A change that makes work open on or before the close of what it waits on is accepted, and the contradiction is reported, never refused or repaired.
@@ -40,7 +40,7 @@ related: [.devbook/domain/work/domain.md#roadmap-item-gathering]
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoTotalsTests.AMixOfEstimatedAndUnestimated_SumsTheOne_AndCountsTheOther
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemRollupDtoTotalsTests.AMixOfEstimatedAndUnestimated_SumsTheOne_AndCountsTheOther
 ```
 
 An item's total registered effort is the sum of the story points registered on what it gathers.
@@ -51,7 +51,7 @@ Enforced at: `RoadmapItemRollupDto.TotalEffort`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoTotalsTests.Null_ContributesNothing_ButRaisesTheUnestimatedCount
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemRollupDtoTotalsTests.Null_ContributesNothing_ButRaisesTheUnestimatedCount
 ```
 
 Gathered work that registered no estimate adds nothing to the total, and is counted as unestimated instead.
@@ -62,7 +62,7 @@ Enforced at: `RoadmapItemRollupDto.UnestimatedCount`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.TheSameThingReachedBothWays_isCountedOnce_andWearsBoth, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupMergeTests.Keys_compareCaseInsensitively_soOneThingIsNotTwo, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AChapterBothReferencedAndRoadmapTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderBrainTests.GatheringByTag_ReachesEveryNoteNamingTheTag_CaseInsensitively_OnceEach]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupMergeTests.TheSameThingReachedBothWays_isCountedOnce_andWearsBoth, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupMergeTests.Keys_compareCaseInsensitively_soOneThingIsNotTwo, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AChapterBothReferencedAndRoadmapTagged_IsCountedOnce_WearingBoth, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderBrainTests.GatheringByTag_ReachesEveryNoteNamingTheTag_CaseInsensitively_OnceEach]
 ```
 
 A task, chapter or Brain note an item reaches both by name and by tag appears once in what it gathers, marked as reached both ways.
@@ -86,7 +86,7 @@ Enforced at: `RoadmapItemRollupBuilder.CarriesPlanTag()`, which lifts only a lea
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.SomethingThatRegisteredNoProgress_IsNotDone, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AKnowledgeChapter_RegistersNoProgress]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemRollupDtoProgressTests.SomethingThatRegisteredNoProgress_IsNotDone, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AKnowledgeChapter_RegistersNoProgress]
 ```
 
 A gathered thing that registered no progress, as a devbook chapter does, carries none and never reads as done.
@@ -98,7 +98,7 @@ Enforced at: `RoadmapGatheredLink.IsDone`, true only for `RoadmapProgress.Done`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.ADependencyOnSomethingTheItemDidNotGather_IsNotCarried, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.ADependencyOnSomethingAbsent_OrdersNothing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupWaveTests.AWaitOnSomethingNotGathered_CountsAsNothing]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.ADependencyOnSomethingTheItemDidNotGather_IsNotCarried, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.ADependencyOnSomethingAbsent_OrdersNothing, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupWaveTests.AWaitOnSomethingNotGathered_CountsAsNothing]
 ```
 
 A gathered thing carries as its dependencies only the other things this same item gathered.
@@ -110,7 +110,7 @@ Enforced at: `RoadmapItemRollupBuilder.GatheredDependencies()`; `RoadmapRollup.I
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.DoneEffort_SumsOnlyWhatIsFinished_AndTotalEffortStillSumsTheLot, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.FinishedWorkThatRegisteredNoEstimate_RaisesTheDoneCount_ButNotTheDoneEffort]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemRollupDtoProgressTests.DoneEffort_SumsOnlyWhatIsFinished_AndTotalEffortStillSumsTheLot, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapItemRollupDtoProgressTests.FinishedWorkThatRegisteredNoEstimate_RaisesTheDoneCount_ButNotTheDoneEffort]
 ```
 
 The finished effort is the sum of the estimates registered on finished work, and the finished count counts every finished thing, estimated or not.
@@ -145,7 +145,7 @@ Enforced at: `RoadmapItemRollupBuilder.Dates()` and `NeedsSessionDates()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AStepComesAfterTheOneItWaitsOn_WhateverOrderItArrivedIn, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AChain_ComesOutInChainOrder, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.EveryStepComesBackExactlyOnce]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.AStepComesAfterTheOneItWaitsOn_WhateverOrderItArrivedIn, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.AChain_ComesOutInChainOrder, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.EveryStepComesBackExactlyOnce]
 ```
 
 In the order of an item's steps, every step comes after each gathered step it waits on.
@@ -156,7 +156,7 @@ Enforced at: `RoadmapRollup.InDependencyOrder()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.TwoStepsWaitingOnNothing_KeepTheOrderTheyArrivedIn, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.AStepFreedLaterStillLosesATieToOneThatArrivedEarlier]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.TwoStepsWaitingOnNothing_KeepTheOrderTheyArrivedIn, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.AStepFreedLaterStillLosesATieToOneThatArrivedEarlier]
 ```
 
 Of two steps equally free to go next, the one gathered first comes first.
@@ -168,7 +168,7 @@ Enforced at: `RoadmapRollup.InDependencyOrder()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.ACycle_FallsBackToAppearanceOrder_RatherThanThrowing, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupOrderTests.WorkDownstreamOfACycle_StillLandsAfterIt, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapRollupWaveTests.ACycle_StillPlacesEveryStepExactlyOnce]
+tests: [unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.ACycle_FallsBackToAppearanceOrder_RatherThanThrowing, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupOrderTests.WorkDownstreamOfACycle_StillLandsAfterIt, unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.RoadmapRollupWaveTests.ACycle_StillPlacesEveryStepExactlyOnce]
 ```
 
 When every remaining step waits on another, the earliest gathered of them is released and the ordering goes on, rather than the item being refused.
@@ -223,19 +223,19 @@ related: [.devbook/domain/work/domain.md#my-day]
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.MyDayTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.MyDayTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.A_plan_stamped_today_is_in_My_Day_and_one_on_no_day_or_a_later_day_is_not, unit:dotnet:Backlog.Desktop.UI.UnitTests.PlanMyDayTests.With_Clear_My_Day_overnight_off_an_unfinished_plan_carries_over_and_a_finished_one_does_not]
 ```
 
 Whether a task or a plan is in today's My Day is answered by the same rule over its date, today, the day it was finished and the Clear My Day overnight setting.
 Two rules would let a plan and its own entries disagree about today.
 
-Enforced at: `MyDay.Includes()` in `Backlog.Modules.Tasks.Abstractions`, which the plan's reading calls with the plan's date and the day its last entry was ticked off
+Enforced at: `MyDay.Includes()` in `Backlog.Modules.Work.Abstractions`, which the plan's reading calls with the plan's date and the day its last entry was ticked off
 
 ### Invariant: Putting a plan on My Day never moves its window
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PutPlanOnMyDayTests.Putting_a_plan_on_My_Day_stamps_its_item_and_leaves_the_window_where_it_was_planned
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PutPlanOnMyDayTests.Putting_a_plan_on_My_Day_stamps_its_item_and_leaves_the_window_where_it_was_planned
 ```
 
 Setting or clearing a plan's My Day date leaves its Planned Window where it was.
@@ -247,7 +247,7 @@ Enforced at: `RoadmapPlan.PutPlanOnMyDay()`
 
 ```meta
 type: invariant
-tests: unit:dotnet:Backlog.Modules.Roadmap.UnitTests.PutPlanOnMyDayTests.A_shared_tag_is_one_plan_so_every_item_carrying_it_takes_the_date
+tests: unit:dotnet:Backlog.Modules.Work.Plans.UnitTests.PutPlanOnMyDayTests.A_shared_tag_is_one_plan_so_every_item_carrying_it_takes_the_date
 ```
 
 Putting a plan on My Day dates every Roadmap Item that carries its tag, because a shared tag is one plan.

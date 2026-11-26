@@ -8,7 +8,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Bunit;
 

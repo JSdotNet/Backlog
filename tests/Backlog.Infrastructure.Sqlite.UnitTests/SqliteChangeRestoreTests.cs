@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Modules.Goals.DomainModels;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;

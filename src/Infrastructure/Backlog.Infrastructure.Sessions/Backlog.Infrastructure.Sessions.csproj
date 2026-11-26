@@ -49,7 +49,7 @@
          a follow-up entry after the gated entry, which is Tasks' to create
          (.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry). The
          published surface only, never the module. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Work.Abstractions.Plans;
 
 namespace Backlog.Modules.Roadmap.UI;
 

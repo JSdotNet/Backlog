@@ -6,7 +6,7 @@ using Backlog.Mobile.UI.Tasks;
 using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.SharedKernel;
 
 namespace Backlog.Mobile.WebHarness;

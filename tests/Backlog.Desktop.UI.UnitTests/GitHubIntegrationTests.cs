@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.UnitTests;

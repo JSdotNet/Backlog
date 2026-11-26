@@ -166,7 +166,7 @@ The system SHALL drop an archived repository from a remembered scope when the sc
 ```meta
 type: requirement
 related: [.devbook/domain/work/features.md#linked-tasks, .devbook/domain/work/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.LinkedTaskSyncWorkerTests.A_tick_skips_a_target_whose_repository_is_archived_until_it_is_unarchived, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_repository_is_archived_is_paused_with_no_fetch_and_nothing_written]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.LinkedTaskSyncWorkerTests.A_tick_skips_a_target_whose_repository_is_archived_until_it_is_unarchived, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.A_target_whose_repository_is_archived_is_paused_with_no_fetch_and_nothing_written]
 ```
 
 The system SHALL not sync a [Connected Target](../work/domain.md#connected-target) while the repository it is filed under is archived, and leave the target's settings and its enabled state as they were.
@@ -188,7 +188,7 @@ The system SHALL not sync a [Connected Target](../work/domain.md#connected-targe
 ```meta
 type: requirement
 related: [.devbook/domain/work/domain.task.md#task-status]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_asks_about_the_open_tasks_and_moving_them_files_them_under_the_other_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_open_tasks_can_only_move_to_another_active_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_and_dropping_the_open_tasks_drops_them_and_archives, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Keeping_the_open_tasks_archives_and_the_archived_row_offers_the_choice_later, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_refused_move_leaves_the_repository_active_and_says_why, unit:dotnet:Backlog.Modules.Tasks.UnitTests.RefileRepositoryTasksTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_asks_about_the_open_tasks_and_moving_them_files_them_under_the_other_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.The_open_tasks_can_only_move_to_another_active_repository, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Archiving_and_dropping_the_open_tasks_drops_them_and_archives, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Keeping_the_open_tasks_archives_and_the_archived_row_offers_the_choice_later, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.A_refused_move_leaves_the_repository_active_and_says_why, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.RefileRepositoryTasksTests]
 ```
 
 The system SHALL offer, on archiving and afterwards from the archived row, to move a repository's open tasks to another active repository or drop them, and keep it active when that is refused.
@@ -272,7 +272,7 @@ The system SHALL hide the open work that names only an archived repository while
 
 ```meta
 type: requirement
-tests: unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapCompletedWorkTests.Archiving_a_repository_leaves_the_work_counted_over_a_past_range_unchanged
+tests: unit:dotnet:Backlog.Modules.Work.UnitTests.Services.RoadmapCompletedWorkTests.Archiving_a_repository_leaves_the_work_counted_over_a_past_range_unchanged
 ```
 
 The system SHALL count the finished work of an archived repository toward history and pace, as it counted while the repository was active.
@@ -383,7 +383,7 @@ The system SHALL show the workflow state of an archived repository's decision an
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanTests.An_import_naming_an_archived_repository_files_under_it_leaves_it_archived_and_reports_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanDialogRoadmapTests.An_import_filed_under_an_archived_repository_says_it_stays_archived]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.ImportPlanTests.An_import_naming_an_archived_repository_files_under_it_leaves_it_archived_and_reports_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanDialogRoadmapTests.An_import_filed_under_an_archived_repository_says_it_stays_archived]
 ```
 
 The system SHALL file an imported or triaged item that names an archived repository under that repository, leave the repository archived, and say so in the import report.
@@ -398,7 +398,7 @@ The system SHALL file an imported or triaged item that names an archived reposit
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Unarchiving_brings_the_repository_back_and_offers_Archive_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Unarchiving_the_repository_resumes_the_sync, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandArchivedTests.Unarchiving_the_repository_brings_its_band_back_as_an_active_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.Unarchiving_gives_the_chapter_its_edit_and_its_remarks_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsRepositoryArchiveTests.Unarchiving_brings_the_repository_back_and_offers_Archive_again, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks.SyncLinkedTasksTests.Unarchiving_the_repository_resumes_the_sync, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandArchivedTests.Unarchiving_the_repository_brings_its_band_back_as_an_active_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.Arc42DevbookPanelTests.Unarchiving_gives_the_chapter_its_edit_and_its_remarks_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived]
 ```
 
 The system SHALL return an unarchived repository to every place it held while active, with the settings, tasks and linked-task targets it had when it was archived.

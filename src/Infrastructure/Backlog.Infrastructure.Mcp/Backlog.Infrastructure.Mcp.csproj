@@ -42,10 +42,9 @@
   <ItemGroup>
     <!-- ITaskItems and IRepositoryDirectory: the backlog a session reads, and
          the one place an `owner/name` becomes a repository this product knows. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <!-- IRoadmapPlanning and RoadmapFeatures: the plan a session reads beside
          the entries, and the key its own group is gated on. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
     <!-- IDevbookFolderSource and IDevbookAnnotationStore: where a chapter is,
          and the private reading notes against it (local ADR 0011). -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
