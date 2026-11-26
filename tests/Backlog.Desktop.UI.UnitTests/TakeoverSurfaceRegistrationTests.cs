@@ -1,8 +1,8 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Insights.Abstractions;
+using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Events.Abstractions;
@@ -32,7 +32,7 @@ public sealed class TakeoverSurfaceRegistrationTests
         { "events", "Events", EventsFeatures.Events, ["event"] },
         { "sessions", "Sessions", SessionFeatures.Sessions, ["session", "page", "schedule"] },
         { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
-        { "dashboard", "Dashboard", null, ["tab"] },
+        { "insights", "Insights", null, ["tab"] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
         { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },
@@ -61,7 +61,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             services.AddEventsSurface();
             services.AddSessionsSurface();
             services.AddPullRequestsSurface();
-            services.AddDashboardSurface();
+            services.AddInsightsSurface();
             services.AddNotificationsSurface();
             services.AddToolsSurface();
             services.AddAtlasSurface();
@@ -78,7 +78,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             .OrderBy(surface => surface.Order)
             .Select(surface => surface.Id);
 
-        Assert.Equal(["inbox", "weekly-review", "devbook", "events", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
+        Assert.Equal(["inbox", "weekly-review", "devbook", "events", "sessions", "pull-requests", "insights", "notifications", "tools", "atlas"], order);
     }
 
     private static List<ShellSurface> Registered() =>

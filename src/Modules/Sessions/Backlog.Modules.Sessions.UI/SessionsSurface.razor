@@ -66,19 +66,19 @@
     /// <summary>The Dashboard surface's id and the query that opens it on its Sessions tab,
     /// where the app shows Claude Code usage and the limits it hit. Named as strings here,
     /// since the Sessions module references no Dashboard UI project.</summary>
-    internal const string DashboardSurfaceId = "dashboard";
+    internal const string InsightsSurfaceId = "insights";
 
-    internal const string DashboardTabKey = "tab";
+    internal const string InsightsTabKey = "tab";
 
-    internal const string DashboardSessionsTab = "sessions";
+    internal const string InsightsSessionsTab = "sessions";
 
     /// <summary>Only while the catalog offers the Dashboard, so See usage never opens
     /// nothing; without it a Holding card offers none.</summary>
     private EventCallback SeeUsageCallback =>
-        Catalog.TryGet(DashboardSurfaceId, out _) && Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>() is { } navigator
+        Catalog.TryGet(InsightsSurfaceId, out _) && Services.GetService<global::Backlog.SharedKernel.ISurfaceNavigator>() is { } navigator
             ? EventCallback.Factory.Create(this, () => navigator.Show(
-                DashboardSurfaceId,
-                new Dictionary<string, string>(StringComparer.Ordinal) { [DashboardTabKey] = DashboardSessionsTab }))
+                InsightsSurfaceId,
+                new Dictionary<string, string>(StringComparer.Ordinal) { [InsightsTabKey] = InsightsSessionsTab }))
             : default;
 
     /// <summary>Only while the catalog offers the Changes view, so a session's Changes

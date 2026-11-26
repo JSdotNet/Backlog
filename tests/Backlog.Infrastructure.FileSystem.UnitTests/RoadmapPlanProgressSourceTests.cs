@@ -1,5 +1,5 @@
-using Backlog.Infrastructure.FileSystem.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.FileSystem.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 

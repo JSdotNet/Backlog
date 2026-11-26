@@ -142,7 +142,7 @@ public class DesktopDomainBoundaryTests
     [Fact]
     public void The_contexts_are_read_from_the_module_folders()
     {
-        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain", "Calendar" })
+        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Insights", "DevPc", "Roadmap", "Sessions", "Brain", "Calendar" })
         {
             Assert.True(
                 ContextProjects.ContainsKey(context),

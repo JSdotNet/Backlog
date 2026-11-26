@@ -578,7 +578,7 @@ public sealed class HomeInboxWiringTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
+        _ = context.Services.AddUnavailableInsights("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // Home answers the Inbox's Capture button through the module's runner and

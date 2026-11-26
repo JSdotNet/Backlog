@@ -3,7 +3,7 @@
 ```meta
 date: 2026-10-16
 related: [".devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/domain/insights/features.md", ".devbook/domain/insights/requirements.md"]
-c4: [backlog.desktop.dashboard, azureFoundry]
+c4: [backlog.desktop.insights, azureFoundry]
 c4-touches: [github]
 ```
 

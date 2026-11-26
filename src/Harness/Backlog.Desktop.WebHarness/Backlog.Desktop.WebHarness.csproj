@@ -23,9 +23,9 @@
     <!-- The Capture module implementation, for AddCaptureModule(); the same
          reasoning as the Roadmap line above. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
-    <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
+    <!-- The Dashboard module implementation, for AddInsightsModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights\Backlog.Modules.Insights.csproj" />
     <!-- Dev PC Management's published surface: the port and the catalog format,
          from here rather than from the UI project that renders the answer. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />

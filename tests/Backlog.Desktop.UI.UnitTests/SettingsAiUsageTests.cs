@@ -3,7 +3,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Microsoft.Extensions.Time.Testing;
 using Backlog.Modules.Tasks.Abstractions.Services;

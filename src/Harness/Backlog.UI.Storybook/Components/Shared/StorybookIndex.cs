@@ -541,7 +541,7 @@ internal static class StorybookIndex
             new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker and note.")
         ]),
 
-        new("Dashboard",
+        new("Insights",
         [
             new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricRanking, MetricMeter, MetricBreakdown, MetricStatus."),
             new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),

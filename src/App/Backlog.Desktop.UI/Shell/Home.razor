@@ -429,18 +429,18 @@
                 <ButtonGroup CssClass="header-group header-group--loose header-group--surface"
                              AriaLabel="Surface"
                              TestId="workspace-surface-switcher">
-                    @if (DashboardOffered)
+                    @if (InsightsOffered)
                     {
-                        @HeaderItem(DashboardSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        @HeaderItem(InsightsSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="DashboardVisible"
-                                      id="dashboard-toggle-button"
-                                      Title="Dashboard"
-                                      TestId="dashboard-toggle-button"
-                                      aria-controls="dashboard-surface"
-                                      PressedChanged="ToggleDashboard">
+                                      Pressed="InsightsVisible"
+                                      id="insights-toggle-button"
+                                      Title="Insights"
+                                      TestId="insights-toggle-button"
+                                      aria-controls="insights-surface"
+                                      PressedChanged="ToggleInsights">
                             <LayoutDashboardIcon />
-                            <span class="header-nav-label header-nav-label--tier-1">Dashboard</span>
+                            <span class="header-nav-label header-nav-label--tier-1">Insights</span>
                         </ToggleButton>)
                     }
 
@@ -939,8 +939,8 @@
 
         // The Dashboard's Ask AI, which only this window offers: Ask AI stays in the
         // main window (local ADR 0043 §4).
-        _dashboardWiring = Services.GetService<Backlog.Modules.Dashboard.UI.DashboardSurfaceWiring>();
-        WireDashboard();
+        _dashboardWiring = Services.GetService<Backlog.Modules.Insights.UI.InsightsSurfaceWiring>();
+        WireInsights();
 
         await State.InitializeAsync();
         SynchronizeDevbookAvailability();
@@ -1044,7 +1044,7 @@
     private const string InboxSurfaceId = Backlog.Modules.Inbox.UI.InboxSurfaceRegistration.SurfaceId;
     private const string SessionsSurfaceId = Backlog.Modules.Sessions.UI.SessionsSurfaceRegistration.SurfaceId;
     private const string PullRequestsSurfaceId = Backlog.Modules.Sessions.UI.SessionsSurfaceRegistration.PullRequestsSurfaceId;
-    private const string DashboardSurfaceId = Backlog.Modules.Dashboard.UI.Extensions.DashboardSurfaceRegistration.SurfaceId;
+    private const string InsightsSurfaceId = Backlog.Modules.Insights.UI.Extensions.InsightsSurfaceRegistration.SurfaceId;
     private const string NotificationsSurfaceId = NotificationsSurfaceRegistration.SurfaceId;
     private const string ToolsSurfaceId = Backlog.Modules.DevPc.UI.ToolsSurfaceRegistration.SurfaceId;
     private const string AtlasSurfaceId = global::Backlog.Desktop.UI.Devbook.Extensions.AtlasSurfaceRegistration.SurfaceId;
@@ -1055,7 +1055,7 @@
     /// the view switch, beside the Devbook, without a shell edit.</summary>
     private static readonly HashSet<string> PlacedTakeovers = new(StringComparer.Ordinal)
     {
-        InboxSurfaceId, WeeklyReviewSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, DashboardSurfaceId, NotificationsSurfaceId, ToolsSurfaceId, AtlasSurfaceId,
+        InboxSurfaceId, WeeklyReviewSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, InsightsSurfaceId, NotificationsSurfaceId, ToolsSurfaceId, AtlasSurfaceId,
         // The agent request window is opened on a request, never from the header (local ADR 0058 §5).
         global::Backlog.Desktop.UI.Mcp.AgentRequestSurface.SurfaceId,
     };
@@ -1091,9 +1091,9 @@
 
     private bool ToolsOffered => TakeoverOffered(ToolsSurfaceId);
 
-    private bool DashboardVisible => TakeoverVisible(DashboardSurfaceId);
+    private bool InsightsVisible => TakeoverVisible(InsightsSurfaceId);
 
-    private bool DashboardOffered => TakeoverOffered(DashboardSurfaceId);
+    private bool InsightsOffered => TakeoverOffered(InsightsSurfaceId);
 
     private bool SessionsVisible => TakeoverVisible(SessionsSurfaceId);
 
@@ -1197,7 +1197,7 @@
     /// scope at once. Tools reads none, so there a chip is a single select and the
     /// scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || CalendarViewVisible || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible || NotificationsVisible || AtlasVisible;
+        TasksListOnScreen || CalendarViewVisible || GoalsViewVisible || InsightsVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible || NotificationsVisible || AtlasVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1224,7 +1224,7 @@
                 : RoadmapViewVisible ? "roadmap"
                 : GoalsViewVisible ? "goals"
                 : DevbookVisible ? "devbook"
-                : DashboardVisible ? "dashboard"
+                : InsightsVisible ? "insights"
                 : SessionsVisible ? "sessions"
                 : ToolsVisible ? "tools"
                 : null;
@@ -1244,7 +1244,7 @@
     /// offered at all: with both features off it would be an empty group. Sessions
     /// and Pull requests have a group of their own. The name is older than that and
     /// is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible => ToolsOffered || DashboardOffered || NotificationsOffered || AtlasOffered;
+    private bool SurfaceSwitcherVisible => ToolsOffered || InsightsOffered || NotificationsOffered || AtlasOffered;
 
     /// <summary>Whether the view switch offers the Roadmap: the catalog offers its
     /// surface, which it does while its feature is on. The option decides what is on
@@ -1335,7 +1335,7 @@
 
     private void ToggleTools() => ToggleSurface(ToolsSurfaceId);
 
-    private void ToggleDashboard() => ToggleSurface(DashboardSurfaceId);
+    private void ToggleInsights() => ToggleSurface(InsightsSurfaceId);
 
     /// <summary>The Notifications option: opens the centre on what is waiting, or returns
     /// to the workspace when it is already on screen.</summary>
@@ -1617,19 +1617,19 @@
     }
 
     /// <summary>The window's Dashboard wiring, or null in a host that composes none.</summary>
-    private Backlog.Modules.Dashboard.UI.DashboardSurfaceWiring? _dashboardWiring;
+    private Backlog.Modules.Insights.UI.InsightsSurfaceWiring? _dashboardWiring;
 
     /// <summary>What the shell hands the Dashboard's parts: their Ask AI, while the
     /// assistant is on and a Dashboard source answers — again whenever a feature switch
     /// moves that. Raised on this page's dispatcher, which owns the panel it opens.</summary>
     private Func<string, Task>? _dashboardAskAi;
 
-    private void WireDashboard()
+    private void WireInsights()
     {
         if (_dashboardWiring is not { } wiring) return;
 
-        _dashboardAskAi = DashboardAskAiOffered
-            ? title => InvokeAsync(() => AskAboutDashboardPartAsync(title))
+        _dashboardAskAi = InsightsAskAiOffered
+            ? title => InvokeAsync(() => AskAboutInsightsPartAsync(title))
             : null;
         wiring.AskAi = _dashboardAskAi;
     }
@@ -1937,8 +1937,8 @@
 
     /// <summary>Whether the Dashboard's parts offer Ask AI: the assistant is on and a
     /// Dashboard source was composed, so the panel the control opens can answer.</summary>
-    private bool DashboardAskAiOffered =>
-        IsFeatureEnabled(AppFeatures.AiAssistant) && _aiSources.ContainsKey("dashboard");
+    private bool InsightsAskAiOffered =>
+        IsFeatureEnabled(AppFeatures.AiAssistant) && _aiSources.ContainsKey("insights");
 
     /// <summary>
     /// A dashboard part's Ask AI: the panel opens on the Dashboard with a question
@@ -1955,7 +1955,7 @@
     /// read as the answer to it.
     /// </para>
     /// </summary>
-    private async Task AskAboutDashboardPartAsync(string title)
+    private async Task AskAboutInsightsPartAsync(string title)
     {
         var prefix = $"About the \"{title}\" chart: ";
 
@@ -2483,7 +2483,7 @@
     {
         _linkedWork = BuildLinkedWork();
         WireTasksViews();
-        WireDashboard();
+        WireInsights();
         SynchronizeDevbookAvailability();
 
         // Switched on after the list loaded: check now rather than at a reload

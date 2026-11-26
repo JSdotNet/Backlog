@@ -29,7 +29,7 @@
     <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement\Backlog.Modules.RepositoryManagement.csproj" />
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights\Backlog.Modules.Insights.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\Modules\Events\Backlog.Modules.Events\Backlog.Modules.Events.csproj" />
     <!-- The Calendar (local ADR 0055): AddCalendarModule registers its Tasks, Plans and

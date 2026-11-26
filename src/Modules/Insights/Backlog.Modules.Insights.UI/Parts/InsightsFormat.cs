@@ -1,0 +1,256 @@
+using System.Globalization;
+using Backlog.UI.Components.Metrics;
+
+namespace Backlog.Modules.Insights.UI.Parts;
+
+/// <summary>
+/// Formatting this surface does that the metrics library does not.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Here rather than in <c>MetricFormat</c> for the reason that class gives about
+/// itself: it formats measures — a count, a share, an amount of money — and a duration
+/// a person reads is a rounding policy rather than a format. "Nineteen and a bit hours"
+/// is one thing to a reviewer waiting on a pull request and another to a library, and
+/// the choice of where to stop is this dashboard's.
+/// </para>
+/// <para>
+/// It was the throughput part's private method until the sessions part needed the same
+/// answer. Two copies of a rounding policy is how two figures on one screen come to
+/// disagree about what a day is.
+/// </para>
+/// </remarks>
+public static class InsightsFormat
+{
+    /// <summary>
+    /// A duration a person reads rather than a decimal number of hours. Under an hour
+    /// it is minutes, under a day hours, above that days — nobody needs to know a
+    /// review took 19.4 hours. An em dash for a duration there is none of, which is a
+    /// different statement from a zero.
+    /// </summary>
+    public static string Duration(TimeSpan? span)
+    {
+        if (span is not { } value) return "—";
+
+        // Zero is a reading, and it is the one reading the round-up below must not
+        // reach. That rule is about a session that ran — something happened, and a
+        // figure of "0m" would deny it — but an hour of a grid nobody worked and a
+        // waiting column for an assistant that cannot record one are both genuinely
+        // nothing, and rounding those up to a minute would invent the only activity
+        // they have. An em dash is still reserved for having no figure at all.
+        if (value == TimeSpan.Zero) return "0m";
+
+        return value.TotalHours switch
+        {
+            // Anything at all rounds up to a minute rather than down to nothing: a
+            // session that ran is not a session that took no time.
+            < 1 => $"{Math.Max(1, (int)value.TotalMinutes)}m",
+            < 24 => $"{(int)value.TotalHours}h",
+
+            // Invariant, for the reason MetricFormat states about every figure it
+            // writes: on a machine with a comma decimal separator this would otherwise
+            // read "1,5d", and every assertion that spells a duration out would fail
+            // there and nowhere else.
+            _ => value.TotalDays.ToString("0.#", CultureInfo.InvariantCulture) + "d"
+        };
+    }
+
+    /// <summary>
+    /// A number of hours worked or planned, to a tenth, as <c>1.5h</c> — the way a
+    /// roadmap head prints a day's actual hours, so the two surfaces name one figure
+    /// alike. Hours rather than <see cref="Duration"/>'s days, because a week of 42.5
+    /// hours read as "1.8d" is a week nobody recognises. Zero is <c>0h</c>: a day with
+    /// no stretch was read and came to nothing, which is a figure.
+    /// </summary>
+    public static string Hours(TimeSpan span) =>
+        span == TimeSpan.Zero
+            ? "0h"
+            : span.TotalHours.ToString("0.0", CultureInfo.InvariantCulture) + "h";
+
+    /// <summary><see cref="Hours(TimeSpan)"/> for a figure already in hours, as a chart
+    /// scale hands it back.</summary>
+    public static string Hours(decimal hours) =>
+        hours == 0m
+            ? "0h"
+            : hours.ToString("0.0", CultureInfo.InvariantCulture) + "h";
+
+    /// <summary>
+    /// An instant a person reads: the day, the month and the time, in UTC.
+    /// <para>
+    /// Invariant and UTC rather than local and cultured, for the same reason every
+    /// figure on this surface is: the timestamps come off files written by two agents
+    /// and are already carried as instants, and rendering them through whatever
+    /// locale the machine has would make one assertion pass on a desk and fail in CI.
+    /// No year, because a dashboard shows at most a quarter and the year would be the
+    /// same on every row.
+    /// </para>
+    /// An em dash where there is no instant, which is a different statement from a zero.
+    /// </summary>
+    public static string Moment(DateTimeOffset? moment) =>
+        moment is { } value
+            ? value.UtcDateTime.ToString("dd MMM HH:mm", CultureInfo.InvariantCulture)
+            : "—";
+
+    /// <summary>"18 a week": a count over the window's weeks, to one decimal — the one
+    /// basis every "a week" footnote on the surface reads on.</summary>
+    public static string PerWeek(decimal count, int weeks) =>
+        $"{MetricFormat.Score(count / Math.Max(1, weeks))} a week";
+
+    /// <summary>
+    /// A session's length as a person reads one (AC22): minutes under an hour, hours and
+    /// minutes under a day — "2 h 40 m", the minutes left off on the hour — and
+    /// <see cref="Duration"/>'s days above that. Anything at all is at least a minute,
+    /// on <see cref="Duration"/>'s rule: a session that ran is not one that took no time.
+    /// </summary>
+    public static string Length(TimeSpan span)
+    {
+        if (span.TotalDays >= 1) return Duration(span);
+
+        var hours = (int)span.TotalHours;
+        var minutes = span.Minutes;
+
+        if (hours == 0) return $"{Math.Max(1, minutes)} m";
+
+        return minutes == 0 ? $"{hours} h" : $"{hours} h {minutes} m";
+    }
+
+    /// <summary>
+    /// How long ago <paramref name="at"/> was, as of <paramref name="now"/> (AC24): "just
+    /// now" under a minute, minutes under an hour, hours the same day, "yesterday" the
+    /// calendar day before, and days after that — the days counted on the calendar in
+    /// <paramref name="now"/>'s offset, so an evening check reads yesterday the next
+    /// morning rather than "14 h ago". A moment ahead of the clock reads as just now.
+    /// </summary>
+    public static string Ago(DateTimeOffset at, DateTimeOffset now)
+    {
+        var elapsed = now - at;
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes} m ago";
+
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var day = DateOnly.FromDateTime(at.ToOffset(now.Offset).DateTime);
+        var days = today.DayNumber - day.DayNumber;
+
+        return days switch
+        {
+            <= 0 => $"{(int)elapsed.TotalHours} h ago",
+            1 => "yesterday",
+            _ => $"{days} days ago"
+        };
+    }
+
+    /// <summary>
+    /// A day, for naming a stretch of history in prose. No time of day, unlike
+    /// <see cref="Moment"/>: the block a target came from is four weeks long, and a
+    /// minute-precise edge on it would be a precision nobody asked for.
+    /// <para>
+    /// The year is here where <see cref="Moment"/> leaves it out, and for the same
+    /// reason it leaves it out — that one labels something inside the window on
+    /// screen, this one names a block that may be five months behind it.
+    /// </para>
+    /// </summary>
+    public static string Day(DateTimeOffset moment) =>
+        moment.UtcDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A derived target as a whole number of items. Full marks is arithmetic over a
+    /// rate and lands on fractions — 380.0, or 356.25 — and a card that told a reader
+    /// to merge a quarter of a pull request would be inviting the wrong argument.
+    /// Rounded rather than truncated, and invariant, for the reason above.
+    /// </summary>
+    public static string Whole(decimal value) =>
+        Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A row heading for the activity grid: the weekday and the day of the month, as
+    /// <c>Wed 02</c>.
+    /// <para>
+    /// Both halves, because neither alone is enough here. The weekday is what the
+    /// question is about — "when do I get agents running" is answered in Tuesdays, not in
+    /// dates — while the date is what stops seven rows of a fortnight-old screenshot
+    /// reading as this week. The grid is only ever seven rows, so a month never repeats
+    /// inside it and naming one would be noise.
+    /// </para>
+    /// <para>
+    /// Invariant, for the reason <see cref="Moment"/> and <see cref="Duration"/> are: a
+    /// heading that moved with the machine's language would make a screenshot
+    /// untranslatable back to the data behind it, and every assertion that spells a day
+    /// out would fail on one machine and nowhere else.
+    /// </para>
+    /// </summary>
+    public static string Day(DateOnly day) => day.ToString("ddd dd", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A planned day, as <c>05 Oct</c>: the day and the month, no weekday.
+    /// <para>
+    /// Not <see cref="Day(DateOnly)"/>, which names a row of a seven-day grid and can
+    /// leave the month out because a week never repeats one. A roadmap item runs for
+    /// weeks and its two ends are routinely in different months, so here the month is
+    /// the half that cannot go. No year, for the reason <see cref="Moment"/> gives.
+    /// Invariant, for the reason every format here is.
+    /// </para>
+    /// </summary>
+    public static string Date(DateOnly day) => day.ToString("dd MMM", CultureInfo.InvariantCulture);
+
+    /// <summary>A stretch from one planned day to another, both inclusive, as
+    /// <c>21 Sep – 05 Oct</c>. An en dash, the range mark, and the two ends in
+    /// <see cref="Date"/>'s words so a sentence and a table cell name a day the same way.</summary>
+    public static string Span(DateOnly start, DateOnly end) => $"{Date(start)} – {Date(end)}";
+
+    /// <summary>
+    /// What a delta against the previous window says it is compared with: <c>previous 4
+    /// weeks</c>. Here once, so every tile that compares with the window before names
+    /// it in the same words and none of them can name a length the period control did
+    /// not pick.
+    /// </summary>
+    public static string PreviousWeeks(int weeks) =>
+        $"previous {weeks.ToString(CultureInfo.InvariantCulture)} weeks";
+
+    /// <summary>
+    /// A count's change against an earlier figure, as the count it moved by — or null
+    /// when there is no earlier figure, so the tile draws no comparison.
+    /// <para>
+    /// A count rather than a share for counts and points, because the numbers are small
+    /// enough to read as themselves: "up 3" against eleven merged pull requests says
+    /// more than "up 37.5%", and a share of a quiet window is a large number about very
+    /// little. Null in, null out, and never a zero for a missing figure — "unchanged"
+    /// against a window nobody counted would be a claim nobody made.
+    /// </para>
+    /// </summary>
+    public static MetricDelta? CountDelta(decimal current, decimal? previous, string comparedTo, bool higherIsBetter = true) =>
+        previous is { } before
+            ? new MetricDelta(current - before, MetricDeltaUnit.Absolute, comparedTo, higherIsBetter)
+            : null;
+
+    /// <summary>
+    /// A measure's change against an earlier figure as a fraction of it — the shape
+    /// <see cref="MetricDelta"/> takes for <see cref="MetricDeltaUnit.Percent"/>, so
+    /// 0.124 reads "up 12.4%" — or null when there is no earlier figure or it was zero.
+    /// <para>
+    /// A share rather than a difference for durations and money, because their
+    /// difference has to be formatted in the unit the tile already uses and would read
+    /// as a second figure rather than a change. Null over a zero rather than an infinite
+    /// share: "up from nothing" is not a percentage, the rule
+    /// <c>MetricSeries.Change</c> already follows.
+    /// </para>
+    /// </summary>
+    public static MetricDelta? ShareDelta(decimal current, decimal? previous, string comparedTo, bool higherIsBetter = true) =>
+        previous is { } before && before != 0m
+            ? new MetricDelta((current - before) / before, MetricDeltaUnit.Percent, comparedTo, higherIsBetter)
+            : null;
+
+    /// <summary><see cref="ShareDelta(decimal, decimal?, string, bool)"/> for a duration,
+    /// compared in ticks so no rounding policy above reaches the arithmetic.</summary>
+    public static MetricDelta? ShareDelta(TimeSpan current, TimeSpan? previous, string comparedTo, bool higherIsBetter = true) =>
+        ShareDelta(current.Ticks, previous?.Ticks, comparedTo, higherIsBetter);
+
+    /// <summary>
+    /// A column heading for the activity grid: the hour, zero-padded, as <c>07</c>.
+    /// <para>
+    /// Padded because the grid matches its cells on this string, so <c>7</c> and
+    /// <c>07</c> would be two different columns; and because twenty-four headings of even
+    /// width are what let the columns stay narrow enough to fit.
+    /// </para>
+    /// </summary>
+    public static string Hour(int hour) => hour.ToString("00", CultureInfo.InvariantCulture);
+}

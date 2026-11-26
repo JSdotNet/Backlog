@@ -29,7 +29,7 @@
     <!-- The Dashboard's published surface, in the same direction again: the
          adapters under Dashboard/ answer its repository-directory, activity,
          baseline and Copilot-spend ports from the clients beside them. -->
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
     <!-- The Sync module's published surface, in the same direction: the settings
          store answers IGitHubSettingsReplication (local ADR 0021), which is how the
          repository registry and the account identities ride the task feed without

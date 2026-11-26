@@ -473,7 +473,7 @@ sequenceDiagram
     participant Pkg as Package Registries
     participant Devbook as Devbook reader
     participant Index as Local JSON Index
-    participant Monitoring as Monitoring Service
+    participant Insights as Insights
 
     Scheduler->>RepoMgmt: Start dependency scan
     RepoMgmt->>RepoRegistry: Load registered repos and manifests
@@ -485,8 +485,8 @@ sequenceDiagram
     Devbook-->>RepoMgmt: Ratings and approved versions
     RepoMgmt->>RepoMgmt: Flag drift and hold or retired technology
     RepoMgmt->>Index: Persist repository health snapshot
-    RepoMgmt->>Monitoring: Emit ProgressSignal(s)
-    Monitoring-->>Scheduler: Dashboard/alert state updated
+    RepoMgmt->>Insights: Emit ProgressSignal(s)
+    Insights-->>Scheduler: What needs you updated
 ```
 
 ## Remote PC Wake and Status Update
@@ -506,7 +506,7 @@ sequenceDiagram
     participant Cloud as Cloud Service
     participant Registry as Machine Registry
     participant Target as Remote Desktop Agent
-    participant Monitoring as Monitoring Service
+    participant Insights as Insights
 
     ME->>Desktop: Wake remote machine
     Desktop->>DevPC: wake(machine_id)
@@ -520,8 +520,8 @@ sequenceDiagram
     Target->>Cloud: POST /pc/heartbeat
     Cloud->>Registry: Update status=online
     Cloud-->>DevPC: pc.wake-result / status update
-    DevPC->>Monitoring: Emit machine-online signal
-    Monitoring-->>ME: Machine visible as online
+    DevPC->>Insights: Emit machine-online signal
+    Insights-->>ME: Machine visible as online
 ```
 
 ## Mobile Note Sync

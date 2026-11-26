@@ -77,7 +77,7 @@ public sealed class ClaudeAccountProbeTests
         Assert.False(check.Passed);
         Assert.Equal(ClaudeCheckOutcome.Passed, check.Steps[0].Outcome);
         Assert.Equal(ClaudeCheckOutcome.Failed, check.Steps[1].Outcome);
-        Assert.Equal("Nobody in Acme Corp has the email me@example.com. The dashboard would report nothing for it.", check.Steps[1].Detail);
+        Assert.Equal("Nobody in Acme Corp has the email me@example.com. Insights would report nothing for it.", check.Steps[1].Detail);
         Assert.Equal(ClaudeCheckOutcome.Passed, check.Steps[2].Outcome);
     }
 

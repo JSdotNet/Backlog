@@ -62,10 +62,10 @@
     <Project Path="src/Modules/Capture/Backlog.Modules.Capture.UI/Backlog.Modules.Capture.UI.csproj" />
     <Project Path="src/Modules/Capture/Backlog.Modules.Capture/Backlog.Modules.Capture.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Dashboard/">
-    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions/Backlog.Modules.Dashboard.Abstractions.csproj" />
-    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/Backlog.Modules.Dashboard.UI.csproj" />
-    <Project Path="src/Modules/Dashboard/Backlog.Modules.Dashboard/Backlog.Modules.Dashboard.csproj" />
+  <Folder Name="/src/Modules/Insights/">
+    <Project Path="src/Modules/Insights/Backlog.Modules.Insights.Abstractions/Backlog.Modules.Insights.Abstractions.csproj" />
+    <Project Path="src/Modules/Insights/Backlog.Modules.Insights.UI/Backlog.Modules.Insights.UI.csproj" />
+    <Project Path="src/Modules/Insights/Backlog.Modules.Insights/Backlog.Modules.Insights.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Devbook/">
     <Project Path="src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions/Backlog.Modules.Devbook.Abstractions.csproj" />
@@ -145,7 +145,7 @@
     <Project Path="tests/Backlog.Mobile.UI.UnitTests/Backlog.Mobile.UI.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Calendar.UnitTests/Backlog.Modules.Calendar.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Capture.UnitTests/Backlog.Modules.Capture.UnitTests.csproj" />
-    <Project Path="tests/Backlog.Modules.Dashboard.UnitTests/Backlog.Modules.Dashboard.UnitTests.csproj" />
+    <Project Path="tests/Backlog.Modules.Insights.UnitTests/Backlog.Modules.Insights.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.DevPc.UnitTests/Backlog.Modules.DevPc.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Events.UnitTests/Backlog.Modules.Events.UnitTests.csproj" />
     <Project Path="tests/Backlog.Modules.Inbox.UnitTests/Backlog.Modules.Inbox.UnitTests.csproj" />
