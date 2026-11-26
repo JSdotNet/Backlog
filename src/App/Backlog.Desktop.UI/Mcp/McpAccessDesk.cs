@@ -629,10 +629,11 @@ public static class McpAccessRules
             && !registrations.Any(request => request.State == McpAccessRequestState.Allowed);
     }
 
-    /// <summary>The scopes, without repeats, in <see cref="McpScopes.All"/>'s order.</summary>
+    /// <summary>The scopes, without repeats, in <see cref="McpScopes.All"/>'s order, each under
+    /// the name it goes by now (local ADR 0073 §10).</summary>
     public static IReadOnlyList<string> Ordered(IEnumerable<string> scopes)
     {
-        var on = scopes.ToHashSet(StringComparer.Ordinal);
+        var on = McpScopes.Resolve(scopes).ToHashSet(StringComparer.Ordinal);
         return [.. McpScopes.All.Where(on.Contains)];
     }
 }

@@ -38,7 +38,7 @@ public sealed class McpGrantTokensTests : IDisposable
     [Fact]
     public void A_minted_token_names_the_grant_its_scopes_and_version_for_15_minutes()
     {
-        var grant = _grants.Create("Claude Code", ["tasks:read", "tasks:write"], "jobsc");
+        var grant = _grants.Create("Claude Code", ["work:read", "work:write"], "jobsc");
 
         var minted = _tokens.Mint(grant.Id);
 
@@ -50,7 +50,7 @@ public sealed class McpGrantTokensTests : IDisposable
         Assert.Equal("backlog-desktop", jwt.Issuer);
         Assert.Equal(["backlog-mcp-local"], jwt.Audiences);
         Assert.Equal(grant.Id, jwt.Subject);
-        Assert.Equal("tasks:read tasks:write", jwt.GetClaim("scope").Value);
+        Assert.Equal("work:read work:write", jwt.GetClaim("scope").Value);
         Assert.True(jwt.TryGetPayloadValue<int>("ver", out var version));
         Assert.Equal(1, version);
         Assert.Equal(Now.UtcDateTime, jwt.IssuedAt);
@@ -83,7 +83,7 @@ public sealed class McpGrantTokensTests : IDisposable
     [Fact]
     public async Task A_minted_token_validates_as_its_grant_with_its_claims()
     {
-        var grant = _grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var grant = _grants.Create("Claude Code", ["work:read"], "jobsc");
         var token = _tokens.Mint(grant.Id).Token!.Value;
 
         var validation = await _tokens.ValidateAsync(token, Cancel);
@@ -93,7 +93,7 @@ public sealed class McpGrantTokensTests : IDisposable
         Assert.NotNull(validation.Principal);
         Assert.True(validation.Principal.Identity?.IsAuthenticated);
         Assert.Equal(grant.Id, validation.Principal.FindFirst("sub")?.Value);
-        Assert.Equal("tasks:read", validation.Principal.FindFirst("scope")?.Value);
+        Assert.Equal("work:read", validation.Principal.FindFirst("scope")?.Value);
     }
 
     [Fact]

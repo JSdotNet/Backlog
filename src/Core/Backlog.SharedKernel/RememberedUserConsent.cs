@@ -7,7 +7,7 @@ namespace Backlog.SharedKernel;
 /// pairing code and revoking a device in a row confirms once.
 /// <para>
 /// <b>The person's own acts only.</b> <see cref="VerifyEveryTimeAsync"/> always asks the inner
-/// consent and never opens the window. An agent's <c>tasks:admin</c> call and a Refuse replayed at
+/// consent and never opens the window. An agent's <c>work:admin</c> call and a Refuse replayed at
 /// the next start are not started by the person at the desk, and Allow, <c>agents:grant</c> and
 /// widening the Unauthenticated row must be prompts UI automation cannot pass (local ADR 0058 §5),
 /// so a confirmation from a moment ago stands in for none of them. A Declined or unavailable

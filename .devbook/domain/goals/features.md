@@ -99,12 +99,12 @@ tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests]
 Let an agent keep the goals its work is for. Behind the always-on Tasks key, beside the [impediment tools](#impediments-for-agents), an agent works with goals through MCP tools:
 
 - `list_goals` reads every goal with its title, outcome and due date, what it holds, its progress and its forecast: the standing, the day it is expected to land and the day it is due, as the [Goals view](#the-goals-view) draws them;
-- `create_goal` sets one with a title, an optional outcome and an optional due date, and refuses one without a title (`progress.goal_without_title`);
+- `create_goal` sets one with a title, an optional outcome and an optional due date, and refuses one without a title (`goals.goal_without_title`);
 - `update_goal` changes the fields it is given and keeps the rest;
 - `delete_goal` deletes one and frees what it held;
 - `attach_to_goal` and `detach_from_goal` attach or detach one plan by its tag, one task by its id, or one pull request by its repository and number.
 
-An agent attaches no session: a session attaches on the desktop alone (local [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)). An item another goal holds is refused, naming that goal (`progress.item_in_other_goal`), unless the agent asks to move it. Then it leaves that goal and joins this one, as **Attach** in the picker moves it.
+An agent attaches no session: a session attaches on the desktop alone (local [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)). An item another goal holds is refused, naming that goal (`goals.item_in_other_goal`), unless the agent asks to move it. Then it leaves that goal and joins this one, as **Attach** in the picker moves it.
 
 ## Choosing the iteration
 
@@ -173,7 +173,7 @@ Let an agent report the figures the person sees. Behind the always-on Tasks key,
 - the planned effort against the capacity of the [points tag](#the-stand-up), and how many impediments were resolved in the last window;
 - each open impediment, as [Impediments for agents](#impediments-for-agents) says.
 
-Without a length, the agent reads by the person's own [Iteration length](context.md#iteration-length). It may name `day`, `week`, `two-weeks` or `month` instead, and then reads that length as of today. Any other length is refused (`progress.iteration_length_unknown`), and nothing is read. The reading moves nothing.
+Without a length, the agent reads by the person's own [Iteration length](context.md#iteration-length). It may name `day`, `week`, `two-weeks` or `month` instead, and then reads that length as of today. Any other length is refused (`goals.iteration_length_unknown`), and nothing is read. The reading moves nothing.
 
 ## Tracking an impediment
 

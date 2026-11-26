@@ -19,10 +19,10 @@ public sealed class ImpedimentInvariantTests
     [InlineData("   ")]
     public void An_impediment_has_a_title(string? title)
     {
-        Assert.Equal("progress.impediment_without_title", Assert.IsType<Error>(Impediment.Raise(Guid.NewGuid(), title, Wed14).Value).Code);
+        Assert.Equal("goals.impediment_without_title", Assert.IsType<Error>(Impediment.Raise(Guid.NewGuid(), title, Wed14).Value).Code);
 
         var impediment = Raised();
-        Assert.Equal("progress.impediment_without_title", Assert.IsType<Error>(impediment.Rename(title).Value).Code);
+        Assert.Equal("goals.impediment_without_title", Assert.IsType<Error>(impediment.Rename(title).Value).Code);
         Assert.Equal("Bank sample files missing", impediment.Title);
     }
 
@@ -74,7 +74,7 @@ public sealed class ImpedimentInvariantTests
 
         var moved = impediment.MoveTo(to, Fri16.AddDays(3));
 
-        Assert.Equal("progress.impediment_move_not_allowed", Assert.IsType<Error>(moved.Value).Code);
+        Assert.Equal("goals.impediment_move_not_allowed", Assert.IsType<Error>(moved.Value).Code);
         Assert.Equal(before, impediment.History);
     }
 
@@ -116,7 +116,7 @@ public sealed class ImpedimentInvariantTests
         var impediment = Raised();
         Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Resolved, Thu15).Value);
 
-        Assert.Equal("progress.impediment_resolved", Assert.IsType<Error>(impediment.MoveTo(to, Fri16).Value).Code);
+        Assert.Equal("goals.impediment_resolved", Assert.IsType<Error>(impediment.MoveTo(to, Fri16).Value).Code);
         Assert.Equal(2, impediment.History.Count);
     }
 
@@ -163,7 +163,7 @@ public sealed class ImpedimentInvariantTests
 
         var moved = impediment.MoveTo(ImpedimentState.Reported, Wed14);
 
-        Assert.Equal("progress.impediment_move_before_last_step", Assert.IsType<Error>(moved.Value).Code);
+        Assert.Equal("goals.impediment_move_before_last_step", Assert.IsType<Error>(moved.Value).Code);
         Assert.Single(impediment.History);
         Assert.IsType<Ok>(impediment.MoveTo(ImpedimentState.Reported, Thu15).Value);
     }
@@ -202,7 +202,7 @@ public sealed class ImpedimentInvariantTests
     [InlineData("acme/payments", 0)]
     [InlineData("acme/payments", -3)]
     public void A_held_back_pull_request_names_its_repository_and_a_positive_number(string? repository, int? number) =>
-        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPullRequest(repository, number).Value).Code);
+        Assert.Equal("goals.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPullRequest(repository, number).Value).Code);
 
     [Theory]
     [InlineData(null)]
@@ -211,12 +211,12 @@ public sealed class ImpedimentInvariantTests
     [InlineData("+")]
     [InlineData(" + ")]
     public void A_held_back_plan_names_a_non_blank_tag(string? tag) =>
-        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPlan(tag).Value).Code);
+        Assert.Equal("goals.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForPlan(tag).Value).Code);
 
     [Fact]
     public void A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil()
     {
-        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForTask(Guid.Empty).Value).Code);
+        Assert.Equal("goals.held_back_item_without_identity", Assert.IsType<Error>(HeldBackItem.ForTask(Guid.Empty).Value).Code);
 
         var plan = HeldPlan(" +goals-standup ");
         Assert.Equal(HeldBackKind.Plan, plan.Kind);

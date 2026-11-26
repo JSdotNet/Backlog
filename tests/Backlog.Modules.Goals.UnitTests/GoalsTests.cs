@@ -76,7 +76,7 @@ public sealed class GoalsTests : IDisposable
     [Fact]
     public async Task A_goal_without_a_title_is_not_saved()
     {
-        Assert.Equal("progress.goal_without_title", Assert.IsType<Error>((await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Value).Code);
+        Assert.Equal("goals.goal_without_title", Assert.IsType<Error>((await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Value).Code);
         Assert.Equal(0, _repository.Saves);
     }
 
@@ -115,7 +115,7 @@ public sealed class GoalsTests : IDisposable
 
         var edited = await Goals.EditAsync(goal.Id, new SetGoalRequest("Renamed", "two\nlines", MakeGoal.Due), Cancellation);
 
-        Assert.Equal("progress.outcome_not_one_line", Assert.IsType<Error>(edited.Value).Code);
+        Assert.Equal("goals.outcome_not_one_line", Assert.IsType<Error>(edited.Value).Code);
         Assert.Equal(saves, _repository.Saves);
         Assert.Equal("Customers get paid faster", Assert.IsType<Ok<GoalDto>>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Value.Title);
     }
@@ -123,9 +123,9 @@ public sealed class GoalsTests : IDisposable
     [Fact]
     public async Task Editing_or_attaching_to_a_goal_that_is_not_there_is_not_found()
     {
-        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.EditAsync(Guid.NewGuid(), Paid, Cancellation)).Value).Code);
-        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.AttachAsync(Guid.NewGuid(), GoalItemDto.ForPlan("x"), cancellationToken: Cancellation)).Value).Code);
-        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.DeleteAsync(Guid.NewGuid(), Cancellation)).Value).Code);
+        Assert.Equal("goals.goal_not_found", Assert.IsType<Error>((await Goals.EditAsync(Guid.NewGuid(), Paid, Cancellation)).Value).Code);
+        Assert.Equal("goals.goal_not_found", Assert.IsType<Error>((await Goals.AttachAsync(Guid.NewGuid(), GoalItemDto.ForPlan("x"), cancellationToken: Cancellation)).Value).Code);
+        Assert.Equal("goals.goal_not_found", Assert.IsType<Error>((await Goals.DeleteAsync(Guid.NewGuid(), Cancellation)).Value).Code);
     }
 
     /// <summary>Scenario "Deleting a goal with a plan attached": the goal is gone and what
@@ -140,7 +140,7 @@ public sealed class GoalsTests : IDisposable
 
         Assert.IsType<Ok>((await Goals.DeleteAsync(goal.Id, Cancellation)).Value);
 
-        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Code);
+        Assert.Equal("goals.goal_not_found", Assert.IsType<Error>((await Goals.GetAsync(goal.Id, Cancellation)).Value).Code);
         Assert.Null(Assert.IsType<Ok<GoalDto?>>((await Goals.FindGoalOfAsync(GoalItemDto.ForTask(credit), Cancellation)).Value).Value);
         Assert.Empty(Assert.IsType<Ok<IReadOnlyList<GoalSummaryDto>>>((await Goals.ListAsync(cancellationToken: Cancellation)).Value).Value);
     }
@@ -168,9 +168,9 @@ public sealed class GoalsTests : IDisposable
     {
         var goal = await CreateAsync();
 
-        Assert.Equal("progress.pull_request_without_repository",
+        Assert.Equal("goals.pull_request_without_repository",
             Assert.IsType<Error>((await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.PullRequest, Number: 4), cancellationToken: Cancellation)).Value).Code);
-        Assert.Equal("progress.plan_tag_required",
+        Assert.Equal("goals.plan_tag_required",
             Assert.IsType<Error>((await Goals.AttachAsync(goal.Id, new GoalItemDto(GoalAttachmentKind.Plan), cancellationToken: Cancellation)).Value).Code);
     }
 
@@ -358,7 +358,7 @@ public sealed class GoalsTests : IDisposable
 
         var moved = await Goals.MoveAsync(Guid.NewGuid(), 0, Cancellation);
 
-        Assert.Equal("progress.goal_not_found", Assert.IsType<Error>(moved.Value).Code);
+        Assert.Equal("goals.goal_not_found", Assert.IsType<Error>(moved.Value).Code);
     }
 
     // --- The notice --------------------------------------------------------------

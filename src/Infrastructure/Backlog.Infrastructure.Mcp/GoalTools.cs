@@ -106,7 +106,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         + "open impediment with who it is with, its days open, the goal it holds back, each item it holds back and "
         + "whether that is settled, and whether it reads ready to resolve. Read-only: ready to resolve is a reading, "
         + "and resolving is set_impediment_state. Refused for a length that is not day, week, two-weeks or month "
-        + "(progress.iteration_length_unknown).")]
+        + "(goals.iteration_length_unknown).")]
     public async Task<IterationsPayload> ReadIterationsAsync(
         [Description("Optional. The iteration length to read with: day, week, two-weeks or month. Without it, the "
             + "person's own setting applies.")]
@@ -123,7 +123,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         if (!Lengths.TryGetValue(length.Trim(), out var named))
         {
             throw RepositoryScope.Failure(SharedKernel.Results.Error.Validation(
-                "progress.iteration_length_unknown",
+                "goals.iteration_length_unknown",
                 $"'{length}' is not an iteration length. Use day, week, two-weeks or month, or leave it out for the person's own."));
         }
 
@@ -158,7 +158,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = CreateGoal, Title = "Set a goal", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
         "Sets a new goal, holding nothing yet; attach its work with attach_to_goal. Refused without a title "
-        + "(progress.goal_without_title) or with an outcome of more than one line (progress.outcome_not_one_line). "
+        + "(goals.goal_without_title) or with an outcome of more than one line (goals.outcome_not_one_line). "
         + "Calling it twice sets two goals.")]
     public async Task<GoalPayload> CreateAsync(
         [Description("What the goal is, e.g. \"Local development\".")]
@@ -185,9 +185,9 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = UpdateGoal, Title = "Edit a goal", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
         "Changes a goal's title, outcome or due date. Only the fields given change; an outcome given as an empty "
-        + "string clears it. What the goal holds is unchanged. Refused for an unknown goal (progress.goal_not_found), "
-        + "a blank title (progress.goal_without_title) or an outcome of more than one line "
-        + "(progress.outcome_not_one_line).")]
+        + "string clears it. What the goal holds is unchanged. Refused for an unknown goal (goals.goal_not_found), "
+        + "a blank title (goals.goal_without_title) or an outcome of more than one line "
+        + "(goals.outcome_not_one_line).")]
     public async Task<GoalPayload> UpdateAsync(
         [Description("The goal's id, as a GUID.")]
         Guid id,
@@ -214,7 +214,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [Description(
         "Attaches one plan, task or pull request to a goal. Name exactly one: planTag, or taskId, or repository and "
         + "number together. Attaching what the goal already holds changes nothing. An item another goal holds is "
-        + "refused, naming that goal (progress.item_in_other_goal), unless moveFromOtherGoal is true: then it leaves "
+        + "refused, naming that goal (goals.item_in_other_goal), unless moveFromOtherGoal is true: then it leaves "
         + "that goal and joins this one. The task, plan or pull request itself is never changed.")]
     public async Task<GoalPayload> AttachAsync(
         [Description("The goal's id, as a GUID.")]
@@ -270,7 +270,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = DeleteGoal, Title = "Delete a goal", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description(
         "Deletes a goal and its attachments. The plans, tasks and pull requests it held are unchanged and belong to "
-        + "no goal from then on. Refused for an unknown goal (progress.goal_not_found).")]
+        + "no goal from then on. Refused for an unknown goal (goals.goal_not_found).")]
     public async Task<GoalDeletedPayload> DeleteAsync(
         [Description("The goal's id, as a GUID.")]
         Guid id,

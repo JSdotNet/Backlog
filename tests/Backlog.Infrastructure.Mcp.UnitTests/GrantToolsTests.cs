@@ -16,7 +16,7 @@ public sealed class GrantToolsTests
 {
     private static readonly ClaimsPrincipal Caller = new(new ClaimsIdentity([new Claim("sub", "g_aaaaaaaaaaaaaaaa")], "mcp-grant"));
 
-    private static readonly AgentGrantView Worker = new("g_bbbbbbbbbbbbbbbb", "Worker", ["tasks:read"], new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
+    private static readonly AgentGrantView Worker = new("g_bbbbbbbbbbbbbbbb", "Worker", ["work:read"], new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
 
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;
 
@@ -36,16 +36,16 @@ public sealed class GrantToolsTests
     [Fact]
     public async Task Grant_agent_hands_the_caller_the_request_and_the_trimmed_scopes_to_the_host()
     {
-        var host = new FakeGrants { Answer = new AgentGrantAnswer(Worker, null, "Worker may use tasks:read.") };
+        var host = new FakeGrants { Answer = new AgentGrantAnswer(Worker, null, "Worker may use work:read.") };
         var tools = new GrantTools(new McpCallContext { User = Caller }, host);
 
-        var answer = await tools.GrantAsync(" r_cccccccccccccccc ", [" tasks:read "], Cancel);
+        var answer = await tools.GrantAsync(" r_cccccccccccccccc ", [" work:read "], Cancel);
 
         Assert.Same(Worker, answer.Grant);
         var (caller, target, scopes) = Assert.Single(host.Calls);
         Assert.Same(Caller, caller);
         Assert.Equal("grant:r_cccccccccccccccc", target);
-        Assert.Equal(["tasks:read"], scopes);
+        Assert.Equal(["work:read"], scopes);
     }
 
     [Fact]

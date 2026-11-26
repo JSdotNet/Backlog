@@ -94,7 +94,7 @@ public sealed class McpScopePoliciesTests
     {
         Assert.Equal(McpScopePolicies.PolicyName(McpScopes.UiOpen), McpScopePolicies.ToolPolicy("open_window"));
         Assert.True(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(McpScopes.UiOpen), "open_window"));
-        Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(McpScopes.TasksRead), "open_window"));
+        Assert.False(await McpScopePolicies.AuthorizeToolAsync(Authorization, Holding(McpScopes.WorkRead), "open_window"));
     }
 
     [Theory]
@@ -122,7 +122,7 @@ public sealed class McpScopePoliciesTests
     public async Task The_wait_route_admits_sessions_dispatch_and_refuses_the_rest()
     {
         Assert.True(await McpScopePolicies.AuthorizeRouteAsync(Authorization, Holding(McpScopes.SessionsDispatch), "/session-requests/wait"));
-        Assert.False(await McpScopePolicies.AuthorizeRouteAsync(Authorization, Holding(McpScopes.TasksRead), "/session-requests/wait"));
+        Assert.False(await McpScopePolicies.AuthorizeRouteAsync(Authorization, Holding(McpScopes.WorkRead), "/session-requests/wait"));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class McpScopePoliciesTests
     public async Task Agents_grant_admits_its_holder_and_refuses_the_rest()
     {
         Assert.True((await Authorization.AuthorizeAsync(Holding(McpScopes.AgentsGrant), McpScopePolicies.PolicyName(McpScopes.AgentsGrant))).Succeeded);
-        Assert.False((await Authorization.AuthorizeAsync(Holding(McpScopes.TasksWrite), McpScopePolicies.PolicyName(McpScopes.AgentsGrant))).Succeeded);
+        Assert.False((await Authorization.AuthorizeAsync(Holding(McpScopes.WorkWrite), McpScopePolicies.PolicyName(McpScopes.AgentsGrant))).Succeeded);
     }
 
     /// <summary>The <c>BACKLOG_MCP_TOKEN</c> escape hatch stands in for no particular agent
@@ -175,12 +175,12 @@ public sealed class McpScopePoliciesTests
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 12, 9, 0, 0, TimeSpan.Zero));
         var grant = new McpGrant(
             "g_abcdefghijklmnop", "Backlog delivery",
-            [McpScopes.TasksRead, McpScopes.DevbookDecide, "made:up", McpScopes.RunsWrite],
+            [McpScopes.WorkRead, McpScopes.DevbookDecide, "made:up", McpScopes.RunsWrite],
             1, "jobsc", clock.GetUtcNow(), Revoked: false);
         var tokens = new McpGrantTokens(new OneGrant(grant), clock);
 
         var minted = tokens.Mint(grant.Id);
-        Assert.Equal("tasks:read runs:write", new JsonWebToken(minted.Token!.Value).GetClaim("scope").Value);
+        Assert.Equal("work:read runs:write", new JsonWebToken(minted.Token!.Value).GetClaim("scope").Value);
 
         var validated = await tokens.ValidateAsync(minted.Token.Value, TestContext.Current.CancellationToken);
 
@@ -196,17 +196,45 @@ public sealed class McpScopePoliciesTests
     public void The_unauthenticated_row_offers_every_grantable_scope_but_the_six_locked()
     {
         Assert.Equal(
-            [McpScopes.TasksAdmin, McpScopes.DevbookDecide, McpScopes.UiOpen, McpScopes.SessionsDispatch, McpScopes.TelemetryWrite, McpScopes.AgentsGrant],
+            [McpScopes.WorkAdmin, McpScopes.DevbookDecide, McpScopes.UiOpen, McpScopes.SessionsDispatch, McpScopes.TelemetryWrite, McpScopes.AgentsGrant],
             McpScopes.NeverUnauthenticated);
 
         Assert.Equal(
-            [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.RunsWrite, McpScopes.NotifyAsk, McpScopes.InboxCapture],
+            [McpScopes.WorkRead, McpScopes.WorkWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.RunsWrite, McpScopes.NotifyAsk, McpScopes.InboxCapture],
             McpScopes.UnauthenticatedOfferable);
 
         Assert.Empty(McpScopes.UnauthenticatedOfferable.Intersect(McpScopes.NeverUnauthenticated));
         Assert.Equal(
             McpScopes.Grantable.Order(StringComparer.Ordinal),
             McpScopes.UnauthenticatedOfferable.Concat(McpScopes.NeverUnauthenticated.Where(McpScopes.IsGrantable)).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A token minted before the Work scopes were renamed (local ADR 0073 §10) claims
+    /// the old names, and passes the new scopes' policies until it expires.</summary>
+    [Fact]
+    public async Task A_token_claiming_the_old_scope_names_passes_the_new_scopes_policies()
+    {
+        var minted = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(McpScopePolicies.CallerClaim, "Old helper (g_test)"), new Claim(McpGrantClaims.Scope, "tasks:read tasks:write")],
+            "Test"));
+
+        Assert.True((await Authorization.AuthorizeAsync(minted, McpScopePolicies.PolicyName(McpScopes.WorkRead))).Succeeded);
+        Assert.True((await Authorization.AuthorizeAsync(minted, McpScopePolicies.PolicyName(McpScopes.WorkWrite))).Succeeded);
+        Assert.False((await Authorization.AuthorizeAsync(minted, McpScopePolicies.PolicyName(McpScopes.WorkAdmin))).Succeeded);
+        Assert.Equal([McpScopes.WorkRead, McpScopes.WorkWrite], McpScopePolicies.ScopesOf(minted).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>An old token claiming <c>tasks:admin</c> may delete a goal, and Windows Hello is
+    /// still asked first: the step-up keys on the tool's scope, not the token's spelling.</summary>
+    [Fact]
+    public async Task A_token_claiming_the_old_admin_name_passes_the_admin_policy_and_still_steps_up()
+    {
+        var minted = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(McpScopePolicies.CallerClaim, "Old helper (g_test)"), new Claim(McpGrantClaims.Scope, "tasks:admin")],
+            "Test"));
+
+        Assert.True((await Authorization.AuthorizeAsync(minted, McpScopePolicies.ToolPolicy("delete_goal"))).Succeeded);
+        Assert.True(McpStepUp.Requires("delete_goal", minted));
     }
 
     public static TheoryData<string> NeverUnauthenticatedScopes => [.. McpScopes.NeverUnauthenticated.Where(McpScopes.IsGrantable)];
@@ -218,10 +246,10 @@ public sealed class McpScopePoliciesTests
     [MemberData(nameof(NeverUnauthenticatedScopes))]
     public async Task The_unauthenticated_caller_is_refused_a_scope_the_row_never_offers_even_when_it_claims_it(string scope)
     {
-        var claiming = McpScopePolicies.Static(McpAudit.UnauthenticatedCaller, [scope, McpScopes.TasksRead]);
+        var claiming = McpScopePolicies.Static(McpAudit.UnauthenticatedCaller, [scope, McpScopes.WorkRead]);
 
         Assert.False((await Authorization.AuthorizeAsync(claiming, McpScopePolicies.PolicyName(scope))).Succeeded);
-        Assert.True((await Authorization.AuthorizeAsync(claiming, McpScopePolicies.PolicyName(McpScopes.TasksRead))).Succeeded);
+        Assert.True((await Authorization.AuthorizeAsync(claiming, McpScopePolicies.PolicyName(McpScopes.WorkRead))).Succeeded);
 
         // A grant holding the same scope is not touched by the guard.
         Assert.True((await Authorization.AuthorizeAsync(Holding(scope), McpScopePolicies.PolicyName(scope))).Succeeded);
@@ -257,7 +285,7 @@ public sealed class McpScopePoliciesTests
 
     public static TheoryData<string> Requesters => new()
     {
-        "tasks:read",
+        "work:read",
         "delivery preset",
         "manager preset",
         "read-only + capture preset",
@@ -274,7 +302,7 @@ public sealed class McpScopePoliciesTests
     {
         var user = requester switch
         {
-            "tasks:read" => Holding(McpScopes.TasksRead),
+            "work:read" => Holding(McpScopes.WorkRead),
             "delivery preset" => Holding([.. McpTokenRetirement.DeliveryScopes]),
             "manager preset" => Holding([.. McpTokenRetirement.ManagerScopes]),
             "read-only + capture preset" => Holding([.. McpAgents.PresetOf("Read-only + capture") ?? throw new InvalidOperationException("McpAgents has no Read-only + capture role.")]),
@@ -294,7 +322,7 @@ public sealed class McpScopePoliciesTests
         Assert.Equal("unauthenticated", McpAudit.UnauthenticatedCaller);
         Assert.Equal(
             McpAudit.UnauthenticatedCaller,
-            McpScopePolicies.CallerOf(McpScopePolicies.Unauthenticated([McpScopes.TasksRead])));
+            McpScopePolicies.CallerOf(McpScopePolicies.Unauthenticated([McpScopes.WorkRead])));
     }
 
     /// <summary>The principal the listener admits a tokenless call as holds only what the row
@@ -302,10 +330,10 @@ public sealed class McpScopePoliciesTests
     [Fact]
     public void The_unauthenticated_principal_holds_only_offered_scopes()
     {
-        var principal = McpScopePolicies.Unauthenticated([McpScopes.TasksRead, McpScopes.UiOpen, McpScopes.InboxCapture, McpScopes.AgentsGrant, "made:up"]);
+        var principal = McpScopePolicies.Unauthenticated([McpScopes.WorkRead, McpScopes.UiOpen, McpScopes.InboxCapture, McpScopes.AgentsGrant, "made:up"]);
 
         Assert.Equal(
-            [McpScopes.InboxCapture, McpScopes.TasksRead],
+            [McpScopes.InboxCapture, McpScopes.WorkRead],
             McpScopePolicies.ScopesOf(principal).Order(StringComparer.Ordinal));
     }
 
@@ -315,7 +343,7 @@ public sealed class McpScopePoliciesTests
         using var root = new TemporaryDirectory("mcp-scope-policies-tests");
         var store = new FileMcpGrantStore(root.Combine(FileMcpGrantStore.FileName), TimeProvider.System);
 
-        Assert.Throws<ArgumentException>(() => store.Create("Agent", [McpScopes.TasksRead, McpScopes.DevbookDecide], "jobsc"));
+        Assert.Throws<ArgumentException>(() => store.Create("Agent", [McpScopes.WorkRead, McpScopes.DevbookDecide], "jobsc"));
         Assert.Throws<ArgumentException>(() => store.Create("Agent", ["Tasks:Write"], "jobsc"));
         Assert.Empty(store.List());
     }

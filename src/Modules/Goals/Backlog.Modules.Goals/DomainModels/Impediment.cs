@@ -84,7 +84,7 @@ public sealed class Impediment
     public DateOnly? ResolvedOn => IsOpen ? null : _history[^1].On;
 
     /// <summary>A new impediment in state New on <paramref name="raisedOn"/>, holding back
-    /// nothing yet. Refused without a title (<c>progress.impediment_without_title</c>).</summary>
+    /// nothing yet. Refused without a title (<c>goals.impediment_without_title</c>).</summary>
     public static Result<Impediment> Raise(
         Guid id,
         string? title,
@@ -151,9 +151,9 @@ public sealed class Impediment
     /// Moves to <paramref name="state"/> on <paramref name="on"/>, with
     /// <paramref name="with"/> as who it is with at that step. Reported and Escalated
     /// record <paramref name="with"/> as who it was reported to, Being handled as who
-    /// handles it. Refused for a resolved impediment (<c>progress.impediment_resolved</c>),
-    /// for a move the state order does not allow (<c>progress.impediment_move_not_allowed</c>),
-    /// and for a day before the last step (<c>progress.impediment_move_before_last_step</c>).
+    /// handles it. Refused for a resolved impediment (<c>goals.impediment_resolved</c>),
+    /// for a move the state order does not allow (<c>goals.impediment_move_not_allowed</c>),
+    /// and for a day before the last step (<c>goals.impediment_move_before_last_step</c>).
     /// </summary>
     public Result MoveTo(ImpedimentState state, DateOnly on, string? with = null)
     {

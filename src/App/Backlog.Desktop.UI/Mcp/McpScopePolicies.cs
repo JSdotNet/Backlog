@@ -184,12 +184,14 @@ public static class McpScopePolicies
     }
 
     /// <summary>The scopes <paramref name="user"/> holds: every space-separated value of its
-    /// <see cref="McpGrantClaims.Scope"/> claims, as RFC 8693 writes them.</summary>
+    /// <see cref="McpGrantClaims.Scope"/> claims, as RFC 8693 writes them, each under the name it
+    /// goes by now: a token minted before a scope was renamed still holds it (local ADR 0073 §10).</summary>
     public static IReadOnlySet<string> ScopesOf(ClaimsPrincipal? user) =>
         user is null
             ? new HashSet<string>(StringComparer.Ordinal)
             : user.FindAll(McpGrantClaims.Scope)
                 .SelectMany(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .Select(McpScopes.Resolve)
                 .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>A principal for a caller that presented no grant: its name, and the scopes it

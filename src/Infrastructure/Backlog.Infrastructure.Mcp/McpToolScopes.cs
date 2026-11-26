@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// No tool requires <see cref="McpScopes.DevbookDecide"/>: approving and accepting are not
 /// served over MCP at all (§7). <see cref="McpScopes.TelemetryWrite"/> has no tool: it guards a
 /// route. <see cref="McpScopes.InboxCapture"/> is <c>capture_to_inbox</c> alone — write-only, so
-/// the Inbox's reads and its archive are the backlog's <c>tasks:read</c> and <c>tasks:write</c>. <see cref="McpScopes.AgentsGrant"/>
+/// the Inbox's reads and its archive are the backlog's <c>work:read</c> and <c>work:write</c>. <see cref="McpScopes.AgentsGrant"/>
 /// guards the granting tools, whose rules the host enforces beyond the scope.
 /// </para>
 /// </summary>
@@ -56,7 +56,7 @@ public static class McpToolScopes
             foreach (var tool in tools) table.Add(tool, scope);
         }
 
-        Map(McpScopes.TasksRead,
+        Map(McpScopes.WorkRead,
             TrackerTools.FindItem, TrackerTools.ReadItem, TrackerTools.ListDevbookReferences,
             ChangeTools.ListChangeSets,
             WorkTools.ListEntries, WorkTools.GetPlanItems,
@@ -64,7 +64,7 @@ public static class McpToolScopes
             GoalTools.ListGoals, GoalTools.ReadIterations,
             InboxTools.ListInboxItems, InboxTools.ReadInboxItem);
 
-        Map(McpScopes.TasksWrite,
+        Map(McpScopes.WorkWrite,
             TrackerTools.CreateItem, TrackerTools.Comment, TrackerTools.Transition, TrackerTools.SetBlocked,
             TrackerTools.SetDevbookReferences,
             ChangeTools.ProposeRestore,
@@ -75,7 +75,7 @@ public static class McpToolScopes
             InboxTools.ArchiveInboxItem,
             EventTools.AddKnowledgeEvent);
 
-        Map(McpScopes.TasksAdmin, GoalTools.DeleteGoal);
+        Map(McpScopes.WorkAdmin, GoalTools.DeleteGoal);
 
         Map(McpScopes.DevbookRead,
             DevbookTools.ListKnowledgeContexts, DevbookTools.ReadKnowledgeChapter, DevbookTools.ListAnnotations,

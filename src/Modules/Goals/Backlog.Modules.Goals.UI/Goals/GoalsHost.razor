@@ -40,7 +40,7 @@
       turns into the module's item. A No goal row's Attach… with no goal open opens the
       shared GoalPicker for it, over the open goals, its New goal… setting a goal (title
       and an optional due date) and attaching to it. An item another goal holds is refused with
-      progress.item_in_other_goal: the GoalPicker opens on the goal it was meant for,
+      goals.item_in_other_goal: the GoalPicker opens on the goal it was meant for,
       with IGoals.FindGoalOfAsync's goal as the one it holds — the picker names that
       goal and says the attach moves it — and Attach attaches again with
       moveFromOtherGoal. A refusal inside the picker stays in it;
@@ -150,7 +150,7 @@ else
 
 @code {
     /// <summary>The refusal an item another goal holds is attached with.</summary>
-    public const string ItemInOtherGoal = "progress.item_in_other_goal";
+    public const string ItemInOtherGoal = "goals.item_in_other_goal";
 
     /// <summary>The shell's tasks, plan tags and open pull requests, asked for on every
     /// mapping and never kept.</summary>

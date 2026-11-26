@@ -13,13 +13,13 @@ using ModelContextProtocol.Server;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// Windows Hello before a <see cref="McpScopes.TasksAdmin"/> tool runs (local ADR 0058 §6):
+/// Windows Hello before a <see cref="McpScopes.WorkAdmin"/> tool runs (local ADR 0058 §6):
 /// deleting a goal, and any bulk change that joins that scope. The call waits while the desktop
 /// asks the person through <see cref="IUserConsent"/>, runs only when they confirm, and is
 /// refused when they cancel or nothing here can ask.
 /// <para>
 /// <b>Per scope, not per tool.</b> The step-up reads <see cref="McpToolScopes"/>, so a tool
-/// mapped to <c>tasks:admin</c> later asks without this file being touched, and a tool under
+/// mapped to <c>work:admin</c> later asks without this file being touched, and a tool under
 /// any other scope — <c>transition</c> to Done included — never asks.
 /// </para>
 /// <para>
@@ -40,9 +40,9 @@ public static class McpStepUp
         "The tool '{0}' needs Windows Hello on the desktop, and it is not available here, so nothing changed.";
 
     /// <summary>Whether a call to <paramref name="toolName"/> by <paramref name="user"/> asks for
-    /// Windows Hello: a <c>tasks:admin</c> tool, from any caller but the web harness's.</summary>
+    /// Windows Hello: a <c>work:admin</c> tool, from any caller but the web harness's.</summary>
     public static bool Requires(string? toolName, ClaimsPrincipal? user) =>
-        McpToolScopes.ScopeOf(toolName) == McpScopes.TasksAdmin
+        McpToolScopes.ScopeOf(toolName) == McpScopes.WorkAdmin
         && McpScopePolicies.CallerOf(user) != McpAudit.HarnessCaller;
 
     /// <summary>What the Windows Hello prompt says: who asks, and for which tool.</summary>

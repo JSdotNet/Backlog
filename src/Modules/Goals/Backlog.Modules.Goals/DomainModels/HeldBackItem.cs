@@ -11,7 +11,7 @@ namespace Backlog.Modules.Goals.DomainModels;
 /// Equality is by kind and identity alone — a repository and a plan tag without regard to
 /// case — so linking the same item twice is one item, and a task, a pull request and a plan
 /// never equal one another. Each factory refuses an item that does not name its whole
-/// identity (<c>progress.held_back_item_without_identity</c>), as
+/// identity (<c>goals.held_back_item_without_identity</c>), as
 /// <see cref="GoalAttachment"/>'s do for a goal.
 /// </para>
 /// </summary>

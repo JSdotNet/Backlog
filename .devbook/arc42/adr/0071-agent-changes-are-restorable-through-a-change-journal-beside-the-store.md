@@ -153,8 +153,8 @@ Agents get two tools. A proposal only asks; restoring is the person's action in 
 
 | Tool | Scope |
 | --- | --- |
-| `list_change_sets` | `tasks:read` |
-| `propose_restore` | `tasks:write` |
+| `list_change_sets` | `work:read` |
+| `propose_restore` | `work:write` |
 
 Both join ADR 0058 §4's scope table.
 

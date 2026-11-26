@@ -136,7 +136,7 @@ public sealed class RemoteMcpEndpointTests : IDisposable
         var (_, owner) = await OwnerDesktop();
         var generation = await ConnectorClient();
 
-        using var response = await PostInitialize(Mint(owner, "tasks:read", Resource, generation));
+        using var response = await PostInitialize(Mint(owner, "work:read", Resource, generation));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var challenge = Assert.Single(response.Headers.WwwAuthenticate);

@@ -25,7 +25,7 @@ worked days, `failing` [1] day of failed checks. **Attended** is a run the perso
    work, never attached: propose `link_change` (`id` the entry, `repository`, `externalId`); a tag alone → *needs you*.
 3. **Attach** a task or plan with `dependsOn` items, one goal holding them all: `attach_to_goal` (`taskId` or `planTag`). Weak: no
    `dependsOn`; title words; an unlinked pull request naming nothing held (`repository`, `number`). No goal, several, or
-   `progress.item_in_other_goal` refused → *needs you*.
+   `goals.item_in_other_goal` refused → *needs you*.
 4. **Propose** each weak one with its evidence; `raise_impediment` (naming what it holds back) for a held task `blockedSince` ≥ `blocked`
    worked days or a held open pull request with checks failing ≥ `failing` days that no open impediment holds back; `set_impediment_state`
    `resolved` for one reading `readyToResolve`. Attended → ask in chat. A `/loop` tick → one `ask` (`Yes`, `No`) per proposal not yet asked

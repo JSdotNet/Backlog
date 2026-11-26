@@ -32,16 +32,16 @@ public interface IImpediments
     Task<Result<ImpedimentDto>> GetAsync(Guid impedimentId, CancellationToken cancellationToken = default);
 
     /// <summary>Raises a New impediment, dated today, holding back the items the request
-    /// names. Refused without a title (<c>progress.impediment_without_title</c>), and for an
-    /// item that does not name its whole identity (<c>progress.held_back_item_without_identity</c>).</summary>
+    /// names. Refused without a title (<c>goals.impediment_without_title</c>), and for an
+    /// item that does not name its whole identity (<c>goals.held_back_item_without_identity</c>).</summary>
     Task<Result<ImpedimentDto>> RaiseAsync(RaiseImpedimentRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Moves an impediment to <paramref name="state"/> today, recording who it is with at
     /// that step. Forward only — New to Reported, Reported to Escalated or Being handled,
     /// Escalated to Being handled — and any open state to Resolved; every other move is
-    /// refused (<c>progress.impediment_move_not_allowed</c>, or
-    /// <c>progress.impediment_resolved</c> for a resolved one).
+    /// refused (<c>goals.impediment_move_not_allowed</c>, or
+    /// <c>goals.impediment_resolved</c> for a resolved one).
     /// </summary>
     Task<Result<ImpedimentDto>> MoveAsync(
         Guid impedimentId,
@@ -57,7 +57,7 @@ public interface IImpediments
 
     /// <summary>Links a task, pull request or plan the impediment holds back. Linking one
     /// it holds back already changes nothing. Refused for an item that does not name its
-    /// whole identity (<c>progress.held_back_item_without_identity</c>).</summary>
+    /// whole identity (<c>goals.held_back_item_without_identity</c>).</summary>
     Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, HeldBackItemDto item, CancellationToken cancellationToken = default);
 
     /// <summary>Unlinks an item. Unlinking one it does not hold back changes nothing.

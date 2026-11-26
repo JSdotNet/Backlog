@@ -207,7 +207,7 @@ what still carries them. On every start `McpTokenRetirement` does three things:
 - **Creates the app's own grants** while `mcpServer.grants` is unrecorded: **Backlog
   delivery** (the Delivery flow preset plus `devbook:write` and `ui:open`), **Question
   hook** (`notify:ask`), **Telemetry** (`telemetry:write`) and **Manager**
-  (`sessions:dispatch`, `tasks:read` and `tasks:write`). It records their ids, which are
+  (`sessions:dispatch`, `work:read` and `work:write`). It records their ids, which are
   labels and not secrets, as `mcpServer.grants.delivery`, `questionHook`, `telemetry` and
   `manager`. An install recorded before Manager existed gets it once. A revoked one is
   never recreated.

@@ -151,7 +151,7 @@ public sealed class McpChangeSetsTests
         Assert.Equal(McpAudit.HarnessCaller, McpChangeSetFilter.CallerOf(null, McpAudit.HarnessCaller));
         Assert.Equal(
             McpAudit.UnauthenticatedCaller,
-            McpChangeSetFilter.CallerOf(McpScopePolicies.Unauthenticated([McpScopes.TasksWrite]), McpAudit.HarnessCaller));
+            McpChangeSetFilter.CallerOf(McpScopePolicies.Unauthenticated([McpScopes.WorkWrite]), McpAudit.HarnessCaller));
     }
 
     [Fact]
@@ -170,9 +170,9 @@ public sealed class McpChangeSetsTests
     {
         var changeSets = new McpChangeSets(_clock);
         var grant = new McpGrant(
-            "g_abcdefghijklmnop", "Backlog delivery", [McpScopes.TasksWrite], 1, "jobsc", _clock.GetUtcNow(), Revoked: false);
+            "g_abcdefghijklmnop", "Backlog delivery", [McpScopes.WorkWrite], 1, "jobsc", _clock.GetUtcNow(), Revoked: false);
         var caller = McpChangeSetFilter.CallerOf(
-            McpScopePolicies.Static(McpScopePolicies.GrantCaller(grant), [McpScopes.TasksWrite]),
+            McpScopePolicies.Static(McpScopePolicies.GrantCaller(grant), [McpScopes.WorkWrite]),
             fallback: McpAudit.HarnessCaller);
 
         var changeSet = await McpCallAudit.WithCorrelationAsync(

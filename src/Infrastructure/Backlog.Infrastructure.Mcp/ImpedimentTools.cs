@@ -116,7 +116,7 @@ public sealed class ImpedimentTools(IImpediments impediments, IRepositoryDirecto
         if (string.IsNullOrWhiteSpace(state) || !States.TryGetValue(state.Trim(), out var target))
         {
             throw RepositoryScope.Failure(SharedKernel.Results.Error.Validation(
-                "progress.impediment_state_unknown",
+                "goals.impediment_state_unknown",
                 $"'{state}' is not an impediment state. Use reported, escalated, being-handled or resolved."));
         }
 
