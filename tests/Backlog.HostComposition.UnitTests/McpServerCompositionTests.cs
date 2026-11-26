@@ -157,7 +157,7 @@ public class McpServerCompositionTests
             {
                 // A group no flag gates — open_window (local ADR 0043 §7), request_access
                 // and the granting tools (local ADR 0058 §5), and the permanent areas: the
-                // backlog, the roadmap, the devbook, Progress — has no key to ask about.
+                // backlog, the roadmap, the devbook, Goals — has no key to ask about.
                 if (group.FeatureKey is null) return;
 
                 Assert.False(string.IsNullOrWhiteSpace(group.FeatureKey));

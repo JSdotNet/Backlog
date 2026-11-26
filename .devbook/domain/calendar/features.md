@@ -10,7 +10,7 @@ related: [.devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-la
 ```meta
 type: feature
 setting: [.devbook/domain/calendar/context.md#calendar-range, .devbook/domain/calendar/context.md#show-tasks, .devbook/domain/calendar/context.md#show-plans, .devbook/domain/calendar/context.md#show-events]
-related: [.devbook/domain/calendar/requirements.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/design/color-scheme.md#calendar-event-tones, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md#7-the-calendar-gets-a-header-tab-of-its-own]
+related: [.devbook/domain/calendar/requirements.md#calendar-view, .devbook/domain/work/features.md#tasks-on-the-calendar, .devbook/domain/work/domain.md#due-date, .devbook/domain/work/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/design/color-scheme.md#calendar-event-tones, .devbook/arc42/adr/0055-calendar-is-a-surface-of-its-own-that-reads-layers.md, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md#7-the-calendar-gets-a-header-tab-of-its-own]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarGridTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarGridEventsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_shell_navigation_file_written_before_the_calendar_module_reopens_the_calendar_on_its_range_and_choices, unit:dotnet:Backlog.Desktop.UI.UnitTests.ShellCalendarViewPreferencesTests, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarPlansLayerTests, unit:dotnet:Backlog.Modules.Calendar.UnitTests.CalendarEventsLayerTests]
 ```
 
@@ -20,7 +20,7 @@ grid of its own. It has a tab of its own in the header, after the view switch
 [layer choice](domain.md#layer-choice) is on. While the Calendar shows, the GitHub check
 and the Tasks area of Ask AI are not offered: no task list is on screen.
 
-The [Tasks layer](../tasks/features.md#tasks-on-the-calendar) lays each task with a due
+The [Tasks layer](../work/features.md#tasks-on-the-calendar) lays each task with a due
 date out on that date, within the repository scope. No Tasks filter narrows it, and no
 open task stands beside the grid. A **Show tasks** choice beside the month's name turns
 the tasks and their hours off. It is on by default, offered only while Tasks is there,
@@ -77,7 +77,7 @@ remembered on this device apart from Show plans.
 
 Beside the calendar, **Plans without a window** lists the plans
 waiting on the roadmap's
-[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first).
+[shelf](../work/features.md#laying-out-a-plan-whose-tasks-arrived-first).
 Dropping one on a day starts its window there. The roadmap, never the Calendar,
 works out where it ends from its points and the pace, as it places any plan.
 
@@ -93,11 +93,11 @@ changes nothing else.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/calendar/requirements.md#planned-hours, .devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/roadmap/features.md, .devbook/design/interaction-guidelines.md#combobox]
+related: [.devbook/domain/calendar/requirements.md#planned-hours, .devbook/domain/work/domain.md#planned-hours, .devbook/domain/calendar/features.md#calendar-view, .devbook/domain/work/features.md#tasks-on-the-calendar, .devbook/domain/work/features.md, .devbook/design/interaction-guidelines.md#combobox]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarGridHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksPanePlannedHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.CalendarSurfaceTests.Hours_added_changed_and_removed_on_a_day_go_through_the_port, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.TasksCalendarTasksTests]
 ```
 
-The person can set [Planned Hours](../tasks/domain.md#planned-hours) aside for a task
+The person can set [Planned Hours](../work/domain.md#planned-hours) aside for a task
 on a day of the [Calendar](#calendar-view). They are part of the Tasks layer, and every
 change goes through Tasks. A day shows each such task as a chip of its own with the
 figure, such as "Refactor sync · 3h", apart from the due-date chips. The day adds its

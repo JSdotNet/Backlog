@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
 /// The approvals a pull request's base branch requires, on the rows the open list and
-/// the pins read (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+/// the pins read (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
 /// <para>
 /// Read once per base branch rather than per row, through
 /// <see cref="IGitHubClient.ReadRequiredApprovalsAsync"/>, after the list read and

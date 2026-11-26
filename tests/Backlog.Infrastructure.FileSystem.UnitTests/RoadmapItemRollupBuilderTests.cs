@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.FileSystem.Roadmap;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 

@@ -1,23 +1,24 @@
+using Backlog.Modules.Work.Extensions;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sync;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.Extensions;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Plans.Extensions;
+using Backlog.Modules.Work.UI.Roadmap;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
@@ -365,6 +366,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             services.AddTasksAdapters();
             services.AddTasksModule();
             services.AddRoadmapModule();
+            services.AddWorkJoins();
             services.AddRoadmapCrossContextAdapters();
 
             _provider = services.BuildServiceProvider(new ServiceProviderOptions

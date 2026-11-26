@@ -1,11 +1,11 @@
 using Backlog.Desktop.UI.Changes;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Desktop.UI.Review;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
@@ -15,14 +15,15 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Calendar;
-using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.DevPc;
+using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.RepositoryManagement;
+using Backlog.Infrastructure.GitHub.Repositories;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -34,8 +35,9 @@ using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Calendar.Extensions;
 using Backlog.Modules.Calendar.UI;
 using Backlog.Modules.Capture.Extensions;
-using Backlog.Modules.Dashboard.Extensions;
-using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Insights.Extensions;
+using Backlog.Modules.Work.Extensions;
+using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Brain.UI.Extensions;
 using Backlog.Modules.Devbook.Abstractions;
@@ -48,20 +50,20 @@ using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Notifications.UI;
-using Backlog.Modules.Progress.Extensions;
-using Backlog.Modules.Progress.UI;
-using Backlog.Modules.Progress.UI.Goals;
-using Backlog.Modules.Progress.UI.WeeklyReview;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Extensions;
-using Backlog.Modules.Roadmap.Extensions;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Goals.Extensions;
+using Backlog.Modules.Goals.UI;
+using Backlog.Modules.Goals.UI.Goals;
+using Backlog.Modules.Goals.UI.WeeklyReview;
+using Backlog.Modules.Repositories.Abstractions.Services;
+using Backlog.Modules.Repositories.Extensions;
+using Backlog.Modules.Work.Plans.Extensions;
+using Backlog.Modules.Work.UI.Roadmap;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Mcp;
@@ -174,18 +176,21 @@ public static partial class DesktopCompositionRegistration
             configuration: options.Configuration?.GetSection(SpecManagerOptions.SectionName));
 
         services.AddRoadmapModule();
+        // Where the task and the plan meet inside Work (local ADR 0073 §1), after both
+        // halves of the module so the scoped ports the joins capture exist.
+        services.AddWorkJoins();
         // The plan behind the shell's Ask AI port, after the module so the scoped
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
-        // Progress (local ADR 0035): goals, impediments and the stand-up, always on
+        // Goals (local ADR 0035): goals, impediments and the stand-up, always on
         // (§10).
-        services.AddProgressModule();
+        services.AddGoalsModule();
 
-        // Repository Management (local ADR 0042): the one contract and cache every
+        // Repositories (local ADR 0042): the one contract and cache every
         // reader of a pull request goes through. GitHub and the settled-fact memory are
         // put behind it below, once AddGitHub() and AddWorkspaceCaches() have run.
-        services.AddRepositoryManagementModule();
+        services.AddRepositoriesModule();
 
         // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
@@ -274,7 +279,7 @@ public static partial class DesktopCompositionRegistration
         services.AddCalendarCrossContextAdapters();
 
         // The tasks goals name, read through Tasks' published ITaskItems.
-        services.AddProgressCrossContextAdapters();
+        services.AddGoalsCrossContextAdapters();
 
         // The backlog's work badges ask what state a linked agent session is in; the
         // answer comes from the Sessions record through an adapter, for the same reason.
@@ -307,7 +312,7 @@ public static partial class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
-        services.AddRepositoryManagementGitHubAdapters();
+        services.AddRepositoriesGitHubAdapters();
         services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);
@@ -402,11 +407,11 @@ public static partial class DesktopCompositionRegistration
         // The Dashboard module brings its derivations; the adapters beside it decide
         // which providers are behind them. Every part reports itself unavailable
         // with a reason until the credential it needs exists.
-        services.AddDashboardModule();
-        services.AddGitHubDashboardAdapters();
-        services.AddClaudeDashboardAdapters();
-        services.AddAzureFoundryDashboardAdapters();
-        services.AddDashboardUi();
+        services.AddInsightsModule();
+        services.AddGitHubInsightsAdapters();
+        services.AddClaudeInsightsAdapters();
+        services.AddAzureFoundryInsightsAdapters();
+        services.AddInsightsUi();
 
         // Tasks' own adapter: an imported plan resolves a `repo:` name against the
         // repositories somebody has configured, and registers one it names that
@@ -457,7 +462,7 @@ public static partial class DesktopCompositionRegistration
         services.AddWeeklyReviewSurface();
         services.AddSessionsSurface();
         services.AddPullRequestsSurface();
-        services.AddDashboardSurface();
+        services.AddInsightsSurface();
         services.AddNotificationsSurface();
         services.AddToolsSurface();
         services.AddAtlasSurface();
@@ -647,9 +652,9 @@ public static partial class DesktopCompositionRegistration
         // store behind the screens' port and the replication port the sync client takes
         // as an optional parameter of the merge, the session and the loop.
         services.AddSingleton(options.IterationSettings);
-        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(sp =>
-            new Backlog.Infrastructure.FileSystem.Progress.IterationSettings(sp.GetRequiredService<IterationSettingsStore>()));
-        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>(sp =>
+        services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>(sp =>
+            new Backlog.Infrastructure.FileSystem.Goals.IterationSettings(sp.GetRequiredService<IterationSettingsStore>()));
+        services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication>(sp =>
             sp.GetRequiredService<IterationSettingsStore>());
         // Show archived (local ADR 0029, §3): whether the archived repositories are
         // offered in the scope, the Board and the pickers, kept per device in the same file.
@@ -698,7 +703,11 @@ public static partial class DesktopCompositionRegistration
         // machine it describes. Then the join between the Dashboard's sessions part
         // and the Sessions context, after both of the ports it sits between.
         services.AddAgentActivitySource();
-        services.AddDashboardCrossContextAdapters();
+        services.AddInsightsCrossContextAdapters();
+
+        // Dev PCs' machines: this device and the machines Sessions' records name, read by
+        // the Insights filter and, for this device, by the tools pane (local ADR 0073 §7).
+        services.AddDevPcCrossContextAdapters();
 
         return services;
     }

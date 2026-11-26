@@ -2,18 +2,18 @@ using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Notifications;
-using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
 using Backlog.Modules.Events;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Progress;
-using Backlog.Modules.Roadmap;
+using Backlog.Modules.Goals;
+using Backlog.Modules.Work.Plans;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -90,7 +90,7 @@ public static class SqliteRegistration
         services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
         services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
 
-        // Progress's goals (local ADR 0035): one row per goal in progress_goals, the row
+        // Goals' goals (local ADR 0035): one row per goal in goals_goals, the row
         // also the `goal` document that travels, so one instance answers both ports. The
         // retired progress_series table stays in the file unread: local ADR 0006 adds and
         // never drops (ADR 0035, Consequences).
@@ -99,8 +99,8 @@ public static class SqliteRegistration
         services.AddSingleton<IGoalRepository>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
         services.AddSingleton<IGoalReplicaStore>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
 
-        // Progress's impediments (local ADR 0035): one row per impediment in
-        // progress_impediments, the row also the `impediment` document that travels.
+        // Goals' impediments (local ADR 0035): one row per impediment in
+        // goals_impediments, the row also the `impediment` document that travels.
         services.AddSingleton(sp =>
             new RootedSqliteImpedimentRepository(() => rootDirectory(sp)));
         services.AddSingleton<IImpedimentRepository>(sp => sp.GetRequiredService<RootedSqliteImpedimentRepository>());

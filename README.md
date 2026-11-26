@@ -14,7 +14,7 @@ optionally connects to that sync service for multi-device sync.
 The desktop app is released as a signed MSIX and the Android app as a signed APK — see
 [Installing the desktop app](#installing-the-desktop-app) and
 [Installing the Android app](#installing-the-android-app). Of the primary domains below,
-Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring and Dashboard, Dev PC
+Capture, Inbox, Tasks, Roadmap Planning, Devbook, Insights, Dev PC
 Management and Sessions each have a module under `src/Modules/`; the others are described
 in the devbook and have no module yet. The [project table](#solution-structure) lists
 every project on `main`.
@@ -63,10 +63,10 @@ Primary domains:
 - Devbook
 - Productivity
 - Environment
-- Monitoring and Dashboard
+- Insights
 - Technology Stack
 - Dev PC Management
-- Repository Management
+- Repositories
 - Sessions
 
 Access channels:
@@ -110,9 +110,6 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Core/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Core/Backlog.UI.Components` | Shared Razor control library — no domain in it, rendered on its own in the storybook |
-| `src/Modules/Tasks/Backlog.Modules.Tasks` | Tasks module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions` | The Tasks module's published surface — DTOs, the entry text format, and `ITaskItems` |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter` and `IInboxTriageAdvisor` ports |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
@@ -124,14 +121,14 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook's desktop face — the Devbook menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Brain/Backlog.Modules.Brain.Abstractions` | The Brain's published surface (local ADR 0040) — `IBrainFolderSource`, `BrainConventions`, the Brain folder setting, Show hidden, the note writer, and the backlink and task-link ports |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | The Brain's desktop face on the Devbook pane (local ADR 0040) — the note panel, Capture, Show hidden, the From your Brain box and the Brain atlas, handed to the pane through its mode extension point; `AddBrainModule` registers it with the Brain's adapters |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
-| `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
-| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
-| `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
-| `src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement` | Repository Management module (local ADR 0042) — the one pull-request cache every reader shares, the open, merged and by-number reads and the merge, auto-merge, update-branch, mark-ready and re-run commands as feature slices behind `IPullRequests` |
-| `src/Modules/RepositoryManagement/Backlog.Modules.RepositoryManagement.Abstractions` | The Repository Management module's published surface (local ADR 0042) — the pull request status every reader draws, its one verdict, stacks and merge offer as pure rules, the `IPullRequests` contract, the `IPullRequestSource`, `IRegisteredRepositories` and `ISettledPullRequestStore` ports, and `RepositoryManagementFeatures` |
+| `src/Modules/Work/Backlog.Modules.Work` | Work module — the Task (`TaskItem`, sub-items, lifecycle rules, `ITaskRepository`) and the Plan (items, sequencing, `IRoadmapPlanRepository`) aggregates, their vertical-slice features, and the services where the two meet |
+| `src/Modules/Work/Backlog.Modules.Work.Abstractions` | The Work module's published surface — the task and plan DTOs, the entry text format, `ITaskItems`, `IRoadmapPlanning`, and `RoadmapFeatures` |
+| `src/Modules/Work/Backlog.Modules.Work.UI` | Work's desktop face — the Tasks pane, its state and the GitHub and Copilot CLI projections under `Tasks/`, and the Roadmap band above the panes and its editor under `Roadmap/` |
+| `src/Modules/Goals/Backlog.Modules.Goals` | Goals module — goals, impediments and the stand-up, their use cases, and the `IGoalRepository` and `IImpedimentRepository` ports |
+| `src/Modules/Goals/Backlog.Modules.Goals.Abstractions` | The Goals module's published surface — the goal, impediment and stand-up DTOs, `IGoals`, `IImpediments`, `IStandUp`, the `IGoalsTaskSource` and `IGoalPullRequestReader` ports, and `GoalsFeatures` |
+| `src/Modules/Goals/Backlog.Modules.Goals.UI` | Goals' desktop face — the Goals view, the attach-to-goal control and the weekly review |
+| `src/Modules/Repositories/Backlog.Modules.Repositories` | Repositories module (local ADR 0042) — the one pull-request cache every reader shares, the open, merged and by-number reads and the merge, auto-merge, update-branch, mark-ready and re-run commands as feature slices behind `IPullRequests` |
+| `src/Modules/Repositories/Backlog.Modules.Repositories.Abstractions` | The Repositories module's published surface (local ADR 0042) — the pull request status every reader draws, its one verdict, stacks and merge offer as pure rules, the `IPullRequests` contract, the `IPullRequestSource`, `IRegisteredRepositories` and `ISettledPullRequestStore` ports, and `RepositoriesFeatures` |
 | `src/Modules/Notifications/Backlog.Modules.Notifications` | Notifications module — the Notification aggregate and its reply rules, the owner's and the viewer's ports, answer delivery and replay, the startup subject probes, and the `INotificationRepository` port |
 | `src/Modules/Notifications/Backlog.Modules.Notifications.Abstractions` | The Notifications module's published surface — `INotifications`, `INotificationReplies`, `INotificationAnswerHandler`, `INotificationSubjectProbe`, the draft and answer records, and `NotificationsFeatures` |
 | `src/Modules/Notifications/Backlog.Modules.Notifications.UI` | Notifications' screens — empty until the notification centre lands |
@@ -145,14 +142,14 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions` | Dev PC Management's published surface — `DevPcFeatures` and the types its screens exchange |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management's desktop face — the tools surface |
-| `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
-| `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
-| `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
+| `src/Modules/Insights/Backlog.Modules.Insights` | Insights module — the derivations behind Insights: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
+| `src/Modules/Insights/Backlog.Modules.Insights.Abstractions` | The Insights module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
+| `src/Modules/Insights/Backlog.Modules.Insights.UI` | The Insights face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
 | `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository`, the roadmap plan behind `IRoadmapPlanRepository` as a single document row, and the sprint series behind `ISprintSeriesRepository` as a document row each. Tables with an owner each: they share the file, not the schema. See [ADR 0003](.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
 | `src/Infrastructure/Backlog.Infrastructure.Brain` | The Brain's adapters (local ADR 0040) — its settings file, folder source, note writer and folder watch, the corpus profile the devbook builder reads the Brain under, the backlink and task-link readers over the Brain's database, the Inbox's To Brain join and Show hidden, registered through `AddBrainAdapters`, which `AddBrainModule` calls |
 | `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database: the reference graph, reading outline, chapter text, full-text index and demo rows. The app builds it itself, one per repository path, into its own storage rather than any repository, and every read degrades to the Markdown rather than failing. See [ADR 0004](.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) and [ADR 0015](.devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md) |
 | `src/Infrastructure/Backlog.Infrastructure.DevPc` | Dev PC Management's adapter — the one `IDevToolService` both hosts compose: the desktop app runs the Copilot, Claude, dotnet and winget CLIs through it, and the web harness uses its catalog-only configuration, which reads the catalog JSON and starts no process. The command lines it runs and the refresh ordering live beside it |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins and Progress's read of a sprint's tasks, which are lookups rather than storage |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins and Goals' read of a sprint's tasks, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -184,15 +181,14 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.SharedKernel.UnitTests` | Unit tests for the shared kernel — the AI content budget |
 | `tests/Backlog.Aspire.ServiceDefaults.UnitTests` | Unit tests for the service defaults — how a clone, a worktree and a detached head are told apart |
 | `tests/Backlog.HostComposition.UnitTests` | Unit tests for how the hosts compose — the MCP server, the MCP and telemetry endpoint gates, and the web harness host |
-| `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Inbox.UnitTests` | Unit tests for the Inbox module — the item and organizer aggregates, capture and intake, attachments, triage, and routing to the backlog |
 | `tests/Backlog.Modules.Capture.UnitTests` | Unit tests for the Capture module — the capture run, the capture ids, and the source kinds |
 | `tests/Backlog.Modules.Sync.UnitTests` | Unit tests for the Sync module — device pairing, the attachment store handler, and change precedence in the in-memory replicas |
 | `tests/Backlog.Modules.Sync.Api.UnitTests` | Unit tests for the sync service's endpoints — tasks, sessions, annotations, attachments, captures, device pairing, and authentication |
-| `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
-| `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
-| `tests/Backlog.Modules.Progress.UnitTests` | Unit tests for the Progress module — one per sprint series invariant, the sprint progress reading, and the published ports behind the `progress` switch |
-| `tests/Backlog.Modules.RepositoryManagement.UnitTests` | Unit tests for the Repository Management module — the one verdict per pull request, its stacks, its merge offer, the label filter and the `pull-requests` key, and the `IPullRequests` cache, archived repositories, commands and settled facts |
+| `tests/Backlog.Modules.Insights.UnitTests` | Unit tests for the Insights module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
+| `tests/Backlog.Modules.Work.UnitTests` | Unit tests for the Work module — the task domain, plan items, sequencing, the scheduling rules, and where the task and the plan meet |
+| `tests/Backlog.Modules.Goals.UnitTests` | Unit tests for the Goals module — one per goal and impediment invariant, the forecast, the stand-up reading and the replicated documents |
+| `tests/Backlog.Modules.Repositories.UnitTests` | Unit tests for the Repositories module — the one verdict per pull request, its stacks, its merge offer, the label filter and the `pull-requests` key, and the `IPullRequests` cache, archived repositories, commands and settled facts |
 | `tests/Backlog.Modules.Notifications.UnitTests` | Unit tests for the Notifications module — one or more per notification and reply invariant, answer delivery and replay, and the startup subject probes |
 | `tests/Backlog.Modules.Events.UnitTests` | Unit tests for the Events module — one or more per knowledge event, value object and event series invariant, the restore from storage, and `AddEventsModule` |
 | `tests/Backlog.Modules.Calendar.UnitTests` | Unit tests for the Calendar module — when the Plans and Events layers read, what a failed read leaves, the shelf start, and `AddCalendarModule` |
@@ -230,19 +226,18 @@ rather than a folder inside the shell. The split follows
 | Project | Bounded context / role |
 |---|---|
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Tasks only through a port its own module publishes |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane and its GitHub and Copilot CLI projections |
+| `src/Modules/Work/Backlog.Modules.Work.UI` | Work — the Tasks pane and its GitHub and Copilot CLI projections, and the Roadmap view: the forward plan, as a band above the panes |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Brain/Backlog.Modules.Brain.UI` | Brain — the person's own notes, drawn on the Devbook pane through the mode extension point Devbook publishes; references Devbook, never the reverse |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
-| `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress — the sprints a set of repositories works in. Reads tasks only through a port its own module publishes; draws nothing while the `progress` switch is off |
-| `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
+| `src/Modules/Goals/Backlog.Modules.Goals.UI` | Goals — goals, impediments and the stand-up over an iteration. Reads tasks only through a port its own module publishes |
+| `src/Modules/Insights/Backlog.Modules.Insights.UI` | Insights — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management — the tools surface: plugins, repository tools, and MCP servers |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions — what the coding agents have been doing on this PC. Reads the profile; writes nothing |
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
 the Inbox, Tasks and Devbook each reference only their own module's
-Abstractions, the Dashboard references its own Abstractions plus the two adapters
+Abstractions, Insights references its own Abstractions plus the two adapters
 it reads providers through and no sibling context at all, and no context
 references another. Where two contexts have to meet — the Inbox routing an item
 into the backlog — the join is a port in the supplier's Abstractions
@@ -267,7 +262,7 @@ a screen is not.
 is what keeps it that way.
 
 The client is a client: it dispatches use cases and holds DTOs. Deciding what a
-task is belongs to `Backlog.Modules.Tasks`, which the UI reaches only
+task is belongs to `Backlog.Modules.Work`, which the UI reaches only
 through its Abstractions project — see
 [ADR 0002](.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
 Anything the contexts genuinely share — the status, priority and repository
@@ -279,21 +274,20 @@ The shell's `_Imports.razor` deliberately imports none of the contexts: each
 module UI project carries its own, so a component can only reach into another
 context by saying so in writing.
 
-The Tasks and Devbook projects keep their original root namespaces —
-`Backlog.Desktop.UI.Tasks` and `.Devbook` — set explicitly in each
-`.csproj` and deliberately not matching the project name. The Razor generator
-emits a component's `@using` directives *inside* the component's namespace and
-without a `global::` prefix, so a namespace carrying a second `Backlog` segment
-shadows the repository root: under `Backlog.Modules.Tasks.UI`, `@using
-Backlog.UI.Components.Markdown` binds to `Backlog.Modules.Tasks` and fails with
-CS0234. The namespace segment is `Tasks`, not `Backlog`, for the same
-reason, and it is also the context's name in the context map — so the constraint
-and the domain language agree. The modules whose code was never in the shell to
-begin with (`Dashboard`, `Roadmap`, `DevPc`, `Sessions`) use their own
+The Devbook project keeps its original root namespace — `Backlog.Desktop.UI.Devbook`
+— set explicitly in its `.csproj` and deliberately not matching the project name.
+The Razor generator emits a component's `@using` directives *inside* the
+component's namespace and without a `global::` prefix, so a namespace carrying a
+second `Backlog` segment can shadow the repository root: under
+`Backlog.Modules.Tasks.UI`, `@using Backlog.UI.Components.Markdown` bound to
+`Backlog.Modules.Tasks` and failed with CS0234. The modules whose code was never in
+the shell to begin with (`Insights`, `DevPc`, `Sessions`) use their own
 `Backlog.Modules.<Context>.UI` namespaces, because there was no original namespace
-for them to keep. Inbox has moved to `Backlog.Modules.Inbox.UI` and writes every
-`Backlog` import as `@using global::Backlog.…`, which is what makes the matching
-namespace safe; Tasks and Devbook follow (issue #756).
+for them to keep. Inbox moved to `Backlog.Modules.Inbox.UI`, and Work's screens to
+`Backlog.Modules.Work.UI.Tasks` and `.Roadmap` when Tasks and Roadmap merged into
+Work (local ADR 0073 §1); both write every `Backlog` import as
+`@using global::Backlog.…`, which is what makes the matching namespace safe.
+Devbook follows (issue #756).
 
 Everything under `src/Harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire

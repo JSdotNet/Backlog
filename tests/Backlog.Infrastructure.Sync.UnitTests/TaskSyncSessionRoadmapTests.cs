@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
@@ -71,7 +71,7 @@ public sealed class TaskSyncSessionRoadmapTests
         using var fixture = Fixture.Create(new InMemoryTaskStore(), state, roadmap, (_, _) => Accepted(1));
 
         await fixture.Session.PushAsync(Cancellation);
-        Assert.Equal(Morning, state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
+        Assert.Equal(Morning, state.Current.DocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType));
 
         await fixture.Session.PushAsync(Cancellation);
         Assert.Single(fixture.Bodies);
@@ -80,7 +80,7 @@ public sealed class TaskSyncSessionRoadmapTests
         await fixture.Session.PushAsync(Cancellation);
 
         Assert.Equal(2, fixture.Bodies.Count);
-        Assert.Equal(Morning.AddMinutes(5), state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
+        Assert.Equal(Morning.AddMinutes(5), state.Current.DocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType));
     }
 
     /// <summary>ADR 0018 Verification 5: a device with no saved plan and no velocity
@@ -116,7 +116,7 @@ public sealed class TaskSyncSessionRoadmapTests
         Assert.Equal(0, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Pushed);
         Assert.Equal(1, Assert.IsType<Ok<TaskSyncSummary>>(result.Value).Value.Refused);
         Assert.Empty(activity.Snapshot());
-        Assert.Equal(Morning, state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
+        Assert.Equal(Morning, state.Current.DocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType));
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class TaskSyncSessionRoadmapTests
         var result = await fixture.Session.PushAsync(Cancellation);
 
         Assert.IsType<Error>(result.Value);
-        Assert.Null(state.Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
+        Assert.Null(state.Current.DocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType));
     }
 
     /// <summary>The marks are one owner's, like the task watermark: a device that
@@ -162,7 +162,7 @@ public sealed class TaskSyncSessionRoadmapTests
         roadmap.Held[RoadmapReplicaDocument.Plan] = new RoadmapReplicaCopyDto(PlanJson, Morning);
         var state = new InMemoryTaskSyncStateStore(
             new TaskSyncState(DateTimeOffset.MinValue, null, Guid.NewGuid(), Guid.NewGuid())
-                .WithDocumentWatermark(RoadmapReplicaDocuments.PlanType, Morning));
+                .WithDocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType, Morning));
 
         using var fixture = Fixture.Create(new InMemoryTaskStore(), state, roadmap, (_, _) => Accepted(1));
 

@@ -1,15 +1,15 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.UI.Goals;
-using Backlog.Modules.Progress.UI.WeeklyReview;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.UI.Goals;
+using Backlog.Modules.Goals.UI.WeeklyReview;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -17,9 +17,9 @@ namespace Backlog.Desktop.UI.Review;
 
 /// <summary>
 /// The window's answer to the weekly review's <see cref="IWeeklyReviewSource"/>
-/// (<c>.devbook/domain/progress/features.md#the-weekly-review</c>): the window's Inbox
+/// (<c>.devbook/domain/goals/features.md#the-weekly-review</c>): the window's Inbox
 /// and task list, the Brain's notes, links and review dates, the roadmap's finished
-/// project notes and the goals, read in Progress's words; and each line's action,
+/// project notes and the goals, read in Goals' words; and each line's action,
 /// carried out in this window.
 /// <para>
 /// Every source but the task list is optional, so a host that composes no Brain, no

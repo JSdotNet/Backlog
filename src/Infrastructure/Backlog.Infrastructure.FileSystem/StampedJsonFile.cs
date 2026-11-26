@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// person's desktops: an <c>updatedAt</c> stamp beside the values, every change stamped
 /// past the one held, and a copy from another device written whole at the stamp it
 /// arrived with, keeping any key this build does not know. The file half that
-/// <see cref="Progress.IterationSettingsStore"/> and <see cref="MyDayPreferencesStore"/>
+/// <see cref="Goals.IterationSettingsStore"/> and <see cref="MyDayPreferencesStore"/>
 /// share; what the values are, and whether a copy reads as them, stays each store's.
 /// </summary>
 // Not on JsonFileStore<T>: a copy travels as the file's raw text with keys no DTO

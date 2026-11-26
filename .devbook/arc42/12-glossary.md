@@ -48,16 +48,16 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/domain.
   - Review required
   - Ready
 
-  One function computes it from the pull request's status, and the pull requests pane, session card and task row all show it. Repository Management owns the term: see
-  [One verdict per pull request](../domain/repository-management/features.md#one-verdict-per-pull-request)
+  One function computes it from the pull request's status, and the pull requests pane, session card and task row all show it. Repositories owns the term: see
+  [One verdict per pull request](../domain/repositories/features.md#one-verdict-per-pull-request)
   and `.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`.
 - **Sanitization boundary:** the record is a whitelist of fields. The transcript, prompts, tool output and file contents never cross. Local ADR 0005 decides each field; `.devbook/arc42/08-crosscutting-concepts.md#session-record-sync` lists them.
 - **Settled-fact cache:** for example a merged pull request or a finished month's spend. It is refetched rather than synced, safe to delete, and never kept under the workspace root. See `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.
 - **Talk note:** outbox kind `talk-note` sends a talk-note entry still waiting in the phone's outbox as a capture. It is never called a *session note*, because *session* already names a bounded context (Sessions, the record of an AI coding session). See `.devbook/domain/capture/features.md#talk-note`.
-- **Knowledge Event:** never *event* alone, because *event* already means a domain event in every context, and Tasks has a [Usage Event](../domain/tasks/domain.md#usage-event). The app labels the area *Events*. The Events context owns the term ([Knowledge Event](../domain/events/domain.md#knowledge-event)), and local ADR 0050 places it there.
+- **Knowledge Event:** never *event* alone, because *event* already means a domain event in every context, and Tasks has a [Usage Event](../domain/work/domain.task.md#usage-event). The app labels the area *Events*. The Events context owns the term ([Knowledge Event](../domain/events/domain.md#knowledge-event)), and local ADR 0050 places it there.
 - **Event Series:** it keeps only the link to its organiser's page. The pages Capture watches stay Capture's targets. See [Event Series](../domain/events/domain.md#event-series).
 - **Talk:** never a *session*, for the reason the Talk note entry gives. Talks are not modelled yet. See [Talk](../domain/events/domain.md#talk).
-- **Talk picks:** never an *agenda*, because Tasks has [Agenda Time](../domain/tasks/domain.md#agenda-time). See [Talk picks](../domain/events/domain.md#talk-picks).
+- **Talk picks:** never an *agenda*, because Tasks has [Agenda Time](../domain/work/domain.task.md#agenda-time). See [Talk picks](../domain/events/domain.md#talk-picks).
 - **Calendar layer:** **Show tasks**, **Show plans** and **Show events** switch the three layers, and each reaches the Calendar through a port the Calendar owns. A layer writes only back through its source, because the Calendar owns no data. The Calendar context owns the term ([Calendar Layer](../domain/calendar/domain.md#calendar-layer)). Local ADR 0055 decides it, and local ADR 0056 makes the Tasks layer a port with a choice of its own.
 
 ## Shared Data Types

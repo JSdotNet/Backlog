@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 
@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.PullRequests;
 
 /// <summary>
 /// How a pull request the session list shows stands, answered the way the pull requests
-/// pane answers it: read by number through Repository Management's contract and given
+/// pane answers it: read by number through Repositories' contract and given
 /// its one verdict (<see cref="PullRequestVerdict"/>, local ADR 0042), so a pull request
 /// wears the same chip on both screens.
 /// <para>

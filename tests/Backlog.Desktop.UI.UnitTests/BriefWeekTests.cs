@@ -1,5 +1,5 @@
-using Backlog.Modules.Dashboard.Abstractions.Insights;
-using Backlog.Modules.Dashboard.UI.Parts;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.UI.Parts;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

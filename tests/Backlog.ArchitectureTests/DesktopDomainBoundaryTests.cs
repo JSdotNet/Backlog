@@ -24,9 +24,9 @@ namespace Backlog.ArchitectureTests;
 /// the Inbox the compiler will accept any Backlog-Management file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
-/// eventually need. They read namespaces, which for Tasks and Devbook still say
-/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments in those
-/// csproj files — and for Inbox and the later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
+/// eventually need. They read namespaces, which for Devbook still says
+/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comment in its
+/// csproj — and for Inbox, Work and the later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
 /// </para>
 /// <para>
 /// The contexts are read from <c>src/Modules</c> rather than listed here. The
@@ -149,19 +149,20 @@ public class DesktopDomainBoundaryTests
     /// The contexts are read from the module folders, and a reading that broke
     /// would leave every rule below iterating nothing — green for the wrong
     /// reason. These anchors are the contexts there are today: the three the
-    /// list used to name and the five it missed.
+    /// list used to name, the ones it missed, and Work, which Tasks and Roadmap
+    /// merged into (local ADR 0073 §1).
     /// </summary>
     [Fact]
     public void The_contexts_are_read_from_the_module_folders()
     {
-        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain", "Calendar" })
+        foreach (var context in new[] { "Inbox", "Work", "Devbook", "Capture", "Insights", "DevPc", "Sessions", "Brain", "Calendar" })
         {
             Assert.True(
                 ContextProjects.ContainsKey(context),
                 $"{context} has a UI project under src/Modules but is not one of the contexts these rules read.");
         }
 
-        Assert.Equal("Backlog.Desktop.UI.Tasks", ContextNamespaces["Tasks"]);
+        Assert.Equal("Backlog.Modules.Work.UI", ContextNamespaces["Work"]);
         Assert.Equal("Backlog.Modules.Inbox.UI", ContextNamespaces["Inbox"]);
         Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
         Assert.Equal("Backlog.Modules.Brain.UI", ContextNamespaces["Brain"]);

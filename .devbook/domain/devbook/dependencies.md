@@ -27,7 +27,7 @@ type: dependencies
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
 | [Brain](../brain/context.md) | Customer/Supplier (Brain = customer), the devbook convention as Published Language | In-process: this context's reading machinery, pointed at the Brain folder | The devbook convention (local ADR 0016); local ADR 0040 | Reading, indexing, rendering and searching a Brain note as it does a repository chapter. |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by roadmap tag | `.devbook/domain/devbook/domain.md#shared-value-objects` | Chapters resolvable by reference or tag, and their `effort` and `roadmap` metadata. |
+| [Work](../work/domain.plan.md#plan) | Customer/Supplier (Work = customer) | Read-side gather by `<path>#<slug>` reference and by roadmap tag | `.devbook/domain/devbook/domain.md#shared-value-objects` | Chapters resolvable by reference or tag, and their `effort` and `roadmap` metadata. |
 
 - **Brain:** The Brain also relies on its three fields (`para`, `repos`, `tasks`)
   being carried to the note's node. A repo link into a repository chapter is read
@@ -36,7 +36,7 @@ type: dependencies
   - the database builder and refresher;
   - the chapter viewer;
   - search and remarks.
-- **Roadmap Planning:** A Roadmap Item gathers the chapters it references
+- **Work:** A Roadmap Item gathers the chapters it references
   (`knowledge_refs`) and those whose `roadmap` list names its tag, and totals their
   `effort`. It only reads, never writing a chapter or owning an effort value.
 
@@ -47,5 +47,5 @@ type: dependencies
   [Roadmap Contribution](domain.md#roadmap-contribution).
 - A repository's devbook folders are read **in place and never owned**
   ([A devbook that stays current](features.md#a-devbook-that-stays-current)), so
-  Roadmap Planning's gather reads chapters by reference and by tag, not by an
+  A plan's gather reads chapters by reference and by tag, not by an
   index. Whether an index exists is no part of the contract.

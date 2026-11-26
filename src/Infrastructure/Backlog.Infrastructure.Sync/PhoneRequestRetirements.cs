@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.Sync.KnowledgeEvents;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Sync;

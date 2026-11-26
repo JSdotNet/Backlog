@@ -1,5 +1,5 @@
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;

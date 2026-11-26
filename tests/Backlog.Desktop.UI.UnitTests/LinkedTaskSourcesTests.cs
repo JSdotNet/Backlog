@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 using Backlog.UI.Components.Tasks;
 using static Backlog.Desktop.UI.UnitTests.LinkedTaskPaneTests;
 

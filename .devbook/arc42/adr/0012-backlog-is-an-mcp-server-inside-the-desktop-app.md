@@ -2,9 +2,9 @@
 
 ```meta
 date: 2026-11-24
-related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
+related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md"]
 c4: [backlog.desktop.mcp]
-c4-touches: [backlog.mobile, backlog.desktop.tasks, backlog.desktop.sessions]
+c4-touches: [backlog.mobile, backlog.desktop.work, backlog.desktop.sessions]
 ```
 
 ## Status
@@ -81,7 +81,7 @@ the Tasks pane does not call a status use case: `TasksDesktopState.ChangeStatusA
 rewrites the `!status` sigil with `EntryTextParser.WithStatus` and saves the
 text through `RewriteMetadataAsync`, which is `ITaskItems.SaveFromTextAsync`.
 `ITaskItems` has no status method. The lifecycle lives in `TaskItem`:
-`AllowedTransitions` ("per `.devbook/domain/tasks/flow.md`"), `IsTransitionAllowed`,
+`AllowedTransitions` ("per `.devbook/domain/work/flow.md`"), `IsTransitionAllowed`,
 `NextStatusesFrom` "so callers can explain a refusal rather than just swallow
 it" (deleted on 2026-11-19; `EntryStatusFlow.NextFrom` lists them now), and
 `ChangeStatus`, which throws on a jump. `SetStatus`, which the save

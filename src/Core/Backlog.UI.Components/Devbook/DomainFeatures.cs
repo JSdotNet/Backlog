@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.Devbook;
 /// <param name="Title">The chapter's heading as written, or — for a chapter the
 /// context's files do not hold — its anchor in words.</param>
 /// <param name="Reference">The path and anchor as resolved, spelled the way the
-/// host spells the context's own files: <c>.devbook/domain/tasks/domain.md#task</c>.</param>
+/// host spells the context's own files: <c>.devbook/domain/work/domain.task.md#task</c>.</param>
 /// <param name="Known">Whether the chapter is one of the context's own, so the
 /// page can open it in place rather than through the Devbook menu.</param>
 public sealed record DomainNamedChapter(string Title, string Reference, bool Known);

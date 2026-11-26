@@ -1,0 +1,172 @@
+using Backlog.Modules.Insights.Abstractions.Insights;
+
+namespace Backlog.Modules.Insights.Abstractions.Services;
+
+/// <summary>
+/// What the productivity half of the dashboard asks for.
+/// <para>
+/// Three methods rather than one that returns everything, and that is the
+/// independent-parts rule expressed in the contract. A single call would make the
+/// slowest source decide when the fastest part renders, and would make one
+/// unconfigured provider able to fail the whole surface. Each part awaits its own
+/// method, shows its own status, and refreshes on its own.
+/// </para>
+/// </summary>
+public interface IProductivityInsights
+{
+    Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    Task<InsightResult<ReworkInsight>> GetReworkAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Drops whatever was cached for this scope, so the next call goes
+    /// back to the provider. What a refresh button does.</summary>
+    void Invalidate(InsightsScope scope);
+}
+
+/// <summary>
+/// What the sessions part of the dashboard asks for.
+/// <para>
+/// One method, because there is one part. The scope reaches it in full and is honoured
+/// in half: the window and the machine narrow the answer, the repository cannot,
+/// because Claude records no repository against a session and filtering on one would
+/// silently drop every Claude session from a part whose whole point is showing both
+/// assistants. The parameter is still a <see cref="InsightsScope"/> rather than a
+/// narrower pair — the part is one of a surface's parts and takes the surface's scope —
+/// and the constraint is stated on the part instead of being hidden in a signature.
+/// </para>
+/// </summary>
+public interface ISessionInsights
+{
+    Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Drops what was read, so the next call goes back to the source.
+    /// <para>
+    /// No scope, unlike <see cref="IProductivityInsights.Invalidate"/> and for the same
+    /// reason <see cref="ICostInsights.Invalidate"/> takes none: one read serves every
+    /// scope here, because the scoping is a derivation over the whole report rather
+    /// than a narrowing of the call. There is nothing per-scope to drop.
+    /// </para></summary>
+    void Invalidate();
+}
+
+/// <summary>
+/// What the tasks section of the dashboard asks for.
+/// <para>
+/// The repository scope and the window narrow the answer; the machine cannot, because a
+/// task records no machine it was ticked off on. The parts say so rather than leaving a
+/// figure that will not move to explain itself.
+/// </para>
+/// </summary>
+public interface ITaskInsights
+{
+    Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The roadmap items the window shows in the repositories in scope, and
+    /// how each one's work stands. Ready with <see cref="PlanInsight.Off"/> when the
+    /// roadmap is switched off, because a feature somebody turned off is a state, not a
+    /// failure.</summary>
+    Task<InsightResult<PlanInsight>> GetPlanAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What the Hours worked part of the dashboard asks for (local ADR 0019, §7).
+/// <para>
+/// The window narrows the answer; the repository and the machine cannot. A working
+/// stretch is the person's, merged over every session on every paired machine so time
+/// two sessions shared counts once, and cutting it by machine or by repository would
+/// count a person's hour twice or not at all. The part says so.
+/// </para>
+/// <para>
+/// No invalidation: the source reads through the activity cache on every call, so a
+/// refresh is a second call.
+/// </para>
+/// </summary>
+public interface IHoursWorkedInsights
+{
+    /// <summary>The hours worked per day and per calendar week over the scope's window.
+    /// Unavailable, with the reason, when the hours cannot be stated or could not be
+    /// read — never a window of zeros.</summary>
+    Task<InsightResult<HoursWorkedInsight>> GetHoursWorkedAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What the Drift at a glance part of the dashboard asks for: the devbook sync units by
+/// direction, each with its last verdict, and the drift issues still open.
+/// <para>
+/// The repository scope narrows the answer; the window and the machine cannot. A verdict
+/// is the latest a sweep left, however long ago, and an open issue is open now — neither
+/// is a count over a period, and a unit verified five weeks ago has not stopped drifting
+/// because the window is four. The part says so.
+/// </para>
+/// <para>
+/// The verdicts are read from their file on every call; the issues are read from GitHub
+/// once per repository focus and kept until <see cref="Invalidate"/>, because every part
+/// that shows drift asks as the pane opens and GitHub limits how often it may be asked.
+/// </para>
+/// </summary>
+public interface IDriftInsights
+{
+    Task<InsightResult<DriftInsight>> GetDriftAsync(
+        InsightsScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Drops the drift issues read so far, so the next call goes back to GitHub.
+    /// What a refresh does. No scope, on <see cref="ICostInsights.Invalidate"/>'s
+    /// reasoning: a refresh means the issues may have moved in every repository.</summary>
+    void Invalidate();
+}
+
+/// <summary>
+/// What the cost half of the dashboard asks for.
+/// <para>
+/// No <see cref="InsightsScope"/> anywhere, on purpose. Neither provider reports
+/// spend per repository — Anthropic groups its Claude Code report by actor and
+/// model, GitHub groups AI credits by product, SKU and model — so a method that
+/// took a scope would accept a narrowing it cannot honour. Leaving it out of the
+/// signature is how the constraint reaches the screen instead of being lost in a
+/// parameter that gets quietly ignored.
+/// </para>
+/// </summary>
+public interface ICostInsights
+{
+    Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default);
+
+    Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Each provider's month-end projection against its monthly budget, read
+    /// from <see cref="ISpendBudgetSettings"/> on every call so a changed budget counts
+    /// without a refresh.</summary>
+    Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>This calendar month day by day: the days so far as reported, the days
+    /// after today projected from the same seven-day average as
+    /// <see cref="GetProjectionAsync"/>, and the sum of the providers' budgets.</summary>
+    Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Spend per ISO week over the last twelve weeks and this one, from the
+    /// providers that report by the day — what the weekly brief's Cost block draws.
+    /// <para>
+    /// Required, with no default body: an implementation that forgot it would answer
+    /// "unavailable" and the brief's Cost block would go quiet with nothing to say why.
+    /// </para></summary>
+    Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Drops whatever was cached, so the next call goes back to the providers.</summary>
+    void Invalidate();
+}

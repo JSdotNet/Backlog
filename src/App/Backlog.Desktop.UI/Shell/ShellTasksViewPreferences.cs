@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
 
 namespace Backlog.Desktop.UI.Shell;

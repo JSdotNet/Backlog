@@ -1,0 +1,57 @@
+namespace Backlog.Modules.Work.Abstractions.Tasks.Services;
+
+/// <summary>
+/// The roadmap item tags a backlog entry may be filed under, offered to the tag
+/// picker alongside the tags the backlog already uses.
+/// <para>
+/// A port on Tasks' own surface rather than a reference to Roadmap
+/// Planning: a screen renders one context and asks that context's module, so the
+/// backlog UI depends on this and an infrastructure adapter that can see both
+/// contexts answers it from the plan
+/// (<c>ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface</c>).
+/// The same shape <see cref="ITaskStore"/> takes for the same reason.
+/// </para>
+/// <para>
+/// The values are the plan's slugs wearing the plan sigil — <c>+release-q4</c> for
+/// a roadmap item tagged <c>release-q4</c> — because that is the stored form of a
+/// backlog tag that names a roadmap item, and the picker has to offer the value an
+/// entry will keep. A backlog entry and a roadmap item agree on a tag by its text
+/// under that sigil; this side neither derives nor validates one, it only offers
+/// what the plan already carries so a person can file an entry against planned
+/// work before anything else has.
+/// </para>
+/// </summary>
+public interface IRoadmapTagSource
+{
+    /// <summary>
+    /// Raised after the plan changed, whichever scope changed it, so a list holding the
+    /// tags reads them again rather than waiting for its own reload. It may arrive on
+    /// any thread.
+    /// </summary>
+    event Action? Changed;
+
+    /// <summary>The distinct roadmap item tags in use across the plan, each as
+    /// <c>+slug</c>, in the order they first appear. Empty when there is no plan
+    /// or nothing is tagged.</summary>
+    Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The plans put on My Day and the day each was picked for, keyed by the bare plan
+    /// tag without regard to case (local ADR 0072 §8). The date lives on the plan's
+    /// Roadmap Items in Roadmap Planning; this side reads it by the task rule and never
+    /// stores it. A plan whose items disagree answers the latest day. Empty for a host
+    /// with no plan — which is what this default answers, so a source that knows no My
+    /// Day still composes.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, DateOnly>> PlansOnMyDayAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<string, DateOnly>>(new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Puts the plan <paramref name="planTag"/> on the My Day of <paramref name="on"/>, or
+    /// takes it off with null. A plan tag no Roadmap Item carries gets its item. Answers
+    /// whether the plan stored it; this default stores nothing and answers false.
+    /// </summary>
+    /// <param name="planTag">The plan tag, its <c>+</c> optional.</param>
+    Task<bool> SetPlanMyDayAsync(string planTag, DateOnly? on, CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
+}

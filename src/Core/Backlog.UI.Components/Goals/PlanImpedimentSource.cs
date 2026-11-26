@@ -6,9 +6,9 @@ namespace Backlog.UI.Components.Goals;
 /// plan lines read it to say what a Blocked plan waits on.
 /// <para>
 /// A cascading value for the reason <see cref="GoalControlSlot"/> is one: an impediment is
-/// Progress's, and Tasks never calls Progress (local ADR 0035 §6). The pane hands over a
+/// Goals', and Tasks never calls Goals (local ADR 0035 §6). The pane hands over a
 /// plan's tag and its open entries' ids and draws the title it gets back; it stores
-/// nothing. With no source cascaded — Progress not composed, a storybook page that sets
+/// nothing. With no source cascaded — Goals not composed, a storybook page that sets
 /// none — a Blocked plan reads plain Blocked, as before.
 /// </para>
 /// </summary>

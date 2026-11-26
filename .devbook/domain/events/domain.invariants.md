@@ -359,7 +359,7 @@ Enforced at: `FileDue()`
 
 ```meta
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.The_harvest_task_is_filed_under_the_id_derived_from_the_event, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_already_held_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_deleted_here_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_live_is_left_as_it_is, unit:dotnet:Backlog.Modules.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_deleted_stays_deleted]
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.The_harvest_task_is_filed_under_the_id_derived_from_the_event, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_already_held_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.A_derived_task_deleted_here_is_linked_and_not_filed_again, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_live_is_left_as_it_is, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.CreateTaskIfAbsentTests.A_task_held_deleted_stays_deleted]
 ```
 
 The policy files an event's harvest task only under the id derived from the event's id, and files none while a task
@@ -375,5 +375,17 @@ tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTaskPolicyTests.Mark
 ```
 
 Marking an event Harvested completes the task its Harvest Event Task Link names, and no other task.
+
+Enforced at: `OnHarvested()`
+
+### Invariant: A Talk note leaves the Inbox only once its Brain link is saved
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.The_inbox_note_is_archived_once_the_brain_link_is_saved, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.With_no_brain_set_the_talk_note_and_its_link_stay, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.A_talk_note_the_inbox_no_longer_holds_keeps_its_link, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.A_filing_that_throws_keeps_that_link_and_the_other_notes_still_move, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.Another_move_files_no_talk_note, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.A_brain_link_that_is_not_saved_leaves_the_talk_link_and_the_inbox_note, unit:dotnet:Backlog.Modules.Events.UnitTests.HarvestTalkNotesTests.A_cancel_after_the_first_note_is_written_still_finishes_the_pass]
+```
+
+Marking an event Harvested archives a Talk note in the Inbox only after the note is written into the Brain and the
+event's link to it is a saved Brain link; a Talk note the Brain did not take keeps its link and stays in the Inbox.
 
 Enforced at: `OnHarvested()`

@@ -1,0 +1,48 @@
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Tasks.DomainModels;
+
+namespace Backlog.Modules.Work.Tasks.Services;
+
+/// <summary>
+/// Turns an aggregate into the shape callers are allowed to hold. One place, so
+/// a field added to the entry is a deliberate decision to publish it rather than
+/// something that leaks out of whichever handler happened to be edited.
+/// </summary>
+internal static class TaskItemMapper
+{
+    public static TaskItemDto ToDto(this TaskItem entry) => new(
+        entry.Id,
+        entry.Title,
+        entry.ContentMd,
+        entry.Type,
+        entry.Priority,
+        entry.Status,
+        entry.Area,
+        [.. entry.Tags],
+        entry.Order,
+        entry.TotalSubItemCount,
+        entry.CompletedSubItemCount,
+        [.. entry.ProjectionRefs.Select(p => new EntryProjectionDto(p.RepoId, p.ExternalId, p.TargetType))],
+        entry.DueOn,
+        entry.RemindAt,
+        entry.Recurrence,
+        entry.InMyDayOn,
+        entry.CompletedOn,
+        [.. entry.DependsOn],
+        entry.View,
+        entry.Attachment,
+        entry.Effort,
+        [.. entry.RepoIds],
+        entry.ImportPlanId,
+        entry.ImportItemId,
+        entry.CreatedAt,
+        entry.StartedOn,
+        entry.SourceInboxId,
+        [.. entry.DevbookReferences],
+        entry.BlockedSince,
+        entry.SourceRef,
+        entry.AgendaTime,
+        [.. entry.PlannedHours.Select(block => new PlannedHoursDto(block.On, block.Hours))],
+        entry.SourceNotificationId,
+        entry.WaitingFor);
+}

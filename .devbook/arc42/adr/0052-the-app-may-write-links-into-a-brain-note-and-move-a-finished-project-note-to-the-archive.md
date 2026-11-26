@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-11
-related: [".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/brain/features.md#bi-directional-linking", ".devbook/domain/brain/features.md#capture-into-the-brain", ".devbook/domain/brain/domain.md#cross-linking", ".devbook/domain/brain/domain.md#task-link", ".devbook/domain/brain/domain.invariants.md#cross-linking", ".devbook/domain/tasks/domain.md#roadmap-tag"]
+related: [".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/brain/features.md#bi-directional-linking", ".devbook/domain/brain/features.md#capture-into-the-brain", ".devbook/domain/brain/domain.md#cross-linking", ".devbook/domain/brain/domain.md#task-link", ".devbook/domain/brain/domain.invariants.md#cross-linking", ".devbook/domain/work/domain.plan.md#roadmap-tag"]
 ```
 
 The app may add a link to an existing Brain note. It appends a task id to the
@@ -19,7 +19,7 @@ Proposed, 2026-11-11. The link writer is built, and so is §5's archive move: a
 plan that finishes while the app is open offers it once per device in a toast, the
 press moves the note and repoints the plan's Knowledge Refs, and
 `list_brain_reviews` lists the notes still to move
-([Archiving a finished plan's project note](../../domain/roadmap/features.md#archiving-a-finished-plans-project-note)).
+([Archiving a finished plan's project note](../../domain/work/features.md#archiving-a-finished-plans-project-note)).
 The repository owner decided the link
 writer on 2026-10-29, as design question Q1 and change C15 of the GTD and PARA
 exploration, choosing option (b) of three. The owner decided the archive move
@@ -92,7 +92,7 @@ flowchart LR
 ```
 
 The app may append a task id to a note's `tasks` field. It may append a
-[Roadmap Tag](../../domain/tasks/domain.md#roadmap-tag) to the note's `roadmap`
+[Roadmap Tag](../../domain/work/domain.plan.md#roadmap-tag) to the note's `roadmap`
 field. Both fields sit in the note's top `meta` block.
 
 The app only appends. It never removes, reorders or rewrites a value already in

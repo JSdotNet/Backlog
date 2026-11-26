@@ -124,7 +124,7 @@ public enum AgentSessionOrigin
 /// stored third value can disagree with its own two operands — a row claiming forty
 /// minutes between two timestamps ten minutes apart is wrong in a way that renders
 /// perfectly and that no reader can catch. It is derived in one place instead
-/// (<c>src/Modules/Dashboard/Backlog.Modules.Dashboard/Services/SessionInsights.cs</c>),
+/// (<c>src/Modules/Insights/Backlog.Modules.Insights/Services/SessionInsights.cs</c>),
 /// which is also the only place that has to decide what an open-ended session's
 /// duration means. ADR 0005's sync whitelist does name a duration count, and the
 /// wire contract carries one, because the relaying service is deliberately dumb

@@ -4,7 +4,7 @@
 date: 2026-11-25
 related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0059-tokenless-mcp-calls-get-the-scopes-the-person-opens-to-them.md", ".devbook/design/interaction-guidelines.md#undo-and-history", ".devbook/arc42/11-risks-and-technical-debt.md#architectural-risks"]
 c4: [backlog.taskStore, backlog.desktop.persistence]
-c4-touches: [backlog.desktop.mcp, backlog.desktop.tasks, backlog.cloud, github]
+c4-touches: [backlog.desktop.mcp, backlog.desktop.work, backlog.cloud, github]
 ```
 
 Backlog keeps its SQLite rows canonical and does not adopt event sourcing. Beside them,

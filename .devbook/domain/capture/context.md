@@ -78,3 +78,7 @@ An unreadable or unmonitorable kind is dropped, and a
 source missing from the file comes back switched off. A corrupt file
 falls back to nothing watched. A save that cannot be written keeps the
 change for the session and says so.
+
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). `capture_to_inbox` is the [Inbox](../inbox/context.md#over-mcp)'s: an agent's capture lands as an Inbox Item.

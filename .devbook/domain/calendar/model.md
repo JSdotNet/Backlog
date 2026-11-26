@@ -132,12 +132,12 @@ classDiagram
   read fresh from its source; a layer's DTO is a copy, never kept.
 - A write goes back through the context that owns what changes. A due date and planned
   hours go through `ICalendarTasks` to Tasks, and a shelf plan's start goes through `ICalendarPlans` to
-  Roadmap Planning, which decides whether to take it and where the window ends. The
+  Work, which decides whether to take it and where the window ends. The
   Events layer writes nothing.
 - The ports live in `Backlog.Modules.Calendar.Abstractions` and belong to the Calendar.
   Adapters under `Infrastructure.FileSystem/Calendar/` answer them: `TasksCalendarTasks`
   over Tasks' published contract, or `NoCalendarTasks` in a host without Tasks;
-  `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` over Roadmap Planning; and
+  `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` over Work; and
   `EventsCalendarEvents` over Events' read contract, or `NoCalendarEvents` in a host
   without Events. The source contexts' own types appear here by reference only.
 - `RoadmapCalendarCapacity` answers a day's capacity in hours, rounded half away from

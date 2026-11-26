@@ -1,0 +1,244 @@
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks;
+
+/// <summary>A connector that answers whatever the test put in <see cref="Items"/>,
+/// and remembers every fetch it was asked for.</summary>
+internal sealed class StubTaskConnector(string id = StubTaskConnector.Id) : ITaskConnector
+{
+    public const string Id = "stub";
+
+    public List<SourceItem> Items { get; } = [];
+
+    /// <summary>Thrown by the next fetch instead of answering, when set.</summary>
+    public Exception? Failure { get; set; }
+
+    public List<(string Target, DateTimeOffset? Since)> Fetches { get; } = [];
+
+    /// <summary>Run inside the fetch, for a test that changes something while one
+    /// is in flight.</summary>
+    public Action? DuringFetch { get; set; }
+
+    public TaskConnectorDescriptor Descriptor { get; } = new(id, "Stub", "stub", "--color-stub");
+
+    /// <summary>Settable, for a test about a source whose targets are
+    /// repositories.</summary>
+    public TaskConnectorCapabilities Capabilities { get; set; } = new(HasEffort: true);
+
+    public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
+    {
+        Fetches.Add((target, since));
+        DuringFetch?.Invoke();
+        if (Failure is not null) throw Failure;
+        return Task.FromResult<IReadOnlyList<SourceItem>>([.. Items]);
+    }
+}
+
+/// <summary>A connector that can finish an item at the source, answering whatever
+/// the test set, and remembering every item it was asked to finish.</summary>
+internal sealed class CompletingConnector(string id = CompletingConnector.Id, bool canComplete = true) : ITaskConnector
+{
+    public const string Id = "completing";
+
+    public List<SourceRef> Completed { get; } = [];
+
+    /// <summary>The refusal the next completion answers; null completes.</summary>
+    public string? Refusal { get; set; }
+
+    /// <summary>Thrown by the next completion instead of answering, when set.</summary>
+    public Exception? Failure { get; set; }
+
+    /// <summary>Run inside the completion, for a test that changes the task while
+    /// the source is being asked.</summary>
+    public Action? DuringCompletion { get; set; }
+
+    public TaskConnectorDescriptor Descriptor { get; } = new(id, "Completing", "completing", "--color-stub");
+
+    public TaskConnectorCapabilities Capabilities { get; } = new(CanComplete: canComplete);
+
+    public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SourceItem>>([]);
+
+    public Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken)
+    {
+        Completed.Add(item);
+        DuringCompletion?.Invoke();
+        if (Failure is not null) throw Failure;
+        return Task.FromResult(Refusal);
+    }
+}
+
+/// <summary>The sync trigger, counting the runs it was asked for.</summary>
+internal sealed class RecordingLinkedTaskSync : ILinkedTaskSync
+{
+    public int Requests { get; private set; }
+
+    public Task RequestSync()
+    {
+        Requests++;
+        return Task.CompletedTask;
+    }
+
+    public Task<LinkedTaskSyncOutcome> RequestSync(string connectorId, string target)
+    {
+        Requests++;
+        return Task.FromResult(new LinkedTaskSyncOutcome(true, $"Synced {target}."));
+    }
+}
+
+/// <summary>The write-back port, recording the tasks it was asked for.</summary>
+internal sealed class RecordingWriteBack : ILinkedTaskWriteBack
+{
+    public List<Guid> Requested { get; } = [];
+
+    public void Request(Guid taskId) => Requested.Add(taskId);
+}
+
+/// <summary>The connected targets, held in a list.</summary>
+internal sealed class InMemoryConnectedTargets(params IEnumerable<ConnectedTarget> targets) : IConnectedTargets
+{
+    private readonly List<ConnectedTarget> _targets = [.. targets];
+
+    public event Action? Changed;
+
+    public IReadOnlyList<ConnectedTarget> List() => [.. _targets];
+
+    public ConnectedTarget? Get(string connectorId, string target) =>
+        _targets.FirstOrDefault(candidate => candidate.Is(connectorId, target));
+
+    public string? Save(ConnectedTarget target)
+    {
+        var index = _targets.FindIndex(candidate => candidate.Is(target.ConnectorId, target.Target));
+        if (index >= 0) _targets[index] = target;
+        else _targets.Add(target);
+        Changed?.Invoke();
+        return null;
+    }
+
+    /// <summary>How many times <see cref="Update"/> was called.</summary>
+    public int Updates { get; private set; }
+
+    public string? Update(string connectorId, string target, Func<ConnectedTarget, ConnectedTarget> change)
+    {
+        Updates++;
+        var index = _targets.FindIndex(candidate => candidate.Is(connectorId, target));
+        if (index < 0) return null;
+        _targets[index] = change(_targets[index]);
+        Changed?.Invoke();
+        return null;
+    }
+
+    public string? Remove(string connectorId, string target)
+    {
+        if (_targets.RemoveAll(candidate => candidate.Is(connectorId, target)) > 0) Changed?.Invoke();
+        return null;
+    }
+}
+
+/// <summary>A clock the test sets, whose timers are recorded and never fire. It is
+/// in UTC, so "today" is the UTC date, unless the test sets another
+/// <see cref="Zone"/>.</summary>
+internal sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
+{
+    public DateTimeOffset Now { get; set; } = now;
+
+    /// <summary>The local time zone the clock answers, for a test about which local
+    /// day an instant falls on.</summary>
+    public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Utc;
+
+    public List<(TimeSpan DueTime, TimeSpan Period)> Timers { get; } = [];
+
+    public override DateTimeOffset GetUtcNow() => Now;
+
+    public override TimeZoneInfo LocalTimeZone => Zone;
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        Timers.Add((dueTime, period));
+        return new InertTimer();
+    }
+
+    private sealed class InertTimer : ITimer
+    {
+        public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}
+
+/// <summary>The sync handler as the worker sees it, recording what it was asked
+/// to run and answering a failure for the targets the test names.</summary>
+internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksCommand, Result<LinkedTaskSyncSummary>>
+{
+    public List<SyncLinkedTasksCommand> Commands { get; } = [];
+
+    public HashSet<string> Failing { get; } = [];
+
+    /// <summary>Answered by the targets the test names in place of a sync, for a
+    /// test about a refusal the handler gives before it fetches.</summary>
+    public Dictionary<string, Error> Refusing { get; } = [];
+
+    /// <summary>The syncs of these targets wait for their task before answering,
+    /// for a test that needs a run to be in flight.</summary>
+    public Dictionary<string, Task> Holding { get; } = [];
+
+    /// <summary>What a sync that succeeds answers.</summary>
+    public LinkedTaskSyncSummary Summary { get; set; } = new(0, 0, 0, 0, 0, 0, 0, 0);
+
+    public async Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
+    {
+        Commands.Add(command);
+        if (Holding.TryGetValue(command.Target, out var hold)) await hold;
+        if (Refusing.TryGetValue(command.Target, out var refusal)) return refusal;
+        return Failing.Contains(command.Target)
+            ? Error.Unexpected("linked_tasks.fetch_failed", "down")
+            : Summary;
+    }
+}
+
+/// <summary>A scope factory whose every scope answers the one handler, so the
+/// worker can be driven without a container.</summary>
+internal sealed class HandlerScopeFactory(object handler) : IServiceScopeFactory, IServiceScope, IServiceProvider
+{
+    public IServiceProvider ServiceProvider => this;
+
+    public IServiceScope CreateScope() => this;
+
+    public object? GetService(Type serviceType) => serviceType.IsInstanceOfType(handler) ? handler : null;
+
+    public void Dispose()
+    {
+    }
+}
+
+/// <summary>A logger that keeps every line, with its level, its rendered message
+/// and its structured properties, so a test can say what was logged.</summary>
+// Differs from RecordingLogger: keeps (level, message, properties) tuples and drops the exception.
+internal sealed class CapturingLogger<T> : ILogger<T>
+{
+    public List<(LogLevel Level, string Message, Dictionary<string, object?> Properties)> Lines { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        var properties = state is IReadOnlyList<KeyValuePair<string, object?>> pairs
+            ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+            : [];
+
+        Lines.Add((logLevel, formatter(state, exception), properties));
+    }
+}

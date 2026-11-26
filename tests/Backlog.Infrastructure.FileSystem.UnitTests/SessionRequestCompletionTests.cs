@@ -1,9 +1,9 @@
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.Sqlite.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;

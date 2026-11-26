@@ -2,9 +2,9 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using Bunit;

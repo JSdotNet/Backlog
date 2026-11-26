@@ -101,6 +101,23 @@ public static class SettingsPages
     /// <summary>A page's address, relative to the app's base.</summary>
     public static string Href(string id) => "settings/" + id;
 
+    /// <summary>
+    /// The page ids an older build gave out, each with the id the page has now:
+    /// <c>dashboard</c> became <c>insights</c> when the Dashboard module was renamed
+    /// (local ADR 0073 §10). A link or a card address saved before the rename still
+    /// opens the page.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> RetiredIds { get; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dashboard"] = "insights",
+        };
+
+    /// <summary>The id <paramref name="id"/> stands for now: a retired id as its
+    /// successor, anything else as written.</summary>
+    public static string CurrentId(string id) =>
+        RetiredIds.TryGetValue(id, out var current) ? current : id;
+
     /// <summary>The group's label in the menu and in the eyebrow.</summary>
     public static string GroupLabel(SettingsGroup group) => group switch
     {

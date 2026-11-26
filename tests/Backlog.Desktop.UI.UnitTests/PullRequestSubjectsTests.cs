@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Tests;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Sessions context's pull request activity closing the notifications about a pull
 /// request once a reading finds it merged or closed, and answering the startup probe's
-/// question about it through Repository Management's contract (local ADR 0042,
+/// question about it through Repositories' contract (local ADR 0042,
 /// <c>.devbook/domain/notifications/domain.md#subject</c>).
 /// </summary>
 public sealed class PullRequestSubjectsTests

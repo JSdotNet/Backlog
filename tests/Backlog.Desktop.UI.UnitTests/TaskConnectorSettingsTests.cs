@@ -1,5 +1,5 @@
-using Backlog.Modules.Tasks.Abstractions.Connectors;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Settings;
 using Bunit;

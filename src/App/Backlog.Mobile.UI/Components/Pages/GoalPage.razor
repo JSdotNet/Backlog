@@ -1,22 +1,22 @@
 @page "/standup/goals/{Id:guid}"
 @using System.Globalization
-@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Goals
 @using Backlog.Mobile.UI.Tasks
-@using Backlog.Modules.Progress.Abstractions
-@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
-@using Backlog.UI.Components.Progress
-@inject ProgressViewProjection Progress
+@using Backlog.Modules.Goals.Abstractions
+@using Backlog.Modules.Goals.Abstractions.DataTransferObjects
+@using Backlog.UI.Components.Goals
+@inject GoalsViewProjection GoalsView
 @inject PhoneStandUp StandUp
 @inject TaskViewProjection Tasks
 @inject DeviceOutbox Outbox
 @implements IDisposable
 
 @*
-    One goal, opened from the stand-up (.devbook/domain/progress/features.md#goals-on-the-phone):
+    One goal, opened from the stand-up (.devbook/domain/goals/features.md#goals-on-the-phone):
     its forecast badge, due and landing date, done/total with how the open items
     stand and the last four weeks of what was done, then its items under Plan,
     Tasks and Pull requests — each item once, by the rules the desktop counts it
-    by (GoalItems, .devbook/domain/progress/domain.md#goal-progress).
+    by (GoalItems, .devbook/domain/goals/domain.md#goal-progress).
 
     Read-only: setting a goal and attaching work are the desktop's. A goal this
     phone does not hold says so and leads back to the stand-up.
@@ -32,7 +32,7 @@
     <span class="standup-back__title">Goal</span>
 </nav>
 
-@if (!Progress.HoldsStandUp)
+@if (!GoalsView.HoldsStandUp)
 {
     @if (_looked)
     {
@@ -184,7 +184,7 @@ else if (_looked)
     [Parameter]
     public Guid Id { get; set; }
 
-    private GoalView? Goal => Progress.FindGoal(Id);
+    private GoalView? Goal => GoalsView.FindGoal(Id);
 
     private bool _disposed;
 
@@ -196,7 +196,7 @@ else if (_looked)
     /// </summary>
     protected override void OnInitialized()
     {
-        Progress.Changed += OnChanged;
+        GoalsView.Changed += OnChanged;
         Tasks.Changed += OnChanged;
         Outbox.Changed += OnChanged;
 
@@ -207,7 +207,7 @@ else if (_looked)
     {
         try
         {
-            await Progress.PullAsync();
+            await GoalsView.PullAsync();
             await Tasks.PullAsync();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -222,7 +222,7 @@ else if (_looked)
     public void Dispose()
     {
         _disposed = true;
-        Progress.Changed -= OnChanged;
+        GoalsView.Changed -= OnChanged;
         Tasks.Changed -= OnChanged;
         Outbox.Changed -= OnChanged;
     }
@@ -233,9 +233,9 @@ else if (_looked)
     private IReadOnlyList<GoalItem> Items(GoalView view) =>
         GoalItems.Items(
             view.Goal,
-            [.. Progress.Goals().Select(other => other.Goal)],
+            [.. GoalsView.Goals().Select(other => other.Goal)],
             PhoneStandUp.Work(Tasks.Live()),
-            StandupText.Linked(Progress.Context()));
+            StandupText.Linked(GoalsView.Context()));
 
     /// <summary>
     /// The items done in each of the last four weeks, Monday to Sunday, oldest first, the
@@ -243,7 +243,7 @@ else if (_looked)
     /// </summary>
     private IReadOnlyList<int> Weeks(IReadOnlyList<GoalItem> items)
     {
-        var today = Progress.Today;
+        var today = GoalsView.Today;
         var monday = global::Backlog.SharedKernel.CalendarWeek.MondayOf(today);
 
         return
@@ -296,7 +296,7 @@ else if (_looked)
     {
         if (item.Task!.PullRequests.FirstOrDefault() is { } pull)
         {
-            var status = StandupText.StatusOf(StandupText.Statuses(Progress.Context()), pull);
+            var status = StandupText.StatusOf(StandupText.Statuses(GoalsView.Context()), pull);
             <PullRequestStatus Model="@StandupText.StatusModel(status, item.Task.Title)" TestId="goal-item-pr" />
 
             // The shared line says "merged" itself and every other state only by the pill's tone.

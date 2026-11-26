@@ -40,10 +40,9 @@ flowchart TB
       RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
       DevbookSvc["Devbook\n(PARA, links)"]
       MonitoringSvc["Monitoring\n(dashboards, signals)"]
-      TechStackSvc["Technology Stack\n(baselines, adoption)"]
       DevPCSvc["Dev PC Management\n(registry, compliance)"]
       SessionsSvc["Sessions\n(agent session record)"]
-      RepoMgmtSvc["Repository Management\n(repo registry, health)"]
+      RepoMgmtSvc["Repositories\n(repo registry, health)"]
     end
 
     subgraph "IDE Extensions"
@@ -91,8 +90,7 @@ flowchart TB
   InboxQueue -->|route| DevbookSvc
   BacklogSvc <-->|embed| DevbookSvc
   BacklogSvc -->|signals| MonitoringSvc
-  TechStackSvc --> DevPCSvc
-  TechStackSvc --> RepoMgmtSvc
+  DevbookSvc -.->|tech/ ratings| RepoMgmtSvc
   RepoMgmtSvc --> MonitoringSvc
   DevPCSvc --> MonitoringSvc
 
@@ -138,28 +136,28 @@ graph TB
     Shell["Shell UI — Backlog.Desktop.UI\n(.NET MAUI Blazor Hybrid, Ask AI panel)"]
 
     subgraph "Module UIs"
-      TasksUI["Backlog.Modules.Tasks.UI"]
+      WorkUI["Backlog.Modules.Work.UI\n(Tasks pane, Roadmap view)"]
       InboxUI["Backlog.Modules.Inbox.UI"]
-      RoadmapUI["Backlog.Modules.Roadmap.UI"]
       DevbookUI["Backlog.Modules.Devbook.UI"]
-      DashboardUI["Backlog.Modules.Dashboard.UI"]
+      InsightsUI["Backlog.Modules.Insights.UI"]
       CaptureUI["Backlog.Modules.Capture.UI"]
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
       SessionsUI["Backlog.Modules.Sessions.UI"]
       SyncUI["Backlog.Modules.Sync.UI\n(Devices settings)"]
       EventsUI["Backlog.Modules.Events.UI"]
       CalendarUI["Backlog.Modules.Calendar.UI"]
+      GoalsUI["Backlog.Modules.Goals.UI\n(Goals view, weekly review)"]
     end
 
     subgraph "Modules"
-      Tasks["Backlog.Modules.Tasks"]
+      Work["Backlog.Modules.Work\n(Task and Plan, and where they meet)"]
       Inbox["Backlog.Modules.Inbox"]
-      Roadmap["Backlog.Modules.Roadmap"]
-      Dashboard["Backlog.Modules.Dashboard"]
+      Insights["Backlog.Modules.Insights"]
       Capture["Backlog.Modules.Capture"]
-      RepoMgmt["Backlog.Modules.RepositoryManagement\n(pull-request contract, one cache)"]
+      RepoMgmt["Backlog.Modules.Repositories\n(pull-request contract, one cache)"]
       Events["Backlog.Modules.Events\n(knowledge events, series,\nharvest task worker)"]
       Calendar["Backlog.Modules.Calendar\n(Tasks, Plans and Events layer policies,\nno data of its own)"]
+      Goals["Backlog.Modules.Goals\n(goals, impediments, stand-up)"]
     end
 
     subgraph "Background workers"
@@ -169,7 +167,7 @@ graph TB
     end
 
     subgraph "Adapters (Backlog.Infrastructure.*)"
-      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ngoals_goals, goals_impediments,\ninbox_items, inbox_lists, inbox_groups,\nevents_knowledge_events, events_series)"]
       FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, InboxEventTarget,\nEventsTaskTarget, EventsCalendarEvents,\nRoadmapCalendarPlans, TasksCalendarTasks,\nbackups)"]
       BrainInfra["Infrastructure.Brain\n(EventsBrainNotes)"]
       DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
@@ -190,34 +188,34 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI
+  Shell --> WorkUI & InboxUI & DevbookUI & InsightsUI & CaptureUI & ToolsUI & SessionsUI & SyncUI & EventsUI & CalendarUI & GoalsUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
-  TasksUI -->|Abstractions| Tasks
+  WorkUI -->|Abstractions| Work
   InboxUI -->|Abstractions| Inbox
-  RoadmapUI -->|Abstractions| Roadmap
-  DashboardUI -->|Abstractions| Dashboard
+  InsightsUI -->|Abstractions| Insights
   CaptureUI -->|Abstractions| Capture
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
   SyncUI -->|pairing, sync loops| SyncClient
   EventsUI -->|Abstractions| Events
   CalendarUI -->|Abstractions| Calendar
+  GoalsUI -->|Abstractions| Goals
+  Goals --> Sqlite
+  FileSystem -->|"IGoalsTaskSource, IGoalPullRequestReader"| Goals
   Shell -->|IPullRequests| RepoMgmt
 
-  TasksUI --> Copilot & GitHubInfra
-  RoadmapUI --> GitHubInfra
+  WorkUI --> Copilot & GitHubInfra
   DevbookUI --> DevbookInfra & Copilot & GitHubInfra
 
-  Tasks --> Sqlite
-  Roadmap --> Sqlite
+  Work --> Sqlite
   Inbox --> Sqlite
   Inbox -->|IInboxBacklogTarget| FileSystem
-  FileSystem -->|ITaskItems| Tasks
+  FileSystem -->|ITaskItems| Work
   Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
-  Claude -->|Dashboard.Abstractions| Dashboard
+  Claude -->|Insights.Abstractions| Insights
   GitHubInfra -->|IPullRequestSource, IRegisteredRepositories| RepoMgmt
-  FileSystem -->|"IPullRequests for Tasks and Progress, ISettledPullRequestStore"| RepoMgmt
+  FileSystem -->|"IPullRequests for Tasks and Goals, ISettledPullRequestStore"| RepoMgmt
 
   Events --> Sqlite
   Events -->|IEventTaskTarget| FileSystem
@@ -225,7 +223,7 @@ graph TB
   Inbox -->|IInboxEventTarget| FileSystem
   FileSystem -->|IKnowledgeEvents, IKnowledgeEventReader| Events
   Calendar -->|ICalendarTasks, ICalendarEvents, ICalendarPlans| FileSystem
-  FileSystem -->|Roadmap ports| Roadmap
+  FileSystem -->|"rollup, pace, actual hours"| Work
 
   Capture -->|ICaptureDelivery| CaptureInfra
   CaptureInfra --> Sources
@@ -239,7 +237,7 @@ graph TB
 
   McpCallers -->|HTTP on 127.0.0.1 / ::1| Mcp
   McpWorker --> Mcp
-  Mcp --> Tasks & Roadmap & DevbookInfra & SessionsInfra
+  Mcp -->|"tool groups, one context's Abstractions each"| Work & Inbox & Goals & Events & DevbookInfra & SessionsInfra
 
   GitHubInfra --> GitHub
   Foundry --> FoundryApi
@@ -247,11 +245,45 @@ graph TB
 
 Capture sources and background workers run inside the desktop process, so external credentials stay on the machine. `MauiProgram` starts the sync, backup and MCP workers at launch.
 
-**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach Tasks, Roadmap, Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach the contexts through it, as the [MCP channel](#mcp-channel) draws; `McpServerRegistrationTests` holds the binding.
 
-Module UI projects reference adapters directly where a pane needs one: Tasks.UI and Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
+### MCP channel
 
-**Repository Management** is `Backlog.Modules.RepositoryManagement` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Progress (`IGoalPullRequestReader`). Tasks.UI keeps its GitHub reference for issues and settings only.
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md", ".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md", ".devbook/domain/context-map.md"]
+```
+
+The MCP server is a channel, like the desktop shell, and not a context (local ADR 0073 §6). It owns no domain data. Each tool group is one `[McpServerToolType]` class, listed in `BacklogMcpTools.Groups` with the feature key that switches it, and passes a call to one context's Abstractions. Each context chapter's **Over MCP** section names its groups, or says it has none.
+
+```mermaid
+flowchart LR
+  Agents["MCP clients\n(agents, IDE extensions)"]
+
+  subgraph Channel["MCP channel — Backlog.Infrastructure.Mcp (loopback only)"]
+    Own["The channel's own\nGrantTools, AccessTools (grants and scopes)\nChangeTools (change journal)"]
+    Single["One context each\nWorkTools, RoadmapTools · GoalTools, ImpedimentTools\nInboxTools · DevbookTools · EventTools · NotificationTools\nSessionTools, SurfaceTools, UsageTools,\nScheduleTools, LoopTools, SessionRequestTools"]
+    Composed["Two contexts each\nTrackerTools (Work + Sessions)\nDecisionTools, SyncDirectionTools (Devbook + Work)"]
+    Shell["WindowTools (desktop shell)"]
+  end
+
+  Agents -->|"HTTP on 127.0.0.1 / ::1"| Own
+  Own -->|grant and scope checked| Single & Composed & Shell
+  Single -->|Abstractions| Contexts["Work, Goals, Inbox, Devbook,\nEvents, Notifications, Sessions"]
+  Composed -->|both contexts' Abstractions| Contexts
+  Own -->|propose_restore| Notif["Notifications.Abstractions"]
+```
+
+- **The channel's own groups.** `GrantTools` (`list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent`) and `AccessTools` (`request_access`) decide which agent may call which scope, over `SharedKernel.Mcp` (local ADRs 0058, 0059, 0069). `ChangeTools` (`list_change_sets`, `propose_restore`) reads the change journal and publishes a restore proposal through Notifications (local ADR 0071). None of them is a context's.
+- **The composing groups** only combine calls. `TrackerTools` writes the entry through Work and tells Sessions' request queue a session picked it up. `DecisionTools` and `SyncDirectionTools` answer Devbook's state, notes and directions for a repository resolved through Work. A rule either context holds stays there.
+- **The contexts with no group** are Brain (a `#brain` scope on `DevbookTools`), Insights, Repositories, Dev PC Management, Capture, Sync and Calendar. Every group that takes a `repository` argument resolves it through Work's `IRepositoryDirectory` and never registers one.
+
+**Work** is `Backlog.Modules.Work` and its `.Abstractions` (local ADR 0073 §1): the Task under `Backlog.Modules.Work.Tasks` and the Plan under `Backlog.Modules.Work.Plans`, each with its own slices and port. Where the two meet is the module's own, under `Backlog.Modules.Work.Services` and composed by `AddWorkJoins`: the plan's tags in the task picker, Import's plan entries laid out on the plan, the shelf of imported plans, the finished work a measured pace counts, the task writes the plan hears, and the plan filter chip's queue. Its screens are `Backlog.Modules.Work.UI`: the Tasks pane under `Backlog.Modules.Work.UI.Tasks` and the Roadmap view under `Backlog.Modules.Work.UI.Roadmap`, which also carries the working week's settings page. `Backlog.Infrastructure.FileSystem` keeps the joins with the world outside Work: a plan item's rollup of devbook chapters and Brain notes, a finished plan's project note, the pace file and its replica store, the roadmap's view choices, and the actual hours.
+
+Module UI projects reference adapters directly where a pane needs one: Work.UI and Devbook.UI reference Copilot and GitHub, and Devbook.UI references `Backlog.Infrastructure.Devbook` (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and forbids another module's implementation. `PullRequestStateBoundaryTests` forbids a module UI calling a pull-request member of the GitHub adapter (local ADR 0042 §8).
+
+**Repositories** is `Backlog.Modules.Repositories` and its `.Abstractions`: the pull-request state of the registered repositories, with one status, one readiness verdict and one cache (local ADR 0042). It has no `.UI` project; the pull requests pane and session card stay in the shell and read `IPullRequests`. `Backlog.Infrastructure.GitHub` answers its source ports. `Backlog.Infrastructure.FileSystem` keeps its settled pull requests and translates its contract for Tasks (`ILinkedPullRequestStates`) and Goals (`IGoalPullRequestReader`). Work.UI keeps its GitHub reference for issues, settings and the registered repositories only.
+
+**Goals** is `Backlog.Modules.Goals`, with its `.Abstractions` and `.UI` (local ADRs 0035, 0073 §4): goals, impediments and the stand-up. Its stores are the `goals_goals` and `goals_impediments` tables in `backlog.db`; a file from before the rename has its `progress_goals` and `progress_impediments` rows copied over on first open (local ADR 0073 §10). Its `.UI` draws the Goals view and the weekly review. It reads tasks through `GoalsTaskSource` and pull requests through `RepositoriesGoalPullRequests`, both in `Backlog.Infrastructure.FileSystem/Goals/`, and never sees Tasks.
 
 **Events** is `Backlog.Modules.Events`, with its `.Abstractions` and `.UI` (local ADR 0050). Its stores are the `events_knowledge_events` and `events_series` tables in `backlog.db`. Its pane is a takeover behind the `events` feature, and its `HarvestTaskWorker` runs the harvest task filing after start-up and at each day turn. No other module sees it and it sees none, so three adapters carry its joins:
 
@@ -261,11 +293,11 @@ Module UI projects reference adapters directly where a pane needs one: Tasks.UI 
 
 The Sync Client's `KnowledgeEventSyncWorker` replicates the events through `IKnowledgeEventReplication`. `TaskReplicaMerge` hands the phone's attachment requests to `IEventAttachmentRequests`.
 
-**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Tasks, Plans and Events layers, one per window. Its `.UI` draws the calendar grid itself, `CalendarGrid`, and Tasks.UI registers nothing for it (local ADR 0056). Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
+**Calendar** is `Backlog.Modules.Calendar`, with its `.Abstractions` and `.UI` (local ADR 0055). It owns no data: its services are the read policies of the Tasks, Plans and Events layers, one per window. Its `.UI` draws the calendar grid itself, `CalendarGrid`, and Work.UI registers nothing for it (local ADR 0056). Adapters in `Backlog.Infrastructure.FileSystem/Calendar/` answer its ports:
 
 - `TasksCalendarTasks` answers `ICalendarTasks` over Tasks' `ITaskItems`, `ITaskStore` and `ITaskChangeSignal`. In a host with no Tasks module, `NoCalendarTasks` answers it, and the Calendar draws plans and events alone.
 
-- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Roadmap's ports.
+- `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` answer `ICalendarPlans` and `ICalendarCapacity` over Work's plan ports. They stay adapters: their other end is the Calendar, not Work.
 - `EventsCalendarEvents` answers `ICalendarEvents` over Events' `IKnowledgeEventReader`. With the `events` area off it reads nothing, and the Calendar offers no events.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the C# builder that indexes a repository's devbook folders and the read-only reader over the result. It indexes:
@@ -343,7 +375,7 @@ flowchart LR
 
 The same project reads scenarios files outside the database. `Scenarios/` ports devbook's scenarios-file parser and journey signature (each `##` journey of a `scenarios.md` or `scenarios.<name>.md` with its `###` parts), held to devbook's shared vector by `ScenarioSignatureVectorTests`. It also reads each journey's committed `run.json` in all three versions and devbook's `_meta/scenarios.json` register at schema 2, with the disk reads behind them.
 
-The Devbook UI's `DevbookScenarioStore` keeps one catalog per repository from those reads. The menu, the Domain panel, every chapter's `scenario:` images and a task entry's text draw from it; the Tasks pane may not reach it directly. The shell answers the pane's `DevbookImagesFor` parameter from `DevbookScenarioImageSources`, one `IDevbookImageSource` per repository over the same store. `IDevbookImageSource` lives in the component library, so Tasks.UI references no Devbook project. Outside a devbook document, `MarkdownView` asks that source about images only.
+The Devbook UI's `DevbookScenarioStore` keeps one catalog per repository from those reads. The menu, the Domain panel, every chapter's `scenario:` images and a task entry's text draw from it; the Tasks pane may not reach it directly. The shell answers the pane's `DevbookImagesFor` parameter from `DevbookScenarioImageSources`, one `IDevbookImageSource` per repository over the same store. `IDevbookImageSource` lives in the component library, so Work.UI references no Devbook project. Outside a devbook document, `MarkdownView` asks that source about images only.
 
 A followed reference's `#anchor` reaches a scenarios file as a `DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to each journey's `DevbookScenarioPage`. The journey holding that part marks it and reveals it with `backlogRevealRow`.
 
@@ -395,9 +427,9 @@ A source never describes the screen. Filter text, sort, layout and selection sta
 
 A source may pin the records every question needs. `AiContentBudget` charges a pinned record first, so no question's words can rank it out. Tasks pins the open entry.
 
-The Dashboard pins one line per insight across every tab, worded as its part words it, whichever tab is on show. The figures lead the body, under a line saying they are not entries. The first line counts only merged pull requests and closed issues, so the assistant never reports a figure line as a pull request. An insight that cannot answer keeps its line with the reason. Local ADR 0033 records what this sends to Foundry and why.
+Insights pins one line per insight across every tab, worded as its part words it, whichever tab is on show. The figures lead the body, under a line saying they are not entries. The first line counts only merged pull requests and closed issues, so the assistant never reports a figure line as a pull request. An insight that cannot answer keeps its line with the reason. Local ADR 0033 records what this sends to Foundry and why.
 
-An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control. `DashboardPane.OnAskAi` hands the part's title to the shell, which opens the panel on the Dashboard with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and a Dashboard source is composed, so no part offers a control that leads nowhere.
+An area may also open the panel itself. Each dashboard part's frame draws an Ask AI control. `InsightsPane.OnAskAi` hands the part's title to the shell, which opens the panel on Insights with the question begun `About the "<part>" chart: `. The part travels in the question and never in the body, because which part was pressed is screen state. The shell passes the callback only while the assistant is on and an Insights source is composed, so no part offers a control that leads nowhere.
 
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and both web harnesses. The harnesses register it separately, so they pair as two distinct devices. Its parts:
 

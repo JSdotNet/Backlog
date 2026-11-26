@@ -1,10 +1,10 @@
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The pull request status line on a work-link card
-/// (<c>.devbook/domain/progress/features.md#pull-request-status</c>): the card, the two
+/// (<c>.devbook/domain/goals/features.md#pull-request-status</c>): the card, the two
 /// columns of <see cref="WorkLinks"/>, and the task panel's <see cref="WorkLinksPanel"/>.
 /// </summary>
 public sealed class WorkPullRequestStatusTests

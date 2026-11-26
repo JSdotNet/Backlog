@@ -6,7 +6,7 @@ using Backlog.Infrastructure.Devbook.Documents;
 using Backlog.Infrastructure.Devbook.Instructions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 namespace Backlog.HostComposition.UnitTests;
 

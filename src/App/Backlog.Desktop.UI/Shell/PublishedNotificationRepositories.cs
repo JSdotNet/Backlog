@@ -1,9 +1,9 @@
 using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 

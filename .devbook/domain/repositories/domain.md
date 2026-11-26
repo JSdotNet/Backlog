@@ -1,0 +1,484 @@
+# Repositories
+
+```meta
+type: domain
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
+
+## Repository Registry
+
+```meta
+type: aggregate
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/domain/repositories/domain.invariants.md#repository-registry, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+aliases: [RepositoryRegistry]
+```
+
+The global singleton that owns all registered repositories with their named [environments](#environment), the [no-repository group](#no-repository-group), the technology and dependency baselines, and portfolio analytics. All repository mutations go through the root.
+
+Besides the repositories, the registry remembers what became of names it no longer holds, because entries elsewhere still write them:
+
+- a [Rename Record](#rename-record) for each rename, so an old name keeps meaning the repository it became;
+- an [alias move](#repository-alias) for each relabel, so an old alias keeps meaning the repository that held it;
+- a [Removal Record](#removal-record) for each removal, so a removed name is not registered again by accident.
+
+A repository the registry still holds is either active or [archived](#archived-repository). Archive and Unarchive are two of the seven registry edits ([Following a repository rename](features.md#following-a-repository-rename)). Unlike a removal, an archive forgets nothing, so it needs no record of its own (local ADR 0029).
+
+A **placeholder** is a repository an import registered because a plan named it before anyone had configured it. Renaming it to the real repository's owner and name merges the two, and the real repository keeps its own settings ([Following a repository rename](features.md#following-a-repository-rename)).
+
+Scanning and health scoring are planned and not built. A repository's `health_score` is computed from the component scores [Health Details](#health-details) holds. The rules they will hold are in [the registry's invariants](domain.invariants.md#repository-registry) and [the scan's](domain.invariants.md#repository-scan).
+
+### Repository
+
+```meta
+type: entity
+aliases: [repo_id, repo_ids]
+```
+
+A single software repository, identified by `RepositoryId`: its owner and name on GitHub, such as "org/repo-name". The registry holds for each repository:
+
+- its [alias](#repository-alias);
+- its owner and name;
+- an optional local clone directory;
+- its [identity colour](features.md#repository-identity-colour), one the design system sanctions;
+- the account it is worked as, and optionally a personal access token;
+- its [devbook folder settings](features.md#repository-devbook-folder-settings);
+- whether it is [archived](#archived-repository);
+- its named [environments](#environment), planned.
+
+The registry is ordered, and the first repository that is not archived serves as the default. While [Additional repositories](context.md#additional-repositories) is off, every entry belongs to it. A devbook read that names no repository also falls back to it.
+
+The scan, when built, adds:
+
+- metadata: `repo_url`, `repo_type`, `primary_language`, `team_owner`;
+- scan and commit timestamps;
+- owned package manifests, detected technologies, and GitHub metadata;
+- the health score and its breakdown, and security alerts;
+- ADR links and tags;
+- daily freshness, health, GitHub and tech-adoption history.
+
+A detected technology that the repository's own devbook `tech/` rates `hold` or `retired` will then trigger a deprecation warning.
+
+### Repository Alias
+
+```meta
+type: value-object
+aliases: [alias, repository alias]
+related: [.devbook/domain/work/domain.plan.md#repository-scope, .devbook/domain/repositories/features.md#repository-registry-configuration, .devbook/domain/repositories/features.md#following-a-repository-rename, .devbook/arc42/adr/0060-a-renamed-repository-takes-its-new-name-as-its-alias-and-its-data-follows.md]
+```
+
+The short name a person and the rest of the product use for a registered repository, such as `app`. A task files itself against a repository by naming its alias, and a Roadmap [Repository Scope](../work/domain.plan.md#repository-scope) holds aliases as opaque strings. Equality is by value: an alias is stored trimmed and in lower case. A repository registered without an alias takes its name as its alias.
+
+Aliases are unique in the registry, because every consumer keys on them: the filters, the colours and the settings subpages. Relabelling an alias changes nothing about which repository is meant.
+
+A rename relabels a repository whose alias is still its old name, and leaves an alias the person chose alone. Every relabel leaves an **alias move** in the registry: the old alias, the new one, the repository and when. What is keyed by the old alias follows it, and an old alias still written somewhere resolves through the moves. A registered alias always wins over a move (local ADR 0060).
+
+### Rename Record
+
+```meta
+type: value-object
+aliases: [RepositoryRename, memory of a rename]
+related: [.devbook/domain/repositories/features.md#following-a-repository-rename]
+```
+
+One rename the registry remembers: the old owner and name, the new one, and when. An old name still written on an entry resolves through the records to the repository it became, however many renames ago. A name given up twice follows the latest record. The records travel with the registry, because the registry and the entries reach another workspace by different routes and in no fixed order.
+
+A record lasts until its old name is registered again. A configured repository always wins over a record, so a repository re-created under a name once given up is that new repository. A rename leaves an [archived](#archived-repository) repository archived.
+
+### Removal Record
+
+```meta
+type: value-object
+aliases: [RepositoryRemoval, memory of a removal]
+related: [.devbook/domain/repositories/features.md#following-a-repository-rename]
+```
+
+One repository somebody removed, and when. Entries that still name it outlive it. A repository that should be quiet but kept is [archived](#archived-repository) instead. Without the record, the next start would read such a name as a repository registered on another workspace and register it again, undoing the removal. The record lasts until the name is registered again on purpose, from the list or by an import that names it.
+
+### Package Manifest
+
+```meta
+type: entity
+aliases: [PackageManifest]
+```
+
+Parsed dependencies from a single manifest file, identified by `(repo_id, file_path)`. It owns the `Package` value objects parsed from that file, such as `package.json`, `*.csproj`, `pyproject.toml` or `go.mod`.
+
+### Package
+
+```meta
+type: value-object
+```
+
+A single dependency: `name`, `version`, `constraint`, `latest_version` and `is_outdated`, computed by semver as `is_outdated = version < latest_version`.
+
+### Technology Stack Entry
+
+```meta
+type: value-object
+```
+
+A detected technology in the repository: `name`, `version`, `category`
+(runtime/framework/tool/language/platform).
+
+### GitHub Metadata
+
+```meta
+type: value-object
+```
+
+A snapshot of GitHub stats:
+
+- `stars`;
+- `forks`;
+- `watchers`;
+- `open_issues`;
+- `open_prs`;
+- `branch_protection_enabled`;
+- `last_update`.
+
+### Health Details
+
+```meta
+type: value-object
+aliases: [HealthDetails, health score, health_score]
+```
+
+The breakdown of a repository's 0-100 health score, tracked over time as `Health Score Snapshot`. [Repository health scoring](features.md#repository-health-scoring) says how it is computed. The overall score is `overall_score = weighted_average(...)`. It holds:
+
+- `package_score`;
+- `github_score`;
+- `coverage_score`;
+- `security_score`;
+- actionable `recommendations`.
+
+### Security Alert
+
+```meta
+type: value-object
+```
+
+A vulnerability from GitHub Advanced Security:
+
+- `alert_id`;
+- `vulnerability`;
+- `severity`;
+- `affected_package`;
+- `fixed_version`;
+- `first_detected`;
+- `last_updated`.
+
+### Package Freshness Metric
+
+```meta
+type: value-object
+```
+
+Daily freshness: `date`, `outdated_count`, `total_count` and `freshness_pct`, which is `(total - outdated) / total * 100`.
+
+### Health Score Snapshot
+
+```meta
+type: value-object
+```
+
+Health at a point in time:
+
+- `date`;
+- `overall_score`;
+- `package_score`;
+- `github_score`;
+- `coverage_score`.
+
+### GitHub Health Metric
+
+```meta
+type: value-object
+```
+
+Daily aging of issues and pull requests:
+
+- `date`;
+- `open_issues`;
+- `avg_issue_age_days`;
+- `open_prs`;
+- `avg_pr_age_days`.
+
+### Technology Snapshot
+
+```meta
+type: value-object
+```
+
+A technology stack snapshot at a date: `date`, `technologies`.
+
+### Tech Baselines
+
+```meta
+type: value-object
+aliases: [TechBaselines]
+```
+
+Portfolio technology and dependency baselines (language, framework, dependency, plus `deprecated_tech`), read from each registered devbook's `tech/` ratings and versions through Devbook's reader (see `dependencies.md`).
+
+### Portfolio Analytics
+
+```meta
+type: value-object
+```
+
+Portfolio-wide rollup: daily `portfolio_health`, freshness/health `TrendMetrics`,
+and `TechAdoptionTrends`.
+
+### Environment
+
+```meta
+type: entity
+aliases: [environment_id, EnvironmentShortcut]
+related: [.devbook/domain/repositories/features.md#environment-quick-access, .devbook/domain/repositories/domain.invariants.md#repository-registry, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories, .devbook/domain/sessions/domain.md#environment]
+```
+
+A named destination of a [Repository](#repository) the person wants quick access to, such as its local Aspire dashboard, its staging web app, its Azure resource group or its production admin surface. A repository holds any number of them, and a destination that belongs to no repository sits in the [No-repository Group](#no-repository-group) instead. Each carries:
+
+- a name;
+- an [Environment Type](#environment-type);
+- one [Launch Link](#launch-link);
+- any number of [Access Hints](#access-hint);
+- whether it is pinned or hidden, and its order among its repository's environments.
+
+It is not the [Sessions Environment](../sessions/domain.md#environment), which is only where an agent session ran (local ADR 0073 §3). Environments are not built.
+
+### No-repository Group
+
+```meta
+type: entity
+aliases: [no-repository]
+```
+
+The registry's one group for the environments no registered repository owns, such as a cloud portal or a team dashboard. Its environments follow the same rules as a repository's. Archiving or removing a repository never moves its environments here.
+
+### Launch Link
+
+```meta
+type: value-object
+aliases: [LaunchTarget, target_ref]
+```
+
+How an [Environment](#environment) is opened. Equality is by kind and value. It is one of:
+
+- a URL;
+- a command;
+- a workspace path, relative to the repository's clone directory when it has one;
+- a dashboard or cloud resource id.
+
+### Access Hint
+
+```meta
+type: value-object
+aliases: [AccessHint]
+```
+
+A non-secret pointer that helps the person reach an [Environment](#environment): the credential store that holds the secret, a tenant label, a VPN requirement or a local profile. It never contains the credential.
+
+### Environment Type
+
+```meta
+type: enum
+```
+
+Classifies an [Environment](#environment) as one of:
+
+- `local`;
+- `development`;
+- `test`;
+- `staging`;
+- `production`;
+- `cloud`;
+- `tooling`.
+
+### Repository Type
+
+```meta
+type: enum
+```
+
+- `service`;
+- `library`;
+- `frontend`;
+- `cli`;
+- `template`.
+
+### Severity
+
+```meta
+type: enum
+```
+
+A security alert's severity: `critical`, `high`, `medium` or `low`.
+
+## Repository Scan
+
+```meta
+type: domain-service
+related: [.devbook/domain/repositories/features.md#portfolio-technology-adoption, .devbook/arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal, .devbook/domain/repositories/domain.invariants.md#repository-scan]
+```
+
+Runs scheduled or on-demand scans of a repository. A scan parses dependency manifests, detects the technology stack, and fetches GitHub metadata and security alerts. It then recomputes the health score from package freshness, GitHub backlog, coverage and security.
+
+It is a service because it coordinates external systems (file system, GitHub, package registries) to refresh the aggregate. Invocation semantics: scheduled or on-demand orchestration service. It is planned and not built.
+
+## Environment Launch
+
+```meta
+type: domain-service
+related: [.devbook/domain/repositories/domain.md#environment, .devbook/domain/repositories/features.md#environment-quick-access]
+```
+
+Turns an [Environment](#environment)'s [Launch Link](#launch-link) into the action the screen offers: open a URL, run a command, focus a workspace, or open a cloud dashboard. A workspace path is resolved against its repository's clone directory, so a repository with no clone on this device offers no workspace launch.
+
+It is a service because it composes the environment with the repository's clone directory on this device. Invocation semantics: query, when an environment is shown or launched. It is planned and not built.
+
+## Bulk Operations
+
+```meta
+type: domain-service
+related: [.devbook/domain/work/domain.task.md#task]
+```
+
+Coordinates portfolio-wide actions:
+
+- queueing package updates across repositories;
+- running synchronized upgrades through GitHub Actions, such as "upgrade all ASP.NET Core projects to 9.0";
+- generating migration guides.
+
+It is a service because it spans many repositories rather than a single aggregate. Invocation semantics: command-invoked orchestration service.
+
+## Shared Enums
+
+```meta
+type: shared-enums
+```
+
+> Enums used by more than one aggregate in this bounded context.
+
+Repositories has a single aggregate; `Repository Type` and `Severity`
+are documented under it. This chapter is reserved for future cross-aggregate
+enums.
+
+## Ubiquitous Language
+
+```meta
+type: ubiquitous-language
+```
+
+> The terms this context owns that are not chapters above.
+
+### Archived repository
+
+```meta
+type: term
+aliases: [Archived, archive, unarchive, archived row]
+related: [.devbook/domain/repositories/domain.md#repository, .devbook/domain/repositories/features.md#archiving-a-repository, .devbook/domain/repositories/requirements.md#archiving-a-repository, .devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md]
+```
+
+A registered [Repository](#repository) a person has set aside as no longer active work. It keeps its `RepositoryId`, alias and every setting, and a task filed against it keeps naming it. Backlog reads nothing from GitHub for it and opens its devbook for reading only. The scope and the pickers leave it out unless [show archived](#show-archived) is on. To **archive** a repository is the registry edit that sets it aside; to **unarchive** it makes it active again. Both are a person's choice, never inferred from GitHub.
+
+It is not the `archived` [Task Status](../work/domain.task.md#task-status) of a task, nor a devbook note in its archive area. Those are archived things inside a repository; this is the repository itself.
+
+### Active repository
+
+```meta
+type: term
+aliases: [active]
+related: [.devbook/domain/repositories/domain.md#repository]
+```
+
+A registered [Repository](#repository) that is not archived. Only active repositories are read from GitHub, offered in the scope by default, or served as the default repository.
+
+### Show archived
+
+```meta
+type: term
+aliases: [show-archived]
+related: [.devbook/domain/repositories/requirements.md#archiving-a-repository]
+```
+
+The person's choice, kept per device, to see archived repositories where they are otherwise hidden: in the repository scope, the Board's columns, the pickers and the roadmap's open work. It changes what is shown, never what is archived.
+
+### Pull request status
+
+```meta
+type: term
+aliases: [status, PullRequestStatusModel, GoalPullRequestDto, checks and approvals marks]
+related: [.devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/repositories/requirements.md#pull-request-status, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+What this context publishes about one pull request of an [active repository](#active-repository):
+
+- its state, checks and approvals;
+- whether it can merge;
+- how far it is behind its base;
+- whether GitHub holds an auto-merge for it;
+- whether a pending review request names the viewer;
+- its [stack parent](#stack-parent).
+
+Local ADR 0042 §2 lists the fields. A screen shows two marks of it beside the pull request's number, checks and approvals, followed by a "your review" label when the viewer's review is requested ([Pull request status](features.md#pull-request-status)).
+
+It is the one reading every other context draws a pull request from. Tasks and Goals keep a smaller copy of their own, translated from this one, and never read GitHub for it.
+
+### Readiness verdict
+
+```meta
+type: term
+aliases: [verdict, PullRequestVerdict]
+related: [.devbook/domain/repositories/features.md#one-verdict-per-pull-request, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+The one answer to whether an open pull request is ready to merge, and if not, what it waits on:
+
+- Conflicts;
+- Failing checks;
+- Changes requested;
+- Behind;
+- Draft;
+- Checks running;
+- Review required;
+- Ready.
+
+It is computed from the [pull request status](#pull-request-status) alone. Each verdict places the pull request in a **lane** and offers its **acts**, the [merge commands](#merge-command) that fit it. [One verdict per pull request](features.md#one-verdict-per-pull-request) holds the precedence.
+
+A merged pull request reads Merged and has no act. One closed without merging has no verdict. The pull requests pane, the session card and the task row show the same verdict for the same status.
+
+### Stack parent
+
+```meta
+type: term
+aliases: [stacked pull request, stack, PullRequestStacks]
+related: [.devbook/domain/repositories/features.md#pull-request-readiness]
+```
+
+The open pull request another one is stacked on: its head branch is the other's base. The pull request on top waits on its stack parent, so its verdict names the parent and offers no merge act. A **stack** is the chain from the pull request at the bottom, whose base is the repository's own branch, up to the one on top.
+
+### Merge command
+
+```meta
+type: term
+aliases: [act, second act, PullRequestMerges]
+related: [.devbook/domain/repositories/features.md#one-verdict-per-pull-request, .devbook/domain/repositories/features.md#re-run-failed, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+A request this context sends GitHub to move a pull request toward its merge:
+
+- merge;
+- auto-merge on or off;
+- update branch;
+- mark ready for review;
+- re-run failed.
+
+On a screen it is offered as one of a verdict's acts; the other acts, such as Open on GitHub, send nothing. Each command reads the pull request's repository again once it returns, so every reader sees the new state. Only this context sends them (local ADR 0042 §3).

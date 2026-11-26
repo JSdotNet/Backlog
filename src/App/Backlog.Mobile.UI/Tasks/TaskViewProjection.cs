@@ -2,9 +2,9 @@ using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
-using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
+using MyDayRule = Backlog.Modules.Work.Abstractions.Tasks.MyDay;
 
 namespace Backlog.Mobile.UI.Tasks;
 
@@ -383,7 +383,7 @@ public sealed class TaskViewProjection : IDisposable
 
     /// <summary>
     /// The order My Day keeps, the same on the phone and the desktop
-    /// (.devbook/domain/tasks/features.md#manual-ordering): the hand rank
+    /// (.devbook/domain/work/features.md#manual-ordering): the hand rank
     /// (<see cref="TaskPayload.Order"/>) first, and among tasks sharing a rank the
     /// newest first. The desktop's My Day is its task list narrowed to today's
     /// pick, and that list is read in this order — <c>ORDER BY sort_order,

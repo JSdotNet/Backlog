@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;

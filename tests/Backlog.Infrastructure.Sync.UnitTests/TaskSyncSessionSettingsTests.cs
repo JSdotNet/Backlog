@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;

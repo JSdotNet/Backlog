@@ -291,7 +291,7 @@
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.CodeAnalysis.CSharp": "[5.12.0, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )"
@@ -300,25 +300,25 @@
       "backlog.infrastructure.github": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.RepositoryManagement.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
           "System.Security.Cryptography.ProtectedData": "[11.0.0, )"
         }
       },
-      "backlog.modules.dashboard.abstractions": {
+      "backlog.modules.devbook.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.devbook.abstractions": {
+      "backlog.modules.insights.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
@@ -341,7 +341,7 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.repositorymanagement.abstractions": {
+      "backlog.modules.repositories.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
@@ -356,7 +356,7 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.tasks.abstractions": {
+      "backlog.modules.work.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

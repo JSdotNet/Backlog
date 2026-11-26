@@ -1,10 +1,10 @@
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The settled-fact memory behind Repository Management's one cache (local ADR 0042
+/// The settled-fact memory behind Repositories' one cache (local ADR 0042
 /// §3, V4): merged pull requests come back after a restart, an unreadable folder
 /// answers nothing rather than throwing, and nothing an open pull request carries —
 /// checks, reviews, auto-merge, mergeability, how far behind — is ever written.

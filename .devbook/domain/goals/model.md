@@ -1,0 +1,115 @@
+# Model
+
+```meta
+type: model
+related: [.devbook/domain/goals/domain.md#goal, .devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#iteration]
+```
+
+> Structural view of the domain model for this bounded context: aggregates,
+> entities, value objects, and their relationships. Keep this in sync with
+> `domain.md` (which describes responsibilities in prose) — this file focuses on
+> structure and relationships.
+
+## Model diagram
+
+```mermaid
+classDiagram
+    class Goal {
+        <<aggregate root>>
+        +GoalId Id
+        +string Title
+        +string Outcome
+        +DateOnly? DueDate
+        +GoalAttachment[] Attachments
+    }
+
+    class GoalAttachment {
+        <<value object>>
+        +AttachmentKind Kind
+        +PlanTag Plan
+        +TaskId Task
+        +PullRequestRef PullRequest
+        +SessionIdentity Session
+        +DateOnly AttachedOn
+    }
+
+    class Impediment {
+        <<aggregate root>>
+        +ImpedimentId Id
+        +string Title
+        +ImpedimentState State
+        +string ReportedTo
+        +string HandledBy
+        +DateOnly CheckAgain
+        +string Note
+        +StateChange[] History
+        +HoldsBack[] HoldsBack
+    }
+
+    class StateChange {
+        <<entity>>
+        +ImpedimentState State
+        +DateOnly On
+        +string With
+    }
+
+    class HoldsBack {
+        <<value object>>
+        +HeldBackKind Kind
+        +TaskId Task
+        +PullRequestRef PullRequest
+        +PlanTag Plan
+    }
+
+    class Iteration {
+        <<value object>>
+        +IterationLength Length
+        +DateOnly FirstDay
+        +DateOnly LastDay
+    }
+
+    class Task {
+    }
+    class RoadmapTag {
+    }
+    class PullRequest {
+    }
+    class AgentSession {
+    }
+
+    Goal "1" *-- "0..*" GoalAttachment
+    Impediment "1" *-- "1..*" StateChange
+    Impediment "1" *-- "0..*" HoldsBack
+    GoalAttachment ..> RoadmapTag : plan by tag
+    GoalAttachment ..> Task : task by id
+    GoalAttachment ..> PullRequest : repository and number
+    GoalAttachment ..> AgentSession : agent and session id
+    HoldsBack ..> Task : task by id
+    HoldsBack ..> PullRequest : repository and number
+    HoldsBack ..> RoadmapTag : plan by tag
+```
+
+## Relationship notes
+
+- A Goal owns its attachments, and an Impediment owns its history and its holds-back
+  links. Neither aggregate refers to the other. An impediment reaches a goal only
+  through an item the goal counts: a held-back task or pull request, or an entry of a
+  held-back plan.
+- A held-back item names a task, a pull request or a plan exactly as a Goal
+  Attachment does, and it names no session. The two share one search and one way of
+  reading each kind.
+- Every arrow out of Goals is a reference by identity. A plan is named by its
+  [Roadmap Tag](../work/domain.plan.md#roadmap-tag), a task by its id, a pull request
+  by its repository and number, and a session by its agent and session id. None of
+  them is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`
+  Work's, `PullRequest` GitHub's and `AgentSession` Sessions'.
+- [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
+  are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes
+  them over an [Iteration](domain.md#iteration), which is a window and holds no
+  identity of its own.
+- [Goal Assignment](domain.md#goal-assignment) reads every goal to hold an item to one
+  of them. Nothing creates an Impediment but a person or an agent: the
+  [Blocked Task Policy](domain.md#blocked-task-policy) that raised one from a task's
+  blocked mark is retired.
+- Whether an impediment is [Ready to resolve](domain.md#ready-to-resolve) is not
+  stored either. Stand-up Reading reads it from the held-back items' current state.

@@ -25,7 +25,7 @@ public class AzureFoundryAdapterTestPlacementTests
         "AzureFoundryTests.cs",
         "AzureFoundryCostClientTests.cs",
         "AzureFoundryRegistrationTests.cs",
-        "AzureFoundryDashboardAdapterRegistrationTests.cs",
+        "AzureFoundryInsightsAdapterRegistrationTests.cs",
         "AzureFoundryPlanFixtureTests.cs",
         "FoundryMessagesTests.cs"
     ];

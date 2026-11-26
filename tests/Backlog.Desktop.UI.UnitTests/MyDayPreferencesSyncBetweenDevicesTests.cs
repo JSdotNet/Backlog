@@ -3,7 +3,7 @@ using System.Globalization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Data.Sqlite;

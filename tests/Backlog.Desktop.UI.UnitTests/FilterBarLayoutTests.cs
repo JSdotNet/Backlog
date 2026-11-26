@@ -153,7 +153,7 @@ public sealed class FilterBarLayoutTests
         Assert.Contains("max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));", tags, StringComparison.Ordinal);
         Assert.Contains("flex: 0 0 auto;", Block(css, ".chip--more {"), StringComparison.Ordinal);
 
-        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor")));
+        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "TasksPane.razor")));
         var rowAt = pane.IndexOf("<div class=\"filter-bar__tags\"", StringComparison.Ordinal);
         Assert.True(rowAt >= 0, "The tag strip sits in its row wrapper.");
         Assert.InRange(pane.IndexOf("<div id=\"tag-filter-strip\"", StringComparison.Ordinal), rowAt, int.MaxValue);
@@ -359,7 +359,7 @@ public sealed class FilterBarLayoutTests
     [Fact]
     public void The_pane_folds_at_the_same_width_the_tag_row_leaves()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor")));
+        var pane = NormalizeLineEndings(File.ReadAllText(RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "TasksPane.razor")));
 
         Assert.Contains("internal const int ListNarrowRem = 48;", pane, StringComparison.Ordinal);
         Assert.Contains(".filter-bar__tags", Block(Css(), TagStep), StringComparison.Ordinal);

@@ -1,9 +1,9 @@
 using System.ComponentModel;
 
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -293,7 +293,7 @@ public sealed class TrackerTools(
     /// <b>This is the stored block, not the derived one.</b> The lifecycle is left
     /// exactly where it was, and so is the Blocked readiness a chain of
     /// <c>after:</c> tokens derives — that one is worked out from the other entries
-    /// and never stored (<c>.devbook/domain/tasks/domain.md#readiness</c>), where
+    /// and never stored (<c>.devbook/domain/work/domain.task.md#readiness</c>), where
     /// this is a person or a session saying something outside the backlog is in
     /// the way. So there is no graph to consult and no refusal to make: any entry
     /// can be marked and any marked entry unblocked.
@@ -662,7 +662,7 @@ public sealed class TrackerTools(
         string repository,
         [Description(
             "Every reference the entry should keep, in order: a repository-relative page path, optionally followed "
-            + "by #heading-slug for one chapter, e.g. .devbook/domain/tasks/domain.md#task, or a Brain note as "
+            + "by #heading-slug for one chapter, e.g. .devbook/domain/work/domain.task.md#task, or a Brain note as "
             + "#brain:<path>[#heading-slug], e.g. #brain:projects/sync.md. Repeats are dropped; a value with neither a "
             + "folder nor a .md ending, and a #brain: value naming no note, is refused.")]
         string[] references,

@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Logging;

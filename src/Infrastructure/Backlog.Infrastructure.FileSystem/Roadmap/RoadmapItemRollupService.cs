@@ -1,10 +1,10 @@
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 

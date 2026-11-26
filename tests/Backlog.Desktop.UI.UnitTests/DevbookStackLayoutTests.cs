@@ -534,5 +534,5 @@ public sealed class DevbookStackLayoutTests
         RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
 
     private static string FindRoadmapCss() =>
-        RepositoryRoot.File("src", "Modules", "Roadmap", "Backlog.Modules.Roadmap.UI", "wwwroot", "roadmap.css");
+        RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "wwwroot", "roadmap.css");
 }

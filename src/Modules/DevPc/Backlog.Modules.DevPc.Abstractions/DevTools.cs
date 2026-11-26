@@ -1098,19 +1098,35 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
     public string LastRunPath =>
         Path.Combine(Path.GetDirectoryName(PcConfigPath) ?? Environment.CurrentDirectory, LastRunFileName);
 
-    public static DevToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
+    /// <summary>
+    /// Where this machine's choices were kept before its folder was keyed by
+    /// <see cref="Machine"/> (local ADR 0073 §7): the folder named after the machine's
+    /// normalised name. Set only on paths keyed by a machine, and only where the two
+    /// folders differ; <see cref="DevToolConfiguration.AdoptLegacyPcFolder"/> reads it.
+    /// </summary>
+    public string? LegacyPcConfigPath { get; init; }
+
+    public static DevToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null) =>
+        FromStorageRoot(DefaultStorageRoot(startPath, storageRootDirectory), machineName);
+
+    /// <summary>
+    /// The default paths with the per-PC folder keyed by <paramref name="machine"/>'s
+    /// id rather than its name (local ADR 0073 §7), so a rename keeps the machine's
+    /// choices and two machines sharing a name keep their own.
+    /// </summary>
+    public static DevToolConfigurationPaths CreateDefault(Machine machine, string? startPath = null, string? storageRootDirectory = null) =>
+        FromStorageRoot(DefaultStorageRoot(startPath, storageRootDirectory), machine);
+
+    private static string DefaultStorageRoot(string? startPath, string? storageRootDirectory)
     {
         if (!string.IsNullOrWhiteSpace(storageRootDirectory))
         {
-            return FromStorageRoot(storageRootDirectory, machineName);
+            return storageRootDirectory;
         }
 
-        var localCatalogRoot = FindCatalogRoot(startPath ?? AppContext.BaseDirectory)
-            ?? FindCatalogRoot(Environment.CurrentDirectory);
-
-        return localCatalogRoot is null
-            ? FromStorageRoot(DefaultRepositoryRoot, machineName)
-            : FromStorageRoot(localCatalogRoot, machineName);
+        return FindCatalogRoot(startPath ?? AppContext.BaseDirectory)
+            ?? FindCatalogRoot(Environment.CurrentDirectory)
+            ?? DefaultRepositoryRoot;
     }
 
     public static DevToolConfigurationPaths FromRepositoryRoot(string repositoryRoot, string? machineName = null)
@@ -1136,6 +1152,37 @@ public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConf
         return new DevToolConfigurationPaths(
             expandedCatalog,
             Path.Combine(toolRoot, pcName, CatalogFileName));
+    }
+
+    /// <inheritdoc cref="CreateDefault(Machine, string?, string?)" />
+    public static DevToolConfigurationPaths FromStorageRoot(string storageRoot, Machine machine)
+    {
+        var toolFolder = Path.Combine(Environment.ExpandEnvironmentVariables(storageRoot), ToolFolderName);
+        return KeyedBy(machine, Path.Combine(toolFolder, CatalogFileName), toolFolder);
+    }
+
+    /// <inheritdoc cref="CreateDefault(Machine, string?, string?)" />
+    public static DevToolConfigurationPaths FromCatalogPath(string catalogPath, Machine machine)
+    {
+        var expandedCatalog = Environment.ExpandEnvironmentVariables(catalogPath);
+        return KeyedBy(machine, expandedCatalog, Path.GetDirectoryName(expandedCatalog) ?? Environment.CurrentDirectory);
+    }
+
+    /// <summary>
+    /// The per-PC folder is the machine's id in its <c>D</c> form; the folder its
+    /// normalised name gave is kept as the legacy path for the one-time adoption.
+    /// </summary>
+    private static DevToolConfigurationPaths KeyedBy(Machine machine, string catalogPath, string toolFolder)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+
+        var pcConfig = Path.Combine(toolFolder, machine.Id.ToString(), CatalogFileName);
+        var legacy = Path.Combine(toolFolder, NormalizeMachineName(machine.Name), CatalogFileName);
+
+        return new DevToolConfigurationPaths(catalogPath, pcConfig)
+        {
+            LegacyPcConfigPath = string.Equals(pcConfig, legacy, StringComparison.OrdinalIgnoreCase) ? null : legacy
+        };
     }
 
     private static string? FindCatalogRoot(string startPath)
@@ -1191,6 +1238,78 @@ public static class DevToolConfiguration
     /// rather than calling <see cref="File.Exists(string)"/> themselves, so the
     /// answer the pane branches on has one definition.</summary>
     public static bool CatalogExists(DevToolConfigurationPaths paths) => File.Exists(paths.CatalogPath);
+
+    /// <summary>
+    /// The compatibility read for the per-PC folder's move from the machine's name to
+    /// its id (local ADR 0073 §7, §10). When the id's folder does not exist yet and the
+    /// name's folder does, the name's files — the tool choices and the last run — are
+    /// copied into the id's folder, once, and read from there on.
+    /// <para>
+    /// Copied, not moved: the storage root can be synced, and an older build on this
+    /// machine, or another machine of the same name, still reads the name's folder. A
+    /// folder that already exists under the id is this machine's and is never
+    /// overwritten. The copy is staged in a sibling and moved into place, so a reader
+    /// never sees half of it, and losing that move to another process leaves the
+    /// winner's copy.
+    /// </para>
+    /// <para>
+    /// A copy the disk refuses leaves the id's folder absent, and the paths returned
+    /// then read and write the name's folder, as the build before did: the choices stay
+    /// in front of the person, and the next read tries again.
+    /// </para>
+    /// </summary>
+    /// <returns>The paths to use: <paramref name="paths"/> unless the copy failed.</returns>
+    public static DevToolConfigurationPaths AdoptLegacyPcFolder(DevToolConfigurationPaths paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        if (paths.LegacyPcConfigPath is not { Length: > 0 } legacy) return paths;
+
+        var target = Path.GetDirectoryName(paths.PcConfigPath);
+        var source = Path.GetDirectoryName(legacy);
+
+        if (target is null || source is null
+            || string.Equals(Path.GetFullPath(target), Path.GetFullPath(source), StringComparison.OrdinalIgnoreCase)
+            || Directory.Exists(target)
+            || !Directory.Exists(source))
+        {
+            return paths;
+        }
+
+        var staging = $"{target}.adopting-{Guid.NewGuid():N}";
+
+        try
+        {
+            Directory.CreateDirectory(staging);
+
+            foreach (var file in Directory.EnumerateFiles(source))
+            {
+                File.Copy(file, Path.Combine(staging, Path.GetFileName(file)));
+            }
+
+            Directory.Move(staging, target);
+            return paths;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Another process adopted it first, and its copy is the same files; or the
+            // disk refused, and the name's folder is still where the choices are.
+            return Directory.Exists(target)
+                ? paths
+                : new DevToolConfigurationPaths(paths.CatalogPath, legacy);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A staging folder left behind is ignored by every reader.
+            }
+        }
+    }
 
     /// <summary>Where the Claude marketplaces live in the catalog. A path rather
     /// than a property name because it is the one array that is nested, and

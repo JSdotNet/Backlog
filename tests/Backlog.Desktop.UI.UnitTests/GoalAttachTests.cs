@@ -1,7 +1,7 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.UI.Goals;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Goals;
@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// "Attach to goal" with the goal port behind it
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>):
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>):
 /// <see cref="GoalAttach"/> reads which goal holds the work and which goals are open, and
 /// writes every attach through <see cref="IGoals"/> — moving work another goal holds
 /// rather than refusing it, and only after the picker said so. With goals off it draws
@@ -403,7 +403,7 @@ public sealed class GoalAttachTests : IDisposable
 
             if (Holder(item) is { } holder && holder.Goal.Id != goalId)
             {
-                if (!moveFromOtherGoal) return Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(holder.Goal.Title));
+                if (!moveFromOtherGoal) return Result.Failure<GoalDto>(GoalsErrors.ItemInOtherGoal(holder.Goal.Title));
                 Replace(holder.Goal with { Attachments = [.. holder.Goal.Attachments.Where(attachment => attachment.Item != item)] });
             }
 

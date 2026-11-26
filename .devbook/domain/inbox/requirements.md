@@ -1207,7 +1207,7 @@ type: requirements
 related: [.devbook/domain/inbox/features.md#queue-health-bar]
 ```
 
-> What Monitoring shows of the same numbers is Monitoring's to promise.
+> What Insights shows of the same numbers is Insights' to promise.
 
 ### Requirement: The bar splits the whole unprocessed queue by age
 

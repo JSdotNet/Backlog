@@ -7,7 +7,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
     <!-- The Brain's ports and its adapters (local ADR 0040): the Brain adapter
          suites were written here and stayed when the adapters moved. -->
@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
     <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubDeviceIdentity.cs" Link="Shared\TestDoubles\StubDeviceIdentity.cs" />
     <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTaskItems.cs" Link="Shared\TestDoubles\RecordingTaskItems.cs" />
     <Compile Include="..\Shared\TestDoubles\HeldWaitingQuestions.cs" Link="Shared\TestDoubles\HeldWaitingQuestions.cs" />

@@ -16,8 +16,8 @@
       global:: prefix, so any namespace carrying a second "Backlog" segment
       shadows the repository root — inside Backlog.Modules.Tasks.UI, for
       instance, "@using Backlog.UI.Components.Markdown" resolves against
-      Backlog.Modules.Tasks and fails with CS0234. This project keeps the same
-      rule as its siblings for the same reason, and because keeping the
+      Backlog.Modules.Tasks and fails with CS0234. This project keeps the
+      rule Tasks.UI kept until the Work merge, for that reason and because keeping the
       published namespace meant the move here changed no using, @using or
       namespace line anywhere.
     -->
