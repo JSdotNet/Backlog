@@ -63,7 +63,10 @@ authorization, not identity.
   minute band this decision names). A device obtains it by signing a
   `private_key_jwt` assertion (RFC 7523) with its non-exportable key (local ADR
   0058 §2). Only a device on a host with no key store, the mobile web harness
-  today, exchanges a registration credential instead. There is no refresh token,
+  today, exchanges a registration credential instead. The VS Code extension does
+  too, a deferred exception
+  ([local ADR 0058 §2](../0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md#2-a-device-proves-itself-with-a-non-exportable-key)).
+  There is no refresh token,
   because a fresh assertion plays that role.
 - The refresh-token and distributed-cache rules presuppose a multi-user cloud
   tier that does not exist here.
