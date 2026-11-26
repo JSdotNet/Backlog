@@ -4,14 +4,19 @@
     The client half of the sync exchange (ADR 0005 §Identity). The service side
     lives in src/Modules/Sync; this project is what every head — desktop, mobile
     and the two browser harnesses — puts in front of it:
-      IDeviceCredentialStore    where the long-lived registration credential is
-                                kept, with the DPAPI adapter ADR 0005 names as
+      IDeviceKeyStore           the device key that signs each token request
+                                (local ADR 0058 §2)
+      IDeviceCredentialStore    where the device's registration is kept, with
+                                the long-lived registration credential while
+                                the device is not yet on a key, with the DPAPI
+                                adapter ADR 0005 names as
                                 "the OS credential store", the platform-neutral
                                 half of the Android head's SecureStorage adapter
                                 (SecureValueDeviceCredentialStore over the
                                 ISecureValueStore port), and an in-memory one
                                 for tests
-      SyncTokenProvider         trades that credential for a short-lived access
+      SyncTokenProvider         trades a key-signed assertion, or that
+                                credential, for a short-lived access
                                 token and caches it until just before it expires
       SyncAuthenticationHandler puts the token on an outgoing request
       DevicePairingClient       register, issue a pairing code, redeem one, and
@@ -122,9 +127,10 @@
          way it does HttpRequestException; without the types it cannot name them,
          and they fall through to every worker's catch-all. -->
     <PackageReference Include="Polly.Core" />
-    <!-- DPAPI. The registration credential is a long-lived secret, so it is
-         never written as plaintext next to the app's other settings; on Windows
-         the OS ties the envelope to the signed-in user. -->
+    <!-- DPAPI. The device's registration, with a registration credential where
+         it has no key, and the web harness's software device key are never
+         written as plaintext next to the app's other settings; on Windows the
+         OS ties the envelope to the signed-in user. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 

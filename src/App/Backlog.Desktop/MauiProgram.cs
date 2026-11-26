@@ -220,8 +220,9 @@ public static partial class MauiProgram
             sp.GetRequiredService<IMcpAccessRequestStore>()));
         // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
         // opens the request window over these windows and raises its notification (ADR 0039).
-        // One confirmation holds five minutes for the person's own acts at the desk; an agent's
-        // tasks:admin call and a Refuse from the phone ask every time (VerifyEveryTimeAsync).
+        // One confirmation holds five minutes for minting a pairing code and revoking a device.
+        // Allow, agents:grant and widening the Unauthenticated row (§5), an agent's tasks:admin
+        // call and a Refuse replayed at the next start ask every time (VerifyEveryTimeAsync).
         builder.Services.TryAddSingleton<IUserConsent>(sp => new RememberedUserConsent(
             new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()),
             TimeProvider.System));

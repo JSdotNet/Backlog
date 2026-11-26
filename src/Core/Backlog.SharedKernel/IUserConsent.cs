@@ -20,7 +20,8 @@ public interface IUserConsent
     /// <summary><see cref="VerifyAsync"/>, always shown: never answered from a remembered
     /// confirmation, and never opening a window for later checks (local ADR 0058 §6). For an act
     /// the person did not start at the desk — an agent's <c>tasks:admin</c> call, a Refuse
-    /// replayed at the next start. No default body: a decorator that forgot it would otherwise
+    /// replayed at the next start — and for one UI automation must not pass: Allow,
+    /// <c>agents:grant</c>, widening the Unauthenticated row (§5). No default body: a decorator that forgot it would otherwise
     /// forward to its own <see cref="VerifyAsync"/> and answer from a remembered confirmation.</summary>
     Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default);
 }
