@@ -100,6 +100,7 @@ between inherited ADRs 0005 and 0009.
 - **[0071 — Agent changes are restorable through a change journal beside the store](0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md)** *(proposed, not yet built; adds to 0003, amends 0058 §4)*
 - **[0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md)** *(proposed, not yet built; changes 0038's queue popover into a docked column, extends 0032's My Day rule to plans)*
 - **[0073 — The bounded contexts are redrawn](0073-the-bounded-contexts-are-redrawn.md)** *(proposed, not yet built; Work, Insights, Repositories and Goals, Technology Stack dissolved; amends 0050 and 0072)*
+- **[0074 — Goals stay their own context, and the Roadmap draws them](0074-goals-stay-their-own-context-and-the-roadmap-draws-them.md)** *(proposed, not yet built; keeps 0073 §4, adds a Goals band to the Roadmap through a composition hook)*
 
 ## Inherited decisions
 

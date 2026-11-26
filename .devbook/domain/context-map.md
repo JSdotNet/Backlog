@@ -140,6 +140,10 @@ flowchart LR
     Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Goals
     Repo -->|"Customer/Supplier<br/>Verdict on the session card, through the shell"| Sessions
     Work -->|"OHS + Published Language<br/>Task by session, task by pull request, ITaskLookup"| Shell
+    %% Goals' hooks in Backlog.UI.Components.Goals, cascaded by the shell into
+    %% Work's screens; Work's model knows no goals (local ADR 0074).
+    Goals -->|"Customer/Supplier<br/>Goal control, plan impediments, cascaded into Work's screens"| Shell
+    Goals -.->|"Customer/Supplier (not built)<br/>Goal timeline: the Roadmap's Goals band"| Shell
 
     %% Sync. It carries the documents of the contexts below and reads none of
     %% their payloads. Each downstream context reaches it through an adapter in
@@ -317,6 +321,12 @@ flowchart LR
   (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
+
+  Work's screens still draw goals: the shell cascades Goals' hooks from
+  `Backlog.UI.Components.Goals` into them — the goal control, the plan
+  impediments and, once built, the Roadmap's Goals band — and draws nothing
+  where none is cascaded
+  (`.devbook/arc42/adr/0074-goals-stay-their-own-context-and-the-roadmap-draws-them.md`).
 
   Goals publishes no event, so it has no row in the published-language table;
   its edges are Customer/Supplier reads. The Sessions edge is local ADR 0037's.
