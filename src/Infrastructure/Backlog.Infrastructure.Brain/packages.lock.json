@@ -228,9 +228,9 @@
           "Backlog.Modules.DevPc.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Repositories.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -259,9 +259,9 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Events": "[1.0.0, )",
+          "Backlog.Modules.Goals": "[1.0.0, )",
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
-          "Backlog.Modules.Goals": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
@@ -311,6 +311,19 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.goals": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.goals.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.inbox": {
         "type": "Project",
         "dependencies": {
@@ -338,19 +351,6 @@
         }
       },
       "backlog.modules.notifications.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.goals": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.goals.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
