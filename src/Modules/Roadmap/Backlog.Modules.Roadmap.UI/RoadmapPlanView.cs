@@ -989,7 +989,7 @@ public static class RoadmapPlanView
     /// <summary>
     /// Whether a part's drawn window has passed with its work still open: it ended before
     /// today, its item is not finished, and its own tasks have not all run. The idea is the
-    /// dashboard's Overdue (<c>productivity/features.md#whether-each-plan-will-land-in-its-window</c>),
+    /// dashboard's Overdue (<c>insights/features.md#whether-each-plan-will-land-in-its-window</c>),
     /// but the window it is judged against is not: the dashboard reads the item's stored
     /// window, and this reads the window the bar is drawn in.
     /// <para>

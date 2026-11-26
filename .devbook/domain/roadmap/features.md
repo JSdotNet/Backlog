@@ -121,7 +121,7 @@ travel.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/requirements.md#carrying-the-pace-with-the-person]
+related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/insights/context.md#working-week, .devbook/domain/roadmap/requirements.md#carrying-the-pace-with-the-person]
 ```
 
 The pace travels too, so a bar sized by its effort is drawn the same length on
@@ -138,7 +138,7 @@ with its [day overrides](domain.md#day-override). Every device then counts a bar
 over the same hours.
 
 The person has one working week. The dashboard's hour grids read the weekly pattern only, and its Hours worked part
-reads the overrides too ([Working week](../productivity/context.md#working-week)).
+reads the overrides too ([Working week](../insights/context.md#working-week)).
 A pace saved without a working week reads the device's own until the next change
 writes one. See [the requirements](requirements.md#carrying-the-pace-with-the-person).
 
@@ -392,7 +392,7 @@ sequenceDiagram
     participant View as Timeline view
     participant Plan as Roadmap Plan
     participant Store as Plan storage
-    participant Monitor as Monitoring
+    participant Monitor as Insights
 
     Reader->>View: drag a span, or move it with the keyboard
     View->>View: snap to the week, preview at the target placement
@@ -497,7 +497,7 @@ See [the requirements](requirements.md#reading-the-near-term-closely).
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/insights/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 Take a single day off, or work a day the week does not, by pressing that day's
@@ -509,14 +509,14 @@ returns the day to the weekly pattern. A past date can be changed too, because
 measured paces count the hours that were actually there. The head is a real button
 for the pointer, keyboard and screen reader, but does not look like one. The
 weekly pattern stays in
-[Productivity's setting](../productivity/context.md#working-week). See
+[Insights' setting](../insights/context.md#working-week). See
 [the requirements](requirements.md#blocking-and-unblocking-a-day).
 
 ### Setting days off in a list
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/domain/insights/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 See every day off and extra worked day in one list, and set a two-week holiday in
@@ -721,11 +721,11 @@ refusal never looks like a save.
 ```meta
 type: feature
 depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan]
-related: [.devbook/domain/roadmap/domain.md#roadmapitemscheduled, .devbook/domain/monitoring/features.md]
+related: [.devbook/domain/roadmap/domain.md#roadmapitemscheduled, .devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 Announce when planned work is scheduled or moved, so
-[Monitoring & Dashboard](../monitoring/domain.md#progress-signal) can
+[Insights](../insights/features.md#personal-productivity-dashboard) can
 compare intent against delivery. Roadmap publishes and does not subscribe: nothing
 observed downstream reaches back in and edits the plan.
 
@@ -1027,13 +1027,13 @@ built:
   - The question: if dated planning went, the Planned Window and the timeline
     reading would go with it, and so would
     [RoadmapItemScheduled](domain.md#roadmapitemscheduled). That event is the one contract
-    [Monitoring](../monitoring/domain.md#progress-signal) consumes, so comparing
+    [Insights](../insights/features.md#personal-productivity-dashboard) consumes, so comparing
     intent against delivery would need a new answer or a different question. If
     both were kept, one plan would carry two ways of ordering the same work, and
     something would have to say which one a reader is looking at.
   - The answer: effort sizes the steps
     [inside a dated window](#reading-a-plans-steps-inside-its-item). The window,
-    the timeline and the event all survive, and Monitoring's contract holds. The
+    the timeline and the event all survive, and Insights' contract holds. The
     drawing itself says which reading a person is looking at: the bar is the
     window, and the steps inside it are proportions, never dates.
 - **Is a track a [Planning Lane](domain.md#planning-lane) with an order and a size,

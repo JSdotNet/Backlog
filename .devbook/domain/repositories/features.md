@@ -370,7 +370,7 @@ There is no act that hands a pull request off to an agent. Starting a session is
 ```meta
 type: feature
 depends-on: [.devbook/domain/repositories/features.md#package-and-dependency-tracking, .devbook/domain/repositories/features.md#github-integration]
-related: [.devbook/domain/monitoring/features.md#multi-repo-scanning]
+related: []
 ```
 
 **Health scoring flow**
@@ -385,7 +385,7 @@ flowchart TD
     GitHub --> Score
     Coverage --> Score
     Security --> Score
-    Score --> Action["Recommendations to Monitoring / Tasks"]
+    Score --> Action["Recommendations to Tasks"]
 ```
 
 Compute a health score from package freshness, the GitHub issue and pull request backlog, test coverage and security alerts. Low-health repositories surface on their own, each with actionable recommendations.

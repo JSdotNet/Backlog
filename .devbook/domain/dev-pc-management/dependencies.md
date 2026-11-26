@@ -12,7 +12,6 @@ type: dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Emits `MachineStatusChanged` / `ComplianceUpdated` | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Machine status, compliance, and uptime feed dashboards. |
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.devbook/domain/tasks/domain.md#task` | Compliance gaps can drive update tasks. |
 | Native package managers (external) | ACL | Command execution on target machine | `.devbook/domain/dev-pc-management/domain.md#remote-update` | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
 | Cloud service (relay/broker) | ACL | Registration, WoL relay, connection brokering | `.devbook/domain/dev-pc-management/domain.md#remote-control` | Provides registry, wake relay, and connection details. |
@@ -21,7 +20,7 @@ type: dependencies
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Subscribes to machine/compliance signals | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Infrastructure dashboard signals from this context. |
+| [Insights](../insights/features.md#personal-productivity-dashboard) | OHS + Published Language (Dev PC Management = supplier) | Subscribes to machine/compliance signals; not built | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Infrastructure dashboard signals from this context. |
 | [Sessions](../sessions/domain.md#session-log) | Customer/Supplier (Dev PC Management = supplier) | Machine-name lookup | `.devbook/domain/dev-pc-management/domain.md#machine-registry` | The registry saying which registered machine an `Environment` corresponds to. |
 
 - **Sessions:** This lookup is not built. A locally read session is stamped by the

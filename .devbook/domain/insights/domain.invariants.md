@@ -10,7 +10,7 @@ What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggreg
 
 ```meta
 type: invariants
-related: [.devbook/domain/productivity/domain.md#productivity-ledger]
+related: [.devbook/domain/insights/domain.md#productivity-ledger]
 ```
 
 > The rules the Productivity Ledger holds its entries to.
