@@ -208,13 +208,13 @@ Reach GitHub through whichever credential the machine already has. A signed-in G
 
 ```meta
 type: feature
-related: [.devbook/domain/repositories/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/domain/progress/features.md#pull-request-status, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/repositories/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/domain/goals/features.md#pull-request-status, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 See whether a pull request can merge without opening it. Repositories publishes one [pull request status](domain.md#pull-request-status) for each pull request it reads, and every screen that shows a pull request draws from it:
 
 - each row of the [pull requests pane](#pull-request-readiness);
-- each pull request row of a goal in [Progress](../progress/features.md#pull-request-status);
+- each pull request row of a goal in [Goals](../goals/features.md#pull-request-status);
 - each open pull request card among a task's linked work in its side panel.
 
 

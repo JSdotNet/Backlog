@@ -12,7 +12,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 /// <summary>
 /// The published <see cref="IImpediments"/> port as a host composes it through
 /// <c>AddProgressModule()</c>: each feature of
-/// <c>.devbook/domain/progress/features.md#tracking-an-impediment</c> end to end over an
+/// <c>.devbook/domain/goals/features.md#tracking-an-impediment</c> end to end over an
 /// in-memory repository — raise, move, check again, note, hold back and release, and the
 /// list of open ones with those resolved in a window.
 /// </summary>

@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// twin of <see cref="GoalSyncBetweenDevicesTests"/>: each the real Progress module over
 /// real <c>progress_impediments</c> rows in its own <c>backlog.db</c>, the real merge and
 /// session, and the real sync API between them
-/// (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+/// (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
 /// </summary>
 public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
 {

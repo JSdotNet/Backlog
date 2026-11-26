@@ -4,7 +4,7 @@ using Backlog.UI.Components.Progress;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Goals view's parts as drawn (<c>.devbook/domain/progress/features.md#the-goals-view</c>
+/// The Goals view's parts as drawn (<c>.devbook/domain/goals/features.md#the-goals-view</c>
 /// and <c>#the-stand-up</c>): the board's header, goals, No goal and stand-up aside; a goal
 /// card folded and open with its attach search; the stacked bar; the impediment row and its
 /// state picker; and the New goal dialog. Every act is a callback the host answers.

@@ -3,7 +3,7 @@ using Backlog.Modules.Progress.UI.WeeklyReview;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The weekly review's checks (<c>.devbook/domain/progress/features.md#the-weekly-review</c>),
+/// The weekly review's checks (<c>.devbook/domain/goals/features.md#the-weekly-review</c>),
 /// the ones the <c>weekly-review</c> skill reports, over inputs in Progress's own words:
 /// which line each finding makes, in which stage, and with which action in place.
 /// </summary>

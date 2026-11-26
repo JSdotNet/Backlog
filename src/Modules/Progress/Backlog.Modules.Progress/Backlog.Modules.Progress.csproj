@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Progress module — the Progress bounded context (.devbook/domain/progress, local
+    Progress module — the Progress bounded context (.devbook/domain/goals, local
     ADR 0035). Clean architecture, inside out:
       DomainModels/  the Goal and Impediment aggregates
       Features/      one vertical slice per use case (command/query + handler)

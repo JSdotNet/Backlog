@@ -35,7 +35,7 @@ public sealed record StandUpInputs(
     decimal? PointsPerWeek);
 
 /// <summary>
-/// The <c>.devbook/domain/progress/domain.md#stand-up-reading</c>: the goals and the
+/// The <c>.devbook/domain/goals/domain.md#stand-up-reading</c>: the goals and the
 /// impediments read against the current state of the work they name, over one iteration.
 /// <list type="bullet">
 /// <item><b>Goals</b>: every goal with its progress — the items done inside last as its

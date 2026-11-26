@@ -782,10 +782,10 @@ words onto one set of status tones. Review surface: storybook → *Badges*, and
 ### Impediment state tones
 
 ```meta
-related: [".devbook/domain/progress/domain.md#impediment-state", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+related: [".devbook/domain/goals/domain.md#impediment-state", ".devbook/domain/goals/features.md#tracking-an-impediment", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 ```
 
-An [impediment](../domain/progress/domain.md#impediment-state) wears one badge
+An [impediment](../domain/goals/domain.md#impediment-state) wears one badge
 for its state, taken from the [tone scale](#badge-and-chip-tones) above. The
 scale gains no tone: the states map onto the tones it already has.
 
@@ -820,7 +820,7 @@ storybook shows it on *Stand-up*, **Badges** and **State list**.
 ### Goal forecast badges
 
 ```meta
-related: [".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/features.md#the-goals-view"]
+related: [".devbook/domain/goals/domain.md#goal-forecast", ".devbook/domain/goals/features.md#the-goals-view"]
 ```
 
 A goal's forecast is one of two badges, from the [tone scale](#badge-and-chip-tones).
@@ -839,10 +839,10 @@ Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On trac
 ### Pull request status marks
 
 ```meta
-related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/repositories/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
+related: [".devbook/domain/goals/features.md#pull-request-status", ".devbook/domain/repositories/requirements.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
 ```
 
-Every pull request row carries two [status marks](../domain/progress/features.md#pull-request-status):
+Every pull request row carries two [status marks](../domain/goals/features.md#pull-request-status):
 its checks and its approvals. Each mark is a Lucide glyph followed by a count,
 and both take the mark's ink. A pull request that asks for the reader's review
 follows the marks with a "your review" label.

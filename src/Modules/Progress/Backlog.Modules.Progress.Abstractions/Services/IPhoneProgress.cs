@@ -9,7 +9,7 @@ public sealed record StandUpContextCopyDto(string Content, DateTimeOffset Update
 
 /// <summary>
 /// What the sync client sends the phone so it can read the stand-up without GitHub
-/// (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the
+/// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the
 /// <see cref="StandUpContextDto"/> this desktop reads now. The stamp moves only when what the
 /// document says changes, so an unchanged reading is not sent again.
 /// </summary>
@@ -44,7 +44,7 @@ public enum ImpedimentEditOutcome
 /// <summary>
 /// Where the sync client hands an <c>impediment-edit</c> document the phone wrote: one change
 /// to an impediment's state, check-again date or note, applied through the module's own
-/// impediment features (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>, local
+/// impediment features (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>, local
 /// ADR 0035 §8).
 /// </summary>
 public interface IImpedimentEditIntake

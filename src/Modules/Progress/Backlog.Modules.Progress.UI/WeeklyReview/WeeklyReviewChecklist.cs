@@ -2,7 +2,7 @@ namespace Backlog.Modules.Progress.UI.WeeklyReview;
 
 /// <summary>
 /// The three stages of the weekly review, in the order it walks them
-/// (<c>.devbook/domain/progress/features.md#the-weekly-review</c>) — the same three the
+/// (<c>.devbook/domain/goals/features.md#the-weekly-review</c>) — the same three the
 /// <c>weekly-review</c> skill reports.
 /// </summary>
 public enum WeeklyReviewStage

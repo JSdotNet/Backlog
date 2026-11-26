@@ -3,7 +3,7 @@ using Backlog.Modules.Progress.Abstractions;
 namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
-/// The state order of <c>.devbook/domain/progress/domain.md#impediment-state</c> as the
+/// The state order of <c>.devbook/domain/goals/domain.md#impediment-state</c> as the
 /// published <see cref="ImpedimentMoves"/> helper answers it, for a picker that offers only
 /// the moves an impediment accepts.
 /// </summary>

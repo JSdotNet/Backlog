@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.Goals;
 
 /// <summary>
 /// The shell's work as the Goals view reads it
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): every saved task with its
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): every saved task with its
 /// status, plan tags, linked pull requests and whether the header's repository scope holds
 /// it; the plan tags Roadmap Planning holds; and the open pull requests the shell's reader
 /// found, with the same scope question; and the repositories a bare pull request number in

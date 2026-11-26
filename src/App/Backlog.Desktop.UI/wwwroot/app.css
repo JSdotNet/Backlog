@@ -5601,7 +5601,7 @@ h1, h2, h3 {
     padding: var(--spacing-md) 0 var(--spacing-lg);
 }
 
-/* The weekly review takeover (.devbook/domain/progress/features.md#the-weekly-review):
+/* The weekly review takeover (.devbook/domain/goals/features.md#the-weekly-review):
    one column read top to bottom — the stage switch, then the stage on screen and its
    lines, each line its subject, its check and its buttons. */
 .weekly-review {

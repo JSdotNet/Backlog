@@ -5,7 +5,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 
 /// <summary>
 /// Everything a host may do with impediments, in one port the screens and the MCP tools
-/// share (<c>.devbook/domain/progress/features.md#tracking-an-impediment</c>): raise one,
+/// share (<c>.devbook/domain/goals/features.md#tracking-an-impediment</c>): raise one,
 /// move it along its states, set the day to check again, edit its note, link and unlink
 /// the tasks, pull requests and plans it holds back, and list the open ones with those
 /// resolved in a window.

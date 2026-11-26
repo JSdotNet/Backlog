@@ -4,8 +4,8 @@ using Backlog.SharedKernel;
 namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
-/// The iteration windows of <c>.devbook/domain/progress/domain.md#iteration</c>, one test per
-/// scenario of <c>.devbook/domain/progress/requirements.md#choosing-the-iteration</c>: next is
+/// The iteration windows of <c>.devbook/domain/goals/domain.md#iteration</c>, one test per
+/// scenario of <c>.devbook/domain/goals/requirements.md#choosing-the-iteration</c>: next is
 /// the window holding today, or the first after it, and last is the one before next.
 /// </summary>
 public sealed class IterationsTests

@@ -7,9 +7,9 @@ using static Backlog.Modules.Progress.UnitTests.MakeImpediment;
 namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
-/// The rules <c>.devbook/domain/progress/domain.invariants.md#impediment</c> gives an
+/// The rules <c>.devbook/domain/goals/domain.invariants.md#impediment</c> gives an
 /// impediment, one test or theory each, and every move of the state diagram in
-/// <c>.devbook/domain/progress/domain.md#impediment-state</c> — allowed and refused.
+/// <c>.devbook/domain/goals/domain.md#impediment-state</c> — allowed and refused.
 /// </summary>
 public sealed class ImpedimentInvariantTests
 {

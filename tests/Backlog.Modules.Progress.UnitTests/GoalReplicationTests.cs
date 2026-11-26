@@ -9,7 +9,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// Goals as documents that travel between desktops
-/// (<c>.devbook/domain/progress/features.md#syncing-goals-and-impediments</c>): the newer
+/// (<c>.devbook/domain/goals/features.md#syncing-goals-and-impediments</c>): the newer
 /// copy wins per goal, an echo and an older copy write nothing, a copy that does not read
 /// leaves the local one alone, and only a person's change is announced to the sync loop.
 /// </summary>

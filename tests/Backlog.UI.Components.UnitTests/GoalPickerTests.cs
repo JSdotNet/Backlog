@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// What a host is promised about "Attach to goal"
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>): the picker lists
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>): the picker lists
 /// the open goals with their counts, narrows them to a search, says when there is nothing
 /// to choose, hands back the goal chosen or the new goal filled in, refuses to attach to
 /// the goal that holds the work already, and says before a move that one is about to happen.

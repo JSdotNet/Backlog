@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// <see cref="TasksDesktopState.CreateTaskAsync"/>: the task the Goals view's "New task"
-/// row asks the shell for (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>).
+/// row asks the shell for (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>).
 /// It is saved through the module the way any new entry is, seeded as
 /// <see cref="TasksDesktopState.NewRow"/> seeds one and with no plan tag, and the row is in
 /// the list when the call answers, so the Goals view that reads the list next finds it.

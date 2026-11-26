@@ -39,7 +39,7 @@ internal sealed class RecordingImpedimentReplication : IImpedimentReplication
 /// An <c>impediment</c> document is not a task (local ADR 0035 §9): it goes to Progress's
 /// impediment port whole on the pull, and leaves the machine whole on the push with a mark
 /// per impediment
-/// (<c>.devbook/domain/progress/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).
+/// (<c>.devbook/domain/goals/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).
 /// </summary>
 public sealed class ImpedimentSyncTests
 {

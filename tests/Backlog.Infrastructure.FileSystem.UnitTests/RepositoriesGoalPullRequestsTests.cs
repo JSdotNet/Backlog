@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// Progress's pull request reader, answered through Repositories' contract
 /// (<see cref="RepositoriesGoalPullRequests"/>, local ADR 0042 §5, V6): state,
 /// merge day, the check counts and failing check names, and the approvals against what
-/// the base branch requires (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+/// the base branch requires (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
 /// What it keeps, and for how long, is the contract's one cache; this reader asks it by
 /// number and maps the answer.
 /// </summary>

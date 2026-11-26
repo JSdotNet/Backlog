@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.Review;
 
 /// <summary>
 /// The window's answer to the weekly review's <see cref="IWeeklyReviewSource"/>
-/// (<c>.devbook/domain/progress/features.md#the-weekly-review</c>): the window's Inbox
+/// (<c>.devbook/domain/goals/features.md#the-weekly-review</c>): the window's Inbox
 /// and task list, the Brain's notes, links and review dates, the roadmap's finished
 /// project notes and the goals, read in Progress's words; and each line's action,
 /// carried out in this window.

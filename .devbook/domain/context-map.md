@@ -20,7 +20,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 | Insights | Supporting | It turns the work the person and their agents do into personal insight on the dashboard, reading the other contexts and owning no work. |
 | Repositories | Supporting | It provides repository inventory, health and dependency visibility, launches each repository's named environments, and owns the state of pull requests. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
-| Progress | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
+| Goals | Supporting | It keeps a person's goals and impediments, and reads both over an iteration as a stand-up. |
 | Sessions | Supporting | It records what the AI coding agents do on each environment, and owns nothing those sessions touch. |
 | Events | Supporting | It keeps the knowledge events a person attends to learn something, from spotting one to its harvest. |
 | Notifications | Generic | It lets any context tell the person something or ask a question, and hands the answer back. |
@@ -32,7 +32,7 @@ related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.
 - **Brain:** The person and their agent organize the notes. The link into a repository's devbook runs one way (local ADR 0040).
 - **Insights:** Monitoring & Dashboard merged into Productivity under this name (local ADR 0073 §2). Team monitoring and scanning across repositories were dropped.
 - **Repositories:** The core work contexts use its inventory, health and dependency visibility. It owns the status, readiness verdict, stacks and merge commands of the registered repositories' pull requests (local ADR 0042). Environment folded into it: a repository holds its named environments, each with a launch link (local ADR 0073 §3).
-- **Progress:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
+- **Goals:** The goals are the ones a person's work is attached to, and the impediments are what hold that work back. It names tasks by id, plans by tag and pull requests by repository and number, without owning any of them.
 - **Sessions:** It owns none of the work, the machines, or the repositories those sessions touch.
 - **Notifications:** The answer comes back from whichever paired device the person used. The context carries no work of its own (local ADR 0039).
 - **Events:** Learning events support the person's work and are not what sets the product apart. Knowledge events only: other appointments stay out (local ADR 0050). The aggregates, the To Event route, the Events pane with prep tasks, the Calendar's events layer over the read contract, the harvest task, sync and the phone are built.
@@ -61,7 +61,7 @@ flowchart LR
     Repo[Repositories]
     DevPC[Dev PC Management]
     Sessions[Sessions]
-    Progress[Progress]
+    Goals[Goals]
     Sync[Sync]
     Notify[Notifications]
     Events[Events]
@@ -112,20 +112,20 @@ flowchart LR
     Sessions -->|Customer/Supplier<br/>Agent session facts| Insights
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
     Tasks -->|Customer/Supplier<br/>File a follow-up after an entry| Sessions
-    Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Progress
+    Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Goals
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session alert"| Insights
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
 
-    %% Progress. Its edges are in-process reads; Progress publishes no event.
-    %% See .devbook/domain/progress/context.md and local ADR 0035.
-    Tasks -->|Customer/Supplier<br/>Task by id: status, due date, effort, blocked mark, linked pull requests| Progress
-    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Progress
-    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
+    %% Goals. Its edges are in-process reads; Goals publishes no event.
+    %% See .devbook/domain/goals/context.md and local ADR 0035.
+    Tasks -->|Customer/Supplier<br/>Task by id: status, due date, effort, blocked mark, linked pull requests| Goals
+    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Goals
+    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Goals
 
     %% Pull request state, local ADR 0042. Repositories
-    %% publishes one contract; Tasks and Progress read it through adapters that
+    %% publishes one contract; Tasks and Goals read it through adapters that
     %% answer their own ports. The shell is the composition root, not a context:
     %% it composes the cards and asks Tasks which task a session or a pull
     %% request belongs to, so Repositories holds no edge to Tasks.
@@ -136,7 +136,7 @@ flowchart LR
     Calendar(["Calendar<br/>(composition, not a context)"])
     Mcp(["MCP server<br/>(channel, not a context)"])
     Repo -->|"Customer/Supplier<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
-    Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Progress
+    Repo -->|"Customer/Supplier<br/>Pull request status, IGoalPullRequestReader"| Goals
     Repo -->|"Customer/Supplier<br/>Verdict on the session card, through the shell"| Sessions
     Tasks -->|"OHS + Published Language<br/>Task by session, task by pull request, ITaskLookup"| Shell
 
@@ -201,7 +201,7 @@ flowchart LR
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
 | Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas); Repositories, read-only, for [portfolio technology adoption](repositories/features.md#portfolio-technology-adoption) (not built) |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Insights (not built) |
-| Repositories | The pull request contract (`.devbook/domain/repositories/domain.md#pull-request-status`, `.devbook/domain/repositories/domain.md#readiness-verdict`, `.devbook/domain/repositories/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.Repositories.Abstractions` (local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Repositories | The pull request contract (`.devbook/domain/repositories/domain.md#pull-request-status`, `.devbook/domain/repositories/domain.md#readiness-verdict`, `.devbook/domain/repositories/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.Repositories.Abstractions` (local ADR 0042) | Tasks and Goals through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repositories' and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` | Sessions, Sync, Devbook, Tasks |
 | Tasks | `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0056 §2) | The Calendar, through an adapter, for its Tasks layer |
@@ -278,7 +278,7 @@ flowchart LR
   the [merge commands](repositories/domain.md#merge-command) and the one
   cache. It is the one place an archived repository's pull requests are skipped.
   Every reader goes through its contract:
-  - `Tasks` and `Progress` through an adapter that answers their own port, so
+  - `Tasks` and `Goals` through an adapter that answers their own port, so
     neither references Repositories;
   - the pull requests pane, the session card and a task's side panel through the
     desktop shell, which composes them.
@@ -296,7 +296,7 @@ flowchart LR
   another context's identity for it. The Sessions Environment's `EnvironmentId` is
   the product-wide device identity issued by the shared kernel
   (`.devbook/domain/tasks/domain.md#device`). No bounded context owns it, and it is still not a Machine.
-- `Progress` reads each thing it names from its owner on every reading. It names
+- `Goals` reads each thing it names from its owner on every reading. It names
   them by these identities:
   - a task by its id;
   - a plan by its [plan tag](roadmap/domain.md#roadmap-tag);
@@ -307,12 +307,12 @@ flowchart LR
   identities. `Tasks` knows no goals or impediments. No task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. A task's blocked mark is Tasks' alone and raises no
-  impediment. Tasks does not call Progress and stores no impediment id
+  impediment. Tasks does not call Goals and stores no impediment id
   (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
 
-  Progress publishes no event, so it has no row in the published-language table;
+  Goals publishes no event, so it has no row in the published-language table;
   its edges are Customer/Supplier reads. The Sessions edge is local ADR 0037's.
 - `Sync` carries other contexts' documents without interpreting them.
   It stores each one whole under its [Owner](sync/domain.md#owner), orders

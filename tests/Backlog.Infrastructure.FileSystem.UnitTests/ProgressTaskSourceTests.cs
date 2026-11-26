@@ -64,7 +64,7 @@ public class ProgressTaskSourceTests
     }
 
     /// <summary>A goal's attached plan counts its entries in every repository
-    /// (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).</summary>
+    /// (<c>.devbook/domain/goals/domain.md#goal-attachment</c>).</summary>
     [Fact]
     public void A_goals_plan_brings_in_its_tasks_in_every_repository()
     {

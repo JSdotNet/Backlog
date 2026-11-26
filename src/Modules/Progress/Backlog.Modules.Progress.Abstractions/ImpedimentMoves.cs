@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Progress.Abstractions;
 
 /// <summary>
-/// The state order of an impediment (<c>.devbook/domain/progress/domain.md#impediment-state</c>):
+/// The state order of an impediment (<c>.devbook/domain/goals/domain.md#impediment-state</c>):
 /// forward along New, Reported, Escalated, Being handled, Escalated the one state a move may
 /// skip, and any open state to Resolved; nothing leaves Resolved. Published so a state picker
 /// offers only the moves <see cref="Services.IImpediments.MoveAsync"/> accepts; the aggregate

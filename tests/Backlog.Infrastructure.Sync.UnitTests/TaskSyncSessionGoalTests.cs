@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// Every goal leaves the machine on the push as one whole <c>goal</c> document whenever its
 /// stamp is later than the one this device last had accepted for it — a mark per goal —
 /// and comes back on the pull to Progress whole
-/// (<c>.devbook/domain/progress/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).
+/// (<c>.devbook/domain/goals/requirements.md#requirement-goals-and-impediments-travel-as-one-document-each</c>).
 /// </summary>
 public sealed class TaskSyncSessionGoalTests
 {

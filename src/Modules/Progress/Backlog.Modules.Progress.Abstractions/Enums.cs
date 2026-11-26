@@ -23,7 +23,7 @@ public enum LinkedPullRequestState
 }
 
 /// <summary>The three kinds of work a goal holds
-/// (<c>.devbook/domain/progress/domain.md#goal-attachment</c>). Stored by name, so the
+/// (<c>.devbook/domain/goals/domain.md#goal-attachment</c>). Stored by name, so the
 /// names are persisted values and never renamed.</summary>
 public enum GoalAttachmentKind
 {
@@ -38,7 +38,7 @@ public enum GoalAttachmentKind
 }
 
 /// <summary>The three kinds of work an impediment holds back
-/// (<c>.devbook/domain/progress/domain.md#holds-back</c>), named as a goal's attachments are.
+/// (<c>.devbook/domain/goals/domain.md#holds-back</c>), named as a goal's attachments are.
 /// Stored by name, so the names are persisted values and never renamed.</summary>
 public enum HeldBackKind
 {
@@ -53,7 +53,7 @@ public enum HeldBackKind
 }
 
 /// <summary>Where an impediment stands
-/// (<c>.devbook/domain/progress/domain.md#impediment-state</c>). It moves forward only —
+/// (<c>.devbook/domain/goals/domain.md#impediment-state</c>). It moves forward only —
 /// New, Reported, Escalated, Being handled — and any open state may move to Resolved.
 /// Stored by name, so the names are persisted values and never renamed.</summary>
 public enum ImpedimentState
@@ -75,8 +75,8 @@ public enum ImpedimentState
 }
 
 /// <summary>How long the window is that a person reads their goals and stand-up in
-/// (<c>.devbook/domain/progress/domain.md#iteration</c>,
-/// <c>.devbook/domain/progress/context.md#iteration-length</c>). Stored as the setting's
+/// (<c>.devbook/domain/goals/domain.md#iteration</c>,
+/// <c>.devbook/domain/goals/context.md#iteration-length</c>). Stored as the setting's
 /// values — <c>day</c>, <c>week</c>, <c>two-weeks</c> and <c>month</c> — mapped explicitly by
 /// each store, never as the member names or numbers; a store reads a member name as a fallback.</summary>
 public enum IterationLength
@@ -94,7 +94,7 @@ public enum IterationLength
     Month
 }
 
-/// <summary>Whether a goal lands in time (<c>.devbook/domain/progress/domain.md#goal-forecast</c>).
+/// <summary>Whether a goal lands in time (<c>.devbook/domain/goals/domain.md#goal-forecast</c>).
 /// Read afresh on every reading and never stored.</summary>
 public enum GoalStanding
 {

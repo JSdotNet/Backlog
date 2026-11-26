@@ -6,7 +6,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
 /// Cascades the goal control to every screen of the host
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>).
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>).
 /// </summary>
 /// <remarks>
 /// A root-level cascading value rather than a parameter threaded through each screen:

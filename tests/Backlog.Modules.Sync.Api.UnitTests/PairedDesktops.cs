@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// Two desktops paired through one real sync service, each the real Progress module over
 /// its own <c>backlog.db</c>, the real merge and session between it and the API — what
 /// <see cref="GoalSyncBetweenDevicesTests"/> and <see cref="ImpedimentSyncBetweenDevicesTests"/>
-/// both run on (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+/// both run on (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
 /// </summary>
 internal sealed class PairedDesktops : IDisposable
 {

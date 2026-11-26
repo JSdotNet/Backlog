@@ -6,14 +6,14 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Progress.Features.SetGoal;
 
-/// <summary>Sets a new goal (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>
+/// <summary>Sets a new goal (<c>.devbook/domain/goals/features.md#setting-a-goal</c>).</summary>
 public sealed record CreateGoalCommand(SetGoalRequest Request);
 
 /// <summary>Replaces a goal's title, outcome and due date.</summary>
 public sealed record EditGoalCommand(Guid GoalId, SetGoalRequest Request);
 
 /// <summary>Deletes a goal and its attachments; the work it held is unchanged
-/// (<c>.devbook/domain/progress/requirements.md#requirement-deleting-a-goal-leaves-its-work-unchanged</c>).</summary>
+/// (<c>.devbook/domain/goals/requirements.md#requirement-deleting-a-goal-leaves-its-work-unchanged</c>).</summary>
 public sealed record DeleteGoalCommand(Guid GoalId);
 
 /// <summary>Puts a goal at <paramref name="ToIndex"/> in the person's order, counted among

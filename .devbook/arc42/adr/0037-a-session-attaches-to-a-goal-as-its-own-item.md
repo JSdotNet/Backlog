@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-26
-related: [".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/progress/domain.md#goal-attachment", ".devbook/domain/progress/domain.md#goal-progress", ".devbook/domain/progress/domain.md#done", ".devbook/domain/progress/domain.invariants.md#goal", ".devbook/domain/progress/requirements.md#attaching-work-to-a-goal", ".devbook/domain/progress/features.md#attaching-work-to-a-goal", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/sessions/domain.md#agent-session", ".devbook/domain/sessions/domain.md#session-identity", ".devbook/domain/sessions/domain.md#working-location", ".devbook/domain/tasks/domain.md#projection-ref"]
+related: [".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/goals/domain.md#goal-attachment", ".devbook/domain/goals/domain.md#goal-progress", ".devbook/domain/goals/domain.md#done", ".devbook/domain/goals/domain.invariants.md#goal", ".devbook/domain/goals/requirements.md#attaching-work-to-a-goal", ".devbook/domain/goals/features.md#attaching-work-to-a-goal", ".devbook/domain/goals/features.md#goals-on-the-phone", ".devbook/domain/sessions/domain.md#agent-session", ".devbook/domain/sessions/domain.md#session-identity", ".devbook/domain/sessions/domain.md#working-location", ".devbook/domain/tasks/domain.md#projection-ref"]
 ```
 
 A goal gains a fourth attachment kind, the **session**: one Claude Code or Copilot
@@ -97,7 +97,7 @@ it, whichever goal holds its tasks.
 ```meta
 ```
 
-A session is [done](../../domain/progress/domain.md#done) when either holds:
+A session is [done](../../domain/goals/domain.md#done) when either holds:
 
 - the pull request on its branch is merged;
 - it has linked tasks, and every one of them is done.

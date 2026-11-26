@@ -4,12 +4,12 @@ namespace Backlog.Modules.Progress.Abstractions;
 
 /// <summary>
 /// Every way working with goals and impediments can be refused, named once. The codes are the
-/// ones <c>.devbook/domain/progress/domain.invariants.md</c> gives each rule, so a
+/// ones <c>.devbook/domain/goals/domain.invariants.md</c> gives each rule, so a
 /// screen can match on them rather than on a message.
 /// </summary>
 public static class ProgressErrors
 {
-    // --- Goals (.devbook/domain/progress/domain.invariants.md#goal) ---------------
+    // --- Goals (.devbook/domain/goals/domain.invariants.md#goal) ---------------
 
     public static Error PlanTagRequired() =>
         Error.Validation("progress.plan_tag_required", "Name the plan by its plan tag.");
@@ -34,12 +34,12 @@ public static class ProgressErrors
     public static Error AttachmentKindNotAllowed(GoalAttachmentKind kind) =>
         Error.Validation("progress.attachment_kind_not_allowed", $"A goal holds plans, tasks and pull requests, not '{kind}'.");
 
-    /// <summary>The item is another goal's (<c>.devbook/domain/progress/requirements.md#requirement-an-item-belongs-to-at-most-one-goal</c>);
+    /// <summary>The item is another goal's (<c>.devbook/domain/goals/requirements.md#requirement-an-item-belongs-to-at-most-one-goal</c>);
     /// the message names that goal, as the requirement asks.</summary>
     public static Error ItemInOtherGoal(string goalTitle) =>
         Error.Conflict("progress.item_in_other_goal", $"Already in {goalTitle}");
 
-    // --- Impediments (.devbook/domain/progress/domain.invariants.md#impediment) ---
+    // --- Impediments (.devbook/domain/goals/domain.invariants.md#impediment) ---
 
     public static Error ImpedimentNotFound(Guid impedimentId) =>
         Error.NotFound("progress.impediment_not_found", $"There is no impediment {impedimentId}.");
@@ -51,7 +51,7 @@ public static class ProgressErrors
 
     /// <summary>A held-back item that does not name its whole identity: a task without its
     /// id, a pull request without its repository or a number above zero, or a plan without a
-    /// tag (<c>.devbook/domain/progress/domain.invariants.md#invariant-a-held-back-item-names-its-whole-identity</c>).</summary>
+    /// tag (<c>.devbook/domain/goals/domain.invariants.md#invariant-a-held-back-item-names-its-whole-identity</c>).</summary>
     public static Error HeldBackItemWithoutIdentity() =>
         Error.Validation(
             "progress.held_back_item_without_identity",

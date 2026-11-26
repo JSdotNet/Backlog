@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The stand-up as plain text for the clipboard
-/// (<c>.devbook/domain/progress/requirements.md#the-stand-up</c>): four blocks in order —
+/// (<c>.devbook/domain/goals/requirements.md#the-stand-up</c>): four blocks in order —
 /// Goals, Finished, Planned, Impediments — each heading with its count, Finished grouped
 /// by goal, Planned grouped by goal with No goal last, and every line a fixed template.
 /// </summary>
