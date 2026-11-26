@@ -48,7 +48,7 @@ public sealed record TaskViewRow(
     /// The agenda slot the task holds in the My Day of <paramref name="today"/>: its
     /// <see cref="AgendaTime"/> when it was picked for that very day, and none when it
     /// was carried over from an earlier one. A slot belongs to the day it was set for
-    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>), so a carried task sits in
+    /// (<c>.devbook/domain/work/domain.task.md#agenda-time</c>), so a carried task sits in
     /// Anytime today, with no block and nothing to focus on.
     /// </summary>
     public AgendaTime? AgendaTimeOn(DateOnly today) =>
@@ -59,7 +59,7 @@ public sealed record TaskViewRow(
     /// has no slot. Read off the document's two plain values and never set here:
     /// the desktop writes an agenda time, and the phone only reads it — and clears
     /// it when it moves the task to tomorrow
-    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>). It has no date of its
+    /// (<c>.devbook/domain/work/domain.task.md#agenda-time</c>). It has no date of its
     /// own, so a task with no My Day date has none either.
     /// </summary>
     public AgendaTime? AgendaTime =>

@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The Tasks list's <b>Flat</b> view (local ADR 0072 §3;
-/// <c>.devbook/domain/tasks/features.md#plans-view</c>): the entries in no plan, plus a
+/// <c>.devbook/domain/work/features.md#plans-view</c>): the entries in no plan, plus a
 /// plan entry in today's My Day, under a quiet bar of text tabs — the quick views, the
 /// Type, Source and #tag menus, the status tabs and the sort — and, while rows are
 /// picked, one line of text actions in place of the bulk bar.

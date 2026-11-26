@@ -198,7 +198,7 @@ whether a phone showed it.
 
 ```meta
 type: feature
-related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/features.md#loop-sessions]
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/work/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0051-scheduled-runs-and-loop-sessions-report-to-backlog-over-mcp.md, .devbook/domain/sessions/features.md#schedules-and-their-runs, .devbook/domain/sessions/features.md#loop-sessions]
 ```
 
 Four contexts reach the person through notifications. A delivery run that
@@ -261,7 +261,7 @@ than 30 days old, shows its file name instead.
 | Answer | Recorded on the run | What follows |
 | --- | --- | --- |
 | Approve | an approval | The flow goes on to the pull request. |
-| Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
+| Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../work/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
 | Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
 | Dismiss | nothing | The question is withdrawn on every device, and the gate waits for a decision at the desktop. The next attempt at the gate asks again. |
 | Reject, on a question an earlier build asked | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |

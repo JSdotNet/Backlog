@@ -73,7 +73,7 @@ related: [.devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals
 
 Say which work reaches a goal. Four kinds of item attach:
 
-- a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which brings in every entry its roadmap item gathers by tag, filed under `+tag` or carrying the bare `#tag`, including later ones;
+- a **plan**, by its [plan tag](../work/domain.plan.md#roadmap-tag), which brings in every entry its roadmap item gathers by tag, filed under `+tag` or carrying the bare `#tag`, including later ones;
 - a **task**, by its id, whose linked pull requests come with it;
 - a **pull request**, by its repository and number, for work no task covers;
 - a **session**, by its agent and session id, whose linked tasks and branch pull request come with it, for work that has no task or pull request yet.
@@ -216,7 +216,7 @@ type: sub-feature
 related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/features.md#attaching-work-to-a-goal, .devbook/domain/goals/requirements.md#tracking-an-impediment]
 ```
 
-Say what the impediment is in the way of. Each open impediment in the desktop stand-up offers **Link…**, which opens the [Attach to goal](#attaching-work-to-a-goal) picker's search, limited to three kinds. A **task** is found by its id, and a **pull request** by its repository and number (a number alone finds one too). A **plan** is found by its [plan tag](../roadmap/domain.md#roadmap-tag) and holds back every entry filed under it, later ones included. A session is not offered. The search leaves out the same work as the [attach search](#attaching-work-to-a-goal).
+Say what the impediment is in the way of. Each open impediment in the desktop stand-up offers **Link…**, which opens the [Attach to goal](#attaching-work-to-a-goal) picker's search, limited to three kinds. A **task** is found by its id, and a **pull request** by its repository and number (a number alone finds one too). A **plan** is found by its [plan tag](../work/domain.plan.md#roadmap-tag) and holds back every entry filed under it, later ones included. A session is not offered. The search leaves out the same work as the [attach search](#attaching-work-to-a-goal).
 
 Each linked item shows under the impediment with its kind, and **Unlink** beside it removes the link. Linking an item already held back changes nothing. Linking and unlinking change nothing on the work and add no step to the history. An item may be held back by several impediments and belong to a goal as well.
 
@@ -253,10 +253,10 @@ For each open impediment, the reading gives who it is with, its days open, its c
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/goals/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/domain.md#blocked-task-policy, .devbook/domain/work/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
-Retired. Marking a task blocked used to raise a New impediment, which nobody resolved for the person, so the stand-up kept listing blockers whose tasks were long done. A task's [blocked mark](../tasks/features.md#marking-a-task-blocked) now raises nothing, and a person [raises an impediment](#raising-an-impediment) themselves.
+Retired. Marking a task blocked used to raise a New impediment, which nobody resolved for the person, so the stand-up kept listing blockers whose tasks were long done. A task's [blocked mark](../work/features.md#marking-a-task-blocked) now raises nothing, and a person [raises an impediment](#raising-an-impediment) themselves.
 
 The impediments it raised stay. Each holds back its one task, so it reads ready to resolve once that task is settled.
 
@@ -276,7 +276,7 @@ Goals defines neither mark: it names a pull request by its repository and number
 
 ```meta
 type: feature
-related: [.devbook/domain/goals/requirements.md#the-weekly-review, .devbook/domain/goals/context.md#weekly-review, .devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/tasks/features.md#next-actions, .devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
+related: [.devbook/domain/goals/requirements.md#the-weekly-review, .devbook/domain/goals/context.md#weekly-review, .devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/work/features.md#next-actions, .devbook/domain/work/features.md#archiving-a-finished-plans-project-note, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it]
 ```
 
@@ -299,7 +299,7 @@ The review walks three stages, one at a time: **Get clear**, **Get current** and
 | Get clear | each unprocessed Inbox item | **Open the Inbox** |
 | Get clear | each note in the Brain's inbox area | **Open the note** |
 | Get clear | each deferred Inbox item due by the sixth day from today, and each deferred with no review date ("No review date: look at it again") | **Open the Inbox** |
-| Get current | each plan with open entries and no [next action](../tasks/features.md#next-actions) | **Mark next action** on its first draft step that can move, else **Open the task** of its first open step |
+| Get current | each plan with open entries and no [next action](../work/features.md#next-actions) | **Mark next action** on its first draft step that can move, else **Open the task** of its first open step |
 | Get current | each roadmap plan no entry carries | **Open the plan** |
 | Get current | each `projects/` note whose `roadmap` names no plan the roadmap or the backlog carries | **Open the note**, **Move to archive** |
 | Get current | each finished plan's project note still in `projects/` | **Move to archive**, **Open the note** |
@@ -310,7 +310,7 @@ The review walks three stages, one at a time: **Get clear**, **Get current** and
 | Get creative | each note whose `review` date has come, or whose value is no date | **Open the note** |
 | Get creative | each `areas/` note none of whose tasks was created, started or completed in the last 30 days | **Open the note** |
 
-A press that shows something leaves the review for it: the Inbox, the note in the Devbook on the Brain, the entry in the Tasks view, the Goals view, or the Tasks view on the plan. A press that writes stays and reads the review again, so the line it answered goes. **Mark next action** makes the step ready. **Move to archive** moves the note unchanged into the Brain's archive area, and a finished plan's note has its plan's `#brain:` Knowledge Refs pointed at the new path, as the [roadmap's offer](../roadmap/features.md#archiving-a-finished-plans-project-note) does. A refused action says why on the review and leaves the line.
+A press that shows something leaves the review for it: the Inbox, the note in the Devbook on the Brain, the entry in the Tasks view, the Goals view, or the Tasks view on the plan. A press that writes stays and reads the review again, so the line it answered goes. **Mark next action** makes the step ready. **Move to archive** moves the note unchanged into the Brain's archive area, and a finished plan's note has its plan's `#brain:` Knowledge Refs pointed at the new path, as the [roadmap's offer](../work/features.md#archiving-a-finished-plans-project-note) does. A refused action says why on the review and leaves the line.
 
 A stage with nothing left reads done: its option carries a check and the word "done", and the stage says **Clear**. The review reads when it opens, on **Refresh**, after a press that writes, and when the Brain's setting moves or its index is rebuilt. With no Brain readable, or no goals in the host, the review says which part it left out and checks the rest. The areas are found by name or folder from the Brain's conventions, the PARA default otherwise. The tasks are every entry in the backlog, whatever the header's repository scope, since the plans are the whole roadmap's. A read that fails says so and draws no stage as done.
 
@@ -367,11 +367,11 @@ A change made on the phone shows there once a desktop has applied it. When a des
 
 ```meta
 type: feature
-depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
+depends-on: [.devbook/domain/work/features.md#multi-device-sync]
 related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/goals/requirements.md#syncing-goals-and-impediments]
 ```
 
-Keep every goal and impediment the same on every paired device. They travel beside the tasks the devices already sync ([Multi-device sync](../tasks/features.md#multi-device-sync)), as two document kinds, `goal` and `impediment`, each one document under its own id. They travel only while sync is on and the device is paired.
+Keep every goal and impediment the same on every paired device. They travel beside the tasks the devices already sync ([Multi-device sync](../work/features.md#multi-device-sync)), as two document kinds, `goal` and `impediment`, each one document under its own id. They travel only while sync is on and the device is paired.
 
 Each document is replaced whole, never merged. When two devices have both changed one goal or impediment since they last synced, the newer change wins on every device and the older is lost. A change to one goal never displaces a change to another. A deleted goal is deleted on every device, the newer-change rule deciding the deletion like any change. An impediment is never deleted: it is resolved.
 

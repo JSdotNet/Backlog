@@ -18,7 +18,7 @@ Inside the boundary:
 
 Outside it: the capture sources, which [Capture](../capture/domain.md#capture)
 owns, and what an item becomes once it is routed. A
-[Task](../tasks/domain.md#task) belongs to Tasks, and a
+[Task](../work/domain.task.md#task) belongs to Tasks, and a
 [Knowledge Note](../brain/domain.md#knowledge-note) in the person's
 [Brain](../brain/domain.md#brain) to Devbook. How a synced capture reaches the
 Inbox's intake is decided in

@@ -22,7 +22,7 @@ Inside the boundary:
   [stand-up](domain.md#stand-up) that reads goals, finished work, planned work and
   impediments over it.
 
-Outside it: the task itself. [Tasks](../tasks/domain.md#task) owns a task's status,
+Outside it: the task itself. [Work](../work/domain.task.md#task) owns a task's status,
 due date, effort, blocked mark and linked pull requests. It knows nothing of goals or
 impediments.
 
@@ -42,14 +42,14 @@ flowchart LR
 Goals reads each piece of work from its owner on every reading, naming it by:
 
 - a task by its id;
-- a plan by its [plan tag](../roadmap/domain.md#roadmap-tag);
+- a plan by its [plan tag](../work/domain.plan.md#roadmap-tag);
 - a pull request by its repository and number;
 - a session by its agent and session id.
 
 An impediment names the work it holds back the same way, sessions excepted. A session is [Sessions](../sessions/context.md)'s, and attaching one writes nothing there.
 
 A task's blocked mark is Tasks' alone and raises nothing in Goals: a person raises an impediment and links the task. Tasks does not call Goals and stores no impediment id. The pace a stand-up plans against is
-[Roadmap Planning](../roadmap/context.md#story-points-a-week)'s. Why goals and
+[Work](../work/context.md#story-points-a-week)'s. Why goals and
 impediments sit here is local
 [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md). The
 relationships are in [dependencies.md](dependencies.md).

@@ -147,7 +147,7 @@ internal static class TaskEntryFields
         entry.SetBlockedSince(parsed.BlockedSince);
 
         // Who the task waits on, on the same terms: deleting the `waiting:` token is
-        // how the waiting-for is cleared (.devbook/domain/tasks/domain.md#waiting-for).
+        // how the waiting-for is cleared (.devbook/domain/work/domain.md#waiting-for).
         entry.SetWaitingFor(parsed.WaitingFor);
 
         // Not scheduling, and here anyway. What is attached is a fact about the

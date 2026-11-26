@@ -144,7 +144,7 @@ Anything not in these tables falls under `#unsupported-syntax-preservation`.
 ## Task Structure
 
 ```meta
-related: [".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#sub-item", ".devbook/design/interaction-guidelines.md#nesting--indent-rules-chapters"]
+related: [".devbook/domain/work/domain.task.md#task", ".devbook/domain/work/domain.task.md#sub-item", ".devbook/design/interaction-guidelines.md#nesting--indent-rules-chapters"]
 ```
 
 > A Task is edited as one Markdown document, with headings carrying
@@ -175,7 +175,7 @@ sub-item itself, and the checkbox glyph is reserved for literal task-list syntax
 ## Structured Metadata Sigils
 
 ```meta
-related: [".devbook/domain/tasks/domain.md#task-status", ".devbook/domain/tasks/domain.md#area", ".devbook/domain/tasks/domain.md#roadmap-tag", ".devbook/design/typography-and-layout.md#font-families", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+related: [".devbook/domain/work/domain.task.md#task-status", ".devbook/domain/work/domain.md#area", ".devbook/domain/work/domain.plan.md#roadmap-tag", ".devbook/design/typography-and-layout.md#font-families", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
 > Tasks carry structured metadata (type, priority, status, area,
@@ -192,7 +192,7 @@ related: [".devbook/domain/tasks/domain.md#task-status", ".devbook/domain/tasks/
 | `#` | tag | written in the body, e.g. `#sync` |
 | `+` | plan tag | `` `+release-q4` `` |
 
-The plan tag files the entry under a roadmap item and is stored with its sigil (`.devbook/domain/tasks/domain.md#roadmap-tag`).
+The plan tag files the entry under a roadmap item and is stored with its sigil (`.devbook/domain/work/domain.plan.md#roadmap-tag`).
 
 | Rule | Requirement |
 |---|---|
@@ -234,7 +234,7 @@ The plan tag files the entry under a roadmap item and is stored with its sigil (
 ## Scheduling and Dependency Tokens
 
 ```meta
-related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
+related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/work/domain.md#due-date", ".devbook/domain/work/domain.md#reminder", ".devbook/domain/work/domain.task.md#recurrence", ".devbook/domain/work/domain.md#my-day", ".devbook/domain/work/context.md#clear-my-day-overnight", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/work/domain.task.md#agenda-time", ".devbook/domain/work/domain.md#task-dependency", ".devbook/domain/work/features.md#import", ".devbook/domain/work/features.md#effort-registration", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/domain/work/domain.md#waiting-for", ".devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -263,13 +263,13 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 The `effort:` value is a non-negative whole number and is not honoured on a `plan` entry.
 
 `waiting:` and `followup:` carry a task's
-[waiting-for](../domain/tasks/domain.md#waiting-for), decided in local ADR 0054.
+[waiting-for](../domain/work/domain.md#waiting-for), decided in local ADR 0054.
 `waiting:` takes free text up to the closing backtick, spaces included, and
 `followup:` a calendar date. A `followup:` with no `waiting:` beside it is
 unreadable, as `for:` is without `at:`. A follow-up date that has passed reads
 overdue, and deleting `waiting:` clears the waiting-for and its date. A context is not a named token: it is a tag,
 `#@pc`, written in the body, on the title or as a `#` tag token on this line
-(`.devbook/domain/tasks/domain.md#context`). The canonical rewrite keeps it as
+(`.devbook/domain/work/domain.md#context`). The canonical rewrite keeps it as
 `` `#@pc` ``, never as the bare `` `@pc` `` this line reads as an area.
 
 A full metadata line mixes both forms, sigils first:
@@ -329,13 +329,13 @@ although neither is saved yet and so neither has a real `task_id`:
     reader's current local date, so yesterday's list clears itself with no timer
     and no overnight sweep.
   - With [Clear My Day
-    overnight](../domain/tasks/context.md#clear-my-day-overnight) off, an
+    overnight](../domain/work/context.md#clear-my-day-overnight) off, an
     unfinished entry with an earlier date stays in My Day until it is finished or
     taken out. It shows no agenda time.
   - A later date is never today's. The switch never rewrites a `myday:` date.
 - **An agenda time is a time of day:** `at:` runs `HH:MM`, `00:00` to `23:59`.
   Together they are the entry's [Agenda
-  Time](../domain/tasks/domain.md#agenda-time), such as `` `at:10:45` `for:45m`
+  Time](../domain/work/domain.task.md#agenda-time), such as `` `at:10:45` `for:45m`
   ``. Neither carries a date or a zone: the date is the `myday:` date beside
   them, and the time is read on the reader's clock, like `remind:`.
 - **An agenda time needs a start and a day:** a lone `for:` reads as malformed,
@@ -375,7 +375,7 @@ although neither is saved yet and so neither has a real `task_id`:
   counts, and still blocks.
 - **A repo name repeats, like a dependency:** an entry can target several
   repositories at once, matching the aggregate's own `repo_ids[]`
-  (`.devbook/domain/tasks/features.md#multi-repo-targeting`).
+  (`.devbook/domain/work/features.md#multi-repo-targeting`).
 - **A repo name is resolved, never invented:**
   - The registry is
     `.devbook/domain/repositories/domain.md#repository-registry`, and
@@ -383,11 +383,11 @@ although neither is saved yet and so neither has a real `task_id`:
   - A name the registry does not recognize is unresolved, as with an
     unrecognized sigil value. This token never registers a repository on its own.
   - Only the narrower import policy
-    (`.devbook/domain/tasks/features.md#repository-resolution-on-import`)
+    (`.devbook/domain/work/features.md#repository-resolution-on-import`)
     auto-registers an unknown name, and only for that feature.
 - **An effort is a count of points:** `0` contributes nothing. A negative or
   fractional value is not an estimate and is not read
-  (`.devbook/domain/tasks/domain.md#task`). Absent means unestimated, a normal
+  (`.devbook/domain/work/domain.task.md#task`). Absent means unestimated, a normal
   state never rewritten as `0`.
 - **A `plan` entry reads a narrower line:** the type word is defined in
   `#structured-metadata-sigils`, and the mapping is
@@ -440,7 +440,7 @@ related: [".devbook/design/content-editing.md#editing-feedback-and-state"]
 | Refused status is explained | For an illegal typed status, the hint MUST show the status kept and the legal next steps. |
 | Not an error state | A refused status is informational (`color-primary` accent), not an error toast or blocking validation. |
 
-The lifecycle is `.devbook/domain/tasks/domain.md#task`. The typed word is never
+The lifecycle is `.devbook/domain/work/domain.task.md#task`. The typed word is never
 silently dropped, and the entry still saves without the refused change.
 
 ## Paste Behavior

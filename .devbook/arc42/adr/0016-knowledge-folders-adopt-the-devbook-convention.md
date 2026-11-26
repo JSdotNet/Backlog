@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-26
-related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#devbook-meta-generator"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/work/domain.plan.md#plan", ".devbook/tech/tooling.md#devbook-meta-generator"]
 c4: [backlog.desktop.devbook]
 ```
 
@@ -84,7 +84,7 @@ only way that record changes.
 **`.backlog/` is retired.** It held one document, `domain-backlog.md`, with one
 item: *Add roadmap planning to the backlog*. That item is `done`, and it was
 delivered as its own bounded context, [Roadmap
-Planning](../../domain/roadmap/domain.md#roadmap-plan). So nothing in the
+Planning](../../domain/work/domain.plan.md#plan). So nothing in the
 document needs a new home. The chapter that item implements is already in
 `.devbook/domain/`, and git history keeps the document. Work items are Backlog
 entries (local ADR 0007), not devbook chapters. The product's

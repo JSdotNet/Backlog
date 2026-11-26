@@ -34,7 +34,7 @@ public static class DevbookAreaCatalog
 
     /// <summary>
     /// The section a repository-relative knowledge path belongs to —
-    /// <c>.devbook/domain/tasks/domain.md</c> is the Domain section — or
+    /// <c>.devbook/domain/work/domain.md</c> is the Domain section — or
     /// <see langword="null"/> when the folder it names is not a section this
     /// product reads.
     /// <para>

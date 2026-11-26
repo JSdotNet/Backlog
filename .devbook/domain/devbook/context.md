@@ -35,9 +35,9 @@ Outside it:
   every registered repository's devbook database through this context's reader;
 - the header scope that picks between the Brain and the repositories, which the
   desktop shell owns and this context only follows;
-- the work items a chapter links to, which [Tasks](../tasks/domain.md#task) answers;
+- the work items a chapter links to, which [Work](../work/domain.task.md#task) answers;
 - gathering chapters under planned work, which
-  [Roadmap Planning](../roadmap/domain.md#roadmap-item) answers.
+  [Work](../work/domain.plan.md#roadmap-item) answers.
 
 ## Devbook editing
 

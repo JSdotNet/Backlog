@@ -11,7 +11,7 @@ type: features
 
 ```meta
 type: feature
-related: [.devbook/domain/insights/domain.md#productivity-ledger, .devbook/domain/tasks/domain.md#aiworklogged]
+related: [.devbook/domain/insights/domain.md#productivity-ledger, .devbook/domain/work/domain.md#aiworklogged]
 ```
 
 **AI-assisted activity recording**
@@ -127,7 +127,7 @@ This is kept as an idea rather than a plan. It measures only work that flows thr
 
 ```meta
 type: feature
-setting: [.devbook/domain/insights/context.md#working-week, .devbook/domain/insights/context.md#weekly-usage-reset, .devbook/domain/insights/context.md#monthly-spend-budget]
+setting: [.devbook/domain/work/context.md#working-week, .devbook/domain/insights/context.md#weekly-usage-reset, .devbook/domain/insights/context.md#monthly-spend-budget]
 related: [.devbook/domain/insights/requirements.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
@@ -462,19 +462,19 @@ The time is the measure the agent-active figure sums, so the first row never exc
 
 ```meta
 type: sub-feature
-setting: [.devbook/domain/insights/context.md#working-week]
-related: [.devbook/domain/insights/requirements.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/insights/dependencies.md#outbound-dependencies]
+setting: [.devbook/domain/work/context.md#working-week]
+related: [.devbook/domain/insights/requirements.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/work/domain.md#actual-hours, .devbook/domain/work/domain.md#working-stretch, .devbook/domain/work/domain.md#day-override, .devbook/domain/insights/dependencies.md#outbound-dependencies]
 tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.HoursWorkedInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsHoursWorkedPartTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewTests.Hours_worked_splits_inside_and_outside_office_hours]
 ```
 
-Show how long the person actually worked, and how much of it fell outside the hours they meant to work. The dashboard shows the person's [actual hours](../roadmap/domain.md#actual-hours) over the window, split into the time **inside** and **outside** their [office hours](domain.md#office-hours). It sets them beside the planned hours of the working week, in two places:
+Show how long the person actually worked, and how much of it fell outside the hours they meant to work. The dashboard shows the person's [actual hours](../work/domain.md#actual-hours) over the window, split into the time **inside** and **outside** their [office hours](domain.md#office-hours). It sets them beside the planned hours of the working week, in two places:
 
 - The Hours worked part on the Sessions tab draws them per day over four weeks, and per calendar week, Monday first, over a longer window. Tiles above the chart give the window's totals.
 - The Overview holds one bar of the window's hours split inside and outside office hours, with the hours worked set against the hours planned. It is the sum of the Sessions tab's chart.
 
 The part draws days over four weeks, because a month of weeks is five columns that hide the day off it exists to show. It draws weeks over longer windows, because a quarter of days is ninety columns nobody can read.
 
-Actual hours are the union of the person's [working stretches](../roadmap/domain.md#working-stretch), as Roadmap Planning defines them, so the axis and this part count the same time. Office hours apply the [day overrides](../roadmap/domain.md#day-override) set on the roadmap. A blocked day off counts all its work outside, and an unblocked Saturday has office hours from its stored times. Neither the repository chips nor the machine select narrow it, because a working stretch is the person's own, merged over every machine.
+Actual hours are the union of the person's [working stretches](../work/domain.md#working-stretch), as Work defines them, so the axis and this part count the same time. Office hours apply the [day overrides](../work/domain.md#day-override) set on the roadmap. A blocked day off counts all its work outside, and an unblocked Saturday has office hours from its stored times. Neither the repository chips nor the machine select narrow it, because a working stretch is the person's own, merged over every machine.
 
 It is presentation only, like the hour grids: no other dashboard figure changes and no work is left out. [The requirements](requirements.md#hours-worked) say what it promises.
 
@@ -519,7 +519,7 @@ The issues are read from each repository's list of open issues labelled `devbook
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
+related: [.devbook/domain/work/features.md#placing-a-plan-in-time, .devbook/domain/work/features.md#forecasting-work-in-flight, .devbook/domain/work/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
 tests: [unit:dotnet:Backlog.Modules.Insights.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPaneTests.A_finished_bar_ends_where_its_work_landed_not_at_its_planned_end, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsTasksTabTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsOverviewBoardTests.The_points_tile_counts_overdue_items_as_behind_as_their_chips_do]
 ```
 
@@ -548,8 +548,8 @@ flowchart TD
 **A plan projected part by part**
 
 A plan placed by hand or by its due date is projected one
-[part](../roadmap/domain.md#part) at a time, the same parts
-[Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time) lays out:
+[part](../work/domain.md#part) at a time, the same parts
+[Placing a plan in time](../work/features.md#placing-a-plan-in-time) lays out:
 
 ```mermaid
 flowchart TD
@@ -568,8 +568,8 @@ An unestimated task counts nothing here, because the part reports it as unestima
 
 ```meta
 type: sub-feature
-feature-flag: .devbook/domain/tasks/context.md#ai-assistant
-related: [.devbook/domain/tasks/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/insights/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
+feature-flag: .devbook/domain/work/context.md#ai-assistant
+related: [.devbook/domain/work/features.md#ai-assistance-over-the-visible-backlog, .devbook/domain/insights/requirements.md#asking-ai-about-a-part, .devbook/arc42/05-building-block-view.md#desktop-app]
 tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsPartFrameTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.InsightsAiContentSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_dashboard_parts_ask_ai_opens_the_panel_on_the_dashboard_with_a_question_naming_the_part]
 ```
 

@@ -4,22 +4,22 @@
 type: invariants
 ```
 
-What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggregate: each rule, where it is enforced, and the unit test that proves it.
+What the Task on [`domain.task.md`](domain.task.md) enforces: each rule, where it is enforced, and the unit test that proves it.
 
 ## Task
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/work/domain.task.md#task]
 ```
 
-> The rules the Task holds its status, its [sub-items](domain.md#sub-item) and its history to.
+> The rules the Task holds its status, its [sub-items](domain.task.md#sub-item) and its history to.
 
 ### How a task moves
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task]
+related: [.devbook/domain/work/domain.task.md#task]
 ```
 
 #### Invariant: A new task starts in draft
@@ -40,7 +40,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.InvalidTransitions_Throw, unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskItemLifecycleTests.ValidTransitions_AreAllowed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.EntryStatusFlowTests.The_graph_is_the_one_the_domain_folder_draws]
 ```
 
-A status change through `ChangeStatus()` moves only along the [Task lifecycle](domain.md#task).
+A status change through `ChangeStatus()` moves only along the [Task lifecycle](domain.task.md#task).
 
 Enforced at: `ChangeStatus()`
 
@@ -84,7 +84,7 @@ Enforced at: `Restore()`
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#dependency]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.md#task-dependency]
 ```
 
 #### Invariant: Readiness is derived and never stored
@@ -139,7 +139,7 @@ Enforced at: `TaskChain.Resolve()` in `Backlog.UI.Components.Tasks`
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#my-day]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.md#my-day]
 ```
 
 #### Invariant: A task outside My Day holds no agenda time
@@ -149,7 +149,7 @@ type: invariant
 tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.AgendaTimeTests.A_task_holds_no_agenda_time_outside_my_day
 ```
 
-A task with no `in_my_day_on` holds no [Agenda Time](domain.md#agenda-time); one given to it is dropped rather than refused.
+A task with no `in_my_day_on` holds no [Agenda Time](domain.task.md#agenda-time); one given to it is dropped rather than refused.
 An agenda time has no date of its own, so without a My Day date it places the task nowhere.
 
 Enforced at: `SetAgendaTime()`
@@ -216,7 +216,7 @@ Enforced at: constructor (`AgendaTime` has no form without a start), and `EntryT
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#sub-item, .devbook/domain/tasks/domain.md#usage-event]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.task.md#sub-item, .devbook/domain/work/domain.task.md#usage-event]
 ```
 
 #### Invariant: Sub-items change through the task
@@ -266,7 +266,7 @@ Enforced at: all mutations (`UsageEvents` is read-only, and grows only through `
 type: invariant
 ```
 
-A task's [AI work log](domain.md#ai-work-log) events change only through the task.
+A task's [AI work log](domain.task.md#ai-work-log) events change only through the task.
 
 Enforced at: open
 
@@ -274,7 +274,7 @@ Enforced at: open
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#planned-hours]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.md#planned-hours]
 ```
 
 #### Invariant: A planned-hours figure is more than none and at most a day
@@ -315,7 +315,7 @@ Enforced at: `SetPlannedHours()`
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.md#projection]
 ```
 
 #### Invariant: Unlinking removes every reference to the named artifact
@@ -325,7 +325,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_a_session_takes_it_off_under_every_repository]
 ```
 
-Unlinking removes every [Projection Ref](domain.md#projection-ref) with the named repository, external id and target type, compared without regard to case, and no other. A session is matched under any repository.
+Unlinking removes every [Projection Ref](domain.task.md#projection-ref) with the named repository, external id and target type, compared without regard to case, and no other. A session is matched under any repository.
 GitHub is case-preserving but not case-sensitive, so two spellings name one artifact.
 
 Enforced at: `RemoveProjectionRef()`
@@ -357,7 +357,7 @@ Enforced at: `RemoveProjectionRef()`, which restamps only when it removed someth
 
 ```meta
 type: invariants
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#area, .devbook/domain/tasks/domain.md#effort]
+related: [.devbook/domain/work/domain.task.md#task, .devbook/domain/work/domain.md#area, .devbook/domain/work/domain.md#effort]
 ```
 
 #### Invariant: A blank area is unfiled
@@ -389,6 +389,6 @@ tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.ImportPlanTests.The_shared_pl
 ```
 
 A task's `import_plan_id` holds the plan's tag as written, sigil included, and matching tasks by plan compares it exactly, so `#slug` and `+slug` are two plans.
-One spelling means one comparison inside this context; the sigil is lifted at the roadmap boundary and nowhere here.
+One spelling means one comparison on the task; the sigil is lifted only where the plan reads the tag, and nowhere else.
 
 Enforced at: `SetImportPlanId()`, which trims and never lifts the sigil; `ImportPlanCommandHandler` and `DependencyResolution` compare plan ids ordinally

@@ -2,7 +2,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
 /// Whether a task's stored tag carries a roadmap item's slug — the tag half of
-/// Roadmap Item Gathering (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>).
+/// Roadmap Item Gathering (<c>.devbook/domain/work/domain.md#roadmap-item-gathering</c>).
 /// <para>
 /// One rule with two readers. The roadmap's rollup counts an item's work by it, and the
 /// Tasks list's "Open in Tasks" lists that work by it; while each kept its own copy, the

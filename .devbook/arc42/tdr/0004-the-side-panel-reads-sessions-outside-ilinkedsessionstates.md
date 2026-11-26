@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-02
-related: [".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#consequences", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/sessions/features.md#from-a-tasks-side-panel"]
+related: [".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#consequences", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/work/dependencies.md", ".devbook/domain/sessions/features.md#from-a-tasks-side-panel"]
 severity: low
 ```
 
@@ -126,6 +126,6 @@ the repository owner accepts the two reads under option C and says so here.
 
 - Local ADR 0042, *Consequences* — the follow-up this record captures.
 - `.devbook/arc42/11-risks-and-technical-debt.md`, *Technical Debt* — row D6.
-- `.devbook/domain/tasks/dependencies.md` — Tasks' dependency on Sessions.
+- `.devbook/domain/work/dependencies.md` — Tasks' dependency on Sessions.
 - `.devbook/domain/sessions/features.md#from-a-tasks-side-panel` — what the side panel
   shows of a session.

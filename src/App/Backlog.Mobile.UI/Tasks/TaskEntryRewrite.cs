@@ -95,7 +95,7 @@ public static class TaskEntryRewrite
     /// today's My Day.
     /// <para>
     /// The move drops the task's agenda time, on the domain's rule
-    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>): the rewrite takes
+    /// (<c>.devbook/domain/work/domain.task.md#agenda-time</c>): the rewrite takes
     /// <c>at:</c> and <c>for:</c> off the text with the old date, and the
     /// document's two fields are cleared beside it. Both are needed because a
     /// synced task is rebuilt from the incoming document, so the rule never

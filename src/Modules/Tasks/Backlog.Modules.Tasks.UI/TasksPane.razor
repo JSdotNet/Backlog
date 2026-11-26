@@ -2964,7 +2964,7 @@
     /// repository picker two controls to the right was showing the same word. That
     /// suppression went with the conflation behind it: the picker reads the entry's
     /// <c>`repo:`</c> targets and the area is the person's own pile
-    /// (<c>.devbook/domain/tasks/domain.md#area</c>), so they are two facts and an entry
+    /// (<c>.devbook/domain/work/domain.md#area</c>), so they are two facts and an entry
     /// filed under a pile that happens to be spelled like a repository is saying
     /// something the picker is not.
     /// </para>
@@ -4864,7 +4864,7 @@
 
                 @* Who the entry waits on, and the follow-up day, on the same terms:
                    only when there is one. A passed follow-up says "overdue" in words,
-                   the way a passed reminder reads (.devbook/domain/tasks/domain.md#waiting-for). *@
+                   the way a passed reminder reads (.devbook/domain/work/domain.md#waiting-for). *@
                 @if (row.PreviewWaitingFor is { } waiting)
                 {
                     <Badge Kind="waiting"
@@ -4949,7 +4949,7 @@
     /// <summary>
     /// When the entry is due, when to be reminded of it, whether it comes back,
     /// whether it is in today's My Day, and what it waits on — the five facts
-    /// <c>.devbook/domain/tasks/features.md#feature-scheduling-and-recurrence</c>,
+    /// <c>.devbook/domain/work/features.md#feature-scheduling-and-recurrence</c>,
     /// <c>#feature-my-day</c> and <c>#feature-entry-dependencies</c> add.
     ///
     /// <para>All five are still written by rewriting the metadata line, so typing
@@ -4996,7 +4996,7 @@
                 @* The time within today, under the decision it belongs to and only
                    while that decision holds: an agenda time has no date of its own
                    and borrows My Day's, so outside today's My Day there is nothing
-                   for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
+                   for it to be a time of (.devbook/domain/work/domain.task.md#agenda-time).
                    In the lead rather than a group because it is part of the same
                    morning decision, and it appears only once that decision is made.
                    Made today: a task carried over from an earlier day is in My Day
@@ -5300,7 +5300,7 @@
                 </TaskActionGroup>
 
                 @* Who the task waits on, outside the backlog, and when to chase them
-                   (.devbook/domain/tasks/domain.md#waiting-for). Straight under
+                   (.devbook/domain/work/domain.md#waiting-for). Straight under
                    Dependencies, because both answer "why is this not moving", and its
                    own group rather than a row there: "Waiting for" above is the chain
                    of other entries, and this is a person or a party, so the two are
@@ -5357,7 +5357,7 @@
                 </TaskActionGroup>
 
                 @* The pile the task is filed under, in the person's own words
-                   (.devbook/domain/tasks/domain.md#area). A combobox rather than a
+                   (.devbook/domain/work/domain.md#area). A combobox rather than a
                    select: the suggestions are the Brain's area names first, then the
                    areas already used, and what is typed stands as typed — the
                    taxonomy is the person's. Across the width with the other trailing
@@ -5987,7 +5987,7 @@
 
     /// <summary>Whether the entry was put in My Day today rather than carried
     /// over: the only case that owns an agenda slot, since a slot belongs to the
-    /// stamp's day (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    /// stamp's day (<c>.devbook/domain/work/domain.task.md#agenda-time</c>).</summary>
     private bool IsPlannedForToday(EntryRow row) => MyDay.IsPlannedFor(row.PreviewInMyDayOn, Today);
 
     private async Task OnMyDayToggledAsync(EntryRow row)

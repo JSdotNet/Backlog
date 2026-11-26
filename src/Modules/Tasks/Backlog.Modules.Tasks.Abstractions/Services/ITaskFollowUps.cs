@@ -27,7 +27,7 @@ public sealed record GatedEntry(Guid? EntryId, string? Plan = null, string? Item
 }
 
 /// <summary>
-/// What filing a follow-up needs (<c>.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry</c>).
+/// What filing a follow-up needs (<c>.devbook/domain/work/features.md#filing-a-follow-up-after-an-entry</c>).
 /// </summary>
 /// <param name="Gated">The entry the follow-up waits on.</param>
 /// <param name="Text">The person's words, kept as plain body text — never parsed as
@@ -38,7 +38,7 @@ public sealed record TaskFollowUpRequest(GatedEntry Gated, string Text, Guid Not
 
 /// <summary>
 /// Files the one prompt entry an Approve + follow-up answer asks for, after the gated entry
-/// (<c>.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry</c>).
+/// (<c>.devbook/domain/work/requirements.md#filing-a-follow-up-after-an-entry</c>).
 /// <para>
 /// A port of its own rather than an <see cref="ITaskItems"/> member, so the many hosts and
 /// test doubles of that port stay untouched. Called by the Sessions adapter, which sees

@@ -952,7 +952,7 @@ The system SHALL mark an open impediment Ready to resolve, on the desktop and on
 
 ```meta
 type: requirement
-related: [.devbook/domain/tasks/features.md#marking-a-task-blocked]
+related: [.devbook/domain/work/features.md#marking-a-task-blocked]
 tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Set_blocked_raises_no_impediment, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Removing_the_blocked_token_leaves_the_impediment_that_holds_the_task_back_alone]
 ```
 

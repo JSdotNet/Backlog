@@ -5,7 +5,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// <summary>
 /// A roadmap item's work, asked to be shown in the task list: its plan tag and the task
 /// it links — the two halves of what the roadmap gathers under it
-/// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>).
+/// (<c>.devbook/domain/work/domain.md#roadmap-item-gathering</c>).
 /// <para>
 /// Raised by the band and answered by the shell, which owns the view switch and the
 /// task list's filters — the roadmap references no Tasks module.
@@ -13,7 +13,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// </summary>
 /// <param name="PlanTag">The plan tag with its <c>+</c>, the way a task carries it. The
 /// roadmap holds the bare slug and lifts the <c>+</c> here, at its own boundary
-/// (<c>.devbook/domain/roadmap/features.md#tagging-planned-work</c>).</param>
+/// (<c>.devbook/domain/work/features.md#tagging-planned-work</c>).</param>
 /// <param name="RepositoryAliases">The configured aliases behind the bar the request was
 /// raised from, the first the anchor; empty for every repository. Not what the list is
 /// scoped to: the roadmap gathers an item's work wherever it is filed, so the shell shows
