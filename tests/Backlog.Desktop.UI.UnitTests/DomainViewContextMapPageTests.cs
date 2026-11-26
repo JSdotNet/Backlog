@@ -156,7 +156,9 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         Assert.Equal(18, read.Map.Contexts.Count);
         Assert.Contains(read.Map.Contexts, context => context.Slug == "brain");
         Assert.Contains(read.Map.Contexts, context => context.Slug == "calendar");
-        Assert.All(read.Map.Contexts, context => Assert.NotNull(context.Slug));
+        // The change journal is a landscape row with no folder: two tables beside the
+        // store, shared across contexts the way Sync is (local ADRs 0071, 0073 §6).
+        Assert.All(read.Map.Contexts.Where(context => context.Id != "change-journal"), context => Assert.NotNull(context.Slug));
         var unworded = read.Map.Lines.Where(line => line.Wording.Length == 0).Select(read.Map.Describe).ToList();
         Assert.True(unworded.Count == 0, "Lines no dependency row words: " + string.Join("; ", unworded));
     }

@@ -553,8 +553,8 @@ public sealed class ContextMapTests
 
         Assert.Equal(17, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
-        Assert.Contains(map.Contexts, c => c.Id == "Calendar");
-        Assert.Equal(3, map.LinesTouching("Calendar"));
+        // The Calendar is drawn as a composition beside the shell, not a context (local ADR 0073 §6).
+        Assert.DoesNotContain(map.Contexts, c => c.Id == "Calendar");
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
