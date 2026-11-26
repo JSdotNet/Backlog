@@ -249,7 +249,8 @@ public sealed partial class DevToolService : IDevToolService
     /// no listener and no port to answer with, and resolving the token would mean
     /// minting a credential from a development host.</para>
     /// </summary>
-    public static DevToolService CatalogOnly(ITaskStore store) => new(new CatalogOnlyDevTools(store));
+    public static DevToolService CatalogOnly(ITaskStore store, Machine? machine = null) =>
+        new(new CatalogOnlyDevTools(store, machine));
 
     /// <summary>What answers every call in the catalog-only configuration, or
     /// nothing when this instance runs the CLIs.</summary>
@@ -917,6 +918,13 @@ public sealed partial class DevToolService : IDevToolService
     /// that sets none gets the release build's folder.
     /// </summary>
     public string? QuestionHookScriptPath { get; init; }
+
+    /// <summary>
+    /// The machine this adapter manages, which keys its per-PC folder (local ADR 0073
+    /// §7). Dev PCs' registry answers it; a host that sets none keeps the folder named
+    /// after <see cref="Environment.MachineName"/>, as every build did before.
+    /// </summary>
+    public Machine? Machine { get; init; }
 
     // Built by hand rather than through AppDataPaths: this project has no direct
     // Backlog.SharedKernel reference.
@@ -1865,9 +1873,26 @@ public sealed partial class DevToolService : IDevToolService
         }
     }
 
-    private DevToolConfigurationPaths ConfigurationPaths => _configPath is null
-        ? DevToolConfigurationPaths.CreateDefault(storageRootDirectory: _store?.RootDirectory)
-        : DevToolConfigurationPaths.FromCatalogPath(_configPath);
+    private DevToolConfigurationPaths ConfigurationPaths
+    {
+        get
+        {
+            if (Machine is null)
+            {
+                return _configPath is null
+                    ? DevToolConfigurationPaths.CreateDefault(storageRootDirectory: _store?.RootDirectory)
+                    : DevToolConfigurationPaths.FromCatalogPath(_configPath);
+            }
+
+            var paths = _configPath is null
+                ? DevToolConfigurationPaths.CreateDefault(Machine, storageRootDirectory: _store?.RootDirectory)
+                : DevToolConfigurationPaths.FromCatalogPath(_configPath, Machine);
+
+            // The compatibility read: a folder still named after the machine is
+            // adopted under its id the first time it is asked for.
+            return DevToolConfiguration.AdoptLegacyPcFolder(paths);
+        }
+    }
 
     /// <summary>
     /// One row's Update, applied to every host the entry targets.

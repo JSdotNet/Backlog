@@ -1,3 +1,4 @@
+using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Insights.Abstractions;
 using Backlog.Modules.Insights.Abstractions.Insights;
 using Backlog.Modules.Insights.Abstractions.Services;
@@ -33,7 +34,7 @@ internal static class InsightsTestHost
         params string[] repositoryAliases)
     {
         services.AddSingleton<IRepositoryDirectory>(new FixedRepositoryDirectory(repositoryAliases));
-        services.AddSingleton<IMachineDirectory>(new FixedMachineDirectory(MachineId, MachineName));
+        services.AddSingleton<IMachineRegistry>(new FixedMachineRegistry(MachineId, MachineName));
         services.AddSingleton<IProductivityInsights, UnavailableProductivityInsights>();
         services.AddSingleton<ISessionInsights, UnavailableSessionInsights>();
         services.AddSingleton<ICostInsights, UnavailableCostInsights>();
@@ -74,13 +75,14 @@ internal static class InsightsTestHost
     /// no record has replicated to. Answering from a completed task rather than a
     /// delay: the pane reads this once as it initializes, and a test measuring the
     /// filter should not have to wait for a fixture.</summary>
-    private sealed class FixedMachineDirectory(string id, string name) : IMachineDirectory
+    private sealed class FixedMachineRegistry(string id, string name) : IMachineRegistry
     {
-        private readonly IReadOnlyList<InsightsMachine> _machines = [new InsightsMachine(id, name)];
+        public Machine Current { get; } = new(new MachineId(Guid.Parse(id)), name);
 
-        public Task<IReadOnlyList<InsightsMachine>> GetMachinesAsync(
+        public Task<IReadOnlyList<Machine>> GetMachinesAsync(
+            DateTimeOffset since,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(_machines);
+            Task.FromResult<IReadOnlyList<Machine>>([Current]);
     }
 
     private sealed class UnavailableSessionInsights : ISessionInsights

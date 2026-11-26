@@ -22,7 +22,7 @@ classDiagram
     class Machine {
         <<entity>>
         +MachineId machine_id
-        +String machine_name
+        +String name
         +String os
         +String os_version
         +String ip_local

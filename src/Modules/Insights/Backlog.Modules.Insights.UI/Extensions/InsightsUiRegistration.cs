@@ -1,14 +1,12 @@
 using Backlog.Modules.Insights.Abstractions.Services;
-using Backlog.Modules.Insights.UI.Adapters;
 using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Insights.UI.Extensions;
 
 /// <summary>
-/// Wires what the pane itself answers: the machine directory, which wraps no
-/// provider at all, the Ask AI pair, which reads what one reader's pane is
-/// showing, and the Dashboard's page on the settings screen.
+/// Wires what the pane itself answers: the Ask AI pair, which reads what one
+/// reader's pane is showing, and the Dashboard's page on the settings screen.
 /// <para>
 /// The provider adapters are not here. Each lives in the infrastructure project it
 /// wraps and is registered there — <c>AddGitHubInsightsAdapters()</c>,
@@ -16,15 +14,12 @@ namespace Backlog.Modules.Insights.UI.Extensions;
 /// — so this project hosts without any provider client. One port is not in any of
 /// those either. <c>IAssistantSessionSource</c> is a cross-context join, and only
 /// an infrastructure adapter may see both this context and the Sessions one, so a
-/// host registers it with <c>AddInsightsCrossContextAdapters()</c> instead.
+/// host registers it with <c>AddInsightsCrossContextAdapters()</c> instead. The
+/// machine filter reads Dev PCs' <c>IMachineRegistry</c>, which
+/// <c>AddDevPcCrossContextAdapters()</c> registers (local ADR 0073 §7).
 /// </para>
 /// </summary>
 /// <remarks>
-/// <para>
-/// Both hosts must call this after registering <c>IDeviceIdentitySource</c>, which
-/// the machine directory holds and does not construct. It is a singleton, like the
-/// provider adapters beside it: it holds no per-dashboard state.
-/// </para>
 /// <para>
 /// The two Ask AI registrations are scoped, and that is the one lifetime they can
 /// have. <see cref="InsightsScopeInView"/> is what one reader's pane is showing —
@@ -37,8 +32,6 @@ public static class InsightsUiRegistration
     public static IServiceCollection AddInsightsUi(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        services.AddSingleton<IMachineDirectory, DeviceMachineDirectory>();
 
         AddInsightsAiContentSource(services);
 

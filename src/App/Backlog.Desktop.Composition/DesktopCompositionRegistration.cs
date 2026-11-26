@@ -15,6 +15,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Calendar;
+using Backlog.Infrastructure.FileSystem.DevPc;
 using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Infrastructure.FileSystem.Events;
 using Backlog.Infrastructure.FileSystem.Inbox;
@@ -699,6 +700,10 @@ public static partial class DesktopCompositionRegistration
         // and the Sessions context, after both of the ports it sits between.
         services.AddAgentActivitySource();
         services.AddInsightsCrossContextAdapters();
+
+        // Dev PCs' machines: this device and the machines Sessions' records name, read by
+        // the Insights filter and, for this device, by the tools pane (local ADR 0073 §7).
+        services.AddDevPcCrossContextAdapters();
 
         return services;
     }

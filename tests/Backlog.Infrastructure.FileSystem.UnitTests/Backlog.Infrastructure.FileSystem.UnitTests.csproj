@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\InMemoryPullRequests.cs" Link="Shared\TestDoubles\InMemoryPullRequests.cs" />
     <Compile Include="..\Shared\TestDoubles\StubSessionSource.cs" Link="Shared\TestDoubles\StubSessionSource.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubDeviceIdentity.cs" Link="Shared\TestDoubles\StubDeviceIdentity.cs" />
     <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTaskItems.cs" Link="Shared\TestDoubles\RecordingTaskItems.cs" />
     <Compile Include="..\Shared\TestDoubles\HeldWaitingQuestions.cs" Link="Shared\TestDoubles\HeldWaitingQuestions.cs" />

@@ -99,6 +99,12 @@
         "resolved": "11.0.0",
         "contentHash": "JZlrW64sFEC8jptrWNUD/SsTiZXgH1fcAZawIUyVsAUGGg/FeEAKV8SfYh+wH8N009BAkCl38KRO/gYZu+QUhA=="
       },
+      "backlog.modules.devpc.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.insights.abstractions": {
         "type": "Project",
         "dependencies": {

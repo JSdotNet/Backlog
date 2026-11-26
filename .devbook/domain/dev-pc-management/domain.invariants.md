@@ -15,6 +15,32 @@ related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook
 
 > The rules the Machine Registry holds its machines and their [updates](domain.md#pending-update) to.
 
+### Invariant: A machine is known by its device identity
+
+```meta
+type: invariant
+```
+
+A machine's `MachineId` is the device identity Sync pairs on, never its name. The
+registry lists a machine once per id, this device first, and passes over a
+record whose environment id is not a device identity.
+
+Enforced at: `SessionMachineRegistry.GetMachinesAsync()`, proved by `SessionMachineRegistryTests`
+
+### Invariant: Per-PC choices follow the machine
+
+```meta
+type: invariant
+```
+
+The tools pane keeps a machine's choices and last run under its `MachineId`, so a
+rename keeps them. A folder named after the machine is copied under the id once,
+when none exists there yet. The copy never overwrites the id's folder and
+leaves the name's folder for older builds. A copy the disk refuses reads and
+writes the name's folder instead, so no choice is lost.
+
+Enforced at: `DevToolConfiguration.AdoptLegacyPcFolder()`, proved by `DevToolMachineFolderTests`
+
 ### Invariant: All machine changes go through the registry
 
 ```meta

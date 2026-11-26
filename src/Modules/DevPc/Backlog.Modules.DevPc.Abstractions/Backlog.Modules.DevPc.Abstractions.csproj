@@ -55,4 +55,10 @@
     <InternalsVisibleTo Include="Backlog.Infrastructure.DevPc" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The kernel's device identity, which the Machine is built over (local ADR
+         0073 §7): the one identity Sync pairs on and every session record carries. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
 </Project>

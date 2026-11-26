@@ -362,13 +362,14 @@
     /// zero that would say none are open.</summary>
     private int? _openDriftIssues;
 
-    /// <summary>What the machine directory answered. Empty until it has, which renders
-    /// as the "All machines" option on its own — the honest shape of "not asked yet",
-    /// and the option the filter falls back to anyway.</summary>
-    private IReadOnlyList<InsightsMachine> _machines = [];
+    /// <summary>What Dev PCs' machine registry answered, as the filter's options. Empty
+    /// until it has, which renders as the "All machines" option on its own — the honest
+    /// shape of "not asked yet", and the option the filter falls back to anyway.</summary>
+    private IReadOnlyList<SelectorOption> _machineOptions = [];
 
+    /// <summary>Dev PCs owns the Machine and Insights reads it (local ADR 0073 §7).</summary>
     [Inject]
-    private IMachineDirectory Machines { get; set; } = default!;
+    private IMachineRegistry Machines { get; set; } = default!;
 
     /// <summary>Where the pane tells the shell what it is looking at, so the Ask
     /// AI source fetches for the same repositories and window the parts show.
@@ -492,17 +493,26 @@
     /// split what it is filtering.
     /// </para>
     /// </summary>
-    private IReadOnlyList<SelectorOption> MachineOptions =>
-        [.. _machines.Select(machine => new SelectorOption(machine.Id, machine.Name))];
+    private IReadOnlyList<SelectorOption> MachineOptions => _machineOptions;
 
     /// <summary>
     /// The pane's one await. Not a refresh hook: the parts each own their own, and a
     /// machine whose first record arrives while this is open turns up the next time
     /// it is opened — the same currency every figure on this surface has, because
     /// nothing here polls.
+    /// <para>
+    /// Read back to <see cref="InsightsScope.Horizon"/>, the distance of the figures
+    /// it narrows: a machine whose every record is older than the widest period is an
+    /// option that could only empty the surface.
+    /// </para>
     /// </summary>
-    protected override async Task OnInitializedAsync() =>
-        _machines = await Machines.GetMachinesAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        var time = Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+
+        _machineOptions = MachineFilterOptions.From(
+            await Machines.GetMachinesAsync(time.GetUtcNow() - InsightsScope.Horizon));
+    }
 
     /// <summary>Focuses one machine, or all of them when the empty option is chosen.
     /// Replaced rather than mutated, for the reason <see cref="FocusRepository"/>

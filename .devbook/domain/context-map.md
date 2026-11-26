@@ -98,7 +98,10 @@ flowchart LR
     %% The published events below have no reference in src/, so their edges are dashed.
     Tasks -.->|"OHS + Published Language (not built)<br/>StatusChanged / TaskProjected / TaskCompleted"| Insights
     Roadmap -.->|"OHS + Published Language (not built)<br/>RoadmapItemScheduled"| Insights
-    DevPC -.->|"OHS + Published Language (not built)<br/>Machine, MachineStatusChanged / ComplianceUpdated"| Insights
+    %% Dev PCs owns the Machine (local ADR 0073 §7); Insights' machine filter
+    %% reads IMachineRegistry, answered by an infrastructure adapter.
+    DevPC -->|"Customer/Supplier<br/>Machine registry: this device and the machines records name"| Insights
+    DevPC -.->|"OHS + Published Language (not built)<br/>MachineStatusChanged / ComplianceUpdated"| Insights
 
     %% Environment folded into Repositories (local ADR 0073 §3): a repository's
     %% named environments are its own, so its four unbuilt edges left the map.
@@ -109,6 +112,9 @@ flowchart LR
     %% rules below and .devbook/domain/sessions/dependencies.md. Tasks -> Sessions
     %% is the follow-up a gate answer files, in process through ITaskFollowUps; built.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
+    %% Dev PCs' registry names the other machines from the session records Sync
+    %% replicated, through an infrastructure adapter (local ADR 0073 §7).
+    Sessions -->|"Customer/Supplier<br/>Session records naming the other machines"| DevPC
     Sessions -->|Customer/Supplier<br/>Agent session facts| Insights
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
     Tasks -->|Customer/Supplier<br/>File a follow-up after an entry| Sessions
@@ -200,6 +206,7 @@ flowchart LR
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
 | Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
 | Devbook | The devbook database of each registered repository, read through Devbook's reader (local ADR 0015) | Brain, read-only, for the [Lobes atlas](brain/features.md#lobes-atlas); Repositories, read-only, for [portfolio technology adoption](repositories/features.md#portfolio-technology-adoption) (not built) |
+| Dev PC Management | `Machine`, `MachineId` and `IMachineRegistry` in `Backlog.Modules.DevPc.Abstractions`, under `.devbook/domain/dev-pc-management/domain.md#machine` (local ADR 0073 §7) | Insights, for its machine filter |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Insights (not built) |
 | Repositories | The pull request contract (`.devbook/domain/repositories/domain.md#pull-request-status`, `.devbook/domain/repositories/domain.md#readiness-verdict`, `.devbook/domain/repositories/domain.md#merge-command`), through `IPullRequests` in `Backlog.Modules.Repositories.Abstractions` (local ADR 0042) | Tasks and Goals through adapters, Sessions through the shell |
 | Tasks | `ITaskLookup` in `Backlog.Modules.Tasks.Abstractions` (local ADR 0042 §9), from a session id or a pull request to its task | The desktop shell, for Repositories' and Sessions' screens |
@@ -295,7 +302,10 @@ flowchart LR
   own under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds
   another context's identity for it. The Sessions Environment's `EnvironmentId` is
   the product-wide device identity issued by the shared kernel
-  (`.devbook/domain/tasks/domain.md#device`). No bounded context owns it, and it is still not a Machine.
+  (`.devbook/domain/tasks/domain.md#device`). No bounded context owns that identity.
+  `Dev PC Management` owns the Machine and builds it over the same identity (local
+  ADR 0073 §7), so an `EnvironmentId` names a Machine's `MachineId`, while Sessions
+  holds no Machine.
 - `Goals` reads each thing it names from its owner on every reading. It names
   them by these identities:
   - a task by its id;
