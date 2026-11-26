@@ -966,7 +966,7 @@ type: requirements
 related: [.devbook/domain/tasks/features.md#plans-view, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md]
 ```
 
-> Local ADR 0072 decides these requirements. The switch and the plan rail are built; the rest is not yet.
+> Local ADR 0072 decides these requirements.
 
 ### Requirement: The Tasks list opens on Plans and remembers the switch
 
