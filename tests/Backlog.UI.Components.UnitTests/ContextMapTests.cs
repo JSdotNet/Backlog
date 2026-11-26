@@ -142,6 +142,23 @@ public sealed class ContextMapTests
         Assert.Contains(map.Lines, line => line.Touches("Sync"));
     }
 
+    /// <summary>A context folder the map names nowhere — not in the landscape table,
+    /// not in the fence — is still listed: last, as supporting, with no line. A map
+    /// that lags its folder does not hide the context.</summary>
+    [Fact]
+    public void A_folder_the_map_names_nowhere_is_still_a_context_with_no_line()
+    {
+        var map = ContextMaps.Read(Map, [.. Sources, new("progress", "Progress", null, ".devbook/domain/progress/context.md")]);
+
+        Assert.Equal(["Inbox", "Tasks", "Roadmap", "Sessions", "DevPC", "progress"], map.Contexts.Select(c => c.Id));
+        var progress = map.Context("progress")!;
+        Assert.Equal(("Progress", "supporting", "progress"), (progress.Name, progress.Kind, progress.Slug));
+        Assert.False(progress.Named);
+        Assert.All(map.Contexts.Where(c => c.Id != "progress"), c => Assert.True(c.Named));
+        Assert.Equal(0, map.LinesTouching("progress"));
+        Assert.NotNull(ContextMapLayout.Arrange(map));
+    }
+
     /// <summary>Without a landscape table the fence alone says what the contexts
     /// are, folder or not.</summary>
     [Fact]
