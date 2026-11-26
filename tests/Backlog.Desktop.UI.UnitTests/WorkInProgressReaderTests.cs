@@ -1,7 +1,7 @@
 using Backlog.Desktop.UI.Goals;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Integrations;
@@ -19,8 +19,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// merged one read once and kept, so a visit to the Goals view does not sweep
 /// GitHub for work that has already landed.
 /// <para>
-/// Through Repository Management's contract composed over the test's GitHub client
-/// (<see cref="RepositoryManagementChain"/>, local ADR 0042): what is kept, and for how
+/// Through Repositories' contract composed over the test's GitHub client
+/// (<see cref="RepositoriesChain"/>, local ADR 0042): what is kept, and for how
 /// long, is the contract's one cache, so these count the pinned reads GitHub was sent.
 /// </para>
 /// </summary>
@@ -149,7 +149,7 @@ public sealed class WorkInProgressReaderTests
         using var host = await TasksPaneHost.CreateAsync(Repository);
         host.Client.OpenPullRequests.Add(Open(700));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var contract = RepositoriesChain.For(host.GitHub, clock);
         var reader = new WorkInProgressReader(contract, new StubSessionSource(), clock);
 
         // The pull requests pane lists at noon; a pull request opens on GitHub after.
@@ -262,7 +262,7 @@ public sealed class WorkInProgressReaderTests
         var lookup = new LinkingLookup([new TaskPullRequestLink(Repository, 655)]);
 
         var services = new ServiceCollection()
-            .AddSingleton(RepositoryManagementChain.For(host.GitHub, clock))
+            .AddSingleton(RepositoriesChain.For(host.GitHub, clock))
             .AddSingleton<IAgentSessionSource>(new StubSessionSource())
             .AddSingleton<TimeProvider>(clock);
         using (var withLookup = services.AddSingleton<ITaskLookup>(lookup).BuildServiceProvider())
@@ -340,7 +340,7 @@ public sealed class WorkInProgressReaderTests
         clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new WorkInProgressReader(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(), clock, () => links.SelectMany(link => link()));
+        return new WorkInProgressReader(RepositoriesChain.For(host.GitHub, clock), new StubSessionSource(), clock, () => links.SelectMany(link => link()));
     }
 
     private static PullRequestByNumber Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>

@@ -5,7 +5,7 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// <summary>
 /// Where a pull request a task links to stands, in Tasks' own words.
 /// <para>
-/// Tasks' copy of Repository Management's four states rather than a reference to that
+/// Tasks' copy of Repositories' four states rather than a reference to that
 /// module (local ADR 0042 §4): a screen asks its own module, and an infrastructure
 /// adapter that may see both contexts translates
 /// (<c>ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface</c>).
@@ -26,7 +26,7 @@ public enum LinkedPullRequestState
     Closed
 }
 
-/// <summary>The tone of a pull request's verdict, as Repository Management words it
+/// <summary>The tone of a pull request's verdict, as Repositories words it
 /// (<c>.devbook/domain/repositories/features.md#one-verdict-per-pull-request</c>):
 /// the ink the task row's badge wears beside the same verdict the Pull requests pane
 /// draws.</summary>
@@ -48,7 +48,7 @@ public enum LinkedPullRequestTone
     Settled
 }
 
-/// <summary>Which verdict Repository Management gives a pull request — what its label
+/// <summary>Which verdict Repositories gives a pull request — what its label
 /// names — so a screen that words the pull request's other facts beside the label does
 /// not say one twice.</summary>
 public enum LinkedPullRequestVerdictKind
@@ -145,7 +145,7 @@ public sealed record LinkedPullRequestKey(string Repository, int Number)
 
 /// <summary>
 /// Tasks' small copy of a pull request's status (local ADR 0042 §4): its state, the
-/// verdict Repository Management gives it — label and tone, the same the Pull requests
+/// verdict Repositories gives it — label and tone, the same the Pull requests
 /// pane and the session card draw — the branches a merge went into, the facts the task
 /// row's badge marks draw, and the merge act the row may offer.
 /// <para>
@@ -208,12 +208,12 @@ public sealed record LinkedPullRequestRead(
 /// The state of the pull requests a task links to, and the two merge acts its row
 /// offers, for the work badges and the row's menu.
 /// <para>
-/// A port on Tasks' surface answered by an adapter over Repository Management's
+/// A port on Tasks' surface answered by an adapter over Repositories'
 /// contract (local ADR 0042 §4), the shape <see cref="ILinkedSessionStates"/> takes for
 /// the same reason. Through it the task list shares the contract's one cache with the
 /// Pull requests pane, Progress and the side panel: a read one of them made within the
 /// minute answers the others, and a merge from the row is what the pane reads next. A
-/// host that composes no Repository Management answers nothing, and a badge with no
+/// host that composes no Repositories answers nothing, and a badge with no
 /// state draws as it did before it had one.
 /// </para>
 /// </summary>

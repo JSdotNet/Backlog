@@ -11,7 +11,7 @@ namespace Backlog.Modules.Sessions.UI;
 /// on. It accepts <see cref="SessionKey"/>, the session to open on (§6). On the
 /// precedent of <c>AddDevbookSurface</c>; safe to call twice.
 /// <para>
-/// The open pull requests beside it are Repository Management's screen (local ADR
+/// The open pull requests beside it are Repositories' screen (local ADR
 /// 0042), drawn by the host, beside the sessions that opened them; its id stays named
 /// here, beside the session list's, where the header has always found it.
 /// </para>
@@ -21,7 +21,7 @@ public static class SessionsSurfaceRegistration
     /// <summary>The session list's id: what a route, a tool and a link name.</summary>
     public const string SurfaceId = "sessions";
 
-    /// <summary>The pull requests list's id: Repository Management's screen (local ADR
+    /// <summary>The pull requests list's id: Repositories' screen (local ADR
     /// 0042), offered beside the session list.</summary>
     public const string PullRequestsSurfaceId = "pull-requests";
 

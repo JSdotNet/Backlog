@@ -1,5 +1,5 @@
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -19,11 +19,11 @@ namespace Backlog.Desktop.UI.Goals;
 /// </para>
 /// <para>
 /// Both sources are optional, the way the pull requests list resolves them: a host
-/// without Repository Management reads no pull requests, a host without Sessions reads
+/// without Repositories reads no pull requests, a host without Sessions reads
 /// no sessions, and a source that cannot be read is said rather than thrown.
 /// </para>
 /// <para>
-/// Pull requests are read through Repository Management's contract
+/// Pull requests are read through Repositories' contract
 /// (<see cref="IPullRequests"/>, local ADR 0042) and its one cache, which every other
 /// reader of a pull request shares: the open list, and beside it the pull requests
 /// tasks link that it did not list — merged, closed, or open in a repository no longer

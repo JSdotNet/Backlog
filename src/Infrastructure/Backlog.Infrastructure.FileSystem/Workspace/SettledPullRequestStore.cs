@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// The disk half of <see cref="ISettledPullRequestStore"/>: Repository Management's
+/// The disk half of <see cref="ISettledPullRequestStore"/>: Repositories'
 /// merged pull requests, remembered across a restart in app storage and never in a
 /// repository (local ADR 0004, 0015, 0042 §3).
 /// <para>

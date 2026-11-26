@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.FileSystem.Tasks;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;
@@ -374,7 +374,7 @@ public sealed class LinkedPullRequestStatesTests
         Assert.Equal([Key(4), Key(5)], Assert.Single(heard));
     }
 
-    /// <summary>A host that composes no Repository Management answers nothing, keeps
+    /// <summary>A host that composes no Repositories answers nothing, keeps
     /// nothing and acts on nothing (V5): the badge draws with no state and the row offers
     /// no merge.</summary>
     [Fact]

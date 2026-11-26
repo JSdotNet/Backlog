@@ -66,7 +66,7 @@ public sealed record PlannedWindow
 /// </para>
 /// <para>
 /// Aliases are held as opaque strings and never resolved here. That is what keeps
-/// this context independent of Repository Management: the plan holds what the
+/// this context independent of Repositories: the plan holds what the
 /// person wrote, and resolution happens on the read path, where an alias that no
 /// longer matches a configured repository is a presentation outcome rather than a
 /// broken plan.

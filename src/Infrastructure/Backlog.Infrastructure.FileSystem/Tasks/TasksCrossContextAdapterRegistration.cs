@@ -1,5 +1,5 @@
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -15,7 +15,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// both sides: the state of the agent sessions a task links to
 /// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record; the state
 /// of the pull requests a task links to and the row's merge acts
-/// (<see cref="ILinkedPullRequestStates"/>), through Repository Management's contract
+/// (<see cref="ILinkedPullRequestStates"/>), through Repositories' contract
 /// (local ADR 0042 §4); and the queue icons that queue an entry session or a plan session
 /// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>) and the
 /// queue's order (<see cref="ISessionQueueOrder"/>), over its request queue.
@@ -37,7 +37,7 @@ public static class TasksCrossContextAdapterRegistration
                 ? new LinkedSessionStates(sessions)
                 : NoLinkedSessionStates.Instance);
 
-        // The pull requests a task links to, through Repository Management's one
+        // The pull requests a task links to, through Repositories' one
         // contract, so the task row shares its cache with the Pull requests pane,
         // Progress and the side panel. A host that composed no contract answers with
         // nothing, the way the session states above do.

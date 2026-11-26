@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,7 +58,7 @@ public static class WorkspaceCachesRegistration
         services.AddSingleton<IPullRequestFinishMemory>(sp => new PullRequestFinishMemory(
             () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, PullRequestFinishMemory.FolderName)));
 
-        // Repository Management's merged pull requests, a settled fact the one cache
+        // Repositories' merged pull requests, a settled fact the one cache
         // reads back after a restart (local ADR 0042 §3) — what draws a merged link
         // merged from the first frame. Beside the memory above, in a folder of its own. In place of the in-memory one the
         // module registers, so the module may be composed before or after this.

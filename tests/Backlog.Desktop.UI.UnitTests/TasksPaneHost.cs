@@ -283,7 +283,7 @@ internal sealed class TasksPaneHost : IDisposable
         /// holds that read back while the rest lands.</summary>
         public TaskCompletionSource? ByNumberGate { get; set; }
 
-        /// <summary>Every pinned read asked — the read by number Repository Management's
+        /// <summary>Every pinned read asked — the read by number Repositories'
         /// source sends (local ADR 0042) — as <c>owner/name 1,2</c>.</summary>
         public List<string> PinnedReadByNumber { get; } = [];
 

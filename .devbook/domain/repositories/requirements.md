@@ -512,7 +512,7 @@ The system SHALL name the checks and approvals marks with the words "checks" and
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientPullRequestFactsTests.A_pending_request_naming_the_viewer_is_a_request_for_their_review, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests.An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Your_review_shows_on_an_open_or_draft_pull_request_that_asks_for_it, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_pull_request_asking_for_your_review_ends_on_your_review_after_the_approvals]
+tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientPullRequestFactsTests.A_pending_request_naming_the_viewer_is_a_request_for_their_review, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoriesGoalPullRequestsTests.An_archived_repositorys_open_pull_request_does_not_ask_for_the_viewers_review, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusModelTests.Your_review_shows_on_an_open_or_draft_pull_request_that_asks_for_it, unit:dotnet:Backlog.UI.Components.UnitTests.PullRequestStatusTests.A_pull_request_asking_for_your_review_ends_on_your_review_after_the_approvals]
 ```
 
 The system SHALL end an open or draft pull request's marks with "your review" only when a pending review request names the viewer directly, not a team, and its repository is not archived.

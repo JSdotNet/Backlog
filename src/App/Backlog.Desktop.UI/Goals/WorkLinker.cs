@@ -1,6 +1,6 @@
 using System.Globalization;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Integrations;

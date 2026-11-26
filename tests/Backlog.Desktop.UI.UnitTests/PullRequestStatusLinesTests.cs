@@ -1,12 +1,12 @@
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The status line the Pull requests pane's row and a task's work-link card draw from
-/// Repository Management's status: the same "your review" a goal shows, so a pull request
+/// Repositories' status: the same "your review" a goal shows, so a pull request
 /// reads the same on a goal as in the pane.
 /// </summary>
 public sealed class PullRequestStatusLinesTests

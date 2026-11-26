@@ -15,7 +15,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// so a question about a merged pull request does not stay open for days.
 /// <para>
 /// It reads nothing while no validation question is open, and the pull request reads go
-/// through Repository Management's one cache, so it adds no GitHub load beyond what the
+/// through Repositories' one cache, so it adds no GitHub load beyond what the
 /// Sessions pane causes. A reading that fails, or answers nothing, leaves the question open,
 /// and one that outlasts <see cref="ReadBound"/> is abandoned for the tick, so a read that
 /// never answers cannot stop every later tick.

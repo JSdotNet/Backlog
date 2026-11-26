@@ -6,7 +6,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Events.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.SharedKernel;
 
@@ -43,7 +43,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// <para>
 /// A key moves with the context that owns it and keeps its string: the pull
 /// requests key moved from <c>SessionFeatures</c> to
-/// <see cref="RepositoryManagementFeatures"/> when Repository Management took over
+/// <see cref="RepositoriesFeatures"/> when Repositories took over
 /// pull-request state (local ADR 0042), its string <c>"pull-requests"</c> unchanged,
 /// so nobody's settings file forgot what they had switched off.
 /// </para>
@@ -115,7 +115,7 @@ public static class AppFeatures
             "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant.",
             Status: AppFeatureStatus.Dev),
         new(
-            RepositoryManagementFeatures.PullRequests,
+            RepositoriesFeatures.PullRequests,
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),

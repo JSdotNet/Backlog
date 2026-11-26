@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <summary>
 /// The one merge act a row's menu offers, and the pull request it is about.
 /// <para>
-/// Which act is Repository Management's rule, the one the Pull requests pane follows
+/// Which act is Repositories' rule, the one the Pull requests pane follows
 /// (<see cref="LinkedPullRequest.MergeOffer"/>, local ADR 0042), worked out from the last
 /// status read rather than asked for at the click, because the menu has to say what it
 /// will do before anyone chooses it — and a label that names the act ("Merge #710 now")

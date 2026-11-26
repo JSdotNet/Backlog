@@ -3,7 +3,7 @@ using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -948,7 +948,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// A list with hundreds of recorded pull requests learns where they stand from a few
     /// reads per repository, side by side — never one per pull request in list order,
     /// which is what left a merged link uncoloured for minutes behind every older one.
-    /// The read is Repository Management's (local ADR 0042): batches of 25, each
+    /// The read is Repositories' (local ADR 0042): batches of 25, each
     /// answering a pull request's state and status together.
     /// </summary>
     [Fact]
@@ -1611,7 +1611,7 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     /// <summary>
     /// An entry the task list's old outcome memory settled stays settled when the merge
-    /// itself is not among Repository Management's settled facts yet — the first launch
+    /// itself is not among Repositories' settled facts yet — the first launch
     /// after the move to them (local ADR 0042 §3): the merge is read once more and drawn
     /// merged, but the entry the person took back out of Done is not moved again, because
     /// which entries a merge settled is Tasks' own fact, kept in the folder it always had.
@@ -1636,7 +1636,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     /// <summary>
-    /// A host that composes no Repository Management gives the task list a port that
+    /// A host that composes no Repositories gives the task list a port that
     /// answers nothing (V5): the badge draws with no state, the row offers no merge, and
     /// GitHub is asked nothing about the pull request.
     /// </summary>
@@ -2131,7 +2131,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     /// <summary>What this device keeps about pull requests across a restart, over
-    /// folders of its own, removed with the test's: Repository Management's settled
+    /// folders of its own, removed with the test's: Repositories' settled
     /// facts and the task list's settled finishes.</summary>
     private DeviceMemory Memory()
     {
@@ -2329,7 +2329,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         /// the merge acts name it by. One per repository asked. Refused whole — as
         /// GitHub refuses a query — when any number asked fails, when every read fails,
         /// or when the status fields are what the server cannot answer
-        /// (<see cref="StatusFailure"/>); Repository Management then reads each number
+        /// (<see cref="StatusFailure"/>); Repositories then reads each number
         /// alone over REST. A number GitHub does not know is left out.
         /// </summary>
         public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(
