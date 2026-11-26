@@ -29,8 +29,7 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
 | [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox, through Sync or through the `IInboxIntake` port | `.devbook/domain/capture/domain.md#itemcaptured` | Normalized items accepted into the incoming queue, keyed by one per-entry id. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side queue-health feed | `.devbook/domain/inbox/features.md#queue-health` | Queue-health metrics: unprocessed count, oldest age, automation run status. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Monitoring = supplier) | Emits `FollowUpCaptured` back into the Inbox | `.devbook/domain/monitoring/domain.md#followupcaptured` | Dashboard follow-ups create new Inbox Items. |
+| [Insights](../insights/features.md#personal-productivity-dashboard) | Customer/Supplier (Insights = customer) | Read-side queue-health feed; not built | `.devbook/domain/inbox/features.md#queue-health` | Queue-health metrics: unprocessed count, oldest age, automation run status. |
 
 - **Capture:** From another device, `ItemCaptured` arrives as a replica capture document through Sync. On the desktop, a source monitor (YouTube channel, website) delivers it in-process through the port, with no replica document. The per-entry id is the same on both paths.
 
@@ -49,4 +48,3 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
   Lists and groups never sync.
 - The inbox is global, one per workspace root. Every source delivers to it, and
   repositories are assigned per item.
-- `.devbook/domain/monitoring/domain.md#signal-aggregation` draws the follow-up loop.

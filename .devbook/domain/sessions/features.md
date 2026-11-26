@@ -214,7 +214,7 @@ one outside every registered clone, not one that never ran.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped, .devbook/domain/sessions/features.md#the-detail-of-one-session]
+related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/insights/features.md#what-the-sessions-cost-and-shipped, .devbook/domain/sessions/features.md#the-detail-of-one-session]
 ```
 
 A row also shows three things Claude writes into its transcript and the session record
@@ -1034,7 +1034,7 @@ Under those facts:
 ```meta
 type: feature
 depends-on: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
-related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/insights/features.md#what-the-sessions-cost-and-shipped]
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.WeeklyUsageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ClaudeCodeOtlpLogsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ModelPriceSettingsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests]
 ```
 

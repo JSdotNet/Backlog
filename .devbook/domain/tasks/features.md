@@ -596,7 +596,7 @@ single source of truth: one item, one priority, one status, in one view across a
 ```meta
 type: feature
 depends-on: [.devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/domain/tasks/requirements.md#projection]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/tasks/requirements.md#projection]
 ```
 
 Spawn and close downstream artifacts from a task, without duplicating the task.
@@ -610,7 +610,7 @@ policy, and what it will promise is in
 ```meta
 type: sub-feature
 feature-flag: .devbook/domain/tasks/context.md#github-integration
-related: [.devbook/domain/repositories/features.md#github-access-resolution, .devbook/domain/monitoring/features.md#tasks-and-github-progress, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
+related: [.devbook/domain/repositories/features.md#github-access-resolution, .devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#4-tasks-reads-pull-requests-through-its-own-port]
 ```
 
 **The background check of a linked pull request**
@@ -1072,7 +1072,7 @@ offered it and what the waiting chip shows.
 ```meta
 type: sub-feature
 feature-flag: .devbook/domain/tasks/context.md#copilot-cli
-related: [.devbook/domain/productivity/features.md#ai-activity-capture]
+related: [.devbook/domain/insights/features.md#ai-activity-capture]
 ```
 
 Hand a task to GitHub Copilot CLI as a task brief without retyping it. The
@@ -1258,7 +1258,7 @@ plan stops resolving.
 ```meta
 type: feature
 feature-flag: .devbook/domain/tasks/context.md#ai-assistant
-related: [.devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/productivity/features.md#ai-productivity-tracking]
+related: [.devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/insights/features.md#ai-productivity-tracking]
 ```
 
 Ask questions about the work currently in view and get an answer grounded in it.

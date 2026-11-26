@@ -1,18 +1,25 @@
-# Productivity
+# Insights
 
 ```meta
 type: context
+related: [.devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md#2-insights]
 ```
 
-Productivity turns AI-assisted work activity into personal insight for the one
-person using it, and owns none of the work it measures.
+Insights turns the work the person and their agents do into personal insight for
+that one person, on the [dashboard](features.md#personal-productivity-dashboard),
+and owns none of the work it reads. Monitoring & Dashboard merged into it under
+[local ADR 0073 §2](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#2-insights);
+its code is still `Backlog.Modules.Dashboard` until that module is renamed
+`Backlog.Modules.Insights`.
 
-Inside the boundary: the productivity ledger and the summaries read off it, and the choices that shape how a week is read:
+Inside the boundary: the productivity ledger and the summaries read off it, the
+dashboard that reads across the other contexts and points at what needs the person,
+and the choices that shape how a week is read:
 
 - the reader's working week, which follows them between devices;
 - the weekly reset of the assistant's allowance and the monthly spend budget for each assistant, which stay on each device.
 
-Outside it: task work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task) and [Repositories](../repositories/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers. The model is in [domain.md](domain.md).
+Outside it: task and plan work, repository state and completion decisions, which [Tasks](../tasks/domain.md#task), [Roadmap Planning](../roadmap/domain.md#roadmap-item) and [Repositories](../repositories/domain.md#repository-registry) answer; agent session facts, which [Sessions](../sessions/domain.md#session-log) answers; drift verdicts, which [Devbook](../devbook/domain.md#sync-verdict) answers. Insights writes into none of them: an item on the dashboard only points at the tab that holds its evidence. Team monitoring and scanning across repositories are not part of it (local ADR 0073 §2). The model is in [domain.md](domain.md).
 
 ## Working week
 
@@ -21,7 +28,7 @@ type: setting
 key: working-hours.json
 scope: user
 default: Monday to Friday 09:00-17:30; Saturday and Sunday not worked
-related: [.devbook/domain/productivity/features.md#personal-productivity-dashboard, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/features.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/features.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
 ```
 
@@ -72,7 +79,7 @@ type: setting
 key: usage-reset.json
 scope: user
 default: unset
-related: [.devbook/domain/productivity/features.md#personal-productivity-dashboard]
+related: [.devbook/domain/insights/features.md#personal-productivity-dashboard]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.Under_a_usage_reset_the_grid_says_it_is_a_calendar_week_beside_reset_columns, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.A_grid_is_a_calendar_week_and_names_the_usage_week_beginning_in_it]
 ```
 
@@ -103,7 +110,7 @@ type: setting
 key: spend-budgets.json
 scope: user
 default: no budget for any provider
-related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#personal-productivity-dashboard]
+related: [.devbook/domain/insights/features.md#spend-against-a-monthly-budget, .devbook/domain/insights/features.md#what-needs-you, .devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 How much the reader means to spend on each assistant in a calendar month, one amount for each [Spend Provider](domain.md#spend-provider). The providers' figures differ in kind and may be in different currencies, so each amount stands alone: one budget across all of them would compare unlike amounts.
@@ -125,7 +132,7 @@ The person sets it in Dashboard settings. It is stored per device beside the wee
 type: feature-flag
 key: usage-metrics
 default: off
-related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import"]
+related: [".devbook/domain/insights/features.md#ai-vendor-usage-import"]
 ```
 
 With the `usage-metrics` flag on, Claude and GitHub Copilot usage is read from their organization APIs as evidence for the productivity figures. Both sources are organization-scoped, which is why it ships off: Claude needs an API key an organization admin can use, and GitHub needs organization-owner access. The flag is marked `DEV`.

@@ -1371,7 +1371,7 @@ public class RoadmapPlanViewTests
     // --- Overdue: the window has ended and the work is still open ---------------
     //
     // Today is Saturday 10 January 2026 (Forecast). The dashboard's own definition
-    // (productivity/features.md#whether-each-plan-will-land-in-its-window), read per bar.
+    // (insights/features.md#whether-each-plan-will-land-in-its-window), read per bar.
 
     [Fact]
     public void AHandPlacedItemWithNoTaskWhoseWindowEndedYesterday_IsOverdue_AndSaysWhenItEnded()

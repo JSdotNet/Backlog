@@ -2086,7 +2086,7 @@ never its text. A session
 whose transcript does not record who made a turn has no human turns; a Copilot
 session is one. Roadmap Planning draws the person's
 [working stretches](../roadmap/domain.md#working-stretch) from these instants, and
-Productivity's [Hours worked](../productivity/features.md#hours-worked) part
+Insights' [Hours worked](../insights/features.md#hours-worked) part
 counts the same stretches.
 
 ### Activity Run

@@ -153,7 +153,7 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         var read = DomainViewContextMapPage.Read(view);
 
         Assert.Null(read.Problem);
-        Assert.Equal(17, read.Map.Contexts.Count);
+        Assert.Equal(16, read.Map.Contexts.Count);
         Assert.Contains(read.Map.Contexts, context => context.Slug == "brain");
         Assert.Contains(read.Map.Contexts, context => context.Slug == "calendar");
         // The change journal is a landscape row with no folder: two tables beside the

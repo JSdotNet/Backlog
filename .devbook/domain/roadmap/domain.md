@@ -481,9 +481,9 @@ and on every reschedule that actually moves a date.
 
 ### Consumers
 
-- [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) —
+- [Insights](../insights/features.md#personal-productivity-dashboard) —
   compares the plan against what actually happened, so drift between intent and
-  delivery becomes visible without Monitoring reading the plan's internals.
+  delivery becomes visible without Insights reading the plan's internals.
 
 ### Published language rules
 
@@ -633,11 +633,11 @@ is the sum over an item's gathered work, and it never sets any task's value.
 ```meta
 type: term
 aliases: [working week, working hours, workingWeek, WorkingHours]
-related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/insights/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 The hours the person means to work. Its **weekly pattern** is
-[Productivity's Working week setting](../productivity/context.md#working-week).
+[Insights' Working week setting](../insights/context.md#working-week).
 Roadmap adds the [day overrides](#day-override) on top of it, set from a
 [column head](#column-head) or in the Days off dialog. The pattern and the
 overrides both travel with the pace.
@@ -680,7 +680,7 @@ in the Days off dialog, which also lists them all. Both write the same override.
 ```meta
 type: term
 aliases: [actual hours, actual]
-related: [.devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/domain/insights/features.md#hours-worked, .devbook/domain/insights/domain.md#office-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 How long the person worked on one working day. A working day runs from 04:00
@@ -700,8 +700,8 @@ day, most of them overnight subagents.
 Actual hours are presentation only: they move no bar and change no pace. A begun
 [column head](#column-head) shows them, per
 [Reading the near term closely](features.md#reading-the-near-term-closely). The
-dashboard's [Hours worked](../productivity/features.md#hours-worked) part
-splits the same hours by [office hours](../productivity/domain.md#office-hours).
+dashboard's [Hours worked](../insights/features.md#hours-worked) part
+splits the same hours by [office hours](../insights/domain.md#office-hours).
 They come from [Sessions](dependencies.md), never from tasks, because a task
 records only the dates it started and finished.
 

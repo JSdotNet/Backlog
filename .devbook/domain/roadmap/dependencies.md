@@ -17,7 +17,7 @@ related: [.devbook/domain/context-map.md]
 | [Tasks](../tasks/domain.md#task) | Partnership | Optional foreign-id cross-link, read-side gather by tag, and a read of imported plans (`IImportedPlanSource`) | `.devbook/domain/tasks/domain.md#task` | An item may name its executing task, gathers tasks by tag, and totals their registered effort. |
 | [Sessions](../sessions/domain.md#agent-session) | Customer/Supplier (Roadmap Planning = customer) | Infrastructure adapter reads `IAgentSessionSource`; a separate port serves actual hours | `.devbook/domain/sessions/domain.md#activity-window`; for actual hours, [human turns](../sessions/domain.md#human-turn) and runs (`AgentActivityRun`) | Linked sessions date gathered tasks, and the axis draws working stretches and actual hours from them. |
 | [Devbook](../devbook/domain.md#shared-value-objects) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.devbook/domain/devbook/domain.md#shared-value-objects` | A Roadmap Item gathers chapters by reference and by tag, and totals their registered effort. |
-| [Productivity](../productivity/context.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the working week on the placement path; carries it in the synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | An effort-sized window counts the person's working hours; a pace's week is that week's hours. |
+| [Insights](../insights/context.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the working week on the placement path; carries it in the synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | An effort-sized window counts the person's working hours; a pace's week is that week's hours. |
 
 - **Repositories:** Roadmap conforms to the registry's identity and never
   becomes a second authority for what a repository is.
@@ -48,10 +48,10 @@ related: [.devbook/domain/context-map.md]
 - **Devbook:** Roadmap resolves the chapters an item references directly
   (`knowledge_refs`) and those whose `roadmap` list names its tag. It reads their
   registered effort on the read path, and never writes a chapter or owns an effort value.
-- **Productivity:**
+- **Insights:**
   - The working week comes from the pace file's `workingWeek` key, else the
     device's `working-hours.json`, else the default week.
-  - Productivity's settings screen sets the weekly pattern. The roadmap sets the
+  - Insights' settings screen sets the weekly pattern. The roadmap sets the
     [day overrides](domain.md#day-override) from a [column
     head](domain.md#column-head) or the Days off dialog, and carries both between
     devices.
@@ -60,16 +60,16 @@ related: [.devbook/domain/context-map.md]
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) | OHS + Published Language (Roadmap Planning = supplier) | Subscribes to `RoadmapItemScheduled` | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Planned windows, and the previous window being carried, to compare intent against delivery. |
-| [Productivity](../productivity/features.md#hours-worked) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [day overrides](domain.md#day-override) inside the working week; reads Sessions itself for the stretches | `.devbook/domain/roadmap/domain.md#day-override`, `.devbook/domain/roadmap/domain.md#working-stretch` | The dashboard's Hours worked part applies the overrides and counts actual hours from working stretches. |
+| [Insights](../insights/features.md#personal-productivity-dashboard) | OHS + Published Language (Roadmap Planning = supplier) | Subscribes to `RoadmapItemScheduled` | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Planned windows, and the previous window being carried, to compare intent against delivery. |
+| [Insights](../insights/features.md#hours-worked) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [day overrides](domain.md#day-override) inside the working week; reads Sessions itself for the stretches | `.devbook/domain/roadmap/domain.md#day-override`, `.devbook/domain/roadmap/domain.md#working-stretch` | The dashboard's Hours worked part applies the overrides and counts actual hours from working stretches. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Cross-link by foreign id | `.devbook/domain/roadmap/domain.md#roadmap-item` | `roadmap_item_id` staying stable across a reschedule. |
 | [Tasks — Import](../tasks/features.md#import) | Customer/Supplier (Roadmap Planning = supplier) | A Tasks-side port (`IRoadmapPlanIntake`), answered by an infrastructure adapter calling Roadmap's own import command | `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md` | The item's tag being the plan's bare slug, and an import never deleting an item. |
 
-- **Monitoring & Dashboard:** This breaks if the window stops being inclusive at
+- **Insights:** This breaks if the window stops being inclusive at
   both ends, or if the previous window is dropped.
-- **Productivity:**
+- **Insights:**
   - The Hours worked part applies the overrides to give each date its [office
-    hours](../productivity/domain.md#office-hours), and its [actual
+    hours](../insights/domain.md#office-hours), and its [actual
     hours](domain.md#actual-hours) follow this context's [working
     stretch](domain.md#working-stretch).
   - This breaks if an override stops being only blocked or unblocked, or if the
