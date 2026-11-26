@@ -11,7 +11,7 @@ namespace Backlog.Modules.Progress.UI;
 
 /// <summary>
 /// The Goals view's answer to <see cref="IAiContentSource"/>: the stand-up as
-/// <see cref="IStandUp"/> reads it now (<c>.devbook/domain/progress/domain.md#stand-up</c>) —
+/// <see cref="IStandUp"/> reads it now (<c>.devbook/domain/goals/domain.md#stand-up</c>) —
 /// the goals with their progress and standing, then Finished, Planned and the open
 /// impediments.
 /// </summary>

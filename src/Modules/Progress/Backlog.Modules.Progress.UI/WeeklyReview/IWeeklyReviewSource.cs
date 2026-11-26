@@ -4,7 +4,7 @@ namespace Backlog.Modules.Progress.UI.WeeklyReview;
 
 /// <summary>
 /// What the weekly review reads and does through the window's shell
-/// (<c>.devbook/domain/progress/features.md#the-weekly-review</c>): the Inbox, the Brain,
+/// (<c>.devbook/domain/goals/features.md#the-weekly-review</c>): the Inbox, the Brain,
 /// the task list, the roadmap and the goals, none of which Progress UI may reach. One per
 /// window, registered by the host with the window-state lifetime, as
 /// <c>IGoalsViewSource</c> is. A host that composes none draws the review with nothing in

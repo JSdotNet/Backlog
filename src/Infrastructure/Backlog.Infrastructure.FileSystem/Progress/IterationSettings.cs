@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// <see cref="IterationSettingsStore"/> — the file that travels between their desktops
 /// (local ADR 0036) — with the length as the setting's own values —
 /// <c>day</c>, <c>week</c>, <c>two-weeks</c> and <c>month</c>
-/// (<c>.devbook/domain/progress/context.md#iteration-length</c>) — and the two-week start as
+/// (<c>.devbook/domain/goals/context.md#iteration-length</c>) — and the two-week start as
 /// an ISO date. A value it does not know reads as Week, and a start that is no date as none.
 /// <para>
 /// Both choices are held as one snapshot, replaced whole on every change, so a reader on

@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// One impediment as a caller receives it (<c>.devbook/domain/progress/domain.md#impediment</c>):
+/// One impediment as a caller receives it (<c>.devbook/domain/goals/domain.md#impediment</c>):
 /// what holds the person's work back, where it stands, and its history.
 /// </summary>
 /// <param name="Id">The impediment's id.</param>
@@ -41,7 +41,7 @@ public sealed record ImpedimentDto(
 }
 
 /// <summary>One step in an impediment's history
-/// (<c>.devbook/domain/progress/domain.md#state-change</c>), such as "Reported · bank support".</summary>
+/// (<c>.devbook/domain/goals/domain.md#state-change</c>), such as "Reported · bank support".</summary>
 /// <param name="State">The state it moved to.</param>
 /// <param name="On">The day it moved.</param>
 /// <param name="With">Who it was with at that step, in words, or null.</param>
@@ -49,7 +49,7 @@ public sealed record ImpedimentStateChangeDto(ImpedimentState State, DateOnly On
 
 /// <summary>
 /// One piece of work an impediment holds back
-/// (<c>.devbook/domain/progress/domain.md#holds-back</c>): a task by its id, a pull request
+/// (<c>.devbook/domain/goals/domain.md#holds-back</c>): a task by its id, a pull request
 /// by its repository and number, or a plan by its tag. Only the fields its kind reads are set.
 /// </summary>
 /// <param name="Kind">Which of the three kinds it is.</param>

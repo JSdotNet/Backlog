@@ -6,7 +6,7 @@ namespace Backlog.UI.Components.Progress;
 
 /// <summary>
 /// What a goal's attach search reads as a pull request
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>), so one can be
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>), so one can be
 /// attached by its number although no candidate holds it — a merged one, or one the shell's
 /// reader did not list. Pure.
 /// </summary>

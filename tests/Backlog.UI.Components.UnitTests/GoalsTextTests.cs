@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The fixed phrases the Goals view and its stand-up print, against the worked example of
-/// <c>.devbook/domain/progress/requirements.md</c>: a Week stand-up on Monday 19 October
+/// <c>.devbook/domain/goals/requirements.md</c>: a Week stand-up on Monday 19 October
 /// 2026, reading 12 to 16 October and 19 to 23 October.
 /// </summary>
 public sealed class GoalsTextTests

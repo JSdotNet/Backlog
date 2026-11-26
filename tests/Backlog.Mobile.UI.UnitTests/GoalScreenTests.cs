@@ -3,7 +3,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// A goal's own page on the phone (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
+/// A goal's own page on the phone (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>):
 /// its forecast and due date, done/total by the desktop's counting rules, the last four weeks
 /// of what was done, how the open items stand, and its items under Plan, Tasks and Pull
 /// requests — pull requests with the checks and approvals a desktop last read.

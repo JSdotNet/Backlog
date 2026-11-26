@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The goal operations an agent performs through the server: read the goals and the
 /// iterations they are read over, set one, edit it, attach and detach its work, and delete it
-/// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
+/// (<c>.devbook/domain/goals/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>, local ADR 0035).
 /// <para>
 /// <b>A class of its own</b>, for the reason <see cref="ImpedimentTools"/> is one: goals are
@@ -91,7 +91,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
 
     /// <summary>
     /// The iteration reading the goals view and the stand-up draw from, over
-    /// <see cref="IStandUp"/> (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>), so a
+    /// <see cref="IStandUp"/> (<c>.devbook/domain/goals/domain.md#stand-up-reading</c>), so a
     /// session reports the figures the person sees. It moves nothing: Ready to resolve is a
     /// reading, and a person resolves (local ADR 0035, 2026-10-29 amendment).
     /// </summary>
@@ -137,7 +137,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     private DateOnly Today() => DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
 
     /// <summary>The length tokens a call names, as the setting stores them
-    /// (<c>.devbook/domain/progress/context.md#iteration-length</c>).</summary>
+    /// (<c>.devbook/domain/goals/context.md#iteration-length</c>).</summary>
     internal static readonly IReadOnlyDictionary<string, IterationLength> Lengths =
         new Dictionary<string, IterationLength>(StringComparer.OrdinalIgnoreCase)
         {
@@ -341,7 +341,7 @@ public sealed record GoalPayload(
             forecast);
 }
 
-/// <summary>A goal's forecast (<c>.devbook/domain/progress/domain.md#goal-forecast</c>), the one
+/// <summary>A goal's forecast (<c>.devbook/domain/goals/domain.md#goal-forecast</c>), the one
 /// the Goals view's badge and expected-landing line draw.</summary>
 /// <param name="Standing">on-track or at-risk.</param>
 /// <param name="LandsOn">When it is expected to land, or null when no done rate says.</param>

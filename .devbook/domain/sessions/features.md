@@ -68,7 +68,7 @@ sequenceDiagram
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
-The list opens from **Sessions** in the header's Goals group, between [Goals](../progress/features.md#the-goals-view) and **Pull requests**, the
+The list opens from **Sessions** in the header's Goals group, between [Goals](../goals/features.md#the-goals-view) and **Pull requests**, the
 open pull requests the sessions shipped. Each of the two lists takes the whole screen
 while open. Escape, its close button or a second press of its option returns to
 the previous view. Goals, first in the group, is a view instead.
@@ -1459,12 +1459,12 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repositories/requirements.md#archiving-a-repository]
+related: [.devbook/domain/goals/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
 
 The In progress view is gone. It became
-[the Goals view](../progress/features.md#the-goals-view), which Progress owns, and
+[the Goals view](../goals/features.md#the-goals-view), which Goals owns, and
 local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)
 decides it. Its board by task went with the `goals` flag that kept it for a person who
 had goals off. No view now does any of these:
@@ -1546,7 +1546,7 @@ not written twice.
 
 The link action also takes a pull request by its number or its link, whatever its
 state, merged and closed included. Work that merged before its task was linked is
-linked this way, and the task is then [done](../progress/domain.md#done) by it in the
+linked this way, and the task is then [done](../goals/domain.md#done) by it in the
 goal that counts it. A bare number is the task's own repository's, and a task with two
 has to be given the link; a link or `owner/name#123` names one, and it must be
 registered in Settings. The pull request is read by number before anything is

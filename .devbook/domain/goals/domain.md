@@ -11,13 +11,13 @@ type: domain
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-What Progress owns and what it leaves to Tasks and Roadmap Planning is in [context.md](context.md). The model holds no copy of a task, plan, pull request or session. A goal names each by its identity and asks its owner for its state on every reading.
+What Goals owns and what it leaves to Tasks and Roadmap Planning is in [context.md](context.md). The model holds no copy of a task, plan, pull request or session. A goal names each by its identity and asks its owner for its state on every reading.
 
 ## Goal
 
 ```meta
 type: aggregate
-related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/domain.md#iteration]
+related: [.devbook/domain/goals/domain.invariants.md#goal, .devbook/domain/goals/features.md#setting-a-goal, .devbook/domain/goals/features.md#attaching-work-to-a-goal, .devbook/domain/goals/domain.md#iteration]
 aliases: [goal, goals]
 ```
 
@@ -54,7 +54,7 @@ One piece of work attached to a goal, of one of four kinds:
 | Pull request | its repository and number | the pull request alone |
 | Session | its agent and session id | the session, the tasks linked to it, and the pull request on its branch |
 
-A plan counts exactly the entries its roadmap item's bar gathers by tag. These are the entries filed under `+tag` and those carrying the bare tag, as an entry filed before the sigil or tagged `#tag` is stored. A person tag spelled like the plan is not one of them. Tasks owns that rule, and whoever hands Progress its tasks names each task's slugs by it, so a goal and the roadmap never count a plan differently.
+A plan counts exactly the entries its roadmap item's bar gathers by tag. These are the entries filed under `+tag` and those carrying the bare tag, as an entry filed before the sigil or tagged `#tag` is stored. A person tag spelled like the plan is not one of them. Tasks owns that rule, and whoever hands Goals its tasks names each task's slugs by it, so a goal and the roadmap never count a plan differently.
 
 A session is named by its [Session Identity](../sessions/domain.md#session-identity): the agent and the full id the agent gave it, because a session id is unique only within its agent. The short id the screens show, "Session abcd1234", only finds a session and is never stored. Its **linked tasks** are the tasks whose `session` [Projection Ref](../tasks/domain.md#projection-ref) names its session id. Its **branch pull request** is the newest one whose head is the session's branch, in its resolved repository; a session with no branch or resolved repository has none. Sessions owns the session, Tasks the link and GitHub the pull request, and all three are read on every reading (local
 [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)).
@@ -66,7 +66,7 @@ Equality is by kind and identity. The attachment also stores the day it was made
 ```meta
 type: value-object
 aliases: [progress, done/total, GoalProgress]
-related: [.devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
+related: [.devbook/domain/goals/requirements.md#attaching-work-to-a-goal]
 ```
 
 How much of a goal is [done](#done), as `done/total` over its items. Each item counts once:
@@ -87,7 +87,7 @@ Beside `done/total` it carries how the open items stand: doing, blocked and to d
 ```meta
 type: value-object
 aliases: [forecast, landing date, lands, At risk, On track, GoalForecast]
-related: [.devbook/domain/progress/requirements.md#the-goals-view]
+related: [.devbook/domain/goals/requirements.md#the-goals-view]
 ```
 
 When a goal is expected to land, and whether that is in time. The **landing date** comes from the goal's done rate: the items it had done in each of the last four iterations of the person's chosen [Iteration](#iteration) length, averaged. The open items at that rate give the iterations still needed, and the landing date is the last day of the last of them.
@@ -98,7 +98,7 @@ A goal is **At risk** when its landing date falls after its due date, or, for a 
 
 ```meta
 type: domain-service
-related: [.devbook/domain/progress/domain.invariants.md#goal-assignment, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
+related: [.devbook/domain/goals/domain.invariants.md#goal-assignment, .devbook/domain/goals/features.md#attaching-work-to-a-goal]
 aliases: [GoalAssignment]
 ```
 
@@ -112,7 +112,7 @@ Invocation semantics: command-invoked, on every attach. Its rules are in [its in
 
 ```meta
 type: aggregate
-related: [.devbook/domain/progress/domain.invariants.md#impediment, .devbook/domain/progress/features.md#tracking-an-impediment]
+related: [.devbook/domain/goals/domain.invariants.md#impediment, .devbook/domain/goals/features.md#tracking-an-impediment]
 aliases: [impediment, impediments, blocker]
 ```
 
@@ -135,7 +135,7 @@ An impediment is open until a person resolves it. Once every item it holds back 
 ```meta
 type: enum
 aliases: [ImpedimentState, impediment state]
-related: [.devbook/domain/progress/requirements.md#tracking-an-impediment]
+related: [.devbook/domain/goals/requirements.md#tracking-an-impediment]
 ```
 
 ```mermaid
@@ -172,7 +172,7 @@ One step in an impediment's history: the state it moved to, the day, and who it 
 ```meta
 type: value-object
 aliases: [holds back, held-back item, blocks, HoldsBack]
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.invariants.md#impediment]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals/domain.invariants.md#impediment]
 ```
 
 A link from an impediment to one piece of work it holds back, of three kinds, each named as a [Goal Attachment](#goal-attachment) names it:
@@ -194,7 +194,7 @@ Equality is by kind and identity. Linking or unlinking an item changes nothing o
 
 ```meta
 type: domain-service
-related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 aliases: [BlockedTaskPolicy]
 ```
 
@@ -208,7 +208,7 @@ Invocation semantics: it was event-triggered, run by an adapter that heard every
 
 ```meta
 type: domain-service
-related: [.devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
+related: [.devbook/domain/goals/domain.invariants.md#stand-up-reading, .devbook/domain/goals/features.md#the-stand-up, .devbook/domain/goals/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
 aliases: [StandUpReading]
 ```
 
@@ -222,7 +222,7 @@ Invocation semantics: query/composition-oriented. It stores nothing and moves no
 
 ```meta
 type: shared-value-objects
-related: [.devbook/domain/progress/domain.invariants.md#iteration]
+related: [.devbook/domain/goals/domain.invariants.md#iteration]
 ```
 
 > Value Objects used by more than one aggregate or service in this bounded context.
@@ -232,7 +232,7 @@ related: [.devbook/domain/progress/domain.invariants.md#iteration]
 ```meta
 type: value-object
 aliases: [iteration, window, last, next, Iteration]
-related: [.devbook/domain/progress/domain.invariants.md#iteration, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
+related: [.devbook/domain/goals/domain.invariants.md#iteration, .devbook/domain/goals/context.md#iteration-length, .devbook/domain/goals/context.md#two-week-start]
 ```
 
 A viewing window over the calendar that nobody creates or closes, shared by the goals, impediments and stand-up. Its **length** is one of four:
@@ -272,7 +272,7 @@ A session is done when the pull request on its branch is merged, or when it has 
 ```meta
 type: term
 aliases: [settled]
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ```
 
 A [held-back item](#holds-back) is settled when the work it names is over, one way or
@@ -293,7 +293,7 @@ What cannot be read is never settled: a deleted task, a pull request in an archi
 ```meta
 type: term
 aliases: [Ready to resolve, ready to resolve, resolvable]
-related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.invariants.md#stand-up-reading, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+related: [.devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/domain.md#stand-up-reading, .devbook/domain/goals/domain.invariants.md#stand-up-reading, .devbook/domain/goals/features.md#seeing-an-impediment-ready-to-resolve]
 ```
 
 An open [Impediment](#impediment) is ready to resolve when it holds back at least one item and every held-back item is [settled](#settled). It is a reading, not a state. [Stand-up Reading](#stand-up-reading) decides it on every reading and stores nothing, so it appears when the last item settles and goes when one comes back, such as a task reopened from `done`.
@@ -305,7 +305,7 @@ It moves nothing. The impediment keeps its [state](#impediment-state) and histor
 ```meta
 type: term
 aliases: [standup, stand-up]
-related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/domain.md#stand-up-reading]
+related: [.devbook/domain/goals/features.md#the-stand-up, .devbook/domain/goals/domain.md#stand-up-reading]
 ```
 
 The short reading a person gives of their work, in four blocks: goal progress, what was finished in the last iteration, what is planned for the next, and the impediments.
@@ -314,7 +314,7 @@ The short reading a person gives of their work, in four blocks: goal progress, w
 
 ```meta
 type: term
-related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
+related: [.devbook/domain/goals/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
 ```
 
 The work a stand-up expects in the next iteration. Nobody picks it; it is derived from three sources, each item listed once:

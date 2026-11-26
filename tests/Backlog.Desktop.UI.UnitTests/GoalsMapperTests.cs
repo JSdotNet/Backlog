@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The stand-up reading, the goals' attachments, their pull requests' status and the
 /// shell's candidates, turned into the board the Goals view draws
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the library takes plain
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): the library takes plain
 /// values, so every Progress word is translated here and nowhere else.
 /// </summary>
 public sealed class GoalsMapperTests

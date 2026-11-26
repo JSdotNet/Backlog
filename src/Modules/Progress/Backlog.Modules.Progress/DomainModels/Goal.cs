@@ -5,13 +5,13 @@ namespace Backlog.Modules.Progress.DomainModels;
 
 /// <summary>
 /// Something a person is working towards, with an optional date it should be reached by
-/// (<c>.devbook/domain/progress/domain.md#goal</c>, local ADR 0035 §2). Without one it is
+/// (<c>.devbook/domain/goals/domain.md#goal</c>, local ADR 0035 §2). Without one it is
 /// due at the end of next, read afresh on every reading and never stored
 /// (<see cref="GoalForecasting.DueOn"/>). The consistency
 /// boundary for its own attachments: one item is attached once, and the counting rules
 /// see the whole set.
 /// <para>
-/// Its rules are <c>.devbook/domain/progress/domain.invariants.md#goal</c>, each with a
+/// Its rules are <c>.devbook/domain/goals/domain.invariants.md#goal</c>, each with a
 /// unit test in <c>Backlog.Modules.Progress.UnitTests</c>. The rule across goals — an item
 /// belongs to at most one — is <see cref="Services.GoalAssignment"/>'s, which is why
 /// <see cref="Attach"/> is internal: nothing else may attach without asking the others.
@@ -159,7 +159,7 @@ public sealed class Goal
 
 /// <summary>
 /// One piece of work attached to a goal, of one of three kinds
-/// (<c>.devbook/domain/progress/domain.md#goal-attachment</c>): a plan by its tag without
+/// (<c>.devbook/domain/goals/domain.md#goal-attachment</c>): a plan by its tag without
 /// the <c>+</c> sigil, a task by its id, or a pull request by its repository and number.
 /// <para>
 /// Equality is by kind and identity alone — a plan tag and a repository without regard to

@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// <summary>
 /// Progress's <see cref="IStandUpPace"/>, answered from Roadmap Planning's published
 /// <see cref="IPlanningVelocity"/>: the global pace, the one every plan filed under no
-/// configured repository is placed at (<c>.devbook/domain/progress/domain.md#pace</c>). It is
+/// configured repository is placed at (<c>.devbook/domain/goals/domain.md#pace</c>). It is
 /// resolved per call, as the other adapters here resolve theirs, so a host without the
 /// roadmap answers no pace rather than failing the provider.
 /// </summary>

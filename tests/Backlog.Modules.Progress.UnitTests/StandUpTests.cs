@@ -12,8 +12,8 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// The stand-up as a host composes it through <c>AddProgressModule()</c>
-/// (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>), one test per derivation rule
-/// of <c>.devbook/domain/progress/requirements.md#the-stand-up</c>. Today is Monday 19 October
+/// (<c>.devbook/domain/goals/domain.md#stand-up-reading</c>), one test per derivation rule
+/// of <c>.devbook/domain/goals/requirements.md#the-stand-up</c>. Today is Monday 19 October
 /// 2026 and the person reads by Week unless a test says otherwise, so last is 12 to 16
 /// October and next is 19 to 23 October.
 /// </summary>

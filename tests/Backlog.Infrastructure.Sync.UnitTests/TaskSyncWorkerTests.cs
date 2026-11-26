@@ -764,7 +764,7 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
     /// A build from before goals rode the feed skipped a <c>goal</c> document and saved
     /// its cursor past it. Upgraded — with its My Day replay already taken — the device
     /// reads the feed from the start once more, so the goal set on the other desktop
-    /// reaches this one (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+    /// reaches this one (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
     /// </summary>
     [Fact]
     public async Task An_upgraded_device_replays_the_feed_once_and_takes_goals_its_cursor_had_passed()

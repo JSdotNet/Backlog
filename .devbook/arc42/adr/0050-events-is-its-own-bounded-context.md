@@ -135,7 +135,7 @@ The Inbox model does not change.
 
 The event holds the ids of its tasks and the links to its notes. Tasks and the
 Brain know no event: a task never shows the event it serves, and a note never
-lists one. This mirrors [Progress](../../domain/progress/context.md), which names
+lists one. This mirrors [Progress](../../domain/goals/context.md), which names
 tasks by id while Tasks knows nothing of it.
 
 - **A Brain note** is named by its path from the Brain's root, as `ItemTriaged`

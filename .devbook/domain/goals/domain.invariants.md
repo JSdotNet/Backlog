@@ -10,7 +10,7 @@ What each aggregate and domain service on [`domain.md`](domain.md) enforces, one
 
 ```meta
 type: invariants
-related: [.devbook/domain/progress/domain.md#goal]
+related: [.devbook/domain/goals/domain.md#goal]
 ```
 
 > The rules a goal holds itself and its attachments to, including those its [Goal Attachment](domain.md#goal-attachment) enforces.
@@ -76,7 +76,7 @@ Enforced at: `Goal Attachment`
 
 ```meta
 type: invariants
-related: [.devbook/domain/progress/domain.md#goal-assignment]
+related: [.devbook/domain/goals/domain.md#goal-assignment]
 ```
 
 > The rule that spans every goal.
@@ -97,7 +97,7 @@ Enforced at: `Assign()`
 
 ```meta
 type: invariants
-related: [.devbook/domain/progress/domain.md#impediment]
+related: [.devbook/domain/goals/domain.md#impediment]
 ```
 
 > The rules an impediment holds its state and history to, including those its [State Change](domain.md#state-change) enforces.
@@ -174,7 +174,7 @@ Enforced at: `MoveTo()`, `State Change`
 
 ```meta
 type: invariant
-related: [.devbook/domain/progress/domain.md#holds-back]
+related: [.devbook/domain/goals/domain.md#holds-back]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_item_is_held_back_once_by_kind_and_identity, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_task_a_pull_request_and_a_plan_never_equal_one_another]
 ```
 
@@ -187,7 +187,7 @@ Enforced at: `HoldBack()`
 
 ```meta
 type: invariant
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.invariants.md#invariant-a-pull-request-attachment-names-its-repository]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.invariants.md#invariant-a-pull-request-attachment-names-its-repository]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_pull_request_names_its_repository_and_a_positive_number, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_plan_names_a_non_blank_tag, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_held_back_task_names_its_id_and_a_plan_is_kept_without_its_sigil]
 ```
 
@@ -200,7 +200,7 @@ Enforced at: `Holds Back`
 
 ```meta
 type: invariant
-related: [.devbook/domain/progress/domain.md#holds-back]
+related: [.devbook/domain/goals/domain.md#holds-back]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Releasing_an_item_it_does_not_hold_back_changes_nothing
 ```
 
@@ -212,7 +212,7 @@ Enforced at: `Release()`
 
 ```meta
 type: invariant
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#state-change]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#state-change]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Linking_and_unlinking_leave_the_state_and_history_alone
 ```
 
@@ -225,7 +225,7 @@ Enforced at: `HoldBack()`, `Release()`
 
 ```meta
 type: invariants
-related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled]
+related: [.devbook/domain/goals/domain.md#stand-up-reading, .devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/goals/domain.md#settled]
 ```
 
 > The rules the reading keeps when it says whether an impediment is [Ready to resolve](domain.md#ready-to-resolve).
@@ -269,7 +269,7 @@ Enforced at: `Stand-up Reading`
 
 ```meta
 type: invariant
-related: [.devbook/domain/progress/domain.md#impediment-state]
+related: [.devbook/domain/goals/domain.md#impediment-state]
 tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing
 ```
 
@@ -282,7 +282,7 @@ Enforced at: `Stand-up Reading`
 
 ```meta
 type: invariants
-related: [.devbook/domain/progress/domain.md#shared-value-objects, .devbook/domain/progress/domain.md#iteration]
+related: [.devbook/domain/goals/domain.md#shared-value-objects, .devbook/domain/goals/domain.md#iteration]
 ```
 
 > The rules every iteration window keeps, whatever its length. The

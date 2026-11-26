@@ -114,7 +114,7 @@ public sealed class LinkedWorkSectionTests
 
     /// <summary>A linked pull request the open read listed carries its status line in the
     /// side panel — checks as passed/total, approvals against what its base branch requires
-    /// — the Pull requests pane's marks (.devbook/domain/progress/features.md#pull-request-status).</summary>
+    /// — the Pull requests pane's marks (.devbook/domain/goals/features.md#pull-request-status).</summary>
     [Fact]
     public async Task A_linked_open_pull_request_draws_its_status_line_in_the_side_panel()
     {

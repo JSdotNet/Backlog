@@ -3,14 +3,14 @@ using Backlog.SharedKernel;
 namespace Backlog.Modules.Progress.Abstractions;
 
 /// <summary>When a goal is expected to land, and whether that is in time
-/// (<c>.devbook/domain/progress/domain.md#goal-forecast</c>). Equality by value.</summary>
+/// (<c>.devbook/domain/goals/domain.md#goal-forecast</c>). Equality by value.</summary>
 /// <param name="LandsOn">The last day of the iteration the goal is expected to land in;
 /// null with no open item, or with no item done in the four iterations read.</param>
 /// <param name="DoneRate">The items done per iteration, averaged over the four read.</param>
 public sealed record GoalForecast(GoalStanding Standing, DateOnly? LandsOn, decimal DoneRate);
 
 /// <summary>
-/// Forecasts a goal from its done rate (<c>.devbook/domain/progress/domain.md#goal-forecast</c>):
+/// Forecasts a goal from its done rate (<c>.devbook/domain/goals/domain.md#goal-forecast</c>):
 /// the items done in each of the four iterations ending with last, averaged. At that rate
 /// the open items need <c>n</c> more iterations, counting next as the first, and the goal
 /// lands on the last day of the <c>n</c>-th. It is At risk when that day falls after the day

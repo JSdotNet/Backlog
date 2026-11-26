@@ -46,7 +46,7 @@ Outside it:
 | Which session opened a pull request | [Sessions](../sessions/context.md) |
 | Where an agent session ran, which Sessions also calls an [Environment](../sessions/domain.md#environment) | [Sessions](../sessions/context.md) |
 | An environment's credential | The credential store an [Access Hint](domain.md#access-hint) names |
-| The goal a pull request counts toward | [Progress](../progress/context.md) |
+| The goal a pull request counts toward | [Goals](../goals/context.md) |
 | The history of merged work the dashboard counts | [Insights](../insights/features.md#personal-productivity-dashboard), which reads it on its own |
 
 ## Pull requests

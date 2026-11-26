@@ -3,7 +3,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Modules.Progress.Abstractions;
 
 /// <summary>
-/// One window over the calendar (<c>.devbook/domain/progress/domain.md#iteration</c>): its
+/// One window over the calendar (<c>.devbook/domain/goals/domain.md#iteration</c>): its
 /// length and its first and last day, both included. Nobody creates or closes one; it is
 /// read from today on every reading. Equality is by length and first day, the last day
 /// following from both.
@@ -103,7 +103,7 @@ public static class Iterations
 
     /// <summary>
     /// A pace in points a week scaled to <paramref name="window"/>
-    /// (<c>.devbook/domain/progress/domain.md#pace</c>): the pace times the window's worked
+    /// (<c>.devbook/domain/goals/domain.md#pace</c>): the pace times the window's worked
     /// days, divided by the worked weekdays of the week's pattern, rounded to whole points
     /// with halves away from zero. 18 a week reads 18 for a Week and 4 for a Day.
     /// </summary>

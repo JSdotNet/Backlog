@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// One reading of the stand-up (<c>.devbook/domain/progress/domain.md#stand-up</c>): its two
+/// One reading of the stand-up (<c>.devbook/domain/goals/domain.md#stand-up</c>): its two
 /// windows and its four blocks, in order — Goals, Finished, Planned and Impediments.
 /// </summary>
 /// <param name="Last">The window before next, that Finished and the goals' <c>+n</c> read.</param>
@@ -81,7 +81,7 @@ public sealed record StandUpItemDto(
 /// <param name="GoalTitle">That goal's title, or null.</param>
 /// <param name="Note">The impediment's note as stored, or null with none.</param>
 /// <param name="ReadyToResolve">Whether it reads Ready to resolve
-/// (<c>.devbook/domain/progress/domain.md#ready-to-resolve</c>): it holds back at least one
+/// (<c>.devbook/domain/goals/domain.md#ready-to-resolve</c>): it holds back at least one
 /// item and every one is settled. A reading only — never stored, and it moves nothing.</param>
 /// <param name="HoldsBack">Each item it holds back, in the order linked; empty when none
 /// is given.</param>
@@ -108,5 +108,5 @@ public sealed record StandUpImpedimentDto(
 /// have, such as a deleted one — <c>owner/name#number</c> for a pull request, or
 /// <c>+tag</c> for a plan.</param>
 /// <param name="Settled">Whether the work it names is over
-/// (<c>.devbook/domain/progress/domain.md#settled</c>).</param>
+/// (<c>.devbook/domain/goals/domain.md#settled</c>).</param>
 public sealed record StandUpHeldBackItemDto(HeldBackItemDto Item, string? Title, bool Settled);

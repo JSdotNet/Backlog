@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// An impediment's own page on the phone (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
+/// An impediment's own page on the phone (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>):
 /// its age and the goal it holds back, its state as the list that moves it, its check-again
 /// day, its note and the tasks it holds back. The three edits it allows each queue exactly
 /// one <c>impediment-edit</c> through the device outbox, and the page shows what was asked,
@@ -184,7 +184,7 @@ public sealed class ImpedimentScreenTests
     }
 
     /// <summary>A desktop change made since stands
-    /// (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the phone gives
+    /// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the phone gives
     /// up the note it asked for and shows the desktop's.</summary>
     [Fact]
     public async Task A_desktop_change_made_since_stands_over_the_note_the_phone_asked_for()

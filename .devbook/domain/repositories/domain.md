@@ -430,7 +430,7 @@ What this context publishes about one pull request of an [active repository](#ac
 
 Local ADR 0042 §2 lists the fields. A screen shows two marks of it beside the pull request's number, checks and approvals, followed by a "your review" label when the viewer's review is requested ([Pull request status](features.md#pull-request-status)).
 
-It is the one reading every other context draws a pull request from. Tasks and Progress keep a smaller copy of their own, translated from this one, and never read GitHub for it.
+It is the one reading every other context draws a pull request from. Tasks and Goals keep a smaller copy of their own, translated from this one, and never read GitHub for it.
 
 ### Readiness verdict
 

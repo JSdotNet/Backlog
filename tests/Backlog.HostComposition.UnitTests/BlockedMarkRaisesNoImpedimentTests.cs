@@ -16,7 +16,7 @@ namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
 /// A task's blocked mark is a Tasks-only mark, in the desktop harness's own composition
-/// (<c>.devbook/domain/progress/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>):
+/// (<c>.devbook/domain/goals/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>):
 /// a <c>set_blocked</c> call and a <c>blocked:</c> token added or removed are task writes
 /// that raise, move and change no impediment over real <c>progress_impediments</c> rows.
 /// </summary>

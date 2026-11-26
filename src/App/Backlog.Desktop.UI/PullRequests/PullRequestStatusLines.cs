@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.PullRequests;
 
 /// <summary>
 /// An open pull request as its status line draws it
-/// (<c>.devbook/domain/progress/features.md#pull-request-status</c>): checks as
+/// (<c>.devbook/domain/goals/features.md#pull-request-status</c>): checks as
 /// <c>passed/total</c> from the head commit's counts, approvals as
 /// <c>received/required</c> against what its base branch's rules ask, and "your review"
 /// where a pending request names the person the repository is read as.

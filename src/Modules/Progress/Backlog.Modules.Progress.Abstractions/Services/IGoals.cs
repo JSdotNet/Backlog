@@ -6,7 +6,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// <summary>
 /// Everything a host may do with goals, in one port the screens and the MCP tools share:
 /// set, edit and delete a goal, attach and detach its work, and read the goals with their
-/// counts (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
+/// counts (<c>.devbook/domain/goals/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>). A plain delegation to the module's use-case
 /// handlers, always on (local ADR 0035 §10).
 /// <para>

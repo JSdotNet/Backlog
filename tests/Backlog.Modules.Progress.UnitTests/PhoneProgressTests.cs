@@ -12,7 +12,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// What the module gives the phone (local ADR 0035 §8,
-/// <c>.devbook/domain/progress/features.md#goals-on-the-phone</c>), as a host composes it
+/// <c>.devbook/domain/goals/features.md#goals-on-the-phone</c>), as a host composes it
 /// through <c>AddProgressModule()</c>: the stand-up context a desktop sends — the pull
 /// request statuses the goals count, the pace, the working week and the iteration choice —
 /// and the impediment edits the phone asks for, applied through the impediment features.

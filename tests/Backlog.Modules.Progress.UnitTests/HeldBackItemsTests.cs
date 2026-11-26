@@ -5,8 +5,8 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// When a held-back item is settled, and when an impediment reads Ready to resolve
-/// (<c>.devbook/domain/progress/domain.md#settled</c>, <c>#ready-to-resolve</c>,
-/// <c>.devbook/domain/progress/requirements.md#requirement-a-held-back-item-is-settled-by-its-kind</c>):
+/// (<c>.devbook/domain/goals/domain.md#settled</c>, <c>#ready-to-resolve</c>,
+/// <c>.devbook/domain/goals/requirements.md#requirement-a-held-back-item-is-settled-by-its-kind</c>):
 /// the pure rule the desktop and the phone read alike.
 /// </summary>
 public sealed class HeldBackItemsTests

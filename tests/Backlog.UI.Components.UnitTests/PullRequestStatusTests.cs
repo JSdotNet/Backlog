@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The pull request status line as drawn
-/// (<c>.devbook/domain/progress/requirements.md#pull-request-status</c>): the pill, a mark
+/// (<c>.devbook/domain/goals/requirements.md#pull-request-status</c>): the pill, a mark
 /// per count with its glyph hidden, a visible count with no words, and one phrase per mark
 /// for a screen reader; a merged pull request reads "merged" alone.
 /// </summary>

@@ -13,7 +13,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 /// The published <see cref="IGoals"/> port as a host composes it through
 /// <c>AddProgressModule()</c>: each feature end to end over an
 /// in-memory repository — setting, editing and deleting a goal
-/// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>), attaching and detaching
+/// (<c>.devbook/domain/goals/features.md#setting-a-goal</c>), attaching and detaching
 /// work (<c>#attaching-work-to-a-goal</c>), and the list with its counts.
 /// </summary>
 public sealed class GoalsTests : IDisposable

@@ -4,7 +4,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 
 /// <summary>
 /// The tasks goals and the stand-up name, read from Tasks
-/// (<c>.devbook/domain/progress/dependencies.md</c>, Progress = customer).
+/// (<c>.devbook/domain/goals/dependencies.md</c>, Progress = customer).
 /// <para>
 /// A port the module asks outward through, answered by an adapter that reads
 /// Tasks' published surface only. Progress never sees the task aggregate and
@@ -27,7 +27,7 @@ public interface IProgressTaskSource
 /// <c>+</c> sigil and without regard to case; so are repository aliases.</summary>
 /// <param name="AnyRepository">Whether a plan tag brings in its tasks in every repository,
 /// <paramref name="RepositoryAliases"/> aside — how a goal's attached plan counts its
-/// entries (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).</param>
+/// entries (<c>.devbook/domain/goals/domain.md#goal-attachment</c>).</param>
 /// <param name="CompletedFrom">With <paramref name="CompletedThrough"/>, also selects every
 /// task completed from the one day through the other, both included, in any repository.</param>
 /// <param name="CompletedThrough">The last completion day selected; see <paramref name="CompletedFrom"/>.</param>

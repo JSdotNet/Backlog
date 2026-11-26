@@ -13,8 +13,8 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// Management's contract (<see cref="IPullRequests"/>, local ADR 0042 §5): each pull
 /// request's state, merge day, check counts and failing check names, and approvals
 /// against the approvals its base branch requires
-/// (<c>.devbook/domain/progress/dependencies.md</c>,
-/// <c>.devbook/domain/progress/features.md#pull-request-status</c>).
+/// (<c>.devbook/domain/goals/dependencies.md</c>,
+/// <c>.devbook/domain/goals/features.md#pull-request-status</c>).
 /// <para>
 /// It keeps nothing of its own: it reads by number through the contract's one cache,
 /// which every other reader of a pull request shares — the Pull requests pane, a task's

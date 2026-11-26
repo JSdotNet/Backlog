@@ -13,7 +13,7 @@ Every feature here is always on but [the weekly review](#the-weekly-review), beh
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
+related: [.devbook/domain/goals/domain.md#goal, .devbook/domain/goals/domain.md#goal-forecast, .devbook/domain/goals/domain.md#stand-up-reading, .devbook/domain/goals/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalAttachTests]
 ```
 
@@ -55,7 +55,7 @@ After an attach, a move or a detach made in it, a goal shows what it now holds a
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal, .devbook/domain/progress/features.md#goals-for-agents]
+related: [.devbook/domain/goals/domain.md#goal, .devbook/domain/goals/requirements.md#setting-a-goal, .devbook/domain/goals/features.md#goals-for-agents]
 ```
 
 Say what the work is for. **New goal** asks for a title, an optional one-line outcome
@@ -68,7 +68,7 @@ A goal's row offers the same fields to edit, and **Delete goal…**, which asks 
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+related: [.devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals/domain.md#goal-progress, .devbook/domain/goals/domain.md#goal-assignment, .devbook/domain/goals/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
 
 Say which work reaches a goal. Four kinds of item attach:
@@ -92,7 +92,7 @@ An item another goal holds is not attached silently. The picker opens on the goa
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+related: [.devbook/domain/goals/domain.md#goal, .devbook/domain/goals/domain.md#goal-attachment, .devbook/domain/goals/features.md#setting-a-goal, .devbook/domain/goals/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests]
 ```
 
@@ -110,8 +110,8 @@ An agent attaches no session: a session attaches on the desktop alone (local [AD
 
 ```meta
 type: feature
-setting: [.devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
-related: [.devbook/domain/progress/domain.md#iteration, .devbook/domain/progress/requirements.md#choosing-the-iteration]
+setting: [.devbook/domain/goals/context.md#iteration-length, .devbook/domain/goals/context.md#two-week-start]
+related: [.devbook/domain/goals/domain.md#iteration, .devbook/domain/goals/requirements.md#choosing-the-iteration]
 ```
 
 Choose the window the goals and the stand-up are read in: **Day**, **Week**, **2 weeks** or **Month**. The switch sits in the Goals view's header and on the phone's stand-up, and the choice is the person's own [Iteration length](context.md#iteration-length) setting. The first time a person chooses 2 weeks, they give the day two-week iterations count from. The header names the last and the next window. [Iteration](domain.md#iteration) says which days each length covers.
@@ -120,7 +120,7 @@ Choose the window the goals and the stand-up are read in: **Day**, **Week**, **2
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#stand-up, .devbook/domain/progress/domain.md#planned, .devbook/domain/progress/domain.md#pace, .devbook/domain/progress/requirements.md#the-stand-up]
+related: [.devbook/domain/goals/domain.md#stand-up, .devbook/domain/goals/domain.md#planned, .devbook/domain/goals/domain.md#pace, .devbook/domain/goals/requirements.md#the-stand-up]
 ```
 
 Read what to say at a stand-up without gathering it by hand, in four blocks over the [iteration](#choosing-the-iteration):
@@ -140,13 +140,13 @@ The **points tag** on Planned compares the planned effort with what the person u
 
 An impediment's line names who it is with, its age in working days and the goal it holds back, such as "Account manager · 3 days · Customers get paid faster". A New one reads "Not reported yet". A check-again date takes the age's place: "check Tue". The goal is the one that counts a [held-back item](domain.md#holds-back); when the items belong to several goals, the line names the goal of the first item linked.
 
-Under that line the impediment's note shows as written, whichever device wrote it. On the desktop, **Add note** or **Edit note** opens it in place: leaving the box keeps it, Escape abandons it, and a blank note clears it. The note is saved like the phone's, through Progress, and the stand-up is read again.
+Under that line the impediment's note shows as written, whichever device wrote it. On the desktop, **Add note** or **Edit note** opens it in place: leaving the box keeps it, Escape abandons it, and a blank note clears it. The note is saved like the phone's, through Goals, and the stand-up is read again.
 
 ### Copying the stand-up
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/requirements.md#the-stand-up]
+related: [.devbook/domain/goals/requirements.md#the-stand-up]
 ```
 
 **Copy** puts the four blocks on the clipboard as plain text:
@@ -162,7 +162,7 @@ Every line is a fixed template filled from the reading; none is written by a mod
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/requirements.md#the-stand-up, .devbook/domain/progress/features.md#impediments-for-agents]
+related: [.devbook/domain/goals/domain.md#stand-up-reading, .devbook/domain/goals/context.md#iteration-length, .devbook/domain/goals/requirements.md#the-stand-up, .devbook/domain/goals/features.md#impediments-for-agents]
 ```
 
 Let an agent report the figures the person sees. Behind the always-on Tasks key, `read_iterations` answers from the same [stand-up reading](domain.md#stand-up-reading) the Goals view draws from:
@@ -179,7 +179,7 @@ Without a length, the agent reads by the person's own [Iteration length](context
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
+related: [.devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/domain.md#impediment-state, .devbook/domain/goals/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
 
@@ -202,7 +202,7 @@ An open impediment that holds back a goal's item makes that goal [At risk](domai
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+related: [.devbook/domain/goals/domain.md#impediment, .devbook/domain/goals/requirements.md#tracking-an-impediment]
 ```
 
 Track a blocker the moment it shows up. The desktop stand-up's Impediments block offers **Raise impediment**. It asks for a title, an optional note and optionally the first items the impediment holds back, picked as [linking](#linking-what-an-impediment-holds-back) picks them. The impediment starts New, dated today, and is listed at once.
@@ -213,7 +213,7 @@ Raising is a desktop and agent action. The phone raises nothing, and nothing rai
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/features.md#attaching-work-to-a-goal, .devbook/domain/goals/requirements.md#tracking-an-impediment]
 ```
 
 Say what the impediment is in the way of. Each open impediment in the desktop stand-up offers **Link…**, which opens the [Attach to goal](#attaching-work-to-a-goal) picker's search, limited to three kinds. A **task** is found by its id, and a **pull request** by its repository and number (a number alone finds one too). A **plan** is found by its [plan tag](../roadmap/domain.md#roadmap-tag) and holds back every entry filed under it, later ones included. A session is not offered. The search leaves out the same work as the [attach search](#attaching-work-to-a-goal).
@@ -224,7 +224,7 @@ Each linked item shows under the impediment with its kind, and **Unlink** beside
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/domain.md#settled, .devbook/domain/progress/requirements.md#tracking-an-impediment]
+related: [.devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/goals/domain.md#settled, .devbook/domain/goals/requirements.md#tracking-an-impediment]
 ```
 
 Notice when a blocker is out of the way without checking each item by hand. Once every item an open impediment holds back is [settled](domain.md#settled), its row reads **Ready to resolve** beside its state badge, in the stand-up on the desktop and the phone.
@@ -235,7 +235,7 @@ The mark is a cue, not a move. The impediment keeps its state and place, and the
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/domain/progress/features.md#reading-the-stand-up-as-an-agent, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/domain.md#holds-back, .devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/goals/requirements.md#tracking-an-impediment, .devbook/domain/goals/features.md#reading-the-stand-up-as-an-agent, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Let an agent track a blocker it runs into. Behind the always-on Tasks key that `set_blocked` answers to, an agent works with impediments through MCP tools:
@@ -253,7 +253,7 @@ For each open impediment, the reading gives who it is with, its days open, its c
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Retired. Marking a task blocked used to raise a New impediment, which nobody resolved for the person, so the stand-up kept listing blockers whose tasks were long done. A task's [blocked mark](../tasks/features.md#marking-a-task-blocked) now raises nothing, and a person [raises an impediment](#raising-an-impediment) themselves.
@@ -264,19 +264,19 @@ The impediments it raised stay. Each holds back its one task, so it reads ready 
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+related: [.devbook/domain/goals/requirements.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-status, .devbook/domain/repositories/features.md#pull-request-readiness, .devbook/design/color-scheme.md, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RepositoryManagementGoalPullRequestsTests]
 ```
 
-Goal rows show the status Repositories publishes. Every pull request row in Progress carries its number and the checks and approvals marks of [Pull request status](../repositories/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repositories/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
+Goal rows show the status Repositories publishes. Every pull request row in Goals carries its number and the checks and approvals marks of [Pull request status](../repositories/features.md#pull-request-status). A merged one reads "merged" instead of both. An open or draft one that asks for your review ends on "your review", on a goal and in the phone's stand-up alike. A pull request so reads the same on a goal as in the [pull requests pane](../repositories/features.md#pull-request-readiness). An open or draft one on a goal's desktop row also shows its title above that line; with no title known, the line stands alone.
 
-Progress defines neither mark: it names a pull request by its repository and number, and Repositories answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
+Goals defines neither mark: it names a pull request by its repository and number, and Repositories answers with its status and title. The title stays on the desktop: the stand-up context a phone reads leaves it out. The marks used to be defined here (local ADR 0035 §7); local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract) moved them to the context that reads pull requests. The rows draw as before.
 
 ## The weekly review
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/requirements.md#the-weekly-review, .devbook/domain/progress/context.md#weekly-review, .devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/tasks/features.md#next-actions, .devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
+related: [.devbook/domain/goals/requirements.md#the-weekly-review, .devbook/domain/goals/context.md#weekly-review, .devbook/domain/inbox/context.md#inbox-pane, .devbook/domain/tasks/features.md#next-actions, .devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it]
 ```
 
@@ -314,13 +314,13 @@ A press that shows something leaves the review for it: the Inbox, the note in th
 
 A stage with nothing left reads done: its option carries a check and the word "done", and the stage says **Clear**. The review reads when it opens, on **Refresh**, after a press that writes, and when the Brain's setting moves or its index is rebuilt. With no Brain readable, or no goals in the host, the review says which part it left out and checks the rest. The areas are found by name or folder from the Brain's conventions, the PARA default otherwise. The tasks are every entry in the backlog, whatever the header's repository scope, since the plans are the whole roadmap's. A read that fails says so and draws no stage as done.
 
-The review lives in the Progress UI, which reaches none of the modules it reads. The window's shell gathers what it checks and carries out each action.
+The review lives in the Goals UI, which reaches none of the modules it reads. The window's shell gathers what it checks and carries out each action.
 
 ## Goals on the phone
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+related: [.devbook/domain/goals/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
 **A phone's change**
@@ -368,7 +368,7 @@ A change made on the phone shows there once a desktop has applied it. When a des
 ```meta
 type: feature
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
-related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/progress/requirements.md#syncing-goals-and-impediments]
+related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/goals/requirements.md#syncing-goals-and-impediments]
 ```
 
 Keep every goal and impediment the same on every paired device. They travel beside the tasks the devices already sync ([Multi-device sync](../tasks/features.md#multi-device-sync)), as two document kinds, `goal` and `impediment`, each one document under its own id. They travel only while sync is on and the device is paired.

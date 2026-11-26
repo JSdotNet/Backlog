@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-13
-related: [".devbook/domain/progress/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+related: [".devbook/domain/goals/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 c4: [backlog.desktop.progress, backlog.desktop.tasks]
 ```
 
@@ -25,6 +25,11 @@ drafted it.
 > membership, goal rules and close outcomes, §2's sprint items and plan links,
 > and §4's `progress` flag, now `goals`. Progress as its own boundary, references
 > by id and tag, and Tasks knowing nothing of Progress still stand.
+
+> **Amended 2026-11-26: the context is named Goals.** Local
+> [ADR 0073 §4](0073-the-bounded-contexts-are-redrawn.md#4-goals) renames Progress
+> to Goals, and its chapters now live in `.devbook/domain/goals/`. This record
+> keeps its title and its wording; read Progress below as Goals.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

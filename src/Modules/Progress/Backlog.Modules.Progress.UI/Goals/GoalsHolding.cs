@@ -20,7 +20,7 @@ public sealed record GoalsHeld(IReadOnlySet<Guid> Tasks, IReadOnlySet<string> Pu
 
 /// <summary>
 /// What a goal holds, and so what No goal lists
-/// (<c>.devbook/domain/progress/requirements.md#requirement-work-in-progress-that-no-goal-holds-is-listed-under-no-goal</c>).
+/// (<c>.devbook/domain/goals/requirements.md#requirement-work-in-progress-that-no-goal-holds-is-listed-under-no-goal</c>).
 /// A goal holds its attached tasks, the rows filed under its attached plans, its attached
 /// pull requests and the pull requests any task it holds links. No goal is every task in
 /// progress — blocked or not — and every open pull request under the header's repository

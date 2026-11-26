@@ -3,7 +3,7 @@ using Backlog.UI.Components.Goals;
 namespace Backlog.UI.Components.Progress;
 
 /// <summary>The iteration lengths the Goals view's switch offers
-/// (<c>.devbook/domain/progress/features.md#choosing-the-iteration</c>), in its order.</summary>
+/// (<c>.devbook/domain/goals/features.md#choosing-the-iteration</c>), in its order.</summary>
 public enum GoalsIteration
 {
     Day,
@@ -56,7 +56,7 @@ public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Statu
 
 /// <summary>
 /// One goal as the Goals view draws it
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>).
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>).
 /// </summary>
 /// <param name="Id">The host's id for the goal; handed back on attach.</param>
 /// <param name="Title">The goal's title.</param>
@@ -157,7 +157,7 @@ public static class StandUpGroups
 }
 
 /// <summary>An impediment's state, in the order it moves through them
-/// (<c>.devbook/domain/progress/domain.md#impediment-state</c>).</summary>
+/// (<c>.devbook/domain/goals/domain.md#impediment-state</c>).</summary>
 public enum StandUpImpedimentState
 {
     New,
@@ -179,7 +179,7 @@ public enum StandUpImpedimentState
 /// <param name="GoalTitle">The goal it holds back; null with none.</param>
 /// <param name="Note">The person's note on it; null with none.</param>
 /// <param name="ReadyToResolve">Whether everything it holds back is settled, so the person
-/// may resolve it (<c>.devbook/domain/progress/domain.md#ready-to-resolve</c>): a reading,
+/// may resolve it (<c>.devbook/domain/goals/domain.md#ready-to-resolve</c>): a reading,
 /// never a state.</param>
 /// <param name="HoldsBack">The tasks, pull requests and plans it holds back, in the order
 /// linked, each handed back as it came on Unlink; empty when none.</param>
@@ -201,7 +201,7 @@ public sealed record StandUpImpediment(
 }
 
 /// <summary>
-/// The stand-up beside the goals (<c>.devbook/domain/progress/features.md#the-stand-up</c>).
+/// The stand-up beside the goals (<c>.devbook/domain/goals/features.md#the-stand-up</c>).
 /// </summary>
 /// <param name="Finished">The items the goals count that were done in the last window, by goal.</param>
 /// <param name="Planned">The planned items for the next window, by goal, No goal last.</param>
@@ -223,7 +223,7 @@ public sealed record StandUpModel(
 
 /// <summary>
 /// The whole Goals view in plain values
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the library carries no
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): the library carries no
 /// domain, so the host turns its stand-up reading, its goals and its candidates into this,
 /// and the board's callbacks back into its own calls.
 /// </summary>
@@ -265,7 +265,7 @@ public sealed record GoalQuickAddRequest(string GoalId, string Title);
 public sealed record GoalMoveRequest(string GoalId, int ToIndex);
 
 /// <summary>A goal's title, outcome and due date as its open card hands them back, trimmed:
-/// the three replace what the goal says (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>
+/// the three replace what the goal says (<c>.devbook/domain/goals/features.md#setting-a-goal</c>).</summary>
 /// <param name="GoalId">The host's id for the goal.</param>
 /// <param name="Outcome">The one-line outcome; null when blank.</param>
 /// <param name="DueDate">The goal's own due date; null when the field was emptied, which
@@ -280,7 +280,7 @@ public sealed record ImpedimentMoveRequest(string ImpedimentId, StandUpImpedimen
 public sealed record ImpedimentNoteRequest(string ImpedimentId, string? Note);
 
 /// <summary>A new impediment as the Raise impediment dialog hands it back
-/// (<c>.devbook/domain/progress/features.md#raising-an-impediment</c>).</summary>
+/// (<c>.devbook/domain/goals/features.md#raising-an-impediment</c>).</summary>
 /// <param name="Title">The title, trimmed; never blank, which the dialog refuses.</param>
 /// <param name="Note">The note, trimmed; null when left blank.</param>
 /// <param name="Items">The work it holds back from the start, in the order picked; empty for
@@ -288,7 +288,7 @@ public sealed record ImpedimentNoteRequest(string ImpedimentId, string? Note);
 public sealed record ImpedimentRaiseRequest(string Title, string? Note, IReadOnlyList<GoalSubject> Items);
 
 /// <summary>Link <paramref name="Subject"/> to the impediment <paramref name="ImpedimentId"/>
-/// as work it holds back (<c>.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back</c>).</summary>
+/// as work it holds back (<c>.devbook/domain/goals/features.md#linking-what-an-impediment-holds-back</c>).</summary>
 public sealed record ImpedimentLinkRequest(string ImpedimentId, GoalSubject Subject);
 
 /// <summary>Unlink <paramref name="Subject"/> from the impediment <paramref name="ImpedimentId"/>.</summary>

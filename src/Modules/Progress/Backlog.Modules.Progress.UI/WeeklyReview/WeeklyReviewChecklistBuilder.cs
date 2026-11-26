@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Backlog.Modules.Progress.UI.WeeklyReview;
 
 /// <summary>
-/// The weekly review's checks (<c>.devbook/domain/progress/features.md#the-weekly-review</c>):
+/// The weekly review's checks (<c>.devbook/domain/goals/features.md#the-weekly-review</c>):
 /// the ones the <c>weekly-review</c> skill reports, stage by stage, each line with the
 /// actions that answer it. Pure: what it reads is <see cref="WeeklyReviewInputs"/> and the
 /// day, so a reading is the same for the same inputs.

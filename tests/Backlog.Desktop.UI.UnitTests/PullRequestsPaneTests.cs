@@ -2238,7 +2238,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
-    /// <summary>The row's status line (.devbook/domain/progress/features.md#pull-request-status):
+    /// <summary>The row's status line (.devbook/domain/goals/features.md#pull-request-status):
     /// checks as passed/total in their variant and approvals as received/required, the
     /// words for a screen reader only — and the review in words in the detail.</summary>
     [Fact]

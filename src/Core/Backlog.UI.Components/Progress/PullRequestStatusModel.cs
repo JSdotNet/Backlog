@@ -60,7 +60,7 @@ public enum PullRequestApprovalsVariant
 
 /// <summary>
 /// One pull request as its status line draws it
-/// (<c>.devbook/domain/progress/features.md#pull-request-status</c>), in plain values: the
+/// (<c>.devbook/domain/goals/features.md#pull-request-status</c>), in plain values: the
 /// library knows neither Progress nor GitHub, so each host turns its own pull request
 /// into this. The variant rules live here so every row that draws the line agrees.
 /// </summary>

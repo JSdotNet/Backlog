@@ -434,7 +434,7 @@ internal static class IntegrationFixtures
         IntegrationReviewState.Approved, IntegrationCheckState.Passing, Additions: 88, Deletions: 14);
 
     /// <summary>The same three with the status line the host builds from its open read
-    /// (.devbook/domain/progress/features.md#pull-request-status): the draft still
+    /// (.devbook/domain/goals/features.md#pull-request-status): the draft still
     /// running and one approval short of two, the changes-requested one failing with
     /// none required, the approved one passed and met — and one whose base branch's
     /// rules could not be read, so its approvals stand alone with no verdict.</summary>

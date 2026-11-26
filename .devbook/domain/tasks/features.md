@@ -496,7 +496,7 @@ and [dependency loops are named rather than broken](domain.invariants.md#invaria
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/progress/features.md#raising-an-impediment, .devbook/domain/progress/features.md#linking-what-an-impediment-holds-back, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+related: [.devbook/domain/goals/features.md#raising-an-impediment, .devbook/domain/goals/features.md#linking-what-an-impediment-holds-back, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
 ```
 
 Mark a task blocked by hand when something outside the backlog holds it up. Readiness differs: it reads blocked from `depends_on`. The mark is the
@@ -504,8 +504,8 @@ Mark a task blocked by hand when something outside the backlog holds it up. Read
 sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
 
 The mark is the task's alone and raises no impediment. A person who wants the block
-tracked [raises an impediment](../progress/features.md#raising-an-impediment) and
-[links the task](../progress/features.md#linking-what-an-impediment-holds-back) to it.
+tracked [raises an impediment](../goals/features.md#raising-an-impediment) and
+[links the task](../goals/features.md#linking-what-an-impediment-holds-back) to it.
 The task stores no impediment id, and Tasks never calls Progress.
 
 ### Waiting for someone
@@ -633,7 +633,7 @@ re-read that issue's current state, and the pull request that references it.
 Downstream progress is then visible from the backlog.
 
 The pull requests a task records are also checked in the background, without the
-person asking. The pull requests pane, Progress and the side panel share the cache that one read goes through. Merged and closed answers land on screen
+person asking. The pull requests pane, Goals and the side panel share the cache that one read goes through. Merged and closed answers land on screen
 before open ones.
 
 A merge is remembered on this device. Repositories keeps it in app storage, so the backlog opens instantly and offline

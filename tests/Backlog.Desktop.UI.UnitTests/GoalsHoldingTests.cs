@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// What a goal holds, and so what No goal lists
-/// (<c>.devbook/domain/progress/requirements.md#requirement-work-in-progress-that-no-goal-holds-is-listed-under-no-goal</c>):
+/// (<c>.devbook/domain/goals/requirements.md#requirement-work-in-progress-that-no-goal-holds-is-listed-under-no-goal</c>):
 /// a goal holds its tasks, the rows filed under its plans, its pull requests and the pull
 /// requests its tasks link; every task in progress and every open pull request in the
 /// header's scope that no goal holds is No goal.

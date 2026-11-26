@@ -177,7 +177,7 @@ public sealed class DomainViewContextMapPageTests : IDisposable
             .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        Assert.Contains("progress", folders);
+        Assert.Contains("goals", folders);
 
         await using var harness = CreateHarness(RepositoryRoot.Root.FullName);
         var services = harness.Context.Services;

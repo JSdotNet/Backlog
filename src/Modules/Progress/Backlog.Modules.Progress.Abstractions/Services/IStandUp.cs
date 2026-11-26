@@ -4,8 +4,8 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Progress.Abstractions.Services;
 
 /// <summary>
-/// The stand-up (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>,
-/// <c>.devbook/domain/progress/features.md#the-stand-up</c>): the goals, what was finished
+/// The stand-up (<c>.devbook/domain/goals/domain.md#stand-up-reading</c>,
+/// <c>.devbook/domain/goals/features.md#the-stand-up</c>): the goals, what was finished
 /// in the last window, what is planned for the next, and the open impediments, read afresh
 /// from the work they name. It stores nothing.
 /// </summary>
@@ -21,7 +21,7 @@ public interface IStandUp
 }
 
 /// <summary>
-/// The person's pace for the stand-up's points tag (<c>.devbook/domain/progress/domain.md#pace</c>):
+/// The person's pace for the stand-up's points tag (<c>.devbook/domain/goals/domain.md#pace</c>):
 /// the story points they get done in a working week, as Roadmap Planning measures it or the
 /// person typed it. A port the module asks outward through; the module's own answer is
 /// null, which reads as no capacity figure.
@@ -34,7 +34,7 @@ public interface IStandUpPace
 
 /// <summary>
 /// The iteration a person reads their goals and stand-up in
-/// (<c>.devbook/domain/progress/context.md#iteration-length</c>,
+/// (<c>.devbook/domain/goals/context.md#iteration-length</c>,
 /// <c>#two-week-start</c>): its length, Week until chosen, and the date two-week windows
 /// count from, none until two weeks is first chosen.
 /// </summary>
