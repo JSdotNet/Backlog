@@ -152,3 +152,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0071 — Agent changes are restorable through a change journal beside the store](adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md) (proposed; amends ADR 0058 §4)
 - [ADR 0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md) (proposed; built on `plan/plan-first-tasks`)
 - [ADR 0073 — The bounded contexts are redrawn](adr/0073-the-bounded-contexts-are-redrawn.md) (proposed; built on `plan/boundary-redesign`)
+- [ADR 0074 — Infrastructure is organised by technology, never by bounded context](adr/0074-infrastructure-is-organised-by-technology-never-by-context.md) (proposed; amends ADR 0064 §1)
