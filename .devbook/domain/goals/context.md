@@ -93,3 +93,12 @@ related: [.devbook/domain/goals/features.md#choosing-the-iteration, .devbook/dom
 ```
 
 The date two-week iterations are counted from; each window starts on it or a whole number of fourteen days from it. It has no value until the person first chooses `two-weeks`, which asks for it and offers the Monday of the current week. Changing it moves every two-week window and changes no goal or impediment.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). Both groups are always listed.
+
+- `GoalTools`: `list_goals`, `read_iterations`, `create_goal`, `update_goal`, `attach_to_goal`, `detach_from_goal` and `delete_goal`.
+- `ImpedimentTools`: `raise_impediment`, `set_impediment_state`, `link_to_impediment` and `unlink_from_impediment`.
+
+They name tasks by id and plans by tag, as the context does, and read neither aggregate.

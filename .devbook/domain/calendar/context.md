@@ -113,6 +113,10 @@ Whether the Events layer is drawn. It is offered only while the
 [Events area](../events/context.md#events-area) is on, and is remembered on this device
 apart from Show plans.
 
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). It is a composition and owns no data; its layers are Work's and Events', and their groups answer for them.
+
 ## Dependencies
 
 ### Outbound dependencies

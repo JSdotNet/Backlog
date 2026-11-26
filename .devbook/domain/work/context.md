@@ -301,3 +301,15 @@ The Working week page's headline says the week in force in one sentence, read fr
 - A week with no worked day says `You have no working days set.`
 
 `scope: user` fits: the choice is one person's and follows them. With sync on, the week travels as a `workingWeek` key inside the roadmap's synced `planning-pace` document, newest change winning (ADR 0019). A change here writes `working-hours.json` and that key together. A week pulled from another device replaces this file, so `working-hours.json` stays the device's copy and the dashboard keeps reading it. A pace document without the key leaves the file alone, and the device's next change writes the key.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). Its groups are always listed: Work has no switch.
+
+- `WorkTools`: `list_entries` and `get_plan_items`.
+- `RoadmapTools`: `get_planned_work`, and `get_roadmap`, its old name, kept as an alias.
+- `TrackerTools`: `find_item`, `read_item`, `transition`, `set_blocked`, `comment`, `link_change`, `link_session`, `create_item`, `set_devbook_references` and `list_devbook_references`.
+
+`TrackerTools` composes two contexts: the entry is Work's, and `link_session` tells the [Sessions](../sessions/context.md#over-mcp) request queue that a session picked the entry up. `DecisionTools` and `SyncDirectionTools` compose Work with [Devbook](../devbook/context.md#over-mcp). A composing group only combines calls; each rule it reaches stays in one context.
+
+Every group that takes a `repository` argument resolves it through Work's `IRepositoryDirectory`. That is a lookup, not a second context.

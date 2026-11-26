@@ -237,7 +237,7 @@ graph TB
 
   McpCallers -->|HTTP on 127.0.0.1 / ::1| Mcp
   McpWorker --> Mcp
-  Mcp --> Work & DevbookInfra & SessionsInfra
+  Mcp -->|"tool groups, one context's Abstractions each"| Work & Inbox & Goals & Events & DevbookInfra & SessionsInfra
 
   GitHubInfra --> GitHub
   Foundry --> FoundryApi
@@ -245,7 +245,37 @@ graph TB
 
 Capture sources and background workers run inside the desktop process, so external credentials stay on the machine. `MauiProgram` starts the sync, backup and MCP workers at launch.
 
-**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach Work, Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its own Kestrel listener bound to `127.0.0.1` and `::1`, never a wildcard address (local ADR 0012). Agents and IDE extensions on the machine reach the contexts through it, as the [MCP channel](#mcp-channel) draws; `McpServerRegistrationTests` holds the binding.
+
+### MCP channel
+
+```meta
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/arc42/adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md", ".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md", ".devbook/domain/context-map.md"]
+```
+
+The MCP server is a channel, like the desktop shell, and not a context (local ADR 0073 §6). It owns no domain data. Each tool group is one `[McpServerToolType]` class, listed in `BacklogMcpTools.Groups` with the feature key that switches it, and passes a call to one context's Abstractions. Each context chapter's **Over MCP** section names its groups, or says it has none.
+
+```mermaid
+flowchart LR
+  Agents["MCP clients\n(agents, IDE extensions)"]
+
+  subgraph Channel["MCP channel — Backlog.Infrastructure.Mcp (loopback only)"]
+    Own["The channel's own\nGrantTools, AccessTools (grants and scopes)\nChangeTools (change journal)"]
+    Single["One context each\nWorkTools, RoadmapTools · GoalTools, ImpedimentTools\nInboxTools · DevbookTools · EventTools · NotificationTools\nSessionTools, SurfaceTools, UsageTools,\nScheduleTools, LoopTools, SessionRequestTools"]
+    Composed["Two contexts each\nTrackerTools (Work + Sessions)\nDecisionTools, SyncDirectionTools (Devbook + Work)"]
+    Shell["WindowTools (desktop shell)"]
+  end
+
+  Agents -->|"HTTP on 127.0.0.1 / ::1"| Own
+  Own -->|grant and scope checked| Single & Composed & Shell
+  Single -->|Abstractions| Contexts["Work, Goals, Inbox, Devbook,\nEvents, Notifications, Sessions"]
+  Composed -->|both contexts' Abstractions| Contexts
+  Own -->|propose_restore| Notif["Notifications.Abstractions"]
+```
+
+- **The channel's own groups.** `GrantTools` (`list_agent_requests`, `grant_agent`, `edit_agent_scopes`, `revoke_agent`) and `AccessTools` (`request_access`) decide which agent may call which scope, over `SharedKernel.Mcp` (local ADRs 0058, 0059, 0069). `ChangeTools` (`list_change_sets`, `propose_restore`) reads the change journal and publishes a restore proposal through Notifications (local ADR 0071). None of them is a context's.
+- **The composing groups** only combine calls. `TrackerTools` writes the entry through Work and tells Sessions' request queue a session picked it up. `DecisionTools` and `SyncDirectionTools` answer Devbook's state, notes and directions for a repository resolved through Work. A rule either context holds stays there.
+- **The contexts with no group** are Brain (a `#brain` scope on `DevbookTools`), Insights, Repositories, Dev PC Management, Capture, Sync and Calendar. Every group that takes a `repository` argument resolves it through Work's `IRepositoryDirectory` and never registers one.
 
 **Work** is `Backlog.Modules.Work` and its `.Abstractions` (local ADR 0073 §1): the Task under `Backlog.Modules.Work.Tasks` and the Plan under `Backlog.Modules.Work.Plans`, each with its own slices and port. Where the two meet is the module's own, under `Backlog.Modules.Work.Services` and composed by `AddWorkJoins`: the plan's tags in the task picker, Import's plan entries laid out on the plan, the shelf of imported plans, the finished work a measured pace counts, the task writes the plan hears, and the plan filter chip's queue. Its screens are `Backlog.Modules.Work.UI`: the Tasks pane under `Backlog.Modules.Work.UI.Tasks` and the Roadmap view under `Backlog.Modules.Work.UI.Roadmap`, which also carries the working week's settings page. `Backlog.Infrastructure.FileSystem` keeps the joins with the world outside Work: a plan item's rollup of devbook chapters and Brain notes, a finished plan's project note, the pace file and its replica store, the roadmap's view choices, and the actual hours.
 

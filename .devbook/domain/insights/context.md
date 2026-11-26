@@ -88,3 +88,7 @@ related: [".devbook/domain/insights/features.md#ai-vendor-usage-import"]
 With the `usage-metrics` flag on, Claude and GitHub Copilot usage is read from their organization APIs as evidence for the productivity figures. Both sources are organization-scoped, which is why it ships off: Claude needs an API key an organization admin can use, and GitHub needs organization-owner access. The flag is marked `DEV`.
 
 The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the import is released and the credentials, not the switch, decide whether it runs.
+
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). It reads run usage, which `list_run_usage` answers from [Sessions](../sessions/context.md#over-mcp).
