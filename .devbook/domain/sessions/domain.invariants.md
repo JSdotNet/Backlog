@@ -936,6 +936,19 @@ A Linked or Cancelled request changes no further: it cannot be claimed, reported
 
 Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0038 §3)
 
+### Invariant: A session is keyed by its transcript id, and a desktop id is its alias
+
+```meta
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Link_session_given_a_desktop_alias_stores_the_transcript_id, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Link_session_finds_a_link_stored_under_the_desktop_alias, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Link_session_keeps_a_desktop_alias_no_record_names, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.TrackerToolsTests.Link_session_also_tells_the_queue_the_sessions_desktop_id, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionRequestToolsTests.Marking_started_stores_the_transcript_id_a_desktop_alias_resolves_to, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DeliveryToolsTests.A_delivery_stored_under_a_desktop_alias_reports_the_transcript_id_and_its_desktop_session, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkLinksProjectionSessionPresenceTests.A_link_stored_under_a_desktop_alias_resolves_to_its_session, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkLinksProjectionSessionPresenceTests.A_session_linked_under_both_its_ids_is_drawn_once]
+```
+
+A session link, a Started request and an answer delivery name a Claude session by its Claude Code transcript id.
+A Claude desktop app id, `local_<guid>`, is accepted wherever a session id is, and is stored as the transcript id its desktop record names; one no record names yet is kept as given.
+A link, request or delivery stored under the desktop id still resolves to the same session, so a session linked under either id is linked once.
+
+Enforced at: `DesktopSessionIds` (`ResolveAsync()`, `CanonicalAsync()`, `AliasesAsync()`), which `TrackerTools.LinkSessionAsync()`, `SessionRequestTools.MarkSessionRequestAsync()` and the delivery tools and wait route resolve through; `WorkLinksProjection`, which finds a session under either id (ADR 0038 §3)
+
 ## Question Relay
 
 ```meta

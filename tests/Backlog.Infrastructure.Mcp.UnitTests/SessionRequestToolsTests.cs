@@ -134,6 +134,25 @@ public class SessionRequestToolsTests
         Assert.Null(answer.Request.LeaseEndsAt);
     }
 
+    /// <summary>The transcript id is the key: a dispatcher that reports the Claude desktop
+    /// app's id has the request stored under the transcript id the desktop record names,
+    /// and an id no record names yet is kept as reported.</summary>
+    [Theory]
+    [InlineData("local_1", "cli-1")]
+    [InlineData("cli-1", "cli-1")]
+    [InlineData("local_new", "local_new")]
+    public async Task Marking_started_stores_the_transcript_id_a_desktop_alias_resolves_to(string reported, string stored)
+    {
+        var tools = new SessionRequestTools(_queue, _clock, sessions: new StubSessionSource(StubSessionSource.Claude("cli-1", "local_1")));
+        var request = Entry();
+        await tools.ClaimSessionRequestAsync(request.Id, "manager-1", TestContext.Current.CancellationToken);
+
+        var answer = await tools.MarkSessionRequestAsync(request.Id, "started", "manager-1", reported, TestContext.Current.CancellationToken);
+
+        Assert.True(answer.Marked);
+        Assert.Equal(stored, answer.Request.SessionId);
+    }
+
     [Fact]
     public async Task Marking_started_after_the_lease_ran_out_still_records_the_session_while_nobody_else_claimed()
     {
