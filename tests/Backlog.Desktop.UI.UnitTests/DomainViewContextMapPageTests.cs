@@ -161,6 +161,43 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         Assert.True(unworded.Count == 0, "Lines no dependency row words: " + string.Join("; ", unworded));
     }
 
+    /// <summary>Every context folder of the repository's own devbook is listed —
+    /// as a row of the Domain menu, as a context the view loads, and as a card on
+    /// the Context map — whatever the map's table and fence happen to name. On 12
+    /// Nov 2026 the view showed 12 of the 16 then on disk.</summary>
+    [Fact]
+    public async Task Every_context_folder_of_the_repositorys_own_devbook_is_listed()
+    {
+        var domain = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "domain");
+        var folders = Directory.EnumerateDirectories(domain)
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        Assert.Contains("progress", folders);
+
+        await using var harness = CreateHarness(RepositoryRoot.Root.FullName);
+        var services = harness.Context.Services;
+
+        var view = await services.GetRequiredService<DomainDevbookStore>().LoadAsync(harness.RepositoryAlias, TestContext.Current.CancellationToken);
+        Assert.Null(view.Error);
+        Assert.Equal(folders, view.Contexts.Select(context => context.Slug).Order(StringComparer.OrdinalIgnoreCase));
+
+        var read = DomainViewContextMapPage.Read(view);
+        Assert.Null(read.Problem);
+        Assert.Equal(folders, read.Map.Contexts.Select(context => context.Slug).OfType<string>().Order(StringComparer.OrdinalIgnoreCase));
+
+        var tree = await services.GetRequiredService<DevbookMenu>().LoadAsync(["domain"], harness.RepositoryAlias, TestContext.Current.CancellationToken);
+        var root = Assert.Single(tree.Roots);
+        Assert.True(root.Available, root.Message);
+        var rows = root.Children
+            .Where(node => node.Kind == DevbookMenuNodeKind.Folder)
+            .Select(node => node.Key.TrimEnd('/').Split('/')[^1])
+            .Order(StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(folders, rows);
+    }
+
     private const string Languages = """
 
 
