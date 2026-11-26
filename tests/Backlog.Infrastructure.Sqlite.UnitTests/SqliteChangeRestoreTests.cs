@@ -1,7 +1,10 @@
 using Backlog.Infrastructure.Sqlite.Changes;
 using Backlog.Infrastructure.Sqlite.Goals;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Goals.DomainModels;
+using Backlog.Modules.Work.Abstractions.Plans;
 using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Plans.DomainModels;
 using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
 
@@ -194,6 +197,41 @@ public sealed class SqliteChangeRestoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_plan_revision_journalled_under_the_kind_before_the_Work_merge_restores_into_the_renamed_table()
+    {
+        // Local ADR 0073 §10: a plan revision journalled before Tasks and Roadmap Planning
+        // merged into Work carries the kind roadmap-plan. It is still a step of its change
+        // set, and restoring it writes the plan back into work_plan.
+        var plans = new SqliteRoadmapPlanRepository(_temp.Path);
+        var before = RoadmapPlan.Empty();
+        before.AddItem("Kept by the person", PlannedWindow.Of(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9)));
+        using (ChangeContext.Begin(ChangeActor.Person, "planning"))
+        {
+            await plans.SaveAsync(before, Token);
+        }
+
+        var agent = await AgentAsync("planning", async () =>
+        {
+            var held = await plans.LoadAsync(Token);
+            held.AddItem("Added by the agent", PlannedWindow.Of(new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 6)));
+            await plans.SaveAsync(held, Token);
+        });
+        Assert.Equal(2, (await plans.LoadAsync(Token)).Items.Count);
+        // The person's revision and the agent's, both as an older build stored them.
+        Assert.Equal(2, await RelabelRevisionsAsync(SqliteRoadmapPlanRepository.JournalKind, SqliteRoadmapPlanRepository.LegacyJournalKind));
+
+        var plan = Assert.IsType<RestorePlan>(await _restore.PlanAsync(agent.Id, Token));
+        var step = Assert.Single(plan.Steps);
+        Assert.Equal(SqliteRoadmapPlanRepository.LegacyJournalKind, step.Key.Kind);
+        Assert.Equal(RestoreAction.Revert, step.Action);
+
+        var outcome = await _restore.RestoreAsync(agent.Id, NoOverrides, Token);
+
+        Assert.Equal(1, outcome.Restored);
+        Assert.Equal("Kept by the person", Assert.Single((await plans.LoadAsync(Token)).Items).Title);
+    }
+
+    [Fact]
     public async Task A_restore_that_writes_nothing_records_no_change_set_and_leaves_the_original_standing()
     {
         var edited = await AddAsync("Edited since", string.Empty);
@@ -320,6 +358,18 @@ public sealed class SqliteChangeRestoreTests : IDisposable
             held.Rename(title);
             await _tasks.SaveAsync(held, Token);
         }
+    }
+
+    /// <summary>Rewrites every revision journalled under <paramref name="kind"/> to
+    /// <paramref name="olderKind"/>, as an older build stored it; answers how many.</summary>
+    private async Task<int> RelabelRevisionsAsync(string kind, string olderKind)
+    {
+        await using var connection = await SqliteTaskRepository.OpenForJournalAsync(_tasks.DatabasePath, Token);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE revisions SET document_kind = $older WHERE document_kind = $kind;";
+        command.Parameters.AddWithValue("$older", olderKind);
+        command.Parameters.AddWithValue("$kind", kind);
+        return await command.ExecuteNonQueryAsync(Token);
     }
 
     private async Task<TaskItem> ReloadAsync(TaskItem task) =>
