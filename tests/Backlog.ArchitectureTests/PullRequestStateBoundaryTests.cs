@@ -48,8 +48,8 @@ public sealed class PullRequestStateBoundaryTests
     ];
 
     /// <summary>
-    /// Progress's pull-request reader asks the contract, not the GitHub adapter (local
-    /// ADR 0042 §5, V6): no adapter in <c>Infrastructure.FileSystem/Progress</c> that
+    /// Goals' pull-request reader asks the contract, not the GitHub adapter (local
+    /// ADR 0042 §5, V6): no adapter in <c>Infrastructure.FileSystem/Goals</c> that
     /// answers goal pull requests names <c>GitHubIntegration</c> or the GitHub adapter's
     /// namespace.
     /// </summary>
@@ -57,7 +57,7 @@ public sealed class PullRequestStateBoundaryTests
     public void Progress_reads_pull_requests_through_the_contract()
     {
         var readers = System.IO.Directory
-            .EnumerateFiles(RepositoryRoot.Directory("src", "Infrastructure", "Backlog.Infrastructure.FileSystem", "Progress"), "*GoalPullRequests*.cs")
+            .EnumerateFiles(RepositoryRoot.Directory("src", "Infrastructure", "Backlog.Infrastructure.FileSystem", "Goals"), "*GoalPullRequests*.cs")
             .ToList();
 
         Assert.NotEmpty(readers);
@@ -185,7 +185,7 @@ public sealed class PullRequestStateBoundaryTests
     [Fact]
     public void The_side_panels_reader_lists_the_linked_pull_requests_through_Tasks()
     {
-        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Goals", "WorkInProgressReader.cs"));
+        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "ShellGoals", "WorkInProgressReader.cs"));
 
         Assert.DoesNotContain("TasksDesktopState", reader, StringComparison.Ordinal);
         Assert.DoesNotContain("EntryRow", reader, StringComparison.Ordinal);

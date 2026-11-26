@@ -52,7 +52,7 @@ public sealed record PullRequestHandle(string NodeId, string? HeadSha, PullReque
 
 /// <summary>
 /// One pull request as Repositories reports it to every reader — the pull
-/// requests pane, the session card, a task's row, Progress (local ADR 0042 §2): its
+/// requests pane, the session card, a task's row, Goals (local ADR 0042 §2): its
 /// identity and branches, its state and merge day, its checks, its approvals, whether
 /// it is mergeable, behind or held for auto-merge, and what the pane draws of it.
 /// <para>

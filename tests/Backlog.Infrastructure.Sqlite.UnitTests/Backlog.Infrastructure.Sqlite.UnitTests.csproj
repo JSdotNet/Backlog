@@ -12,7 +12,7 @@
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <!-- The goal and impediment aggregates, for the same reason: the tests build a goal
          by hand and assert what comes back. -->
-    <ProjectReference Include="..\..\src\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Goals\Backlog.Modules.Goals\Backlog.Modules.Goals.csproj" />
     <!-- The notification aggregate, for the same reason. -->
     <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     <!-- The knowledge event and event series aggregates, for the same reason. -->

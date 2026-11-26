@@ -1,5 +1,4 @@
 using Backlog.UI.Components.Goals;
-using Backlog.UI.Components.Progress;
 using Backlog.UI.Components.UnitTests.Harnesses;
 
 namespace Backlog.UI.Components.UnitTests;

@@ -17,7 +17,7 @@ namespace Backlog.Modules.Repositories.Services;
 /// <summary>
 /// <see cref="IPullRequests"/> over the module's slices and its one cache (local ADR
 /// 0042). One instance per process, so every reader the host composes shares the cache:
-/// the pane, the session card, a task's row and side panel, and Progress.
+/// the pane, the session card, a task's row and side panel, and Goals.
 /// </summary>
 internal sealed partial class PullRequests : IPullRequests
 {

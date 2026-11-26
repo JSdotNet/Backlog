@@ -22,7 +22,10 @@ internal sealed class SqliteViewStore<TRow>
     private readonly string _select;
     private readonly string _upsert;
 
-    public SqliteViewStore(string databasePath, string prefix, SqliteViewMapping<TRow> mapping)
+    /// <param name="renamedFrom">The prefix the view was kept under before a rename (local
+    /// ADR 0073 §10), or null. A file that still has those tables, and not yet the new ones,
+    /// has them renamed, so its rows and its cursor carry over as they were.</param>
+    public SqliteViewStore(string databasePath, string prefix, SqliteViewMapping<TRow> mapping, string? renamedFrom = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
@@ -52,6 +55,13 @@ internal sealed class SqliteViewStore<TRow>
             """;
 
         using var connection = Open();
+
+        if (renamedFrom is not null)
+        {
+            RenameFrom(connection, $"{renamedFrom}_view", _view);
+            RenameFrom(connection, $"{renamedFrom}_cursor", _cursor);
+        }
+
         using var command = connection.CreateCommand();
 
         command.CommandText = $"""
@@ -65,6 +75,27 @@ internal sealed class SqliteViewStore<TRow>
             );
             """;
         command.ExecuteNonQuery();
+    }
+
+    /// <summary>Renames <paramref name="from"/>, a table a build before the rename kept, to
+    /// <paramref name="to"/> when the file has the one and not yet the other. Once renamed
+    /// nothing is left under the old name, so a cursor reset later is never brought back
+    /// from it.</summary>
+    private static void RenameFrom(SqliteConnection connection, string from, string to)
+    {
+        if (!TableExists(connection, from) || TableExists(connection, to)) return;
+
+        using var rename = connection.CreateCommand();
+        rename.CommandText = $"ALTER TABLE {from} RENAME TO {to}";
+        rename.ExecuteNonQuery();
+    }
+
+    private static bool TableExists(SqliteConnection connection, string table)
+    {
+        using var probe = connection.CreateCommand();
+        probe.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name";
+        probe.Parameters.AddWithValue("$name", table);
+        return probe.ExecuteScalar() is not null;
     }
 
     /// <summary>Every row the mapping can read, tombstones included.</summary>

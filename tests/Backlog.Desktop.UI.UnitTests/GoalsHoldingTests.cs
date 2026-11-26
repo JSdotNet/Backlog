@@ -1,8 +1,7 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.UI.Goals;
 using Backlog.UI.Components.Goals;
-using Backlog.UI.Components.Progress;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

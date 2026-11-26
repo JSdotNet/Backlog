@@ -1,5 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.Services;
@@ -208,14 +208,14 @@ public sealed partial class TaskSyncWorker : IDisposable
     /// notice — a switch flipped here is pushed after the same settle delay — and for the
     /// one-time feed replay that catches an upgraded device up on preferences its cursor
     /// had passed (local ADR 0032). Null on a head that keeps none.</param>
-    /// <param name="goals">Progress's goal replication port, for its local-change notice
+    /// <param name="goals">Goals' goal replication port, for its local-change notice
     /// — a goal changed here is pushed after the same settle delay (local ADR 0035) — and
     /// for the one-time feed replay that catches an upgraded device up on goals its cursor
-    /// had passed. Null on a head without Progress.</param>
-    /// <param name="impediments">Progress's impediment replication port, for its
+    /// had passed. Null on a head without Goals.</param>
+    /// <param name="impediments">Goals' impediment replication port, for its
     /// local-change notice and its feed replay, on the goals' terms. Null on a head
-    /// without Progress.</param>
-    /// <param name="iteration">Progress's iteration settings replication port, for its
+    /// without Goals.</param>
+    /// <param name="iteration">Goals' iteration settings replication port, for its
     /// local-change notice and its one-time feed replay, on the My Day preferences' terms
     /// (local ADR 0036). Null on a head that keeps none.</param>
     public TaskSyncWorker(

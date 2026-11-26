@@ -19,7 +19,7 @@
         <StandupImpedimentBadge State="State" TestId="@PartTestId("state")" />
         @if (ReadyToResolve)
         {
-            <Badge Kind="tone" Slug="settled" TestId="@PartTestId("ready")">@(global::Backlog.UI.Components.Progress.GoalsText.ReadyToResolve)</Badge>
+            <Badge Kind="tone" Slug="settled" TestId="@PartTestId("ready")">@(global::Backlog.UI.Components.Goals.GoalsText.ReadyToResolve)</Badge>
         }
     </span>
     @if (!string.IsNullOrWhiteSpace(Meta) || !string.IsNullOrWhiteSpace(Goal))

@@ -8,7 +8,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
@@ -466,11 +466,11 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         using var provider = BuildMauiShaped(validateScopes: false);
         var store = provider.GetRequiredService<IterationSettingsStore>();
-        Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
-        Assert.Null(await ((Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication)store).ReadAsync(TestContext.Current.CancellationToken));
+        Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.Null(await ((Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication)store).ReadAsync(TestContext.Current.CancellationToken));
 
-        provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>()
-            .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
+        provider.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>()
+            .SetLength(Backlog.Modules.Goals.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
 
         Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
         Assert.Equal(_temp.Combine(IterationSettingsStore.FileName), store.SettingsPath);
@@ -491,12 +491,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         }
 
         using var provider = BuildMauiShaped(validateScopes: false);
-        var settings = provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>();
-        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.Week, settings.Length);
+        var settings = provider.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>();
+        Assert.Equal(Backlog.Modules.Goals.Abstractions.IterationLength.Week, settings.Length);
 
         var stamp = new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero);
         var change = IterationReplicaDocuments.ToChange(
-            new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+            new Backlog.Modules.Goals.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
                 """{"updatedAt":"2026-10-20T08:00:00Z","length":"two-weeks","twoWeekStart":"2026-10-19"}""", stamp));
 
         var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
@@ -504,7 +504,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             TestContext.Current.CancellationToken);
 
         Assert.Equal(1, merged.Applied);
-        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, settings.Length);
+        Assert.Equal(Backlog.Modules.Goals.Abstractions.IterationLength.TwoWeeks, settings.Length);
         Assert.Equal(new DateOnly(2026, 10, 19), settings.TwoWeekStart);
     }
 

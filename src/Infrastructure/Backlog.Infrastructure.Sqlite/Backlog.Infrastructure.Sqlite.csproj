@@ -2,7 +2,7 @@
 
   <!--
     Cross-cutting SQLite adapter: the canonical local store for Backlog
-    Management's tasks, for Roadmap Planning's stored plan, for Progress's goals
+    Management's tasks, for Roadmap Planning's stored plan, for Goals' goals
     and impediments, for the Inbox's items, lists and groups, for Notifications'
     notifications, and for Events' knowledge events and event series. Implements
     ports declared by those modules; no module may reference this project except
@@ -33,10 +33,10 @@
          module implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
-    <!-- Progress's IGoalRepository and IImpedimentRepository, answered under Progress/
-         by the progress_goals and progress_impediments tables in the same database.
+    <!-- Goals' IGoalRepository and IImpedimentRepository, answered under Goals/
+         by the goals_goals and goals_impediments tables in the same database.
          Same direction. -->
-    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
+    <ProjectReference Include="..\..\Modules\Goals\Backlog.Modules.Goals\Backlog.Modules.Goals.csproj" />
     <!-- The Inbox module's two repository ports, answered under Inbox/ by three
          tables in the same database. Same direction, same reasoning. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />

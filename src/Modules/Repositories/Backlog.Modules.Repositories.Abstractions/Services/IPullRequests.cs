@@ -6,7 +6,7 @@ namespace Backlog.Modules.Repositories.Abstractions.Services;
 /// <summary>
 /// Repositories' one contract for pull-request state (local ADR 0042 §2–§3):
 /// every reader — the pull requests pane, the session card, a task's row, a task's side
-/// panel, Progress — reads pull requests through it, and every act on one goes through
+/// panel, Goals — reads pull requests through it, and every act on one goes through
 /// it, so one pull request is read once and answers the same everywhere.
 /// <para>
 /// Behind it is one cache, on the terms ADR 0042 §3 sets: a merged pull request is read

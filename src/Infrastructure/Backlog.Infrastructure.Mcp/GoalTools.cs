@@ -1,8 +1,8 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>#attaching-work-to-a-goal</c>, local ADR 0035).
 /// <para>
 /// <b>A class of its own</b>, for the reason <see cref="ImpedimentTools"/> is one: goals are
-/// Progress's, so the tools are constructed from Progress's port in a group of their own,
+/// Goals', so the tools are constructed from Goals' port in a group of their own,
 /// gated on the same always-on Tasks key (<see cref="BacklogMcpTools.Goals"/>). Every write
 /// goes through <see cref="IGoals"/>, so no tool here changes a task, a plan or a pull
 /// request: a goal names its work by identity (local ADR 0035 §6). The server runs inside
@@ -28,10 +28,10 @@ namespace Backlog.Infrastructure.Mcp;
 /// <see cref="IGoals"/> is scoped.
 /// </para>
 /// </summary>
-/// <param name="goals">Progress's goal port. Every call here goes through it.</param>
+/// <param name="goals">Goals' goal port. Every call here goes through it.</param>
 /// <param name="repositories">The repository registry a pull request's repository is
 /// resolved through, never registered in (see <see cref="RepositoryScope"/>).</param>
-/// <param name="standUp">Progress's iteration reading, which <c>read_iterations</c> answers
+/// <param name="standUp">Goals' iteration reading, which <c>read_iterations</c> answers
 /// from. A port of this class rather than a class of its own, because a group is constructed
 /// from one class and the reading is the goals' (<see cref="BacklogMcpTools.Goals"/>).</param>
 /// <param name="clock">Where "today" comes from when a call names its own length. Optional, as

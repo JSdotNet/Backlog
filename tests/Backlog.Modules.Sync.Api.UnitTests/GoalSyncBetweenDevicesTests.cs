@@ -1,12 +1,12 @@
 using Backlog.Infrastructure.Sync;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
 /// Two paired desktops sharing their goals through this service, end to end — each the
-/// real Progress module over real <c>progress_goals</c> rows in its own <c>backlog.db</c>,
+/// real Goals module over real <c>goals_goals</c> rows in its own <c>backlog.db</c>,
 /// the real merge and session, and the real sync API between them
 /// (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
 /// </summary>
