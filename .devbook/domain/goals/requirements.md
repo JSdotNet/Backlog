@@ -703,7 +703,7 @@ The system SHALL let an agent read the goals and the stand-up through MCP, by th
 
 - **Given** the goal "Customers get paid faster" is set
 - **When** an agent calls `read_iterations` with the length `sprint`
-- **Then** the call is refused with `progress.iteration_length_unknown`, and nothing is read
+- **Then** the call is refused with `goals.iteration_length_unknown`, and nothing is read
 
 ## Tracking an impediment
 

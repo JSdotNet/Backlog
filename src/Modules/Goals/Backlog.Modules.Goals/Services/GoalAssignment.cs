@@ -31,7 +31,7 @@ public static class GoalAssignment
     /// <summary>
     /// Attaches <paramref name="item"/> to <paramref name="target"/>. Refused, with nothing
     /// changed, when another goal among <paramref name="all"/> holds it
-    /// (<c>progress.item_in_other_goal</c>, naming that goal) — unless
+    /// (<c>goals.item_in_other_goal</c>, naming that goal) — unless
     /// <paramref name="move"/> is set, when it is detached from that goal first. Answers
     /// the goal it moved from, which the caller saves too, or null.
     /// </summary>

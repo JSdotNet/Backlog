@@ -245,7 +245,7 @@ row.
 *Delivery and Manager grants settled 2026-11-15 by entry 9b (`delivery-grant-scopes`).*
 The **Backlog delivery** grant holds the Delivery flow preset and `devbook:write` and
 `ui:open`, which the delivery flows call. A fourth grant, **Manager**, holds
-`sessions:dispatch`, `tasks:read` and `tasks:write`. The app records it as
+`sessions:dispatch`, `work:read` and `work:write`. The app records it as
 `mcpServer.grants.manager`, and only the dispatch-sessions Manager uses it. An install
 migrated before then gets both changes once, on its next start. The delivery grant gains
 its two scopes only while it still holds exactly the preset, and loses none. A revoked
@@ -263,13 +263,15 @@ Code makes in between is kept.
 ```
 
 A tool group's feature flag still removes its tools entirely (ADR 0012 §7). A scope
-decides which grant may call a tool that is listed. The names are a starting cut.
+decides which grant may call a tool that is listed. The names are a starting cut. The Work
+scopes were `tasks:read`, `tasks:write` and `tasks:admin` until local ADR 0073 §10, and an
+old name a grant, a token or a request still carries reads as its new one.
 
 | Scope | Tools | Default grant |
 | --- | --- | --- |
-| `tasks:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_planned_work` (and `get_roadmap`, its alias since ADR 0073 §10), `list_goals`, `list_change_sets` | every agent |
-| `tasks:write` | `create_item`, `comment`, `transition`, `set_blocked`, goal attach and detach, `capture_note`, `propose_restore` | coding agents |
-| `tasks:admin` | `delete_goal`, any bulk change | none |
+| `work:read` | `find_item`, `read_item`, `list_entries`, `get_plan_items`, `get_planned_work` (and `get_roadmap`, its alias since ADR 0073 §10), `list_goals`, `list_change_sets` | every agent |
+| `work:write` | `create_item`, `comment`, `transition`, `set_blocked`, goal attach and detach, `capture_note`, `propose_restore` | coding agents |
+| `work:admin` | `delete_goal`, any bulk change | none |
 | `devbook:read` | `read_knowledge_chapter`, `list_annotations`, `devbook_get_state`, `devbook_list_notes`, `list_sync_directions` | every agent |
 | `devbook:write` | `resolve_annotation`, `devbook_post_note`, `devbook_resolve_note`, `devbook_set_state` to `draft` | coding agents |
 | `devbook:decide` | approve, accept, a decided or declined state | never an agent (§7) |
@@ -283,12 +285,12 @@ decides which grant may call a tool that is listed. The names are a starting cut
 
 *Built 2026-11-12 by entry 8 (`scope-policies`).* ADR 0012 §1 records how. The table is
 per tool, not per group, because a flag's group can hold reads and writes. Tools the table
-leaves out are placed so: `list_devbook_references` is `tasks:read`, and
+leaves out are placed so: `list_devbook_references` is `work:read`, and
 `set_devbook_references`, `create_goal`, `update_goal` and the impediment tools are
-`tasks:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
+`work:write`. `list_knowledge_contexts` is `devbook:read` and `list_sessions` is
 `runs:write`. `inbox:capture` is `capture_to_inbox` alone, served on the desktop
-listener and on §8's remote `/mcp`. Reading the Inbox stays `tasks:read` and archiving a
-capture `tasks:write`, because `inbox:capture` is write-only. A grant that asks for a
+listener and on §8's remote `/mcp`. Reading the Inbox stays `work:read` and archiving a
+capture `work:write`, because `inbox:capture` is write-only. A grant that asks for a
 scope outside the table is refused when it is created.
 
 **A pop-out link is minted under `ui:open`.** This amends ADR 0043 §7. The cookie a
@@ -349,7 +351,7 @@ rules:
 
 - **A subset of its own scopes.** `grant_agent` refuses a scope the granter lacks.
   Each token mint cuts a delegated grant's scopes to what its granter holds then.
-- **Never the powerful scopes.** `devbook:decide`, `agents:grant` and `tasks:admin`
+- **Never the powerful scopes.** `devbook:decide`, `agents:grant` and `work:admin`
   are never delegated, so delegation is one level deep.
 - **Never itself.** The target is another grant, not its own granter. Grants the
   person or another granter made are read-only to it.
@@ -384,7 +386,7 @@ can carry `devbook:decide`.
 
 The desktop app asks for Windows Hello through `UserConsentVerifier` before it:
 
-- runs a `tasks:admin` tool, such as deleting a goal or a bulk change: the tool
+- runs a `work:admin` tool, such as deleting a goal or a bulk change: the tool
   call waits for the desktop prompt;
 - revokes a device;
 - refuses a pairing;
@@ -397,7 +399,7 @@ and it can be undone.
 
 *Built 2026-11-18 by entry 19 (`hello-step-up`).* `IUserConsent` lives in the shared
 kernel, so the MCP listener and the sync client ask the same port. The listener's last
-call filter asks it for every tool `tasks:admin` serves, after the scope and argument
+call filter asks it for every tool `work:admin` serves, after the scope and argument
 checks. A cancelled or unavailable prompt refuses the call, the audit records the
 refusal, and nothing changes. The sync client asks it before minting a pairing code
 and before revoking a device, and sends neither unconfirmed. The desktop head alone
@@ -421,7 +423,7 @@ window:
 - Allow, switching `agents:grant` on, in Edit scopes or Add agent, and opening a scope
   on the Unauthenticated row (ADR 0059). §5 says a script or UI automation cannot pass
   them, which a remembered confirmation would break. PR #2053 made these ask every time.
-- An agent's `tasks:admin` call, because the person did not start it.
+- An agent's `work:admin` call, because the person did not start it.
 - Every Refuse. Only the desktop that showed the pairing code answers it, never the
   phone. A Refuse can be replayed at the next start, when nobody may be at the desk.
 
@@ -463,7 +465,7 @@ server** for it.
 - **The resource server follows the MCP authorization spec.** It publishes
   protected-resource metadata (RFC 9728), accepts only tokens bound to its own
   audience (RFC 8707), and never passes a token through.
-- **It starts with `inbox:capture`.** Read scopes from §4 may follow; `tasks:admin`
+- **It starts with `inbox:capture`.** Read scopes from §4 may follow; `work:admin`
   and `devbook:decide` never do.
 - **It writes the replica, never the desktop.** A capture lands as a document on the
   replica (ADR 0009), and the desktop picks it up at its next sync.

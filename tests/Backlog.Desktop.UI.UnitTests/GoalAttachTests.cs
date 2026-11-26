@@ -399,7 +399,7 @@ public sealed class GoalAttachTests : IDisposable
         {
             Writes.Add($"Attach {goalId} {item.Kind}:{item.TaskId?.ToString() ?? item.PlanTag ?? $"{item.Repository}#{item.Number}"} move:{moveFromOtherGoal}");
             if (AnswersLater) await Task.Yield();
-            if (Refuse is { } refusal) return Result.Failure<GoalDto>(Error.Validation("progress.task_required", refusal));
+            if (Refuse is { } refusal) return Result.Failure<GoalDto>(Error.Validation("goals.task_required", refusal));
 
             if (Holder(item) is { } holder && holder.Goal.Id != goalId)
             {

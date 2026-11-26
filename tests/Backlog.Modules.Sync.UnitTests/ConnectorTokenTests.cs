@@ -150,7 +150,7 @@ public sealed class ConnectorTokenTests
         var first = Assert.IsType<Ok<ConnectorTokenResponse>>((await _connector.Exchanged(secret)).Value).Value;
 
         var refresh = Assert.IsType<Error>((await _connector.Refresh.Handle(
-            new RefreshConnectorTokenCommand(ConnectorFixture.Credentials(secret), first.RefreshToken, McpScopes.TasksRead), Cancellation)).Value);
+            new RefreshConnectorTokenCommand(ConnectorFixture.Credentials(secret), first.RefreshToken, McpScopes.WorkRead), Cancellation)).Value);
 
         Assert.Equal(OAuthErrors.InvalidScope, refresh.Code);
     }

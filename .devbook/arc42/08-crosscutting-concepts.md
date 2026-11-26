@@ -626,10 +626,10 @@ says how each principal is proven today.
   request 429 for 60 seconds, and the trip is audited.
 - **An agent may grant others only within what it holds.** The person switches
   `agents:grant` on for an orchestrator. It then grants, trims and revokes other agents,
-  one level deep, without `devbook:decide`, `agents:grant` or `tasks:admin`. Its grants
+  one level deep, without `devbook:decide`, `agents:grant` or `work:admin`. Its grants
   expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0058 §5
   has the rules.
-- **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
+- **Windows Hello confirms what is hard to undo:** a `work:admin` tool, revoking a
   device, refusing a pairing, minting a pairing code, allowing an agent's grant,
   switching `agents:grant` on, and widening the Unauthenticated row (local ADR 0059).
   The Refuse prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device

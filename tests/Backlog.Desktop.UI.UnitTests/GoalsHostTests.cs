@@ -111,7 +111,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_stand_up_the_module_refuses_to_read_says_why_and_offers_another_try()
     {
-        _standUp.Failure = Error.Validation("progress.plan_tag_required", "The stand-up could not be read.");
+        _standUp.Failure = Error.Validation("goals.plan_tag_required", "The stand-up could not be read.");
 
         var host = Render();
 
@@ -234,7 +234,7 @@ public sealed class GoalsHostTests : IDisposable
         host.Find("[data-testid='goals-board-new-goal']").Click();
         host.WaitForAssertion(() => host.Find("[data-testid='goal-create-dialog-title'] input"));
         host.Find("[data-testid='goal-create-dialog-title'] input").Input("Phone capture in daily use");
-        _goals.CreateFailure = Error.Validation("progress.goal_without_title", "A goal needs a title.");
+        _goals.CreateFailure = Error.Validation("goals.goal_without_title", "A goal needs a title.");
         host.Find("[data-testid='goal-create-dialog-save']").Click();
 
         host.WaitForAssertion(() =>
@@ -413,7 +413,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_move_shows_why_and_the_picker_goes_back_to_the_stored_state()
     {
-        _impediments.Failure = Error.Validation("progress.impediment_move_not_allowed", "Escalated cannot move to New.");
+        _impediments.Failure = Error.Validation("goals.impediment_move_not_allowed", "Escalated cannot move to New.");
         var host = Render();
         var picker = $"[data-testid='goals-board-stand-up-impediment-{BankId}-state'] select";
         host.WaitForAssertion(() => host.Find(picker));
@@ -644,7 +644,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing()
     {
-        _impediments.Failure = Error.Validation("progress.impediment_title_required", "An impediment needs a title.");
+        _impediments.Failure = Error.Validation("goals.impediment_title_required", "An impediment needs a title.");
         var host = Render();
         host.WaitForAssertion(() => host.Find("[data-testid='goals-board-stand-up-raise']"));
         var before = _standUp.Reads;
@@ -814,7 +814,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_delete_shows_above_the_board()
     {
-        _goals.WriteFailure = Error.Validation("progress.goal_not_found", "That goal is gone.");
+        _goals.WriteFailure = Error.Validation("goals.goal_not_found", "That goal is gone.");
         var host = Render();
         host.WaitForAssertion(() => host.Find($"[data-testid='goals-board-goal-{PaidId}-delete']"));
 
@@ -869,7 +869,7 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_refused_move_shows_why_and_the_stored_order_comes_back()
     {
-        _goals.MoveFailure = Error.NotFound("progress.goal_not_found", "That goal is gone.");
+        _goals.MoveFailure = Error.NotFound("goals.goal_not_found", "That goal is gone.");
         var host = Render();
         var down = $"[data-testid='goals-board-goal-{PaidId}-move-down']";
         host.WaitForAssertion(() => host.Find(down));
@@ -1019,7 +1019,7 @@ public sealed class GoalsHostTests : IDisposable
         });
         host.WaitForAssertion(() => host.Find(PaidSearch));
         var before = _standUp.Reads;
-        _goals.AttachFailure = Error.NotFound("progress.goal_not_found", "That goal is gone.");
+        _goals.AttachFailure = Error.NotFound("goals.goal_not_found", "That goal is gone.");
 
         host.Find(PaidSearch).Input("Bank export");
         host.WaitForAssertion(() => host.Find(PaidQuickAdd));

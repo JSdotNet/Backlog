@@ -47,9 +47,9 @@ public static class McpAgents
     /// <summary>What each scope lets the agent do, one line per name in <see cref="McpScopes.All"/>.</summary>
     private static readonly Dictionary<string, string> Descriptions = new(StringComparer.Ordinal)
     {
-        [McpScopes.TasksRead] = "Find and read items, goals, the roadmap",
-        [McpScopes.TasksWrite] = "Create, comment, transition, block",
-        [McpScopes.TasksAdmin] = "Delete goals, bulk changes; Windows Hello each time",
+        [McpScopes.WorkRead] = "Find and read items, goals, the roadmap",
+        [McpScopes.WorkWrite] = "Create, comment, transition, block",
+        [McpScopes.WorkAdmin] = "Delete goals, bulk changes; Windows Hello each time",
         [McpScopes.DevbookRead] = "Chapters, notes, states",
         [McpScopes.DevbookWrite] = "Post and resolve notes, set to draft",
         [McpScopes.DevbookDecide] = "Never for an agent: approve and accept happen in the app",
@@ -87,7 +87,7 @@ public static class McpAgents
     /// 0059 §2), shown on its locked switch in place of the agent-worded description.</summary>
     public static string UnauthenticatedLockedReason(string scope) => scope switch
     {
-        McpScopes.TasksAdmin => "Never without a token: deletes and bulk changes need a grant",
+        McpScopes.WorkAdmin => "Never without a token: deletes and bulk changes need a grant",
         McpScopes.DevbookDecide => "Never without a token: approve and accept happen in the app",
         McpScopes.UiOpen => "Never without a token: a pop-out link outlives the call",
         McpScopes.SessionsDispatch => "Never without a token: only the Manager session",
@@ -111,7 +111,7 @@ public static class McpAgents
         $"Windows Hello is not available here, so {scope} cannot be opened to calls with no token.";
 
     /// <summary>The scopes drawn in the alert tone on a row: the ones that reach furthest.</summary>
-    public static IReadOnlyList<string> Highlighted { get; } = [McpScopes.AgentsGrant, McpScopes.TasksAdmin];
+    public static IReadOnlyList<string> Highlighted { get; } = [McpScopes.AgentsGrant, McpScopes.WorkAdmin];
 
     /// <summary>The role that matches no preset, and the one a changed switch turns any role into.</summary>
     public const string Custom = "Custom";
@@ -120,10 +120,10 @@ public static class McpAgents
     /// Every preset holds only <see cref="McpScopes.Grantable"/> scopes that are not locked.</summary>
     public static IReadOnlyList<McpAgentRole> Roles { get; } =
     [
-        new("Coding agent", [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.NotifyAsk, McpScopes.UiOpen]),
-        new("Delivery flow", [McpScopes.TasksRead, McpScopes.TasksWrite, McpScopes.RunsWrite, McpScopes.DevbookRead, McpScopes.NotifyAsk]),
-        new("Read-only + capture", [McpScopes.TasksRead, McpScopes.DevbookRead, McpScopes.InboxCapture]),
-        new("Manager", [McpScopes.SessionsDispatch, McpScopes.TasksRead, McpScopes.TasksWrite]),
+        new("Coding agent", [McpScopes.WorkRead, McpScopes.WorkWrite, McpScopes.DevbookRead, McpScopes.DevbookWrite, McpScopes.NotifyAsk, McpScopes.UiOpen]),
+        new("Delivery flow", [McpScopes.WorkRead, McpScopes.WorkWrite, McpScopes.RunsWrite, McpScopes.DevbookRead, McpScopes.NotifyAsk]),
+        new("Read-only + capture", [McpScopes.WorkRead, McpScopes.DevbookRead, McpScopes.InboxCapture]),
+        new("Manager", [McpScopes.SessionsDispatch, McpScopes.WorkRead, McpScopes.WorkWrite]),
         new(Custom, []),
     ];
 
@@ -137,7 +137,7 @@ public static class McpAgents
     /// in, whatever order they were flipped.</summary>
     public static IReadOnlyList<string> Ordered(IEnumerable<string> scopes)
     {
-        var on = scopes.ToHashSet(StringComparer.Ordinal);
+        var on = McpScopes.Resolve(scopes).ToHashSet(StringComparer.Ordinal);
         var known = Scopes.Select(scope => scope.Name).Where(on.Contains);
         var unknown = on.Where(scope => Scopes.All(option => option.Name != scope)).Order(StringComparer.Ordinal);
 

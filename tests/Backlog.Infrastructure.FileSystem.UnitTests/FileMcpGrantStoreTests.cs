@@ -26,11 +26,11 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     {
         var store = Store();
 
-        var grant = store.Create("Claude Code (user)", ["tasks:read", "tasks:write"], "jobsc");
+        var grant = store.Create("Claude Code (user)", ["work:read", "work:write"], "jobsc");
 
         Assert.Matches("^g_[a-z2-7]{16}$", grant.Id);
         Assert.Equal("Claude Code (user)", grant.Name);
-        Assert.Equal(["tasks:read", "tasks:write"], grant.Scopes);
+        Assert.Equal(["work:read", "work:write"], grant.Scopes);
         Assert.Equal(1, grant.Version);
         Assert.Equal("jobsc", grant.CreatedBy);
         Assert.Equal(Now, grant.CreatedAt);
@@ -43,16 +43,16 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     [Fact]
     public void A_delegated_grant_keeps_its_granter_and_expiry_across_a_reload_and_raises_its_version()
     {
-        var granter = Store().Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var granter = Store().Create("Manager session", ["work:read", "agents:grant"], "Settings");
         var worker = Store().Create("Worker", [], "self-registration");
 
-        var delegated = Store().Delegate(worker.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        var delegated = Store().Delegate(worker.Id, ["work:read"], granter.Id, Now.AddDays(7));
 
         Assert.NotNull(delegated);
         var reloaded = Store().Find(worker.Id)!;
         Assert.Equal(granter.Id, reloaded.GrantedBy);
         Assert.Equal(Now.AddDays(7), reloaded.ExpiresAt);
-        Assert.Equal(["tasks:read"], reloaded.Scopes);
+        Assert.Equal(["work:read"], reloaded.Scopes);
         Assert.Equal(2, reloaded.Version);
         Assert.True(reloaded.IsDelegated);
         Assert.False(reloaded.IsExpired(Now.AddDays(7).AddSeconds(-1)));
@@ -73,19 +73,19 @@ public sealed class FileMcpGrantStoreTests : IDisposable
 
         Assert.Throws<ArgumentException>(() => store.Delegate(worker.Id, ["devbook:decide"], "g_granter", Now));
         store.Revoke(worker.Id);
-        Assert.Null(store.Delegate(worker.Id, ["tasks:read"], "g_granter", Now));
+        Assert.Null(store.Delegate(worker.Id, ["work:read"], "g_granter", Now));
     }
 
     [Fact]
     public void Revoking_a_granter_revokes_every_grant_it_delegated_in_the_same_write()
     {
         var store = Store();
-        var granter = store.Create("Manager session", ["tasks:read", "agents:grant"], "Settings");
+        var granter = store.Create("Manager session", ["work:read", "agents:grant"], "Settings");
         var first = store.Create("First", [], "self-registration");
         var second = store.Create("Second", [], "self-registration");
-        var other = store.Create("Personal assistant", ["tasks:read"], "Settings");
-        store.Delegate(first.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
-        store.Delegate(second.Id, ["tasks:read"], granter.Id, Now.AddDays(7));
+        var other = store.Create("Personal assistant", ["work:read"], "Settings");
+        store.Delegate(first.Id, ["work:read"], granter.Id, Now.AddDays(7));
+        store.Delegate(second.Id, ["work:read"], granter.Id, Now.AddDays(7));
         var changes = 0;
         store.Changed += () => changes++;
 
@@ -115,7 +115,7 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     public void Revoking_a_grant_marks_it_revoked_and_raises_its_version()
     {
         var store = Store();
-        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var grant = store.Create("Copilot", ["work:read"], "jobsc");
 
         var revoked = store.Revoke(grant.Id);
 
@@ -130,15 +130,15 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     public void Setting_a_grant_s_scopes_stores_them_and_raises_its_version()
     {
         var store = Store();
-        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var grant = store.Create("Copilot", ["work:read"], "jobsc");
 
-        var changed = store.SetScopes(grant.Id, ["tasks:read", "devbook:read"]);
+        var changed = store.SetScopes(grant.Id, ["work:read", "devbook:read"]);
 
         Assert.NotNull(changed);
-        Assert.Equal(["tasks:read", "devbook:read"], changed.Scopes);
+        Assert.Equal(["work:read", "devbook:read"], changed.Scopes);
         Assert.Equal(2, changed.Version);
         Assert.False(changed.Revoked);
-        Assert.Equal(["tasks:read", "devbook:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(["work:read", "devbook:read"], Store().Find(grant.Id)?.Scopes);
         Assert.Equal(2, Store().Find(grant.Id)?.Version);
     }
 
@@ -146,15 +146,15 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     public void A_revoked_or_unknown_grant_takes_no_scopes()
     {
         var store = Store();
-        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var grant = store.Create("Copilot", ["work:read"], "jobsc");
         store.Revoke(grant.Id);
         var raised = 0;
         store.Changed += () => raised++;
 
-        Assert.Null(store.SetScopes(grant.Id, ["tasks:write"]));
-        Assert.Null(store.SetScopes("g_aaaaaaaaaaaaaaaa", ["tasks:write"]));
+        Assert.Null(store.SetScopes(grant.Id, ["work:write"]));
+        Assert.Null(store.SetScopes("g_aaaaaaaaaaaaaaaa", ["work:write"]));
 
-        Assert.Equal(["tasks:read"], store.Find(grant.Id)?.Scopes);
+        Assert.Equal(["work:read"], store.Find(grant.Id)?.Scopes);
         Assert.Equal(2, store.Find(grant.Id)?.Version);
         Assert.Equal(0, raised);
     }
@@ -165,14 +165,14 @@ public sealed class FileMcpGrantStoreTests : IDisposable
     public void A_scope_no_grant_may_hold_is_refused_and_the_grant_is_left_as_it_was(string scope)
     {
         var store = Store();
-        var grant = store.Create("Copilot", ["tasks:read"], "jobsc");
+        var grant = store.Create("Copilot", ["work:read"], "jobsc");
         var raised = 0;
         store.Changed += () => raised++;
 
-        var refusal = Assert.Throws<ArgumentException>(() => store.SetScopes(grant.Id, ["tasks:read", scope]));
+        var refusal = Assert.Throws<ArgumentException>(() => store.SetScopes(grant.Id, ["work:read", scope]));
 
         Assert.Contains(scope, refusal.Message, StringComparison.Ordinal);
-        Assert.Equal(["tasks:read"], Store().Find(grant.Id)?.Scopes);
+        Assert.Equal(["work:read"], Store().Find(grant.Id)?.Scopes);
         Assert.Equal(1, Store().Find(grant.Id)?.Version);
         Assert.Equal(0, raised);
     }
@@ -185,7 +185,7 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         var raised = 0;
         store.Changed += () => raised++;
 
-        store.SetScopes(grant.Id, ["tasks:read"]);
+        store.SetScopes(grant.Id, ["work:read"]);
 
         Assert.Equal(1, raised);
     }
@@ -260,7 +260,7 @@ public sealed class FileMcpGrantStoreTests : IDisposable
 
         Assert.NotNull(grant);
         Assert.Equal(3, grant.Version);
-        Assert.Equal(["tasks:read"], grant.Scopes);
+        Assert.Equal(["work:read"], grant.Scopes);
         Assert.StartsWith("dpapi:", StoredSecret("g_handseeded000000"), StringComparison.Ordinal);
         Assert.Equal(32, Base64UrlDecode(Store().OpenSecret("g_handseeded000000")!).Length);
     }
@@ -346,6 +346,42 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         Assert.True((bool?)file["grants"]![0]!["revoked"]);
     }
 
+    [Fact]
+    public void A_grant_stored_under_the_old_scope_names_holds_the_new_ones_at_the_same_version()
+    {
+        var record = new JsonObject
+        {
+            ["id"] = "g_handseeded000000",
+            ["name"] = "before the rename",
+            ["scopes"] = new JsonArray("tasks:read", "tasks:write", "devbook:read"),
+            ["version"] = 3,
+            ["createdBy"] = "jobsc",
+            ["createdAt"] = "2026-11-01T08:00:00+00:00",
+            ["revoked"] = false
+        };
+        File.WriteAllText(GrantsPath, new JsonObject { ["grants"] = new JsonArray(record) }.ToJsonString());
+
+        var grant = Store().Find("g_handseeded000000");
+
+        // Read under the new names, at the version its tokens were minted at: no token is
+        // retired and the person approves nothing again (local ADR 0073 §10).
+        Assert.Equal(["work:read", "work:write", "devbook:read"], grant?.Scopes);
+        Assert.Equal(3, grant?.Version);
+    }
+
+    [Fact]
+    public void A_scope_written_under_its_old_name_is_stored_under_the_new_one()
+    {
+        var store = Store();
+
+        var grant = store.Create("Old helper", ["tasks:read", "work:read"], "jobsc");
+        var trimmed = store.SetScopes(grant.Id, ["tasks:write"]);
+
+        Assert.Equal(["work:read"], grant.Scopes);
+        Assert.Equal(["work:write"], trimmed?.Scopes);
+        Assert.DoesNotContain("tasks:", File.ReadAllText(GrantsPath), StringComparison.Ordinal);
+    }
+
     public void Dispose() => _root.Dispose();
 
     /// <summary>A record as a person writes it by hand for a check: no secret, or the one
@@ -356,7 +392,7 @@ public sealed class FileMcpGrantStoreTests : IDisposable
         {
             ["id"] = "g_handseeded000000",
             ["name"] = "hand-seeded",
-            ["scopes"] = new JsonArray("tasks:read"),
+            ["scopes"] = new JsonArray("work:read"),
             ["version"] = 3,
             ["createdBy"] = "jobsc",
             ["createdAt"] = "2026-11-01T08:00:00+00:00",

@@ -74,7 +74,7 @@ public sealed class ImpedimentsTests : IDisposable
             new RaiseImpedimentRequest("Bank sample files missing", [HeldBackItemDto.ForTask(Guid.NewGuid()), new HeldBackItemDto(HeldBackKind.PullRequest, Number: 412)]),
             Cancellation);
 
-        Assert.Equal("progress.held_back_item_without_identity", Assert.IsType<Error>(raised.Value).Code);
+        Assert.Equal("goals.held_back_item_without_identity", Assert.IsType<Error>(raised.Value).Code);
         Assert.Equal(0, _repository.Saves);
     }
 
@@ -106,10 +106,10 @@ public sealed class ImpedimentsTests : IDisposable
         var saves = _repository.Saves;
 
         Assert.Equal(
-            "progress.held_back_item_without_identity",
+            "goals.held_back_item_without_identity",
             Assert.IsType<Error>((await Impediments.HoldBackAsync(bank.Id, new HeldBackItemDto(HeldBackKind.PullRequest, Number: 412), Cancellation)).Value).Code);
         Assert.Equal(
-            "progress.held_back_item_without_identity",
+            "goals.held_back_item_without_identity",
             Assert.IsType<Error>((await Impediments.ReleaseAsync(bank.Id, HeldBackItemDto.ForPlan("+"), Cancellation)).Value).Code);
         Assert.Equal(saves, _repository.Saves);
     }
@@ -117,7 +117,7 @@ public sealed class ImpedimentsTests : IDisposable
     [Fact]
     public async Task Raising_without_a_title_is_refused_and_stores_nothing()
     {
-        Assert.Equal("progress.impediment_without_title", Assert.IsType<Error>((await Impediments.RaiseAsync(new RaiseImpedimentRequest(" "), Cancellation)).Value).Code);
+        Assert.Equal("goals.impediment_without_title", Assert.IsType<Error>((await Impediments.RaiseAsync(new RaiseImpedimentRequest(" "), Cancellation)).Value).Code);
         Assert.Equal(0, _repository.Saves);
     }
 
@@ -166,7 +166,7 @@ public sealed class ImpedimentsTests : IDisposable
 
         var back = await Impediments.MoveAsync(bank.Id, ImpedimentState.Reported, cancellationToken: Cancellation);
 
-        Assert.Equal("progress.impediment_move_not_allowed", Assert.IsType<Error>(back.Value).Code);
+        Assert.Equal("goals.impediment_move_not_allowed", Assert.IsType<Error>(back.Value).Code);
         Assert.Equal(saves, _repository.Saves);
         Assert.Equal(ImpedimentState.Escalated, Assert.IsType<Ok<ImpedimentDto>>((await Impediments.GetAsync(bank.Id, Cancellation)).Value).Value.State);
     }
@@ -181,7 +181,7 @@ public sealed class ImpedimentsTests : IDisposable
         Assert.Equal([ImpedimentState.New, ImpedimentState.Resolved], resolved.History.Select(step => step.State));
 
         Assert.Equal(
-            "progress.impediment_resolved",
+            "goals.impediment_resolved",
             Assert.IsType<Error>((await Impediments.MoveAsync(credit.Id, ImpedimentState.Reported, cancellationToken: Cancellation)).Value).Code);
     }
 
@@ -210,9 +210,9 @@ public sealed class ImpedimentsTests : IDisposable
     {
         var id = Guid.NewGuid();
 
-        Assert.Equal("progress.impediment_not_found", Assert.IsType<Error>((await Impediments.GetAsync(id, Cancellation)).Value).Code);
-        Assert.Equal("progress.impediment_not_found", Assert.IsType<Error>((await Impediments.MoveAsync(id, ImpedimentState.Reported, cancellationToken: Cancellation)).Value).Code);
-        Assert.Equal("progress.impediment_not_found", Assert.IsType<Error>((await Impediments.EditNoteAsync(id, "x", Cancellation)).Value).Code);
+        Assert.Equal("goals.impediment_not_found", Assert.IsType<Error>((await Impediments.GetAsync(id, Cancellation)).Value).Code);
+        Assert.Equal("goals.impediment_not_found", Assert.IsType<Error>((await Impediments.MoveAsync(id, ImpedimentState.Reported, cancellationToken: Cancellation)).Value).Code);
+        Assert.Equal("goals.impediment_not_found", Assert.IsType<Error>((await Impediments.EditNoteAsync(id, "x", Cancellation)).Value).Code);
     }
 
     [Fact]

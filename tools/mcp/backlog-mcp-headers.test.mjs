@@ -243,20 +243,20 @@ test("an unknown flag exits 1 and prints no header", async () => {
 // and opens its own request window; neither grants anything.
 
 test("--register takes the name and --scopes the list, by commas or spaces", () => {
-    assert.deepEqual(parseArgs(["--register", "Claude Code · Backlog", "--scopes", "tasks:read, devbook:read"]), {
+    assert.deepEqual(parseArgs(["--register", "Claude Code · Backlog", "--scopes", "work:read, devbook:read"]), {
         grant: null,
         debug: false,
         register: "Claude Code · Backlog",
-        scopes: ["tasks:read", "devbook:read"],
+        scopes: ["work:read", "devbook:read"],
     });
     assert.deepEqual(parseArgs(["--request", "--config=.mcp.json"]), { grant: null, debug: false, request: true, config: ".mcp.json" });
 });
 
 test("--register needs a name and scopes, takes no grant, and --scopes goes with it", () => {
     assert.throws(() => parseArgs(["--register", "Claude Code"]), /needs --scopes/);
-    assert.throws(() => parseArgs(["--register=", "--scopes", "tasks:read"]), /needs the agent's name/);
-    assert.throws(() => parseArgs(["--register", "A", "--scopes", "tasks:read", "--grant", "g_abc"]), /takes no --grant/);
-    assert.throws(() => parseArgs(["--scopes", "tasks:read"]), /goes with --register/);
+    assert.throws(() => parseArgs(["--register=", "--scopes", "work:read"]), /needs the agent's name/);
+    assert.throws(() => parseArgs(["--register", "A", "--scopes", "work:read", "--grant", "g_abc"]), /takes no --grant/);
+    assert.throws(() => parseArgs(["--scopes", "work:read"]), /goes with --register/);
     assert.throws(() => parseArgs(["--register"]), /needs a value/);
 });
 
@@ -283,10 +283,10 @@ test("withGrant makes a backlog server where there is none, and names --debug on
 test("registerAgent sends one register line and resolves to the pending grant", async () => {
     const broker = await fakeBroker(JSON.stringify({ grant: "g_new", request: "r_new", state: "pending" }) + "\n");
     try {
-        const reply = await registerAgent("Claude Code", ["tasks:read"], () => net.connect(broker.address), { folder: "D:\\Repos", parentPid: 42 });
+        const reply = await registerAgent("Claude Code", ["work:read"], () => net.connect(broker.address), { folder: "D:\\Repos", parentPid: 42 });
         assert.equal(reply.grant, "g_new");
         assert.equal(reply.state, "pending");
-        assert.deepEqual(JSON.parse(broker.requests[0]), { register: { name: "Claude Code", scopes: ["tasks:read"], folder: "D:\\Repos", parentPid: 42 } });
+        assert.deepEqual(JSON.parse(broker.requests[0]), { register: { name: "Claude Code", scopes: ["work:read"], folder: "D:\\Repos", parentPid: 42 } });
     } finally {
         await broker.close();
     }
@@ -295,7 +295,7 @@ test("registerAgent sends one register line and resolves to the pending grant", 
 test("registerAgent rejects with the broker's refusal and its sentence", async () => {
     const broker = await fakeBroker(JSON.stringify({ error: "already-pending", message: "Claude Code already has a request waiting." }) + "\n");
     try {
-        await assert.rejects(registerAgent("Claude Code", ["tasks:read"], () => net.connect(broker.address)), /refused to register Claude Code: already-pending\. Claude Code already has a request waiting\./);
+        await assert.rejects(registerAgent("Claude Code", ["work:read"], () => net.connect(broker.address)), /refused to register Claude Code: already-pending\. Claude Code already has a request waiting\./);
     } finally {
         await broker.close();
     }
@@ -327,7 +327,7 @@ test("--register writes the pending grant into the config it names", { skip: pro
         const config = join(root, ".mcp.json");
         await writeFile(config, JSON.stringify({ mcpServers: { backlog: { type: "http", url: "http://127.0.0.1:5757/mcp", headersHelper: "node tools/mcp/backlog-mcp-headers.mjs" } } }));
 
-        const result = await runAsync(["--register", "Claude Code", "--scopes", "tasks:read", "--config", config], { BACKLOG_MCP_BROKER_PIPE: broker.name });
+        const result = await runAsync(["--register", "Claude Code", "--scopes", "work:read", "--config", config], { BACKLOG_MCP_BROKER_PIPE: broker.name });
 
         assert.equal(result.status, 0, result.stderr);
         assert.match(result.stdout, /grant g_new: pending/);

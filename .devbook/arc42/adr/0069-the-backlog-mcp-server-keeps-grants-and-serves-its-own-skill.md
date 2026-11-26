@@ -39,7 +39,7 @@ the server now stands like this:
 | OAuth 2.1 protected resource; the app's IdP is the authorization server | Local: loopback only, a grant's 15-minute JWT from the token broker, or with no token the scopes the person opened (local ADR 0059). Remote: OAuth 2.1 on the sync service, RFC 9728 metadata, audience-bound tokens | Local ADR 0058 §3, §8 |
 | Clients identify with CIMD, PKCE always | Local: a grant id, no secret in a file. Remote: one static client, `claude-connector`, PKCE | Local ADR 0058 §3, §8 |
 | Two identities, RFC 8693 exchange naming user and agent | The grant is the agent's identity, and the person is the one Windows user the broker admits | Local ADR 0058 §3 |
-| Per-call policy for the user and the agent | A scope per tool group under fallback-deny; Windows Hello for `tasks:admin` | Local ADR 0058 §4, §6 |
+| Per-call policy for the user and the agent | A scope per tool group under fallback-deny; Windows Hello for `work:admin` | Local ADR 0058 §4, §6 |
 | An audit record per call | Grant, tool, target, outcome and correlation id, shown in Settings (`McpCallAudit`, `SqliteMcpAuditLog`) | Local ADR 0058 §3 |
 | The server's own skill, also served as a prompt and a resource | No skill describes the server's tools. It serves no prompt and no resource | — |
 

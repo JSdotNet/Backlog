@@ -89,7 +89,7 @@ public sealed class PlanImpedimentReaderTests
         };
         using var reader = await ReaderAsync(impediments);
 
-        impediments.Failure = new Error("progress.unavailable", "down");
+        impediments.Failure = new Error("goals.unavailable", "down");
         await reader.RefreshAsync();
 
         Assert.Equal("Roofer not booked", reader.Source.TitleOf("+delta", [Roof]));

@@ -63,8 +63,8 @@ public sealed class Goal
     public long OrderKey => GoalOrder.Key(Rank, CreatedAt);
 
     /// <summary>A new goal holding nothing, with or without a due date. Refused without a
-    /// title (<c>progress.goal_without_title</c>), or with an outcome that is not one line
-    /// (<c>progress.outcome_not_one_line</c>).</summary>
+    /// title (<c>goals.goal_without_title</c>), or with an outcome that is not one line
+    /// (<c>goals.outcome_not_one_line</c>).</summary>
     public static Result<Goal> Create(
         Guid id,
         string? title,
@@ -196,7 +196,7 @@ public sealed class GoalAttachment : IEquatable<GoalAttachment>
 
     public DateOnly AttachedOn { get; }
 
-    /// <summary>A plan by its tag; refused without one (<c>progress.plan_tag_required</c>).</summary>
+    /// <summary>A plan by its tag; refused without one (<c>goals.plan_tag_required</c>).</summary>
     public static Result<GoalAttachment> ForPlan(string? planTag, DateOnly attachedOn)
     {
         var bare = PlanTags.Bare(planTag);
@@ -205,14 +205,14 @@ public sealed class GoalAttachment : IEquatable<GoalAttachment>
             : new GoalAttachment(GoalAttachmentKind.Plan, bare, null, null, null, attachedOn);
     }
 
-    /// <summary>A task by its id; refused for the empty id (<c>progress.task_required</c>).</summary>
+    /// <summary>A task by its id; refused for the empty id (<c>goals.task_required</c>).</summary>
     public static Result<GoalAttachment> ForTask(Guid taskId, DateOnly attachedOn) =>
         taskId == Guid.Empty
             ? GoalsErrors.TaskRequired()
             : new GoalAttachment(GoalAttachmentKind.Task, null, taskId, null, null, attachedOn);
 
     /// <summary>A pull request by its repository and a number above zero; refused
-    /// otherwise (<c>progress.pull_request_without_repository</c>) — a bare number names a
+    /// otherwise (<c>goals.pull_request_without_repository</c>) — a bare number names a
     /// different pull request in every repository.</summary>
     public static Result<GoalAttachment> ForPullRequest(string? repository, int? number, DateOnly attachedOn)
     {

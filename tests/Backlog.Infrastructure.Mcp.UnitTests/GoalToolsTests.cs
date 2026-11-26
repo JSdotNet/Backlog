@@ -142,7 +142,7 @@ public sealed class GoalToolsTests
     {
         var goals = new FakeGoals();
         var goal = goals.Seed("Launch", null, Due);
-        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("goals.read_failed", "The goals could not be read.") };
 
         var payload = await new GoalTools(goals, new FakeRepositoryDirectory(), standUp).ListAsync(Cancellation);
 
@@ -189,7 +189,7 @@ public sealed class GoalToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
 
-        Assert.StartsWith("progress.iteration_length_unknown", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.iteration_length_unknown", failure.Message, StringComparison.Ordinal);
         Assert.Equal(0, standUp.Reads);
     }
 
@@ -198,11 +198,11 @@ public sealed class GoalToolsTests
     [InlineData("month")]
     public async Task A_refused_reading_reaches_the_client_with_its_code(string? length)
     {
-        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("goals.read_failed", "The goals could not be read.") };
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
 
-        Assert.StartsWith("progress.read_failed", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.read_failed", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public sealed class GoalToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(goals).CreateAsync(" ", Due, null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_without_title", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_without_title", failure.Message, StringComparison.Ordinal);
         Assert.Empty(goals.Stored);
     }
 
@@ -338,8 +338,8 @@ public sealed class GoalToolsTests
     }
 
     [Theory]
-    [InlineData(" ", null, "progress.goal_without_title")]
-    [InlineData(null, "two\nlines", "progress.outcome_not_one_line")]
+    [InlineData(" ", null, "goals.goal_without_title")]
+    [InlineData(null, "two\nlines", "goals.outcome_not_one_line")]
     public async Task A_refused_update_reaches_the_client_with_its_code(string? title, string? outcome, string code)
     {
         var goals = new FakeGoals();
@@ -357,7 +357,7 @@ public sealed class GoalToolsTests
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             Tools(new FakeGoals()).UpdateAsync(Guid.NewGuid(), title: "Anything", cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_not_found", failure.Message, StringComparison.Ordinal);
     }
 
     // --- attach_to_goal ----------------------------------------------------------
@@ -446,7 +446,7 @@ public sealed class GoalToolsTests
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             Tools(goals).AttachAsync(goal, taskId: task, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.item_in_other_goal", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.item_in_other_goal", failure.Message, StringComparison.Ordinal);
         Assert.Contains("Schuldregeling aansluiten", failure.Message, StringComparison.Ordinal);
         Assert.Single(goals.Find(other).Attachments);
     }
@@ -534,7 +534,7 @@ public sealed class GoalToolsTests
     {
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(new FakeGoals()).DeleteAsync(Guid.NewGuid(), cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_not_found", failure.Message, StringComparison.Ordinal);
     }
 }
 

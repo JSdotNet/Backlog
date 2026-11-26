@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// keeps no grants composes none, and the tools say so.
 /// <para>
 /// <b>Every rule is the host's to enforce, never the tool's:</b> a granter grants only scopes it
-/// holds, never <c>devbook:decide</c>, <c>agents:grant</c> or <c>tasks:admin</c>; one level deep;
+/// holds, never <c>devbook:decide</c>, <c>agents:grant</c> or <c>work:admin</c>; one level deep;
 /// never its own grant or its granter's; and the grants the person or another granter made are
 /// read-only to it.
 /// </para>

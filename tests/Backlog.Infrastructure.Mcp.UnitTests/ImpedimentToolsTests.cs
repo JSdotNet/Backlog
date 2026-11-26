@@ -155,7 +155,7 @@ public sealed class ImpedimentToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).LinkAsync(Guid.Empty, planTag: "goals", cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_not_found", failure.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -184,7 +184,7 @@ public sealed class ImpedimentToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), token, null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_state_unknown", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_state_unknown", failure.Message, StringComparison.Ordinal);
         Assert.Null(port.Moved);
     }
 
@@ -198,7 +198,7 @@ public sealed class ImpedimentToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), "reported", null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_move_not_allowed", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_move_not_allowed", failure.Message, StringComparison.Ordinal);
     }
 }
 

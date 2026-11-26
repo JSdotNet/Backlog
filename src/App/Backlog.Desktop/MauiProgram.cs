@@ -223,7 +223,7 @@ public static partial class MauiProgram
         // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
         // opens the request window over these windows and raises its notification (ADR 0039).
         // One confirmation holds five minutes for minting a pairing code and revoking a device.
-        // Allow, agents:grant and widening the Unauthenticated row (§5), an agent's tasks:admin
+        // Allow, agents:grant and widening the Unauthenticated row (§5), an agent's work:admin
         // call and a Refuse replayed at the next start ask every time (VerifyEveryTimeAsync).
         builder.Services.TryAddSingleton<IUserConsent>(sp => new RememberedUserConsent(
             new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()),

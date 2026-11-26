@@ -19,10 +19,10 @@ public sealed class GoalInvariantTests
     [InlineData("   ")]
     public void A_goal_without_a_title_is_refused(string? title)
     {
-        Assert.Equal("progress.goal_without_title", Assert.IsType<Error>(Goal.Create(Guid.NewGuid(), title, null, MakeGoal.Due).Value).Code);
+        Assert.Equal("goals.goal_without_title", Assert.IsType<Error>(Goal.Create(Guid.NewGuid(), title, null, MakeGoal.Due).Value).Code);
 
         var goal = MakeGoal.Named();
-        Assert.Equal("progress.goal_without_title", Assert.IsType<Error>(goal.Rename(title).Value).Code);
+        Assert.Equal("goals.goal_without_title", Assert.IsType<Error>(goal.Rename(title).Value).Code);
         Assert.Equal("Customers get paid faster", goal.Title);
     }
 
@@ -61,8 +61,8 @@ public sealed class GoalInvariantTests
     [InlineData("Invoices settle\r\nin a day")]
     public void An_outcome_of_more_than_one_line_is_refused(string outcome)
     {
-        Assert.Equal("progress.outcome_not_one_line", Assert.IsType<Error>(Goal.Create(Guid.NewGuid(), "T", outcome, MakeGoal.Due).Value).Code);
-        Assert.Equal("progress.outcome_not_one_line", Assert.IsType<Error>(MakeGoal.Named().ChangeOutcome(outcome).Value).Code);
+        Assert.Equal("goals.outcome_not_one_line", Assert.IsType<Error>(Goal.Create(Guid.NewGuid(), "T", outcome, MakeGoal.Due).Value).Code);
+        Assert.Equal("goals.outcome_not_one_line", Assert.IsType<Error>(MakeGoal.Named().ChangeOutcome(outcome).Value).Code);
     }
 
     [Fact]
@@ -124,15 +124,15 @@ public sealed class GoalInvariantTests
     public void A_pull_request_without_a_repository_or_a_number_is_refused(string? repository, int? number)
     {
         Assert.Equal(
-            "progress.pull_request_without_repository",
+            "goals.pull_request_without_repository",
             Assert.IsType<Error>(GoalAttachment.ForPullRequest(repository, number, MakeGoal.Today).Value).Code);
     }
 
     [Fact]
     public void A_plan_needs_its_tag_and_a_task_its_id()
     {
-        Assert.Equal("progress.plan_tag_required", Assert.IsType<Error>(GoalAttachment.ForPlan("+", MakeGoal.Today).Value).Code);
-        Assert.Equal("progress.task_required", Assert.IsType<Error>(GoalAttachment.ForTask(Guid.Empty, MakeGoal.Today).Value).Code);
+        Assert.Equal("goals.plan_tag_required", Assert.IsType<Error>(GoalAttachment.ForPlan("+", MakeGoal.Today).Value).Code);
+        Assert.Equal("goals.task_required", Assert.IsType<Error>(GoalAttachment.ForTask(Guid.Empty, MakeGoal.Today).Value).Code);
         Assert.Equal("bank-integration", Assert.IsType<Ok<GoalAttachment>>(GoalAttachment.ForPlan(" +bank-integration ", MakeGoal.Today).Value).Value.Plan);
     }
 
@@ -150,7 +150,7 @@ public sealed class GoalInvariantTests
         var assigned = GoalAssignment.Assign([search, paid], paid, MakeGoal.Task(task));
 
         var error = Assert.IsType<Error>(assigned.Value);
-        Assert.Equal("progress.item_in_other_goal", error.Code);
+        Assert.Equal("goals.item_in_other_goal", error.Code);
         Assert.Equal("Already in Devbook search ships", error.Message);
         Assert.True(search.Holds(MakeGoal.Task(task)));
         Assert.Empty(paid.Attachments);

@@ -13,7 +13,7 @@ public sealed class AgentAccessRequestTests
 {
     private static readonly IReadOnlyList<AgentScopeOption> Asked =
     [
-        new("tasks:read", "Find and read items"),
+        new("work:read", "Find and read items"),
         new("agents:grant", "Grant other agents"),
     ];
 
@@ -26,11 +26,11 @@ public sealed class AgentAccessRequestTests
         var row = context.Render<AgentAccessRequest>(parameters => parameters
             .Add(request => request.Name, "Copilot CLI")
             .Add(request => request.Asked, Asked)
-            .Add(request => request.Selected, ["tasks:read"])
+            .Add(request => request.Selected, ["work:read"])
             .Add(request => request.Trimmable, true)
             .Add(request => request.OnTrim, () => trimmed++));
 
-        Assert.Equal(["tasks:read", "agents:grant · off"], row.FindAll("[data-testid='agent-request-scope']").Select(chip => chip.TextContent.Trim()));
+        Assert.Equal(["work:read", "agents:grant · off"], row.FindAll("[data-testid='agent-request-scope']").Select(chip => chip.TextContent.Trim()));
         Assert.Empty(row.FindAll("[data-testid='agent-request-switches']"));
         Assert.Equal("listitem", row.Find(".agent-request").GetAttribute("role"));
 
@@ -52,7 +52,7 @@ public sealed class AgentAccessRequestTests
         var window = context.Render<AgentAccessRequest>(parameters => parameters
             .Add(request => request.Name, "Claude Code")
             .Add(request => request.Asked, Asked)
-            .Add(request => request.Selected, ["tasks:read"])
+            .Add(request => request.Selected, ["work:read"])
             .Add(request => request.OnAllow, () => allowed++)
             .Add(request => request.OnDecline, () => declined++));
 

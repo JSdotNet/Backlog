@@ -20,10 +20,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// Windows Hello before a <c>tasks:admin</c> tool runs (local ADR 0058 §6), over the real
+/// Windows Hello before a <c>work:admin</c> tool runs (local ADR 0058 §6), over the real
 /// endpoint: the call waits for the person, runs when they confirm, and is refused — with
 /// nothing changed and the refusal audited — when they cancel or nothing can ask. A
-/// <c>tasks:write</c> tool, <c>transition</c> to Done among them, asks nothing, and neither
+/// <c>work:write</c> tool, <c>transition</c> to Done among them, asks nothing, and neither
 /// does the web harness's own caller (§9).
 /// <para>
 /// A grant's principal is put on the request from a header, as <see cref="McpScopeGateTests"/>
@@ -36,9 +36,9 @@ public sealed class McpStepUpTests
 
     private const string TestGrant = "Test grant (g_test0000000000000)";
 
-    /// <summary>Every tool <c>tasks:admin</c> serves: each one asks.</summary>
+    /// <summary>Every tool <c>work:admin</c> serves: each one asks.</summary>
     public static TheoryData<string> AdminTools => [.. McpToolScopes.All
-        .Where(pair => pair.Value == McpScopes.TasksAdmin)
+        .Where(pair => pair.Value == McpScopes.WorkAdmin)
         .Select(pair => pair.Key)];
 
     [Theory]
@@ -50,7 +50,7 @@ public sealed class McpStepUpTests
         await using var harness = new Harness(audit, consent);
         using var client = harness.CreateClient();
 
-        var body = await CallToolAsync(client, tool, [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        var body = await CallToolAsync(client, tool, [McpScopes.WorkAdmin], new { id = Guid.NewGuid() });
 
         // An unknown goal: the tool itself answered, so the step-up let the call through.
         Assert.DoesNotContain("Windows Hello", body, StringComparison.Ordinal);
@@ -69,7 +69,7 @@ public sealed class McpStepUpTests
         await using var harness = new Harness(audit, consent);
         using var client = harness.CreateClient();
 
-        var body = await CallToolAsync(client, tool, [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        var body = await CallToolAsync(client, tool, [McpScopes.WorkAdmin], new { id = Guid.NewGuid() });
 
         Assert.Contains("needs Windows Hello on the desktop, and it was cancelled", body, StringComparison.Ordinal);
         Assert.DoesNotContain("goal_not_found", body, StringComparison.Ordinal);
@@ -88,7 +88,7 @@ public sealed class McpStepUpTests
         await using var harness = new Harness(audit, consent);
         using var client = harness.CreateClient();
 
-        var body = await CallToolAsync(client, tool, [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        var body = await CallToolAsync(client, tool, [McpScopes.WorkAdmin], new { id = Guid.NewGuid() });
 
         Assert.Contains("needs Windows Hello on the desktop, and it is not available here", body, StringComparison.Ordinal);
         Assert.DoesNotContain("goal_not_found", body, StringComparison.Ordinal);
@@ -106,8 +106,8 @@ public sealed class McpStepUpTests
         await using var harness = new Harness(new RecordingAuditLog(), consent);
         using var client = harness.CreateClient();
 
-        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
-        await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = Guid.NewGuid() });
+        await CallToolAsync(client, "delete_goal", [McpScopes.WorkAdmin], new { id = Guid.NewGuid() });
+        await CallToolAsync(client, "delete_goal", [McpScopes.WorkAdmin], new { id = Guid.NewGuid() });
 
         Assert.Equal(2, inner.Prompts.Count);
     }
@@ -119,7 +119,7 @@ public sealed class McpStepUpTests
         await using var harness = new Harness(new RecordingAuditLog(), consent);
         using var client = harness.CreateClient();
 
-        var body = await CallToolAsync(client, "transition", [McpScopes.TasksWrite], new { id = Guid.NewGuid(), status = "done" });
+        var body = await CallToolAsync(client, "transition", [McpScopes.WorkWrite], new { id = Guid.NewGuid(), status = "done" });
 
         Assert.DoesNotContain("Windows Hello", body, StringComparison.Ordinal);
         Assert.Empty(consent.Prompts);
@@ -151,7 +151,7 @@ public sealed class McpStepUpTests
         var goal = Assert.IsType<Ok<Goal>>(Goal.Create(Guid.NewGuid(), "Ship the journal", "Every write restorable", null).Value).Value;
         await goals.SaveAsync(goal, TestContext.Current.CancellationToken);
 
-        var body = await CallToolAsync(client, "delete_goal", [McpScopes.TasksAdmin], new { id = goal.Id });
+        var body = await CallToolAsync(client, "delete_goal", [McpScopes.WorkAdmin], new { id = goal.Id });
 
         Assert.DoesNotContain("Windows Hello", body, StringComparison.Ordinal);
         Assert.DoesNotContain("goal_not_found", body, StringComparison.Ordinal);
