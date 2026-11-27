@@ -58,6 +58,10 @@ public sealed partial class DevbookDatabaseRefresher : IDisposable
     private readonly Func<string, IDisposable?> _watch;
     private readonly Func<IDevbookChapterEmbedder?> _embedder;
 
+    /// <summary>The location an app refresher attached; null for one a caller
+    /// constructs itself.</summary>
+    private IDisposable? _location;
+
     public DevbookDatabaseRefresher(
         Func<string?> devbookCacheDirectory,
         ILogger<DevbookDatabaseRefresher>? logger = null,
@@ -82,7 +86,9 @@ public sealed partial class DevbookDatabaseRefresher : IDisposable
     /// The app's refresher: builds databases under
     /// <paramref name="devbookCacheDirectory"/> and hears every ask
     /// <see cref="DevbookDatabaseLocation"/> answers, which it is pointed at the
-    /// same folder for. One per process, created by the composition root.
+    /// same folder for, until it is disposed: then the location is handed back to
+    /// whatever configured it before (<see cref="DevbookDatabaseLocation.Attach"/>).
+    /// One per host, created by the composition root.
     /// </summary>
     public static DevbookDatabaseRefresher StartForApp(
         Func<string?> devbookCacheDirectory,
@@ -90,7 +96,7 @@ public sealed partial class DevbookDatabaseRefresher : IDisposable
         Func<IDevbookChapterEmbedder?>? embedder = null)
     {
         var refresher = new DevbookDatabaseRefresher(devbookCacheDirectory, logger, embedder: embedder);
-        DevbookDatabaseLocation.Configure(devbookCacheDirectory, refresher.Request);
+        refresher._location = DevbookDatabaseLocation.Attach(devbookCacheDirectory, refresher.Request);
         return refresher;
     }
 
@@ -363,6 +369,9 @@ public sealed partial class DevbookDatabaseRefresher : IDisposable
     /// it whether to stop.</summary>
     public void Dispose()
     {
+        // First, so no ask reaches this refresher, or the delegates of the host it
+        // belongs to, once it is stopping.
+        _location?.Dispose();
         _stopping.Cancel();
 
         foreach (var entry in _entries.Values)

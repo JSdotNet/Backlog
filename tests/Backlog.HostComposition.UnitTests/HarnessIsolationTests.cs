@@ -1,8 +1,11 @@
 extern alias DesktopHarness;
 
+using System.Text.RegularExpressions;
+
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Claude;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
@@ -75,6 +78,47 @@ public class HarnessIsolationTests
                 IsUnder(path, WorkspaceSettingsStore.DefaultAppDataDirectory),
                 $"{path} lies in the per-user workspace folder.");
         }
+    }
+
+    /// <summary>
+    /// Read from the harnesses' source rather than their services, like the
+    /// architecture tests: a variable a harness starts reading without one here
+    /// would put a file back in this worktree's <c>obj/local-development</c>,
+    /// shared with every factory and with any harness the AppHost runs.
+    /// </summary>
+    [Theory]
+    [InlineData("Backlog.Desktop.WebHarness")]
+    [InlineData("Backlog.Mobile.WebHarness")]
+    public void Every_file_variable_a_harness_reads_is_redirected(string harness)
+    {
+        var source = File.ReadAllText(RepositoryRoot.File("src", "Harness", harness, "Program.cs"));
+        var read = Regex.Matches(source, "\"(BACKLOG_[A-Z0-9_]+)\"").Select(match => match.Groups[1].Value).Distinct();
+
+        var missing = read.Except(HarnessIsolation.Redirected).Except(HarnessIsolation.NotFiles).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(missing.Count == 0, $"{harness} reads {string.Join(", ", missing)}, which HarnessIsolation does not redirect.");
+    }
+
+    /// <summary>
+    /// The devbook database location is process-wide and each desktop host's app
+    /// refresher configures it, so a host that stops must hand it back: left in
+    /// place, its delegate read a disposed service provider and the next host's
+    /// import threw <see cref="ObjectDisposedException"/> (local ADR 0015's resolver;
+    /// the flaky <see cref="ImportPlanChangeSetTests"/>).
+    /// </summary>
+    [Fact]
+    public void A_stopped_harness_leaves_the_devbook_database_location_to_the_ones_still_running()
+    {
+        using var running = new Harness();
+        _ = running.Services;
+
+        var stopped = new Harness();
+        _ = stopped.Services;
+        stopped.Dispose();
+
+        var exception = Record.Exception(() => DevbookDatabaseLocation.DatabasesDirectory);
+
+        Assert.Null(exception);
     }
 
     private static bool IsUnder(string path, string folder) =>

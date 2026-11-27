@@ -31,18 +31,28 @@ namespace Backlog.HostComposition.UnitTests;
 /// <item>Every per-machine file the harness takes from a <c>BACKLOG_*</c>
 /// variable goes to one temporary folder per process; see
 /// <see cref="HarnessIsolation"/>.</item>
-/// <item>Not redirected: <c>usage-reset.settings.json</c> and
-/// <c>planning-velocity.settings.json</c>, which the harness names with no
-/// variable and which still land in this worktree's
-/// <c>obj/local-development</c>; the agent profile folders the Sessions sources
-/// read; and the delivery-run telemetry they write, which only
+/// <item>Not redirected: <c>usage-reset.settings.json</c>,
+/// <c>planning-velocity.settings.json</c> and <c>spend-budgets.settings.json</c>,
+/// which the harness names with no variable and which still land in this
+/// worktree's <c>obj/local-development</c>; the agent profile folders the Sessions
+/// sources read; and the delivery-run telemetry they write, which only
 /// <see cref="TelemetryEndpointGateTests"/> posts to, through a recording
 /// double.</item>
 /// </list>
 /// <para>
-/// Harmless for a harness that composes no workspace store, which is the mobile
-/// one: nothing is replaced that was not registered, and the variables are ones
-/// it does not read.
+/// The mobile harness composes no workspace store, so nothing is replaced for it;
+/// its two file variables are among <see cref="HarnessIsolation"/>'s, so its
+/// outbox and device credential stay off the files a mobile harness the AppHost
+/// runs in this worktree holds open.
+/// </para>
+/// <para>
+/// Hosts here share one process, and with it every static a host sets. The one
+/// that bit: the devbook database location, which each desktop host's app
+/// refresher points at its own workspace. A host that stopped used to leave its
+/// delegate in place, and the next host's import read a disposed service provider
+/// through it (<see cref="ImportPlanChangeSetTests"/>, intermittently). The
+/// refresher now hands the location back when its host stops; see
+/// <c>DevbookDatabaseLocation.Attach</c>.
 /// </para>
 /// </summary>
 internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>
@@ -95,8 +105,8 @@ internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFact
 }
 
 /// <summary>
-/// The one temporary folder this test process gives the harnesses, and the
-/// desktop harness's <c>BACKLOG_*</c> file variables pointed into it.
+/// The one temporary folder this test process gives the harnesses, and both
+/// harnesses' <c>BACKLOG_*</c> file variables pointed into it.
 /// <para>
 /// Once per process, in the static constructor, and never per test: an
 /// environment variable is process-wide and xUnit runs the classes in parallel, so
@@ -104,10 +114,11 @@ internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFact
 /// still running.
 /// </para>
 /// <para>
-/// Every variable in the desktop harness's <c>Program</c> that names a file or a
-/// folder is here. The two it reads that do not are left alone:
-/// <c>BACKLOG_REPOSITORY_ROOT</c> says which checkout to seed, and
-/// <c>BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT</c> is an address.
+/// Every variable in either harness's <c>Program</c> that names a file or a
+/// folder is here, and <see cref="HarnessIsolationTests"/> reads both files to
+/// keep it so. The two the desktop harness reads that do not are left alone, as
+/// <see cref="NotFiles"/>: <c>BACKLOG_REPOSITORY_ROOT</c> says which checkout to
+/// seed, and <c>BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT</c> is an address.
 /// </para>
 /// </summary>
 internal static class HarnessIsolation
@@ -121,6 +132,7 @@ internal static class HarnessIsolation
         ("BACKLOG_GITHUB_SETTINGS_PATH", "github.settings.json", false),
         ("BACKLOG_DEVICE_IDENTITY_PATH", "device.json", false),
         ("BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH", "device-credential.json", false),
+        ("BACKLOG_DESKTOP_DEVICE_KEY_PATH", "device-key.json", false),
         ("BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH", "task-sync-state.json", false),
         ("BACKLOG_DESKTOP_SESSION_SYNC_PATH", "session-sync", true),
         ("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH", "annotation-sync", true),
@@ -141,8 +153,19 @@ internal static class HarnessIsolation
         ("BACKLOG_CAPTURE_TARGETS_PATH", "capture-targets.json", false),
         ("BACKLOG_PULL_REQUEST_PINS_PATH", "pull-request-pins.json", false),
         ("BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH", "shell-navigation.settings.json", false),
-        ("BACKLOG_CLAUDE_SETTINGS_PATH", "claude.settings.json", false)
+        ("BACKLOG_CLAUDE_SETTINGS_PATH", "claude.settings.json", false),
+        ("BACKLOG_BRAIN_SETTINGS_PATH", "brain.settings.json", false),
+        ("BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH", "mobile-device-credential.json", false),
+        ("BACKLOG_MOBILE_OUTBOX_PATH", "mobile-outbox.db", false)
     ];
+
+    /// <summary>The variables the harnesses read that name no file or folder, so
+    /// are not redirected.</summary>
+    public static IReadOnlyList<string> NotFiles { get; } =
+        ["BACKLOG_REPOSITORY_ROOT", "BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT"];
+
+    /// <summary>Every variable this class redirects.</summary>
+    public static IEnumerable<string> Redirected => Overrides.Select(entry => entry.Variable);
 
     static HarnessIsolation()
     {

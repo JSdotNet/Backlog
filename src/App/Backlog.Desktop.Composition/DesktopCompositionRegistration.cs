@@ -756,10 +756,17 @@ public static partial class DesktopCompositionRegistration
         // is what points every database reader at that folder. Each check then
         // embeds the chapters the database has no vector for — into the same file,
         // never the folder — and asks nothing while no deployment is configured.
-        services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetService<ILogger<DevbookDatabaseRefresher>>(),
-            sp.GetService<FoundryDevbookEmbedder>));
+        // The workspace store is resolved here, not in the delegate: the delegate
+        // is read through a process-wide resolver, by any host in the process, and
+        // must not touch this host's provider once it is being disposed.
+        services.AddSingleton(sp =>
+        {
+            var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
+            return DevbookDatabaseRefresher.StartForApp(
+                () => workspace.DevbookCacheDirectory,
+                sp.GetService<ILogger<DevbookDatabaseRefresher>>(),
+                sp.GetService<FoundryDevbookEmbedder>);
+        });
 
         services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),

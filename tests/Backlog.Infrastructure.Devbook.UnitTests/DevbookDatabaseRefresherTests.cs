@@ -252,6 +252,60 @@ public class DevbookDatabaseRefresherTests : IDisposable
         Assert.NotEmpty(feature!.Chapters(".devbook/tech/tooling.md"));
     }
 
+    /// <summary>
+    /// The location is process-wide, and a test process runs many hosts side by
+    /// side, each starting its own app refresher. A host that is gone must stop
+    /// answering for the location: its cache-folder delegate reads a disposed
+    /// service provider, and the next host to ask threw
+    /// <see cref="ObjectDisposedException"/> from inside an import (the flaky
+    /// <c>ImportPlanChangeSetTests</c> in <c>Backlog.HostComposition.UnitTests</c>).
+    /// </summary>
+    [Fact]
+    public void A_disposed_app_refresher_hands_the_location_back_to_the_one_still_running()
+    {
+        var first = _temp.Combine("first-cache");
+        var second = _temp.Combine("second-cache");
+        var secondGone = false;
+
+        using var running = DevbookDatabaseRefresher.StartForApp(() => first);
+        var stopped = DevbookDatabaseRefresher.StartForApp(() => secondGone ? throw new ObjectDisposedException("IServiceProvider") : second);
+        Assert.Equal(Path.Combine(second, DevbookDatabaseLocation.DatabasesFolderName), DevbookDatabaseLocation.DatabasesDirectory);
+
+        stopped.Dispose();
+        secondGone = true;
+
+        Assert.Equal(Path.Combine(first, DevbookDatabaseLocation.DatabasesFolderName), DevbookDatabaseLocation.DatabasesDirectory);
+    }
+
+    /// <summary>Hosts stop in any order: the one still running keeps the location
+    /// when an earlier one stops.</summary>
+    [Fact]
+    public void An_app_refresher_stopping_out_of_order_leaves_the_latest_in_place()
+    {
+        var first = _temp.Combine("first-cache");
+        var second = _temp.Combine("second-cache");
+
+        var stopped = DevbookDatabaseRefresher.StartForApp(() => first);
+        using var running = DevbookDatabaseRefresher.StartForApp(() => second);
+
+        stopped.Dispose();
+
+        Assert.Equal(Path.Combine(second, DevbookDatabaseLocation.DatabasesFolderName), DevbookDatabaseLocation.DatabasesDirectory);
+    }
+
+    [Fact]
+    public void The_last_app_refresher_to_stop_restores_the_location_it_found()
+    {
+        var found = DevbookDatabaseLocation.DatabasesDirectory;
+
+        using (DevbookDatabaseRefresher.StartForApp(() => _cache))
+        {
+            Assert.Equal(Path.Combine(_cache, DevbookDatabaseLocation.DatabasesFolderName), DevbookDatabaseLocation.DatabasesDirectory);
+        }
+
+        Assert.Equal(found, DevbookDatabaseLocation.DatabasesDirectory);
+    }
+
     private void Write(string relativePath, string text)
     {
         var file = Absolute(relativePath);

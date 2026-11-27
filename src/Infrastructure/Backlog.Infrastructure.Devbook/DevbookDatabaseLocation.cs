@@ -55,7 +55,12 @@ public static class DevbookDatabaseLocation
 
     private const int NameLength = 40;
 
-    private static volatile Configuration? s_configuration;
+    /// <summary>Every configuration in force, the last one current: replaced whole
+    /// under <see cref="s_configurationsGate"/>, read without it. More than one
+    /// only where several hosts share a process, as a test process does.</summary>
+    private static volatile Configuration[] s_configurations = [];
+
+    private static readonly Lock s_configurationsGate = new();
 
     /// <summary>Which normalized root each corpus profile is registered for, at
     /// most one per profile: replaced whole under <see cref="s_corporaGate"/>, read
@@ -66,21 +71,60 @@ public static class DevbookDatabaseLocation
     private static readonly Lock s_corporaGate = new();
 
     /// <summary>
-    /// Points the resolver at the app's devbook cache folder, read on every ask so
-    /// a changed setting takes effect at once, and names who to tell when a
-    /// repository's database is asked for. Called once by each composition root;
-    /// a later call replaces the earlier one.
+    /// Points the resolver at a devbook cache folder, read on every ask, and names
+    /// who to tell when a repository's database is asked for. Replaces every
+    /// earlier configuration, attached ones included: for a process that sets the
+    /// location once and never hands it back, such as a test suite's storage.
     /// </summary>
     public static void Configure(Func<string?> devbookCacheDirectory, Action<string>? requested = null)
     {
         ArgumentNullException.ThrowIfNull(devbookCacheDirectory);
-        s_configuration = new Configuration(devbookCacheDirectory, requested);
+
+        lock (s_configurationsGate)
+        {
+            s_configurations = [new Configuration(devbookCacheDirectory, requested)];
+        }
+    }
+
+    /// <summary>
+    /// Points the resolver at the app's devbook cache folder, read on every ask so
+    /// a changed setting takes effect at once, and names who to tell when a
+    /// repository's database is asked for, until the result is disposed. Then the
+    /// configuration that was current before it is current again, whichever order
+    /// attachments are disposed in.
+    ///
+    /// <para>Why it is handed back: the delegates belong to a host, and a host can
+    /// stop while the process goes on. A test process runs many hosts side by side;
+    /// a stopped host's delegate reads a disposed service provider, so leaving it
+    /// in place made the next host's read throw <see cref="ObjectDisposedException"/>.</para>
+    /// </summary>
+    public static IDisposable Attach(Func<string?> devbookCacheDirectory, Action<string>? requested = null)
+    {
+        ArgumentNullException.ThrowIfNull(devbookCacheDirectory);
+
+        var configuration = new Configuration(devbookCacheDirectory, requested);
+        lock (s_configurationsGate)
+        {
+            s_configurations = [.. s_configurations, configuration];
+        }
+
+        return new Attachment(configuration);
+    }
+
+    private static Configuration? Current => s_configurations is [.., var last] ? last : null;
+
+    private static void Detach(Configuration configuration)
+    {
+        lock (s_configurationsGate)
+        {
+            s_configurations = [.. s_configurations.Where(candidate => !ReferenceEquals(candidate, configuration))];
+        }
     }
 
     /// <summary>The folder databases are kept in, or <see langword="null"/> while
     /// nothing has configured one.</summary>
     public static string? DatabasesDirectory =>
-        s_configuration?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, DatabasesFolderName) : null;
+        Current?.CacheDirectory() is { Length: > 0 } cache ? Path.Combine(cache, DatabasesFolderName) : null;
 
     /// <summary>
     /// The database for the repository at <paramref name="repositoryRoot"/>,
@@ -91,7 +135,7 @@ public static class DevbookDatabaseLocation
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) return null;
 
-        var configuration = s_configuration;
+        var configuration = Current;
         if (configuration?.CacheDirectory() is not { Length: > 0 } cache) return null;
 
         var path = PathFor(Path.Combine(cache, DatabasesFolderName), repositoryRoot);
@@ -238,6 +282,16 @@ public static class DevbookDatabaseLocation
     }
 
     private sealed record Configuration(Func<string?> CacheDirectory, Action<string>? Requested);
+
+    private sealed class Attachment(Configuration configuration) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) Detach(configuration);
+        }
+    }
 
     private sealed record CorpusRoot(DevbookCorpusProfile Profile, string Root);
 }
